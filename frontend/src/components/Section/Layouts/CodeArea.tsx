@@ -645,66 +645,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   });
   const value = previewCode ?? baseValue;
 
-  const attachedTerminalId = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Code,
-    );
-    if (!impl.attachedTerminalSectionId) {
-      return null;
-    }
-    const terminalId = impl.attachedTerminalSectionId;
-    if (!(terminalId in state.sections)) {
-      return null;
-    }
-    const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
-    if (terminalImpl.type !== SectionTypeEnum.Terminal) {
-      return null;
-    }
-    return terminalId;
-  }, _.isEqual);
   const disablePointerEvents = useShouldDisablePointerEvents();
-
-  useEffect(() => {
-    useProjectState.setState((state) => {
-      const codeImpl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Code,
-      );
-      let candidateId = attachedTerminalId;
-      if (!candidateId && codeImpl.children.length === 1) {
-        const childId = codeImpl.children[0];
-        if (childId in state.sections) {
-          const childImpl = getCurrEffectiveSectionImpl(state, childId);
-          if (childImpl.type === SectionTypeEnum.Terminal) {
-            candidateId = childId;
-          }
-        }
-      }
-      if (!candidateId || !(candidateId in state.sections)) {
-        return;
-      }
-      const candidateImpl = getCurrEffectiveSectionImpl(state, candidateId);
-      if (candidateImpl.type !== SectionTypeEnum.Terminal) {
-        return;
-      }
-      const hasChild = codeImpl.children.includes(candidateId);
-      const currentParent = state.parentSectionMap[candidateId] ?? null;
-      const attachedId = codeImpl.attachedTerminalSectionId;
-      if (hasChild && currentParent === sectionId && attachedId === candidateId) {
-        return;
-      }
-      if (!hasChild) {
-        codeImpl.children = [candidateId];
-      }
-      if (!attachedId) {
-        codeImpl.attachedTerminalSectionId = candidateId;
-      }
-      state.parentSectionMap[candidateId] = sectionId;
-    });
-  }, [attachedTerminalId, sectionId]);
 
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });

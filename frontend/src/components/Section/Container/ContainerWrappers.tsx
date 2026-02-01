@@ -17,7 +17,6 @@ function _DndSlotAndDndWatcher({
   visibility,
   isEditingViewMode,
   isUserView,
-  containerClassName,
   children,
 }) {
   const { style, behaviorDropType } = useHighlightDroppable({
@@ -37,7 +36,6 @@ function _DndSlotAndDndWatcher({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        containerClassName={containerClassName}
         style={style}
       >
         {children}
@@ -54,7 +52,6 @@ export const DndSlotAndDndWatcher = React.memo(
     p.visibility === n.visibility &&
     p.isEditingViewMode === n.isEditingViewMode &&
     p.isUserView === n.isUserView &&
-    p.containerClassName === n.containerClassName &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
@@ -68,7 +65,6 @@ function _DndWatcherAndContainer({
   visibility,
   isEditingViewMode,
   isUserView,
-  containerClassName,
   style,
   children,
 }) {
@@ -107,9 +103,7 @@ function _DndWatcherAndContainer({
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${isSorting || isMovingFree ? "nodrag" : ""} ${
-    containerClassName ?? ""
-  }`;
+  const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {
     ...style,
     ...maybeGetOpacityStyle(

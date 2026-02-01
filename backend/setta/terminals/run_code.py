@@ -7,10 +7,31 @@ from setta.project_state.project_manager_types import RunCodeRequest
 from setta.terminals.terminals import Terminals, build_terminal_id
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
-from setta.types.section_impls import BaseCodeSectionImpl
+from setta.types.section_impls import BaseCodeSectionImpl, TerminalSectionImpl
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 
 logger = logging.getLogger(__name__)
+
+def _is_valid_attached_terminal(
+    project_state,
+    section_id: ID | None,
+    terminal_section_id: ID,
+) -> bool:
+    if section_id is None:
+        return False
+    section_impl = get_curr_effective_section_impl(project_state, section_id)
+    if not isinstance(section_impl, BaseCodeSectionImpl):
+        return False
+    if section_impl.attachedTerminalSectionId != terminal_section_id:
+        return False
+    if terminal_section_id not in project_state.sections:
+        return False
+    terminal_impl = get_curr_effective_section_impl(project_state, terminal_section_id)
+    if not isinstance(terminal_impl, TerminalSectionImpl):
+        return False
+    if terminal_section_id in project_state.projectConfig.topLevelSections:
+        return False
+    return project_state.parentSectionMap.get(terminal_section_id) == section_id
 
 
 async def run_code(
@@ -31,8 +52,23 @@ async def run_code(
     terminal_section_id = x.terminalSectionId
     resolved_section_id = x.sectionId
     project_state = None
-    if terminal_section_id is None:
+    if terminal_section_id is not None:
         project_state = project_manager.get_single_config_state(x.projectConfigId)
+        if resolved_section_id is None:
+            resolved_section_id = project_state.projectConfig.entryCodeBlockId
+        if not _is_valid_attached_terminal(
+            project_state, resolved_section_id, terminal_section_id
+        ):
+            logger.info(
+                "run_code ignoring invalid terminal project=%s section=%s terminal=%s",
+                x.projectConfigId,
+                resolved_section_id,
+                terminal_section_id,
+            )
+            terminal_section_id = None
+    if terminal_section_id is None:
+        if project_state is None:
+            project_state = project_manager.get_single_config_state(x.projectConfigId)
         if resolved_section_id is None:
             resolved_section_id = project_state.projectConfig.entryCodeBlockId
         if resolved_section_id is not None:

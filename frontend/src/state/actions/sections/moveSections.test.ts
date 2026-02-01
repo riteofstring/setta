@@ -1,7 +1,10 @@
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { route_move_sections } from "utils/generatedEndpoints";
+import {
+  route_move_sections,
+  route_set_code_section_attached_terminal,
+} from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   createCodeSectionImpl,
@@ -16,9 +19,13 @@ import { moveSectionsWithBackend } from "./moveSections";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_move_sections: vi.fn(),
+  route_set_code_section_attached_terminal: vi.fn(),
 }));
 
 const mockedRouteMoveSections = vi.mocked(route_move_sections);
+const mockedRouteSetAttachedTerminal = vi.mocked(
+  route_set_code_section_attached_terminal,
+);
 
 describe("moveSectionsWithBackend", () => {
   const codeSectionId = "code-section";
@@ -31,6 +38,11 @@ describe("moveSectionsWithBackend", () => {
   beforeEach(() => {
     resetProjectStores();
     mockedRouteMoveSections.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+    mockedRouteSetAttachedTerminal.mockResolvedValue({
       data: null,
       status: 200,
       hasResponse: true,
@@ -129,6 +141,7 @@ describe("moveSectionsWithBackend", () => {
     const updated = useProjectState.getState().projectConfig.topLevelSections;
     expect(updated[codeSectionId]).toMatchObject({ x: 60, y: 80 });
     expect(mockedRouteMoveSections).toHaveBeenCalledTimes(1);
+    expect(mockedRouteSetAttachedTerminal).not.toHaveBeenCalled();
     const call = mockedRouteMoveSections.mock.calls[0]?.[0];
     expect(call?.sectionIds).toEqual([codeSectionId]);
     expect(call?.positionsById?.[terminalSectionId]).toBeUndefined();
@@ -241,5 +254,10 @@ describe("moveSectionsWithBackend", () => {
     expect(genEffective.attachedTerminalSectionId).toBe(terminalId);
     expect(state.parentSectionMap[terminalId]).toBe(genSectionId);
     expect(state.projectConfig.topLevelSections[terminalId]).toBeUndefined();
+    expect(mockedRouteMoveSections).not.toHaveBeenCalled();
+    expect(mockedRouteSetAttachedTerminal).toHaveBeenCalledTimes(1);
+    const call = mockedRouteSetAttachedTerminal.mock.calls[0]?.[0];
+    expect(call?.sectionId).toBe(genSectionId);
+    expect(call?.terminalSectionId).toBe(terminalId);
   });
 });
