@@ -75,7 +75,6 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
     SectionSize,
-    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -302,12 +301,6 @@ class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
 class ListenerForceRefreshProjectRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-
-
-class ListenerFormatCodeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
 
 
 class ListenerGenCodePrefixCompletionRequestPayload(TypedDict):
@@ -715,13 +708,6 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     value: str
 
 
-class ListenerSetSectionPinnedAreaHeightRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    pinnedAreaHeight: float | SectionSizeMode
-
-
 class ListenerSetSectionPinnedParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1088,9 +1074,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_force_refresh_listener", payload)
 
-    async def format_code(self, payload: ListenerFormatCodeRequestPayload) -> None:
-        return await self._caller("route_format_code", payload)
-
     async def gen_code_prefix_completion(
         self, payload: ListenerGenCodePrefixCompletionRequestPayload
     ) -> list[CodeMirrorCompletion]:
@@ -1367,11 +1350,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionParamFilterRequestPayload
     ) -> None:
         return await self._caller("route_set_section_param_filter", payload)
-
-    async def set_section_pinned_area_height(
-        self, payload: ListenerSetSectionPinnedAreaHeightRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_pinned_area_height", payload)
 
     async def set_section_pinned_params(
         self, payload: ListenerSetSectionPinnedParamsRequestPayload

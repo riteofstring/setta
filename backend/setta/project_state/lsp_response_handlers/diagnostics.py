@@ -358,9 +358,9 @@ def build_dep_key_range_index(
     for key, line in code_generator.lines.items():
         if line.pos is None:
             continue
-        line_start = line.pos
-        line_end = line.pos + line.prefix_len + line.value_len
-        ranges.append((line_start, line_end, key))
+        value_start = line.pos + line.prefix_len
+        value_end = value_start + line.value_len
+        ranges.append((value_start, value_end, key))
     ranges.sort(key=lambda entry: entry[0])
     starts = [entry[0] for entry in ranges]
     return starts, ranges

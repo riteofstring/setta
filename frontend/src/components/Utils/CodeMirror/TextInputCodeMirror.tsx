@@ -10,7 +10,6 @@ import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
-import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
 export function TextInputCodeMirror({
   sectionId,
@@ -120,15 +119,6 @@ export function TextInputCodeMirror({
   );
 }
 
-export function resolveTooltipParentDivId(
-  tooltipParentDivId: string | null | undefined,
-): string | null {
-  if (tooltipParentDivId === undefined) {
-    return null;
-  }
-  return tooltipParentDivId;
-}
-
 function CoreCodeMirror({
   sectionId,
   paramInfoId,
@@ -157,8 +147,9 @@ function CoreCodeMirror({
   const canUseLsp = !isShareMode;
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
   const resolvedTooltipParentDivId =
-    resolveTooltipParentDivId(tooltipParentDivId);
-  const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
+    tooltipParentDivId === undefined
+      ? `${sectionId}-CustomResizable`
+      : tooltipParentDivId;
 
   const resolvedCompletionsFn = useCallback(
     shouldAutocomplete
@@ -168,7 +159,7 @@ function CoreCodeMirror({
   );
 
   const extensions = getExtensions({
-    parent: tooltipParent,
+    parentDivId: resolvedTooltipParentDivId,
     language,
     completionsFn: resolvedCompletionsFn,
     singleLine,

@@ -30,7 +30,7 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
 });
 
 type GetExtensionsOptions = {
-  parent?: HTMLElement | null;
+  parentDivId?: string | null;
   language?: CodeLanguage | null;
   completionsFn?: CompletionSource;
   singleLine?: boolean;
@@ -45,7 +45,7 @@ type GetExtensionsOptions = {
 };
 
 export function getExtensions({
-  parent,
+  parentDivId,
   language,
   completionsFn,
   singleLine,
@@ -65,10 +65,10 @@ export function getExtensions({
   }
   const enableJsx = useJsx === true;
 
-  if (parent) {
+  if (parentDivId) {
     extensions.push(
       tooltips({
-        parent,
+        parent: document.getElementById(parentDivId),
       }),
     );
   }
