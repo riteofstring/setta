@@ -89,13 +89,35 @@ def _maybe_patch_queue_logging(
                     f"{label} handler done handler={handler_name}",
                     start,
                 )
-                future.set_result(result)
+                if future.cancelled():
+                    _setup_log(
+                        f"{label} handler skip result handler={handler_name} reason=cancelled",
+                        start,
+                    )
+                elif future.done():
+                    _setup_log(
+                        f"{label} handler skip result handler={handler_name} reason=done",
+                        start,
+                    )
+                else:
+                    future.set_result(result)
             except Exception as exc:
                 _setup_log(
                     f"{label} handler error handler={handler_name} exc={exc!r}",
                     start,
                 )
-                future.set_exception(exc)
+                if future.cancelled():
+                    _setup_log(
+                        f"{label} handler skip exception handler={handler_name} reason=cancelled",
+                        start,
+                    )
+                elif future.done():
+                    _setup_log(
+                        f"{label} handler skip exception handler={handler_name} reason=done",
+                        start,
+                    )
+                else:
+                    future.set_exception(exc)
             finally:
                 self.message_queue.task_done()
 
