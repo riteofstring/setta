@@ -22,14 +22,11 @@ import {
   sanitizeNameForSlug,
   validateViewModeNameInput,
 } from "utils/nameValidation";
-import { sortViewModes } from "utils/viewModeOrdering";
 
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
     useProjectState((x) => {
-      const viewModeList = sortViewModes(
-        Object.values(x.projectConfig.viewModes),
-      );
+      const viewModeList = Object.values(x.projectConfig.viewModes);
       const activeViewModeId = x.projectConfig.activeViewModeId;
       const isEditingViewMode = x.projectConfig.isEditingViewMode;
       return {

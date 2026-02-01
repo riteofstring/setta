@@ -47,21 +47,34 @@ export function SectionContainerCoreResizable({
   isUserView,
   positionAndSizeLocked,
 }: SectionContainerCoreResizableProps) {
-  const { isMinimized, isYouTube, textBlockMetaControlStyle } = useProjectState(
-    (x) => {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      return {
-        isMinimized: impl.isMinimized,
-        isYouTube: false,
-        // isYouTube: getIsYouTubeSection(sectionId, x),
-        textBlockMetaControlStyle:
-          impl.type === SectionTypeEnum.TextBlock
-            ? impl.metaControlStyle
-            : false,
-      };
-    },
-    _.isEqual,
-  );
+  const {
+    isMinimized,
+    isYouTube,
+    textBlockMetaControlStyle,
+    hasEmbeddedTerminal,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    const variantId = x.sections[sectionId]?.variantId;
+    const children = variantId ? x.variants[variantId].children : [];
+    let hasEmbeddedTerminal = false;
+    if (impl.type === SectionTypeEnum.Code) {
+      const candidateId =
+        children.length > 0 ? children[0] : impl.attachedTerminalSectionId;
+      if (candidateId) {
+        const childImpl = getCurrEffectiveSectionImpl(x, candidateId);
+        hasEmbeddedTerminal =
+          childImpl?.type === SectionTypeEnum.Terminal && children.length < 2;
+      }
+    }
+    return {
+      isMinimized: impl.isMinimized,
+      isYouTube: false,
+      // isYouTube: getIsYouTubeSection(sectionId, x),
+      textBlockMetaControlStyle:
+        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
+      hasEmbeddedTerminal,
+    };
+  }, _.isEqual);
 
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const isRoot = getIsRoot(sectionTypeName);
@@ -89,6 +102,7 @@ export function SectionContainerCoreResizable({
       isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
+      allowPointerEventsDuringDnd={hasEmbeddedTerminal}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
     >
