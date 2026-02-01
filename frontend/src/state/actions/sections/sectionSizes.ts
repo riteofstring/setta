@@ -134,46 +134,6 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
   }
 }
 
-export type ResizeHandleDirection =
-  | "bottom"
-  | "bottomLeft"
-  | "bottomRight"
-  | "left"
-  | "right"
-  | "top"
-  | "topLeft"
-  | "topRight";
-
-const RESIZE_WIDTH_DIRECTIONS = new Set<ResizeHandleDirection>([
-  "right",
-  "bottomRight",
-  "topRight",
-]);
-const RESIZE_HEIGHT_DIRECTIONS = new Set<ResizeHandleDirection>([
-  "bottom",
-  "bottomRight",
-  "bottomLeft",
-]);
-
-export function getResizeStartAutoSizeUpdate({
-  size,
-  direction,
-  rect,
-}: {
-  size: SectionSize;
-  direction: ResizeHandleDirection;
-  rect: { width: number; height: number };
-}): Partial<SectionSize> | null {
-  const nextSize: Partial<SectionSize> = {};
-  if (size.width === "auto" && RESIZE_WIDTH_DIRECTIONS.has(direction)) {
-    nextSize.width = Math.round(rect.width);
-  }
-  if (size.height === "auto" && RESIZE_HEIGHT_DIRECTIONS.has(direction)) {
-    nextSize.height = Math.round(rect.height);
-  }
-  return Object.keys(nextSize).length > 0 ? nextSize : null;
-}
-
 export function setSectionSize(
   sectionId: string,
   size: Partial<SectionSize>,
