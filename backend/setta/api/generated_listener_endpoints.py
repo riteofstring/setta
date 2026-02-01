@@ -9,6 +9,11 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
 )
+from setta.types.agentic_edges import (
+    AgenticEdge,
+    AgenticEdgeContextMode,
+    AgenticEdgeKind,
+)
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayerItem,
@@ -137,6 +142,18 @@ class ListenerCodeAreaCompletionRequestPayload(TypedDict):
     position: int
 
 
+class ListenerCreateAgenticEdgeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sourceSectionId: ID
+    targetSectionId: ID
+    kind: AgenticEdgeKind
+    contextMode: NotRequired[AgenticEdgeContextMode]
+    style: NotRequired[dict[str, str | int | float] | None]
+    hidden: NotRequired[bool]
+    zIndex: NotRequired[int]
+
+
 class ListenerCreateChatRequestPayload(TypedDict):
     engineConfigId: NotRequired[ID | None]
     firstMessage: (
@@ -225,6 +242,12 @@ class ListenerCreateViewModeRequestPayload(TypedDict):
 class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
+
+
+class ListenerDeleteAgenticEdgesRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    edgeIds: list[ID]
 
 
 class ListenerDeleteChatRequestPayload(TypedDict):
@@ -438,7 +461,6 @@ class ListenerRedoRequestPayload(TypedDict):
 class ListenerRunCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID | None
-    terminalSectionId: NotRequired[ID | None]
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
     drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
@@ -459,6 +481,12 @@ class ListenerSetActiveViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     activeViewModeId: ID
+
+
+class ListenerSetAgenticEdgesRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    edges: list[AgenticEdge]
 
 
 class ListenerSetBrowserAreaViewModeRequestPayload(TypedDict):
@@ -575,13 +603,6 @@ class ListenerSetCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     code: str
-
-
-class ListenerSetCodeSectionAttachedTerminalRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    terminalSectionId: NotRequired[ID | None]
 
 
 class ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload(TypedDict):
@@ -943,6 +964,12 @@ class ListenerUnselectAllParamsRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
+class ListenerUpdateAgenticEdgeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    edge: AgenticEdge
+
+
 class ListenerUpdateEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -999,6 +1026,11 @@ class RouterEndpointAPI:
     ) -> list[CodeMirrorCompletion]:
         return await self._caller("route_code_area_completion", payload)
 
+    async def create_agentic_edge(
+        self, payload: ListenerCreateAgenticEdgeRequestPayload
+    ) -> None:
+        return await self._caller("route_create_agentic_edge", payload)
+
     async def create_chat(self, payload: ListenerCreateChatRequestPayload) -> Chat:
         return await self._caller("route_create_chat", payload)
 
@@ -1036,6 +1068,11 @@ class RouterEndpointAPI:
         self, payload: ListenerDeclineRenameRefactorRequestPayload
     ) -> None:
         return await self._caller("route_decline_rename_refactor", payload)
+
+    async def delete_agentic_edges(
+        self, payload: ListenerDeleteAgenticEdgesRequestPayload
+    ) -> None:
+        return await self._caller("route_delete_agentic_edges", payload)
 
     async def delete_chat(self, payload: ListenerDeleteChatRequestPayload) -> None:
         return await self._caller("route_delete_chat", payload)
@@ -1192,6 +1229,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_active_view_mode", payload)
 
+    async def set_agentic_edges(
+        self, payload: ListenerSetAgenticEdgesRequestPayload
+    ) -> None:
+        return await self._caller("route_set_agentic_edges", payload)
+
     async def set_browser_area_view_mode(
         self, payload: ListenerSetBrowserAreaViewModeRequestPayload
     ) -> None:
@@ -1267,11 +1309,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetCodeObjNameRequestPayload
     ) -> None:
         return await self._caller("route_set_code_obj_name", payload)
-
-    async def set_code_section_attached_terminal(
-        self, payload: ListenerSetCodeSectionAttachedTerminalRequestPayload
-    ) -> None:
-        return await self._caller("route_set_code_section_attached_terminal", payload)
 
     async def set_code_section_diagnostic_code_suppression(
         self, payload: ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload
@@ -1536,6 +1573,11 @@ class RouterEndpointAPI:
         self, payload: ListenerUnselectAllParamsRequestPayload
     ) -> None:
         return await self._caller("route_unselect_all_params", payload)
+
+    async def update_agentic_edge(
+        self, payload: ListenerUpdateAgenticEdgeRequestPayload
+    ) -> None:
+        return await self._caller("route_update_agentic_edge", payload)
 
     async def update_edge(self, payload: ListenerUpdateEdgeRequestPayload) -> None:
         return await self._caller("route_update_edge", payload)

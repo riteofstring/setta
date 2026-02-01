@@ -10,21 +10,15 @@ import { useHasTempNested } from "./utils";
 export function MaybeManyNestedSections({
   sectionId,
   isGroup,
-  layoutVariant = "default",
 }: {
   sectionId: string;
   isGroup: boolean;
-  layoutVariant?: "default" | "tight";
 }) {
   const hasNested = useHasTempNested(sectionId);
   return (
     hasNested && (
       <div className="flex flex-col">
-        <ManyNestedSections
-          sectionId={sectionId}
-          isGroup={isGroup}
-          layoutVariant={layoutVariant}
-        />
+        <ManyNestedSections sectionId={sectionId} isGroup={isGroup} />
       </div>
     )
   );
@@ -33,40 +27,20 @@ export function MaybeManyNestedSections({
 function ManyNestedSections({
   sectionId,
   isGroup,
-  layoutVariant,
 }: {
   sectionId: string;
   isGroup: boolean;
-  layoutVariant: "default" | "tight";
 }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
 
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>
-      {layoutVariant === "tight" ? (
-        <NestedSectionsTight childIds={tempChildIds} />
-      ) : (
-        <NestedSectionsWithMargin
-          childIds={tempChildIds}
-          sectionId={sectionId}
-          isGroup={isGroup}
-        />
-      )}
+      <NestedSectionsWithMargin
+        childIds={tempChildIds}
+        sectionId={sectionId}
+        isGroup={isGroup}
+      />
     </DNDSortable>
-  );
-}
-
-function NestedSectionsTight({ childIds }: { childIds: string[] }) {
-  return (
-    <div className="flex w-full flex-col">
-      {childIds.map((e) => (
-        <SortableSectionContainer
-          sectionId={e}
-          key={`Nested-Sec-${e}`}
-          className="w-full"
-        />
-      ))}
-    </div>
   );
 }
 

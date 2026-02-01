@@ -159,6 +159,7 @@ class GetLLMResponseRequest(BaseModel):
     agentProfileId: ID | None = None
     thinking: bool
     projectConfigId: ID
+    sectionId: ID | None = None
 
 
 class GetLLMChatRequest(BaseModel):
@@ -241,6 +242,8 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
+        if x.sectionId is not None:
+            inputs["sectionId"] = str(x.sectionId)
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -283,6 +286,8 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
+        if x.sectionId is not None:
+            inputs["sectionId"] = str(x.sectionId)
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:
