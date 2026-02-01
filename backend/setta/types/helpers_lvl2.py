@@ -1147,8 +1147,36 @@ def ensure_code_section_embedded_terminal_size(
     sectionId: ID,
     terminalId: ID | None,
 ) -> None:
-    # Embedded terminals no longer resize their parent code section.
-    return
+    if terminalId is None:
+        return
+    code_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseCodeSectionImpl
+    )
+    get_curr_effective_section_impl_with_type_guard(p, terminalId, TerminalSectionImpl)
+    sizing_policy = settings.sectionSizingPolicy.byType
+    expected_min_height = (
+        float(sizing_policy.Code.minHeight)
+        + float(sizing_policy.Terminal.minHeight)
+        + 80.0
+    )
+    expected_max_height = float(sizing_policy.Code.maxHeight)
+    if expected_min_height > expected_max_height:
+        expected_min_height = expected_max_height
+
+    current_height = code_impl.size.height
+    if current_height != SectionSizeMode.auto:
+        if float(current_height) >= expected_min_height:
+            return
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "size": SectionSize(
+                width=code_impl.size.width, height=expected_min_height
+            )
+        },
+    )
 
 
 def ensure_code_section_attached_terminal(
@@ -3051,6 +3079,9 @@ def move_sections_to_parent_section(
         raise ValueError("Expected non-negative new index.")
     if not sectionIds:
         return
+
+    if newParentId not in p.parentSectionMap:
+        raise KeyError(f"Missing parentSectionMap entry for ancestor {newParentId}.")
 
     new_parent_impl = get_curr_effective_section_impl_with_type_guard(
         p, newParentId, BaseParentSectionImpl
