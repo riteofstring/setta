@@ -180,7 +180,7 @@ describe("ParamGroupContainer layout", () => {
     const markup = renderToStaticMarkup(
       <ParamGroupContainer
         sectionId={sectionId}
-        bgColor="bg-setta-50"
+        bgColor="bg-transparent"
         sectionTypeName={SectionTypeEnum.Dict}
       />,
     );
