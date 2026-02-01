@@ -41,7 +41,8 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
     payload.includes('"binaryPayload"'),
   );
   expect(hasBinaryPayloadField).toBe(false);
-  await resetSentFrames(page);
+  await page.waitForTimeout(200);
+  const cursor = await getSentFrameCount(page);
   const uploadPromise = page.waitForResponse((response) => {
     return (
       response.url().includes("/api/binary/upload") &&
@@ -69,9 +70,13 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
   }
 
   await expect
-    .poll(async () => (await getSentFrameSummary(page)).binaryCount, {
+    .poll(
+      async () =>
+        (await getSentFrameSummary(page, { startIndex: cursor })).binaryCount,
+      {
       timeout: 5000,
-    })
+      },
+    )
     .toBe(0);
 });
 
@@ -205,18 +210,23 @@ async function resetSentFrames(page: Page): Promise<void> {
   });
 }
 
-async function getSentFrameSummary(page: Page): Promise<{
+async function getSentFrameSummary(
+  page: Page,
+  options?: { startIndex?: number },
+): Promise<{
   binaryCount: number;
   textFrames: string[];
 }> {
-  return await page.evaluate(() => {
+  return await page.evaluate(({ startIndex }) => {
     const windowWithFrames = window as typeof window & {
       __sentFrames?: unknown[];
     };
     const frames = windowWithFrames.__sentFrames ?? [];
+    const start = startIndex ?? 0;
+    const slice = start > 0 ? frames.slice(start) : frames;
     let binaryCount = 0;
     const textFrames: string[] = [];
-    frames.forEach((frame) => {
+    slice.forEach((frame) => {
       if (typeof frame === "string") {
         textFrames.push(frame);
         return;
@@ -227,6 +237,15 @@ async function getSentFrameSummary(page: Page): Promise<{
       }
     });
     return { binaryCount, textFrames };
+  }, { startIndex: options?.startIndex });
+}
+
+async function getSentFrameCount(page: Page): Promise<number> {
+  return await page.evaluate(() => {
+    const windowWithFrames = window as typeof window & {
+      __sentFrames?: unknown[];
+    };
+    return windowWithFrames.__sentFrames?.length ?? 0;
   });
 }
 

@@ -27,12 +27,6 @@ from setta.agentic.chat_view import (
     SCRIPTABLE_CHAT_RUN_TYPE,
 )
 from setta.agentic.store import list_agent_run_ids_by_metadata
-from setta.app.spec_store import (
-    default_app_spec_path,
-    normalize_app_spec_path,
-    read_app_spec,
-    write_app_spec,
-)
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -93,7 +87,6 @@ from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
-    AppSpecResponse,
     AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -119,7 +112,6 @@ from setta.project_state.project_manager_types import (
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetAppSpecRequest,
     GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
@@ -141,7 +133,6 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetAgenticEdgesRequest,
-    SetAppSpecRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -214,7 +205,6 @@ from setta.project_state.project_manager_types import (
     UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateAgenticEdgeRequest,
-    UpdateAppSpecRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -225,8 +215,6 @@ from setta.project_state.watch_code import (
     normalize_watch_code_folders,
 )
 from setta.types.agentic_edges import AgenticEdge
-from setta.types.app_config import AppConfig
-from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -485,23 +473,6 @@ def _apply_run_overrides(
                 dep_key.codeObjId,
                 value,
             )
-
-
-def _apply_json_merge_patch(
-    base: JSONValue | None,
-    patch: JSONValue,
-) -> JSONValue:
-    if not isinstance(patch, dict):
-        return patch
-    base_obj: dict[str, JSONValue] = {}
-    if isinstance(base, dict):
-        base_obj = dict(base)
-    for key, value in patch.items():
-        if value is None:
-            base_obj.pop(key, None)
-            continue
-        base_obj[key] = _apply_json_merge_patch(base_obj.get(key), value)
-    return base_obj
 
 
 class BaseProjectManager(ABC):
@@ -1630,57 +1601,6 @@ class BaseProjectManager(ABC):
             project_state,
             validate_name_rules=False,
         )
-
-    @enqueue_method(require_serialization=False)
-    @project_state_tool()
-    async def get_app_spec(self, x: GetAppSpecRequest) -> AppSpecResponse:
-        """Fetch the stored app UI spec and config for a project."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        app_config = project_state.projectConfig.appConfig
-        app_spec = None
-        if app_config and app_config.appSpecPath:
-            app_spec = read_app_spec(self.dbe, app_config.appSpecPath)
-        return AppSpecResponse(appSpec=app_spec, appConfig=app_config)
-
-    @enqueue_method
-    @project_state_tool()
-    async def set_app_spec(self, x: SetAppSpecRequest) -> AppSpecResponse:
-        """Replace the stored app UI spec and update app config metadata."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        app_config = project_state.projectConfig.appConfig or AppConfig()
-        target_path = (
-            x.appSpecPath
-            or app_config.appSpecPath
-            or default_app_spec_path(x.projectConfigId)
-        )
-        normalized_path = normalize_app_spec_path(self.dbe, target_path)
-        updates: dict[str, JSONValue | str | None] = {"appSpecPath": normalized_path}
-        if x.appSpecVersion is not None:
-            updates["appSpecVersion"] = x.appSpecVersion
-        if x.catalogId is not None:
-            updates["catalogId"] = x.catalogId
-        updated_config = app_config.model_copy(update=updates)
-        project_state.projectConfig.appConfig = updated_config
-        write_app_spec(self.dbe, normalized_path, x.appSpec)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-        return AppSpecResponse(appSpec=x.appSpec, appConfig=updated_config)
-
-    @enqueue_method
-    @project_state_tool()
-    async def update_app_spec(self, x: UpdateAppSpecRequest) -> AppSpecResponse:
-        """Apply a JSON merge patch to the stored app UI spec."""
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        app_config = project_state.projectConfig.appConfig
-        if app_config is None or not app_config.appSpecPath:
-            raise KeyError("App spec path is not configured for this project.")
-        existing = read_app_spec(self.dbe, app_config.appSpecPath)
-        if existing is None:
-            raise KeyError("App spec not found for this project.")
-        merged = _apply_json_merge_patch(existing, x.patch)
-        write_app_spec(self.dbe, app_config.appSpecPath, merged)
-        return AppSpecResponse(appSpec=merged, appConfig=app_config)
 
     @enqueue_method
     @project_state_tool()

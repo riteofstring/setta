@@ -10,10 +10,8 @@ from setta.types.agentic_edges import (
     AgenticEdgeContextMode,
     AgenticEdgeKind,
 )
-from setta.types.app_config import AppConfig
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
-from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge, EdgePort
@@ -546,43 +544,6 @@ class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConf
 
     codegenTargets: list[ProjectCodegenTarget] = Field(
         description="Ordered list of enabled codegen targets.",
-    )
-
-
-class GetAppSpecRequest(ProjectManagerRequestWithProjectConfig):
-    """Fetch the stored app UI spec and config for a project."""
-
-
-class AppSpecResponse(BaseModel, extra="forbid"):
-    appSpec: JSONValue | None = None
-    appConfig: AppConfig | None = None
-
-
-class SetAppSpecRequest(ProjectManagerRequestWithProjectConfig):
-    """Replace the app UI spec and optionally update the app config metadata."""
-
-    appSpec: JSONValue = Field(
-        description="Full JSON app spec to persist.",
-    )
-    appSpecPath: str | None = Field(
-        default=None,
-        description="Optional override path for the app spec file.",
-    )
-    appSpecVersion: str | None = Field(
-        default=None,
-        description="Optional app spec version override.",
-    )
-    catalogId: str | None = Field(
-        default=None,
-        description="Optional catalog id override for the app spec.",
-    )
-
-
-class UpdateAppSpecRequest(ProjectManagerRequestWithProjectConfig):
-    """Apply a JSON merge patch to the stored app UI spec."""
-
-    patch: JSONValue = Field(
-        description="Partial JSON payload to merge into the app spec.",
     )
 
 
