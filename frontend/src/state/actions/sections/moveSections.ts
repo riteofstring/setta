@@ -1,11 +1,21 @@
 import { addNodes, deleteNodes, moveNodes } from "state/actions/nodeInternals";
-import { useNodeInternals, ZustandProjectState } from "state/definitions";
-import { route_move_sections } from "utils/generatedEndpoints";
-import { Position } from "utils/generatedTypes";
+import {
+  useNodeInternals,
+  useProjectState,
+  ZustandProjectState,
+} from "state/definitions";
+import {
+  route_move_sections,
+  route_set_code_section_attached_terminal,
+} from "utils/generatedEndpoints";
+import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  isBaseCodeSectionType,
+  setCurrEffectiveSectionImplValue,
   setSectionChildren,
 } from "../sectionInfos";
 
@@ -29,6 +39,12 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
+  const state = useProjectState.getState();
+  const useAttachedTerminalRoute = shouldUseAttachedTerminalRoute({
+    state,
+    sectionIds,
+    newParentId,
+  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
@@ -39,15 +55,24 @@ export function moveSectionsWithBackend({
         state,
       });
     },
-    send: (frontendOpId) =>
-      route_move_sections({
+    send: (frontendOpId) => {
+      if (useAttachedTerminalRoute && newParentId) {
+        return route_set_code_section_attached_terminal({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId: newParentId,
+          terminalSectionId: sectionIds[0] ?? null,
+          frontendOpId,
+        });
+      }
+      return route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
         sectionIds,
         newParentId,
         newIndex,
         positionsById,
         frontendOpId,
-      }),
+      });
+    },
   });
 }
 
@@ -82,6 +107,13 @@ function moveSectionsInState({
     const nextChildren = children.filter((id) => !movingSet.has(id));
     return insertIntoArray(nextChildren, newIndex, ...sectionIds);
   });
+  if (isCodeSection(state, newParentId)) {
+    if (sectionIds.length === 1 && isTerminalSection(state, sectionIds[0])) {
+      setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, newParentId, {
+        attachedTerminalSectionId: sectionIds[0],
+      });
+    }
+  }
   for (const sectionId of sectionIds) {
     state.parentSectionMap[sectionId] = newParentId;
   }
@@ -172,6 +204,18 @@ function removeSectionsFromParents({
 
   for (const [parentId, ids] of Object.entries(idsByParent)) {
     const removalSet = new Set(ids);
+    if (isCodeSection(state, parentId)) {
+      const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+      if (
+        isBaseCodeSectionType(parentImpl.type) &&
+        parentImpl.attachedTerminalSectionId &&
+        removalSet.has(parentImpl.attachedTerminalSectionId)
+      ) {
+        setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, parentId, {
+          attachedTerminalSectionId: null,
+        });
+      }
+    }
     setSectionChildren(state, parentId, (children) =>
       children.filter((id) => !removalSet.has(id)),
     );
@@ -218,6 +262,43 @@ function updateTopLevelLayout(
     w: existing?.w ?? null,
     h: existing?.h ?? null,
   };
+}
+
+function isCodeSection(state: ZustandProjectState, sectionId: string): boolean {
+  return isBaseCodeSectionType(
+    getCurrEffectiveSectionImpl(state, sectionId).type,
+  );
+}
+
+function isTerminalSection(
+  state: ZustandProjectState,
+  sectionId: string,
+): boolean {
+  return (
+    getCurrEffectiveSectionImpl(state, sectionId).type ===
+    SectionTypeEnum.Terminal
+  );
+}
+
+function shouldUseAttachedTerminalRoute({
+  state,
+  sectionIds,
+  newParentId,
+}: {
+  state: ZustandProjectState;
+  sectionIds: string[];
+  newParentId: string | null;
+}): boolean {
+  if (!newParentId) {
+    return false;
+  }
+  if (sectionIds.length !== 1) {
+    return false;
+  }
+  if (!isCodeSection(state, newParentId)) {
+    return false;
+  }
+  return isTerminalSection(state, sectionIds[0]);
 }
 
 function resolveParentIds(

@@ -4,6 +4,7 @@ import {
   useRunControl,
   useSettings,
   useShareSession,
+  type ZustandProjectState,
 } from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { isRunnableCodeLanguage } from "utils/codeLanguage";
@@ -18,6 +19,7 @@ import { addTemporaryNotification } from "./notifications";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  isBaseCodeSectionType,
 } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId: string | null) {
@@ -79,10 +81,15 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
+  const terminalSectionId = await ensureAttachedTerminalForRun({
+    sectionId,
+    projectConfig,
+  });
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
+    terminalSectionId,
     cliId: null,
     runSnapshotMode,
     drawSnapshotsBySectionId,
@@ -141,4 +148,68 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
     return null;
   }
   return await collectDrawSnapshotPayloads(drawSectionIds);
+}
+
+async function ensureAttachedTerminalForRun({
+  sectionId,
+  projectConfig,
+}: {
+  sectionId: string | null;
+  projectConfig: ZustandProjectState["projectConfig"];
+}): Promise<string | null> {
+  const resolvedSectionId = resolveAttachmentSectionId(
+    sectionId,
+    projectConfig,
+  );
+  if (!resolvedSectionId) {
+    return null;
+  }
+  const state = useProjectState.getState();
+  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
+  if (!isBaseCodeSectionType(impl.type)) {
+    return null;
+  }
+  const existingTerminalId = resolveAttachedTerminalId(
+    state,
+    resolvedSectionId,
+  );
+  if (existingTerminalId) {
+    return existingTerminalId;
+  }
+  return null;
+}
+
+function resolveAttachmentSectionId(
+  sectionId: string | null,
+  projectConfig: ZustandProjectState["projectConfig"],
+): string | null {
+  if (sectionId) {
+    return sectionId;
+  }
+  if (!projectConfig.entryCodeBlockId) {
+    return null;
+  }
+  return projectConfig.entryCodeBlockId;
+}
+
+function resolveAttachedTerminalId(
+  state: ZustandProjectState,
+  sectionId: string,
+): string | null {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  if (!isBaseCodeSectionType(impl.type)) {
+    return null;
+  }
+  if (!impl.attachedTerminalSectionId) {
+    return null;
+  }
+  const terminalId = impl.attachedTerminalSectionId;
+  if (!(terminalId in state.sections)) {
+    return null;
+  }
+  const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
+  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+    return null;
+  }
+  return terminalId;
 }

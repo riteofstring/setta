@@ -100,6 +100,24 @@ class SessionProjectManager(BaseProjectManager):
             )
         if self.persistence_mode == SessionPersistenceMode.ide_settings:
             project_state = self.settings_file.load_settings_project()
+            json_source_paths, json_source_to_section_variants = (
+                self.json_source.get_json_source_files_to_watch(project_state)
+            )
+            if json_source_paths:
+                processed_sources = self.json_source.process_json_source_files(
+                    json_source_paths
+                )
+                if processed_sources:
+                    self.json_source.json_sources.update(processed_sources)
+                    section_variants: set[tuple[ID, ID]] = set()
+                    for variants in json_source_to_section_variants.values():
+                        section_variants.update(variants)
+                    if section_variants:
+                        load_json_sources_into_data_structures(
+                            project_state,
+                            processed_sources,
+                            section_variants,
+                        )
             strip_password_values(project_state)
             return merge_single_config_into_backend(
                 ProjectStateBackend(), project_state
@@ -348,6 +366,7 @@ class SessionProjectManager(BaseProjectManager):
             self.project_state_backend,
             default_id,
         )
+        project_state = project_state.model_copy(deep=True)
         save_json_source_data(self.dbe, project_state)
         remove_json_source_values(project_state)
         strip_password_values(project_state)

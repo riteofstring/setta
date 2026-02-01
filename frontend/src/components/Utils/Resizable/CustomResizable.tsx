@@ -1,3 +1,4 @@
+import { useDndMode } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
@@ -46,6 +47,7 @@ export function CustomResizable({
   isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
+  allowPointerEventsDuringDnd = false,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   children,
@@ -61,6 +63,7 @@ export function CustomResizable({
       isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
+      allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
       minHeight={minHeight}
@@ -82,6 +85,7 @@ function CustomResizableCore({
   isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
+  allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   minHeight,
@@ -384,6 +388,7 @@ function CustomResizableCore({
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
+      allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       size={size}
       minHeight={minHeight}
       maxHeight={maxHeight}
@@ -416,6 +421,7 @@ function CustomResizableSuperCore({
   isYouTube,
   isActiveSection,
   isMetaControl,
+  allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
   size,
@@ -437,7 +443,12 @@ function CustomResizableSuperCore({
   snapToGrid,
   children,
 }) {
+  const { isSorting, isMovingFree } = useDndMode();
   const disablePointerEvents = useShouldDisablePointerEvents();
+  const allowPointerEvents =
+    allowPointerEventsDuringDnd && (isSorting || isMovingFree);
+  const shouldDisablePointerEvents =
+    disablePointerEvents && !allowPointerEvents;
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );
@@ -459,10 +470,9 @@ function CustomResizableSuperCore({
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
 
-  // trying always overflow-clip ${isYouTube ? "overflow-clip" : ""}
   const inputClasses = `${
-    disablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${
+    shouldDisablePointerEvents ? "pointer-events-none select-none" : ""
+  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border overflow-clip ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${frameClassName}`;
 

@@ -15,13 +15,17 @@ export const TempDNDSection = forwardRef<HTMLDivElement, Record<string, never>>(
       }),
       _.isEqual,
     );
+    const placeholderStyle = { width: `${width}px`, height: `${height}px` };
+    const placeholderClassName =
+      "flex items-center justify-center rounded-xl bg-setta-100/70 shadow-inner dark:bg-setta-500/60";
 
     // The 2nd div (flex-auto) is needed to make dnd work from the right
     return (
       <>
         <div
-          style={{ width: `${width}px`, height: `${height}px` }}
-          className="flex items-center justify-center rounded-xl bg-setta-100/70 shadow-inner dark:bg-setta-500/60"
+          style={placeholderStyle}
+          className={placeholderClassName}
+          data-dnd-placeholder="true"
           ref={ref}
         >
           <TbDragDrop className="scale-150 text-xl font-black text-setta-50 dark:text-setta-400/70" />
