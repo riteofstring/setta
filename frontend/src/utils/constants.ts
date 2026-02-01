@@ -5,8 +5,8 @@ export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
-export const CLOSED_PANE_WIDTH = 44;
-export const NAVBAR_HEIGHT = 40;
+export const CLOSED_PANE_WIDTH = 40;
+export const NAVBAR_HEIGHT = 36;
 
 export const PaneNameEnum = {
   overview: "overview",

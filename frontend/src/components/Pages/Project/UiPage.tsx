@@ -18,9 +18,9 @@ export function UIPage() {
 
   return (
     <SectionDndContext>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full min-h-0 min-w-0 w-full flex-col">
         <ViewModeTabs />
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 min-w-0 w-full flex-1">
           <ReactFlow />
         </div>
       </div>
