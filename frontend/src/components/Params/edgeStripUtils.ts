@@ -31,5 +31,7 @@ export function resolveEdgeStripHeight({
   if (typeof measuredHeight === "number" && measuredHeight > 0) {
     return Math.ceil(measuredHeight);
   }
-  return Math.ceil(getEdgeStripEstimatedHeight(inputPortCount, outputPortCount));
+  return Math.ceil(
+    getEdgeStripEstimatedHeight(inputPortCount, outputPortCount),
+  );
 }
