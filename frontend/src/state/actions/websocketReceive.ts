@@ -394,9 +394,7 @@ async function handleShareSessionRecovery() {
 }
 
 function receiveMessage(message: string) {
-  console.log("[websocket][raw]", JSON.stringify(message));
   const m: FrontendWebsocketMsgUnion = JSON.parse(message);
-  console.log("[websocket][parsed]", JSON.stringify(m));
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
@@ -414,10 +412,6 @@ function receiveMessage(message: string) {
       // TODO
       return null;
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
-      console.log(
-        "[websocket][UpdateFrontendProjectState]",
-        JSON.stringify(m.content),
-      );
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);

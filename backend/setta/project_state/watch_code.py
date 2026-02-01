@@ -318,10 +318,7 @@ def _build_callable_info(
 
 
 def parse_python_callables(
-    code: str,
-    source_path: Path,
-    *,
-    include_params: bool | None = None,
+    code: str, source_path: Path
 ) -> list[WatchCodeCallableInfo] | None:
     if not code.strip():
         return []
@@ -335,11 +332,7 @@ def parse_python_callables(
         return None
     module_path = convert_path_to_module_path(normalize_path(source_path))
     output: list[WatchCodeCallableInfo] = []
-    build_params = (
-        logger.isEnabledFor(logging.DEBUG)
-        if include_params is None
-        else include_params
-    )
+    build_params = logger.isEnabledFor(logging.DEBUG)
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):
             output.append(
@@ -474,6 +467,7 @@ class WatchCodeManager:
         self._project_manager = project_manager
         self._loop = loop
         self._observer = Observer()
+        self._observer.daemon = True
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
@@ -505,8 +499,14 @@ class WatchCodeManager:
 
     def shutdown(self) -> None:
         if self._started:
-            self._observer.stop()
-            self._observer.join()
+            observer = self._observer
+            if observer.is_alive():
+                observer.stop()
+                observer.join(timeout=1.0)
+                if observer.is_alive():
+                    logger.warning(
+                        "Watch code observer did not shut down within timeout."
+                    )
             self._started = False
         for debouncer in self._debouncers.values():
             debouncer.cancel()
