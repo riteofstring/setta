@@ -32,6 +32,7 @@ from setta.types.section_impls import (
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -705,6 +706,10 @@ class SetCodeRequest(ProjectManagerRequestWithSection):
     )
 
 
+class FormatCodeRequest(ProjectManagerRequestWithSection):
+    """Format the code in a section using Ruff."""
+
+
 class CodeFileBindingUpdate(BaseModel):
     canonical_path: str
     access_mode: CodeFileAccessMode
@@ -863,6 +868,10 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
+
+
+class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
+    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):

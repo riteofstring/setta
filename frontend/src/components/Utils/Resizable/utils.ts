@@ -1,55 +1,8 @@
-import type { ResizeHandleDirection } from "state/actions/sections/sectionSizes";
-
 export const SIZE_MODE = {
   any: "any",
   auto_only: "auto_only",
   manual_only: "manual_only",
 };
-
-const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
-
-type ResizeHandleClickState = {
-  lastTimestampMs: number | null;
-  lastDirection: ResizeHandleDirection | null;
-};
-
-type ResizeStopEvent = {
-  detail?: number;
-};
-
-type ResizeStopRef = {
-  style: { width: string; height: string };
-};
-
-type ResizeDelta = {
-  width: number;
-  height: number;
-};
-
-export function getResizeHandleClickState({
-  state,
-  direction,
-  timestampMs,
-  thresholdMs = RESIZE_HANDLE_DOUBLE_CLICK_MS,
-}: {
-  state: ResizeHandleClickState;
-  direction: ResizeHandleDirection;
-  timestampMs: number;
-  thresholdMs?: number;
-}): { nextState: ResizeHandleClickState; isDoubleClick: boolean } {
-  const isDoubleClick =
-    state.lastTimestampMs !== null &&
-    state.lastDirection === direction &&
-    timestampMs - state.lastTimestampMs <= thresholdMs;
-
-  return {
-    isDoubleClick,
-    nextState: {
-      lastTimestampMs: timestampMs,
-      lastDirection: direction,
-    },
-  };
-}
 
 function parseCurrPx(x) {
   return x === "auto" ? x : parseInt(x);
@@ -59,17 +12,7 @@ function maybeAutoPx(autoDim, pxDim, sizeMode) {
   return sizeMode !== SIZE_MODE.manual_only ? autoDim : pxDim;
 }
 
-function getDoubleClickSize({
-  direction,
-  ref,
-  sizeMode,
-  aspectRatio,
-}: {
-  direction: ResizeHandleDirection;
-  ref: ResizeStopRef;
-  sizeMode: { width: string; height: string };
-  aspectRatio: boolean;
-}) {
+function getDoubleClickSize({ direction, ref, sizeMode, aspectRatio }) {
   // width returns minWidth instead of auto because
   // it seems like once width is resized, auto does nothing
   const pxWidth = parseCurrPx(ref.style.width);
@@ -96,17 +39,7 @@ function getDoubleClickSize({
   return {};
 }
 
-function getSingleClickSize({
-  direction,
-  ref,
-  sizeMode,
-  aspectRatio,
-}: {
-  direction: ResizeHandleDirection;
-  ref: ResizeStopRef;
-  sizeMode: { width: string; height: string };
-  aspectRatio: boolean;
-}) {
+function getSingleClickSize({ direction, ref, sizeMode, aspectRatio }) {
   // width returns minWidth instead of auto because
   // it seems like once width is resized, auto does nothing
   const pxWidth = parseCurrPx(ref.style.width);
@@ -133,22 +66,9 @@ function getSingleClickSize({
   return {};
 }
 
-export function getChangedSize({
-  props,
-  sizeMode,
-  aspectRatio,
-  isDoubleClickOverride,
-}: {
-  props: [ResizeStopEvent, ResizeHandleDirection, ResizeStopRef, ResizeDelta];
-  sizeMode: { width: string; height: string };
-  aspectRatio: boolean;
-  isDoubleClickOverride?: boolean;
-}) {
+export function getChangedSize({ props, sizeMode, aspectRatio }) {
   const [e, direction, ref, d] = props;
-  const isDoubleClick =
-    isDoubleClickOverride ??
-    (d.width === 0 && d.height === 0 && e.detail === 2);
-  if (isDoubleClick) {
+  if (d.width === 0 && d.height === 0 && e.detail === 2) {
     return getDoubleClickSize({
       direction,
       ref,
