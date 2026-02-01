@@ -1,7 +1,10 @@
 import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
-import { getSectionIdsForProject } from "state/aiFollowUtils";
+import {
+  getAllowedChatIdsForProject,
+  getSectionIdsForProject,
+} from "state/aiFollowUtils";
 import {
   useAIFollow,
   useNodeInternals,
@@ -65,15 +68,24 @@ const AgenticEdgeRenderer = () => {
   );
   const nodes = useNodeInternals((state) => state.x, _.isEqual);
   const { canEditStructure } = useShareCapabilities();
-  const { toolArgumentsIdsByProjectConfigId, toolResultIdsByProjectConfigId } =
-    useAIFollow(
-      (state) => ({
-        toolArgumentsIdsByProjectConfigId:
-          state.toolArgumentsIdsByProjectConfigId,
-        toolResultIdsByProjectConfigId: state.toolResultIdsByProjectConfigId,
-      }),
-      _.isEqual,
-    );
+  const {
+    toolArgumentsIdsByProjectConfigId,
+    toolResultIdsByProjectConfigId,
+    mode,
+    selectedChatIdsByProjectConfigId,
+    selectedSectionIdsByProjectConfigId,
+  } = useAIFollow(
+    (state) => ({
+      toolArgumentsIdsByProjectConfigId:
+        state.toolArgumentsIdsByProjectConfigId,
+      toolResultIdsByProjectConfigId: state.toolResultIdsByProjectConfigId,
+      mode: state.mode,
+      selectedChatIdsByProjectConfigId: state.selectedChatIdsByProjectConfigId,
+      selectedSectionIdsByProjectConfigId:
+        state.selectedSectionIdsByProjectConfigId,
+    }),
+    _.isEqual,
+  );
 
   const runningChatSectionIds = useMemo(() => {
     const running = new Set<string>();
@@ -99,9 +111,24 @@ const AgenticEdgeRenderer = () => {
         getSectionIdsForProject(
           toolArgumentsIdsByProjectConfigId,
           projectConfigId,
+          getAllowedChatIdsForProject(
+            mode,
+            selectedChatIdsByProjectConfigId,
+            selectedSectionIdsByProjectConfigId,
+            projectConfigId,
+            sectionVariantMap,
+            sectionVariants,
+            sectionImpls,
+          ),
         ),
       ),
-    [projectConfigId, toolArgumentsIdsByProjectConfigId],
+    [
+      mode,
+      projectConfigId,
+      selectedChatIdsByProjectConfigId,
+      selectedSectionIdsByProjectConfigId,
+      toolArgumentsIdsByProjectConfigId,
+    ],
   );
   const toolResultSectionIds = useMemo(
     () =>
@@ -109,9 +136,24 @@ const AgenticEdgeRenderer = () => {
         getSectionIdsForProject(
           toolResultIdsByProjectConfigId,
           projectConfigId,
+          getAllowedChatIdsForProject(
+            mode,
+            selectedChatIdsByProjectConfigId,
+            selectedSectionIdsByProjectConfigId,
+            projectConfigId,
+            sectionVariantMap,
+            sectionVariants,
+            sectionImpls,
+          ),
         ),
       ),
-    [projectConfigId, toolResultIdsByProjectConfigId],
+    [
+      mode,
+      projectConfigId,
+      selectedChatIdsByProjectConfigId,
+      selectedSectionIdsByProjectConfigId,
+      toolResultIdsByProjectConfigId,
+    ],
   );
 
   if (!width || !height) {

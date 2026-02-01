@@ -161,6 +161,7 @@ describe("AgenticEdgeRenderer", () => {
     });
 
     useAIFollow.setState({
+      mode: "all",
       toolArgumentsIdsByProjectConfigId: {
         [projectConfigId]: {
           "run-1": { section: [contextSectionId] },
