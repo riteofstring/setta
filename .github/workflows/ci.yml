@@ -129,13 +129,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: scripts/node_version.txt
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
+
+      - name: Get pnpm store path
+        run: echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PNPM_STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Cache uv downloads
         uses: actions/cache@v4
@@ -174,13 +183,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: scripts/node_version.txt
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
+
+      - name: Get pnpm store path
+        run: echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PNPM_STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Cache uv downloads
         uses: actions/cache@v4
