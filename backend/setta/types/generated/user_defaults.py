@@ -52,14 +52,15 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
     pass
 
 
-class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    pass
+
+
+class UserDefaultBaseCodeSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
-
-
-class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pass
+    attachedTerminalSectionId: ID | None = None
 
 
 class UserDefaultBaseDictSectionImpl(

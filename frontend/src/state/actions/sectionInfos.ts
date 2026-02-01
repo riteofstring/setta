@@ -81,6 +81,21 @@ function getEffectiveSectionImplIfPresent(
   return getEffectiveImpl(impl, core, variant);
 }
 
+export function isBaseCodeSectionType(sectionType: SectionType): boolean {
+  return (
+    sectionType === SectionTypeEnum.Code ||
+    sectionType === SectionTypeEnum.GenPythonCode ||
+    sectionType === SectionTypeEnum.GenPythonMetadata
+  );
+}
+
+export function getTopLevelSectionIdsForDisplay(
+  projectState: ZustandProjectState,
+): string[] {
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  return Object.keys(topLevelSections);
+}
+
 function getEffectiveCodeObjImplIfPresent(
   projectState: ZustandProjectState,
   sectionImpl: BaseSectionImplUnion,
@@ -820,27 +835,32 @@ export function createNodesMapFromProjectConfigChildren(
   const nodesMap: Map<string, Node> = new Map();
   const { activeViewModeId, viewModes } = p.projectConfig;
   const topLevelSections = getActiveViewModeTopLevelSections(p);
+  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
   const canFilterByView =
     Boolean(activeViewModeId) &&
     Boolean(activeViewModeId && viewModes[activeViewModeId]);
 
-  for (const [k, v] of Object.entries(topLevelSections)) {
+  for (const sectionId of topLevelSectionIds) {
+    const layout = topLevelSections[sectionId];
+    if (!layout) {
+      continue;
+    }
     if (canFilterByView) {
       const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
-        k,
+        sectionId,
         p,
       );
       if (!getSectionShouldRender(visibility, isEditingViewMode)) {
         continue;
       }
     }
-    nodesMap.set(k, {
-      id: k,
-      position: { x: v.x, y: v.y },
-      width: nodes.get(k)?.width ?? v.w,
-      height: nodes.get(k)?.height ?? v.h,
-      zIndex: v.zIndex,
-      tempZIndex: v.zIndex,
+    nodesMap.set(sectionId, {
+      id: sectionId,
+      position: { x: layout.x, y: layout.y },
+      width: nodes.get(sectionId)?.width ?? layout.w,
+      height: nodes.get(sectionId)?.height ?? layout.h,
+      zIndex: layout.zIndex,
+      tempZIndex: layout.zIndex,
     });
   }
 
@@ -877,8 +897,8 @@ function getDisplayedSectionIdToChildrenHelper(
 
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
-  const topLevelSections = getActiveViewModeTopLevelSections(state);
-  for (const sectionId of Object.keys(topLevelSections)) {
+  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
+  for (const sectionId of topLevelSectionIds) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }

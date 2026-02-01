@@ -20,6 +20,7 @@ import {
   getSectionChildren,
   getSectionIsHorizontalOrientation,
   getSectionType,
+  isBaseCodeSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import {
@@ -34,6 +35,7 @@ import {
   useSectionRefs,
   useShareSession,
 } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -461,22 +463,41 @@ export function getDndParentId(dndSectionId: string) {
   return useDndChildren.getState().y[dndSectionId];
 }
 
-function getBehaviorDropType(activeId: string, newParentId: string) {
+export function getBehaviorDropType(activeId: string, newParentId: string) {
+  const state = useProjectState.getState();
+  const parentType = getSectionType(state, newParentId);
+  const isCodeParent = isBaseCodeSectionType(parentType);
+  const isRootParent = getIsRoot(parentType);
+  const draggingIds = useDndState.getState().draggingIds;
+  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
+  const activeType = getSectionType(state, String(activeId));
   // invalid
   // if parent can't have children
   // or if parent variant is frozen
   // or if dragged section is global variables (TODO: loosen this restriction)
   if (
-    !getSectionIsRoot(newParentId) ||
-    getCurrSectionVariant(useProjectState.getState(), newParentId).isFrozen ||
+    (!isRootParent && !isCodeParent) ||
+    getCurrSectionVariant(state, newParentId).isFrozen ||
     getSectionIsGlobalVariables(activeId)
   ) {
     return BehaviorDropTypeEnum.INVALID;
   }
 
-  const draggingIds = useDndState.getState().draggingIds;
-  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
-  const state = useProjectState.getState();
+  if (isCodeParent) {
+    if (activeType !== SectionTypeEnum.Terminal) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+    if (selectedIds.length !== 1) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+    const children = getSectionChildren(state, newParentId);
+    if (children.length > 1) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+    if (children.length === 1 && !selectedIds.includes(children[0])) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+  }
   if (
     isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))
   ) {
