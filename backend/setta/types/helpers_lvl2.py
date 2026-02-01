@@ -2124,9 +2124,13 @@ def _ensure_agentic_edge_endpoints_valid(
 ):
     source_exists = edge.sourceSectionId in p.sections
     target_exists = edge.targetSectionId in p.sections
-    if not source_exists and not target_exists:
+    if not source_exists:
         raise KeyError(
-            "Agentic edge endpoints missing from project state; expected a section id."
+            f"Agentic edge {edge.id} source section {edge.sourceSectionId} missing from project state."
+        )
+    if not target_exists:
+        raise KeyError(
+            f"Agentic edge {edge.id} target section {edge.targetSectionId} missing from project state."
         )
     if source_exists:
         source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)

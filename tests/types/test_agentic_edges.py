@@ -104,6 +104,24 @@ class TestAgenticEdges:
         with pytest.raises(TypeError):
             create_agentic_edge(self.project_state, edge)
 
+    def test_agentic_edge_requires_existing_source(self) -> None:
+        edge = AgenticEdge(
+            sourceSectionId="missing-section",
+            targetSectionId=self.chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
+        )
+        with pytest.raises(KeyError):
+            create_agentic_edge(self.project_state, edge)
+
+    def test_agentic_edge_requires_existing_target(self) -> None:
+        edge = AgenticEdge(
+            sourceSectionId=self.context_section_id,
+            targetSectionId="missing-section",
+            kind=AgenticEdgeKind.section_chat,
+        )
+        with pytest.raises(KeyError):
+            create_agentic_edge(self.project_state, edge)
+
     def test_project_config_round_trip(self) -> None:
         edge = AgenticEdge(
             sourceSectionId=self.context_section_id,

@@ -9,6 +9,10 @@ import {
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
 import {
+  getMessageCompletenessScore,
+  mergeChatMessages,
+} from "state/actions/chatMergeUtils";
+import {
   PendingOperation,
   useAllProjectMetadata,
   useMisc,
@@ -33,11 +37,9 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
-  AssistantChatMessage,
   BaseChatMessageUnion,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
-  ChatRoleEnum,
   CodeObjType,
   Core,
   ImplArgsBundleMap,
@@ -45,14 +47,10 @@ import {
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
-  MessageImageUrlContent,
-  MessageTextContent,
-  MessageThinkingContent,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
   SectionTypeEnum,
-  ToolChatMessage,
   Variant,
   Viewport,
 } from "utils/generatedTypes";
@@ -86,56 +84,6 @@ function getEffectiveSectionImplIfPresent(
     return null;
   }
   return getEffectiveImpl(impl, core, variant);
-}
-
-type ChatSectionSummary = {
-  sectionId: string;
-  messageCount: number;
-  waitingForResponse: boolean;
-  toolCallArgumentsCount: number;
-  inputTextLength: number;
-  chatId: string | null;
-  managed: boolean | null;
-  engineConfigId: string | null;
-  agentProfileId: string | null;
-};
-
-function summarizeChatSections(
-  projectState: ProjectStateSingleConfig,
-): ChatSectionSummary[] {
-  const summaries: ChatSectionSummary[] = [];
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getEffectiveSectionImplIfPresent(projectState, sectionId);
-    if (!impl || impl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const chatImpl = impl as Extract<
-      BaseSectionImplUnion,
-      { type: SectionTypeEnum.Chat }
-    >;
-    summaries.push({
-      sectionId,
-      messageCount: Array.isArray(chatImpl.messages)
-        ? chatImpl.messages.length
-        : 0,
-      waitingForResponse: Boolean(chatImpl.waitingForResponse),
-      toolCallArgumentsCount: chatImpl.toolCallArguments
-        ? Object.keys(chatImpl.toolCallArguments).length
-        : 0,
-      inputTextLength: (chatImpl.inputText ?? "").length,
-      chatId: typeof chatImpl.chatId === "string" ? chatImpl.chatId : null,
-      managed: typeof chatImpl.managed === "boolean" ? chatImpl.managed : null,
-      engineConfigId:
-        typeof chatImpl.engineConfigId === "string"
-          ? chatImpl.engineConfigId
-          : null,
-      agentProfileId:
-        typeof chatImpl.agentProfileId === "string"
-          ? chatImpl.agentProfileId
-          : null,
-    });
-  }
-  return summaries;
 }
 
 type ChatSectionImpl = Extract<
@@ -266,164 +214,6 @@ function hasMoreCompleteChatMessages(
     }
   }
   return false;
-}
-
-function mergeChatMessages(
-  existing: Array<BaseChatMessageUnion>,
-  incoming: Array<BaseChatMessageUnion>,
-): Array<BaseChatMessageUnion> {
-  if (incoming.length === 0) {
-    return [...existing];
-  }
-  if (existing.length === 0) {
-    return [...incoming];
-  }
-  const merged = [...existing];
-  const indexById = new Map<string, number>();
-  merged.forEach((message, index) => {
-    indexById.set(message.id, index);
-  });
-  for (const message of incoming) {
-    const existingIndex = indexById.get(message.id);
-    if (existingIndex === undefined) {
-      indexById.set(message.id, merged.length);
-      merged.push(message);
-      continue;
-    }
-    merged[existingIndex] = pickMoreCompleteMessage(
-      merged[existingIndex],
-      message,
-    );
-  }
-  return merged;
-}
-
-function pickMoreCompleteMessage(
-  existing: BaseChatMessageUnion,
-  incoming: BaseChatMessageUnion,
-): BaseChatMessageUnion {
-  if (existing.role !== incoming.role) {
-    return incoming;
-  }
-  const existingScore = getMessageCompletenessScore(existing);
-  const incomingScore = getMessageCompletenessScore(incoming);
-  if (incomingScore > existingScore) {
-    return incoming;
-  }
-  if (existingScore > incomingScore) {
-    return existing;
-  }
-  return incoming;
-}
-
-function getMessageCompletenessScore(message: BaseChatMessageUnion): number {
-  let score = 0;
-  if (message.role === ChatRoleEnum.assistant) {
-    score = getAssistantMessageScore(message as AssistantChatMessage);
-  } else if (message.role === ChatRoleEnum.tool) {
-    score = getToolMessageScore(message as ToolChatMessage);
-  } else {
-    score = getContentScore(message.content);
-  }
-  return score + getAttachmentScore(message);
-}
-
-function getAssistantMessageScore(message: AssistantChatMessage): number {
-  let score = getContentScore(message.content);
-  const toolCalls = message.tool_calls ?? [];
-  score += toolCalls.length * 5;
-  for (const toolCall of toolCalls) {
-    if (toolCall.function?.name) {
-      score += toolCall.function.name.length;
-    }
-    if (toolCall.function?.arguments) {
-      score += getPayloadSize(toolCall.function.arguments);
-    }
-  }
-  return score;
-}
-
-function getAttachmentScore(message: BaseChatMessageUnion): number {
-  if (!("attachments" in message)) {
-    return 0;
-  }
-  const attachments = message.attachments;
-  if (!Array.isArray(attachments)) {
-    return 0;
-  }
-  return attachments.length * 8;
-}
-
-function getToolMessageScore(message: ToolChatMessage): number {
-  let score = 0;
-  score += getPayloadSize(message.arguments);
-  score += getPayloadSize(message.result);
-  if (message.completed_at) {
-    score += 5;
-  }
-  if (Array.isArray(message.content)) {
-    score += message.content.length * 4;
-    for (const entry of message.content) {
-      if (entry.type === "text") {
-        score += entry.text.length;
-        continue;
-      }
-      if (entry.type === "resource") {
-        if ("text" in entry.resource) {
-          score += entry.resource.text.length;
-        } else {
-          score += 4;
-        }
-        continue;
-      }
-      score += 2;
-    }
-  }
-  return score;
-}
-
-function getContentScore(
-  content: Array<
-    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
-  >,
-): number {
-  let score = 0;
-  for (const item of content) {
-    if (item.type === "text") {
-      score += item.text.length;
-      continue;
-    }
-    if (item.type === "thinking") {
-      score += item.thinking.length;
-      score += item.summary?.length ?? 0;
-      score += item.signature?.length ?? 0;
-      continue;
-    }
-    if (item.type === "image_url") {
-      score += 8;
-    }
-  }
-  return score;
-}
-
-function getPayloadSize(payload: unknown): number {
-  if (payload === null || payload === undefined) {
-    return 0;
-  }
-  if (typeof payload === "string") {
-    return payload.length;
-  }
-  if (typeof payload === "number" || typeof payload === "boolean") {
-    return 4;
-  }
-  if (Array.isArray(payload)) {
-    return payload.length * 4;
-  }
-  try {
-    return JSON.stringify(payload).length;
-  } catch {
-    return 0;
-  }
 }
 
 function getEffectiveCodeObjImplIfPresent(
@@ -949,49 +739,17 @@ export function processProjectStateUpdateFromBackend(
     return;
   }
   const currentState = useProjectState.getState();
-  const currentChatSummary = summarizeChatSections(currentState);
-  const incomingChatSummary = summarizeChatSections(x.projectState);
-  const mergedStreamingSectionIds = mergeStreamingChatSections(
-    x.projectState,
-    currentState,
-  );
-  const currentTopLevelSectionIds = Object.keys(
-    currentState.projectConfig.topLevelSections,
-  );
-  const incomingTopLevelSectionIds = Object.keys(
-    x.projectState.projectConfig.topLevelSections,
-  );
-  console.log(
-    "[processProjectStateUpdateFromBackend] start",
-    JSON.stringify({
-      projectConfigId,
-      pendingOpIdsCount: x.pendingOpIds.length,
-      completedOpIdsCount: x.completedOpIds.length,
-      currentChatSummary,
-      incomingChatSummary,
-      mergedStreamingSectionIds,
-      currentTopLevelSectionsCount: currentTopLevelSectionIds.length,
-      incomingTopLevelSectionsCount: incomingTopLevelSectionIds.length,
-      pendingTopLevelLayoutOpId: pendingTopLevelLayoutRef.opId,
-      pendingTopLevelLayoutQueued: pendingTopLevelLayoutRef.hasQueuedSend,
-    }),
-  );
+  mergeStreamingChatSections(x.projectState, currentState);
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
-  const droppedPendingIds: string[] = [];
-  const acknowledgedPendingIds: string[] = [];
   const nextPending = currentPending.reduce<PendingOperation[]>(
     (acc, opInfo) => {
       if (completedIds.has(opInfo.opId)) {
-        droppedPendingIds.push(opInfo.opId);
         return acc;
       }
       const isBackendPending = backendPendingIds.has(opInfo.opId);
       const acknowledged = opInfo.acknowledged || isBackendPending;
-      if (acknowledged && !opInfo.acknowledged) {
-        acknowledgedPendingIds.push(opInfo.opId);
-      }
       acc.push({
         ...opInfo,
         acknowledged,
@@ -1001,30 +759,9 @@ export function processProjectStateUpdateFromBackend(
     [],
   );
   reconcilePendingTopLevelLayout(nextPending);
-  console.log(
-    "[processProjectStateUpdateFromBackend] pending",
-    JSON.stringify({
-      projectConfigId,
-      currentPendingIds: currentPending.map((op) => op.opId),
-      nextPendingIds: nextPending.map((op) => op.opId),
-      backendPendingIds: Array.from(backendPendingIds),
-      completedIds: Array.from(completedIds),
-      droppedPendingIds,
-      acknowledgedPendingIds,
-      pendingTopLevelLayoutOpId: pendingTopLevelLayoutRef.opId,
-    }),
-  );
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  const mergedChatSummary = summarizeChatSections(x.projectState);
-  console.log(
-    "[processProjectStateUpdateFromBackend] merged",
-    JSON.stringify({
-      projectConfigId,
-      mergedChatSummary,
-    }),
-  );
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
@@ -1503,14 +1240,6 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   const snapshot = pendingTopLevelLayoutRef.snapshot;
   pendingTopLevelLayoutRef.hasQueuedSend = false;
   const projectConfigId = getCurrProjectConfigId();
-  console.log(
-    "[route_set_top_level_section_layout] send",
-    JSON.stringify({
-      projectConfigId,
-      opId,
-      topLevelSectionsCount: Object.keys(snapshot).length,
-    }),
-  );
   const result = route_set_top_level_section_layout({
     projectConfigId,
     topLevelSections: snapshot,
@@ -1518,16 +1247,6 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   });
   if (result instanceof Promise) {
     void result.then((res) => {
-      if (isResponseDataAndStatus(res)) {
-        console.log(
-          "[route_set_top_level_section_layout] response",
-          JSON.stringify({
-            opId,
-            status: res.status,
-            hasResponse: res.hasResponse,
-          }),
-        );
-      }
       if (isResponseDataAndStatus(res) && res200(res)) {
         acknowledgePendingOp(opId);
       } else if (isResponseDataAndStatus(res) && res.hasResponse) {
@@ -1582,7 +1301,6 @@ export function debounced_route_set_top_level_section_layout() {
     useNodeInternals.getState().x,
     existingLayouts,
   );
-  const topLevelSectionIds = Object.keys(topLevelSections);
   if (pendingTopLevelLayoutRef.opId) {
     const pendingOps = usePendingOperations.getState().pending;
     const stillPending = pendingOps.some(
@@ -1604,16 +1322,6 @@ export function debounced_route_set_top_level_section_layout() {
   if (!pendingTopLevelLayoutRef.opId) {
     pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
   }
-  console.log(
-    "[debounced_route_set_top_level_section_layout]",
-    JSON.stringify({
-      projectConfigId: getCurrProjectConfigId(),
-      opId: pendingTopLevelLayoutRef.opId,
-      hasQueuedSend: pendingTopLevelLayoutRef.hasQueuedSend,
-      topLevelSectionsCount: topLevelSectionIds.length,
-      topLevelSectionSample: topLevelSectionIds.slice(0, 5),
-    }),
-  );
   sendTopLevelLayoutToBackend();
 }
 

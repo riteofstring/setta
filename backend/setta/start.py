@@ -1253,8 +1253,6 @@ def status(
         sessions = registry.load_sessions()
     else:
         sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
-        if not sessions:
-            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")

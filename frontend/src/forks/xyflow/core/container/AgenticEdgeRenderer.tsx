@@ -105,30 +105,38 @@ const AgenticEdgeRenderer = () => {
     return running;
   }, [sectionImpls, sectionVariantMap, sectionVariants]);
 
+  const allowedChatIds = useMemo(
+    () =>
+      getAllowedChatIdsForProject(
+        mode,
+        selectedChatIdsByProjectConfigId,
+        selectedSectionIdsByProjectConfigId,
+        projectConfigId,
+        sectionVariantMap,
+        sectionVariants,
+        sectionImpls,
+      ),
+    [
+      mode,
+      projectConfigId,
+      sectionImpls,
+      sectionVariantMap,
+      sectionVariants,
+      selectedChatIdsByProjectConfigId,
+      selectedSectionIdsByProjectConfigId,
+    ],
+  );
+
   const toolArgSectionIds = useMemo(
     () =>
       new Set(
         getSectionIdsForProject(
           toolArgumentsIdsByProjectConfigId,
           projectConfigId,
-          getAllowedChatIdsForProject(
-            mode,
-            selectedChatIdsByProjectConfigId,
-            selectedSectionIdsByProjectConfigId,
-            projectConfigId,
-            sectionVariantMap,
-            sectionVariants,
-            sectionImpls,
-          ),
+          allowedChatIds,
         ),
       ),
-    [
-      mode,
-      projectConfigId,
-      selectedChatIdsByProjectConfigId,
-      selectedSectionIdsByProjectConfigId,
-      toolArgumentsIdsByProjectConfigId,
-    ],
+    [allowedChatIds, projectConfigId, toolArgumentsIdsByProjectConfigId],
   );
   const toolResultSectionIds = useMemo(
     () =>
@@ -136,24 +144,10 @@ const AgenticEdgeRenderer = () => {
         getSectionIdsForProject(
           toolResultIdsByProjectConfigId,
           projectConfigId,
-          getAllowedChatIdsForProject(
-            mode,
-            selectedChatIdsByProjectConfigId,
-            selectedSectionIdsByProjectConfigId,
-            projectConfigId,
-            sectionVariantMap,
-            sectionVariants,
-            sectionImpls,
-          ),
+          allowedChatIds,
         ),
       ),
-    [
-      mode,
-      projectConfigId,
-      selectedChatIdsByProjectConfigId,
-      selectedSectionIdsByProjectConfigId,
-      toolResultIdsByProjectConfigId,
-    ],
+    [allowedChatIds, projectConfigId, toolResultIdsByProjectConfigId],
   );
 
   if (!width || !height) {
