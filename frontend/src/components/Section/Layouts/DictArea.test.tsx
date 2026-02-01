@@ -159,12 +159,12 @@ describe("DictArea layout", () => {
       <DictArea sectionId={sectionId} bgColor="bg-transparent" />,
     );
     const match = markup.match(
-      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-auto[^\"]*)\"/,
+      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-scroll[^\"]*)\"/,
     );
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
-    expect(classes).toContain("overflow-y-auto");
+    expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
   });
 });

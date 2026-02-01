@@ -292,8 +292,8 @@ class SectionSizingPolicyByType(BaseModel):
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,
-            hideSearchMinHeight=78,
-            hideParamsMinHeight=32,
+            hideSearchMinHeight=42,
+            hideParamsMinHeight=90,
         )
     )
     Dict: SectionSizingPolicyTypeEntry = Field(

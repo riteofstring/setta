@@ -23,7 +23,6 @@ import {
   getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getPinnedParamsAreaHeightKey,
-  getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -41,7 +40,7 @@ type SizeMode = {
 };
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
-const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_EDGES_AND_PINNED = 48;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 48;
 // Keep edge ports visible when sections are resized to their minimum.
 const EDGES_STRIP_MIN_HEIGHT = 72;
 
@@ -207,10 +206,6 @@ export function useSectionMinMaxDims(sectionId: string) {
     const height = x[getPinnedParamsAreaHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
-  const unpinnedParamsMeasuredHeight = useTemporaryMiscState((x) => {
-    const height = x[getUnpinnedParamsAreaHeightKey(sectionId)];
-    return typeof height === "number" ? height : 0;
-  });
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
@@ -268,11 +263,7 @@ export function useSectionMinMaxDims(sectionId: string) {
         const hasPinnedParams = pinned.topLevelParamIds.some(
           (paramId) => !edgeInputSet.has(paramId),
         );
-        const hasUnpinnedParams =
-          !impl.hideUnpinnedParams &&
-          unpinned.topLevelParamIds.some(
-            (paramId) => !edgeInputSet.has(paramId),
-          );
+        const showsUnpinnedParams = !impl.hideUnpinnedParams;
         const policyPinnedMinHeight =
           sizingPolicy.globals.pinnedParamsAreaMinHeight;
         const resolvedPinnedMinHeight =
@@ -285,22 +276,15 @@ export function useSectionMinMaxDims(sectionId: string) {
           ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
           : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
         const resolvedUnpinnedPolicyMinHeight =
-          hasEdges &&
           hasPinnedParams &&
           baseUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-            ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_EDGES_AND_PINNED
+            ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
             : baseUnpinnedMinHeight;
-        const resolvedUnpinnedMinHeight =
-          unpinnedParamsMeasuredHeight > 0
-            ? Math.max(
-                unpinnedParamsMeasuredHeight,
-                resolvedUnpinnedPolicyMinHeight,
-              )
-            : resolvedUnpinnedPolicyMinHeight;
+        const resolvedUnpinnedMinHeight = resolvedUnpinnedPolicyMinHeight;
         if (hasPinnedParams) {
           requiredParamsHeight += resolvedPinnedMinHeight;
         }
-        if (hasUnpinnedParams) {
+        if (showsUnpinnedParams) {
           requiredParamsHeight += resolvedUnpinnedMinHeight;
         }
       }

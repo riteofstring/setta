@@ -19,6 +19,7 @@ import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import {
   useProjectState,
   useResizeEvent,
+  useSettings,
   useTemporaryMiscState,
 } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
@@ -42,6 +43,9 @@ import {
 } from "./paramAreaMeasurements";
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
+
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 48;
 
 function _ParamGroupContainer({
   sectionId,
@@ -273,19 +277,12 @@ function EdgesStrip({
         pinned.topLevelParamIds,
         impl.edgeInputParams,
       );
-      const filteredUnpinned = filterEdgeInputs(
-        unpinned.requiredParamIdsToPaths,
-        unpinned.topLevelParamIds,
-        impl.edgeInputParams,
-      );
       const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
-      const hasUnpinnedParams =
-        !impl.hideUnpinnedParams &&
-        filteredUnpinned.topLevelParamIds.length > 0;
+      const showsUnpinnedParams = !impl.hideUnpinnedParams;
       return {
         inputPorts,
         outputPorts,
-        shouldRoundBottom: !hasPinnedParams && !hasUnpinnedParams,
+        shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
         positionAndSizeLocked: impl.positionAndSizeLocked,
       };
     }, _.isEqual);
@@ -499,14 +496,8 @@ function GetPinnedParams({
       topLevelParamIds,
       impl.edgeInputParams,
     );
-    const filteredUnpinned = filterEdgeInputs(
-      unpinned.requiredParamIdsToPaths,
-      unpinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const hasUnpinnedParams =
-      !impl.hideUnpinnedParams && filteredUnpinned.topLevelParamIds.length > 0;
-    const shouldRoundBottom = !hasUnpinnedParams;
+    const showsUnpinnedParams = !impl.hideUnpinnedParams;
+    const shouldRoundBottom = !showsUnpinnedParams;
     return {
       ...filteredPinned,
       shouldRoundBottom,
@@ -609,39 +600,59 @@ function GetUnpinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
 }: GetUnpinnedParamsProps) {
-  const { hideUnpinnedParams } = useProjectState((x) => {
+  const {
+    hideUnpinnedParams,
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+    hasPinnedParams,
+    positionAndSizeLocked,
+  } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
+    const pinned = getCurrShownParamIds(x, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const filteredUnpinned = filterEdgeInputs(
+      unpinned.requiredParamIdsToPaths,
+      unpinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
     return {
       hideUnpinnedParams: impl.hideUnpinnedParams,
+      requiredParamIdsToPaths: filteredUnpinned.requiredParamIdsToPaths,
+      topLevelParamIds: filteredUnpinned.topLevelParamIds,
+      hasPinnedParams,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
     };
   }, _.isEqual);
 
-  const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) => {
-    const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
-      x,
-      sectionId,
-      false,
-      true,
-    );
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    return filterEdgeInputs(
-      requiredParamIdsToPaths,
-      topLevelParamIds,
-      impl.edgeInputParams,
-    );
-  }, _.isEqual);
+  const { canEditLayout } = useShareCapabilities();
+  const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
+  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
+  const baseUnpinnedMinHeight = Number.isFinite(
+    sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+  )
+    ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+    : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+  const resolvedPolicyMinHeight =
+    hasPinnedParams &&
+    baseUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
+      : baseUnpinnedMinHeight;
+  const resolvedMinHeight = resolvedPolicyMinHeight;
+  const shouldApplyMinHeight =
+    !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
 
   const setContainerRef = useCallback(
@@ -665,22 +676,27 @@ function GetUnpinnedParams({
   });
 
   return (
-    <div
-      className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-y-auto overflow-x-clip py-2 pr-1.5 ${
-        isScrollable ? "nowheel" : ""
-      }`}
-      ref={setContainerRef}
-    >
-      {!hideUnpinnedParams && (
-        <ParamDndList
-          sectionId={sectionId}
-          paramIds={topLevelParamIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={handleColumnResizeStart}
-          isTopLevel={true}
-          listKey="unpinned"
-        />
-      )}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-y-scroll overflow-x-clip py-2 pr-1.5 ${
+          isScrollable ? "nowheel" : ""
+        }`}
+        ref={setContainerRef}
+        style={
+          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+        }
+      >
+        {!hideUnpinnedParams && (
+          <ParamDndList
+            sectionId={sectionId}
+            paramIds={topLevelParamIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={handleColumnResizeStart}
+            isTopLevel={true}
+            listKey="unpinned"
+          />
+        )}
+      </div>
     </div>
   );
 }

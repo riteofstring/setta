@@ -525,7 +525,131 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(178);
+    expect(dims.minHeight).toBe(188);
+  });
+
+  it("keeps unpinned min height visible when pinned params exist", () => {
+    const sectionId = "section-unpinned-min";
+    const variantId = "variant-unpinned-min";
+    const implId = "impl-unpinned-min";
+
+    const projectConfig = createProjectConfig({
+      id: "project-unpinned-min",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const callableImpl = {
+      type: SectionTypeEnum.Callable,
+      id: implId,
+      name: "Callable",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 400, height: 200 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      callable: null,
+      hideParams: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: callableImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {
+        [variantId]: {
+          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["pin-1"] },
+          unpinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+        },
+      };
+    });
+
+    syncStoreInitialState(useProjectState);
+
+    const dims = renderDims(sectionId);
+    expect(dims.minHeight).toBe(152);
+  });
+
+  it("reserves unpinned min height when the list is empty", () => {
+    const sectionId = "section-empty-unpinned";
+    const variantId = "variant-empty-unpinned";
+    const implId = "impl-empty-unpinned";
+
+    const projectConfig = createProjectConfig({
+      id: "project-empty-unpinned",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const dictImpl = {
+      type: SectionTypeEnum.Dict,
+      id: implId,
+      name: "Dict",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 240, height: 160 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      topLevelParamId: null,
+      isJsonSource: false,
+      jsonSourceKeys: [],
+      jsonSourceMissing: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: dictImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {
+        [variantId]: {
+          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+          unpinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+        },
+      };
+    });
+
+    syncStoreInitialState(useProjectState);
+
+    const dims = renderDims(sectionId);
+    expect(dims.minHeight).toBe(138);
   });
 
   it("keeps auto max height at least min height after params expand", () => {
@@ -600,8 +724,8 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(320);
-    expect(dims.maxHeight).toBe(320);
+    expect(dims.minHeight).toBe(228);
+    expect(dims.maxHeight).toBe(228);
   });
 
   it("caps auto max height when height is auto", () => {

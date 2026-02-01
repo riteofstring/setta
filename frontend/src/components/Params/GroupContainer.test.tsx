@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { useProjectState } from "state/definitions";
+import { useProjectState, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   CodeObjTypeEnum,
@@ -8,6 +8,7 @@ import {
   ParameterPassingStyleEnum,
   SectionTypeEnum,
   createProjectConfig,
+  createSettingsState,
   type Core,
   type Variant,
 } from "utils/generatedTypes";
@@ -53,6 +54,8 @@ describe("getPinnedParamsBgClassName", () => {
 describe("ParamGroupContainer layout", () => {
   beforeEach(() => {
     resetProjectStores();
+    useSettings.setState(createSettingsState());
+    syncStoreInitialState(useSettings);
   });
 
   afterEach(() => {
@@ -188,12 +191,12 @@ describe("ParamGroupContainer layout", () => {
       />,
     );
     const match = markup.match(
-      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-auto[^\"]*)\"/,
+      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-scroll[^\"]*)\"/,
     );
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
-    expect(classes).toContain("overflow-y-auto");
+    expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
   });
 });
