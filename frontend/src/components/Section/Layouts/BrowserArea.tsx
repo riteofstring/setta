@@ -903,8 +903,9 @@ function ItemsColumn({
         return {};
       }
       const now = Date.now();
+      const currentMap = fileUrlMapRef.current;
       const pending = paths.filter((path) => {
-        const entry = fileUrlMap[path];
+        const entry = currentMap[path];
         if (!options.force && entry && !isFileUrlStale(entry, now)) {
           return false;
         }
@@ -940,21 +941,8 @@ function ItemsColumn({
       setFileUrlMap((prev) => ({ ...prev, ...nextEntries }));
       return nextEntries;
     },
-    [fileUrlMap],
+    [],
   );
-
-  const waitForFileUrl = useCallback(async (path: string) => {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const entry = fileUrlMapRef.current[path];
-      if (entry) {
-        return entry;
-      }
-      await new Promise((resolve) => {
-        setTimeout(resolve, 100);
-      });
-    }
-    return fileUrlMapRef.current[path] ?? null;
-  }, []);
 
   const requestTextPreview = useCallback(
     async (item: FolderContentItem) => {
@@ -990,9 +978,6 @@ function ItemsColumn({
           force: true,
         });
         entry = refreshed[pathKey] ?? fileUrlMapRef.current[pathKey];
-        if (!entry) {
-          entry = (await waitForFileUrl(pathKey)) ?? undefined;
-        }
       }
       if (!entry?.url) {
         setTextPreviewMap((prev) => ({
@@ -1048,7 +1033,7 @@ function ItemsColumn({
         },
       }));
     },
-    [fileUrlMap, requestFileUrls, textPreviewMap],
+    [requestFileUrls, textPreviewMap],
   );
 
   const loadFolderContents = useCallback(
@@ -1181,12 +1166,12 @@ function ItemsColumn({
         return;
       }
       const loadAndOpenText = async () => {
-        let entry = fileUrlMap[item.fullPath];
+        let entry = fileUrlMapRef.current[item.fullPath];
         if (!entry || isFileUrlStale(entry, Date.now())) {
           const refreshed = await requestFileUrls([item.fullPath], {
             force: true,
           });
-          entry = refreshed[item.fullPath] ?? fileUrlMap[item.fullPath];
+          entry = refreshed[item.fullPath] ?? fileUrlMapRef.current[item.fullPath];
         }
         if (!entry?.url) {
           void openFileInCodeSection({
@@ -1234,7 +1219,6 @@ function ItemsColumn({
       openFileInTextSection,
       requestFileUrls,
       resolveCodeLanguageFromPath,
-      waitForFileUrl,
     ],
   );
 

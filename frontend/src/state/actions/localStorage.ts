@@ -1,15 +1,5 @@
 import { type ColorModePreference, useLocalStorage } from "state/definitions";
 
-function toggleDarkMode() {
-  useLocalStorage.setState((state) => {
-    const nextDarkMode = !state.darkMode;
-    return {
-      darkMode: nextDarkMode,
-      colorMode: nextDarkMode ? "dark" : "light",
-    };
-  });
-}
-
 export function setColorModePreference(colorMode: ColorModePreference) {
   useLocalStorage.setState((state) => ({
     colorMode,

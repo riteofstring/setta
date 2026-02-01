@@ -70,4 +70,22 @@ describe("sortChildPaths", () => {
       }),
     ).toEqual(["folder", "new.txt", "old.txt"]);
   });
+
+  it("does not mutate the input array", () => {
+    const nodesByPath: Record<string, FileNode> = {
+      "a.txt": buildNode("a.txt", "file", 10),
+      "b.txt": buildNode("b.txt", "file", 20),
+    };
+    const paths = ["b.txt", "a.txt"];
+    const original = [...paths];
+
+    sortChildPaths({
+      paths,
+      nodesByPath,
+      sortKey: "name",
+      sortDirection: "asc",
+    });
+
+    expect(paths).toEqual(original);
+  });
 });

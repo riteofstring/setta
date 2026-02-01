@@ -264,15 +264,22 @@ export function FileBrowserPane({
     });
   }, []);
 
-  const getSortedChildPaths = useCallback(
-    (path: string) =>
-      sortChildPaths({
-        paths: childrenByPath[path] ?? [],
+  const sortedChildrenByPath = useMemo(() => {
+    const next: Record<string, string[]> = {};
+    for (const [path, childPaths] of Object.entries(childrenByPath)) {
+      next[path] = sortChildPaths({
+        paths: childPaths,
         nodesByPath,
         sortKey,
         sortDirection,
-      }),
-    [childrenByPath, nodesByPath, sortKey, sortDirection],
+      });
+    }
+    return next;
+  }, [childrenByPath, nodesByPath, sortDirection, sortKey]);
+
+  const getSortedChildPaths = useCallback(
+    (path: string) => sortedChildrenByPath[path] ?? [],
+    [sortedChildrenByPath],
   );
 
   useEffect(() => {
