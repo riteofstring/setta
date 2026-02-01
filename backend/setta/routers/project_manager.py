@@ -83,7 +83,6 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
-    SetSectionPinnedAreaHeightRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -1028,15 +1027,6 @@ async def route_set_section_pinned_params(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_pinned_params(x)
-
-
-@router.post(Route.SET_SECTION_PINNED_AREA_HEIGHT)
-async def route_set_section_pinned_area_height(
-    x: SetSectionPinnedAreaHeightRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_pinned_area_height(x)
 
 
 @router.post(Route.SET_SECTION_COLUMN_WIDTH)
