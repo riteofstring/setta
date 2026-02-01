@@ -59,6 +59,7 @@ import {
   route_gen_code_suffix_completion,
 } from "utils/generatedEndpoints";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { EmbeddedTerminalArea } from "./TerminalArea";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -644,6 +645,26 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   });
   const value = previewCode ?? baseValue;
 
+  const attachedTerminalId = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Code,
+    );
+    if (!impl.attachedTerminalSectionId) {
+      return null;
+    }
+    const terminalId = impl.attachedTerminalSectionId;
+    if (!(terminalId in state.sections)) {
+      return null;
+    }
+    const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
+    if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+      return null;
+    }
+    return terminalId;
+  }, _.isEqual);
+
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -699,19 +720,21 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     return buildLspDiagnosticsExtensions(codeSectionDiagnostics);
   }, [codeSectionDiagnostics, isShareMode]);
   const finalExtensions = extensions.concat(lspLintExtensions);
+  const codeAreaMaxHeight = attachedTerminalId ? "100%" : maxHeight;
+  const codeAreaClassName = `${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel} ${attachedTerminalId ? "h-full min-h-0" : ""}`;
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
 
-  return (
+  const codeEditor = (
     <article
       ref={wrapperRef}
-      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      className={codeAreaClassName}
       data-section-main-editor
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
-        maxHeight={maxHeight}
+        maxHeight={codeAreaMaxHeight}
         value={value}
         theme={theme}
         extensions={finalExtensions}
@@ -721,6 +744,20 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
         basicSetup={{ tabSize: 4 }}
       />
     </article>
+  );
+
+  if (!attachedTerminalId) {
+    return codeEditor;
+  }
+
+  return (
+    <div className="section-full-no-title flex h-full w-full flex-col gap-2">
+      <div className="flex min-h-0 flex-[3] flex-col">{codeEditor}</div>
+      <EmbeddedTerminalArea
+        sectionId={attachedTerminalId}
+        className="flex min-h-0 flex-[2]"
+      />
+    </div>
   );
 }
 

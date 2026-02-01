@@ -1,6 +1,7 @@
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import {
   useLocalStorage,
+  useNodeInternals,
   useProjectState,
   useRunControl,
   useSettings,
@@ -23,6 +24,7 @@ import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
 import {
+  createNodesMapFromProjectConfigChildren,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -212,6 +214,12 @@ async function ensureAttachedTerminalForRun({
       },
     );
   });
+  useNodeInternals.setState((state) => ({
+    x: createNodesMapFromProjectConfigChildren(
+      useProjectState.getState(),
+      state.x,
+    ),
+  }));
   return newTerminalId;
 }
 

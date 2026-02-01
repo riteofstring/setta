@@ -1,19 +1,20 @@
 # Code Section Terminal Attachment Plan
 
 ## Summary
-Provide a dedicated terminal section for each runnable code section on first run.
-The attached terminal is placed next to the code section, stored in project state,
-and reused on subsequent runs. This plan favors the simplest behavior and keeps
-future attach/detach flows easy to add.
+Provide a dedicated terminal for each runnable code section on first run that
+feels integrated with the code section (embedded panel, not a separate floating
+node). The attachment is stored in project state and reused on subsequent runs.
+This plan favors the simplest behavior and keeps future attach/detach flows easy
+to add.
 
 ## Goals
 - First run of a code section creates a dedicated terminal section.
 - Subsequent runs use the attached terminal instead of a free/temporary terminal.
-- The terminal appears physically attached (adjacent) to the code section.
+- The terminal feels integrated with the code section (embedded, not a separate node).
 - Minimal behavioral changes outside of run + layout.
 
 ## Simplest Behavior Decisions
-- **Placement:** New terminal appears to the right of the code section (fixed offset).
+- **Placement:** New terminal is embedded in the code section layout (split panel).
 - **Scope:** Attach only for `Code` sections (manual code blocks).
 - **Lifecycle:** No auto-detach on delete. If the terminal is deleted, we recreate on next run.
 - **Movement:** If a top-level code section is dragged, its attached terminal moves by
@@ -35,17 +36,18 @@ future attach/detach flows easy to add.
 ## Frontend Changes
 - On run:
   - Resolve the runnable code section (selected or entry).
-  - If no attached terminal exists, create a terminal section at an adjacent
-    position and call `setCodeSectionAttachedTerminal`.
+  - If no attached terminal exists, create a terminal section and call
+    `setCodeSectionAttachedTerminal`.
+  - Render the attached terminal inside the code section (split panel).
   - Pass `terminalSectionId` into `route_run_code`.
 - On drag:
-  - When a top-level code section moves, move its attached terminal by the same
-    delta to preserve the adjacency.
+  - No separate terminal node to move; the embedded terminal moves with the code
+    section automatically.
 
 ## UX Flow
 1. User clicks Run on a code section.
-2. If no attached terminal exists, a terminal section is created to the right
-   of the code section.
+2. If no attached terminal exists, a terminal section is created and embedded
+   in the code section.
 3. The run executes in that terminal; subsequent runs reuse it.
 
 ## Edge Cases
@@ -60,7 +62,7 @@ future attach/detach flows easy to add.
 - Manual verification:
   - Run a code section with no attached terminal.
   - Confirm terminal appears adjacent and future runs reuse it.
-  - Drag the code section and confirm the terminal follows.
+- Run a code section and confirm the terminal panel appears inside the section.
 
 ## Follow-Up (Future Enhancements)
 - Attach/detach actions in section menus.

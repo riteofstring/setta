@@ -55,10 +55,14 @@ test("run attaches a terminal and reuses it", async ({ page }) => {
     );
 
     expect(secondTerminalId).toBe(firstTerminalId);
+    const embeddedTerminal = page.locator(
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${firstTerminalId}"]`,
+    );
+    await expect(embeddedTerminal).toBeVisible();
     const terminalNode = page.locator(
       `.react-flow__node[data-id="${firstTerminalId}"]`,
     );
-    await expect(terminalNode).toBeVisible();
+    await expect(terminalNode).toHaveCount(0);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }

@@ -1,5 +1,5 @@
 import _ from "lodash";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTerminal } from "state/hooks/terminals/terminal";
@@ -24,6 +24,63 @@ function _TerminalArea({ sectionId }) {
 }
 
 export const TerminalArea = React.memo(_TerminalArea);
+
+type EmbeddedTerminalAreaProps = {
+  sectionId: string;
+  className?: string;
+};
+
+function _EmbeddedTerminalArea({
+  sectionId,
+  className = "",
+}: EmbeddedTerminalAreaProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [hasScrollbar, setHasScrollbar] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      const nextWidth = Math.floor(entry.contentRect.width);
+      const nextHeight = Math.floor(entry.contentRect.height);
+      setDimensions((prev) => {
+        if (prev.width === nextWidth && prev.height === nextHeight) {
+          return prev;
+        }
+        return { width: nextWidth, height: nextHeight };
+      });
+    });
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  const width = Math.max(0, dimensions.width);
+  const height = Math.max(0, dimensions.height);
+  const terminalRef = useTerminal({
+    sectionId,
+    width,
+    height,
+    setHasScrollbar,
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      className={`flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-setta-950/95 p-2 dark:border-setta-800 ${className}`}
+      data-attached-terminal-section-id={sectionId}
+    >
+      <div
+        ref={terminalRef}
+        className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag h-full w-full`}
+        data-section-main-editor
+      />
+    </div>
+  );
+}
+
+export const EmbeddedTerminalArea = React.memo(_EmbeddedTerminalArea);
 
 function TerminalAreaReadWrite({
   sectionId,
