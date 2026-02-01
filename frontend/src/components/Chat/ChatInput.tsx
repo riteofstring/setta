@@ -29,11 +29,6 @@ import {
   isAttachmentMimeAllowed,
 } from "utils/attachmentPolicy";
 import { formatBytes } from "utils/attachments";
-import {
-  CHAT_SUPPORTED_IMAGE_LABEL,
-  isChatImageAttachmentSupported,
-  isChatImageFileSupported,
-} from "utils/chatAttachmentSupport";
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -258,21 +253,7 @@ export const ChatInput = memo(function ChatInput({
       if (typeAllowedFiles.length === 0) {
         return;
       }
-      const unsupportedImages = typeAllowedFiles.filter(
-        (file) => !isChatImageFileSupported(file),
-      );
-      if (unsupportedImages.length > 0) {
-        notifyAttachmentWarning(
-          `Some images were skipped. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim(),
-        );
-      }
-      const imageAllowedFiles = typeAllowedFiles.filter((file) =>
-        isChatImageFileSupported(file),
-      );
-      if (imageAllowedFiles.length === 0) {
-        return;
-      }
-      const oversized = imageAllowedFiles.filter(
+      const oversized = typeAllowedFiles.filter(
         (file) => file.size > chatPolicy.maxFileBytes,
       );
       if (oversized.length > 0) {
@@ -280,7 +261,7 @@ export const ChatInput = memo(function ChatInput({
           `File exceeds ${chatPolicy.maxFileLabel} limit.`,
         );
       }
-      const validFiles = imageAllowedFiles.filter(
+      const validFiles = typeAllowedFiles.filter(
         (file) => file.size <= chatPolicy.maxFileBytes,
       );
       if (validFiles.length === 0) {
@@ -389,32 +370,7 @@ export const ChatInput = memo(function ChatInput({
         if (newAttachments.length === 0) {
           return;
         }
-        const unsupported = newAttachments.filter(
-          (attachment) => !isChatImageAttachmentSupported(attachment),
-        );
-        const supported = newAttachments.filter((attachment) =>
-          isChatImageAttachmentSupported(attachment),
-        );
-        if (unsupported.length > 0) {
-          notifyAttachmentWarning(
-            `Some images were skipped. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim(),
-          );
-          const deleteRes = await route_delete_artifacts({
-            artifacts: unsupported.map((attachment) => ({
-              id: attachment.id,
-              type: ArtifactTypeEnum.File,
-            })),
-          });
-          if (!res200(deleteRes)) {
-            const detail = getErrorDetail(deleteRes.data);
-            const message = detail ?? "Failed to delete skipped attachments.";
-            notifyAttachmentWarning(message);
-          }
-        }
-        if (supported.length === 0) {
-          return;
-        }
-        setAttachments((prev) => [...prev, ...supported]);
+        setAttachments((prev) => [...prev, ...newAttachments]);
       },
     });
   }, [

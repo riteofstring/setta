@@ -1,6 +1,5 @@
 import pytest
 from setta.database.utils import create_new_id
-from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_section_variant
@@ -11,7 +10,7 @@ from setta.types.helpers_lvl2 import (
     set_section_edge_inputs,
     set_section_edge_outputs,
 )
-from setta.types.helpers_lvl3 import copy_project, copy_project_config
+from setta.types.helpers_lvl3 import copy_project
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
@@ -88,58 +87,3 @@ class TestCopyProjectEdge:
         assert copied_edge.targetVariantId not in old_variant_ids
         assert copied_edge.targetPortId in new_code_obj_ids
         assert copied_edge.targetPortId not in old_code_obj_ids
-
-    def test_copy_project_remaps_agentic_edges(self) -> None:
-        source_section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Chat,
-            Position(),
-        )
-        target_section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Dict,
-            Position(),
-        )
-        agentic_edge = AgenticEdge(
-            id=create_new_id(),
-            sourceSectionId=source_section_id,
-            targetSectionId=target_section_id,
-            kind=AgenticEdgeKind.chat_section,
-        )
-        self.project_state.projectConfig.agenticEdges.append(agentic_edge)
-
-        copied = copy_project(self.project_state, "copy", do_create_new_id=True)
-
-        old_section_ids = set(self.project_state.sections.keys())
-        new_section_ids = set(copied.sections.keys())
-
-        assert len(copied.projectConfig.agenticEdges) == 1
-        copied_edge = copied.projectConfig.agenticEdges[0]
-        assert copied_edge.sourceSectionId in new_section_ids
-        assert copied_edge.targetSectionId in new_section_ids
-        assert copied_edge.sourceSectionId not in old_section_ids
-        assert copied_edge.targetSectionId not in old_section_ids
-
-    def test_copy_project_config_requires_agentic_edge_sections(self) -> None:
-        missing_source_id = create_new_id()
-        target_section_id = create_new_id()
-        agentic_edge = AgenticEdge(
-            id=create_new_id(),
-            sourceSectionId=missing_source_id,
-            targetSectionId=target_section_id,
-            kind=AgenticEdgeKind.chat_section,
-        )
-        config = ProjectConfig(
-            name="missing-agentic-sections",
-            agenticEdges=[agentic_edge],
-        )
-        section_id_map = {target_section_id: create_new_id()}
-
-        with pytest.raises(KeyError):
-            copy_project_config(
-                config,
-                section_id_map=section_id_map,
-                section_variant_id_map={},
-            )
