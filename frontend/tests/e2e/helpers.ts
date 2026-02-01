@@ -97,7 +97,7 @@ export async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
-export async function getCurrentProjectConfigName(page: Page): Promise<string> {
+async function getCurrentProjectConfigName(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",

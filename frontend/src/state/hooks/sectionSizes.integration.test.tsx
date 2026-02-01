@@ -1,15 +1,15 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  getResizeStartAutoSizeUpdate,
+  setSectionSize,
+} from "state/actions/sections/sectionSizes";
+import {
   useProjectState,
   useResizeEvent,
   useSettings,
   useTemporaryMiscState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  getResizeStartAutoSizeUpdate,
-  setSectionSize,
-} from "state/actions/sections/sectionSizes";
 import {
   getEdgesStripHeightKey,
   getKwargsControlsHeightKey,

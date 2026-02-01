@@ -157,10 +157,7 @@ export function KwargsControls({
           pinnedParams: nextPinnedParams,
           frontendOpId,
         };
-        console.log(
-          "[KwargsControls][pin][send]",
-          JSON.stringify(payload),
-        );
+        console.log("[KwargsControls][pin][send]", JSON.stringify(payload));
         const res = route_set_section_pinned_params(payload);
         void res.then((response) => {
           console.log(

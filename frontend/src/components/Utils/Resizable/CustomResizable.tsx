@@ -9,7 +9,6 @@ import {
   adjustSizeToBeAtLeastMin,
   getResizeStartAutoSizeUpdate,
   ResizeHandleDirection,
-  setSectionSize,
   setSelfParentSiblingChildrenWidths,
 } from "state/actions/sections/sectionSizes";
 import {
@@ -453,9 +452,7 @@ function CustomResizableSuperCore({
       const handleElement = target.closest(".section-resize-handle");
       if (handleElement) {
         if (
-          handleElement.classList.contains(
-            "section-resize-handle-bottom-right",
-          )
+          handleElement.classList.contains("section-resize-handle-bottom-right")
         ) {
           direction = "bottomRight";
         } else if (

@@ -336,9 +336,7 @@ def parse_python_callables(
     module_path = convert_path_to_module_path(normalize_path(source_path))
     output: list[WatchCodeCallableInfo] = []
     build_params = (
-        logger.isEnabledFor(logging.DEBUG)
-        if include_params is None
-        else include_params
+        logger.isEnabledFor(logging.DEBUG) if include_params is None else include_params
     )
     for node in tree.body:
         if isinstance(node, ast.FunctionDef):

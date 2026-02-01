@@ -3,7 +3,6 @@ import type { ZustandProjectState } from "state/definitions";
 import {
   createProjectConfig,
   createSingletonSections,
-  createVariant,
   type ShownParamIds,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
@@ -68,14 +67,20 @@ describe("getCurrShownParamIds", () => {
       parentSectionMap: {},
       shownParamIds: {
         [variantId]: {
-          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["param-a"] },
+          pinned: {
+            requiredParamIdsToPaths: {},
+            topLevelParamIds: ["param-a"],
+          },
           unpinned: {
             requiredParamIdsToPaths: { "param-a": ["param-a"] },
             topLevelParamIds: ["param-a"],
           },
         },
         [previewVariantId]: {
-          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["param-b"] },
+          pinned: {
+            requiredParamIdsToPaths: {},
+            topLevelParamIds: ["param-b"],
+          },
           unpinned: {
             requiredParamIdsToPaths: { "param-b": ["param-b"] },
             topLevelParamIds: ["param-b"],
@@ -90,5 +95,4 @@ describe("getCurrShownParamIds", () => {
 
     expect(unpinned.topLevelParamIds).toEqual(["param-b"]);
   });
-
 });

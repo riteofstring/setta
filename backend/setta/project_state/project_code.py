@@ -30,11 +30,11 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
     SignatureHelpStatus,
     process_signature_help_response,
 )
-from setta.project_state.watch_code import parse_python_callables
 from setta.project_state.project_manager_types import (
     SetCallableChildCodeObj,
     SetCallableResponse,
 )
+from setta.project_state.watch_code import parse_python_callables
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
 from setta.types.dependency_key import create_dep_key

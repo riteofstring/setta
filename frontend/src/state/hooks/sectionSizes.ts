@@ -254,9 +254,10 @@ export function useSectionMinMaxDims(sectionId: string) {
     });
     const isAutoHeight = impl.size.height === "auto";
     const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
-    const maxHeight = isAutoHeight && !isResizing
-      ? Math.max(minHeight, Math.min(policyMaxHeight, autoMaxHeight))
-      : policyMaxHeight;
+    const maxHeight =
+      isAutoHeight && !isResizing
+        ? Math.max(minHeight, Math.min(policyMaxHeight, autoMaxHeight))
+        : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
