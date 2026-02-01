@@ -1,44 +1,25 @@
-# Acceptance Specs
+# Acceptance Testing Plan (Draft)
 
-Acceptance specs are human-readable, frontend-focused behavior descriptions. They are the source of truth for generated Playwright acceptance tests.
+## Goal
 
-## Format
+Introduce a small, frontend-focused acceptance testing layer that captures visible behavior in human-readable specs. The intent is to reduce fragility by making high-level behavior easy to review and hard to accidentally regress.
 
-- Each file lives under `docs/acceptance/specs/`.
-- Use `# Feature:` and `## Scenario:` headings.
-- Steps start with `Given`, `When`, `Then`, or `And`.
-- Doc strings use triple quotes and must follow a step ending with `:`.
+## Scope (Initial)
 
-Example:
+- Frontend only (Playwright E2E).
+- Opt-in via an environment flag to avoid impacting existing workflows.
+- Start with a small set of critical flows (2-5).
 
-```md
-# Feature: Formatter errors are visible
+## Proposed Approach
 
-## Scenario: formatting invalid code shows issues
-Given the app is ready
-And a new project config exists
-When I create a code section named "Formatter Code"
-And I focus the code area for "Formatter Code"
-And I set the code to:
-  """
-  def bad(:
-    pass
-  """
-And I press "Alt+Shift+F"
-Then I should see "Failed to run formatter."
-And I open the Issues panel for "Formatter Code"
-And I should see "Problems"
-```
+- Define a compact spec format (`Feature`, `Scenario`, `Given/When/Then/And`).
+- Specs live under a dedicated `docs/acceptance/specs/` folder.
+- A generator validates specs and materializes Playwright tests.
+- Acceptance tests are gated by an environment flag (for example `SETTA_ACCEPTANCE=1`).
+- Enforce review of specs with CODEOWNERS to prevent casual edits.
 
-## Workflow
+## Open Questions
 
-- Edit specs only; generated tests should not be hand-edited.
-- Run `pnpm -C frontend acceptance:generate` to regenerate tests.
-- Run acceptance tests via:
-  - `SETTA_ACCEPTANCE=1 ./scripts/run-playwright-e2e.sh -- --grep @acceptance`
-  - or `./scripts/run-acceptance-e2e.sh`
-
-## Notes
-
-- Acceptance tests are opt-in via `SETTA_ACCEPTANCE=1`.
-- Specs are validated before acceptance runs; mismatches fail early.
+- Do we want generated tests to be ephemeral or checked in?
+- Should acceptance tests run in CI on a schedule, or only on demand?
+- What flows are most valuable as the first acceptance suite?
