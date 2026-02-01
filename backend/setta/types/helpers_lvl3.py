@@ -438,8 +438,12 @@ def remap_view_modes(
     remapped_view_modes: dict[ID, ViewModeConfig] = {}
     for view_mode_id, view_mode in view_modes.items():
         visibility = rename_keys(view_mode.visibilityBySectionId, section_id_map)
+        top_level_sections = rename_keys(view_mode.topLevelSections, section_id_map)
         remapped_view_modes[view_mode_id] = view_mode.model_copy(
-            update={"visibilityBySectionId": visibility},
+            update={
+                "visibilityBySectionId": visibility,
+                "topLevelSections": top_level_sections,
+            },
             deep=True,
         )
     return remapped_view_modes
