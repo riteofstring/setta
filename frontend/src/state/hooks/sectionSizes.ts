@@ -295,12 +295,13 @@ export function useSectionMinMaxDims(sectionId: string) {
           : minHeight;
       const variantId = getCurrSectionVariantId(x, sectionId, true);
       const shown = x.shownParamIds[variantId];
+      const hasEdges =
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+      let requiredParamsHeight = 0;
       if (shown) {
         const pinned = shown.pinned;
         const unpinned = shown.unpinned;
         const edgeInputSet = new Set(impl.edgeInputParams);
-        const hasEdges =
-          impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
         const hasPinnedParams = pinned.topLevelParamIds.some(
           (paramId) => !edgeInputSet.has(paramId),
         );
@@ -324,24 +325,23 @@ export function useSectionMinMaxDims(sectionId: string) {
           unpinnedParamsMeasuredHeight > 0
             ? Math.max(unpinnedParamsMeasuredHeight, baseUnpinnedMinHeight)
             : baseUnpinnedMinHeight;
-        let requiredParamsHeight = 0;
         if (hasPinnedParams) {
           requiredParamsHeight += resolvedPinnedMinHeight;
         }
         if (hasUnpinnedParams) {
           requiredParamsHeight += resolvedUnpinnedMinHeight;
         }
-        if (hasEdges) {
-          const resolvedEdgesStripHeight =
-            edgesStripHeight > 0 ? edgesStripHeight : EDGES_STRIP_MIN_HEIGHT;
-          requiredParamsHeight += resolvedEdgesStripHeight;
-        }
-        if (kwargsControlsHeight > 0) {
-          requiredParamsHeight += kwargsControlsHeight;
-        }
-        if (requiredParamsHeight > 0) {
-          minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
-        }
+      }
+      if (hasEdges) {
+        const resolvedEdgesStripHeight =
+          edgesStripHeight > 0 ? edgesStripHeight : EDGES_STRIP_MIN_HEIGHT;
+        requiredParamsHeight += resolvedEdgesStripHeight;
+      }
+      if (kwargsControlsHeight > 0) {
+        requiredParamsHeight += kwargsControlsHeight;
+      }
+      if (requiredParamsHeight > 0) {
+        minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
       }
     }
 

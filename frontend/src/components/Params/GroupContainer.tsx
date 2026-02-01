@@ -32,11 +32,12 @@ import {
   getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { getEdgeStripEstimatedHeight } from "./edgeStripUtils";
+import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
 } from "./paramAreaMeasurements";
+import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
@@ -135,7 +136,7 @@ function useMeasuredParamAreaMinHeight({
 
   useLayoutEffect(() => {
     let frameId = 0;
-    let mutationObserver: MutationObserver | null = null;
+    let cleanupObservers: (() => void) | null = null;
 
     const updateHeight = (nextHeight: number) => {
       if (lastMeasuredHeightRef.current === nextHeight) {
@@ -189,21 +190,17 @@ function useMeasuredParamAreaMinHeight({
 
     scheduleMeasure();
 
-    mutationObserver = new MutationObserver(scheduleMeasure);
-    mutationObserver.observe(rows, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
+    cleanupObservers = attachParamAreaObservers({
+      rowsElement: rows,
+      headerElement: headerRef?.current ?? null,
+      onMeasure: scheduleMeasure,
     });
 
     return () => {
       if (frameId) {
         cancelAnimationFrame(frameId);
       }
-      if (mutationObserver) {
-        mutationObserver.disconnect();
-      }
+      cleanupObservers?.();
     };
   }, [heightKey, measureKey, resizeEvent]);
 
@@ -219,6 +216,8 @@ function useMeasuredParamAreaMinHeight({
 function EdgesStrip({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
   const lastHeightRef = useRef(0);
+  const stripRef = useRef<HTMLElement | null>(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const heightKey = getEdgesStripHeightKey(sectionId);
   const { inputPorts, outputPorts, shouldRoundBottom, positionAndSizeLocked } =
     useProjectState((state) => {
@@ -273,6 +272,42 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
 
+  useLayoutEffect(() => {
+    if (!hasEdges) {
+      setMeasuredHeight(null);
+      return;
+    }
+    const element = stripRef.current;
+    if (!element) {
+      setMeasuredHeight(null);
+      return;
+    }
+    let frameId = 0;
+
+    const updateMeasuredHeight = () => {
+      const nextHeight = Math.ceil(element.scrollHeight);
+      setMeasuredHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateMeasuredHeight);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    resizeObserver.observe(element);
+    scheduleMeasure();
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      resizeObserver.disconnect();
+    };
+  }, [hasEdges, inputPorts.length, outputPorts.length]);
+
   useEffect(() => {
     if (!hasEdges) {
       if (lastHeightRef.current !== 0) {
@@ -281,15 +316,23 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
       }
       return;
     }
-    const nextHeight = Math.ceil(
-      getEdgeStripEstimatedHeight(inputPorts.length, outputPorts.length),
-    );
+    const nextHeight = resolveEdgeStripHeight({
+      measuredHeight,
+      inputPortCount: inputPorts.length,
+      outputPortCount: outputPorts.length,
+    });
     if (nextHeight === lastHeightRef.current) {
       return;
     }
     lastHeightRef.current = nextHeight;
     useTemporaryMiscState.setState({ [heightKey]: nextHeight });
-  }, [hasEdges, heightKey, inputPorts.length, outputPorts.length]);
+  }, [
+    hasEdges,
+    heightKey,
+    inputPorts.length,
+    measuredHeight,
+    outputPorts.length,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -314,6 +357,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
   return (
     <section
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-50 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
+      ref={stripRef}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-3">

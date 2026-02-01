@@ -16,3 +16,20 @@ export function getEdgeStripEstimatedHeight(
     EDGE_PORT_ROW_GAP * Math.max(rowCount - 1, 0)
   );
 }
+
+type ResolveEdgeStripHeightInput = {
+  measuredHeight: number | null | undefined;
+  inputPortCount: number;
+  outputPortCount: number;
+};
+
+export function resolveEdgeStripHeight({
+  measuredHeight,
+  inputPortCount,
+  outputPortCount,
+}: ResolveEdgeStripHeightInput): number {
+  if (typeof measuredHeight === "number" && measuredHeight > 0) {
+    return Math.ceil(measuredHeight);
+  }
+  return Math.ceil(getEdgeStripEstimatedHeight(inputPortCount, outputPortCount));
+}

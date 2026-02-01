@@ -296,6 +296,68 @@ describe("useSectionMinMaxDims integration", () => {
     expect(dims.minHeight).toBe(244);
   });
 
+  it("includes edges and kwargs when shown params are missing", () => {
+    const sectionId = "section-no-shown";
+    const variantId = "variant-no-shown";
+    const implId = "impl-no-shown";
+
+    const projectConfig = createProjectConfig({
+      id: "project-no-shown",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const callableImpl = {
+      type: SectionTypeEnum.Callable,
+      id: implId,
+      name: "Callable",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 400, height: 200 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: ["edge-param"],
+      edgeOutputPorts: [],
+      callable: null,
+      hideParams: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: callableImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {};
+    });
+
+    useTemporaryMiscState.setState({
+      [getEdgesStripHeightKey(sectionId)]: 90,
+      [getKwargsControlsHeightKey(sectionId)]: 18,
+    });
+
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useTemporaryMiscState);
+
+    const dims = renderDims(sectionId);
+    expect(dims.minHeight).toBe(148);
+  });
+
   it("prefers measured pinned/unpinned heights over policy defaults", () => {
     const sectionId = "section-measured";
     const variantId = "variant-measured";

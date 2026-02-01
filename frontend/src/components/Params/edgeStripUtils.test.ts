@@ -4,6 +4,7 @@ import {
   EDGE_PORT_ROW_HEIGHT,
   EDGE_STRIP_BASE_HEIGHT,
   getEdgeStripEstimatedHeight,
+  resolveEdgeStripHeight,
 } from "./edgeStripUtils";
 
 describe("getEdgeStripEstimatedHeight", () => {
@@ -27,5 +28,28 @@ describe("getEdgeStripEstimatedHeight", () => {
       EDGE_PORT_ROW_HEIGHT * rows +
       EDGE_PORT_ROW_GAP * (rows - 1);
     expect(getEdgeStripEstimatedHeight(0, rows)).toBe(expected);
+  });
+});
+
+describe("resolveEdgeStripHeight", () => {
+  it("prefers measured height when available", () => {
+    expect(
+      resolveEdgeStripHeight({
+        measuredHeight: 132,
+        inputPortCount: 2,
+        outputPortCount: 3,
+      }),
+    ).toBe(132);
+  });
+
+  it("falls back to estimated height when measured is missing", () => {
+    const expected = getEdgeStripEstimatedHeight(1, 2);
+    expect(
+      resolveEdgeStripHeight({
+        measuredHeight: null,
+        inputPortCount: 1,
+        outputPortCount: 2,
+      }),
+    ).toBe(expected);
   });
 });

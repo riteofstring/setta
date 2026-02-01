@@ -193,10 +193,18 @@ function CustomResizableCore({
     const isDoubleClick =
       doubleClickPendingRef.current ||
       (typeof event.detail === "number" && event.detail === 2);
+    const shouldEmitResizeEnd = shouldEmitResizeEndEvent({
+      resizeStarted: resizeStartedRef.current,
+      resizeAttempted: resizeAttemptedRef.current,
+      isZeroDelta,
+      isDoubleClick,
+    });
     if (isZeroDelta && !isDoubleClick && !resizeAttemptedRef.current) {
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "end", state);
-      });
+      if (shouldEmitResizeEnd) {
+        useResizeEvent.setState((state) => {
+          setSectionResizeEvent(sectionId, "end", state);
+        });
+      }
       useMisc.setState({ mouseDownDraggingSection: false });
       resizeStartedRef.current = false;
       autoSizePromotedRef.current = false;
@@ -252,9 +260,11 @@ function CustomResizableCore({
           frontendOpId,
         }),
     });
-    useResizeEvent.setState((state) => {
-      setSectionResizeEvent(sectionId, "end", state);
-    });
+    if (shouldEmitResizeEnd) {
+      useResizeEvent.setState((state) => {
+        setSectionResizeEvent(sectionId, "end", state);
+      });
+    }
     useMisc.setState({ mouseDownDraggingSection: false });
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
@@ -596,6 +606,28 @@ function useAspectRatio(sectionId: string) {
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
   state.resizeEvent[sectionId] = resizeEvent;
+}
+
+type ResizeEndDecisionInput = {
+  resizeStarted: boolean;
+  resizeAttempted: boolean;
+  isZeroDelta: boolean;
+  isDoubleClick: boolean;
+};
+
+export function shouldEmitResizeEndEvent({
+  resizeStarted,
+  resizeAttempted,
+  isZeroDelta,
+  isDoubleClick,
+}: ResizeEndDecisionInput): boolean {
+  if (!resizeStarted) {
+    return false;
+  }
+  if (isZeroDelta && !isDoubleClick && !resizeAttempted) {
+    return false;
+  }
+  return true;
 }
 
 export function clampChangedSize({
