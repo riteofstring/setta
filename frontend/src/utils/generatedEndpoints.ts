@@ -859,7 +859,7 @@ export async function route_set_code_section_diagnostic_code_suppression(
   return await post("/setCodeSectionDiagnosticCodeSuppression", x);
 }
 
-async function route_set_code_section_attached_terminal(
+export async function route_set_code_section_attached_terminal(
   x: gt.SetCodeSectionAttachedTerminalRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCodeSectionAttachedTerminal", x);

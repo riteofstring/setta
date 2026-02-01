@@ -4,9 +4,9 @@ import React from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
   getSectionShouldRender,
   getSectionViewModeVisibility,
+  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
@@ -103,7 +103,6 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(
-  _SectionContainer,
-  (p, n) => _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
 );

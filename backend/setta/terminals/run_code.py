@@ -12,6 +12,7 @@ from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 
 logger = logging.getLogger(__name__)
 
+
 def _is_valid_attached_terminal(
     project_state,
     section_id: ID | None,

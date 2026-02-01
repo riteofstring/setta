@@ -150,23 +150,14 @@ function _SortableCore({
   );
 }
 
-function TempSectionOrNot({
-  sectionId,
-  applyTransform,
-  listeners,
-}) {
+function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
   if (isTempSection(sectionId)) {
     if (applyTransform) {
       return <TempDNDSection />;
     }
     return null;
   } else {
-    return (
-      <SectionContainer
-        sectionId={sectionId}
-        dragListeners={listeners}
-      />
-    );
+    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
   }
 }
 

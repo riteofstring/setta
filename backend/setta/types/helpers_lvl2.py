@@ -1171,11 +1171,7 @@ def ensure_code_section_embedded_terminal_size(
     set_curr_effective_section_impl_value(
         p,
         sectionId,
-        {
-            "size": SectionSize(
-                width=code_impl.size.width, height=expected_min_height
-            )
-        },
+        {"size": SectionSize(width=code_impl.size.width, height=expected_min_height)},
     )
 
 
