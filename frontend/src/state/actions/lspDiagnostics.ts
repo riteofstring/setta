@@ -14,6 +14,24 @@ import {
 import { getCurrProjectConfigId } from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
 
+export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
+
+function splitFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
+  if (diagnostics.length === 0) {
+    return { formatter: [], rest: [] };
+  }
+  const formatter: Array<SettaLspDiagnostic> = [];
+  const rest: Array<SettaLspDiagnostic> = [];
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.source === FORMATTER_DIAGNOSTIC_SOURCE) {
+      formatter.push(diagnostic);
+    } else {
+      rest.push(diagnostic);
+    }
+  }
+  return { formatter, rest };
+}
+
 function areDiagnosticRangesEqual(
   left: SettaLspDiagnostic["range"],
   right: SettaLspDiagnostic["range"],
@@ -72,7 +90,14 @@ function mergeDiagnosticsBySection(
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
     seen.add(sectionId);
     const prevDiagnostics = previous[sectionId];
-    if (nextDiagnostics.length === 0) {
+    const { formatter: prevFormatter } = splitFormatterDiagnostics(
+      prevDiagnostics ?? [],
+    );
+    const mergedDiagnostics =
+      nextDiagnostics.length === 0
+        ? prevFormatter
+        : nextDiagnostics.concat(prevFormatter);
+    if (mergedDiagnostics.length === 0) {
       if (prevDiagnostics?.length) {
         changed = true;
       }
@@ -81,13 +106,13 @@ function mergeDiagnosticsBySection(
 
     if (
       prevDiagnostics &&
-      areDiagnosticsListEqual(prevDiagnostics, nextDiagnostics)
+      areDiagnosticsListEqual(prevDiagnostics, mergedDiagnostics)
     ) {
       merged[sectionId] = prevDiagnostics;
       continue;
     }
-    merged[sectionId] = nextDiagnostics;
-    if (!prevDiagnostics || prevDiagnostics !== nextDiagnostics) {
+    merged[sectionId] = mergedDiagnostics;
+    if (!prevDiagnostics || prevDiagnostics !== mergedDiagnostics) {
       changed = true;
     }
   }
@@ -96,9 +121,20 @@ function mergeDiagnosticsBySection(
     if (seen.has(sectionId)) {
       continue;
     }
-    if (previous[sectionId]?.length) {
-      changed = true;
+    const prevDiagnostics = previous[sectionId] ?? [];
+    const { formatter } = splitFormatterDiagnostics(prevDiagnostics);
+    if (formatter.length === 0) {
+      if (prevDiagnostics.length > 0) {
+        changed = true;
+      }
+      continue;
     }
+    if (areDiagnosticsListEqual(prevDiagnostics, formatter)) {
+      merged[sectionId] = prevDiagnostics;
+      continue;
+    }
+    merged[sectionId] = formatter;
+    changed = true;
   }
 
   return { codeSections: merged, changed };
@@ -108,16 +144,13 @@ function mergeUnmappedGenCode(
   previous: Array<SettaLspDiagnostic>,
   incoming: Array<SettaLspDiagnostic>,
 ) {
-  if (incoming.length === 0) {
-    if (previous.length > 0) {
-      return { unmappedGenCode: [], changed: true };
-    }
+  const { formatter: prevFormatter } = splitFormatterDiagnostics(previous);
+  const mergedDiagnostics =
+    incoming.length === 0 ? prevFormatter : incoming.concat(prevFormatter);
+  if (areDiagnosticsListEqual(previous, mergedDiagnostics)) {
     return { unmappedGenCode: previous, changed: false };
   }
-  if (areDiagnosticsListEqual(previous, incoming)) {
-    return { unmappedGenCode: previous, changed: false };
-  }
-  return { unmappedGenCode: incoming, changed: true };
+  return { unmappedGenCode: mergedDiagnostics, changed: true };
 }
 
 export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {

@@ -304,6 +304,12 @@ class ListenerForceRefreshProjectRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
+class ListenerFormatCodeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+
+
 class ListenerGenCodePrefixCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1081,6 +1087,9 @@ class RouterEndpointAPI:
         self, payload: ListenerForceRefreshProjectRequestPayload
     ) -> None:
         return await self._caller("route_force_refresh_listener", payload)
+
+    async def format_code(self, payload: ListenerFormatCodeRequestPayload) -> None:
+        return await self._caller("route_format_code", payload)
 
     async def gen_code_prefix_completion(
         self, payload: ListenerGenCodePrefixCompletionRequestPayload

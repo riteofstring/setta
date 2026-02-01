@@ -20,6 +20,7 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     GetPasswordParamValueRequest,
     GroupSectionsRequest,
+    FormatCodeRequest,
     PasteSectionsRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
@@ -80,6 +81,7 @@ from setta.routers.project_manager import (
     route_set_chart_type,
     route_set_code,
     route_set_code_file_binding,
+    route_format_code,
     route_set_code_obj_display_name,
     route_set_code_obj_name,
     route_set_gen_code_prefix,
@@ -636,6 +638,14 @@ class TestSharePolicyRoutes:
                         projectConfigId=project_config_id,
                         sectionId=section_id,
                         code="print('hi')",
+                    ),
+                ),
+                (
+                    "format_code",
+                    route_format_code,
+                    FormatCodeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
                     ),
                 ),
                 (

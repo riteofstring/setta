@@ -706,6 +706,10 @@ class SetCodeRequest(ProjectManagerRequestWithSection):
     )
 
 
+class FormatCodeRequest(ProjectManagerRequestWithSection):
+    """Format the code in a section using Ruff."""
+
+
 class CodeFileBindingUpdate(BaseModel):
     canonical_path: str
     access_mode: CodeFileAccessMode
