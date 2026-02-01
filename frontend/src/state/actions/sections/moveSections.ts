@@ -29,34 +29,23 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
-  const stableSectionIds = [...sectionIds];
-  const stablePositionsById = positionsById
-    ? Object.fromEntries(
-        Object.entries(positionsById).map(([id, position]) => [
-          id,
-          { x: position.x, y: position.y },
-        ]),
-      )
-    : null;
-  const stableNewParentId = newParentId;
-  const stableNewIndex = newIndex;
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
-        sectionIds: stableSectionIds,
-        newParentId: stableNewParentId,
-        newIndex: stableNewIndex,
-        positionsById: stablePositionsById,
+        sectionIds,
+        newParentId,
+        newIndex,
+        positionsById,
         state,
       });
     },
     send: (frontendOpId) =>
       route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
-        sectionIds: stableSectionIds,
-        newParentId: stableNewParentId,
-        newIndex: stableNewIndex,
-        positionsById: stablePositionsById,
+        sectionIds,
+        newParentId,
+        newIndex,
+        positionsById,
         frontendOpId,
       }),
   });

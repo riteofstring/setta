@@ -287,7 +287,7 @@ class AgentRunner:
         context = self._build_context(
             profile,
             inputs,
-            emit_stream=True,
+            emit_stream=False,
             emit_ai_follow=False,
         )
         run = context.run
