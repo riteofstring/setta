@@ -111,6 +111,18 @@ test("formatting errors show diagnostics for code sections", async ({
     } else {
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
+
+    const lintTarget = section
+      .locator(".cm-lintRange, .cm-lintPoint")
+      .first();
+    await expect(lintTarget).toBeVisible();
+    await lintTarget.hover();
+    const lintTooltip = page
+      .locator(".setta-codemirror-tooltips .cm-tooltip-lint")
+      .first();
+    await expect(lintTooltip).toBeVisible();
+    await expect(lintTooltip).toHaveCSS("border-top-left-radius", "8px");
+    await expect(lintTooltip).toHaveCSS("min-width", "180px");
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -168,6 +180,9 @@ test("code issues popover stays attached while panning", async ({ page }) => {
       .filter({ has: problemsLabel })
       .first();
     await expect(popover).toBeVisible();
+    const popoverContent = popover.locator("> div").first();
+    await expect(popoverContent).toHaveClass(/rounded-md/);
+    await expect(popoverContent).toHaveClass(/backdrop-blur/);
 
     const beforeDelta = await getCenterDelta(issuesButton, popover);
 
