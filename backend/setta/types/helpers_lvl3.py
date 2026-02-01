@@ -8,6 +8,7 @@ from setta.project_state.project_state_summary_types import (
     ProjectStateSummaryParam,
     ProjectStateSummarySection,
 )
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import (
     BaseParentCodeObjImpl,
@@ -37,7 +38,6 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
-    BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
@@ -489,6 +489,11 @@ def copy_project_config(
                 section_variant_id_map,
                 code_obj_id_map,
             )
+        if project_config.agenticEdges:
+            new_values["agenticEdges"] = _remap_agentic_edges(
+                project_config.agenticEdges,
+                section_id_map,
+            )
 
     return project_config.model_copy(update=new_values, deep=True)
 
@@ -519,6 +524,30 @@ def _remap_edges(
                     "targetSectionId": section_id_map[edge.targetSectionId],
                     "targetVariantId": section_variant_id_map[edge.targetVariantId],
                     "targetPortId": code_obj_id_map[edge.targetPortId],
+                },
+                deep=True,
+            )
+        )
+    return remapped
+
+
+def _remap_agentic_edges(
+    edges: list[AgenticEdge],
+    section_id_map: dict[ID, ID],
+) -> list[AgenticEdge]:
+    remapped: list[AgenticEdge] = []
+    for edge in edges:
+        source_id = edge.sourceSectionId
+        target_id = edge.targetSectionId
+        if source_id in section_id_map:
+            source_id = section_id_map[source_id]
+        if target_id in section_id_map:
+            target_id = section_id_map[target_id]
+        remapped.append(
+            edge.model_copy(
+                update={
+                    "sourceSectionId": source_id,
+                    "targetSectionId": target_id,
                 },
                 deep=True,
             )
@@ -599,11 +628,6 @@ def update_section_impl_details(
     for c in sectionImpls.values():
         if isinstance(c, BaseParentSectionImpl):
             c.children = [sectionIdMap[v] for v in c.children]
-        if isinstance(c, BaseCodeSectionImpl) and c.attachedTerminalSectionId:
-            if c.attachedTerminalSectionId in sectionIdMap:
-                c.attachedTerminalSectionId = sectionIdMap[c.attachedTerminalSectionId]
-            else:
-                c.attachedTerminalSectionId = None
         if isinstance(c, BaseSectionWithParamsImpl):
             c.codeObjVariantMap = rename_keys(c.codeObjVariantMap, codeObjIdMap)
             c.codeObjVariantMap = {
@@ -750,14 +774,6 @@ def _remap_section_modifier(
         modifier["callable"] = _remap_optional_id(
             modifier["callable"], code_obj_id_map, "Code obj"
         )
-    if "attachedTerminalSectionId" in modifier:
-        terminal_id = modifier["attachedTerminalSectionId"]
-        if terminal_id is None:
-            pass
-        elif terminal_id in section_id_map:
-            modifier["attachedTerminalSectionId"] = section_id_map[terminal_id]
-        else:
-            modifier["attachedTerminalSectionId"] = None
     if "ignoreTypeErrors" in modifier:
         _remap_ignore_type_errors(modifier["ignoreTypeErrors"], code_obj_id_map)
 

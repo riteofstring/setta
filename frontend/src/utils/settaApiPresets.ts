@@ -21,6 +21,7 @@ export const SETTA_API_PRESETS: Array<SettaApiPreset> = [
       const topLevelSections = createTopLevelSectionLayoutDict(
         projectState.sections,
         useNodeInternals.getState().x,
+        projectState.projectConfig.topLevelSections,
       );
       return {
         projectConfigId: getCurrProjectConfigId(),

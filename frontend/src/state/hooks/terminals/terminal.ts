@@ -39,7 +39,7 @@ export function useTerminal({
   height: number;
   setHasScrollbar: (value: boolean) => void;
 }) {
-  const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
+  const terminalRef = useRef(null); // Ref for the terminal container
   const terminalReadyRef = useRef(false);
   const fitAddon = useFitAddon();
   const isShareMode = useShareSession((x) => x.isShareMode);

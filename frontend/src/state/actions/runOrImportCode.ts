@@ -4,7 +4,6 @@ import {
   useRunControl,
   useSettings,
   useShareSession,
-  type ZustandProjectState,
 } from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { isRunnableCodeLanguage } from "utils/codeLanguage";
@@ -80,15 +79,10 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
-  const terminalSectionId = await ensureAttachedTerminalForRun({
-    sectionId,
-    projectConfig,
-  });
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
   await route_run_code({
     projectConfigId: projectConfig.id,
     sectionId,
-    terminalSectionId,
     cliId: null,
     runSnapshotMode,
     drawSnapshotsBySectionId,
@@ -147,98 +141,4 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
     return null;
   }
   return await collectDrawSnapshotPayloads(drawSectionIds);
-}
-
-function logAttachedTerminal(payload: Record<string, unknown>) {
-  console.info(
-    JSON.stringify({
-      event: "attached-terminal",
-      ...payload,
-    }),
-  );
-}
-
-async function ensureAttachedTerminalForRun({
-  sectionId,
-  projectConfig,
-}: {
-  sectionId: string | null;
-  projectConfig: ZustandProjectState["projectConfig"];
-}): Promise<string | null> {
-  const resolvedSectionId = resolveAttachmentSectionId(
-    sectionId,
-    projectConfig,
-  );
-  logAttachedTerminal({
-    stage: "resolve-section",
-    sectionId,
-    resolvedSectionId,
-    projectConfigId: projectConfig.id,
-  });
-  if (!resolvedSectionId) {
-    return null;
-  }
-  const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
-  if (impl.type !== SectionTypeEnum.Code) {
-    logAttachedTerminal({
-      stage: "non-code-section",
-      resolvedSectionId,
-      sectionType: impl.type,
-    });
-    return null;
-  }
-  const existingTerminalId = resolveAttachedTerminalId(
-    state,
-    resolvedSectionId,
-  );
-  if (existingTerminalId) {
-    logAttachedTerminal({
-      stage: "existing-terminal",
-      resolvedSectionId,
-      terminalSectionId: existingTerminalId,
-    });
-    return existingTerminalId;
-  }
-  logAttachedTerminal({
-    stage: "await-backend-attach",
-    resolvedSectionId,
-    reason: "backend-run",
-  });
-  return null;
-}
-
-function resolveAttachmentSectionId(
-  sectionId: string | null,
-  projectConfig: ZustandProjectState["projectConfig"],
-): string | null {
-  if (sectionId) {
-    return sectionId;
-  }
-  if (!projectConfig.entryCodeBlockId) {
-    return null;
-  }
-  return projectConfig.entryCodeBlockId;
-}
-
-function resolveAttachedTerminalId(
-  state: ZustandProjectState,
-  sectionId: string,
-): string | null {
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  if (impl.type !== SectionTypeEnum.Code) {
-    return null;
-  }
-  if (!impl.attachedTerminalSectionId) {
-    return null;
-  }
-  const terminalId = impl.attachedTerminalSectionId;
-  if (!(terminalId in state.sections)) {
-    return null;
-  }
-  const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
-  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
-    return null;
-  }
-  return terminalId;
 }
