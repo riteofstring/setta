@@ -5,6 +5,7 @@ import pytest
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
+    _resolve_new_section_dimensions,
     auto_layout_top_level_sections,
     create_top_level_section,
     normalize_section_size,
@@ -130,6 +131,19 @@ def test_create_section_clamps_override_sizes() -> None:
     impl = get_curr_effective_section_impl(project_state, section_id)
     assert impl.size.width == 150
     assert impl.size.height == 100
+
+
+def test_new_section_dimensions_use_normalized_size_for_layout() -> None:
+    settings = SettingsState(sectionSizingPolicy=_build_chart_policy())
+
+    width, height = _resolve_new_section_dimensions(
+        settings,
+        SectionType.Chart,
+        {"size": SectionSize(width=20, height=20)},
+    )
+
+    assert width == 150
+    assert height == 100
 
 
 def test_auto_layout_falls_back_for_auto_sizes() -> None:

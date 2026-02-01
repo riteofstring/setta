@@ -30,7 +30,11 @@ import {
 import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { getChangedSize, SIZE_MODE } from "./utils";
+import {
+  getChangedSize,
+  getResizeHandleClickState,
+  SIZE_MODE,
+} from "./utils";
 
 const AUTO_CLAMP_TOLERANCE = 2;
 
@@ -108,6 +112,11 @@ function CustomResizableCore({
   const resizeStartedRef = useRef(false);
   const autoSizePromotedRef = useRef(false);
   const resizeAttemptedRef = useRef(false);
+  const resizeClickRef = useRef<{
+    lastTimestampMs: number | null;
+    lastDirection: ResizeHandleDirection | null;
+  }>({ lastTimestampMs: null, lastDirection: null });
+  const doubleClickPendingRef = useRef(false);
 
   function maybePromoteAutoSize(direction, ref) {
     if (
@@ -170,11 +179,24 @@ function CustomResizableCore({
     beginResize(direction, ref);
   }
 
+  function onResizePointerDown(direction: ResizeHandleDirection) {
+    const { nextState, isDoubleClick } = getResizeHandleClickState({
+      state: resizeClickRef.current,
+      direction,
+      timestampMs: Date.now(),
+    });
+    resizeClickRef.current = nextState;
+    if (isDoubleClick) {
+      doubleClickPendingRef.current = true;
+    }
+  }
+
   function onResizeStop(...props) {
     const [event, direction, ref, delta] = props;
     const isZeroDelta = delta.width === 0 && delta.height === 0;
     const isDoubleClick =
-      typeof event.detail === "number" && event.detail === 2;
+      doubleClickPendingRef.current ||
+      (typeof event.detail === "number" && event.detail === 2);
     if (isZeroDelta && !isDoubleClick && !resizeAttemptedRef.current) {
       useResizeEvent.setState((state) => {
         setSectionResizeEvent(sectionId, "end", state);
@@ -183,12 +205,14 @@ function CustomResizableCore({
       resizeStartedRef.current = false;
       autoSizePromotedRef.current = false;
       resizeAttemptedRef.current = false;
+      doubleClickPendingRef.current = false;
       return;
     }
     const changedSize = getChangedSize({
       props,
       sizeMode,
       aspectRatio,
+      isDoubleClickOverride: isDoubleClick,
     });
     if (
       !isDoubleClick &&
@@ -239,6 +263,7 @@ function CustomResizableCore({
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
+    doubleClickPendingRef.current = false;
   }
 
   useEffect(() => {
@@ -357,6 +382,7 @@ function CustomResizableCore({
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
+      onResizePointerDown={onResizePointerDown}
       aspectRatio={aspectRatio}
       aspectRatioExtraHeight={aspectRatioExtraHeight}
       aspectRatioExtraWidth={aspectRatioExtraWidth}

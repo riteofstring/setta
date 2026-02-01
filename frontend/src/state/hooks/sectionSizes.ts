@@ -263,12 +263,6 @@ export function useSectionMinMaxDims(sectionId: string) {
     const isAutoHeight = impl.size.height === "auto";
     const isResizing = resizeEvent === "start";
     const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
-    const cappedAutoMaxHeight = Math.max(
-      minHeight,
-      Math.min(policyMaxHeight, autoMaxHeight),
-    );
-    const maxHeight =
-      isAutoHeight && !isResizing ? cappedAutoMaxHeight : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
@@ -365,6 +359,12 @@ export function useSectionMinMaxDims(sectionId: string) {
       }
       metaControlSizeMode = resolveMetaControlSizeMode(metaControlEntry);
     }
+
+    const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);
+    const maxHeight =
+      isAutoHeight && !isResizing
+        ? Math.max(minHeight, cappedAutoMaxHeight)
+        : Math.max(minHeight, policyMaxHeight);
 
     const sizeMode = getSizeMode({
       sectionType,

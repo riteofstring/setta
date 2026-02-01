@@ -1,5 +1,3 @@
-import logging
-
 from pydantic import (
     BaseModel,
     Field,
@@ -63,8 +61,6 @@ from setta.utils.utils import (
     build_project_sections_dir,
     normalize_path,
 )
-
-logger = logging.getLogger(__name__)
 SINGLETON_SECTION_TYPES = set(
     [
         SectionType.GlobalVariables,

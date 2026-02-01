@@ -718,7 +718,10 @@ def _resolve_new_section_dimensions(
     if override_data is not None:
         size_data.update(override_data)
     size = SectionSize(**size_data)
-    return _resolve_section_dimensions_from_size(settings, section_type, size)
+    normalized_size = normalize_section_size(
+        settings, section_type, f"new-{section_type.value}", size
+    )
+    return _resolve_section_dimensions_from_size(settings, section_type, normalized_size)
 
 
 def _build_top_level_layout_rects(
@@ -1499,7 +1502,7 @@ def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId:
     sectionImpl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
-    logger.info(
+    logger.debug(
         "add_kwarg start section_id=%s section_type=%s",
         sectionId,
         sectionImpl.type,
@@ -1515,7 +1518,7 @@ def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId:
     updated_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
-    logger.info(
+    logger.debug(
         "add_kwarg done section_id=%s section_type=%s new_param_id=%s callable=%s top_level_param_id=%s",
         sectionId,
         updated_impl.type,

@@ -33,6 +33,10 @@ import {
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { getEdgeStripEstimatedHeight } from "./edgeStripUtils";
+import {
+  buildParamAreaMeasureKey,
+  measureParamAreaMinHeight,
+} from "./paramAreaMeasurements";
 import { ParamDndList } from "./ParamDndList";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
@@ -109,10 +113,29 @@ function useMeasuredParamAreaMinHeight({
 }) {
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const lastMeasuredHeightRef = useRef<number | null>(null);
-  const paramIdsKey = paramIds.join("|");
+  const { sectionWidth, columnWidth } = useProjectState((state) => {
+    if (!state.sections[sectionId]) {
+      return { sectionWidth: null, columnWidth: null };
+    }
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return {
+      sectionWidth: state.sections[sectionId].size.width,
+      columnWidth: impl.columnWidth,
+    };
+  }, _.isEqual);
+  const measureKey = buildParamAreaMeasureKey({
+    paramIds,
+    sectionWidth,
+    columnWidth,
+  });
 
   useLayoutEffect(() => {
     let frameId = 0;
+    let mutationObserver: MutationObserver | null = null;
 
     const updateHeight = (nextHeight: number) => {
       if (lastMeasuredHeightRef.current === nextHeight) {
@@ -136,40 +159,53 @@ function useMeasuredParamAreaMinHeight({
       return;
     }
 
-    frameId = requestAnimationFrame(() => {
+    const measure = () => {
       const rowElements =
         rows.querySelectorAll<HTMLElement>("[data-param-row]");
       if (rowElements.length === 0) {
         updateHeight(0);
         return;
       }
-      let maxRowHeight = 0;
-      rowElements.forEach((row) => {
-        const rowHeight = row.offsetHeight;
-        if (rowHeight > maxRowHeight) {
-          maxRowHeight = rowHeight;
-        }
-      });
-      if (maxRowHeight <= 0) {
-        updateHeight(0);
-        return;
-      }
+      const rowHeights = Array.from(rowElements, (row) => row.offsetHeight);
       const headerHeight = headerRef?.current?.offsetHeight ?? 0;
       const style = window.getComputedStyle(content);
       const paddingTop = Number.parseFloat(style.paddingTop) || 0;
       const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
-      const nextHeight = Math.ceil(
-        paddingTop + paddingBottom + headerHeight + maxRowHeight,
-      );
-      updateHeight(nextHeight > 0 ? nextHeight : 0);
+      const nextHeight = measureParamAreaMinHeight({
+        rowHeights,
+        headerHeight,
+        paddingTop,
+        paddingBottom,
+      });
+      updateHeight(nextHeight);
+    };
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+
+    mutationObserver = new MutationObserver(scheduleMeasure);
+    mutationObserver.observe(rows, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
     });
 
     return () => {
       if (frameId) {
         cancelAnimationFrame(frameId);
       }
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
     };
-  }, [heightKey, paramIdsKey, resizeEvent]);
+  }, [heightKey, measureKey, resizeEvent]);
 
   useEffect(() => {
     return () => {
