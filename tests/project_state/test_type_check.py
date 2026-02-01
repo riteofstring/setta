@@ -236,6 +236,44 @@ def build_project_state(
     return project_state, bindings, section_ids
 
 
+def _build_gen_code_diagnostics(
+    project_config_id: ID,
+    section_id: ID,
+) -> tuple[SettaProjectConfigDiagnostics, list[SettaLspDiagnostic]]:
+    diagnostic = SettaLspDiagnostic(
+        message="Bad code",
+        severity=1,
+        code="reportFoo",
+        source="pyright",
+        range=SettaLspDiagnosticRange(
+            start=SettaLspDiagnosticPosition(line=0, character=0),
+            end=SettaLspDiagnosticPosition(line=0, character=5),
+        ),
+        uri="file:///tmp/example.py",
+    )
+    gen_code = SettaProjectConfigDiagnostics(
+        projectConfigId=project_config_id,
+        errors={
+            section_id: SettaSectionTypeErrors(callable=["Bad code"]),
+        },
+        isGenCode=True,
+    )
+    return gen_code, [diagnostic]
+
+
+async def _seed_gen_code_diagnostics(
+    diagnostics_state: ProjectLspDiagnosticsState,
+    project_config_id: ID,
+    section_id: ID,
+) -> None:
+    gen_code, diagnostics = _build_gen_code_diagnostics(
+        project_config_id, section_id
+    )
+    await diagnostics_state.update_gen_code(gen_code, diagnostics)
+    assert diagnostics_state.gen_code.errors
+    assert diagnostics_state.unmapped_gen_code
+
+
 @asynccontextmanager
 async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
     temp_dir = TemporaryDirectory()
@@ -389,7 +427,7 @@ async def test_type_check_runs_gen_code_and_python_sections() -> None:
 
 
 @pytest.mark.asyncio
-async def test_gen_code_prefix_change_clears_diagnostics_state() -> None:
+async def test_gen_code_prefix_change_keeps_diagnostics_until_lsp_update() -> None:
     codegen_targets = ProjectConfig().codegenTargets
     async with _type_check_manager(codegen_targets=codegen_targets) as manager:
         project_config_id = next(iter(manager.project_state_backend.projectConfigs))
@@ -403,27 +441,11 @@ async def test_gen_code_prefix_change_clears_diagnostics_state() -> None:
         await manager.update(project_state)
 
         diagnostics_state = manager._get_lsp_diagnostics_state(project_config_id)
-        diagnostic = SettaLspDiagnostic(
-            message="Bad code",
-            severity=1,
-            code="reportFoo",
-            source="pyright",
-            range=SettaLspDiagnosticRange(
-                start=SettaLspDiagnosticPosition(line=0, character=0),
-                end=SettaLspDiagnosticPosition(line=0, character=5),
-            ),
-            uri="file:///tmp/example.py",
+        await _seed_gen_code_diagnostics(
+            diagnostics_state,
+            project_config_id,
+            section_ids["python"],
         )
-        gen_code = SettaProjectConfigDiagnostics(
-            projectConfigId=project_config_id,
-            errors={
-                section_ids["python"]: SettaSectionTypeErrors(callable=["Bad code"]),
-            },
-            isGenCode=True,
-        )
-        await diagnostics_state.update_gen_code(gen_code, [diagnostic])
-        assert diagnostics_state.gen_code.errors
-        assert diagnostics_state.unmapped_gen_code
 
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
@@ -432,5 +454,70 @@ async def test_gen_code_prefix_change_clears_diagnostics_state() -> None:
 
         await manager.update(project_state)
 
-        assert diagnostics_state.gen_code.errors == {}
-        assert diagnostics_state.unmapped_gen_code == []
+        assert diagnostics_state.gen_code.errors
+        assert diagnostics_state.unmapped_gen_code
+
+
+@pytest.mark.asyncio
+async def test_gen_code_prefix_edits_keep_diagnostics_between_updates() -> None:
+    codegen_targets = ProjectConfig().codegenTargets
+    async with _type_check_manager(codegen_targets=codegen_targets) as manager:
+        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
+        project_state, _, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=codegen_targets,
+            include_bash=False,
+        )
+
+        await manager.update(project_state)
+
+        diagnostics_state = manager._get_lsp_diagnostics_state(project_config_id)
+        await _seed_gen_code_diagnostics(
+            diagnostics_state,
+            project_config_id,
+            section_ids["python"],
+        )
+
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        for prefix in ("import m\n", "import ma\n", "import math\n"):
+            python_target.genCodePrefix = prefix
+            await manager.update(project_state)
+            assert diagnostics_state.gen_code.errors
+            assert diagnostics_state.unmapped_gen_code
+
+
+@pytest.mark.asyncio
+async def test_gen_code_suffix_change_keeps_diagnostics_until_lsp_update() -> None:
+    codegen_targets = ProjectConfig().codegenTargets
+    async with _type_check_manager(codegen_targets=codegen_targets) as manager:
+        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
+        project_state, _, section_ids = build_project_state(
+            project_config_id=project_config_id,
+            project_name="TypeCheckProject",
+            codegen_targets=codegen_targets,
+            include_bash=False,
+        )
+
+        await manager.update(project_state)
+
+        diagnostics_state = manager._get_lsp_diagnostics_state(project_config_id)
+        await _seed_gen_code_diagnostics(
+            diagnostics_state,
+            project_config_id,
+            section_ids["python"],
+        )
+
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        python_target.genCodeSuffix = (
+            f"{python_target.genCodeSuffix}\n# end"
+        )
+
+        await manager.update(project_state)
+
+        assert diagnostics_state.gen_code.errors
+        assert diagnostics_state.unmapped_gen_code
