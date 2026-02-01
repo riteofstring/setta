@@ -303,12 +303,13 @@ async function setCallable(
   }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
   const projectConfigId = getCurrProjectConfigId();
-  const res = await route_set_callable({
+  const payload = {
     projectConfigId,
     sectionId,
     callableName,
     refetchParams,
-  });
+  };
+  const res = await route_set_callable(payload);
   if (res200(res)) {
     // state update occurs by websocket
     setToNotWaiting();

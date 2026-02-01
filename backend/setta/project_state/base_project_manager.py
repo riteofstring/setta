@@ -91,7 +91,6 @@ from setta.project_state.project_manager_types import (
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
-    CreateAgenticEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
@@ -100,7 +99,6 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
-    DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -131,7 +129,6 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
-    SetAgenticEdgesRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -169,7 +166,6 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
-    SetSectionPinnedAreaHeightRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -203,7 +199,6 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
     UnindentParamsRequest,
     UnselectAllParamsRequest,
-    UpdateAgenticEdgeRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -213,7 +208,6 @@ from setta.project_state.watch_code import (
     normalize_watch_code_files,
     normalize_watch_code_folders,
 )
-from setta.types.agentic_edges import AgenticEdge
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -240,13 +234,11 @@ from setta.types.helpers_lvl2 import (
     auto_layout_top_level_sections,
     change_param_impl,
     collect_ignore_type_errors_by_section,
-    create_agentic_edge,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_edge,
     create_new_section_variant,
     create_top_level_section,
-    delete_agentic_edges,
     delete_child_sections_via_decrementer,
     delete_edges,
     delete_kwarg,
@@ -264,7 +256,6 @@ from setta.types.helpers_lvl2 import (
     move_sections_to_parent_section,
     reconnect_edge,
     resolve_top_level_section_position_and_pan,
-    set_agentic_edges,
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
@@ -295,7 +286,6 @@ from setta.types.helpers_lvl2 import (
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
-    set_section_pinned_area_height,
     set_section_pinned_params,
     set_section_sizes,
     set_section_variant,
@@ -317,7 +307,6 @@ from setta.types.helpers_lvl2 import (
     ungroup_groups,
     unindent_params,
     unselect_all_params,
-    update_agentic_edge,
     update_edge,
     update_param_impl_config,
 )
@@ -1048,7 +1037,9 @@ class BaseProjectManager(ABC):
     ):
         """Automatically arrange top-level sections using rectangle packing."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        auto_layout_top_level_sections(project_state, margin=x.margin)
+        auto_layout_top_level_sections(
+            self.settings_file.settings, project_state, margin=x.margin
+        )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -1060,19 +1051,13 @@ class BaseProjectManager(ABC):
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
         section_ids = sorted(x.sectionSizes.keys())
-        logger.debug(
-            "set_section_sizes project_config_id=%s section_ids=%s count=%s",
-            x.projectConfigId,
-            section_ids,
-            len(section_ids),
-        )
         coalesce_key = f"sectionSize:{x.projectConfigId}:{','.join(section_ids)}"
         self.add_new_history_entry(
             coalesce_key=coalesce_key,
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_sizes(project_state, x.sectionSizes)
+        set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -2115,43 +2100,6 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        edge = AgenticEdge(
-            sourceSectionId=x.sourceSectionId,
-            targetSectionId=x.targetSectionId,
-            kind=x.kind,
-            contextMode=x.contextMode,
-            style=x.style,
-            hidden=x.hidden,
-            zIndex=x.zIndex,
-        )
-        create_agentic_edge(project_state, edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        update_agentic_edge(project_state, x.edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        delete_agentic_edges(project_state, x.edgeIds)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_agentic_edges(project_state, x.edges)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -2939,14 +2887,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def set_section_pinned_area_height(
-        self, x: SetSectionPinnedAreaHeightRequest
-    ):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_pinned_area_height(project_state, x.sectionId, x.pinnedAreaHeight)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
     async def set_section_column_width(self, x: SetSectionColumnWidthRequest):
         self.add_new_history_entry(
             coalesce_key=f"sectionColumnWidth:{x.projectConfigId}:{x.sectionId}",
@@ -3004,15 +2944,6 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_chat_section_state(self, x: SetChatSectionStateRequest):
-        logger.debug(
-            "set_chat_section_state project_config_id=%s section_id=%s message_count=%s waiting=%s tool_args_count=%s input_text_length=%s",
-            x.projectConfigId,
-            x.sectionId,
-            len(x.state.messages),
-            x.state.waitingForResponse,
-            len(x.state.toolCallArguments),
-            len(x.state.inputText),
-        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_state(project_state, x.sectionId, x.state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)

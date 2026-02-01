@@ -3,7 +3,6 @@ import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import { respondExternalAgentApproval } from "state/actions/ai";
-import { goToSection } from "state/actions/sections/sectionPositions";
 import { ToolChatMessage } from "utils/generatedTypes";
 
 const TOOL_LABEL_FALLBACK = "Approval request";
@@ -15,8 +14,6 @@ type ApprovalCardProps = {
   toolType?: string | null;
   toolResult?: ToolChatMessage;
   isStreaming: boolean;
-  subAgentLabel?: string;
-  subAgentSectionId?: string;
 };
 
 export function ApprovalCard({
@@ -26,8 +23,6 @@ export function ApprovalCard({
   toolType,
   toolResult,
   isStreaming,
-  subAgentLabel,
-  subAgentSectionId,
 }: ApprovalCardProps) {
   const [decisionPending, setDecisionPending] = useState(false);
   const [decisionError, setDecisionError] = useState<string | null>(null);
@@ -68,8 +63,6 @@ export function ApprovalCard({
   const detailText = formatValue(input);
   const showActions = approved === undefined;
   const statusIcon = buildStatusIcon(approved, isStreaming);
-  const showSubAgent = Boolean(subAgentLabel);
-  const canOpenSubAgent = Boolean(subAgentSectionId);
 
   return (
     <div className="my-1 overflow-hidden rounded-md border border-setta-200/70 bg-white shadow-sm dark:border-setta-800 dark:bg-setta-900">
@@ -83,31 +76,6 @@ export function ApprovalCard({
             <span className="text-[10px] uppercase tracking-wide text-setta-400">
               {toolType}
             </span>
-          ) : null}
-          {showSubAgent ? (
-            <button
-              className={`nodrag mt-1 inline-flex items-center gap-2 text-[10px] uppercase tracking-wide text-setta-400 ${
-                canOpenSubAgent
-                  ? "cursor-pointer hover:text-setta-600 dark:hover:text-setta-200"
-                  : "cursor-default"
-              }`}
-              onClick={() => {
-                if (subAgentSectionId) {
-                  goToSection(subAgentSectionId);
-                }
-              }}
-              type="button"
-            >
-              <span>Sub-agent</span>
-              <span className="truncate text-[11px] font-semibold normal-case text-setta-600 dark:text-setta-200">
-                {subAgentLabel}
-              </span>
-              {canOpenSubAgent ? (
-                <span className="text-[10px] uppercase text-blue-500">
-                  Open
-                </span>
-              ) : null}
-            </button>
           ) : null}
         </div>
         {statusIcon}
