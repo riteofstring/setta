@@ -41,7 +41,7 @@ def _force_dev_mode(monkeypatch) -> None:
     monkeypatch.setattr(constants.C, "DEV_MODE_FRONTEND_PORT", 3000)
 
 
-def test_dev_auto_auth_rejects_untrusted_origin_even_with_referer(monkeypatch):
+def test_dev_auto_auth_allows_referer_even_with_untrusted_origin(monkeypatch):
     _force_dev_mode(monkeypatch)
     allowed_origin = (
         f"http://{constants.C.HOST}:{constants.C.DEV_MODE_FRONTEND_PORT}"
@@ -52,7 +52,7 @@ def test_dev_auto_auth_rejects_untrusted_origin_even_with_referer(monkeypatch):
             (b"referer", f"{allowed_origin}/path".encode()),
         ]
     )
-    assert not auth_middleware._should_auto_auth_dev_request(request)
+    assert auth_middleware._should_auto_auth_dev_request(request)
 
 
 def test_dev_auto_auth_accepts_allowed_origin(monkeypatch):

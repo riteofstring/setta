@@ -165,6 +165,53 @@ const modifierKeyCodes = new Set([
   "ShiftRight",
 ]);
 
+function getNormalizedEventCode(event: KeyboardEvent): string | null {
+  if (event.code && event.code !== "Unidentified") {
+    return event.code;
+  }
+
+  const key = event.key;
+  if (!key) {
+    return null;
+  }
+
+  if (key === " ") {
+    return "Space";
+  }
+  if (key === "Shift") {
+    return "ShiftLeft";
+  }
+  if (key === "Control") {
+    return "ControlLeft";
+  }
+  if (key === "Alt") {
+    return "AltLeft";
+  }
+  if (key === "Meta") {
+    return "MetaLeft";
+  }
+
+  const lowerKey = key.toLowerCase();
+  const special =
+    specialEventKeyToEventCode[lowerKey] ?? specialEventKeyToEventCode[key];
+  if (special) {
+    return special;
+  }
+
+  if (/^[a-zA-Z]$/.test(key)) {
+    return `Key${key.toUpperCase()}`;
+  }
+  if (/^[0-9]$/.test(key)) {
+    return `Digit${key}`;
+  }
+
+  if (key.length > 1) {
+    return key[0].toUpperCase() + key.slice(1);
+  }
+
+  return key;
+}
+
 // shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
   const parts = shortcutString.split("+").map((x) => x.trim());
@@ -671,8 +718,9 @@ export function attachKeyEventListeners() {
       clearStaleKeys();
     }
     aModShortcutWasPressed = false;
-    if (!modifierKeyCodes.has(e.code)) {
-      addKeyPressed(e.code);
+    const eventCode = getNormalizedEventCode(e);
+    if (eventCode && !modifierKeyCodes.has(eventCode)) {
+      addKeyPressed(eventCode);
     }
     const isInput = getIsInput(e);
 
@@ -705,7 +753,10 @@ export function attachKeyEventListeners() {
       // special case because on mac, meta key causes the other pressed keys to not trigger keyup
       resetKeysPressed();
     } else {
-      deleteKeyPressed(e.code);
+      const eventCode = getNormalizedEventCode(e);
+      if (eventCode) {
+        deleteKeyPressed(eventCode);
+      }
     }
     keyUpLoop(e, shortcutInfo);
   });

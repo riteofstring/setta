@@ -14,6 +14,7 @@ import {
 } from "state/actions/sections/sectionSizes";
 import {
   useProjectState,
+  useResizeEvent,
   useSettings,
   useTemporaryMiscState,
   ZustandProjectState,
@@ -221,6 +222,7 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
+  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
   const edgesStripHeight = useTemporaryMiscState((x) => {
     const height = x[getEdgesStripHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
@@ -259,12 +261,14 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
     const isAutoHeight = impl.size.height === "auto";
+    const isResizing = resizeEvent === "start";
     const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
     const cappedAutoMaxHeight = Math.max(
       minHeight,
       Math.min(policyMaxHeight, autoMaxHeight),
     );
-    const maxHeight = isAutoHeight ? cappedAutoMaxHeight : policyMaxHeight;
+    const maxHeight =
+      isAutoHeight && !isResizing ? cappedAutoMaxHeight : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
