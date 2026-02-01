@@ -11,10 +11,10 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
-  getPinnedParamsAreaHeightKey,
-  getUnpinnedParamsAreaHeightKey,
+  getParamsFixedHeightKey,
+  getSectionHeaderHeightKey,
+  getSectionSearchHeightKey,
 } from "utils/constants";
 import {
   CodeObjTypeEnum,
@@ -162,7 +162,7 @@ function buildSizingPolicy(): SectionSizingPolicy {
     },
     globals: {
       pinnedParamsAreaMinHeight: 64,
-      unpinnedParamsAreaMinHeight: 38,
+      unpinnedParamsAreaMinHeight: 36,
       minimizedHeight: 32,
       infiniteMaxHeight: 100000,
       infiniteMaxWidth: 100000,
@@ -207,6 +207,27 @@ function renderDims(sectionId: string) {
   const markup = renderToStaticMarkup(<Probe sectionId={sectionId} />);
   const payload = decodeMarkupPayload(markup);
   return JSON.parse(payload) as ReturnType<typeof useSectionMinMaxDims>;
+}
+
+function setSectionMeasuredHeights({
+  sectionId,
+  headerHeight = 20,
+  searchHeight = 0,
+  kwargsHeight = 0,
+  paramsFixedHeight = 0,
+}: {
+  sectionId: string;
+  headerHeight?: number;
+  searchHeight?: number;
+  kwargsHeight?: number;
+  paramsFixedHeight?: number;
+}) {
+  useTemporaryMiscState.setState({
+    [getSectionHeaderHeightKey(sectionId)]: headerHeight,
+    [getSectionSearchHeightKey(sectionId)]: searchHeight,
+    [getKwargsControlsHeightKey(sectionId)]: kwargsHeight,
+    [getParamsFixedHeightKey(sectionId)]: paramsFixedHeight,
+  });
 }
 
 function Probe({ sectionId }: { sectionId: string }) {
@@ -284,16 +305,19 @@ describe("useSectionMinMaxDims integration", () => {
       };
     });
 
-    useTemporaryMiscState.setState({
-      [getEdgesStripHeightKey(sectionId)]: 80,
-      [getKwargsControlsHeightKey(sectionId)]: 22,
+    setSectionMeasuredHeights({
+      sectionId,
+      headerHeight: 20,
+      searchHeight: 24,
+      kwargsHeight: 22,
+      paramsFixedHeight: 80,
     });
 
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(244);
+    expect(dims.minHeight).toBe(190);
   });
 
   it("uses policy mins for TextBlock sections", () => {
@@ -446,19 +470,22 @@ describe("useSectionMinMaxDims integration", () => {
       state.shownParamIds = {};
     });
 
-    useTemporaryMiscState.setState({
-      [getEdgesStripHeightKey(sectionId)]: 90,
-      [getKwargsControlsHeightKey(sectionId)]: 18,
+    setSectionMeasuredHeights({
+      sectionId,
+      headerHeight: 20,
+      searchHeight: 24,
+      kwargsHeight: 18,
+      paramsFixedHeight: 90,
     });
 
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(148);
+    expect(dims.minHeight).toBe(196);
   });
 
-  it("prefers measured pinned/unpinned heights over policy defaults", () => {
+  it("uses measured params fixed height for min sizing", () => {
     const sectionId = "section-measured";
     const variantId = "variant-measured";
     const implId = "impl-measured";
@@ -516,16 +543,158 @@ describe("useSectionMinMaxDims integration", () => {
       };
     });
 
-    useTemporaryMiscState.setState({
-      [getPinnedParamsAreaHeightKey(sectionId)]: 100,
-      [getUnpinnedParamsAreaHeightKey(sectionId)]: 20,
+    setSectionMeasuredHeights({
+      sectionId,
+      headerHeight: 20,
+      searchHeight: 24,
+      paramsFixedHeight: 100,
     });
 
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(178);
+    expect(dims.minHeight).toBe(188);
+  });
+
+  it("keeps unpinned min height visible when pinned params exist", () => {
+    const sectionId = "section-unpinned-min";
+    const variantId = "variant-unpinned-min";
+    const implId = "impl-unpinned-min";
+
+    const projectConfig = createProjectConfig({
+      id: "project-unpinned-min",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const callableImpl = {
+      type: SectionTypeEnum.Callable,
+      id: implId,
+      name: "Callable",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 400, height: 200 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      callable: null,
+      hideParams: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: callableImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {
+        [variantId]: {
+          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["pin-1"] },
+          unpinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+        },
+      };
+    });
+
+    setSectionMeasuredHeights({
+      sectionId,
+      headerHeight: 20,
+      searchHeight: 24,
+      paramsFixedHeight: 64,
+    });
+
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useTemporaryMiscState);
+
+    const dims = renderDims(sectionId);
+    expect(dims.minHeight).toBe(152);
+  });
+
+  it("reserves unpinned min height when the list is empty", () => {
+    const sectionId = "section-empty-unpinned";
+    const variantId = "variant-empty-unpinned";
+    const implId = "impl-empty-unpinned";
+
+    const projectConfig = createProjectConfig({
+      id: "project-empty-unpinned",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const dictImpl = {
+      type: SectionTypeEnum.Dict,
+      id: implId,
+      name: "Dict",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 240, height: 160 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      topLevelParamId: null,
+      isJsonSource: false,
+      jsonSourceKeys: [],
+      jsonSourceMissing: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: dictImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {
+        [variantId]: {
+          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+          unpinned: { requiredParamIdsToPaths: {}, topLevelParamIds: [] },
+        },
+      };
+    });
+
+    setSectionMeasuredHeights({
+      sectionId,
+      headerHeight: 20,
+      kwargsHeight: 18,
+      paramsFixedHeight: 62,
+    });
+
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useTemporaryMiscState);
+
+    const dims = renderDims(sectionId);
+    expect(dims.minHeight).toBe(144);
   });
 
   it("keeps auto max height at least min height after params expand", () => {
@@ -590,9 +759,11 @@ describe("useSectionMinMaxDims integration", () => {
       };
     });
 
-    useTemporaryMiscState.setState({
-      [getPinnedParamsAreaHeightKey(sectionId)]: 140,
-      [getUnpinnedParamsAreaHeightKey(sectionId)]: 140,
+    setSectionMeasuredHeights({
+      sectionId,
+      headerHeight: 20,
+      searchHeight: 24,
+      paramsFixedHeight: 136,
     });
 
     syncStoreInitialState(useSettings);
@@ -600,8 +771,8 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(320);
-    expect(dims.maxHeight).toBe(320);
+    expect(dims.minHeight).toBe(224);
+    expect(dims.maxHeight).toBe(224);
   });
 
   it("caps auto max height when height is auto", () => {

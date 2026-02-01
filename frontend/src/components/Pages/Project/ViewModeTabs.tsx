@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_set_active_view_mode } from "utils/generatedEndpoints";
-import { sortViewModes } from "utils/viewModeOrdering";
 
 const TAB_LABEL_FALLBACK = "Untitled View";
 
@@ -11,9 +10,9 @@ export function ViewModeTabs() {
     (x) => ({
       projectConfigId: x.projectConfig.id,
       activeViewModeId: x.projectConfig.activeViewModeId,
-      tabModes: sortViewModes(
-        Object.values(x.projectConfig.viewModes).filter((mode) => mode.isTab),
-      ).map((mode) => ({ id: mode.id, name: mode.name })),
+      tabModes: Object.values(x.projectConfig.viewModes)
+        .filter((mode) => mode.isTab)
+        .map((mode) => ({ id: mode.id, name: mode.name })),
     }),
     _.isEqual,
   );

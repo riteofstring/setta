@@ -11,17 +11,46 @@ export function ComboboxInput({
   small,
   onKeyDown,
   placeholder,
-  bg = "bg-white dark:bg-setta-900",
+  bg,
   isDisabled,
   inputRef,
   inputOuterClasses = "",
+  variant = "pill",
 }) {
+  const isPaneVariant = variant === "pane";
+  const resolvedBg =
+    bg && bg.trim().length > 0
+      ? bg
+      : isPaneVariant
+        ? "bg-white/80 dark:bg-setta-900"
+        : "bg-white dark:bg-setta-900";
+  const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
+    .filter(Boolean)
+    .join(" ");
+  const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-6 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
+    small ? "h-4 my-auto" : "h-7"
+  }`;
+  const paneInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-md border border-solid border-setta-200 px-2 pr-8 text-xs text-setta-800 placeholder:text-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-600 min-w-0 ${
+    small ? "h-6" : "h-8"
+  }`;
+  const toggleIcon = isPaneVariant ? (
+    <i
+      className={`gg-chevron-down !h-3 !w-3 transition-transform duration-150 ${
+        isOpen ? "rotate-180" : ""
+      }`}
+    />
+  ) : isOpen ? (
+    <i className="gg-chevron-up !h-3 !w-3" />
+  ) : (
+    <i className="gg-chevron-down !h-3 !w-3" />
+  );
+  const rightButtonClassName = isPaneVariant
+    ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+    : "right-1";
   return (
     <StandardSearch
-      outerClasses={inputOuterClasses}
-      inputStyles={`flex-grow truncate outline-0 cursor-auto ${bg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-4 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
-        small ? "h-4 my-auto" : "h-7"
-      }`}
+      outerClasses={resolvedOuterClasses}
+      inputStyles={isPaneVariant ? paneInputClasses : pillInputClasses}
       noLeftElement={true}
       placeholder={placeholder}
       // leftElementStyles="pl-3"
@@ -37,14 +66,18 @@ export function ComboboxInput({
           {...getToggleButtonProps({
             disabled: isDisabled,
           })}
-          icon={
-            isOpen ? (
-              <i className="gg-chevron-up mr-[5px] mt-[4px] !h-3 !w-3" />
-            ) : (
-              <i className="gg-chevron-down mb-[4px] mr-[5px] !h-3 !w-3" />
-            )
+          icon={toggleIcon}
+          rounded={isPaneVariant ? "rounded-md" : undefined}
+          className={rightButtonClassName}
+          size={
+            isPaneVariant
+              ? small
+                ? "h-5 w-5"
+                : "h-6 w-6"
+              : small
+                ? "h-4 w-4"
+                : "h-5 w-5"
           }
-          size={small ? "w-4 h-4 !mr-[1px]" : "w-7 h-7"}
         />
       }
     />
@@ -79,7 +112,7 @@ export function ComboboxList({
 
   return createPortal(
     <div
-      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-20 mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
+      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
       {...getMenuProps()}
       style={{
         left: `${listDims.x}px`,
