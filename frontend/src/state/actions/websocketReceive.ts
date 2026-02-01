@@ -19,6 +19,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_get_auth_refresh_status,
+  route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
 import {
@@ -166,6 +167,12 @@ export const openWebSocket = _.debounce(
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               await requestAIFollowSnapshot(projectConfigId);
+              const diagnosticsRes = await route_get_latest_lsp_diagnostics({
+                projectConfigId,
+              });
+              if (res200(diagnosticsRes)) {
+                processLspDiagnostics(diagnosticsRes.data);
+              }
               runImmediateAuthRefresh = false;
             }
           }

@@ -512,6 +512,7 @@ export const RouteEnum = {
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
+  GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
   FORCE_REFRESH_LISTENER: "/forceRefreshListener",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
   AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
@@ -3507,6 +3508,12 @@ export type SettaProjectConfigDiagnostics = z.infer<
   typeof SettaProjectConfigDiagnosticsSchema
 >;
 
+export function createSettaProjectConfigDiagnostics(
+  options: Partial<SettaProjectConfigDiagnostics> = {},
+): SettaProjectConfigDiagnostics {
+  return SettaProjectConfigDiagnosticsSchema.parse(options);
+}
+
 const SettaLspDiagnosticPositionSchema = z.object({
   line: z.int(),
   character: z.int(),
@@ -3540,6 +3547,12 @@ const SettaLspDiagnosticsPayloadSchema = z.object({
 export type SettaLspDiagnosticsPayload = z.infer<
   typeof SettaLspDiagnosticsPayloadSchema
 >;
+
+export function createSettaLspDiagnosticsPayload(
+  options: Partial<SettaLspDiagnosticsPayload> = {},
+): SettaLspDiagnosticsPayload {
+  return SettaLspDiagnosticsPayloadSchema.parse(options);
+}
 
 const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
@@ -7273,6 +7286,15 @@ const GetChatSectionChatIdRequestSchema = z.object({
 
 export type GetChatSectionChatIdRequestInput = z.input<
   typeof GetChatSectionChatIdRequestSchema
+>;
+
+const GetLatestLspDiagnosticsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+});
+
+export type GetLatestLspDiagnosticsRequestInput = z.input<
+  typeof GetLatestLspDiagnosticsRequestSchema
 >;
 
 const GetLatestProjectStateRequestSchema = z.object({
