@@ -173,4 +173,63 @@ describe("chat streaming persistence", () => {
       .join("");
     expect(text).toContain("Streaming");
   });
+
+  it("avoids double persistence when finalized then stopped", async () => {
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
+    route_set_chat_section_state.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: {
+          id: "msg-final",
+          role: ChatRoleEnum.assistant,
+          content: [],
+          attachments: [],
+          tool_calls: null,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.DELTA,
+        message_id: "msg-final",
+        content: [{ type: "text_delta", index: 0, text: "Finalized" }],
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        message: {
+          id: "msg-final",
+          role: ChatRoleEnum.assistant,
+          content: [{ type: "text", text: "Finalized" }],
+          attachments: [],
+          tool_calls: null,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_STOP,
+        message_id: "msg-final",
+      },
+    });
+
+    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
+  });
 });

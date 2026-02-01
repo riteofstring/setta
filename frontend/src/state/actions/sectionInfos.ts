@@ -5,13 +5,14 @@ import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { unstable_batchedUpdates } from "react-dom";
 import {
-  markRenameBroadcastsReady,
-  maybeOpenNextRenamePrompt,
-} from "state/actions/renameRefactors";
-import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "state/actions/chatMergeUtils";
+import {
+  markRenameBroadcastsReady,
+  maybeOpenNextRenamePrompt,
+} from "state/actions/renameRefactors";
+import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   PendingOperation,
   useAllProjectMetadata,
@@ -153,8 +154,9 @@ function mergeStreamingChatSections(
       currentMessages,
       incomingMessages,
     );
+    const shouldPreserveStreaming = isSectionStreamActive(sectionId);
     const shouldMerge =
-      Boolean(currentChat.waitingForResponse) ||
+      shouldPreserveStreaming ||
       currentMessages.length > incomingMessages.length ||
       Object.keys(currentToolArgs).length >
         Object.keys(incomingToolArgs).length ||
@@ -173,8 +175,9 @@ function mergeStreamingChatSections(
       currentInputText.length > incomingInputText.length
         ? currentInputText
         : incomingInputText;
-    const mergedWaitingForResponse =
-      incomingChat.waitingForResponse || currentChat.waitingForResponse;
+    const mergedWaitingForResponse = shouldPreserveStreaming
+      ? incomingChat.waitingForResponse || currentChat.waitingForResponse
+      : incomingChat.waitingForResponse;
     setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
       messages: mergedMessages,
       toolCallArguments: mergedToolArgs,

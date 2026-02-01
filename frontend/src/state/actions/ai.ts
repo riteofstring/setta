@@ -4,6 +4,14 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
+  clearChatStreamActive,
+  isChatStreamActive,
+  isSectionStreamActive,
+  markChatStreamActive,
+  recordFinalizedMessage,
+  shouldPersistOnMessageStop,
+} from "state/aiStreamingTracker";
+import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
@@ -520,14 +528,15 @@ function mergeChatSectionState(
     waitingForResponse: boolean;
     toolCallArguments: Record<string, string>;
   },
+  preserveWaitingForResponse: boolean,
 ): ChatSectionState {
   const mergedMessages = mergeChatMessages(
     currentState.messages ?? [],
     incoming.messages ?? [],
   );
-  const nextWaitingForResponse = Boolean(
-    incoming.waitingForResponse || currentState.waitingForResponse,
-  );
+  const nextWaitingForResponse = preserveWaitingForResponse
+    ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
+    : Boolean(incoming.waitingForResponse);
   return {
     messages: mergedMessages,
     inputText: currentState.inputText ?? "",
@@ -556,11 +565,16 @@ function applyChatDetailsToSectionState({
     if (!currentState) {
       return;
     }
-    nextState = mergeChatSectionState(currentState, {
-      messages,
-      waitingForResponse,
-      toolCallArguments,
-    });
+    const preserveWaitingForResponse = isSectionStreamActive(sectionId);
+    nextState = mergeChatSectionState(
+      currentState,
+      {
+        messages,
+        waitingForResponse,
+        toolCallArguments,
+      },
+      preserveWaitingForResponse,
+    );
     setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
       messages: nextState.messages,
       waitingForResponse: nextState.waitingForResponse,
@@ -591,9 +605,10 @@ export async function getLLMChat(
     const { messages, waitingForResponse, llmConfig } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
-      const nextWaitingForResponse = Boolean(
-        waitingForResponse || existingDetails?.waitingForResponse,
-      );
+      const preserveWaitingForResponse = isChatStreamActive(chatId);
+      const nextWaitingForResponse = preserveWaitingForResponse
+        ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
+        : Boolean(waitingForResponse);
       const nextMessages = mergeChatMessages(
         existingDetails?.messages ?? [],
         messages,
@@ -640,9 +655,10 @@ export async function getExternalAgentChat(
     const { messages, waitingForResponse, toolCallArguments } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
-      const nextWaitingForResponse = Boolean(
-        waitingForResponse || existingDetails?.waitingForResponse,
-      );
+      const preserveWaitingForResponse = isChatStreamActive(chatId);
+      const nextWaitingForResponse = preserveWaitingForResponse
+        ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
+        : Boolean(waitingForResponse);
       const nextMessages = mergeChatMessages(
         existingDetails?.messages ?? [],
         messages,
@@ -828,6 +844,7 @@ function applyStreamingChunkToSection(
     return;
   }
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+    recordFinalizedMessage(sectionId, chunk.message.id);
     persistChatSectionState({
       sectionId,
       nextState,
@@ -841,6 +858,9 @@ function applyStreamingChunkToSection(
     return;
   }
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_STOP) {
+    if (!shouldPersistOnMessageStop(sectionId, chunk.message_id)) {
+      return;
+    }
     persistChatSectionState({
       sectionId,
       nextState,
@@ -858,6 +878,20 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
   if (!sectionId && chatId) {
     sectionId = resolveSectionIdForChatId(chatId);
+  }
+  const shouldMarkActive =
+    chunk.type === StreamingEventTypeEnum.MESSAGE_START ||
+    chunk.type === StreamingEventTypeEnum.DELTA ||
+    chunk.type === StreamingEventTypeEnum.TOOL_CALL_DELTA ||
+    chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
+  if (shouldMarkActive) {
+    markChatStreamActive(chatId, sectionId);
+  }
+  if (
+    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP ||
+    chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED
+  ) {
+    clearChatStreamActive(chatId, sectionId);
   }
   if (sectionId) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
@@ -1388,7 +1422,11 @@ function updatePendingChatDetails(
 function mergeChatDetails(
   existingDetails: ChatDetails,
   pendingDetails: ChatDetails,
+  preserveWaitingForResponse: boolean,
 ): ChatDetails {
+  const nextWaitingForResponse = preserveWaitingForResponse
+    ? pendingDetails.waitingForResponse || existingDetails.waitingForResponse
+    : pendingDetails.waitingForResponse;
   return {
     ...existingDetails,
     ...pendingDetails,
@@ -1400,8 +1438,7 @@ function mergeChatDetails(
       ...existingDetails.toolCallArguments,
       ...pendingDetails.toolCallArguments,
     },
-    waitingForResponse:
-      pendingDetails.waitingForResponse || existingDetails.waitingForResponse,
+    waitingForResponse: nextWaitingForResponse,
   };
 }
 
@@ -1416,7 +1453,12 @@ function promotePendingChatDetailsIfNeeded(chatId: string) {
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
     const pendingDetails = state.pendingChatDetails;
-    const mergedDetails = mergeChatDetails(existingDetails, pendingDetails);
+    const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const mergedDetails = mergeChatDetails(
+      existingDetails,
+      pendingDetails,
+      preserveWaitingForResponse,
+    );
     return {
       activeChatId: chatId,
       pendingChatDetails: null,
@@ -1445,7 +1487,11 @@ export function finalizePendingChatDetails(chatId: string) {
         state.chatDetails[chatId] ?? getDefaultChatDetails();
       nextState.chatDetails = {
         ...state.chatDetails,
-        [chatId]: mergeChatDetails(existingDetails, pendingDetails),
+        [chatId]: mergeChatDetails(
+          existingDetails,
+          pendingDetails,
+          isChatStreamActive(chatId),
+        ),
       };
       nextState.pendingChatDetails = null;
     }
@@ -1622,7 +1668,8 @@ function resolveSectionIdForChatId(chatId: string): string | null {
   const shouldRebuild =
     !chatIdLookupCache ||
     chatIdLookupCache.projectConfigId !== state.projectConfig.id ||
-    chatIdLookupCache.sectionVariantMap !== state.projectConfig.sectionVariantMap ||
+    chatIdLookupCache.sectionVariantMap !==
+      state.projectConfig.sectionVariantMap ||
     chatIdLookupCache.sectionVariants !== state.sectionVariants ||
     chatIdLookupCache.sectionImpls !== state.sectionImpls ||
     chatIdLookupCache.sections !== state.sections;

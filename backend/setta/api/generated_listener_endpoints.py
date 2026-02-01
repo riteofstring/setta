@@ -145,6 +145,7 @@ class ListenerCodeAreaCompletionRequestPayload(TypedDict):
 class ListenerCreateAgenticEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
+    id: NotRequired[ID | None]
     sourceSectionId: ID
     targetSectionId: ID
     kind: AgenticEdgeKind

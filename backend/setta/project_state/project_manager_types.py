@@ -778,6 +778,7 @@ class SetEdgesRequest(ProjectManagerRequestWithProjectConfig):
 
 
 class CreateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
+    id: ID | None = None
     sourceSectionId: ID
     targetSectionId: ID
     kind: AgenticEdgeKind

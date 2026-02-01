@@ -3773,6 +3773,7 @@ export function createProjectCodegenPythonTarget(
 ): ProjectCodegenPythonTarget {
   return ProjectCodegenPythonTargetSchema.parse(options);
 }
+
 const EdgeSchema = z.object({
   id: IDSchema.default(create_new_id),
   sourceSectionId: IDSchema,
@@ -6925,6 +6926,7 @@ export type CodeAreaCompletionRequestInput = z.input<
 const CreateAgenticEdgeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
+  id: z.union([IDSchema, z.null()]).default(null),
   sourceSectionId: IDSchema,
   targetSectionId: IDSchema,
   kind: z.enum(AgenticEdgeKindEnum),

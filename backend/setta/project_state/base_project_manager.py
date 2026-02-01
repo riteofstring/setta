@@ -2230,15 +2230,18 @@ class BaseProjectManager(ABC):
     async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        edge = AgenticEdge(
-            sourceSectionId=x.sourceSectionId,
-            targetSectionId=x.targetSectionId,
-            kind=x.kind,
-            contextMode=x.contextMode,
-            style=x.style,
-            hidden=x.hidden,
-            zIndex=x.zIndex,
-        )
+        edge_kwargs = {
+            "sourceSectionId": x.sourceSectionId,
+            "targetSectionId": x.targetSectionId,
+            "kind": x.kind,
+            "contextMode": x.contextMode,
+            "style": x.style,
+            "hidden": x.hidden,
+            "zIndex": x.zIndex,
+        }
+        if x.id is not None:
+            edge_kwargs["id"] = x.id
+        edge = AgenticEdge(**edge_kwargs)
         create_agentic_edge(project_state, edge)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

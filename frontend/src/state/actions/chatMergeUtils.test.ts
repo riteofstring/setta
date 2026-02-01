@@ -1,8 +1,5 @@
 import { mergeChatMessages } from "state/actions/chatMergeUtils";
-import {
-  ChatRoleEnum,
-  createMessageTextContent,
-} from "utils/generatedTypes";
+import { ChatRoleEnum, createMessageTextContent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 describe("chatMergeUtils", () => {

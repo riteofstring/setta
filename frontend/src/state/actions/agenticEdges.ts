@@ -11,6 +11,7 @@ import {
   AgenticEdgeKindEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -262,11 +263,43 @@ export function createAgenticEdgeFromSections({
     return;
   }
 
-  void route_create_agentic_edge({
-    projectConfigId: getCurrProjectConfigId(),
+  const edgeId = createNewId();
+  const nextEdge = {
+    id: edgeId,
     sourceSectionId,
     targetSectionId,
     kind,
     contextMode,
+    style: null,
+    hidden: false,
+    zIndex: 0,
+    selected: false,
+  };
+
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      const edges = state.projectConfig.agenticEdges;
+      if (edges.some((edge) => edge.id === edgeId)) {
+        return;
+      }
+      edges.push(nextEdge);
+    },
+    rollback: (state) => {
+      state.projectConfig.agenticEdges =
+        state.projectConfig.agenticEdges.filter((edge) => edge.id !== edgeId);
+    },
+    send: (frontendOpId) =>
+      route_create_agentic_edge({
+        projectConfigId: getCurrProjectConfigId(),
+        id: edgeId,
+        sourceSectionId,
+        targetSectionId,
+        kind,
+        contextMode,
+        style: null,
+        hidden: false,
+        zIndex: 0,
+        frontendOpId,
+      }),
   });
 }
