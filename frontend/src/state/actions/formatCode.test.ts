@@ -4,7 +4,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { queueCodeUpdate } from "./codeUpdates";
 import { route_format_code, route_set_code } from "utils/generatedEndpoints";
 import {
   CodeLanguageEnum,
@@ -15,6 +14,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { queueCodeUpdate } from "./codeUpdates";
 import { formatActiveCodeSection } from "./formatCode";
 import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnostics";
 import { addTemporaryNotification } from "./notifications";

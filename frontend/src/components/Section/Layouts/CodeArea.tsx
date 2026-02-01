@@ -23,15 +23,15 @@ import React, {
   useState,
 } from "react";
 import {
-  getCurrEffectiveSectionImpl,
-  getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
-import {
   queueCodeUpdate,
   queueGenCodePrefixUpdate,
   queueGenCodeSuffixUpdate,
 } from "state/actions/codeUpdates";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import {
   useLspDiagnostics,
   useMisc,
