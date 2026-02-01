@@ -14,12 +14,14 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,
+  route_get_latest_lsp_diagnostics,
   route_load_all_project_metadata,
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
+import { processLspDiagnostics } from "../lspDiagnostics";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeShareSessionFromCurrentDeployment } from "../share";
 
@@ -28,6 +30,12 @@ export async function loadProjectConfig({ projectConfigName }) {
   if (res200(res)) {
     const loaded = await loadProjectState(res.data);
     if (loaded) {
+      const diagnosticsRes = await route_get_latest_lsp_diagnostics({
+        projectConfigId: res.data.projectConfig.id,
+      });
+      if (res200(diagnosticsRes)) {
+        processLspDiagnostics(diagnosticsRes.data);
+      }
       await requestAIFollowSnapshot(res.data.projectConfig.id);
       await fetchListenerCoverageSnapshot(res.data.projectConfig.id);
     }
