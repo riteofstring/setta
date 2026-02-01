@@ -19,8 +19,8 @@ import {
   Position,
   SectionType,
   SectionTypeEnum,
-  TextBlockFormatEnum,
   TextBlockDisplayModeEnum,
+  TextBlockFormatEnum,
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
