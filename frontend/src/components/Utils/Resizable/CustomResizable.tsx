@@ -162,12 +162,6 @@ function CustomResizableCore({
     resizeStartedRef.current = false;
     autoSizePromotedRef.current = false;
     resizeAttemptedRef.current = false;
-    if (isHeightResizeDirection(direction)) {
-      resizeStartedRef.current = true;
-      useResizeEvent.setState((state) => {
-        setSectionResizeEvent(sectionId, "start", state);
-      });
-    }
     useMisc.setState({ mouseDownDraggingSection: true });
   }
 
