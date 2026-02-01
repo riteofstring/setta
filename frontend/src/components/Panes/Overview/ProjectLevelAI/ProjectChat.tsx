@@ -417,6 +417,10 @@ function ProjectChatContextLinks({
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const canEditLinks = canEditStructure && typeof chatId === "string";
 
+  if (typeof chatId !== "string") {
+    return null;
+  }
+
   const handleAddContextSection = useCallback(
     (value: string | null) => {
       if (!value || typeof chatId !== "string" || !canEditLinks) {
@@ -442,61 +446,49 @@ function ProjectChatContextLinks({
 
   return (
     <div className="mb-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-        Project Chat Context
-      </p>
-      <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-        Attach sections as context for this project chat session.
-      </p>
-      {typeof chatId !== "string" ? (
-        <p className="mt-2 text-[11px] text-setta-500 dark:text-setta-500">
-          Start a chat to add context links.
-        </p>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          <IdNameCombobox
-            allItems={contextItems}
-            value={null}
-            small={true}
-            onSelectedItemChange={handleAddContextSection}
-            placeholder={
-              contextOptionCount > 0 ? "Add a section" : "No sections available"
-            }
-            outerDivClasses="justify-center"
-            inputOuterClasses="!h-7"
-            isDisabled={!canEditLinks || contextOptionCount === 0}
-            selectedItemCanBeNull
-            clearInputAfterSelection
-          />
-          {contextEdges.length === 0 ? (
-            <p className="text-[11px] text-setta-500 dark:text-setta-500">
-              No context links yet.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {contextEdges.map((edge) => (
-                <div
-                  key={edge.id}
-                  className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+      <div className="flex flex-col gap-2">
+        <IdNameCombobox
+          allItems={contextItems}
+          value={null}
+          small={true}
+          onSelectedItemChange={handleAddContextSection}
+          placeholder={
+            contextOptionCount > 0 ? "Add a section" : "No sections available"
+          }
+          outerDivClasses="justify-center"
+          inputOuterClasses="!h-7"
+          isDisabled={!canEditLinks || contextOptionCount === 0}
+          selectedItemCanBeNull
+          clearInputAfterSelection
+        />
+        {contextEdges.length === 0 ? (
+          <p className="text-[11px] text-setta-500 dark:text-setta-500">
+            No context links yet.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {contextEdges.map((edge) => (
+              <div
+                key={edge.id}
+                className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+              >
+                <span className="truncate">
+                  {sectionLabelsById[edge.sourceSectionId] ??
+                    edge.sourceSectionId}
+                </span>
+                <button
+                  type="button"
+                  className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
+                  onClick={() => deleteAgenticEdgesById([edge.id])}
+                  disabled={!canEditLinks}
                 >
-                  <span className="truncate">
-                    {sectionLabelsById[edge.sourceSectionId] ??
-                      edge.sourceSectionId}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                    onClick={() => deleteAgenticEdgesById([edge.id])}
-                    disabled={!canEditLinks}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
