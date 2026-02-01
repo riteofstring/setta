@@ -120,6 +120,7 @@ export const useContextMenus = withProjectState(
 
 export type ZustandProjectState = ProjectStateSingleConfig & {
   previewSectionVariantMap: Record<string, string>;
+  appSpec: unknown | null;
 };
 
 export const NULL_PROJECT_CONFIG_ID = "null";
@@ -142,6 +143,7 @@ export const useProjectState = withProjectState(
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
+          appSpec: null,
         })),
       ),
     ),
@@ -154,6 +156,7 @@ type ShareSessionState = {
   sharePolicy: SharePolicy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
+  deploymentMode: "share" | "app" | null;
 };
 
 export const useShareSession = withProjectState(
@@ -164,19 +167,32 @@ export const useShareSession = withProjectState(
       sharePolicy: null,
       shareDeploymentName: null,
       shareDeploymentVersion: null,
+      deploymentMode: null,
     })),
   ),
 );
 
 type ServerModeState = {
-  isShareServer: boolean;
+  mode: "ide" | "share" | "app";
   modeResolved: boolean;
 };
 
 export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  isShareServer: false,
+  mode: "ide",
   modeResolved: false,
 }));
+
+type AppPreviewState = {
+  isPreviewEnabled: boolean;
+};
+
+export const useAppPreview = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppPreviewState>(() => ({
+      isPreviewEnabled: false,
+    })),
+  ),
+);
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -604,6 +620,7 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
+  pendingProjectChatPrompt: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -645,6 +662,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
+        pendingProjectChatPrompt: null,
       }),
       {
         name: "setta_ai_data",
