@@ -53,6 +53,7 @@ type RowData = {
   loadingPaths: Record<string, boolean>;
   errorByPath: Record<string, string>;
   columnWidth: string;
+  listInsetLeft: number;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   onOpen: (path: string) => void;
@@ -69,6 +70,7 @@ type FileBrowserPaneProps = {
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
   metaPaddingClassName?: string;
+  listInsetLeft?: number;
   columnWidthConfig?: {
     columnWidth: string;
     onResizeStart: React.MouseEventHandler<HTMLDivElement>;
@@ -81,6 +83,7 @@ export function FileBrowserPane({
   useFileBrowserStateHook,
   showFilter = true,
   metaPaddingClassName,
+  listInsetLeft = 0,
   columnWidthConfig,
 }: FileBrowserPaneProps = {}) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
@@ -613,12 +616,15 @@ export function FileBrowserPane({
         onKeyDown={handleKeyDown}
       >
         <div
-          className="grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
+          className="group grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
           style={{
             gridTemplateColumns,
           }}
         >
-          <div className="relative flex items-center border-r border-setta-100/80 pr-3 dark:border-setta-800/80">
+          <div
+            className="relative flex items-center border-r border-transparent pr-3 transition-colors group-hover:border-setta-100/80 dark:group-hover:border-setta-800/80"
+            style={listInsetLeft ? { paddingLeft: listInsetLeft } : undefined}
+          >
             <button
               type="button"
               className="flex w-full min-w-0 items-center gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
@@ -693,6 +699,7 @@ export function FileBrowserPane({
               loadingPaths,
               errorByPath,
               columnWidth,
+              listInsetLeft,
               onToggle: handleToggle,
               onSelect: handleSelect,
               onOpen: handleOpen,
@@ -714,6 +721,7 @@ function FileBrowserRow({
   loadingPaths,
   errorByPath,
   columnWidth,
+  listInsetLeft,
   onToggle,
   onSelect,
   onOpen,
@@ -727,7 +735,7 @@ function FileBrowserRow({
   const isSelected = selectedPath === item.fullPath;
   const isLoading = loadingPaths[item.fullPath] === true;
   const errorMessage = errorByPath[item.fullPath];
-  const paddingLeft = 8 + item.depth * 12;
+  const paddingLeft = listInsetLeft + 8 + item.depth * 12;
   const modifiedLabel = formatModifiedAt(item.mtime);
   const rowClasses = isSelected
     ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"

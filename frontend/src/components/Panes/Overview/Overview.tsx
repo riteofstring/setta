@@ -39,6 +39,10 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
+const FILE_BROWSER_META_INSET_CLASS =
+  "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
+const FILE_BROWSER_LIST_INSET_LEFT = 10;
+
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
   useTabScope({
@@ -204,11 +208,17 @@ function TabsVisible({
           : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
       }
     >
-      <h2
-        className={`mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500 ${isFullWidth ? "px-1.5" : ""}`}
-      >
-        {title}
-      </h2>
+      {isFullWidth ? (
+        <div className={FILE_BROWSER_META_INSET_CLASS}>
+          <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+            {title}
+          </h2>
+        </div>
+      ) : (
+        <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+          {title}
+        </h2>
+      )}
       <TabContent selectedTabName={selectedTabName} />
     </div>
   );
@@ -219,7 +229,12 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
     case OverviewTabNameEnum.FileBrowser:
-      return <FileBrowserPane metaPaddingClassName="px-1.5" />;
+      return (
+        <FileBrowserPane
+          metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
+          listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
+        />
+      );
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
