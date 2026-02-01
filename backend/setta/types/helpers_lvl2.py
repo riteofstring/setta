@@ -109,6 +109,7 @@ from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.section_impls import (
+    BaseCodeSectionImpl,
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
@@ -130,6 +131,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    TerminalSectionImpl,
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
@@ -1072,6 +1074,232 @@ def create_top_level_section(
     return sectionId
 
 
+def _validate_code_section_children_for_creation(
+    parentId: ID,
+    parentImpl: BaseParentSectionImpl,
+    impl_type: SectionType,
+    numChildren: int,
+) -> None:
+    if not isinstance(parentImpl, BaseCodeSectionImpl):
+        return
+    if impl_type != SectionType.Terminal:
+        raise ValueError("Code sections can only create terminal children.")
+    if numChildren != 1:
+        raise ValueError("Code sections can only have one terminal child.")
+    if parentImpl.children:
+        raise ValueError(f"Code section {parentId} already has a child.")
+
+
+def _validate_code_section_children_for_parent(
+    p: "ProjectStateSingleConfig",
+    parentId: ID,
+    parentImpl: BaseParentSectionImpl,
+    childIds: list[ID],
+) -> None:
+    if not isinstance(parentImpl, BaseCodeSectionImpl):
+        return
+    if len(childIds) != 1:
+        raise ValueError("Code sections can only have one terminal child.")
+    terminalId = childIds[0]
+    get_curr_effective_section_impl_with_type_guard(p, terminalId, TerminalSectionImpl)
+    if parentImpl.children and parentImpl.children != [terminalId]:
+        raise ValueError(f"Code section {parentId} already has a child.")
+
+
+def _set_code_section_attached_terminal(
+    p: "ProjectStateSingleConfig", sectionId: ID, terminalId: ID
+) -> None:
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {"attachedTerminalSectionId": terminalId},
+    )
+    logger.info(
+        "code_section_attached_terminal_set section=%s terminal=%s",
+        sectionId,
+        terminalId,
+    )
+
+
+def _maybe_clear_code_section_attached_terminal(
+    p: "ProjectStateSingleConfig", parentId: ID | None, childId: ID
+) -> None:
+    if not parentId:
+        return
+    parent_impl = get_curr_effective_section_impl(p, parentId)
+    if isinstance(parent_impl, BaseCodeSectionImpl):
+        if parent_impl.attachedTerminalSectionId == childId:
+            set_curr_effective_section_impl_value(
+                p,
+                parentId,
+                {"attachedTerminalSectionId": None},
+            )
+            logger.info(
+                "code_section_attached_terminal_cleared parent=%s child=%s",
+                parentId,
+                childId,
+            )
+
+
+def ensure_code_section_embedded_terminal_size(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    terminalId: ID | None,
+) -> None:
+    if terminalId is None:
+        return
+    code_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseCodeSectionImpl
+    )
+    get_curr_effective_section_impl_with_type_guard(p, terminalId, TerminalSectionImpl)
+    sizing_policy = settings.sectionSizingPolicy.byType
+    expected_min_height = (
+        float(sizing_policy.Code.minHeight)
+        + float(sizing_policy.Terminal.minHeight)
+        + 80.0
+    )
+    expected_max_height = float(sizing_policy.Code.maxHeight)
+    if expected_min_height > expected_max_height:
+        expected_min_height = expected_max_height
+
+    current_height = code_impl.size.height
+    if current_height != SectionSizeMode.auto:
+        if float(current_height) >= expected_min_height:
+            return
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "size": SectionSize(
+                width=code_impl.size.width, height=expected_min_height
+            )
+        },
+    )
+
+
+def ensure_code_section_attached_terminal(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+) -> ID:
+    code_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseCodeSectionImpl
+    )
+    children = list(code_impl.children)
+    if len(children) > 1:
+        raise ValueError(f"Code section {sectionId} has multiple children.")
+    if len(children) == 1:
+        terminal_id = children[0]
+        get_curr_effective_section_impl_with_type_guard(
+            p, terminal_id, TerminalSectionImpl
+        )
+        p.projectConfig.topLevelSections.pop(terminal_id, None)
+        _set_code_section_attached_terminal(p, sectionId, terminal_id)
+        ensure_code_section_embedded_terminal_size(settings, p, sectionId, terminal_id)
+        logger.info(
+            "ensure_code_section_attached_terminal existing_child section=%s terminal=%s",
+            sectionId,
+            terminal_id,
+        )
+        return terminal_id
+    attached_terminal_id = code_impl.attachedTerminalSectionId
+    if attached_terminal_id is not None:
+        if attached_terminal_id in p.sections:
+            get_curr_effective_section_impl_with_type_guard(
+                p, attached_terminal_id, TerminalSectionImpl
+            )
+            parent_id = p.parentSectionMap.get(attached_terminal_id)
+            if parent_id and parent_id != sectionId:
+                raise ValueError(
+                    f"Terminal {attached_terminal_id} already belongs to {parent_id}."
+                )
+            p.projectConfig.topLevelSections.pop(attached_terminal_id, None)
+            set_curr_effective_section_impl_value(
+                p,
+                sectionId,
+                BaseParentSectionImplArgsWithCallable(children=[attached_terminal_id]),
+            )
+            _set_code_section_attached_terminal(p, sectionId, attached_terminal_id)
+            ensure_code_section_embedded_terminal_size(
+                settings, p, sectionId, attached_terminal_id
+            )
+            logger.info(
+                "ensure_code_section_attached_terminal existing_attached section=%s terminal=%s",
+                sectionId,
+                attached_terminal_id,
+            )
+            return attached_terminal_id
+        attached_terminal_id = None
+    size = SectionSize(width=code_impl.size.width)
+    terminal_id = create_section(
+        settings,
+        p,
+        SectionType.Terminal,
+        {"size": size},
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseParentSectionImplArgsWithCallable(children=[terminal_id]),
+    )
+    _set_code_section_attached_terminal(p, sectionId, terminal_id)
+    ensure_code_section_embedded_terminal_size(settings, p, sectionId, terminal_id)
+    logger.info(
+        "ensure_code_section_attached_terminal created section=%s terminal=%s",
+        sectionId,
+        terminal_id,
+    )
+    return terminal_id
+
+
+def detach_code_section_attached_terminal(
+    settings: SettingsState,
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+) -> None:
+    code_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseCodeSectionImpl
+    )
+    child_ids = list(code_impl.children)
+    if len(child_ids) > 1:
+        raise ValueError(f"Code section {sectionId} has multiple children.")
+    terminal_id = child_ids[0] if child_ids else code_impl.attachedTerminalSectionId
+    if terminal_id is None:
+        return
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseParentSectionImplArgsWithCallable(children=[]),
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {"attachedTerminalSectionId": None},
+    )
+    if terminal_id not in p.sections:
+        return
+    if terminal_id in p.projectConfig.topLevelSections:
+        return
+    position, _ = compute_smart_top_level_section_position(
+        settings,
+        p,
+        SectionType.Terminal,
+        None,
+        None,
+        None,
+    )
+    p.projectConfig.topLevelSections[terminal_id] = TopLevelSectionLayout(
+        **position.model_dump()
+    )
+    logger.info(
+        "detach_code_section_attached_terminal section=%s terminal=%s",
+        sectionId,
+        terminal_id,
+    )
+
+
 def create_child_sections(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -1082,6 +1310,9 @@ def create_child_sections(
 ):
     effectiveImpl = get_curr_effective_section_impl_with_type_guard(
         p, parentId, BaseParentSectionImpl
+    )
+    _validate_code_section_children_for_creation(
+        parentId, effectiveImpl, impl_type, numChildren
     )
     size = SectionSize(width=effectiveImpl.size.width)
     newIds = [
@@ -1100,6 +1331,9 @@ def create_child_sections(
             )
         ),
     )
+    if isinstance(effectiveImpl, BaseCodeSectionImpl):
+        _set_code_section_attached_terminal(p, parentId, newIds[0])
+        ensure_code_section_embedded_terminal_size(settings, p, parentId, newIds[0])
 
     return newIds
 
@@ -1148,6 +1382,7 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
         parentId = p.parentSectionMap[id]
         # delete from parent's current children list
         if parentId:
+            _maybe_clear_code_section_attached_terminal(p, parentId, id)
             set_curr_effective_section_impl_value(
                 p,
                 parentId,
@@ -2663,6 +2898,7 @@ def move_section_to_pane(
 ):
     oldParentId = p.parentSectionMap[sectionId]
     if oldParentId:
+        _maybe_clear_code_section_attached_terminal(p, oldParentId, sectionId)
         # remove from old parent
         set_curr_effective_section_impl_value(
             p,
@@ -2786,6 +3022,12 @@ def move_section_to_parent_section(
     sectionId: ID,
     idx: int,
 ):
+    new_parent_impl = get_curr_effective_section_impl_with_type_guard(
+        p, newParentId, BaseParentSectionImpl
+    )
+    _validate_code_section_children_for_parent(
+        p, newParentId, new_parent_impl, [sectionId]
+    )
     oldParentId = p.parentSectionMap[sectionId]
     if oldParentId and oldParentId == newParentId:
         set_curr_effective_section_impl_value(
@@ -2800,6 +3042,7 @@ def move_section_to_parent_section(
         return
 
     if oldParentId:
+        _maybe_clear_code_section_attached_terminal(p, oldParentId, sectionId)
         # filter out of old parent
         set_curr_effective_section_impl_value(
             p,
@@ -2822,6 +3065,8 @@ def move_section_to_parent_section(
             )
         ),
     )
+    if isinstance(new_parent_impl, BaseCodeSectionImpl):
+        _set_code_section_attached_terminal(p, newParentId, sectionId)
 
 
 def move_sections_to_parent_section(
@@ -2835,6 +3080,15 @@ def move_sections_to_parent_section(
     if not sectionIds:
         return
 
+    if newParentId not in p.parentSectionMap:
+        raise KeyError(f"Missing parentSectionMap entry for ancestor {newParentId}.")
+
+    new_parent_impl = get_curr_effective_section_impl_with_type_guard(
+        p, newParentId, BaseParentSectionImpl
+    )
+    _validate_code_section_children_for_parent(
+        p, newParentId, new_parent_impl, sectionIds
+    )
     selected_set = set(sectionIds)
     if newParentId in selected_set:
         raise ValueError("Cannot reparent into a selected section.")
@@ -2862,6 +3116,8 @@ def move_sections_to_parent_section(
                 if section_id in p.projectConfig.topLevelSections:
                     del p.projectConfig.topLevelSections[section_id]
             continue
+        for section_id in ids:
+            _maybe_clear_code_section_attached_terminal(p, parent_id, section_id)
         removal_set = set(ids)
         set_curr_effective_section_impl_value(
             p,
@@ -2882,6 +3138,8 @@ def move_sections_to_parent_section(
         newParentId,
         BaseParentSectionImplArgsWithCallable(children=insert_children),
     )
+    if isinstance(new_parent_impl, BaseCodeSectionImpl):
+        _set_code_section_attached_terminal(p, newParentId, sectionIds[0])
 
 
 def group_sections(

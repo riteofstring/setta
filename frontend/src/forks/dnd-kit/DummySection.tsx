@@ -6,8 +6,14 @@ import { forwardRef } from "react";
 import { createPortal } from "react-dom";
 import { TbDragDrop } from "react-icons/tb";
 
-export const TempDNDSection = forwardRef<HTMLDivElement, Record<string, never>>(
-  ({}, ref) => {
+type TempDNDSectionProps = {
+  renderMode?: "default" | "embedded";
+};
+
+export const TempDNDSection = forwardRef<
+  HTMLDivElement,
+  TempDNDSectionProps
+>(({ renderMode = "default" }, ref) => {
     const { width, height } = useDndState(
       (x) => ({
         width: x.width,
@@ -15,22 +21,30 @@ export const TempDNDSection = forwardRef<HTMLDivElement, Record<string, never>>(
       }),
       _.isEqual,
     );
+    const isEmbedded = renderMode === "embedded";
+    const placeholderStyle = isEmbedded
+      ? { width: "100%", height: "100%" }
+      : { width: `${width}px`, height: `${height}px` };
+    const placeholderClassName = `flex items-center justify-center rounded-xl bg-setta-100/70 shadow-inner dark:bg-setta-500/60 ${
+      isEmbedded ? "h-full w-full min-h-0 flex-1" : ""
+    }`;
 
     // The 2nd div (flex-auto) is needed to make dnd work from the right
     return (
       <>
         <div
-          style={{ width: `${width}px`, height: `${height}px` }}
-          className="flex items-center justify-center rounded-xl bg-setta-100/70 shadow-inner dark:bg-setta-500/60"
+          style={placeholderStyle}
+          className={placeholderClassName}
+          data-dnd-placeholder="true"
+          data-dnd-placeholder-mode={renderMode}
           ref={ref}
         >
           <TbDragDrop className="scale-150 text-xl font-black text-setta-50 dark:text-setta-400/70" />
         </div>
-        <div className="flex-auto bg-transparent" />
+        {isEmbedded ? null : <div className="flex-auto bg-transparent" />}
       </>
     );
-  },
-);
+  });
 
 type OverlayRect = {
   top: number;

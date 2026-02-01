@@ -27,6 +27,7 @@
 - `reference/share-policy-flags.md` – share policy flag coverage for route families and behavior.
 - `reference/sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
 - `reference/urls-and-routes.md` – frontend URL paths, routing behavior, and API route separation.
+- `reference/view-modes.md` – view mode ordering, layout/viewport storage, and settings defaults.
 
 ## Other Docs
 - `agent-cli-integration.md` – CLI integration notes for agent workflows.

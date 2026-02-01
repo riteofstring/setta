@@ -1,11 +1,14 @@
 import { addNodes, deleteNodes, moveNodes } from "state/actions/nodeInternals";
 import { useNodeInternals, ZustandProjectState } from "state/definitions";
 import { route_move_sections } from "utils/generatedEndpoints";
-import { Position } from "utils/generatedTypes";
+import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  isBaseCodeSectionType,
+  setCurrEffectiveSectionImplValue,
   setSectionChildren,
 } from "../sectionInfos";
 
@@ -82,6 +85,13 @@ function moveSectionsInState({
     const nextChildren = children.filter((id) => !movingSet.has(id));
     return insertIntoArray(nextChildren, newIndex, ...sectionIds);
   });
+  if (isCodeSection(state, newParentId)) {
+    if (sectionIds.length === 1 && isTerminalSection(state, sectionIds[0])) {
+      setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, newParentId, {
+        attachedTerminalSectionId: sectionIds[0],
+      });
+    }
+  }
   for (const sectionId of sectionIds) {
     state.parentSectionMap[sectionId] = newParentId;
   }
@@ -172,6 +182,18 @@ function removeSectionsFromParents({
 
   for (const [parentId, ids] of Object.entries(idsByParent)) {
     const removalSet = new Set(ids);
+    if (isCodeSection(state, parentId)) {
+      const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+      if (
+        isBaseCodeSectionType(parentImpl.type) &&
+        parentImpl.attachedTerminalSectionId &&
+        removalSet.has(parentImpl.attachedTerminalSectionId)
+      ) {
+        setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, parentId, {
+          attachedTerminalSectionId: null,
+        });
+      }
+    }
     setSectionChildren(state, parentId, (children) =>
       children.filter((id) => !removalSet.has(id)),
     );
@@ -220,13 +242,49 @@ function updateTopLevelLayout(
   };
 }
 
+function isCodeSection(state: ZustandProjectState, sectionId: string): boolean {
+  return isBaseCodeSectionType(
+    getCurrEffectiveSectionImpl(state, sectionId).type,
+  );
+}
+
+function isTerminalSection(
+  state: ZustandProjectState,
+  sectionId: string,
+): boolean {
+  return (
+    getCurrEffectiveSectionImpl(state, sectionId).type ===
+    SectionTypeEnum.Terminal
+  );
+}
+
+function findAttachedParentId(
+  state: ZustandProjectState,
+  sectionId: string,
+): string | null {
+  for (const candidateId of Object.keys(state.sections)) {
+    const impl = getCurrEffectiveSectionImpl(state, candidateId);
+    if (
+      isBaseCodeSectionType(impl.type) &&
+      impl.attachedTerminalSectionId === sectionId
+    ) {
+      return candidateId;
+    }
+  }
+  return null;
+}
+
 function resolveParentIds(
   state: ZustandProjectState,
   sectionIds: string[],
 ): Record<string, string | null> {
   const parentsById: Record<string, string | null> = {};
   for (const sectionId of sectionIds) {
-    parentsById[sectionId] = state.parentSectionMap[sectionId] ?? null;
+    let parentId = state.parentSectionMap[sectionId] ?? null;
+    if (!parentId && isTerminalSection(state, sectionId)) {
+      parentId = findAttachedParentId(state, sectionId);
+    }
+    parentsById[sectionId] = parentId;
   }
   return parentsById;
 }
