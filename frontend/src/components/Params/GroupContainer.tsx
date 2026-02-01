@@ -29,6 +29,7 @@ import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
+  getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
   getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
@@ -61,6 +62,7 @@ function _ParamGroupContainer({
     pinned: 1,
     unpinned: 1,
   });
+  const paramsFixedHeightKey = getParamsFixedHeightKey(sectionId);
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -73,6 +75,69 @@ function _ParamGroupContainer({
   const setOuterRef = useCallback((node: HTMLDivElement | null) => {
     outerRef.current = node;
   }, []);
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    if (!outer) {
+      useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
+      return;
+    }
+    let frameId = 0;
+    let lastFixedHeight: number | null = null;
+    let unpinnedElement: HTMLElement | null = null;
+    let unpinnedObserver: ResizeObserver | null = null;
+
+    const updateFixedHeight = () => {
+      if (!outer) {
+        return;
+      }
+      const nextUnpinned = outer.querySelector<HTMLElement>(
+        ".section-args-nested.overflow-y-scroll",
+      );
+      if (nextUnpinned !== unpinnedElement) {
+        unpinnedObserver?.disconnect();
+        unpinnedObserver = null;
+        unpinnedElement = nextUnpinned;
+        if (unpinnedElement) {
+          unpinnedObserver = new ResizeObserver(scheduleMeasure);
+          unpinnedObserver.observe(unpinnedElement);
+        }
+      }
+      const outerHeight = outer.offsetHeight;
+      const unpinnedHeight = unpinnedElement ? unpinnedElement.offsetHeight : 0;
+      const nextFixedHeight = Math.max(
+        0,
+        Math.round(outerHeight - unpinnedHeight),
+      );
+      if (lastFixedHeight === nextFixedHeight) {
+        return;
+      }
+      lastFixedHeight = nextFixedHeight;
+      useTemporaryMiscState.setState({
+        [paramsFixedHeightKey]: nextFixedHeight,
+      });
+    };
+
+    const scheduleMeasure = () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(updateFixedHeight);
+    };
+
+    const outerObserver = new ResizeObserver(scheduleMeasure);
+    outerObserver.observe(outer);
+    scheduleMeasure();
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+      outerObserver.disconnect();
+      unpinnedObserver?.disconnect();
+      useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
+    };
+  }, [paramsFixedHeightKey]);
 
   return (
     <ParamDndContext>

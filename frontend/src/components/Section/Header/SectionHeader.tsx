@@ -1,6 +1,6 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
-import React from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { TbBell, TbBellOff, TbSortDescending2 } from "react-icons/tb";
 import {
   setCodeSectionDiagnosticCodeSuppression,
@@ -11,7 +11,9 @@ import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
+  useTemporaryMiscState,
 } from "state/definitions";
+import { getSectionHeaderHeightKey } from "utils/constants";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
@@ -48,6 +50,40 @@ function _SectionHeader({
   isUserView,
   isRoot,
 }: SectionHeaderProps) {
+  const headerRef = useRef<HTMLElement | null>(null);
+  const heightKey = getSectionHeaderHeightKey(sectionId);
+
+  useLayoutEffect(() => {
+    const node = headerRef.current;
+    if (!node) {
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      return;
+    }
+    let lastMeasuredHeight: number | null = null;
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
+      const nextHeight = Math.ceil(measuredHeight);
+      if (lastMeasuredHeight === nextHeight) {
+        return;
+      }
+      lastMeasuredHeight = nextHeight;
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight > 0 ? nextHeight : 0,
+      });
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+    };
+  }, [heightKey]);
+
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
@@ -97,7 +133,10 @@ function _SectionHeader({
   // DOM: maybe get rid of the extra div under header?
 
   return (
-    <header className="section-title mx-2 flex flex-row items-center">
+    <header
+      className="section-title mx-2 flex flex-row items-center"
+      ref={headerRef}
+    >
       <MenuButton
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
