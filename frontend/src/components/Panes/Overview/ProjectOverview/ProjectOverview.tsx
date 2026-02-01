@@ -2,7 +2,6 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import {
   getActiveViewModeConfig,
-  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getSectionCore,
   getSectionShouldRender,
@@ -66,8 +65,7 @@ export function useOverviewListing() {
     const outputList: Array<OverviewListingType> = [];
     const viewMode = getActiveViewModeConfig(x);
     const { isEditingViewMode } = x.projectConfig;
-    const topLevelSections = getActiveViewModeTopLevelSections(x);
-    for (const sectionId of Object.keys(topLevelSections)) {
+    for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
       getDepthListingHelper(
