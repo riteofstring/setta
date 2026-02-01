@@ -5,7 +5,6 @@ import {
   getCurrEffectiveSectionImpl,
   getSectionCore,
   getSectionShouldRender,
-  getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
@@ -66,8 +65,7 @@ export function useOverviewListing() {
     const outputList: Array<OverviewListingType> = [];
     const viewMode = getActiveViewModeConfig(x);
     const { isEditingViewMode } = x.projectConfig;
-    const topLevelSectionIds = getTopLevelSectionIdsForDisplay(x);
-    for (const sectionId of topLevelSectionIds) {
+    for (const sectionId of Object.keys(x.projectConfig.topLevelSections)) {
       const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
       const sectionCore = getSectionCore(x, sectionId);
       getDepthListingHelper(

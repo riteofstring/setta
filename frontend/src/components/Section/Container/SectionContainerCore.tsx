@@ -1,9 +1,6 @@
 import _ from "lodash";
 import React from "react";
-import {
-  getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -32,18 +29,8 @@ function _SectionContainerCore({
     positionAndSizeLocked,
     textBlockMetaControlStyle,
     projectConfigId,
-    isAttachedTerminalChild,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const parentId = x.parentSectionMap[sectionId] ?? null;
-    let isAttachedTerminalChild = false;
-    if (parentId) {
-      const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
-      isAttachedTerminalChild =
-        impl.type === SectionTypeEnum.Terminal &&
-        isBaseCodeSectionType(parentImpl.type) &&
-        parentImpl.attachedTerminalSectionId === sectionId;
-    }
     return {
       isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
@@ -53,7 +40,6 @@ function _SectionContainerCore({
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       projectConfigId: x.projectConfig.id,
-      isAttachedTerminalChild,
     };
   }, _.isEqual);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
@@ -96,7 +82,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
     >
@@ -107,7 +93,6 @@ function _SectionContainerCore({
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
-        hideHeader={isAttachedTerminalChild}
       />
     </section>
   );

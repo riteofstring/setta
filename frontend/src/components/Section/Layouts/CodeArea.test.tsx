@@ -59,7 +59,6 @@ vi.mock("forks/xyflow/core/store", () => ({
 
 vi.mock("state/hooks/sectionSizes", () => ({
   useSectionMinMaxDims: () => ({ maxHeight: 600, maxWidth: 800 }),
-  getMinSectionHeight: () => 120,
 }));
 
 describe("CodeArea LSP diagnostics wiring", () => {
