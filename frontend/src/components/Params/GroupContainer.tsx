@@ -57,7 +57,6 @@ function _ParamGroupContainer({
     pinned: 1,
     unpinned: 1,
   });
-  const { ref: scrollRef, isScrollable } = useIsScrollable();
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -74,34 +73,27 @@ function _ParamGroupContainer({
   return (
     <ParamDndContext>
       <div
-        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col overflow-hidden pt-2"
+        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col pt-2"
         ref={setOuterRef}
       >
-        <div
-          className={`section-row-pin-main section-w-full flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden ${
-            isScrollable ? "nowheel" : ""
-          }`}
-          ref={scrollRef}
-        >
-          {waitingForResult ? (
-            <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
-          ) : (
-            <>
-              <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-              <GetPinnedParams
-                sectionId={sectionId}
-                handleColumnResizeStart={handleColumnResizeStart}
-                setMaxNestedDepth={setMaxNestedDepth}
-                sectionTypeName={sectionTypeName}
-              />
-              <GetUnpinnedParams
-                sectionId={sectionId}
-                handleColumnResizeStart={handleColumnResizeStart}
-                setMaxNestedDepth={setMaxNestedDepth}
-              />
-            </>
-          )}
-        </div>
+        {waitingForResult ? (
+          <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+        ) : (
+          <>
+            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+            <GetPinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+              sectionTypeName={sectionTypeName}
+            />
+            <GetUnpinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+            />
+          </>
+        )}
       </div>
     </ParamDndContext>
   );
@@ -650,6 +642,15 @@ function GetUnpinnedParams({
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
+  const { ref: scrollRef, isScrollable } = useIsScrollable();
+
+  const setContainerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      containerRef.current = node;
+      scrollRef.current = node;
+    },
+    [scrollRef],
+  );
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
@@ -665,8 +666,10 @@ function GetUnpinnedParams({
 
   return (
     <div
-      className="section-args-nested grid min-h-0 min-w-0 !max-w-full shrink-0 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5"
-      ref={containerRef}
+      className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-y-auto overflow-x-clip py-2 pr-1.5 ${
+        isScrollable ? "nowheel" : ""
+      }`}
+      ref={setContainerRef}
     >
       {!hideUnpinnedParams && (
         <ParamDndList

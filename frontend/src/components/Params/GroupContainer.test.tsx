@@ -59,7 +59,7 @@ describe("ParamGroupContainer layout", () => {
     resetProjectStores();
   });
 
-  it("keeps the param group in the pinned row area", () => {
+  it("keeps the unpinned params list scrollable", () => {
     const sectionId = "section-1";
     const variantId = "variant-1";
     const implId = "impl-1";
@@ -187,9 +187,13 @@ describe("ParamGroupContainer layout", () => {
         sectionTypeName={SectionTypeEnum.Dict}
       />,
     );
-    const match = markup.match(/class=\"([^\"]*overflow-y-auto[^\"]*)\"/);
+    const match = markup.match(
+      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-auto[^\"]*)\"/,
+    );
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
-    expect(classes).toContain("section-row-pin-main");
+    expect(classes).toContain("section-args-nested");
+    expect(classes).toContain("overflow-y-auto");
+    expect(markup).toContain("section-row-pin-main");
   });
 });

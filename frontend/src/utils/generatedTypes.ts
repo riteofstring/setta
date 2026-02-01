@@ -301,7 +301,7 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 
-export const SectionSizeModeEnum = { auto: "auto" } as const;
+const SectionSizeModeEnum = { auto: "auto" } as const;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
