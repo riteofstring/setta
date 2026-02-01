@@ -151,10 +151,6 @@ class BaseCanvasSectionImpl(BaseSectionImpl):
     pass
 
 
-class BaseParentSectionImpl(BaseSectionImpl):
-    children: list[ID] = Field(default_factory=list)
-
-
 class CodeFileAccessMode(str, Enum):
     read_only = "read_only"
     read_write = "read_write"
@@ -171,11 +167,14 @@ class CodeFileBinding(BaseModel, extra="forbid"):
         return self.canonical_path.parent
 
 
-class BaseCodeSectionImpl(BaseParentSectionImpl):
+class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
-    attachedTerminalSectionId: ID | None = None
+
+
+class BaseParentSectionImpl(BaseSectionImpl):
+    children: list[ID] = Field(default_factory=list)
 
 
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):

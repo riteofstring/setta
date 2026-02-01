@@ -77,7 +77,7 @@ export function HeaderIcon({
     case SectionTypeEnum.TextBlock:
       return <TextBlockIcon sectionId={sectionId} />;
     case SectionTypeEnum.Prompt:
-      return <TextBlockIcon sectionId={sectionId} />;
+      return <PromptIcon />;
     case SectionTypeEnum.MetaControl:
       return (
         <TbAdjustmentsHorizontal className="text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]" />
@@ -228,6 +228,12 @@ function TextBlockIcon({ sectionId }) {
     <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
   );
   // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
+}
+
+function PromptIcon() {
+  return (
+    <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
+  );
 }
 
 function TerminalIcon({ sectionId }) {

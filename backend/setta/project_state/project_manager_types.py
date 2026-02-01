@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
+from setta.types.agentic_edges import (
+    AgenticEdge,
+    AgenticEdgeContextMode,
+    AgenticEdgeKind,
+)
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
@@ -98,10 +103,6 @@ class RunCodeRequest(BaseModel):
     )
     sectionId: ID | None = Field(
         description="Optional section to run; defaults to the entry code block.",
-    )
-    terminalSectionId: ID | None = Field(
-        default=None,
-        description="Optional terminal section to stream run output.",
     )
     cliId: str | None = Field(
         default=None,
@@ -645,15 +646,6 @@ class SetCodeSectionDiagnosticCodeSuppressionRequest(ProjectManagerRequestWithSe
     )
 
 
-class SetCodeSectionAttachedTerminalRequest(ProjectManagerRequestWithSection):
-    """Attach or detach a terminal section for a code section."""
-
-    terminalSectionId: ID | None = Field(
-        default=None,
-        description="Terminal section to attach; null detaches.",
-    )
-
-
 class SetParamNameAndValueRequest(ProjectManagerRequestWithSection):
     """Set a parameter's name and value in one step."""
 
@@ -783,6 +775,28 @@ class ReconnectEdgeRequest(ProjectManagerRequestWithProjectConfig):
 
 class SetEdgesRequest(ProjectManagerRequestWithProjectConfig):
     edges: list[Edge]
+
+
+class CreateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
+    sourceSectionId: ID
+    targetSectionId: ID
+    kind: AgenticEdgeKind
+    contextMode: AgenticEdgeContextMode = AgenticEdgeContextMode.reference_only
+    style: dict[str, str | int | float] | None = None
+    hidden: bool = False
+    zIndex: int = 0
+
+
+class UpdateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
+    edge: AgenticEdge
+
+
+class DeleteAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
+    edgeIds: list[ID]
+
+
+class SetAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
+    edges: list[AgenticEdge]
 
 
 class SetSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
