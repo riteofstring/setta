@@ -9,7 +9,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
+import { TbLayoutDashboard } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -34,10 +34,6 @@ function EmptyChatState() {
     <div className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-4 overflow-y-auto">
       <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
         <TbLayoutDashboard /> Create Project UI
-      </button>
-      <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
-        <TbLayoutDashboardFilled />
-        Create Project UI & Values
       </button>
     </div>
   );

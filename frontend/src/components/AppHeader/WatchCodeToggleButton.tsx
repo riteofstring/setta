@@ -1,3 +1,4 @@
+import * as Switch from "@radix-ui/react-switch";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
@@ -13,38 +14,26 @@ export function WatchCodeToggleButton() {
   const isShareMode = useShareSession((state) => state.isShareMode);
   const disabled = isShareMode || projectConfigId === NULL_PROJECT_CONFIG_ID;
 
-  const label = enabled ? "Enabled" : "Disabled";
   const actionLabel = enabled ? "Disable Watch Code" : "Enable Watch Code";
-  const stateClasses = enabled
-    ? "border-blue-200/70 bg-blue-50/80 text-blue-700 hover:bg-blue-100/80 dark:border-blue-900/60 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/60"
-    : "border-setta-200/70 bg-setta-50/80 text-setta-600 hover:bg-setta-100/80 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300 dark:hover:bg-setta-800/60";
-  const dotClasses = enabled ? "bg-blue-500" : "bg-setta-400";
-  const disabledClasses = disabled ? "cursor-not-allowed opacity-60" : "";
 
   return (
-    <button
-      aria-pressed={enabled}
+    <Switch.Root
       aria-label={actionLabel}
-      className={`nodrag relative inline-flex min-w-[96px] cursor-pointer select-none flex-col items-start gap-1 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition-colors focus-visible:ring-2 ${stateClasses} ${disabledClasses}`}
-      disabled={disabled}
       title={actionLabel}
-      onClick={() => {
+      className="nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full bg-setta-400 p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-60 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700"
+      checked={enabled}
+      disabled={disabled}
+      onCheckedChange={(checked) => {
         if (disabled) {
           return;
         }
         void route_set_watch_code_enabled({
           projectConfigId,
-          enabled: !enabled,
+          enabled: checked,
         });
       }}
     >
-      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-500 dark:text-setta-400">
-        Mode
-      </span>
-      <span className="flex items-center gap-2 whitespace-nowrap text-xs">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClasses}`} />
-        {label}
-      </span>
-    </button>
+      <Switch.Thumb className="block h-2.5 w-2.5 rounded-full bg-white transition-all will-change-transform data-[state='checked']:translate-x-4 dark:bg-setta-800" />
+    </Switch.Root>
   );
 }
