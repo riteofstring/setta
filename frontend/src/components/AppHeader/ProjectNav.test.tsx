@@ -6,10 +6,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  createSettingsState,
-  type SharePolicy,
-} from "utils/generatedTypes";
+import { createSettingsState, type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProjectNav } from "./ProjectNav";
 

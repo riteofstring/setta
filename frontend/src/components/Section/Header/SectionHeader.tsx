@@ -13,9 +13,9 @@ import {
   useShareSession,
   useTemporaryMiscState,
 } from "state/definitions";
-import { getSectionHeaderHeightKey } from "utils/constants";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
+import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,

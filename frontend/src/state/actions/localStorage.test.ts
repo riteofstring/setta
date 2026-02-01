@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
 import { useLocalStorage } from "state/definitions";
+import { beforeEach, describe, expect, it } from "vitest";
 import { setColorModePreference } from "./localStorage";
 
 describe("setColorModePreference", () => {

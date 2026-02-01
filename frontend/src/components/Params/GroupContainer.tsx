@@ -194,11 +194,11 @@ function _ParamGroupContainer({
   return (
     <ParamDndContext>
       <div
-        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col pt-2 relative"
+        className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
         ref={setOuterRef}
       >
         {waitingForResult && (
-          <div className="absolute inset-0 z-10 flex items-start justify-center pt-3 pointer-events-auto bg-transparent">
+          <div className="pointer-events-auto absolute inset-0 z-10 flex items-start justify-center bg-transparent pt-3">
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
@@ -802,7 +802,7 @@ function GetUnpinnedParams({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-y-scroll overflow-x-clip py-2 pr-1.5 ${
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
           isScrollable ? "nowheel" : ""
         }`}
         ref={setContainerRef}
