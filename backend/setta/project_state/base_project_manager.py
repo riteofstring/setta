@@ -1058,8 +1058,10 @@ class BaseProjectManager(ABC):
         view_mode = project_config.viewModes.get(active_view_mode_id)
         if view_mode is None:
             raise KeyError(f"View mode {active_view_mode_id} not found")
-        project_config.topLevelSections = x.topLevelSections
-        view_mode.topLevelSections = x.topLevelSections
+        existing_layouts = view_mode.topLevelSections
+        merged_layouts = {**existing_layouts, **x.topLevelSections}
+        project_config.topLevelSections = merged_layouts
+        view_mode.topLevelSections = merged_layouts
 
     @enqueue_method
     @project_state_tool()
