@@ -525,6 +525,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId);
 
     await runCodeBlockInPage(page, codeSectionId);
     await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
@@ -582,6 +583,7 @@ test("terminal resize messages are throttled during drag detach", async ({
   page,
 }) => {
   test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
 
@@ -611,6 +613,7 @@ test("terminal resize messages are throttled during drag detach", async ({
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId);
     await runCodeBlockInPage(page, codeSectionId);
 
     await expect
@@ -796,9 +799,13 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
     const windowWithOutput = window as typeof window & {
       __terminalOutputInstrumented?: boolean;
       __terminalOutputBySectionId?: Record<string, string>;
+      __terminalReadyBySectionId?: Record<string, boolean>;
     };
     if (!windowWithOutput.__terminalOutputBySectionId) {
       windowWithOutput.__terminalOutputBySectionId = {};
+    }
+    if (!windowWithOutput.__terminalReadyBySectionId) {
+      windowWithOutput.__terminalReadyBySectionId = {};
     }
 
     const currentWebSocket = WebSocket as typeof WebSocket & {
@@ -834,6 +841,18 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
           };
 
           if (typeof event.data === "string") {
+            if (event.data === "SETTA_TERMINAL_READY") {
+              try {
+                const urlObj = new URL(socket.url);
+                const parts = urlObj.pathname.split("/").filter(Boolean);
+                const sectionId =
+                  parts.length >= 2 ? parts[parts.length - 2] : "unknown";
+                windowWithOutput.__terminalReadyBySectionId![sectionId] = true;
+              } catch {
+                // Ignore parse errors.
+              }
+              return;
+            }
             appendOutput(event.data);
             return;
           }
@@ -892,6 +911,26 @@ async function waitForTerminalOutputMarker(
       { timeout: timeoutMs },
     )
     .toContain(marker);
+}
+
+async function waitForTerminalReady(
+  page: Page,
+  terminalId: string,
+  timeoutMs = 20000,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        return await page.evaluate((id) => {
+          const readyMap = (window as typeof window & {
+            __terminalReadyBySectionId?: Record<string, boolean>;
+          }).__terminalReadyBySectionId;
+          return readyMap?.[id] ?? false;
+        }, terminalId);
+      },
+      { timeout: timeoutMs },
+    )
+    .toBe(true);
 }
 
 async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
