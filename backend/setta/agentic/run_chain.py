@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 _CHAIN_RUN_TYPE = "run_chain"
 _CHAIN_STEP_RUN_TYPE = "run_chain_step"
-_CHAIN_INPUT_KEYS = ("projectConfigId", "chatId", "thinking")
+_CHAIN_INPUT_KEYS = ("projectConfigId", "chatId", "sectionId", "thinking")
 
 
 @dataclass(frozen=True)

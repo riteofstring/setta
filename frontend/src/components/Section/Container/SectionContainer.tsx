@@ -4,7 +4,6 @@ import React from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
   getSectionShouldRender,
   getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
@@ -31,13 +30,11 @@ function _SectionContainer({
     visibility,
     isEditingViewMode,
     isGroup,
-    isCode,
     isUserView,
     isGenPython,
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
-    sectionTypeName,
   } = useProjectState((x) => {
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
       sectionId,
@@ -51,12 +48,10 @@ function _SectionContainer({
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
-      isCode: isBaseCodeSectionType(impl.type),
       isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
       isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
-      sectionTypeName: impl.type,
     };
   }, _.isEqual);
 
@@ -82,28 +77,14 @@ function _SectionContainer({
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
       >
-        <>
-          {!isGroup && (
-            <SectionContainerCore
-              sectionId={sectionId}
-              isUserView={isUserView}
-            />
-          )}
-          {isCode ? (
-            <MaybeManyNestedSections
-              sectionId={sectionId}
-              isGroup={isGroup}
-              layoutVariant="tight"
-            />
-          ) : (
-            <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
-          )}
-        </>
+        {!isGroup && (
+          <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
+        )}
+        <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
       </ContainerSwitch>
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(
-  _SectionContainer,
-  (p, n) => _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
 );
