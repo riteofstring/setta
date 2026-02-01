@@ -10,7 +10,6 @@ import rpack
 from setta.database.utils import create_new_id
 from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
-from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
@@ -1375,17 +1374,6 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
         for edge in removed_edges:
             if edge.targetSectionId not in to_delete_set:
                 _maybe_clear_edge_target_value(p, edge)
-    if p.projectConfig.agenticEdges:
-        to_delete_set = set(to_delete)
-        remaining_agentic: list[AgenticEdge] = []
-        for edge in p.projectConfig.agenticEdges:
-            if (
-                edge.sourceSectionId in to_delete_set
-                or edge.targetSectionId in to_delete_set
-            ):
-                continue
-            remaining_agentic.append(edge)
-        p.projectConfig.agenticEdges = remaining_agentic
     for id in reversed(to_delete):
         parentId = p.parentSectionMap[id]
         # delete from parent's current children list
@@ -2350,35 +2338,6 @@ def _ensure_edge_endpoints_valid(p: "ProjectStateSingleConfig", edge: Edge):
         )
 
 
-def _ensure_agentic_edge_endpoints_valid(
-    p: "ProjectStateSingleConfig", edge: AgenticEdge
-):
-    source_exists = edge.sourceSectionId in p.sections
-    target_exists = edge.targetSectionId in p.sections
-    if not source_exists:
-        raise KeyError(
-            f"Agentic edge {edge.id} source section {edge.sourceSectionId} missing from project state."
-        )
-    if not target_exists:
-        raise KeyError(
-            f"Agentic edge {edge.id} target section {edge.targetSectionId} missing from project state."
-        )
-    if source_exists:
-        source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
-        if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.chat_section}:
-            if source_impl.type != SectionType.Chat:
-                raise TypeError(
-                    f"Agentic edge {edge.id} expects a chat source section."
-                )
-    if target_exists:
-        target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
-        if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.section_chat}:
-            if target_impl.type != SectionType.Chat:
-                raise TypeError(
-                    f"Agentic edge {edge.id} expects a chat target section."
-                )
-
-
 def _maybe_clear_edge_target_value(p: "ProjectStateSingleConfig", edge: Edge):
     if edge.targetSectionId not in p.sections:
         return
@@ -2589,47 +2548,6 @@ def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
     p.projectConfig.edges = edges
     for edge in removed_edges:
         _maybe_clear_edge_target_value(p, edge)
-
-
-def create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    if any(existing.id == edge.id for existing in p.projectConfig.agenticEdges):
-        raise KeyError(f"Agentic edge {edge.id} already exists.")
-    _ensure_agentic_edge_endpoints_valid(p, edge)
-    p.projectConfig.agenticEdges.append(edge)
-
-
-def update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
-    for idx, existing in enumerate(p.projectConfig.agenticEdges):
-        if existing.id != edge.id:
-            continue
-        _ensure_agentic_edge_endpoints_valid(p, edge)
-        p.projectConfig.agenticEdges[idx] = edge
-        return
-    raise KeyError(f"Agentic edge {edge.id} not found.")
-
-
-def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
-    edge_ids = set(edgeIds)
-    existing_ids = {edge.id for edge in p.projectConfig.agenticEdges}
-    missing = edge_ids - existing_ids
-    if missing:
-        raise KeyError(f"Agentic edges not found: {sorted(missing)}")
-    remaining_edges: list[AgenticEdge] = []
-    for edge in p.projectConfig.agenticEdges:
-        if edge.id in edge_ids:
-            continue
-        remaining_edges.append(edge)
-    p.projectConfig.agenticEdges = remaining_edges
-
-
-def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
-    edge_ids: set[ID] = set()
-    for edge in edges:
-        if edge.id in edge_ids:
-            raise KeyError(f"Duplicate agentic edge id {edge.id} in update.")
-        edge_ids.add(edge.id)
-        _ensure_agentic_edge_endpoints_valid(p, edge)
-    p.projectConfig.agenticEdges = edges
 
 
 def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):

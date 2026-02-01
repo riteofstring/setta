@@ -7,7 +7,6 @@ import {
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import {
@@ -101,7 +100,6 @@ function _SectionContainerCore({
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
     >
-      <AgenticEdgeHandles isUserView={isUserView} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}

@@ -9,10 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  createEdgeFromConnection,
-  isValidDataEdgeConnection,
-} from "state/actions/edges";
+import { createEdgeFromConnection } from "state/actions/edges";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
@@ -514,7 +511,6 @@ function EdgesStrip({
                   type="target"
                   position={HandlePosition.Left}
                   onConnect={createEdgeFromConnection}
-                  isValidConnection={isValidDataEdgeConnection}
                   isConnectable={canEditStructure}
                   isConnectableStart={canEditStructure}
                   isConnectableEnd={canEditStructure}
@@ -546,7 +542,6 @@ function EdgesStrip({
                   type="source"
                   position={HandlePosition.Right}
                   onConnect={createEdgeFromConnection}
-                  isValidConnection={isValidDataEdgeConnection}
                   isConnectable={canEditStructure}
                   isConnectableStart={canEditStructure}
                   isConnectableEnd={canEditStructure}

@@ -12,7 +12,6 @@ import {
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import * as Menubar from "@radix-ui/react-menubar";
 import _ from "lodash";
 import {
   SetStateAction,
@@ -281,11 +280,7 @@ export function ProjectChat() {
                 </>
               )}
             </button>
-            {!viewHistory ? (
-              <Menubar.Root className="contents">
-                <FollowAIToggleButton />
-              </Menubar.Root>
-            ) : null}
+            {!viewHistory ? <FollowAIToggleButton /> : null}
             {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
             {!viewHistory &&
             (engineType === EngineTypeEnum.setta_llm ||

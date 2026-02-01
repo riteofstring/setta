@@ -39,48 +39,37 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
-  const stableSectionIds = [...sectionIds];
-  const stablePositionsById = positionsById
-    ? Object.fromEntries(
-        Object.entries(positionsById).map(([id, position]) => [
-          id,
-          { x: position.x, y: position.y },
-        ]),
-      )
-    : null;
-  const stableNewParentId = newParentId;
-  const stableNewIndex = newIndex;
   const state = useProjectState.getState();
   const useAttachedTerminalRoute = shouldUseAttachedTerminalRoute({
     state,
-    sectionIds: stableSectionIds,
-    newParentId: stableNewParentId,
+    sectionIds,
+    newParentId,
   });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
-        sectionIds: stableSectionIds,
-        newParentId: stableNewParentId,
-        newIndex: stableNewIndex,
-        positionsById: stablePositionsById,
+        sectionIds,
+        newParentId,
+        newIndex,
+        positionsById,
         state,
       });
     },
     send: (frontendOpId) => {
-      if (useAttachedTerminalRoute && stableNewParentId) {
+      if (useAttachedTerminalRoute && newParentId) {
         return route_set_code_section_attached_terminal({
           projectConfigId: getCurrProjectConfigId(),
-          sectionId: stableNewParentId,
-          terminalSectionId: stableSectionIds[0] ?? null,
+          sectionId: newParentId,
+          terminalSectionId: sectionIds[0] ?? null,
           frontendOpId,
         });
       }
       return route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
-        sectionIds: stableSectionIds,
-        newParentId: stableNewParentId,
-        newIndex: stableNewIndex,
-        positionsById: stablePositionsById,
+        sectionIds,
+        newParentId,
+        newIndex,
+        positionsById,
         frontendOpId,
       });
     },

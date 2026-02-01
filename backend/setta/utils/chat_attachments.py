@@ -45,19 +45,6 @@ _TEXT_FILE_EXTENSIONS = {
     ".yml",
 }
 
-_SUPPORTED_LLM_IMAGE_MIME_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-}
-_LLM_IMAGE_MIME_ALIASES = {
-    "image/jpg": "image/jpeg",
-    "image/pjpeg": "image/jpeg",
-    "image/jfif": "image/jpeg",
-    "image/x-png": "image/png",
-}
-
 
 def normalize_attachment_mime(
     attachment: ChatFileAttachment, *, path: Path | None = None
@@ -87,11 +74,6 @@ def is_text_mime(mime_type: str) -> bool:
 
 def is_image_mime(mime_type: str) -> bool:
     return mime_type.startswith("image/")
-
-
-def normalize_llm_image_mime(mime_type: str) -> str:
-    normalized = mime_type.strip().lower()
-    return _LLM_IMAGE_MIME_ALIASES.get(normalized, normalized)
 
 
 def _get_attachment_suffixes(
@@ -203,9 +185,6 @@ def build_attachment_content_blocks(
         )
         mime_type = normalize_attachment_mime(attachment, path=resolved_path)
         if is_image_mime(mime_type):
-            normalized_mime = normalize_llm_image_mime(mime_type)
-            if normalized_mime not in _SUPPORTED_LLM_IMAGE_MIME_TYPES:
-                continue
             try:
                 payload = read_attachment_bytes(dbe, resolved_path, attachment.id)
             except FileNotFoundError:
@@ -214,7 +193,7 @@ def build_attachment_content_blocks(
                 )
                 continue
             encoded = base64.b64encode(payload).decode("utf-8")
-            url = f"data:{normalized_mime};base64,{encoded}"
+            url = f"data:{mime_type};base64,{encoded}"
             blocks.append(
                 MessageImageUrlContent(
                     image_url=MessageImageUrl(url=url, detail="auto")

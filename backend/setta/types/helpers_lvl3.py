@@ -8,7 +8,6 @@ from setta.project_state.project_state_summary_types import (
     ProjectStateSummaryParam,
     ProjectStateSummarySection,
 )
-from setta.types.agentic_edges import AgenticEdge
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import (
     BaseParentCodeObjImpl,
@@ -490,11 +489,6 @@ def copy_project_config(
                 section_variant_id_map,
                 code_obj_id_map,
             )
-        if project_config.agenticEdges:
-            new_values["agenticEdges"] = _remap_agentic_edges(
-                project_config.agenticEdges,
-                section_id_map,
-            )
 
     return project_config.model_copy(update=new_values, deep=True)
 
@@ -525,32 +519,6 @@ def _remap_edges(
                     "targetSectionId": section_id_map[edge.targetSectionId],
                     "targetVariantId": section_variant_id_map[edge.targetVariantId],
                     "targetPortId": code_obj_id_map[edge.targetPortId],
-                },
-                deep=True,
-            )
-        )
-    return remapped
-
-
-def _remap_agentic_edges(
-    edges: list[AgenticEdge],
-    section_id_map: dict[ID, ID],
-) -> list[AgenticEdge]:
-    remapped: list[AgenticEdge] = []
-    for edge in edges:
-        if edge.sourceSectionId not in section_id_map:
-            raise KeyError(
-                f"Section {edge.sourceSectionId} missing for agentic edge remap."
-            )
-        if edge.targetSectionId not in section_id_map:
-            raise KeyError(
-                f"Section {edge.targetSectionId} missing for agentic edge remap."
-            )
-        remapped.append(
-            edge.model_copy(
-                update={
-                    "sourceSectionId": section_id_map[edge.sourceSectionId],
-                    "targetSectionId": section_id_map[edge.targetSectionId],
                 },
                 deep=True,
             )
