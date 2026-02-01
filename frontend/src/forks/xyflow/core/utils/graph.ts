@@ -196,12 +196,43 @@ export function getSectionBounds(
   return getNodesBounds(sections);
 }
 
-export function getPaneRect(s: ReactFlowState, overviewWidth: number): Rect {
+export function getPaneRect(
+  s: ReactFlowState,
+  overviewWidth: number,
+  uiEditorWidth: number,
+): Rect {
+  if (!s.domNode) {
+    return {
+      x: (-s.transform[0] + overviewWidth) / s.transform[2],
+      y: -s.transform[1] / s.transform[2],
+      width: s.width / s.transform[2],
+      height: s.height / s.transform[2],
+    };
+  }
+
+  const bounds = s.domNode.getBoundingClientRect();
+  const visibleWidth = Math.max(
+    bounds.width - overviewWidth - uiEditorWidth,
+    0,
+  );
+  const visibleHeight = Math.max(bounds.height, 0);
+  const topLeft = screenToFlowPosition(
+    { x: bounds.left + overviewWidth, y: bounds.top },
+    true,
+  );
+  const bottomRight = screenToFlowPosition(
+    {
+      x: bounds.left + overviewWidth + visibleWidth,
+      y: bounds.top + visibleHeight,
+    },
+    true,
+  );
+
   return {
-    x: (-s.transform[0] + overviewWidth) / s.transform[2],
-    y: -s.transform[1] / s.transform[2],
-    width: s.width / s.transform[2],
-    height: s.height / s.transform[2],
+    x: topLeft.x,
+    y: topLeft.y,
+    width: bottomRight.x - topLeft.x,
+    height: bottomRight.y - topLeft.y,
   };
 }
 
@@ -240,6 +271,7 @@ export function movePaneToIncludeElement(element: HTMLElement) {
   const paneRect = getPaneRect(
     useReactFlow.getState(),
     useLocalStorage.getState().overviewTrueWidth,
+    useLocalStorage.getState().uiEditorTrueWidth,
   );
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (!isInside) {

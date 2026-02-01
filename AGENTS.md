@@ -29,15 +29,21 @@
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
+- Avoid div soup: keep markup semantic, minimize unnecessary wrappers, and favor the smallest readable/performant DOM tree.
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
+
+## UI Style Consistency
+
+- Use `docs/reference/ui-style-consistency.md` as the canonical style anchor map for UI work (component references, icon guidance, panes to ignore).
 
 ## Testing Guidelines
 
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts` files.
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.
+- Implement Playwright tests as often as possible. For any frontend change, write or update Playwright tests, run them, and iterate until they pass.
 - Visual verification is a hard gate for UI changes: never claim visual verification without a CDP run. If CDP access is unavailable, stop and ask the user to enable the extension; otherwise state `CDP visual check: not run (reason)` in the final response.
 - For any visual/UI change, include a final-response line `CDP visual check: done (brief context)` or `CDP visual check: not run (reason)`.
 - Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` for the CDP-only workflow and worktree port guidance.

@@ -1,10 +1,11 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
 const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const HOME_URL = new URL("/home", BASE_URL).toString();
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
   (process.env.SETTA_PROJECT_PATH
@@ -17,6 +18,7 @@ type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
   projectMetadata: ProjectMetadataEntry[];
 };
+type CreateTopLevelSectionResponse = { sectionId?: string };
 type ProjectStateSectionSize = {
   width: number | "auto";
   height: number | "auto";
@@ -69,6 +71,71 @@ export async function ensureAppReady(page: Page): Promise<void> {
     );
   }
   throw new Error("Setta UI did not become ready. Check bootstrap auth.");
+}
+
+export async function createNewProjectConfig(
+  page: Page,
+): Promise<{ projectConfigId: string; projectConfigName: string }> {
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "New Config" }).click();
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigName = getProjectConfigName(page.url(), PROJECT_URL);
+  if (!projectConfigName) {
+    throw new Error("Unable to resolve new project config name.");
+  }
+  const projectConfigId = await resolveProjectConfigId(
+    page,
+    projectConfigName,
+  );
+  return { projectConfigId, projectConfigName };
+}
+
+export async function deleteProjectConfigByName(
+  page: Page,
+  projectConfigName: string,
+): Promise<void> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+  const match = metadata.projectMetadata.find(
+    (entry) => entry.name === projectConfigName,
+  );
+  if (!match) {
+    throw new Error(
+      `Unable to resolve project config id for ${projectConfigName}.`,
+    );
+  }
+  await postBackend(page, "/deleteProjectConfigs", { ids: [match.id] });
+}
+
+export async function createCodeSection(
+  page: Page,
+  projectConfigId: string,
+): Promise<string> {
+  const created = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Code",
+    },
+  );
+  if (!created?.sectionId) {
+    throw new Error("Missing sectionId when creating code section.");
+  }
+  return created.sectionId;
+}
+
+export function findSectionByName(page: Page, name: string): Locator {
+  return page
+    .locator('section[class*="card-section"]')
+    .filter({ has: page.locator("header.section-title", { hasText: name }) });
 }
 
 export async function getCurrentProjectConfigId(page: Page): Promise<string> {
@@ -237,6 +304,47 @@ export async function postBackend<T>(
     return null;
   }
   return JSON.parse(text) as T;
+}
+
+async function resolveProjectConfigId(
+  page: Page,
+  projectConfigName: string,
+): Promise<string> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+  const match = metadata.projectMetadata.find(
+    (entry) => entry.name === projectConfigName,
+  );
+  if (!match) {
+    throw new Error(
+      `Unable to resolve project config id for ${projectConfigName}.`,
+    );
+  }
+  return match.id;
+}
+
+function getProjectConfigName(pageUrl: string, baseUrl: string): string {
+  const pagePath = new URL(pageUrl).pathname;
+  const basePath = new URL(baseUrl).pathname;
+  let relativePath = pagePath;
+
+  if (basePath !== "/") {
+    const normalizedBase = basePath.endsWith("/") ? basePath : `${basePath}/`;
+    if (relativePath.startsWith(normalizedBase)) {
+      relativePath = relativePath.slice(normalizedBase.length);
+    } else if (relativePath.startsWith(basePath)) {
+      relativePath = relativePath.slice(basePath.length);
+    }
+  }
+
+  relativePath = relativePath.replace(/^\\/+/, "");
+  return decodeURIComponent(relativePath);
 }
 
 async function isAppReady(page: Page): Promise<boolean> {

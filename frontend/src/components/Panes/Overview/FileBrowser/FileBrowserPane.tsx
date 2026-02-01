@@ -1,29 +1,45 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HiChevronDown, HiChevronRight } from "react-icons/hi";
+import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder } from "react-icons/tb";
 import { List, useListRef } from "react-window";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
 import { useFileBrowserState } from "state/definitions";
+import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
+import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
+import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
-const BREADCRUMB_HEIGHT = 24;
+const HEADER_HEIGHT = 28;
+export const FILE_BROWSER_DATE_COLUMN_MIN_WIDTH = 96;
+export const FILE_BROWSER_FILE_COLUMN_MIN_WIDTH = 120;
+const FILE_COLUMN_CSS_VAR = "--file-browser-column-width";
+const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "2-digit",
+  year: "numeric",
+});
 const FILTER_DEBOUNCE_MS = 150;
 const MAX_ENTRIES = 5000;
 
 type NodeKind = "folder" | "file";
+
+type SortKey = "name" | "modified";
+type SortDirection = "asc" | "desc";
 
 export type FileNode = {
   name: string;
   fullPath: string;
   type: NodeKind;
   parentPath: string | null;
+  mtime?: number | null;
 };
 
 type FlattenedNode = FileNode & {
@@ -36,6 +52,8 @@ type RowData = {
   selectedPath: string | null;
   loadingPaths: Record<string, boolean>;
   errorByPath: Record<string, string>;
+  columnWidth: string;
+  listInsetLeft: number;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   onOpen: (path: string) => void;
@@ -50,12 +68,23 @@ type FileBrowserPaneProps = {
   onFileOpen?: (node: FileNode) => void;
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
+  showFilter?: boolean;
+  metaPaddingClassName?: string;
+  listInsetLeft?: number;
+  columnWidthConfig?: {
+    columnWidth: string;
+    onResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  };
 };
 
 export function FileBrowserPane({
   onFileOpen,
   onSelectionChange,
   useFileBrowserStateHook,
+  showFilter = true,
+  metaPaddingClassName,
+  listInsetLeft = 0,
+  columnWidthConfig,
 }: FileBrowserPaneProps = {}) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
   const { rootPath, expandedPaths, selectedPath, filterText } =
@@ -73,11 +102,10 @@ export function FileBrowserPane({
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
   const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
   const [pathSeparator, setPathSeparator] = useState("/");
-  const [rootInput, setRootInput] = useState("");
-  const [filterInput, setFilterInput] = useState(filterText);
   const [rootError, setRootError] = useState<string | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
-  const [visibleStartIndex, setVisibleStartIndex] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const listRef = useListRef();
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const didLoadRootRef = useRef(false);
@@ -127,6 +155,7 @@ export function FileBrowserPane({
         folderPath,
         ignorePatterns: activeIgnorePatterns,
         maxEntries: MAX_ENTRIES,
+        includeMtime: true,
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
         return;
@@ -145,6 +174,7 @@ export function FileBrowserPane({
               fullPath: item.fullPath,
               type: item.type,
               parentPath: folderPath,
+              mtime: item.mtime ?? null,
             };
           }
           return next;
@@ -221,6 +251,30 @@ export function FileBrowserPane({
     [fetchFolderContents, fileBrowserState, pathSeparator],
   );
 
+  const handleSort = useCallback((nextKey: SortKey) => {
+    setSortKey((prevKey) => {
+      if (prevKey === nextKey) {
+        setSortDirection((prevDirection) =>
+          prevDirection === "asc" ? "desc" : "asc",
+        );
+        return prevKey;
+      }
+      setSortDirection(nextKey === "modified" ? "desc" : "asc");
+      return nextKey;
+    });
+  }, []);
+
+  const getSortedChildPaths = useCallback(
+    (path: string) =>
+      sortChildPaths({
+        paths: childrenByPath[path] ?? [],
+        nodesByPath,
+        sortKey,
+        sortDirection,
+      }),
+    [childrenByPath, nodesByPath, sortKey, sortDirection],
+  );
+
   useEffect(() => {
     applyRootPathRef.current = applyRootPath;
   }, [applyRootPath]);
@@ -242,7 +296,6 @@ export function FileBrowserPane({
       }
       setIgnorePatterns(res.data.ignorePatterns);
       setPathSeparator(res.data.pathSeparator);
-      setRootInput(res.data.rootPath);
       applyRootPathRef.current?.(
         res.data.rootPath,
         res.data.pathSeparator,
@@ -251,19 +304,6 @@ export function FileBrowserPane({
     };
     void loadRoot();
   }, []);
-
-  useEffect(() => {
-    setFilterInput(filterText);
-  }, [filterText]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      fileBrowserState.setState({ filterText: filterInput });
-    }, FILTER_DEBOUNCE_MS);
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [filterInput, fileBrowserState]);
 
   const flattenedItems = useMemo(() => {
     if (!rootPath) {
@@ -285,7 +325,7 @@ export function FileBrowserPane({
         result.push({ ...node, depth });
         const isExpanded = expandedPaths[path] === true;
         if (node.type === "folder" && isExpanded) {
-          const children = childrenByPath[path] ?? [];
+          const children = getSortedChildPaths(path);
           for (const childPath of children) {
             walk(childPath, depth + 1);
           }
@@ -300,7 +340,7 @@ export function FileBrowserPane({
         return { matched: false, items: [] as FlattenedNode[] };
       }
       const nameMatches = node.name.toLowerCase().includes(normalizedFilter);
-      const children = childrenByPath[path] ?? [];
+      const children = getSortedChildPaths(path);
       let matched = nameMatches;
       const childItems: FlattenedNode[] = [];
       for (const childPath of children) {
@@ -319,7 +359,7 @@ export function FileBrowserPane({
       };
     };
     return collectFiltered(rootPath, 0).items;
-  }, [rootPath, nodesByPath, childrenByPath, expandedPaths, filterText]);
+  }, [rootPath, nodesByPath, expandedPaths, filterText, getSortedChildPaths]);
 
   const selectedIndex = useMemo(() => {
     if (!selectedPath) {
@@ -327,30 +367,6 @@ export function FileBrowserPane({
     }
     return flattenedItems.findIndex((item) => item.fullPath === selectedPath);
   }, [flattenedItems, selectedPath]);
-
-  const breadcrumbPaths = useMemo(() => {
-    if (flattenedItems.length === 0) {
-      return [] as string[];
-    }
-    const anchorIndex = Math.min(
-      Math.max(visibleStartIndex, 0),
-      flattenedItems.length - 1,
-    );
-    const anchor = flattenedItems[anchorIndex];
-    if (!anchor) {
-      return [] as string[];
-    }
-    const paths: string[] = [];
-    let current: FileNode | undefined = nodesByPath[anchor.fullPath];
-    while (current) {
-      paths.push(current.fullPath);
-      if (!current.parentPath) {
-        break;
-      }
-      current = nodesByPath[current.parentPath];
-    }
-    return paths.reverse();
-  }, [flattenedItems, nodesByPath, visibleStartIndex]);
 
   const handleToggle = useCallback(
     (path: string) => {
@@ -419,16 +435,6 @@ export function FileBrowserPane({
       });
     },
     [handleToggle, nodesByPath, onFileOpen],
-  );
-
-  const handleRowsRendered = useCallback(
-    (
-      visibleRows: { startIndex: number; stopIndex: number },
-      _allRows?: { startIndex: number; stopIndex: number },
-    ) => {
-      setVisibleStartIndex(visibleRows.startIndex);
-    },
-    [],
   );
 
   const handleKeyDown = useCallback(
@@ -529,102 +535,163 @@ export function FileBrowserPane({
     ],
   );
 
-  const listHeight = Math.max(1, listSize.height - BREADCRUMB_HEIGHT);
+  const listHeight = Math.max(1, listSize.height - HEADER_HEIGHT);
   const listWidth = Math.max(1, listSize.width);
+  const columnResizeDepthRef = useRef(1);
+  const {
+    handleResizeStart: handleLocalResizeStart,
+    setNewWidth,
+    widthRef,
+  } = useColumnWidthDrag({
+    outerRef: listWrapperRef,
+    maxNestedDepthRef: columnResizeDepthRef,
+    applyWidth: (width) => {
+      if (listWrapperRef.current) {
+        listWrapperRef.current.style.setProperty(
+          FILE_COLUMN_CSS_VAR,
+          `${width}px`,
+        );
+      }
+    },
+    persistWidth: () => {},
+    getBoundedWidth: (width, containerWidth) =>
+      clamp(
+        width,
+        FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
+        Math.max(
+          FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
+          containerWidth - FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
+        ),
+      ),
+  });
+
+  useEffect(() => {
+    if (columnWidthConfig || !listWrapperRef.current) {
+      return;
+    }
+    const containerWidth = listWrapperRef.current.clientWidth;
+    if (!containerWidth) {
+      return;
+    }
+    if (widthRef.current.currentWidth !== 0) {
+      return;
+    }
+    setNewWidth(containerWidth, getDefaultColumnWidth(containerWidth));
+  }, [columnWidthConfig, listSize.width, setNewWidth, widthRef]);
+
+  const columnWidth = columnWidthConfig?.columnWidth
+    ? columnWidthConfig.columnWidth
+    : `var(${FILE_COLUMN_CSS_VAR}, 55%)`;
+  const handleResizeStart =
+    columnWidthConfig?.onResizeStart ?? handleLocalResizeStart;
+  const gridTemplateColumns = `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`;
+  const fileSortDirection = sortKey === "name" ? sortDirection : "asc";
+  const dateSortDirection = sortKey === "modified" ? sortDirection : "desc";
+  const showMeta = showFilter || rootError;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
-          Root
-        </label>
-        <div className="flex items-center gap-2">
-          <input
-            className="flex-1 truncate rounded border border-transparent bg-white px-2 py-1 text-xs text-setta-700 shadow-sm focus-visible:border-blue-300 focus-visible:outline-none dark:bg-setta-900 dark:text-setta-100"
-            value={rootInput}
-            onChange={(event) => setRootInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                applyRootPath(rootInput);
-              }
-            }}
-            placeholder="/path/to/project"
-            spellCheck={false}
-          />
-          <button
-            className="rounded border border-transparent bg-setta-100 px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:bg-setta-800 dark:text-setta-200 dark:hover:bg-setta-700"
-            onClick={() => applyRootPath(rootInput)}
-          >
-            Go
-          </button>
+      {showMeta && (
+        <div className={`flex flex-col gap-2 ${metaPaddingClassName ?? ""}`}>
+          {showFilter && (
+            <div className="flex flex-col gap-1">
+              <FileBrowserFilter useFileBrowserStateHook={fileBrowserState} />
+            </div>
+          )}
+          {rootError && <p className="text-xs text-red-500">{rootError}</p>}
         </div>
-        {rootError && <p className="text-xs text-red-500">{rootError}</p>}
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-[10px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
-          Filter
-        </label>
-        <input
-          className="truncate rounded border border-transparent bg-white px-2 py-1 text-xs text-setta-700 shadow-sm focus-visible:border-blue-300 focus-visible:outline-none dark:bg-setta-900 dark:text-setta-100"
-          value={filterInput}
-          onChange={(event) => setFilterInput(event.target.value)}
-          placeholder="Filter files and folders"
-          spellCheck={false}
-        />
-      </div>
+      )}
       <div
         ref={listWrapperRef}
-        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white/80 dark:bg-setta-950/60"
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
-        <div className="absolute left-0 right-0 top-0 z-10 flex h-6 items-center gap-1 border-b border-setta-200 bg-setta-50 px-2 text-[11px] font-medium text-setta-500 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-400">
-          {breadcrumbPaths.length === 0 ? (
-            <span className="truncate">No selection</span>
-          ) : (
-            breadcrumbPaths.map((path, index) => {
-              const node = nodesByPath[path];
-              const label = node
-                ? node.name
-                : getDisplayNameFromPath(path, pathSeparator);
-              return (
-                <div key={path} className="flex items-center gap-1">
-                  <button
-                    className="truncate rounded px-1 hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:hover:bg-setta-800"
-                    onClick={() => {
-                      handleSelect(path);
-                      if (node && node.type === "folder") {
-                        if (expandedPaths[path] !== true) {
-                          handleToggle(path);
-                        }
-                      }
-                    }}
-                  >
-                    {label}
-                  </button>
-                  {index < breadcrumbPaths.length - 1 && (
-                    <span className="text-setta-300 dark:text-setta-700">
-                      /
-                    </span>
-                  )}
-                </div>
-              );
-            })
-          )}
+        <div
+          className="group grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
+          style={{
+            gridTemplateColumns,
+          }}
+        >
+          <div
+            className="relative flex items-center border-r border-transparent pr-3 transition-colors group-hover:border-setta-100/80 dark:group-hover:border-setta-800/80"
+            style={listInsetLeft ? { paddingLeft: listInsetLeft } : undefined}
+          >
+            <button
+              type="button"
+              className="flex w-full min-w-0 items-center gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              onClick={() => handleSort("name")}
+              aria-label={`Sort by name (${fileSortDirection === "asc" ? "A to Z" : "Z to A"})`}
+            >
+              <span className="min-w-0 truncate">Files</span>
+              {fileSortDirection === "asc" ? (
+                <HiChevronUp
+                  className={
+                    sortKey === "name"
+                      ? "text-blue-500"
+                      : "text-setta-400/70 dark:text-setta-600"
+                  }
+                />
+              ) : (
+                <HiChevronDown
+                  className={
+                    sortKey === "name"
+                      ? "text-blue-500"
+                      : "text-setta-400/70 dark:text-setta-600"
+                  }
+                />
+              )}
+            </button>
+            <div
+              className="group/resize nopan nodrag absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center"
+              onMouseDown={handleResizeStart}
+            >
+              <div className="h-4 w-1.5 rounded-full bg-setta-400/90 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-500 dark:group-hover/resize:bg-blue-400" />
+            </div>
+          </div>
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              className="flex w-full min-w-0 items-center justify-end gap-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              onClick={() => handleSort("modified")}
+              aria-label={`Sort by date modified (${dateSortDirection === "asc" ? "oldest to newest" : "newest to oldest"})`}
+            >
+              <span className="min-w-0 truncate text-right">Date modified</span>
+              {dateSortDirection === "asc" ? (
+                <HiChevronUp
+                  className={
+                    sortKey === "modified"
+                      ? "text-blue-500"
+                      : "text-setta-400/70 dark:text-setta-600"
+                  }
+                />
+              ) : (
+                <HiChevronDown
+                  className={
+                    sortKey === "modified"
+                      ? "text-blue-500"
+                      : "text-setta-400/70 dark:text-setta-600"
+                  }
+                />
+              )}
+            </button>
+          </div>
         </div>
-        <div className="h-full w-full pt-6">
+        <div className="h-full w-full">
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
             rowCount={flattenedItems.length}
             rowHeight={ROW_HEIGHT}
-            onRowsRendered={handleRowsRendered}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
             rowProps={{
               items: flattenedItems,
               expandedPaths,
               selectedPath,
               loadingPaths,
               errorByPath,
+              columnWidth,
+              listInsetLeft,
               onToggle: handleToggle,
               onSelect: handleSelect,
               onOpen: handleOpen,
@@ -645,6 +712,8 @@ function FileBrowserRow({
   selectedPath,
   loadingPaths,
   errorByPath,
+  columnWidth,
+  listInsetLeft,
   onToggle,
   onSelect,
   onOpen,
@@ -658,48 +727,61 @@ function FileBrowserRow({
   const isSelected = selectedPath === item.fullPath;
   const isLoading = loadingPaths[item.fullPath] === true;
   const errorMessage = errorByPath[item.fullPath];
-  const paddingLeft = 8 + item.depth * 12;
+  const paddingLeft = listInsetLeft + 8 + item.depth * 12;
+  const modifiedLabel = formatModifiedAt(item.mtime);
   const rowClasses = isSelected
     ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
     : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-900";
 
   return (
     <div
-      style={{ ...style, paddingLeft }}
-      className={`flex cursor-pointer items-center gap-1 pr-2 text-xs ${rowClasses}`}
+      style={{
+        ...style,
+        display: "grid",
+        gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
+      }}
+      className={`cursor-pointer items-center gap-2 pr-2 text-xs ${rowClasses}`}
       title={item.fullPath}
       onClick={() => onSelect(item.fullPath)}
       onDoubleClick={() => onOpen(item.fullPath)}
     >
-      {isFolder ? (
-        <button
-          className="flex h-4 w-4 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggle(item.fullPath);
-          }}
-        >
-          {isExpanded ? (
-            <HiChevronDown size={12} />
-          ) : (
-            <HiChevronRight size={12} />
-          )}
-        </button>
-      ) : (
-        <span className="h-4 w-4" />
-      )}
-      {isFolder ? (
-        <TbFolder className="text-setta-400" size={14} />
-      ) : (
-        <TbFile className="text-setta-400" size={14} />
-      )}
-      <span className="min-w-0 flex-1 truncate">{item.name}</span>
-      {isLoading && (
-        <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
-      )}
-      {errorMessage && !isLoading && (
-        <span className="truncate text-[10px] text-red-400">!</span>
-      )}
+      <div
+        className="flex min-w-0 items-center gap-1 pr-2"
+        style={{ paddingLeft }}
+      >
+        {isFolder ? (
+          <button
+            className="flex h-4 w-4 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(item.fullPath);
+            }}
+          >
+            {isExpanded ? (
+              <HiChevronDown size={12} />
+            ) : (
+              <HiChevronRight size={12} />
+            )}
+          </button>
+        ) : (
+          <span className="h-4 w-4" />
+        )}
+        {isFolder ? (
+          <TbFolder className="text-setta-400" size={14} />
+        ) : (
+          <TbFile className="text-setta-400" size={14} />
+        )}
+        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+        {isLoading && (
+          <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
+        )}
+        {errorMessage && !isLoading && (
+          <span className="truncate text-[10px] text-red-400">!</span>
+        )}
+      </div>
+      <div className="pr-1 text-right text-[11px] text-setta-400 dark:text-setta-500">
+        {modifiedLabel}
+      </div>
     </div>
   );
 }
@@ -724,4 +806,107 @@ function getBaseNameFromPath(path: string): string {
     return parts[parts.length - 1];
   }
   return path;
+}
+
+function formatModifiedAt(mtime?: number | null): string {
+  if (!mtime) {
+    return "";
+  }
+  const date = new Date(mtime * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return DATE_FORMATTER.format(date);
+}
+
+export function FileBrowserFilter({
+  useFileBrowserStateHook,
+  className,
+}: {
+  useFileBrowserStateHook?: typeof useFileBrowserState;
+  className?: string;
+}) {
+  const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
+  const filterText = fileBrowserState((state) => state.filterText);
+  const [filterInput, setFilterInput] = useState(filterText);
+
+  useEffect(() => {
+    setFilterInput(filterText);
+  }, [filterText]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      fileBrowserState.setState({ filterText: filterInput });
+    }, FILTER_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [filterInput, fileBrowserState]);
+
+  return (
+    <search
+      className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 flex-1 items-center ${className ?? ""}`}
+    >
+      <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
+      <input
+        value={filterInput}
+        className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
+        placeholder="Filter files and folders"
+        tabIndex={0}
+        onChange={(event) => setFilterInput(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.code === "Escape") {
+            event.currentTarget.blur();
+          }
+        }}
+      />
+    </search>
+  );
+}
+
+export function sortChildPaths({
+  paths,
+  nodesByPath,
+  sortKey,
+  sortDirection,
+}: {
+  paths: string[];
+  nodesByPath: Record<string, FileNode>;
+  sortKey: SortKey;
+  sortDirection: SortDirection;
+}): string[] {
+  if (paths.length <= 1) {
+    return paths;
+  }
+  const sorted = [...paths];
+  sorted.sort((pathA, pathB) => {
+    const nodeA = nodesByPath[pathA];
+    const nodeB = nodesByPath[pathB];
+    const typeRankA = nodeA?.type === "folder" ? 0 : 1;
+    const typeRankB = nodeB?.type === "folder" ? 0 : 1;
+    if (typeRankA !== typeRankB) {
+      return typeRankA - typeRankB;
+    }
+    const nameA = (nodeA?.name ?? "").toLowerCase();
+    const nameB = (nodeB?.name ?? "").toLowerCase();
+    const mtimeA = nodeA?.mtime ?? 0;
+    const mtimeB = nodeB?.mtime ?? 0;
+    let result = 0;
+    if (sortKey === "modified") {
+      result = mtimeA - mtimeB;
+      if (result === 0) {
+        result = nameA.localeCompare(nameB);
+      }
+    } else {
+      result = nameA.localeCompare(nameB);
+      if (result === 0) {
+        result = mtimeA - mtimeB;
+      }
+    }
+    if (sortDirection === "desc") {
+      return result * -1;
+    }
+    return result;
+  });
+  return sorted;
 }

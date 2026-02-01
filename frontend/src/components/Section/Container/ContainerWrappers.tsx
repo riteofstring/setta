@@ -17,7 +17,6 @@ function _DndSlotAndDndWatcher({
   visibility,
   isEditingViewMode,
   isUserView,
-  containerClassName,
   children,
 }) {
   const { style, behaviorDropType } = useHighlightDroppable({
@@ -37,7 +36,6 @@ function _DndSlotAndDndWatcher({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        containerClassName={containerClassName}
         style={style}
       >
         {children}
@@ -54,7 +52,6 @@ export const DndSlotAndDndWatcher = React.memo(
     p.visibility === n.visibility &&
     p.isEditingViewMode === n.isEditingViewMode &&
     p.isUserView === n.isUserView &&
-    p.containerClassName === n.containerClassName &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
@@ -68,7 +65,6 @@ function _DndWatcherAndContainer({
   visibility,
   isEditingViewMode,
   isUserView,
-  containerClassName,
   style,
   children,
 }) {
@@ -85,31 +81,10 @@ function _DndWatcherAndContainer({
   );
   const trueDragListeners =
     isMovingFree || (!isTopLevel && isSorting) ? dragListeners : {};
-  const wrappedDragListeners = React.useMemo(() => {
-    if (isTopLevel || !trueDragListeners) {
-      return trueDragListeners;
-    }
-    const { onPointerDown, onMouseDown, onTouchStart, ...rest } =
-      trueDragListeners;
-    const wrap = (handler) => (event) => {
-      event.stopPropagation();
-      if (handler) {
-        handler(event);
-      }
-    };
-    return {
-      ...rest,
-      ...(onPointerDown ? { onPointerDown: wrap(onPointerDown) } : {}),
-      ...(onMouseDown ? { onMouseDown: wrap(onMouseDown) } : {}),
-      ...(onTouchStart ? { onTouchStart: wrap(onTouchStart) } : {}),
-    };
-  }, [isTopLevel, trueDragListeners]);
 
   // Don't want the react-flow node (which contains this child)
   // to move when sorting
-  const className = `${isSorting || isMovingFree ? "nodrag" : ""} ${
-    containerClassName ?? ""
-  }`;
+  const className = isSorting || isMovingFree ? "nodrag" : "";
   const fullStyle = {
     ...style,
     ...maybeGetOpacityStyle(
@@ -127,7 +102,7 @@ function _DndWatcherAndContainer({
       sectionId={sectionId}
       droppableRef={droppableRef}
       draggableRef={draggableRef}
-      trueDragListeners={wrappedDragListeners}
+      trueDragListeners={trueDragListeners}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
       className={className}
