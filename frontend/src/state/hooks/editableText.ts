@@ -18,12 +18,14 @@ export function useEditableOnSubmit(
     }
   }
 
-  async function onBlur(event: React.FocusEvent<HTMLInputElement>) {
+  async function onBlur(
+    event: React.FocusEvent<HTMLInputElement> | string,
+  ) {
     if (blurTriggeredByEscapeKey.current) {
       blurTriggeredByEscapeKey.current = false;
       return;
     }
-    const rawValue = event.target.value;
+    const rawValue = typeof event === "string" ? event : event.target.value;
     const v = normalize(rawValue);
     if (v !== rawValue) {
       setInputValue(v);

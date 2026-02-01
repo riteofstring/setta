@@ -2,7 +2,10 @@ import {
   acceptCompletion,
   autocompletion,
   CompletionSource,
+  completionKeymap,
   completionStatus,
+  pickedCompletion,
+  startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
@@ -39,9 +42,12 @@ type GetExtensionsOptions = {
   indentWithTab?: boolean;
   keyComboActions?: Record<string, (text: string) => boolean | void>;
   onTab?: (text: string, completionResult: boolean) => void;
+  onEnter?: (text: string, completionResult: boolean) => void;
   onEscape?: (status: ReturnType<typeof completionStatus>) => void;
   isDisabled?: boolean;
   useJsx?: boolean;
+  triggerCompletionAfterAccept?: boolean;
+  completionTriggerChars?: string[];
 };
 
 export function getExtensions({
@@ -53,13 +59,17 @@ export function getExtensions({
   tabToAutocomplete,
   indentWithTab,
   onTab,
+  onEnter,
   onEscape,
   keyComboActions,
   isDisabled,
   useJsx,
+  triggerCompletionAfterAccept,
+  completionTriggerChars,
 }: GetExtensionsOptions) {
   const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
   const shouldWrap = wrapLines ?? !singleLine;
+  const triggerChars = completionTriggerChars ?? ["/", "\\"];
   if (shouldWrap) {
     extensions.push(EditorView.lineWrapping);
   }
@@ -93,6 +103,26 @@ export function getExtensions({
         tooltipClass: () => "nowheel",
       }),
     );
+    if (triggerCompletionAfterAccept) {
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) {
+            return;
+          }
+          for (const transaction of update.transactions) {
+            if (transaction.annotation(pickedCompletion)) {
+              const lastChar = update.state.doc.sliceString(
+                update.state.doc.length - 1,
+              );
+              if (triggerChars.includes(lastChar)) {
+                startCompletion(update.view);
+              }
+              break;
+            }
+          }
+        }),
+      );
+    }
   }
 
   if (singleLine) {
@@ -105,20 +135,20 @@ export function getExtensions({
     extensions.push(EditorState.readOnly.of(true));
   }
 
-  extensions.push(
-    Prec.highest(
-      keymap.of(
-        getKeyMapArray({
-          indentWithTab,
-          singleLine,
-          tabToAutocomplete,
-          onTab,
-          onEscape,
-          keyComboActions,
-        }),
-      ),
-    ),
-  );
+  const keymapArray = getKeyMapArray({
+    indentWithTab,
+    singleLine,
+    tabToAutocomplete,
+    onTab,
+    onEnter,
+    onEscape,
+    keyComboActions,
+  });
+  const fullKeymap =
+    completionsFn && completionsFn !== null
+      ? [...keymapArray, ...completionKeymap]
+      : keymapArray;
+  extensions.push(Prec.highest(keymap.of(fullKeymap)));
 
   return extensions;
 }
@@ -128,6 +158,7 @@ function getKeyMapArray({
   singleLine,
   tabToAutocomplete,
   onTab,
+  onEnter,
   onEscape,
   keyComboActions,
 }) {
@@ -172,6 +203,22 @@ function getKeyMapArray({
       },
     },
   ];
+
+  if (onEnter) {
+    keymapArray.push({
+      key: "Enter",
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => {
+        let completionResult = false;
+        if (completionStatus(view.state) === "active") {
+          completionResult = acceptCompletion(view);
+        }
+        onEnter(view.state.doc.toString(), completionResult);
+        return true;
+      },
+    });
+  }
 
   if (indentWithTab) {
     keymapArray.push({

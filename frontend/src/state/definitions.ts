@@ -295,6 +295,8 @@ type FileBrowserState = {
   selectedPath: string | null;
   expandedPaths: Record<string, boolean>;
   filterText: string;
+  pathSeparator: string;
+  ignorePatterns: string[];
 };
 
 export const useFileBrowserState = createWithEqualityFn(
@@ -303,6 +305,8 @@ export const useFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
   })),
 );
 
@@ -312,6 +316,8 @@ export const useBrowserSectionFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
   })),
 );
 
@@ -321,6 +327,8 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
   })),
 );
 
