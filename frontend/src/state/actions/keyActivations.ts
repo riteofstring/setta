@@ -54,6 +54,7 @@ import {
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
+import { deleteSelectedAgenticEdges } from "./agenticEdges";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
 import { formatActiveCodeSection } from "./formatCode";
@@ -84,7 +85,8 @@ import { redoProjectState, undoProjectState } from "./undo";
 
 function deleteEdgesOrSections() {
   const deletedEdges = deleteSelectedEdges();
-  if (!deletedEdges) {
+  const deletedAgenticEdges = deleteSelectedAgenticEdges();
+  if (!deletedEdges && !deletedAgenticEdges) {
     deleteAllActiveSections();
   }
 }

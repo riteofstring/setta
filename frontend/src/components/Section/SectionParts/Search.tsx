@@ -4,7 +4,6 @@ import _ from "lodash";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type MouseEvent,
@@ -22,7 +21,6 @@ import {
   useProjectState,
   useShareSession,
   useToolArgumentPreview,
-  useTemporaryMiscState,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -30,7 +28,6 @@ import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
-  getSectionSearchHeightKey,
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -94,40 +91,6 @@ function SectionSearchCore({
   divId: string;
   lspEnabled: boolean;
 }) {
-  const searchRef = useRef<HTMLElement | null>(null);
-  const heightKey = getSectionSearchHeightKey(sectionId);
-
-  useLayoutEffect(() => {
-    const node = searchRef.current;
-    if (!node) {
-      useTemporaryMiscState.setState({ [heightKey]: 0 });
-      return;
-    }
-    let lastMeasuredHeight: number | null = null;
-    const updateHeight = () => {
-      const style = window.getComputedStyle(node);
-      const marginHeight =
-        (Number.parseFloat(style.marginTop) || 0) +
-        (Number.parseFloat(style.marginBottom) || 0);
-      const measuredHeight = node.offsetHeight + marginHeight;
-      const nextHeight = Math.ceil(measuredHeight);
-      if (lastMeasuredHeight === nextHeight) {
-        return;
-      }
-      lastMeasuredHeight = nextHeight;
-      useTemporaryMiscState.setState({
-        [heightKey]: nextHeight > 0 ? nextHeight : 0,
-      });
-    };
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      useTemporaryMiscState.setState({ [heightKey]: 0 });
-    };
-  }, [heightKey]);
-
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
     name: baseCodeInfoName,
@@ -285,7 +248,6 @@ function SectionSearchCore({
     <search
       className="section-search single-cell-container relative w-full"
       {...getFloatingBoxHandlers(...tooltipContentArray)}
-      ref={searchRef}
     >
       <TextInputCodeMirror
         dummyDivId={divId}

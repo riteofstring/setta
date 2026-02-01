@@ -29,25 +29,37 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
+  const stableSectionIds = [...sectionIds];
+  const stablePositionsById = positionsById
+    ? Object.fromEntries(
+        Object.entries(positionsById).map(([id, position]) => [
+          id,
+          { x: position.x, y: position.y },
+        ]),
+      )
+    : null;
+  const stableNewParentId = newParentId;
+  const stableNewIndex = newIndex;
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
-        sectionIds,
-        newParentId,
-        newIndex,
-        positionsById,
+        sectionIds: stableSectionIds,
+        newParentId: stableNewParentId,
+        newIndex: stableNewIndex,
+        positionsById: stablePositionsById,
         state,
       });
     },
-    send: (frontendOpId) =>
-      route_move_sections({
+    send: (frontendOpId) => {
+      return route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
-        sectionIds,
-        newParentId,
-        newIndex,
-        positionsById,
+        sectionIds: stableSectionIds,
+        newParentId: stableNewParentId,
+        newIndex: stableNewIndex,
+        positionsById: stablePositionsById,
         frontendOpId,
-      }),
+      });
+    },
   });
 }
 

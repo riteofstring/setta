@@ -17,6 +17,7 @@ import {
 } from "./actions/nodeInternals";
 import {
   debouncedDispatchViewportUpdate,
+  getActiveViewModeTopLevelSections,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
@@ -145,7 +146,8 @@ function updateNodeDimensionsSubscriptionFn(state) {
 
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
   const output: Record<string, boolean> = {};
-  for (const id of Object.keys(state.projectConfig.topLevelSections)) {
+  const topLevelSections = getActiveViewModeTopLevelSections(state);
+  for (const id of Object.keys(topLevelSections)) {
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
       id,
       state,
