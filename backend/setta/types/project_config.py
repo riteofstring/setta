@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID
@@ -422,6 +423,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     activeIds: list[ID] = Field(default_factory=list)
     edges: list[Edge] = Field(default_factory=list)
+    agenticEdges: list[AgenticEdge] = Field(default_factory=list)
     watchCodeEnabled: bool = False
     watchCodeFolders: list[WatchCodeFolder] = Field(default_factory=list)
     watchCodeFiles: list[str] = Field(default_factory=list)

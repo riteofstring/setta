@@ -263,6 +263,24 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         section_id: ID | None = None,
         share_session_id: str | None = None,
     ):
+        message_id = None
+        tool_call_id = None
+        if hasattr(chunk, "message"):
+            message_id = getattr(chunk.message, "id", None)
+        if hasattr(chunk, "message_id"):
+            message_id = getattr(chunk, "message_id", None)
+        if hasattr(chunk, "tool_call_id"):
+            tool_call_id = getattr(chunk, "tool_call_id", None)
+        if hasattr(chunk, "result"):
+            tool_call_id = getattr(chunk.result, "tool_call_id", None)
+        logging.getLogger(__name__).info(
+            "LLM streaming chunk chat_id=%s section_id=%s type=%s message_id=%s tool_call_id=%s",
+            chatId,
+            section_id,
+            chunk.type,
+            message_id,
+            tool_call_id,
+        )
         await self._broadcast_frontend(
             WebsocketMsgLLMStreamingResponse(
                 content=LLMStreamingResponse(

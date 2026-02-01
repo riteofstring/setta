@@ -44,6 +44,7 @@ export type ApprovalPayload = {
   toolType?: string;
   tool?: unknown;
   input?: unknown;
+  toolContext?: unknown;
 };
 
 export function normalizeToolName(
@@ -208,13 +209,40 @@ export function parseApprovalPayload(value: unknown): ApprovalPayload | null {
     typeof value.toolType === "string" ? value.toolType : undefined;
   const input = "input" in value ? value.input : undefined;
   const tool = "tool" in value ? value.tool : undefined;
+  const toolContext =
+    "toolContext" in value
+      ? value.toolContext
+      : "tool_context" in value
+        ? value.tool_context
+        : undefined;
   return {
     ...(approvalId ? { approvalId } : {}),
     ...(toolName ? { toolName } : {}),
     ...(toolType ? { toolType } : {}),
     ...(tool !== undefined ? { tool } : {}),
     ...(input !== undefined ? { input } : {}),
+    ...(toolContext !== undefined ? { toolContext } : {}),
   };
+}
+
+const SUB_AGENT_TOOL_CONTEXT_KEYS = [
+  "parentToolCallId",
+  "parent_tool_call_id",
+  "parentToolUseId",
+  "parent_tool_use_id",
+  "taskToolCallId",
+  "task_tool_call_id",
+  "taskId",
+  "task_id",
+  "subTaskId",
+  "sub_task_id",
+];
+
+export function extractSubAgentToolCallIdFromApproval(
+  payload: ApprovalPayload,
+): string | null {
+  const toolContext = payload.toolContext;
+  return extractStringField(toolContext, SUB_AGENT_TOOL_CONTEXT_KEYS);
 }
 
 export function parseAnswers(value: unknown): Record<string, string> | null {
@@ -287,6 +315,19 @@ function extractToolName(value: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+function extractStringField(value: unknown, keys: string[]): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  for (const key of keys) {
+    const entry = value[key];
+    if (typeof entry === "string" && entry.trim()) {
+      return entry.trim();
+    }
+  }
+  return null;
+}
+
 function parseTodoStatus(value: unknown): TodoStatus | null {
   if (value === "pending" || value === "in_progress" || value === "completed") {
     return value;
@@ -302,7 +343,7 @@ function safeJsonParse(value: string): unknown | null {
   }
 }
 
-function parseToolCallArguments(value: string): unknown | null {
+export function parseToolCallArguments(value: string): unknown | null {
   const parsed = safeJsonParse(value);
   if (parsed !== null) {
     return parsed;

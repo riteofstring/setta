@@ -22,12 +22,6 @@ Setta uses two auth paths depending on runtime mode:
 - Unauthorized API calls return JSON 401; non-API calls return a small HTML
   page that links to `/__setta__/bootstrap`.
 
-## Dev auto-auth (IDE mode)
-- In dev mode, requests from localhost with a matching frontend Origin/Referer
-  automatically mint an auth cookie.
-- This is meant for the local Vite frontend; non-local clients still need a
-  bootstrap token.
-
 ## Refresh behavior
 - If an API response is served with a valid cookie that expires within
   `C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS`, the backend sets a new cookie.

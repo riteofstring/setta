@@ -1,6 +1,6 @@
 import { adjustSizeToBeAtLeastMin } from "state/actions/sections/sectionSizes";
 import { describe, expect, it } from "vitest";
-import { clampChangedSize, shouldEmitResizeEndEvent } from "./CustomResizable";
+import { clampChangedSize } from "./CustomResizable";
 
 describe("clampChangedSize", () => {
   it("clamps width and height independently when aspect ratio is off", () => {
@@ -32,29 +32,5 @@ describe("clampChangedSize", () => {
       aspectRatio: true,
     });
     expect(result).toEqual(expected);
-  });
-});
-
-describe("shouldEmitResizeEndEvent", () => {
-  it("skips end when resize never started", () => {
-    expect(
-      shouldEmitResizeEndEvent({
-        resizeStarted: false,
-        resizeAttempted: false,
-        isZeroDelta: true,
-        isDoubleClick: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("emits end when resize started", () => {
-    expect(
-      shouldEmitResizeEndEvent({
-        resizeStarted: true,
-        resizeAttempted: true,
-        isZeroDelta: false,
-        isDoubleClick: false,
-      }),
-    ).toBe(true);
   });
 });

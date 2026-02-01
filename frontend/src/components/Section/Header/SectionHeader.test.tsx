@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  useAIFollow,
   useLspDiagnostics,
   useProjectState,
   useShareSession,
@@ -8,7 +9,11 @@ import { resetProjectStores } from "state/utils";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
+  createChatSectionImpl,
+  createCore,
   createProjectConfig,
+  createUserDefaultChatSectionImpl,
+  createVariant,
   type Core,
   type SettaLspDiagnostic,
   type Variant,
@@ -202,5 +207,76 @@ describe("SectionHeader diagnostics badges", () => {
     const markup = renderHeader();
 
     expect(markup).toContain("Suppressed 2");
+  });
+});
+
+describe("SectionHeader follow button", () => {
+  const projectConfigId = "project-chat";
+  const sectionId = "section-chat";
+  const variantId = "variant-chat";
+  const implId = "impl-chat";
+  const chatId = "chat-123";
+
+  const sectionCore = createCore({
+    id: sectionId,
+    name: "Chat",
+    variants: [variantId],
+    defaultVariant: variantId,
+  });
+
+  const sectionVariant = createVariant({
+    id: variantId,
+    name: "Chat Variant",
+    impl: implId,
+    nonPresetImpls: [],
+  });
+
+  beforeEach(() => {
+    const projectConfig = createProjectConfig({
+      id: projectConfigId,
+      sectionVariantMap: { [sectionId]: variantId },
+    });
+    const chatImpl = createChatSectionImpl(
+      createUserDefaultChatSectionImpl({ chatId }),
+      { id: implId, chatId },
+    );
+
+    resetProjectStores();
+    useShareSession.setState({ isShareMode: false });
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: sectionCore };
+      state.sectionVariants = { [variantId]: sectionVariant };
+      state.sectionImpls = { [implId]: chatImpl };
+      state.previewSectionVariantMap = {};
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useShareSession);
+    syncStoreInitialState(useAIFollow);
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("shows follow button for chat sections", () => {
+    useAIFollow.setState((state) => {
+      state.selectedSectionIdsByProjectConfigId[projectConfigId] = [sectionId];
+    });
+    syncStoreInitialState(useAIFollow);
+
+    const markup = renderToStaticMarkup(
+      <SectionHeader
+        sectionId={sectionId}
+        isActiveSection={false}
+        sectionTypeName={SectionTypeEnum.Chat}
+        isInOtherProjectConfigs={false}
+        isUserView={true}
+        isRoot={false}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Follow chat"');
+    expect(markup).toContain('aria-pressed="true"');
   });
 });

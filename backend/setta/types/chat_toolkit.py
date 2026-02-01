@@ -43,7 +43,7 @@ class RunMcpToolsRequest(BaseModel):
 
 
 class EmitChatStreamDeltaRequest(BaseModel):
-    sectionId: ID
+    sectionId: ID | None
     chatId: ID
     chunk: LLMStreamingResponseChunk
 

@@ -28,10 +28,5 @@
     "**/.Python",
     "setta_files/code",
     "tests"
-  ],
-  "workbench.colorCustomizations": {
-    "activityBar.background": "#5F071D",
-    "titleBar.activeBackground": "#850A29",
-    "titleBar.activeForeground": "#FFFBFC"
-  }
+  ]
 }
