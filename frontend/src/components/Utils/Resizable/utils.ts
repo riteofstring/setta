@@ -17,6 +17,24 @@ type ResizeStopEvent = {
   detail?: number;
 };
 
+export function isResizeDoubleClick({
+  isPending,
+  eventDetail,
+  isZeroDelta,
+  resizeAttempted,
+}: {
+  isPending: boolean;
+  eventDetail?: number;
+  isZeroDelta: boolean;
+  resizeAttempted: boolean;
+}): boolean {
+  if (!isZeroDelta || resizeAttempted) {
+    return false;
+  }
+  const eventDouble = typeof eventDetail === "number" && eventDetail === 2;
+  return isPending || eventDouble;
+}
+
 type ResizeStopRef = {
   style: { width: string; height: string };
 };

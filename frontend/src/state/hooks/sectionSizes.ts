@@ -43,7 +43,6 @@ type SizeMode = {
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
 // Keep edge ports visible when sections are resized to their minimum.
 const EDGES_STRIP_MIN_HEIGHT = 72;
-const COMPACT_SECTION_MIN_SCALE = 0.5;
 
 function getMetaControlSizingPolicyEntry({
   projectState,
@@ -161,34 +160,6 @@ export function getMaxSectionWidth({
   return policyByType.maxWidth;
 }
 
-type CompactMinScaleInput = {
-  sectionType: SectionType;
-  isMinimized?: boolean;
-  minHeight: number;
-  minWidth: number;
-};
-
-export function applyCompactMinScale({
-  sectionType,
-  isMinimized,
-  minHeight,
-  minWidth,
-}: CompactMinScaleInput) {
-  if (isMinimized) {
-    return { minHeight, minWidth };
-  }
-  if (
-    sectionType !== SectionTypeEnum.MetaControl &&
-    sectionType !== SectionTypeEnum.TextBlock
-  ) {
-    return { minHeight, minWidth };
-  }
-  return {
-    minHeight: minHeight * COMPACT_SECTION_MIN_SCALE,
-    minWidth: minWidth * COMPACT_SECTION_MIN_SCALE,
-  };
-}
-
 function getSizeMode({
   sectionType,
   hideParams,
@@ -272,15 +243,6 @@ export function useSectionMinMaxDims(sectionId: string) {
       sectionType,
       sizingPolicy,
     });
-
-    const compactMin = applyCompactMinScale({
-      sectionType,
-      isMinimized,
-      minHeight,
-      minWidth,
-    });
-    minHeight = compactMin.minHeight;
-    minWidth = compactMin.minWidth;
 
     if (!isMinimized && isBaseSectionWithParamsImpl(impl) && !hideParams) {
       const baseMinHeight =

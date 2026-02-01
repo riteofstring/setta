@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getChangedSize, getResizeHandleClickState, SIZE_MODE } from "./utils";
+import {
+  getChangedSize,
+  getResizeHandleClickState,
+  isResizeDoubleClick,
+  SIZE_MODE,
+} from "./utils";
 
 describe("resize utils", () => {
   it("treats double-click overrides as auto even when event.detail is not 2", () => {
@@ -49,5 +54,25 @@ describe("resize utils", () => {
     });
 
     expect(second.isDoubleClick).toBe(false);
+  });
+
+  it("only treats zero-delta clicks as double-clicks", () => {
+    expect(
+      isResizeDoubleClick({
+        isPending: true,
+        eventDetail: 2,
+        isZeroDelta: false,
+        resizeAttempted: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      isResizeDoubleClick({
+        isPending: true,
+        eventDetail: 1,
+        isZeroDelta: true,
+        resizeAttempted: false,
+      }),
+    ).toBe(true);
   });
 });

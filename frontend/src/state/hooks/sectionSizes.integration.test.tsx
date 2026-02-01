@@ -68,8 +68,8 @@ function buildSizingPolicy(): SectionSizingPolicy {
       Image: baseEntry(),
       Chart: baseEntry({ minHeight: 300, minWidth: 300 }),
       Draw: baseEntry(),
-      TextBlock: baseEntry({ minHeight: 98, minWidth: 200 }),
-      MetaControl: baseEntry({ minHeight: 20, minWidth: 200 }),
+      TextBlock: baseEntry({ minHeight: 49, minWidth: 100 }),
+      MetaControl: baseEntry({ minHeight: 10, minWidth: 100 }),
       Social: baseEntry(),
       GlobalVariables: baseEntry(),
       Code: baseEntry(),
@@ -294,6 +294,106 @@ describe("useSectionMinMaxDims integration", () => {
 
     const dims = renderDims(sectionId);
     expect(dims.minHeight).toBe(244);
+  });
+
+  it("uses policy mins for TextBlock sections", () => {
+    const sectionId = "section-text-min";
+    const variantId = "variant-text-min";
+    const implId = "impl-text-min";
+
+    const projectConfig = createProjectConfig({
+      id: "project-text-min",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const textImpl = {
+      type: SectionTypeEnum.TextBlock,
+      id: implId,
+      name: "Text",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 200, height: 200 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      format: "Plaintext",
+      headingAsSectionName: false,
+      metaControlStyle: false,
+      textDisplayMode: "Render",
+      text: "",
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: textImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {};
+    });
+
+    syncStoreInitialState(useProjectState);
+
+    const dims = renderDims(sectionId);
+    const policy = useSettings.getState().sectionSizingPolicy;
+    expect(dims.minHeight).toBe(policy.byType.TextBlock.minHeight);
+    expect(dims.minWidth).toBe(policy.byType.TextBlock.minWidth);
+  });
+
+  it("uses policy mins for MetaControl sections without a control param", () => {
+    const sectionId = "section-meta-min";
+    const variantId = "variant-meta-min";
+    const implId = "impl-meta-min";
+
+    const projectConfig = createProjectConfig({
+      id: "project-meta-min",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const metaImpl = {
+      type: SectionTypeEnum.MetaControl,
+      id: implId,
+      name: "Meta",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 200, height: 100 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      metaControlParamId: null,
+      codeObjVariantMap: {},
+      showSectionTitle: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: metaImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {};
+    });
+
+    syncStoreInitialState(useProjectState);
+
+    const dims = renderDims(sectionId);
+    const policy = useSettings.getState().sectionSizingPolicy;
+    expect(dims.minHeight).toBe(policy.byType.MetaControl.minHeight);
+    expect(dims.minWidth).toBe(policy.byType.MetaControl.minWidth);
   });
 
   it("includes edges and kwargs when shown params are missing", () => {

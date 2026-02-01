@@ -161,3 +161,25 @@ def test_auto_layout_falls_back_for_auto_sizes() -> None:
     layout = project_state.projectConfig.topLevelSections[section_id]
     assert isinstance(layout.x, float)
     assert isinstance(layout.y, float)
+
+
+def test_default_policy_clamps_textblock_and_meta_control() -> None:
+    settings = SettingsState()
+
+    textblock = normalize_section_size(
+        settings,
+        SectionType.TextBlock,
+        "textblock-section",
+        SectionSize(width=1, height=1),
+    )
+    assert textblock.width == 100
+    assert textblock.height == 49
+
+    meta = normalize_section_size(
+        settings,
+        SectionType.MetaControl,
+        "meta-section",
+        SectionSize(width=1, height=1),
+    )
+    assert meta.width == 100
+    assert meta.height == 10

@@ -1,7 +1,6 @@
 import { SectionSizingPolicy, SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  applyCompactMinScale,
   getMaxSectionHeight,
   getMaxSectionWidth,
   getMinSectionHeight,
@@ -53,8 +52,8 @@ function buildSizingPolicy(): SectionSizingPolicy {
       Image: makeBaseEntry(),
       Chart: makeBaseEntry({ minHeight: 300, minWidth: 300 }),
       Draw: makeBaseEntry(),
-      TextBlock: makeBaseEntry({ minHeight: 98, minWidth: 200 }),
-      MetaControl: makeBaseEntry({ minHeight: 20, minWidth: 200 }),
+      TextBlock: makeBaseEntry({ minHeight: 49, minWidth: 100 }),
+      MetaControl: makeBaseEntry({ minHeight: 10, minWidth: 100 }),
       Social: makeBaseEntry(),
       GlobalVariables: makeBaseEntry(),
       Code: makeBaseEntry(),
@@ -152,31 +151,29 @@ describe("section sizing helpers", () => {
     expect(maxWidth).toBe(sizingPolicy.byType.Chart.maxWidth);
   });
 
-  it("applies compact scaling for TextBlock", () => {
-    const result = applyCompactMinScale({
+  it("returns policy mins for TextBlock", () => {
+    const minHeight = getMinSectionHeight({
       sectionType: SectionTypeEnum.TextBlock,
-      minHeight: 100,
-      minWidth: 200,
+      sizingPolicy,
     });
-    expect(result).toEqual({ minHeight: 50, minWidth: 100 });
+    const minWidth = getMinSectionWidth({
+      sectionType: SectionTypeEnum.TextBlock,
+      sizingPolicy,
+    });
+    expect(minHeight).toBe(sizingPolicy.byType.TextBlock.minHeight);
+    expect(minWidth).toBe(sizingPolicy.byType.TextBlock.minWidth);
   });
 
-  it("does not apply compact scaling when minimized", () => {
-    const result = applyCompactMinScale({
-      sectionType: SectionTypeEnum.TextBlock,
-      isMinimized: true,
-      minHeight: 100,
-      minWidth: 200,
+  it("returns policy mins for MetaControl", () => {
+    const minHeight = getMinSectionHeight({
+      sectionType: SectionTypeEnum.MetaControl,
+      sizingPolicy,
     });
-    expect(result).toEqual({ minHeight: 100, minWidth: 200 });
-  });
-
-  it("does not apply compact scaling for other section types", () => {
-    const result = applyCompactMinScale({
-      sectionType: SectionTypeEnum.Chart,
-      minHeight: 100,
-      minWidth: 200,
+    const minWidth = getMinSectionWidth({
+      sectionType: SectionTypeEnum.MetaControl,
+      sizingPolicy,
     });
-    expect(result).toEqual({ minHeight: 100, minWidth: 200 });
+    expect(minHeight).toBe(sizingPolicy.byType.MetaControl.minHeight);
+    expect(minWidth).toBe(sizingPolicy.byType.MetaControl.minWidth);
   });
 });

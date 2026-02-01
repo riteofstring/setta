@@ -354,17 +354,17 @@ class SectionSizingPolicyByType(BaseModel):
     )
     TextBlock: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=98,
+            minHeight=49,
             maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
+            minWidth=100,
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
     MetaControl: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=20,
+            minHeight=10,
             maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=DEFAULT_MIN_WIDTH,
+            minWidth=100,
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )

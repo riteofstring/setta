@@ -30,7 +30,12 @@ import {
 import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
-import { getChangedSize, getResizeHandleClickState, SIZE_MODE } from "./utils";
+import {
+  getChangedSize,
+  getResizeHandleClickState,
+  isResizeDoubleClick,
+  SIZE_MODE,
+} from "./utils";
 
 const AUTO_CLAMP_TOLERANCE = 2;
 
@@ -172,6 +177,7 @@ function CustomResizableCore({
 
   function onResize(_event, direction, ref, _delta) {
     resizeAttemptedRef.current = true;
+    doubleClickPendingRef.current = false;
     beginResize(direction, ref);
   }
 
@@ -190,9 +196,12 @@ function CustomResizableCore({
   function onResizeStop(...props) {
     const [event, direction, ref, delta] = props;
     const isZeroDelta = delta.width === 0 && delta.height === 0;
-    const isDoubleClick =
-      doubleClickPendingRef.current ||
-      (typeof event.detail === "number" && event.detail === 2);
+    const isDoubleClick = isResizeDoubleClick({
+      isPending: doubleClickPendingRef.current,
+      eventDetail: event.detail,
+      isZeroDelta,
+      resizeAttempted: resizeAttemptedRef.current,
+    });
     const shouldEmitResizeEnd = shouldEmitResizeEndEvent({
       resizeStarted: resizeStartedRef.current,
       resizeAttempted: resizeAttemptedRef.current,
