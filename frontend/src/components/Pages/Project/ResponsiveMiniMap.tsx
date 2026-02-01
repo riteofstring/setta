@@ -30,8 +30,10 @@ export function ResponsiveMiniMap() {
       style={{ transform: `translateX(-${uiEditorWidth}px)` }}
       className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm transition-transform"
       maskColor={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
-      maskStrokeColor=""
-      maskStrokeWidth={1}
+      maskStrokeColor={
+        darkMode ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.6)"
+      }
+      maskStrokeWidth={2}
       pannable
       onClick={(e, { x, y }) => {
         setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });

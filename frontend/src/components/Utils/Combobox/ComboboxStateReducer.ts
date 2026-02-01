@@ -102,20 +102,6 @@ function getFirstMatch<T>(latestItems: AllItemsType<T>) {
   return flattenedItems(latestItems)[0];
 }
 
-function filterItems<T>(allItems: AllItemsType<T>, inputValue?: string) {
-  if (inputValue) {
-    return allItems
-      .map((group) => ({
-        group: group.group,
-        items: matchSorter(group.items, inputValue, {
-          keys: ["name"],
-        }),
-      }))
-      .filter((group) => group.items.length > 0);
-  }
-  return allItems;
-}
-
 function maybeClearInput(clearInputAfterSelection: boolean) {
   if (clearInputAfterSelection) {
     return { inputValue: "" };
@@ -266,20 +252,29 @@ export function useComboboxStateReducerWithFilteredItems<T>(
     } else if (type === changeTypes.InputChange) {
       // The user is typing, so filter the search results.
       // Or the combobox field is updated by external state, so also filter results in this case.
-      latestItems = filterItems(allItems, changes.inputValue);
+      const inpuValue = changes.inputValue;
+      if (inpuValue) {
+        latestItems = allItems
+          .map((group) => ({
+            group: group.group,
+            items: matchSorter(group.items, inpuValue, {
+              keys: ["name"],
+            }),
+          }))
+          .filter((group) => group.items.length > 0);
+      } else {
+        // if the inputValue is "", then show all items
+        latestItems = allItems;
+      }
+
       setFilteredItems(latestItems);
     }
-
-    const itemsForSelection =
-      type === changeTypes.InputKeyDownEnter
-        ? filterItems(allItems, state.inputValue)
-        : latestItems;
 
     const mods = getReducerModifications(
       type,
       state,
       changes,
-      itemsForSelection,
+      latestItems,
       selectedItemCanBeNull,
       clearInputAfterSelection,
     );

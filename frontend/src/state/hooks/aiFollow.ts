@@ -9,10 +9,7 @@ import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getHighestAncestor } from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import {
-  getAllowedChatIdsForProject,
-  getSectionIdsForProject,
-} from "state/aiFollowUtils";
+import { getSectionIdsForProject } from "state/aiFollowUtils";
 import { useAIFollow, useMisc, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
@@ -59,16 +56,7 @@ function collectAIFollowTopLevelIds(
 }
 
 export function useAIFollowViewport(): void {
-  const { projectConfigId, sectionVariantMap, sectionVariants, sectionImpls } =
-    useProjectState(
-      (state) => ({
-        projectConfigId: state.projectConfig.id,
-        sectionVariantMap: state.projectConfig.sectionVariantMap,
-        sectionVariants: state.sectionVariants,
-        sectionImpls: state.sectionImpls,
-      }),
-      _.isEqual,
-    );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const { d3Zoom, d3Selection, width, height } = useReactFlow(
     (state) => ({
       d3Zoom: state.d3Zoom,
@@ -78,27 +66,16 @@ export function useAIFollowViewport(): void {
     }),
     shallow,
   );
-  const { mode, sectionIds, toolResultSectionIds } = useAIFollow((state) => {
-    const allowedChatIds = getAllowedChatIdsForProject(
-      state.mode,
-      state.selectedChatIdsByProjectConfigId,
-      state.selectedSectionIdsByProjectConfigId,
-      projectConfigId,
-      sectionVariantMap,
-      sectionVariants,
-      sectionImpls,
-    );
+  const { enabled, sectionIds, toolResultSectionIds } = useAIFollow((state) => {
     return {
-      mode: state.mode,
+      enabled: state.enabled,
       sectionIds: getSectionIdsForProject(
         state.toolArgumentsIdsByProjectConfigId,
         projectConfigId,
-        allowedChatIds,
       ),
       toolResultSectionIds: getSectionIdsForProject(
         state.toolResultIdsByProjectConfigId,
         projectConfigId,
-        allowedChatIds,
       ),
     };
   }, _.isEqual);
@@ -109,13 +86,13 @@ export function useAIFollowViewport(): void {
   const toolResultSectionIdsKey = toolResultSectionIds.join("|");
 
   useEffect(() => {
-    if (mode !== "off") {
+    if (enabled) {
       return;
     }
     useAIFollow.setState((state) => {
       state.isFollowTransitioning = false;
     });
-  }, [mode]);
+  }, [enabled]);
 
   useEffect(() => {
     if (toolResultGroupTimeout.current !== null) {
@@ -154,7 +131,7 @@ export function useAIFollowViewport(): void {
   );
 
   useEffect(() => {
-    if (mode === "off") {
+    if (!enabled) {
       return;
     }
     if (combinedSectionIds.length === 0) {
@@ -206,8 +183,8 @@ export function useAIFollowViewport(): void {
   }, [
     d3Selection,
     d3Zoom,
+    enabled,
     height,
-    mode,
     projectConfigId,
     sectionIdsKey,
     width,
@@ -215,19 +192,10 @@ export function useAIFollowViewport(): void {
 }
 
 export function useAIFollowZIndexBoost(): void {
-  const {
-    projectConfigId,
-    parentSectionMap,
-    sectionVariantMap,
-    sectionVariants,
-    sectionImpls,
-  } = useProjectState(
+  const { projectConfigId, parentSectionMap } = useProjectState(
     (state) => ({
       projectConfigId: state.projectConfig.id,
       parentSectionMap: state.parentSectionMap,
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
     }),
     _.isEqual,
   );
@@ -236,25 +204,14 @@ export function useAIFollowZIndexBoost(): void {
   );
   const { toolArgumentSectionIds, toolResultSectionIds } = useAIFollow(
     (state) => {
-      const allowedChatIds = getAllowedChatIdsForProject(
-        state.mode,
-        state.selectedChatIdsByProjectConfigId,
-        state.selectedSectionIdsByProjectConfigId,
-        projectConfigId,
-        sectionVariantMap,
-        sectionVariants,
-        sectionImpls,
-      );
       return {
         toolArgumentSectionIds: getSectionIdsForProject(
           state.toolArgumentsIdsByProjectConfigId,
           projectConfigId,
-          allowedChatIds,
         ),
         toolResultSectionIds: getSectionIdsForProject(
           state.toolResultIdsByProjectConfigId,
           projectConfigId,
-          allowedChatIds,
         ),
       };
     },

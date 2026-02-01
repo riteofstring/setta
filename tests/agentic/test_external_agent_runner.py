@@ -9,8 +9,6 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 import pytest
-from starlette.types import Message, Scope
-from starlette.websockets import WebSocket
 
 from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
@@ -39,7 +37,6 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
-    ToolChatMessage,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -47,7 +44,6 @@ from setta.types.chat_stream_events import (
     MessageStartEvent,
     MessageTextDelta,
     ToolCallDeltaEvent,
-    ToolResultEvent,
 )
 from setta.types.external_agents import (
     ClaudeSettingsManaged,
@@ -62,7 +58,6 @@ from setta.types.external_agents import (
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.websocket import WebsocketConnectionType
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
@@ -110,46 +105,6 @@ def _build_context_for_test(
         inputs,
     )
     return context
-
-
-async def _build_websocket(messages: list[Message]) -> WebSocket:
-    receive_queue: list[Message] = [{"type": "websocket.connect"}]
-
-    async def receive() -> Message:
-        if receive_queue:
-            return receive_queue.pop(0)
-        return {"type": "websocket.receive"}
-
-    async def send(message: Message) -> None:
-        messages.append(message)
-
-    scope: Scope = {
-        "type": "websocket",
-        "asgi": {"version": "3.0"},
-        "scheme": "ws",
-        "path": "/",
-        "raw_path": b"/",
-        "query_string": b"",
-        "headers": [],
-        "client": ("testclient", 0),
-        "server": ("testserver", 80),
-        "subprotocols": [],
-    }
-    return WebSocket(scope=scope, receive=receive, send=send)
-
-
-def _extract_streaming_payloads(messages: list[Message]) -> list[dict[str, Any]]:
-    payloads: list[dict[str, Any]] = []
-    for message in messages:
-        if message.get("type") != "websocket.send":
-            continue
-        text = message.get("text")
-        if not isinstance(text, str):
-            continue
-        payload = json.loads(text)
-        if payload.get("messageType") == "LLMStreamingResponse":
-            payloads.append(payload)
-    return payloads
 
 
 class TestExternalAgentRunnerStopRun:
@@ -1289,313 +1244,6 @@ class TestExternalAgentRunnerApproval:
             assert "approval-1" not in runner._pending_approvals
 
 
-class TestExternalAgentRunnerSubagentRouting:
-    pytestmark = pytest.mark.asyncio
-
-    async def test_subagent_tool_result_delta_routes_to_subagent_chat(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            runner = ExternalAgentRunner(dbe, frontend_sender)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
-
-            messages: list[Message] = []
-            websocket = await _build_websocket(messages)
-            websocket_id = await websocket_manager.on_connect(
-                websocket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-subagent-delta",
-                broadcast_connections=False,
-            )
-
-            tool_call_id = "toolu-subagent-1"
-            try:
-                runner._store_tool_call_delta(
-                    run.id,
-                    ToolCallDeltaEvent(
-                        message_id="msg-1",
-                        tool_call_id=tool_call_id,
-                        arguments_delta="{}",
-                        tool_name="Task",
-                    ),
-                )
-
-                await runner._handle_subagent_tool_result_delta(
-                    run,
-                    tool_call_id,
-                    "Hello",
-                )
-
-                payloads = _extract_streaming_payloads(messages)
-                assert payloads
-                chat_ids = {payload["content"]["chatId"] for payload in payloads}
-                assert chat_ids == {tool_call_id}
-                chunk_types = [
-                    payload["content"]["chunk"]["type"]
-                    for payload in payloads
-                ]
-                assert "message_start" in chunk_types
-                assert "delta" in chunk_types
-            finally:
-                await websocket_manager.on_disconnect(
-                    websocket_id,
-                    broadcast_connections=False,
-                )
-                await websocket.close()
-
-    async def test_subagent_tool_result_delta_emits_multiple_chunks(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            runner = ExternalAgentRunner(dbe, frontend_sender)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
-
-            messages: list[Message] = []
-            websocket = await _build_websocket(messages)
-            websocket_id = await websocket_manager.on_connect(
-                websocket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-subagent-multi-delta",
-                broadcast_connections=False,
-            )
-
-            tool_call_id = "toolu-subagent-multi"
-            try:
-                runner._store_tool_call_delta(
-                    run.id,
-                    ToolCallDeltaEvent(
-                        message_id="msg-multi",
-                        tool_call_id=tool_call_id,
-                        arguments_delta="{}",
-                        tool_name="Task",
-                    ),
-                )
-
-                await runner._handle_subagent_tool_result_delta(
-                    run,
-                    tool_call_id,
-                    "Hello ",
-                )
-                await runner._handle_subagent_tool_result_delta(
-                    run,
-                    tool_call_id,
-                    "world",
-                )
-
-                payloads = _extract_streaming_payloads(messages)
-                assert payloads
-                delta_texts: list[str] = []
-                delta_message_ids: set[str] = set()
-                start_count = 0
-                for payload in payloads:
-                    content = payload.get("content")
-                    if not isinstance(content, dict):
-                        continue
-                    if content.get("chatId") != tool_call_id:
-                        continue
-                    chunk = content.get("chunk")
-                    if not isinstance(chunk, dict):
-                        continue
-                    chunk_type = chunk.get("type")
-                    if chunk_type == "message_start":
-                        start_count += 1
-                    if chunk_type != "delta":
-                        continue
-                    message_id = chunk.get("message_id")
-                    if isinstance(message_id, str):
-                        delta_message_ids.add(message_id)
-                    content_entries = chunk.get("content")
-                    if not isinstance(content_entries, list):
-                        continue
-                    for entry in content_entries:
-                        if not isinstance(entry, dict):
-                            continue
-                        if entry.get("type") != "text_delta":
-                            continue
-                        text = entry.get("text")
-                        if isinstance(text, str):
-                            delta_texts.append(text)
-
-                assert start_count == 1
-                assert delta_texts == ["Hello ", "world"]
-                assert len(delta_message_ids) == 1
-            finally:
-                await websocket_manager.on_disconnect(
-                    websocket_id,
-                    broadcast_connections=False,
-                )
-                await websocket.close()
-
-    async def test_subagent_tool_result_finalizes_and_clears_active(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            runner = ExternalAgentRunner(dbe, frontend_sender)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
-
-            messages: list[Message] = []
-            websocket = await _build_websocket(messages)
-            websocket_id = await websocket_manager.on_connect(
-                websocket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-subagent-finalize",
-                broadcast_connections=False,
-            )
-
-            tool_call_id = "toolu-subagent-2"
-            try:
-                runner._register_subagent_tool_call(run.id, tool_call_id)
-                chunk = ToolResultEvent(
-                    result=ToolChatMessage(
-                        tool_call_id=tool_call_id,
-                        tool_name="Task",
-                        result="Done",
-                    )
-                )
-
-                await runner._maybe_finalize_subagent_tool_result(run, chunk)
-
-                payloads = _extract_streaming_payloads(messages)
-                assert payloads
-                chat_ids = {payload["content"]["chatId"] for payload in payloads}
-                assert chat_ids == {tool_call_id}
-                chunk_types = [
-                    payload["content"]["chunk"]["type"]
-                    for payload in payloads
-                ]
-                assert "message_stop" in chunk_types
-                assert "message_finalized" in chunk_types
-                active = runner._active_subagent_tool_calls.get(run.id)
-                if active is not None:
-                    assert tool_call_id not in active
-            finally:
-                await websocket_manager.on_disconnect(
-                    websocket_id,
-                    broadcast_connections=False,
-                )
-                await websocket.close()
-
-    async def test_approval_request_infers_subagent_context(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            runner = ExternalAgentRunner(dbe, frontend_sender)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
-
-            messages: list[Message] = []
-            websocket = await _build_websocket(messages)
-            websocket_id = await websocket_manager.on_connect(
-                websocket,
-                WebsocketConnectionType.FRONTEND,
-                id="frontend-subagent-approval",
-                broadcast_connections=False,
-            )
-
-            tool_call_id = "toolu-subagent-3"
-            approval_id = "approval-subagent-1"
-            try:
-                runner._register_subagent_tool_call(run.id, tool_call_id)
-
-                await runner._handle_approval_request(
-                    context,
-                    run,
-                    {
-                        "type": "approval_request",
-                        "approvalId": approval_id,
-                        "toolName": "write_file",
-                        "toolType": "file",
-                        "input": {"path": "/tmp/demo.txt"},
-                    },
-                )
-
-                payloads = _extract_streaming_payloads(messages)
-                assert payloads
-                chat_ids = {payload["content"]["chatId"] for payload in payloads}
-                assert chat_ids == {tool_call_id}
-
-                pending = runner._pending_approvals.get(approval_id)
-                assert pending is not None
-                assert pending.chat_id == ID(tool_call_id)
-                assert pending.section_id is None
-
-                approval_events = [
-                    event for event in run.events if event.type == "approval_request"
-                ]
-                assert approval_events
-                approval_payload = approval_events[-1].payload.get("payload")
-                assert isinstance(approval_payload, dict)
-                tool_context = approval_payload.get("toolContext")
-                assert isinstance(tool_context, dict)
-                assert tool_context.get("parentToolCallId") == tool_call_id
-            finally:
-                await websocket_manager.on_disconnect(
-                    websocket_id,
-                    broadcast_connections=False,
-                )
-                await websocket.close()
-
-
-class TestExternalAgentRunnerSubagentState:
-    def test_subagent_tool_call_survives_buffer_clear(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
-            tool_call_id = "toolu-subagent-4"
-
-            runner._store_tool_call_delta(
-                run.id,
-                ToolCallDeltaEvent(
-                    message_id="msg-1",
-                    tool_call_id=tool_call_id,
-                    arguments_delta="{}",
-                    tool_name="Task",
-                ),
-            )
-            runner._clear_tool_call_buffers(run.id)
-
-            assert runner._is_subagent_tool_call(run.id, tool_call_id)
-
-
 class TestExternalAgentRunnerQuestion:
     pytestmark = pytest.mark.asyncio
     async def test_question_request_queues_claude_approval(self) -> None:
@@ -2234,115 +1882,6 @@ class TestExternalAgentRunnerClaudeCapture:
             assert len(tool_calls) == 1
             assert tool_calls[0].get("id") == "toolu-1"
 
-    async def test_streamed_task_tool_use_persists_name(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            runner = _build_runner(dbe)
-            config = ExternalAgentConfig(
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            context = _build_context_for_test(runner, config)
-            run = context.run
-
-            await _apply_claude_payloads(
-                runner,
-                context,
-                run,
-                [
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {
-                            "type": "message_start",
-                            "message": {"id": "msg-task-1", "content": []},
-                        },
-                    },
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {
-                            "type": "content_block_start",
-                            "index": 0,
-                            "content_block": {
-                                "type": "tool_use",
-                                "id": "toolu-task-1",
-                                "name": "Task",
-                                "input": {"task": "Summarize logs"},
-                            },
-                        },
-                    },
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {
-                            "type": "content_block_delta",
-                            "index": 0,
-                            "delta": {
-                                "type": "input_json_delta",
-                                "partial_json": "{\"task\": \"Summarize logs\"}",
-                            },
-                        },
-                    },
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {
-                            "type": "content_block_stop",
-                            "index": 0,
-                        },
-                    },
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {
-                            "type": "content_block_start",
-                            "index": 1,
-                            "content_block": {
-                                "type": "tool_result",
-                                "tool_use_id": "toolu-task-1",
-                                "content": [{"type": "text", "text": "ok"}],
-                            },
-                        },
-                    },
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {
-                            "type": "content_block_stop",
-                            "index": 1,
-                        },
-                    },
-                    {
-                        "type": "raw_message_stream_event",
-                        "stream_event": {"type": "message_stop"},
-                    },
-                ],
-            )
-
-            updated = load_agent_run(dbe, run.id)
-            assert updated is not None
-            if updated is None:
-                return
-            outputs = updated.outputs
-            assert isinstance(outputs, dict)
-            messages = outputs.get("messages")
-            assert isinstance(messages, list)
-            assistant = next(
-                message
-                for message in messages
-                if isinstance(message, dict) and message.get("role") == "assistant"
-            )
-            tool_calls = assistant.get("tool_calls")
-            assert isinstance(tool_calls, list)
-            assert len(tool_calls) == 1
-            function = tool_calls[0].get("function")
-            assert isinstance(function, dict)
-            assert function.get("name") == "Task"
-            tool_messages = [
-                message
-                for message in messages
-                if isinstance(message, dict) and message.get("role") == "tool"
-            ]
-            assert len(tool_messages) == 1
-            assert tool_messages[0].get("tool_name") == "Task"
-
 
 class TestExternalAgentRunnerMcpAuth:
     @contextmanager
@@ -2536,18 +2075,3 @@ class TestExternalAgentRunnerMcpAuth:
                 assert function.get("arguments") == {"path": "README.md"}
 
         asyncio.run(_run())
-
-
-class TestExternalAgentRunnerSubagentExtraction:
-    def test_extract_subagent_tool_call_id_from_payload_nested(self) -> None:
-        payload = {
-            "streamEvent": {
-                "content_block": {"parent_tool_use_id": "toolu-parent-1"}
-            }
-        }
-
-        extracted = ExternalAgentRunner._extract_subagent_tool_call_id_from_payload(
-            payload
-        )
-
-        assert extracted == "toolu-parent-1"

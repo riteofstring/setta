@@ -50,12 +50,13 @@ import {
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
+  clearActiveSectionIds,
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
-import { deleteSelectedAgenticEdges } from "./agenticEdges";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
+import { formatActiveCodeSection } from "./formatCode";
 import { restartLanguageServer } from "./lsp";
 import {
   openFileMenuLoadProjectConfigModal,
@@ -83,8 +84,7 @@ import { redoProjectState, undoProjectState } from "./undo";
 
 function deleteEdgesOrSections() {
   const deletedEdges = deleteSelectedEdges();
-  const deletedAgenticEdges = deleteSelectedAgenticEdges();
-  if (!deletedEdges && !deletedAgenticEdges) {
+  if (!deletedEdges) {
     deleteAllActiveSections();
   }
 }
@@ -165,6 +165,53 @@ const modifierKeyCodes = new Set([
   "ShiftLeft",
   "ShiftRight",
 ]);
+
+function getNormalizedEventCode(event: KeyboardEvent): string | null {
+  if (event.code && event.code !== "Unidentified") {
+    return event.code;
+  }
+
+  const key = event.key;
+  if (!key) {
+    return null;
+  }
+
+  if (key === " ") {
+    return "Space";
+  }
+  if (key === "Shift") {
+    return "ShiftLeft";
+  }
+  if (key === "Control") {
+    return "ControlLeft";
+  }
+  if (key === "Alt") {
+    return "AltLeft";
+  }
+  if (key === "Meta") {
+    return "MetaLeft";
+  }
+
+  const lowerKey = key.toLowerCase();
+  const special =
+    specialEventKeyToEventCode[lowerKey] ?? specialEventKeyToEventCode[key];
+  if (special) {
+    return special;
+  }
+
+  if (/^[a-zA-Z]$/.test(key)) {
+    return `Key${key.toUpperCase()}`;
+  }
+  if (/^[0-9]$/.test(key)) {
+    return `Digit${key}`;
+  }
+
+  if (key.length > 1) {
+    return key[0].toUpperCase() + key.slice(1);
+  }
+
+  return key;
+}
 
 // shortcutString is a lowercase string.
 function parseShortcut(shortcutString) {
@@ -430,6 +477,9 @@ function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
   if (isParsedTabShortcut(parsedShortcut)) {
     return false;
   }
+  if (parsedShortcut.keys.has("Escape")) {
+    return false;
+  }
   return _isMacOs
     ? getMacosIgnoreWhenInInputField(parsedShortcut)
     : getWindowsIgnoreWhenInInputField(parsedShortcut);
@@ -561,7 +611,7 @@ export function attachKeyEventListeners() {
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
-    // [shortcuts.formatCode, formatCode],
+    [shortcuts.formatCode, formatActiveCodeSection],
     ...(indentShortcutIsTab
       ? []
       : [
@@ -669,8 +719,9 @@ export function attachKeyEventListeners() {
       clearStaleKeys();
     }
     aModShortcutWasPressed = false;
-    if (!modifierKeyCodes.has(e.code)) {
-      addKeyPressed(e.code);
+    const eventCode = getNormalizedEventCode(e);
+    if (eventCode && !modifierKeyCodes.has(eventCode)) {
+      addKeyPressed(eventCode);
     }
     const isInput = getIsInput(e);
 
@@ -703,7 +754,10 @@ export function attachKeyEventListeners() {
       // special case because on mac, meta key causes the other pressed keys to not trigger keyup
       resetKeysPressed();
     } else {
-      deleteKeyPressed(e.code);
+      const eventCode = getNormalizedEventCode(e);
+      if (eventCode) {
+        deleteKeyPressed(eventCode);
+      }
     }
     keyUpLoop(e, shortcutInfo);
   });
@@ -757,12 +811,49 @@ function specialModTabCase(shortcutInfo) {
   }
 }
 
-function onEscapeKey() {
-  unselectAllParams();
-  // if (!didUnselectSomeParams) {
-  //   clearActiveSectionIds();
-  // }
+function onEscapeKey(event: KeyboardEvent) {
   removeFrozenFloatingBox();
+  const target = event.target instanceof HTMLElement ? event.target : null;
+  const sectionNode = target?.closest(".react-flow__node");
+  if (getIsInput(event) && !sectionNode) {
+    return;
+  }
+  const didUnselectSomeParams = unselectAllParams();
+  if (!didUnselectSomeParams && sectionNode) {
+    const sectionId = sectionNode.getAttribute("data-id");
+    const activeIds = useProjectState.getState().projectConfig.activeIds;
+    if (sectionId && activeIds.includes(sectionId)) {
+      clearActiveSectionIds();
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (
+        activeElement &&
+        activeElement !== document.body &&
+        activeElement !== document.documentElement
+      ) {
+        activeElement.blur();
+      }
+      const postBlurActive =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (
+        postBlurActive &&
+        postBlurActive !== document.body &&
+        postBlurActive !== document.documentElement
+      ) {
+        document.body.focus({ preventScroll: true });
+        if (
+          document.activeElement !== document.body &&
+          document.activeElement !== document.documentElement
+        ) {
+          document.documentElement.focus({ preventScroll: true });
+        }
+      }
+    }
+  }
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {
