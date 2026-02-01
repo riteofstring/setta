@@ -12,7 +12,6 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import type { ReactNode } from "react";
 import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_DRAG_CLASS_NAME,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -292,7 +291,6 @@ function TextInputControl({
           language={language}
           singleLine={singleLine}
           autocomplete={false}
-          tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
         />
       </div>
     </MetaControlTitleStack>

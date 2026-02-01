@@ -14,24 +14,6 @@ import {
 import { getCurrProjectConfigId } from "./sectionInfos";
 import { processTypeErrors } from "./typeCheck";
 
-export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
-
-function splitFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
-  if (diagnostics.length === 0) {
-    return { formatter: [], rest: [] };
-  }
-  const formatter: Array<SettaLspDiagnostic> = [];
-  const rest: Array<SettaLspDiagnostic> = [];
-  for (const diagnostic of diagnostics) {
-    if (diagnostic.source === FORMATTER_DIAGNOSTIC_SOURCE) {
-      formatter.push(diagnostic);
-    } else {
-      rest.push(diagnostic);
-    }
-  }
-  return { formatter, rest };
-}
-
 function areDiagnosticRangesEqual(
   left: SettaLspDiagnostic["range"],
   right: SettaLspDiagnostic["range"],
@@ -85,75 +67,29 @@ function mergeDiagnosticsBySection(
 ) {
   let changed = false;
   const merged: Record<string, Array<SettaLspDiagnostic>> = {};
-  const seen = new Set<string>();
 
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
-    seen.add(sectionId);
     const prevDiagnostics = previous[sectionId];
-    const { formatter: prevFormatter } = splitFormatterDiagnostics(
-      prevDiagnostics ?? [],
-    );
-    const { formatter: incomingFormatter } =
-      splitFormatterDiagnostics(nextDiagnostics);
-    let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
-    if (nextDiagnostics.length > 0) {
-      if (incomingFormatter.length > 0) {
-        mergedDiagnostics = nextDiagnostics;
-      } else {
-        mergedDiagnostics = nextDiagnostics.concat(prevFormatter);
-      }
-    }
-    if (mergedDiagnostics.length === 0) {
-      if (prevDiagnostics?.length) {
-        changed = true;
-      }
-      continue;
-    }
-
     if (
       prevDiagnostics &&
-      areDiagnosticsListEqual(prevDiagnostics, mergedDiagnostics)
+      areDiagnosticsListEqual(prevDiagnostics, nextDiagnostics)
     ) {
       merged[sectionId] = prevDiagnostics;
-      continue;
-    }
-    merged[sectionId] = mergedDiagnostics;
-    if (!prevDiagnostics || prevDiagnostics !== mergedDiagnostics) {
-      changed = true;
+    } else {
+      merged[sectionId] = nextDiagnostics;
+      if (prevDiagnostics !== nextDiagnostics) {
+        changed = true;
+      }
     }
   }
 
   for (const sectionId of Object.keys(previous)) {
-    if (seen.has(sectionId)) {
-      continue;
-    }
-    const prevDiagnostics = previous[sectionId] ?? [];
-    if (prevDiagnostics.length > 0) {
+    if (!(sectionId in incoming)) {
       changed = true;
     }
   }
 
   return { codeSections: merged, changed };
-}
-
-function mergeUnmappedGenCode(
-  previous: Array<SettaLspDiagnostic>,
-  incoming: Array<SettaLspDiagnostic>,
-) {
-  const { formatter: prevFormatter } = splitFormatterDiagnostics(previous);
-  const { formatter: incomingFormatter } = splitFormatterDiagnostics(incoming);
-  let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
-  if (incoming.length > 0) {
-    if (incomingFormatter.length > 0) {
-      mergedDiagnostics = incoming;
-    } else {
-      mergedDiagnostics = incoming.concat(prevFormatter);
-    }
-  }
-  if (areDiagnosticsListEqual(previous, mergedDiagnostics)) {
-    return { unmappedGenCode: previous, changed: false };
-  }
-  return { unmappedGenCode: mergedDiagnostics, changed: true };
 }
 
 export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
@@ -171,16 +107,18 @@ export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
     prevState.codeSections,
     payload.codeSections,
   );
-  const mergedUnmapped = mergeUnmappedGenCode(
+  const unmappedChanged = !areDiagnosticsListEqual(
     prevState.unmappedGenCode,
     payload.unmappedGenCode,
   );
-  if (!merged.changed && !mergedUnmapped.changed) {
+  if (!merged.changed && !unmappedChanged) {
     return;
   }
   useLspDiagnostics.setState({
     codeSections: merged.codeSections,
-    unmappedGenCode: mergedUnmapped.unmappedGenCode,
+    unmappedGenCode: unmappedChanged
+      ? payload.unmappedGenCode
+      : prevState.unmappedGenCode,
   });
 }
 
