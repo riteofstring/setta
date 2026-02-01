@@ -1035,7 +1035,9 @@ export function deleteAllActiveSections() {
 export function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
-  existingLayouts: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] | null = null,
+  existingLayouts:
+    | ProjectStateSingleConfig["projectConfig"]["topLevelSections"]
+    | null = null,
 ) {
   const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
     {};
