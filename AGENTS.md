@@ -29,6 +29,7 @@
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
+- Avoid div soup: keep markup semantic, minimize unnecessary wrappers, and favor the smallest readable/performant DOM tree.
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.

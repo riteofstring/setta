@@ -1,6 +1,6 @@
 import { WatchCodeToggleButton } from "components/AppHeader/WatchCodeToggleButton";
 import { useCallback, useEffect, useRef } from "react";
-import { RiRadarLine } from "react-icons/ri";
+import { RiRepeatLine } from "react-icons/ri";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalValue } from "state/hooks/utils";
@@ -140,29 +140,22 @@ export function WatchCodePane() {
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pr-2">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-1 items-center gap-3">
-            <div className="flex h-7 w-7 flex-none items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-300">
-              <RiRadarLine size={14} />
-            </div>
-            <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">
-              New top-level Python defs and classes become callable sections
-              when watch mode is on.
-            </p>
-          </div>
-          <WatchCodeToggleButton />
-        </div>
-        <div className="h-px w-full bg-setta-200/70 dark:bg-setta-800" />
-      </div>
+      <header className="flex flex-col gap-2">
+        <WatchCodeToggleButton />
+        <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">
+          New top-level Python defs and classes become callable sections when
+          watch mode is on.
+        </p>
+      </header>
+      <hr className="border-setta-200/70 dark:border-setta-800" />
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="min-w-[7rem] flex-1 text-xs font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
             Watch Folders
           </h3>
           <button
-            className="inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+            className="ml-auto inline-flex h-6 shrink-0 items-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
             disabled={inputsDisabled}
             onClick={addFolder}
             type="button"
@@ -178,9 +171,9 @@ export function WatchCodePane() {
         ) : (
           <div className="space-y-2">
             {localFolders.map((folder, index) => (
-              <div className="flex items-center gap-2" key={index}>
+              <div className="flex flex-wrap items-center gap-2" key={index}>
                 <input
-                  className={`${inputClasses} ml-[2px]`}
+                  className={`${inputClasses} ml-[2px] min-w-[10rem] flex-1`}
                   disabled={inputsDisabled}
                   onBlur={(event) =>
                     updateFolder(index, { path: event.target.value }, true)
@@ -196,24 +189,20 @@ export function WatchCodePane() {
                   placeholder="relative/path/to/folder"
                   value={folder.path}
                 />
-                <label className="flex items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-                  <input
-                    checked={folder.recursive}
-                    className="h-3 w-3 accent-blue-500"
-                    disabled={inputsDisabled}
-                    onChange={(event) =>
-                      updateFolder(
-                        index,
-                        { recursive: event.target.checked },
-                        true,
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  Recursive
-                </label>
                 <button
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                  aria-pressed={folder.recursive}
+                  className={`nodrag inline-flex h-6 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-[11px] font-semibold transition-colors focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-transparent active:dark:!bg-transparent ${folder.recursive ? "text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200" : "text-setta-500 hover:text-setta-900 dark:text-setta-400 dark:hover:text-setta-100"}`}
+                  disabled={inputsDisabled}
+                  onClick={() =>
+                    updateFolder(index, { recursive: !folder.recursive }, true)
+                  }
+                  type="button"
+                >
+                  <RiRepeatLine size={12} />
+                  Recursive
+                </button>
+                <button
+                  className="inline-flex h-6 w-6 flex-none items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                   disabled={inputsDisabled}
                   onClick={() => removeFolder(index)}
                   type="button"
@@ -227,12 +216,12 @@ export function WatchCodePane() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="min-w-[6rem] flex-1 text-xs font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
             Watch Files
           </h3>
           <button
-            className="inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+            className="ml-auto inline-flex h-6 shrink-0 items-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
             disabled={inputsDisabled}
             onClick={addFile}
             type="button"
@@ -248,9 +237,9 @@ export function WatchCodePane() {
         ) : (
           <div className="space-y-2">
             {localFiles.map((file, index) => (
-              <div className="flex items-center gap-2" key={index}>
+              <div className="flex flex-wrap items-center gap-2" key={index}>
                 <input
-                  className={inputClasses}
+                  className={`${inputClasses} min-w-[10rem] flex-1`}
                   disabled={inputsDisabled}
                   onBlur={(event) =>
                     updateFile(index, event.target.value, true)

@@ -246,7 +246,7 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
-        <nav className="flex min-h-[50px] flex-col gap-2 border-b border-setta-100 pb-2 pt-0 dark:border-setta-800">
+        <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800">
           <div className="mt-2 flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
@@ -259,7 +259,7 @@ export function ProjectChat() {
               }}
             >
               <MdAdd size={15} />
-              <span className="@[17.5rem]:hidden @sm:block">New</span>
+              <span className="hidden @[17.5rem]:block">New</span>
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
@@ -276,11 +276,11 @@ export function ProjectChat() {
               ) : (
                 <>
                   <RiChatHistoryLine size={15} />
-                  <span className="@[17.5rem]:hidden @sm:block">History</span>
+                  <span className="hidden @[17.5rem]:block">History</span>
                 </>
               )}
             </button>
-            <FollowAIToggleButton />
+            {!viewHistory ? <FollowAIToggleButton /> : null}
             {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
             {!viewHistory &&
             (engineType === EngineTypeEnum.setta_llm ||

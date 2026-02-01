@@ -10,6 +10,7 @@ export function FollowAIToggleButton() {
   return (
     <button
       aria-pressed={enabled}
+      aria-label="Toggle follow AI"
       className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300 ${stateClasses}`}
       onClick={() => {
         useAIFollow.setState((state) => {
@@ -18,7 +19,7 @@ export function FollowAIToggleButton() {
       }}
     >
       <RiFocus2Line />
-      Follow AI
+      <span className="hidden @[17.5rem]:block">Follow AI</span>
     </button>
   );
 }
