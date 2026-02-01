@@ -136,7 +136,11 @@ function getTopLevelSectionLayoutSnapshot() {
   if (nodeInternals.size === 0) {
     return { ...projectState.projectConfig.topLevelSections };
   }
-  return createTopLevelSectionLayoutDict(projectState.sections, nodeInternals);
+  return createTopLevelSectionLayoutDict(
+    projectState.sections,
+    nodeInternals,
+    projectState.projectConfig.topLevelSections,
+  );
 }
 
 function getViewportBoundsForPlacement(): ViewportBounds | null {
@@ -146,8 +150,7 @@ function getViewportBoundsForPlacement(): ViewportBounds | null {
     return null;
   }
   const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
-  const uiEditorWidth = useLocalStorage.getState().uiEditorTrueWidth;
-  const paneRect = getPaneRect(reactFlowState, overviewWidth, uiEditorWidth);
+  const paneRect = getPaneRect(reactFlowState, overviewWidth);
   if (paneRect.width <= 0 || paneRect.height <= 0) {
     return null;
   }

@@ -14,16 +14,16 @@ import {
 } from "state/actions/sections/sectionSizes";
 import {
   useProjectState,
-  useResizeEvent,
   useSettings,
   useTemporaryMiscState,
   ZustandProjectState,
 } from "state/definitions";
 import {
+  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
-  getParamsFixedHeightKey,
-  getSectionHeaderHeightKey,
-  getSectionSearchHeightKey,
+  getParamGroupPaddingKey,
+  getPinnedParamsMinHeightKey,
+  getUnpinnedParamsMinHeightKey,
 } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -40,11 +40,28 @@ type SizeMode = {
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
 
-const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
-const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
-const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
-// Accounts for the fixed top + bottom gutters in the section grid.
-const SECTION_GRID_GUTTER_HEIGHT = 8;
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const EMPTY_SHOWN_PARAMS: {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+} = {
+  requiredParamIdsToPaths: {},
+  topLevelParamIds: [],
+};
+
+function safeGetCurrShownParamIds(
+  state: ZustandProjectState,
+  sectionId: string,
+  isPinned: boolean,
+  preview = false,
+) {
+  const variantId = getCurrSectionVariantId(state, sectionId, preview);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return EMPTY_SHOWN_PARAMS;
+  }
+  return isPinned ? shown.pinned : shown.unpinned;
+}
 
 function getMetaControlSizingPolicyEntry({
   projectState,
@@ -88,7 +105,7 @@ function resolveMetaControlSizeMode(
   };
 }
 
-export function getMinSectionHeight({
+function getMinSectionHeight({
   sectionType,
   hideSearch,
   hideParams,
@@ -120,7 +137,7 @@ export function getMinSectionHeight({
   return policyByType.minHeight;
 }
 
-export function getMaxSectionHeight({
+function getMaxSectionHeight({
   sectionType,
   isMinimized,
   sizingPolicy,
@@ -138,7 +155,7 @@ export function getMaxSectionHeight({
   return policyByType.maxHeight;
 }
 
-export function getMinSectionWidth({
+function getMinSectionWidth({
   sectionType,
   sizingPolicy,
 }: {
@@ -150,7 +167,7 @@ export function getMinSectionWidth({
   return policyByType.minWidth;
 }
 
-export function getMaxSectionWidth({
+function getMaxSectionWidth({
   sectionType,
   sizingPolicy,
 }: {
@@ -195,23 +212,27 @@ function getSizeMode({
 
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
-  const sectionHeaderHeight = useTemporaryMiscState((x) => {
-    const height = x[getSectionHeaderHeightKey(sectionId)];
-    return typeof height === "number" ? height : 0;
-  });
-  const sectionSearchHeight = useTemporaryMiscState((x) => {
-    const height = x[getSectionSearchHeightKey(sectionId)];
+  const edgesStripHeight = useTemporaryMiscState((x) => {
+    const height = x[getEdgesStripHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
   const kwargsControlsHeight = useTemporaryMiscState((x) => {
     const height = x[getKwargsControlsHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
-  const paramsFixedHeight = useTemporaryMiscState((x) => {
-    const height = x[getParamsFixedHeightKey(sectionId)];
+  const pinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getPinnedParamsMinHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
+  const unpinnedParamsMinHeight = useTemporaryMiscState((x) => {
+    const height = x[getUnpinnedParamsMinHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const paramGroupPadding = useTemporaryMiscState((x) => {
+    const padding = x[getParamGroupPaddingKey(sectionId)];
+    return typeof padding === "number" ? padding : 0;
+  });
+
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
@@ -234,8 +255,10 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
     const isAutoHeight = impl.size.height === "auto";
-    const isResizing = resizeEvent === "start";
     const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
+    const maxHeight = isAutoHeight
+      ? Math.max(minHeight, Math.min(policyMaxHeight, autoMaxHeight))
+      : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
@@ -246,48 +269,75 @@ export function useSectionMinMaxDims(sectionId: string) {
       sizingPolicy,
     });
 
+    if (
+      !isMinimized &&
+      (sectionType === SectionTypeEnum.MetaControl ||
+        sectionType === SectionTypeEnum.TextBlock)
+    ) {
+      minHeight *= 0.5;
+      minWidth *= 0.5;
+    }
+
     if (!isMinimized && isBaseSectionWithParamsImpl(impl) && !hideParams) {
-      const variantId = getCurrSectionVariantId(x, sectionId, true);
-      const shown = x.shownParamIds[variantId];
-      let requiredParamsHeight = 0;
-      let hasPinnedParams = false;
-      if (shown) {
-        const pinned = shown.pinned;
-        const edgeInputSet = new Set(impl.edgeInputParams);
-        hasPinnedParams = pinned.topLevelParamIds.some(
-          (paramId) => !edgeInputSet.has(paramId),
-        );
-      }
-      const showsUnpinnedParams = !impl.hideUnpinnedParams;
+      const baseMinHeight =
+        sectionType === SectionTypeEnum.Callable
+          ? getMinSectionHeight({
+              sectionType,
+              hideSearch,
+              hideParams: true,
+              isMinimized,
+              sizingPolicy,
+            })
+          : minHeight;
+      const pinned = safeGetCurrShownParamIds(x, sectionId, true, true);
+      const unpinned = safeGetCurrShownParamIds(x, sectionId, false, true);
+      const edgeInputSet = new Set(impl.edgeInputParams);
+      const hasPinnedParams = pinned.topLevelParamIds.some(
+        (paramId) => !edgeInputSet.has(paramId),
+      );
+      const hasUnpinnedParams =
+        !impl.hideUnpinnedParams &&
+        unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
+      const hasEdges =
+        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+      const resolvedPinnedMinHeight =
+        pinnedParamsMinHeight > 0
+          ? pinnedParamsMinHeight
+          : sizingPolicy.globals.pinnedParamsAreaMinHeight;
       const baseUnpinnedMinHeight = Number.isFinite(
         sizingPolicy.globals.unpinnedParamsAreaMinHeight,
       )
         ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
         : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
-      const normalizedUnpinnedMinHeight =
-        baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-          ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      const resolvedUnpinnedMinHeight =
+        unpinnedParamsMinHeight > 0
+          ? unpinnedParamsMinHeight
           : baseUnpinnedMinHeight;
-      const resolvedUnpinnedPolicyMinHeight =
-        hasPinnedParams &&
-        normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-          ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
-          : normalizedUnpinnedMinHeight;
-      const resolvedUnpinnedMinHeight = showsUnpinnedParams
-        ? resolvedUnpinnedPolicyMinHeight
-        : 0;
-      const fixedTopHeight =
-        sectionHeaderHeight +
-        sectionSearchHeight +
-        kwargsControlsHeight +
-        SECTION_GRID_GUTTER_HEIGHT;
-      requiredParamsHeight += fixedTopHeight;
-      requiredParamsHeight += paramsFixedHeight;
-      if (resolvedUnpinnedMinHeight > 0) {
+      let requiredParamsHeight = 0;
+      if (hasPinnedParams) {
+        if (typeof impl.pinnedAreaHeight === "number") {
+          requiredParamsHeight += Math.max(
+            impl.pinnedAreaHeight,
+            resolvedPinnedMinHeight,
+          );
+        } else {
+          requiredParamsHeight += resolvedPinnedMinHeight;
+        }
+      }
+      if (hasUnpinnedParams) {
         requiredParamsHeight += resolvedUnpinnedMinHeight;
       }
+      if (kwargsControlsHeight > 0) {
+        requiredParamsHeight += kwargsControlsHeight;
+      }
+      if (hasEdges) {
+        requiredParamsHeight += edgesStripHeight;
+      }
+      if (hasPinnedParams || hasUnpinnedParams || hasEdges) {
+        requiredParamsHeight += paramGroupPadding;
+      }
       if (requiredParamsHeight > 0) {
-        minHeight = Math.max(minHeight, requiredParamsHeight);
+        minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
       }
     }
 
@@ -305,12 +355,6 @@ export function useSectionMinMaxDims(sectionId: string) {
       }
       metaControlSizeMode = resolveMetaControlSizeMode(metaControlEntry);
     }
-
-    const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);
-    const maxHeight =
-      isAutoHeight && !isResizing
-        ? Math.max(minHeight, cappedAutoMaxHeight)
-        : Math.max(minHeight, policyMaxHeight);
 
     const sizeMode = getSizeMode({
       sectionType,
