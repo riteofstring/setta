@@ -1,14 +1,10 @@
 import json
-import os
-import time
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
 from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME, sanitize_name
-from setta.lsp.writer import LanguageServerWriter
-from setta.project_state.code import PythonCode
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     DeclineRenameRefactorRequest,
@@ -37,135 +33,27 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 class TestRenameRefactorBroadcast:
-    def _log_setup(self, message: str) -> None:
-        now = time.monotonic()
-        if not hasattr(self, "_setup_start"):
-            self._setup_start = now
-        elapsed = now - self._setup_start
-        print(f"[rename_refactor_setup +{elapsed:.3f}s] {message}", flush=True)
-
-    def _wrap_async_method(self, target: object, name: str) -> None:
-        original = getattr(target, name)
-
-        def _format_context(args, kwargs) -> str:
-            for value in list(args) + list(kwargs.values()):
-                project_config_id = getattr(value, "projectConfigId", None)
-                if project_config_id:
-                    return f" project_config_id={project_config_id}"
-            return ""
-
-        async def wrapper(*args, **kwargs):
-            start = time.monotonic()
-            context = _format_context(args, kwargs)
-            self._log_setup(f"{name} start{context}")
-            result = await original(*args, **kwargs)
-            duration = time.monotonic() - start
-            self._log_setup(f"{name} done (+{duration:.3f}s){context}")
-            return result
-
-        setattr(target, name, wrapper)
-        self._wrapped_methods.append((target, name, original))
-
-    def _wrap_async_class_method(self, cls: type, name: str) -> None:
-        original = getattr(cls, name)
-
-        async def wrapper(self_obj, *args, **kwargs):
-            start = time.monotonic()
-            detail = ""
-            if cls is LanguageServerWriter and name == "send_request":
-                method = None
-                if args:
-                    method = args[0]
-                if method is None:
-                    method = kwargs.get("method")
-                if method is not None:
-                    detail = f" method={method}"
-            if cls is LanguageServerWriter and name == "send_document_open_request":
-                filepath = None
-                if args:
-                    filepath = args[0]
-                if filepath is None:
-                    filepath = kwargs.get("filepath")
-                if filepath is not None:
-                    detail = f" filepath={filepath}"
-            if cls is PythonCode and name == "sync_lsp":
-                detail = f" filepath={self_obj.binding.canonical_path}"
-            self._log_setup(f"{cls.__name__}.{name} start{detail}")
-            result = await original(self_obj, *args, **kwargs)
-            duration = time.monotonic() - start
-            self._log_setup(
-                f"{cls.__name__}.{name} done (+{duration:.3f}s){detail}"
-            )
-            return result
-
-        setattr(cls, name, wrapper)
-        self._wrapped_class_methods.append((cls, name, original))
-
-    def _install_debug_wrappers(self) -> None:
-        self._wrapped_methods = []
-        self._wrapped_class_methods = []
-        manager_methods = [
-            "set_project_config_codegen_targets",
-            "load_project_config",
-            "maybe_init_project_config",
-            "update_and_broadcast_project_state",
-            "update",
-            "_refresh_codegen_state",
-            "_broadcast_project_state_snapshot",
-            "_broadcast_name_validation_errors",
-            "maybe_do_rename_refactor",
-            "set_section_name",
-        ]
-        for name in manager_methods:
-            if hasattr(self.manager, name):
-                self._wrap_async_method(self.manager, name)
-        self._wrap_async_class_method(PythonCode, "sync_lsp")
-        self._wrap_async_class_method(LanguageServerWriter, "send_request")
-        self._wrap_async_class_method(
-            LanguageServerWriter, "send_document_open_request"
-        )
-
-    def _restore_debug_wrappers(self) -> None:
-        for target, name, original in getattr(self, "_wrapped_methods", []):
-            setattr(target, name, original)
-        for cls, name, original in getattr(self, "_wrapped_class_methods", []):
-            setattr(cls, name, original)
-
     @pytest_asyncio.fixture(autouse=True)
     async def _setup(self):
-        self._setup_env_prev = os.environ.get("SETTA_TEST_SETUP_LOG")
-        os.environ["SETTA_TEST_SETUP_LOG"] = "1"
-        self._setup_start = time.monotonic()
-        self._log_setup("setup start")
         self._exit_stack = AsyncExitStack()
-        self._log_setup("entering real_settings_manager")
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
-        self._log_setup("real_settings_manager entered")
         self.manager = fixture.manager
         self.websocket_manager = fixture.websocket_manager
-        self._log_setup("installing debug wrappers")
-        self._install_debug_wrappers()
-        self._log_setup("debug wrappers installed")
         project_config_id = self.manager.project_state_backend.defaultProjectConfigId
         if not project_config_id:
             pytest.fail("Expected default project config id for rename test.")
         self.project_config_id: ID = project_config_id
 
-        self._log_setup("set_project_config_codegen_targets start")
         await self.manager.set_project_config_codegen_targets(
             SetProjectConfigCodegenTargetsRequest(
                 projectConfigId=self.project_config_id,
                 codegenTargets=[ProjectCodegenPythonTarget()],
             )
         )
-        self._log_setup("set_project_config_codegen_targets done")
-        self._log_setup("load_project_config start")
         self.project_state = await self.manager.load_project_config(
             self.project_config_id
         )
-        self._log_setup("load_project_config done")
         self.manager.completed_op_ids_since_last_broadcast.clear()
-        self._log_setup("cleared completed_op_ids_since_last_broadcast")
 
         self.websocket_id = "rename-refactor-test-socket"
         self._sent_messages: list[Message] = []
@@ -194,9 +82,7 @@ class TestRenameRefactorBroadcast:
             "subprotocols": [],
         }
         self._websocket = WebSocket(scope=scope, receive=_receive, send=_send)
-        self._log_setup("websocket accept start")
         await self._websocket.accept()
-        self._log_setup("websocket accept done")
         self.websocket_manager.sockets[self.websocket_id] = (
             WebsocketConnectionInfoWithSocket(
                 id=self.websocket_id,
@@ -205,24 +91,11 @@ class TestRenameRefactorBroadcast:
                 websocket=self._websocket,
             )
         )
-        self._log_setup("websocket registered")
 
-        self._log_setup("setup complete")
         yield
 
-        self._log_setup("teardown start")
-        self._log_setup("restoring debug wrappers")
-        self._restore_debug_wrappers()
-        self._log_setup("debug wrappers restored")
         self.websocket_manager.sockets.pop(self.websocket_id, None)
-        self._log_setup("websocket removed")
         await self._exit_stack.aclose()
-        self._log_setup("exit stack closed")
-        if self._setup_env_prev is None:
-            os.environ.pop("SETTA_TEST_SETUP_LOG", None)
-        else:
-            os.environ["SETTA_TEST_SETUP_LOG"] = self._setup_env_prev
-        self._log_setup("setup env restored")
 
     def _find_section_param_with_childless_impl(
         self, state: "ProjectStateSingleConfig"

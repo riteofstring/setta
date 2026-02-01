@@ -567,14 +567,11 @@ class BaseProjectManager(ABC):
                 async with self._track_frontend_op(frontend_op_id):
                     result = await coroutine
                 logger.debug("Completed handler %s", handler_name)
-                # Set the result for the waiting call unless it was cancelled.
-                if future.cancelled():
-                    logger.debug("Skipping result for cancelled future")
-                elif future.done():
-                    logger.debug("Skipping result for completed future")
-                else:
-                    logger.debug("Setting result on future")
-                    future.set_result(result)
+                # Set the result for the waiting call
+                logger.debug(
+                    "Setting result on future (cancelled=%s)", future.cancelled()
+                )
+                future.set_result(result)
             except Exception as exc:
                 # Propagate any exceptions back to the caller
                 log_failure(
@@ -586,12 +583,7 @@ class BaseProjectManager(ABC):
                         "project_manager": type(self).__name__,
                     },
                 )
-                if future.cancelled():
-                    logger.debug("Skipping exception for cancelled future")
-                elif future.done():
-                    logger.debug("Skipping exception for completed future")
-                else:
-                    future.set_exception(exc)
+                future.set_exception(exc)
             finally:
                 # Mark the task as done
                 logger.debug("Marking queue task as done")
@@ -2692,9 +2684,9 @@ class BaseProjectManager(ABC):
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
-        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
-        project_config.viewport = x.viewport
-        project_config.viewportInitialized = x.viewport is not None
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].viewport = x.viewport
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
