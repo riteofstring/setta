@@ -907,6 +907,12 @@ export async function route_set_code(
   return await post("/setCode", x);
 }
 
+export async function route_format_code(
+  x: gt.FormatCodeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/formatCode", x);
+}
+
 export async function route_set_section_param_filter(
   x: gt.SetSectionParamFilterRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1055,12 +1061,6 @@ export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionPinnedParams", x);
-}
-
-export async function route_set_section_pinned_area_height(
-  x: gt.SetSectionPinnedAreaHeightRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionPinnedAreaHeight", x);
 }
 
 export async function route_set_section_column_width(

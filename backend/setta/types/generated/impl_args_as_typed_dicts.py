@@ -41,7 +41,6 @@ from setta.types.section_impls import (
     ConfigLanguage,
     PromptFormat,
     SectionSize,
-    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -128,7 +127,6 @@ class CoreArgs(TypedDict):
                 "overflowMode",
                 "paramFilter",
                 "passingStyle",
-                "pinnedAreaHeight",
                 "pinnedParams",
                 "placeholder",
                 "positionAndSizeLocked",
@@ -168,6 +166,7 @@ class ProjectConfigArgs(TypedDict):
     allowJsonSourceKeyEdits: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
+    viewportInitialized: NotRequired[bool]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
@@ -222,7 +221,6 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
     pinnedParams: NotRequired[list[ID]]
-    pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     edgeInputParams: NotRequired[list[ID]]
@@ -241,14 +239,6 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
         ConfigLanguage | Callable[[ConfigLanguage], ConfigLanguage]
     ]
     pinnedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
-    pinnedAreaHeight: NotRequired[
-        float
-        | Literal[SectionSizeMode.auto]
-        | Callable[
-            [float | Literal[SectionSizeMode.auto]],
-            float | Literal[SectionSizeMode.auto],
-        ]
-    ]
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
