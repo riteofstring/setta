@@ -443,10 +443,9 @@ function CustomResizableSuperCore({
   snapToGrid,
   children,
 }) {
-  const { isSorting, isMovingFree } = useDndMode();
+  const { isSorting } = useDndMode();
   const disablePointerEvents = useShouldDisablePointerEvents();
-  const allowPointerEvents =
-    allowPointerEventsDuringDnd && (isSorting || isMovingFree);
+  const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
