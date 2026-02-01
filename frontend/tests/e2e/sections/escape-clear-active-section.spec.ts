@@ -20,15 +20,12 @@ test("escape clears active section when focused in section input", async ({
     );
     await expect(sectionNode).toBeVisible();
 
-    const sectionCard = sectionNode.locator("section").first();
-    await sectionCard.click();
-    await expect
-      .poll(async () => await isSectionActiveByClass(page, sectionId))
-      .toBe(true);
-
     const searchTarget = page.locator(`[id="${sectionId}-search"]`);
     await expect(searchTarget).toBeVisible();
     await searchTarget.click();
+    await expect
+      .poll(async () => await isSectionActive(page, sectionId))
+      .toBe(true);
     await expect
       .poll(async () => await isFocusedInsideSection(page, sectionId))
       .toBe(true);
@@ -36,7 +33,7 @@ test("escape clears active section when focused in section input", async ({
     await page.keyboard.press("Escape");
 
     await expect
-      .poll(async () => await isSectionActiveByClass(page, sectionId))
+      .poll(async () => await isSectionActive(page, sectionId))
       .toBe(false);
     await expect
       .poll(async () => await isDocumentFocusNeutral(page))
@@ -65,10 +62,7 @@ async function isDocumentFocusNeutral(page: Page): Promise<boolean> {
   });
 }
 
-async function isSectionActiveByClass(
-  page: Page,
-  sectionId: string,
-): Promise<boolean> {
+async function isSectionActive(page: Page, sectionId: string): Promise<boolean> {
   return page.evaluate((id) => {
     const node = document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!node) {
@@ -81,6 +75,7 @@ async function isSectionActiveByClass(
     return section.classList.contains("outline-blue-600");
   }, sectionId);
 }
+
 
 async function isFocusedInsideSection(
   page: Page,

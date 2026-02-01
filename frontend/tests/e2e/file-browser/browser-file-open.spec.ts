@@ -16,13 +16,14 @@ type ProjectStateResponse = {
   sectionVariants: Record<string, { impl: string }>;
   sectionImpls: Record<
     string,
-    { type: string; format?: string; textDisplayMode?: string }
+    { type: string; format?: string; textDisplayMode?: string; text?: string }
   >;
 };
 
 type TextSectionExpectations = {
   format: string;
   textDisplayMode: string;
+  textIncludes: string;
 };
 
 type ProjectMetadataEntry = { id: string; name: string };
@@ -68,12 +69,23 @@ async function loadProjectState(
   return response;
 }
 
-function findSectionIdByName(
+function findSectionIdByText(
   state: ProjectStateResponse,
-  name: string,
+  expectations: TextSectionExpectations,
 ): string | null {
-  for (const [sectionId, section] of Object.entries(state.sections)) {
-    if (section.name === name || section.displayName === name) {
+  for (const [sectionId, variantId] of Object.entries(
+    state.projectConfig.sectionVariantMap,
+  )) {
+    const implId = state.sectionVariants[variantId]?.impl;
+    const impl = implId ? state.sectionImpls[implId] : null;
+    if (
+      impl &&
+      impl.type === "TextBlock" &&
+      impl.format === expectations.format &&
+      impl.textDisplayMode === expectations.textDisplayMode &&
+      typeof impl.text === "string" &&
+      impl.text.includes(expectations.textIncludes)
+    ) {
       return sectionId;
     }
   }
@@ -88,19 +100,9 @@ async function waitForTextSection(
 ): Promise<string> {
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const state = await loadProjectState(page, projectConfigName);
-    const sectionId = findSectionIdByName(state, name);
+    const sectionId = findSectionIdByText(state, expectations);
     if (sectionId) {
-      const variantId = state.projectConfig.sectionVariantMap[sectionId];
-      const implId = state.sectionVariants[variantId]?.impl;
-      const impl = implId ? state.sectionImpls[implId] : null;
-      if (
-        impl &&
-        impl.type === "TextBlock" &&
-        impl.format === expectations.format &&
-        impl.textDisplayMode === expectations.textDisplayMode
-      ) {
-        return sectionId;
-      }
+      return sectionId;
     }
     await page.waitForTimeout(250);
   }
@@ -180,6 +182,7 @@ test("browser opens markdown and text files in text sections", async ({
       {
         format: "Markdown",
         textDisplayMode: "Render",
+        textIncludes: "Browser Test",
       },
     );
     createdSectionIds.push(markdownSectionId);
@@ -198,6 +201,7 @@ test("browser opens markdown and text files in text sections", async ({
       {
         format: "Plaintext",
         textDisplayMode: "Edit",
+        textIncludes: "Plaintext browser test.",
       },
     );
     createdSectionIds.push(textSectionId);
@@ -268,10 +272,10 @@ test("browser history buttons navigate folders", async ({ page }) => {
 
     await expect(pathInput).toHaveValue(folderName);
 
-    const backButton = sectionNode.getByRole("button", { name: "Go back" });
-    const forwardButton = sectionNode.getByRole("button", {
-      name: "Go forward",
-    });
+    const backButton = sectionNode.locator('button[aria-label="Go back"]');
+    const forwardButton = sectionNode.locator(
+      'button[aria-label="Go forward"]',
+    );
 
     await expect(backButton).toBeEnabled();
     await backButton.click();

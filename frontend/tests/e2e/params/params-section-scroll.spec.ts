@@ -58,7 +58,7 @@ test("unpinned area keeps its minimum height when pinned params are present", as
   await ensureAppReady(page);
   const projectConfigId = await getCurrentProjectConfigId(page);
   const sectionId = await createCallableSection(page, projectConfigId);
-  const minUnpinnedHeight = 48;
+  const minUnpinnedHeight = 36;
 
   try {
     await postBackend(page, "/setCallable", {

@@ -825,6 +825,12 @@ function ItemsColumn({
   );
   const fileUrlMapRef = useRef<Record<string, FileUrlEntry>>({});
   const fileUrlRequests = useRef<Set<string>>(new Set());
+  const fileUrlPromiseResolvers = useRef<
+    Map<string, (entry: FileUrlEntry | null) => void>
+  >(new Map());
+  const fileUrlPromises = useRef<Map<string, Promise<FileUrlEntry | null>>>(
+    new Map(),
+  );
   const [selectedCarouselId, setSelectedCarouselId] = useState<string | null>(
     null,
   );
@@ -897,6 +903,35 @@ function ItemsColumn({
     });
   }, [effectiveFolder, isListView]);
 
+  const ensureFileUrlPromise = useCallback((path: string) => {
+    const existing = fileUrlPromises.current.get(path);
+    if (existing) {
+      return existing;
+    }
+    let resolvePromise: (entry: FileUrlEntry | null) => void = () => undefined;
+    const promise = new Promise<FileUrlEntry | null>((resolve) => {
+      resolvePromise = resolve;
+    });
+    fileUrlPromises.current.set(path, promise);
+    fileUrlPromiseResolvers.current.set(path, resolvePromise);
+    return promise;
+  }, []);
+
+  const settleFileUrlPromises = useCallback(
+    (paths: string[], entries: Record<string, FileUrlEntry>) => {
+      for (const path of paths) {
+        const resolver = fileUrlPromiseResolvers.current.get(path);
+        if (!resolver) {
+          continue;
+        }
+        resolver(entries[path] ?? null);
+        fileUrlPromiseResolvers.current.delete(path);
+        fileUrlPromises.current.delete(path);
+      }
+    },
+    [],
+  );
+
   const requestFileUrls = useCallback(
     async (paths: string[], options: { force?: boolean } = {}) => {
       if (paths.length === 0) {
@@ -919,6 +954,7 @@ function ItemsColumn({
       }
       for (const path of pending) {
         fileUrlRequests.current.add(path);
+        ensureFileUrlPromise(path);
       }
       const res = await route_get_file_browser_download_urls({
         paths: pending,
@@ -929,6 +965,7 @@ function ItemsColumn({
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         console.warn("Failed to load file preview URLs", detail ?? pending);
+        settleFileUrlPromises(pending, {});
         return {};
       }
       const nextEntries: Record<string, FileUrlEntry> = {};
@@ -939,9 +976,30 @@ function ItemsColumn({
         };
       }
       setFileUrlMap((prev) => ({ ...prev, ...nextEntries }));
+      settleFileUrlPromises(pending, nextEntries);
       return nextEntries;
     },
-    [],
+    [ensureFileUrlPromise, settleFileUrlPromises],
+  );
+
+  const getFileUrlEntry = useCallback(
+    async (path: string, options: { force?: boolean } = {}) => {
+      const now = Date.now();
+      const existing = fileUrlMapRef.current[path];
+      if (!options.force && existing && !isFileUrlStale(existing, now)) {
+        return existing;
+      }
+      const pendingPromise = fileUrlPromises.current.get(path);
+      if (pendingPromise) {
+        const resolved = await pendingPromise;
+        if (resolved && !isFileUrlStale(resolved, Date.now())) {
+          return resolved;
+        }
+      }
+      const refreshed = await requestFileUrls([path], { force: true });
+      return refreshed[path] ?? fileUrlMapRef.current[path] ?? null;
+    },
+    [requestFileUrls],
   );
 
   const requestTextPreview = useCallback(
@@ -972,13 +1030,7 @@ function ItemsColumn({
         },
       }));
       const pathKey = item.fullPath;
-      let entry = fileUrlMapRef.current[pathKey];
-      if (!entry || isFileUrlStale(entry, Date.now())) {
-        const refreshed = await requestFileUrls([pathKey], {
-          force: true,
-        });
-        entry = refreshed[pathKey] ?? fileUrlMapRef.current[pathKey];
-      }
+      const entry = await getFileUrlEntry(pathKey, { force: true });
       if (!entry?.url) {
         setTextPreviewMap((prev) => ({
           ...prev,
@@ -1033,7 +1085,7 @@ function ItemsColumn({
         },
       }));
     },
-    [requestFileUrls, textPreviewMap],
+    [getFileUrlEntry, textPreviewMap],
   );
 
   const loadFolderContents = useCallback(
@@ -1166,13 +1218,7 @@ function ItemsColumn({
         return;
       }
       const loadAndOpenText = async () => {
-        let entry = fileUrlMapRef.current[item.fullPath];
-        if (!entry || isFileUrlStale(entry, Date.now())) {
-          const refreshed = await requestFileUrls([item.fullPath], {
-            force: true,
-          });
-          entry = refreshed[item.fullPath] ?? fileUrlMapRef.current[item.fullPath];
-        }
+        const entry = await getFileUrlEntry(item.fullPath, { force: true });
         if (!entry?.url) {
           void openFileInCodeSection({
             filePath: item.fullPath,
@@ -1215,9 +1261,9 @@ function ItemsColumn({
       void loadAndOpenText();
     },
     [
+      getFileUrlEntry,
       openFileInCodeSection,
       openFileInTextSection,
-      requestFileUrls,
       resolveCodeLanguageFromPath,
     ],
   );

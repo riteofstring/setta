@@ -67,6 +67,13 @@ const getPersistStorage = <S>() =>
     if (typeof localStorage === "undefined") {
       return createInMemoryStorage();
     }
+    if (
+      typeof localStorage.getItem !== "function" ||
+      typeof localStorage.setItem !== "function" ||
+      typeof localStorage.removeItem !== "function"
+    ) {
+      return createInMemoryStorage();
+    }
     return localStorage;
   });
 
