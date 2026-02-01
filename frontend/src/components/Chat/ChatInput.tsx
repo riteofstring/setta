@@ -527,7 +527,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag prose prose-sm max-h-48 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-lg border border-setta-200 bg-transparent py-2 pl-10 pr-10 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
+      "nodrag text-sm leading-5 max-h-48 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-lg border border-setta-200 bg-transparent py-2 pl-10 pr-10 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
