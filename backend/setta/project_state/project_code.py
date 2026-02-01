@@ -30,6 +30,7 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
     SignatureHelpStatus,
     process_signature_help_response,
 )
+from setta.project_state.watch_code import parse_python_callables
 from setta.project_state.project_manager_types import (
     SetCallableChildCodeObj,
     SetCallableResponse,
@@ -47,6 +48,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.unions import BaseParamCodeObjImplUnion
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
     get_curr_effective_code_obj_impl_with_type_guard,
@@ -77,6 +79,57 @@ from setta.utils.constants import C
 from setta.utils.utils import GEN_CODE_META_FILENAME
 
 logger = logging.getLogger(__name__)
+
+
+def _build_param_code_objs_from_watch_code(
+    settings: SettingsState,
+    param_proposals: tuple,
+):
+    code_objs: list[Core] = []
+    code_obj_impl_map: dict[ID, BaseParamCodeObjImplUnion] = {}
+    for proposal in param_proposals:
+        default_val = proposal.default or ""
+        code_obj_impl = create_code_obj_impl(
+            CodeObjType.CodeParam,
+            settings.codeParamCodeObjDefault,
+            {
+                "defaultVal": default_val,
+                "passingStyle": proposal.passing_style,
+            },
+        )
+        code_obj = Core(name=proposal.name)
+        code_objs.append(code_obj)
+        code_obj_impl_map[code_obj.id] = code_obj_impl
+    return code_objs, code_obj_impl_map
+
+
+def _maybe_build_watch_code_params(
+    settings: SettingsState,
+    project_state: ProjectStateSingleConfig,
+    callable_name: str,
+):
+    registry = project_state.projectConfig.watchCodeRegistry
+    if not registry:
+        return None
+    for identity, entry in registry.items():
+        if entry.callableName != callable_name:
+            continue
+        canonical_name = identity.rsplit(":", 1)[0]
+        source_path = Path(entry.sourcePath)
+        if not source_path.is_absolute():
+            source_path = Path.cwd() / source_path
+        if not source_path.is_file():
+            continue
+        raw = source_path.read_text(encoding="utf-8")
+        callables = parse_python_callables(raw, source_path, include_params=True)
+        if not callables:
+            continue
+        for info in callables:
+            if info.canonical_name == canonical_name:
+                return _build_param_code_objs_from_watch_code(
+                    settings, info.param_proposals
+                )
+    return None
 
 
 def build_python_code_generator(
@@ -429,6 +482,27 @@ class ProjectGenPythonCode(PythonCode):
             lsp_status,
             [obj.name for obj in codeObjs],
         )
+        logger.info(
+            "project_code.set_callable params section_id=%s callable=%s lsp_status=%s param_count=%s param_names=%s",
+            sectionId,
+            callableName,
+            lsp_status,
+            len(codeObjs),
+            [obj.name for obj in codeObjs],
+        )
+        watch_code_result = None
+        if not codeObjs:
+            watch_code_result = _maybe_build_watch_code_params(
+                settings, project_state, callableName
+            )
+            if watch_code_result is not None:
+                codeObjs, codeObjImplMap = watch_code_result
+                logger.debug(
+                    "project_code.set_callable watch_code_params section_id=%s callable=%s parsed_params=%s",
+                    sectionId,
+                    callableName,
+                    [obj.name for obj in codeObjs],
+                )
 
         maybe_invoke_before_mutation()
         if not prev_selected:
@@ -462,7 +536,7 @@ class ProjectGenPythonCode(PythonCode):
                 CodeCallableCodeObjImplArgsWithCallable(description=documentation),
             )
 
-        if result is not None or not prev_selected:
+        if result is not None or not prev_selected or watch_code_result is not None:
             add_children_of_callable(
                 project_state,
                 sectionId,

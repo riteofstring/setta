@@ -44,7 +44,7 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   return (
     <ParamDndContext>
       <div
-        className="section-w-full -mt-3 flex min-h-0 flex-col overflow-hidden pt-2"
+        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col overflow-hidden pt-2"
         ref={setOuterRef}
       >
         <div

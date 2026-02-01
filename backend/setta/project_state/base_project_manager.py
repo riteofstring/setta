@@ -1025,7 +1025,9 @@ class BaseProjectManager(ABC):
     ):
         """Automatically arrange top-level sections using rectangle packing."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        auto_layout_top_level_sections(project_state, margin=x.margin)
+        auto_layout_top_level_sections(
+            self.settings_file.settings, project_state, margin=x.margin
+        )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -1043,7 +1045,7 @@ class BaseProjectManager(ABC):
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_sizes(project_state, x.sectionSizes)
+        set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -3248,6 +3250,11 @@ class BaseProjectManager(ABC):
             len(project_state.sectionVariants),
             len(completed_op_ids),
             len(pending_op_ids),
+        )
+        logger.info(
+            "broadcast_project_state_snapshot project_config_id=%s shown_param_variants=%s",
+            project_state.projectConfig.id,
+            list(project_state.shownParamIds.keys()),
         )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,

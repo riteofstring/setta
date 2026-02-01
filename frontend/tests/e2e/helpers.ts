@@ -17,6 +17,28 @@ type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
   projectMetadata: ProjectMetadataEntry[];
 };
+type ProjectStateSectionSize = {
+  width: number | "auto";
+  height: number | "auto";
+};
+type ProjectStateVariant = {
+  impl: string;
+  modifier?: { size?: ProjectStateSectionSize };
+};
+type ProjectStateSectionImpl = { size: ProjectStateSectionSize; type: string };
+type ProjectStateSectionCore = {
+  sharedModifier?: { size?: ProjectStateSectionSize };
+};
+type ProjectStateViewport = { x: number; y: number; zoom: number };
+export type ProjectStateSingleConfigResponse = {
+  projectConfig: {
+    sectionVariantMap: Record<string, string>;
+    viewport?: ProjectStateViewport | null;
+  };
+  sectionVariants: Record<string, ProjectStateVariant>;
+  sectionImpls: Record<string, ProjectStateSectionImpl>;
+  sections: Record<string, ProjectStateSectionCore>;
+};
 
 export async function ensureAppReady(page: Page): Promise<void> {
   await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
@@ -75,6 +97,49 @@ export async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
+export async function getCurrentProjectConfigName(page: Page): Promise<string> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+
+  const currentPath = new URL(page.url()).pathname;
+  const projectName = currentPath.split("/").filter(Boolean)[0];
+  if (projectName) {
+    return projectName;
+  }
+
+  if (metadata.defaultProjectConfigId) {
+    const match = metadata.projectMetadata.find(
+      (entry) => entry.id === metadata.defaultProjectConfigId,
+    );
+    if (match?.name) {
+      return match.name;
+    }
+  }
+
+  throw new Error("Unable to resolve projectConfigName for test.");
+}
+
+export async function loadProjectConfig(
+  page: Page,
+): Promise<ProjectStateSingleConfigResponse> {
+  const projectConfigName = await getCurrentProjectConfigName(page);
+  const response = await postBackend<ProjectStateSingleConfigResponse>(
+    page,
+    "/loadProjectConfig",
+    { projectConfigName },
+  );
+  if (!response) {
+    throw new Error("Missing project config response.");
+  }
+  return response;
+}
+
 export async function createCallableSection(
   page: Page,
   projectConfigId: string,
@@ -124,15 +189,13 @@ async function isAppReady(page: Page): Promise<boolean> {
 }
 
 async function waitForProjectUrl(page: Page): Promise<void> {
-  await page.waitForURL(
-    (url) => url.toString().startsWith(PROJECT_URL),
-    { timeout: 20000, waitUntil: "domcontentloaded" },
-  );
+  await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
+    timeout: 20000,
+    waitUntil: "domcontentloaded",
+  });
 }
 
 async function hasAuthCookie(page: Page): Promise<boolean> {
-  const cookies = await page
-    .context()
-    .cookies([PROJECT_URL, BACKEND_ORIGIN]);
+  const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
   return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
 }
