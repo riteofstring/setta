@@ -51,7 +51,6 @@ class SharedModifier(TypedDict):
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
-    attachedTerminalSectionId: NotRequired[ID | None]
     brushColor: NotRequired[str]
     brushOpacity: NotRequired[float]
     brushShape: NotRequired[DrawAreaBrushShape]

@@ -6,7 +6,6 @@ import {
   getCurrEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewModeVisibility,
-  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
@@ -31,13 +30,11 @@ function _SectionContainer({
     visibility,
     isEditingViewMode,
     isGroup,
-    isCode,
     isUserView,
     isGenPython,
     isGenPythonMetadata,
     hasPythonCodegen,
     hasMetadata,
-    sectionTypeName,
   } = useProjectState((x) => {
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
       sectionId,
@@ -51,12 +48,10 @@ function _SectionContainer({
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
-      isCode: isBaseCodeSectionType(impl.type),
       isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
       isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
-      sectionTypeName: impl.type,
     };
   }, _.isEqual);
 
@@ -82,23 +77,10 @@ function _SectionContainer({
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
       >
-        <>
-          {!isGroup && (
-            <SectionContainerCore
-              sectionId={sectionId}
-              isUserView={isUserView}
-            />
-          )}
-          {isCode ? (
-            <MaybeManyNestedSections
-              sectionId={sectionId}
-              isGroup={isGroup}
-              layoutVariant="tight"
-            />
-          ) : (
-            <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
-          )}
-        </>
+        {!isGroup && (
+          <SectionContainerCore sectionId={sectionId} isUserView={isUserView} />
+        )}
+        <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
       </ContainerSwitch>
     </NodeIdProvider>
   );

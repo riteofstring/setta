@@ -654,11 +654,22 @@ class TestOpenCodeSdkAdapterIntegration:
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
+            config.settingsManagedBlock = ExternalAgentSettingsManagedBlock(
+                opencode=OpenCodeSettingsManaged(
+                    permission={
+                        "*": "deny",
+                        "question": "allow",
+                        "AskUserQuestion": "allow",
+                    }
+                )
+            )
             port = self._reserve_port()
             prompt = (
                 "Use the question tool to ask exactly three questions. "
                 "Each question must include options Yes and No. "
-                "Do not answer yet; wait for my responses."
+                "Do not answer yet; wait for my responses. "
+                "After I respond, reply with only OK. "
+                "Do not call any other tools or run any commands."
             )
             run = runner.start_run(
                 config.id,
