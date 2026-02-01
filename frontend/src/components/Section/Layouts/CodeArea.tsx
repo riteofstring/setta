@@ -12,8 +12,6 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeMirrorTooltipParent";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
@@ -42,7 +40,6 @@ import {
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
-import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { C } from "utils/c";
 import {
@@ -62,7 +59,6 @@ import {
   route_gen_code_suffix_completion,
 } from "utils/generatedEndpoints";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { SortableSectionContainer } from "../Container/SortableSectionContainer";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -648,57 +644,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   });
   const value = previewCode ?? baseValue;
 
-  const attachedTerminalId = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Code,
-    );
-    if (!impl.attachedTerminalSectionId) {
-      return null;
-    }
-    const terminalId = impl.attachedTerminalSectionId;
-    if (!(terminalId in state.sections)) {
-      return null;
-    }
-    const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
-    if (terminalImpl.type !== SectionTypeEnum.Terminal) {
-      return null;
-    }
-    return terminalId;
-  }, _.isEqual);
-  const dndChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
-  let embeddedChildIds = dndChildIds;
-  if (embeddedChildIds.length === 0 && attachedTerminalId) {
-    embeddedChildIds = [attachedTerminalId];
-  }
-  const hasEmbeddedTerminal = embeddedChildIds.length > 0;
-  const dndChildIdsKey = useMemo(() => dndChildIds.join("|"), [dndChildIds]);
-  const embeddedChildIdsKey = useMemo(
-    () => embeddedChildIds.join("|"),
-    [embeddedChildIds],
-  );
-  const disablePointerEvents = useShouldDisablePointerEvents();
-
-  useEffect(() => {
-    console.info(
-      JSON.stringify({
-        event: "code-area-attached-terminal",
-        sectionId,
-        attachedTerminalId,
-        dndChildIds,
-        embeddedChildIds,
-        hasEmbeddedTerminal,
-      }),
-    );
-  }, [
-    attachedTerminalId,
-    dndChildIdsKey,
-    embeddedChildIdsKey,
-    hasEmbeddedTerminal,
-    sectionId,
-  ]);
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -754,22 +699,19 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     return buildLspDiagnosticsExtensions(codeSectionDiagnostics);
   }, [codeSectionDiagnostics, isShareMode]);
   const finalExtensions = extensions.concat(lspLintExtensions);
-  const codeAreaMaxHeight = hasEmbeddedTerminal ? "100%" : maxHeight;
-  const codeAreaClassName = `${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel} ${hasEmbeddedTerminal ? "flex h-full min-h-0 flex-1 flex-col" : ""} ${disablePointerEvents ? "pointer-events-none select-none" : ""}`;
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
 
-  const codeEditor = (
+  return (
     <article
       ref={wrapperRef}
-      className={codeAreaClassName}
+      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
       data-section-main-editor
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
-        maxHeight={codeAreaMaxHeight}
-        height={hasEmbeddedTerminal ? "100%" : undefined}
+        maxHeight={maxHeight}
         value={value}
         theme={theme}
         extensions={finalExtensions}
@@ -779,51 +721,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
         basicSetup={{ tabSize: 4 }}
       />
     </article>
-  );
-
-  if (!hasEmbeddedTerminal) {
-    return codeEditor;
-  }
-
-  return (
-    <div className="section-full-no-title flex h-full w-full flex-col gap-2">
-      <div className="flex min-h-0 flex-[3] flex-col">{codeEditor}</div>
-      <EmbeddedTerminalStack
-        parentId={sectionId}
-        childIds={embeddedChildIds}
-        className="flex min-h-0 flex-[2]"
-      />
-    </div>
-  );
-}
-
-type EmbeddedTerminalStackProps = {
-  parentId: string;
-  childIds: string[];
-  className?: string;
-};
-
-function EmbeddedTerminalStack({
-  parentId,
-  childIds,
-  className = "",
-}: EmbeddedTerminalStackProps) {
-  if (childIds.length === 0) {
-    return null;
-  }
-  return (
-    <div className={className}>
-      <DNDSortable sectionId={parentId} items={childIds}>
-        {childIds.map((childId) => (
-          <SortableSectionContainer
-            key={`embedded-terminal-${childId}`}
-            sectionId={childId}
-            renderMode="embedded"
-            className="nodrag min-h-0 flex-1"
-          />
-        ))}
-      </DNDSortable>
-    </div>
   );
 }
 

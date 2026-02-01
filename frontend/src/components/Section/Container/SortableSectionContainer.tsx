@@ -11,18 +11,12 @@ import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { SectionContainer } from "./SectionContainer";
 
-function _SortableSectionContainer({ sectionId, renderMode, className }) {
+function _SortableSectionContainer({ sectionId }) {
   return isTempSection(sectionId) ? (
-    <TempDNDSortableSectionContainer
-      sectionId={sectionId}
-      renderMode={renderMode}
-      className={className}
-    />
+    <TempDNDSortableSectionContainer sectionId={sectionId} />
   ) : (
     <RegularSortableSectionContainer
       sectionId={sectionId}
-      renderMode={renderMode}
-      className={className}
       forceApplyTransform={false}
     />
   );
@@ -30,11 +24,7 @@ function _SortableSectionContainer({ sectionId, renderMode, className }) {
 
 export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
-function _TempDNDSortableSectionContainer({
-  sectionId,
-  renderMode,
-  className,
-}) {
+function _TempDNDSortableSectionContainer({ sectionId }) {
   const [forceApplyTransform, setForceApplyTransform] = useState(true);
 
   useEffect(() => {
@@ -45,8 +35,6 @@ function _TempDNDSortableSectionContainer({
   return (
     <RegularSortableSectionContainer
       sectionId={sectionId}
-      renderMode={renderMode}
-      className={className}
       forceApplyTransform={forceApplyTransform}
     />
   );
@@ -56,12 +44,7 @@ const TempDNDSortableSectionContainer = React.memo(
   _TempDNDSortableSectionContainer,
 );
 
-function _RegularSortableSectionContainer({
-  sectionId,
-  forceApplyTransform,
-  renderMode,
-  className,
-}) {
+function _RegularSortableSectionContainer({ sectionId, forceApplyTransform }) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -85,8 +68,6 @@ function _RegularSortableSectionContainer({
       transform={transform}
       transition={transition}
       isDragging={isDragging}
-      renderMode={renderMode}
-      className={className}
       applyTransform={
         forceApplyTransform ||
         isDragging ||
@@ -112,8 +93,6 @@ function _SortableCore({
   transition,
   applyTransform,
   isDragging,
-  renderMode,
-  className,
 }) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
   const scaledTransform = applyZoomToTransform(
@@ -147,7 +126,7 @@ function _SortableCore({
 
   return (
     <div
-      className={`relative flex w-full outline-none ${className ?? ""}`}
+      className="relative flex w-full outline-none"
       {...stackProps}
       tabIndex={-1}
     >
@@ -155,31 +134,19 @@ function _SortableCore({
         sectionId={sectionId}
         applyTransform={applyTransform}
         listeners={listeners}
-        renderMode={renderMode}
       />
     </div>
   );
 }
 
-function TempSectionOrNot({
-  sectionId,
-  applyTransform,
-  listeners,
-  renderMode,
-}) {
+function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
   if (isTempSection(sectionId)) {
     if (applyTransform) {
       return <TempDNDSection />;
     }
     return null;
   } else {
-    return (
-      <SectionContainer
-        sectionId={sectionId}
-        dragListeners={listeners}
-        renderMode={renderMode}
-      />
-    );
+    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
   }
 }
 
@@ -190,8 +157,6 @@ const SortableCore = React.memo(
     p.transform === n.transform &&
     p.transition === n.transition &&
     p.isDragging === n.isDragging &&
-    p.renderMode === n.renderMode &&
-    p.className === n.className &&
     _.isEqual(p.listeners, n.listeners),
 );
 
