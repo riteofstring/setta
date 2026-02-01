@@ -11,6 +11,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeMirrorTooltipParent";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
@@ -44,6 +45,7 @@ import {
 } from "utils/codegenTargets";
 import { CodeLanguage } from "utils/codeLanguage";
 import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -501,8 +503,11 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     );
   }, [generatedCodeForValue]);
 
+  const tooltipParent = useCodeMirrorTooltipParent(
+    CODEMIRROR_TOOLTIP_PARENT_ID,
+  );
   const extensions = getExtensions({
-    parentDivId: `${sectionId}-CustomResizable`,
+    parent: tooltipParent,
     language: "python",
     completionsFn,
     onEscape: onEscapeFocusOnArticleDiv,
@@ -577,9 +582,12 @@ function GenPythonMetadataAreaContent({ sectionId }: { sectionId: string }) {
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
+  const tooltipParent = useCodeMirrorTooltipParent(
+    CODEMIRROR_TOOLTIP_PARENT_ID,
+  );
 
   const extensions = getExtensions({
-    parentDivId: `${sectionId}-CustomResizable`,
+    parent: tooltipParent,
     language: "python",
     onEscape: onEscapeFocusOnArticleDiv,
     isDisabled: true,
@@ -670,9 +678,12 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
+  const tooltipParent = useCodeMirrorTooltipParent(
+    CODEMIRROR_TOOLTIP_PARENT_ID,
+  );
 
   const extensions = getExtensions({
-    parentDivId: `${sectionId}-CustomResizable`,
+    parent: tooltipParent,
     language,
     completionsFn,
     onEscape: onEscapeFocusOnArticleDiv,

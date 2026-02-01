@@ -166,6 +166,7 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
+    SetSectionPinnedAreaHeightRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -286,6 +287,7 @@ from setta.types.helpers_lvl2 import (
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
+    set_section_pinned_area_height,
     set_section_pinned_params,
     set_section_sizes,
     set_section_variant,
@@ -1037,9 +1039,7 @@ class BaseProjectManager(ABC):
     ):
         """Automatically arrange top-level sections using rectangle packing."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        auto_layout_top_level_sections(
-            self.settings_file.settings, project_state, margin=x.margin
-        )
+        auto_layout_top_level_sections(project_state, margin=x.margin)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -1057,7 +1057,7 @@ class BaseProjectManager(ABC):
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
+        set_section_sizes(project_state, x.sectionSizes)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -2884,6 +2884,14 @@ class BaseProjectManager(ABC):
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_pinned_area_height(
+        self, x: SetSectionPinnedAreaHeightRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_pinned_area_height(project_state, x.sectionId, x.pinnedAreaHeight)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
