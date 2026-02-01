@@ -164,6 +164,13 @@ class LanguageServerReader(LanguageServerInteractor):
             version = response["params"].get("version")
             callback = self.diagnostics_response_callbacks.get(uri)
             if callback:
+                extra_values = {
+                    "lsp_server": self.server.name,
+                    "uri": uri,
+                    "diagnostic_count": len(diagnostics),
+                }
+                if version is not None:
+                    extra_values["lsp_version"] = version
                 spawn_background_task(
                     callback(
                         self.lsp_converter.structure(
@@ -172,8 +179,5 @@ class LanguageServerReader(LanguageServerInteractor):
                         )
                     ),
                     label="lsp-diagnostics-callback",
-                    extra_values={
-                        "lsp_server": self.server.name,
-                        "uri": uri,
-                    },
+                    extra_values=extra_values,
                 )

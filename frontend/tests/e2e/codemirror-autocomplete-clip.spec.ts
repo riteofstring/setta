@@ -35,7 +35,6 @@ test("callable autocomplete tooltip escapes section bounds", async ({ page }) =>
 
   const projectConfigId = await getCurrentProjectConfigId(page);
   const sectionId = await createCallableSection(page, projectConfigId);
-  let shouldCleanup = false;
 
   try {
     const resizable = page.locator(
@@ -122,14 +121,11 @@ test("callable autocomplete tooltip escapes section bounds", async ({ page }) =>
     }
 
     expect(overflowCheck.isOutsideSection).toBe(true);
-    shouldCleanup = true;
   } finally {
-    if (shouldCleanup) {
-      await postBackend(page, "/deleteSections", {
-        projectConfigId,
-        sectionIds: [sectionId],
-      });
-    }
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });
 

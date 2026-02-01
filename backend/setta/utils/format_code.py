@@ -31,6 +31,7 @@ def _run_ruff(args: list[str], code_str: str) -> tuple[str, str | None]:
         input=code_str,
         text=True,
         capture_output=True,
+        encoding="utf-8",
     )
     if result.returncode != 0:
         error = result.stderr.strip() or result.stdout.strip()

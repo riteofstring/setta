@@ -106,5 +106,41 @@ describe("processTypeErrors", () => {
         params: {},
       });
     });
+
+    it("clears errors when a section reports an empty error payload", () => {
+      useTypeErrors.setState({
+        errors: {
+          "section-1": {
+            callable: ["Callable error"],
+            params: { "param-1": ["Param error"] },
+          },
+          "section-2": {
+            callable: ["Other error"],
+            params: {},
+          },
+        },
+      });
+
+      processTypeErrors({
+        projectConfigId: "project-1",
+        isGenCode: true,
+        errors: {
+          "section-1": {
+            callable: [],
+            params: {},
+          },
+          "section-2": {
+            callable: ["Other error"],
+            params: {},
+          },
+        },
+      });
+
+      expect(useTypeErrors.getState().errors["section-1"]).toBeUndefined();
+      expect(useTypeErrors.getState().errors["section-2"]).toEqual({
+        callable: ["Other error"],
+        params: {},
+      });
+    });
   });
 });

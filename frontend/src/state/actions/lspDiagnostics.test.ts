@@ -203,7 +203,7 @@ describe("processLspDiagnostics", () => {
     expect(diagnostics).toEqual([baseDiagnostic, formatterDiagnostic]);
   });
 
-  it("preserves formatter diagnostics when a section disappears", () => {
+  it("clears formatter diagnostics when a section disappears", () => {
     useLspDiagnostics.setState({
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
@@ -221,12 +221,12 @@ describe("processLspDiagnostics", () => {
 
     processLspDiagnostics(payload);
 
-    expect(useLspDiagnostics.getState().codeSections["section-1"]).toEqual([
-      formatterDiagnostic,
-    ]);
+    expect(
+      useLspDiagnostics.getState().codeSections["section-1"],
+    ).toBeUndefined();
   });
 
-  it("preserves formatter diagnostics in unmapped gen-code payloads", () => {
+  it("clears formatter diagnostics in unmapped gen-code payloads", () => {
     useLspDiagnostics.setState({
       codeSections: {},
       unmappedGenCode: [formatterDiagnostic],
@@ -244,9 +244,7 @@ describe("processLspDiagnostics", () => {
 
     processLspDiagnostics(payload);
 
-    expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([
-      formatterDiagnostic,
-    ]);
+    expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([]);
   });
 
   describe("immediate clears", () => {
@@ -276,6 +274,31 @@ describe("processLspDiagnostics", () => {
     it("clears diagnostics when a section sends an empty list", () => {
       useLspDiagnostics.setState({
         codeSections: { "section-1": [baseDiagnostic] },
+        unmappedGenCode: [],
+      });
+      const payload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {
+          "section-1": [],
+        },
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(payload);
+
+      expect(
+        useLspDiagnostics.getState().codeSections["section-1"],
+      ).toBeUndefined();
+    });
+
+    it("clears formatter diagnostics when a section sends an empty list", () => {
+      useLspDiagnostics.setState({
+        codeSections: { "section-1": [formatterDiagnostic] },
         unmappedGenCode: [],
       });
       const payload: SettaLspDiagnosticsPayload = {

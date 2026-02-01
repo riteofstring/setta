@@ -1104,8 +1104,10 @@ class BaseProjectManager(ABC):
         if python_codegen_enabled:
             python_target = get_python_codegen_target_with_type_guard(projectConfig)
             reset_gen_code_diagnostics = False
+            existing_gen_code: str | None = None
             if projectConfigId in self.gen_code:
                 existing_generator = self.gen_code[projectConfigId].code_generator
+                existing_gen_code = existing_generator.code
                 if (
                     existing_generator.gen_code_prefix != python_target.genCodePrefix
                     or existing_generator.gen_code_suffix != python_target.genCodeSuffix
@@ -1128,6 +1130,12 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
+            if (
+                self.lsp_writers.full is None
+                and existing_gen_code is not None
+                and existing_gen_code != code_generator.code
+            ):
+                reset_gen_code_diagnostics = True
             # Keep existing diagnostics until the LSP publishes for the new code to
             # avoid flicker from intermediate empty snapshots.
             ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
@@ -1935,16 +1943,7 @@ class BaseProjectManager(ABC):
                 x.projectConfigId,
             )
             raise PermissionError(f"Cannot edit read-only code section {x.sectionId}")
-        set_code(project_state, x.sectionId, x.code)
-        await self._sync_code_section_lsp_for_watch_code(
-            project_state,
-            x.sectionId,
-            x.code,
-        )
-        await self.watch_code_manager.handle_code_section_update(
-            project_state, x.sectionId, x.code
-        )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        await self._apply_code_update(project_state, x.sectionId, x.code)
 
     @enqueue_method
     @project_state_tool(
@@ -1984,18 +1983,7 @@ class BaseProjectManager(ABC):
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=error or "Formatting failed.",
                 )
-            set_code(project_state, x.sectionId, formatted_code)
-            await self._sync_code_section_lsp_for_watch_code(
-                project_state,
-                x.sectionId,
-                formatted_code,
-            )
-            await self.watch_code_manager.handle_code_section_update(
-                project_state, x.sectionId, formatted_code
-            )
-            await self._update_and_broadcast_project_state_no_name_validation(
-                project_state
-            )
+            await self._apply_code_update(project_state, x.sectionId, formatted_code)
             return
         if isinstance(section_impl, GenPythonCodeSectionImpl):
             python_target = get_python_codegen_target_with_type_guard(
@@ -2029,6 +2017,23 @@ class BaseProjectManager(ABC):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Format code only supports Python code sections.",
         )
+
+    async def _apply_code_update(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+        code: str,
+    ) -> None:
+        set_code(project_state, section_id, code)
+        await self._sync_code_section_lsp_for_watch_code(
+            project_state,
+            section_id,
+            code,
+        )
+        await self.watch_code_manager.handle_code_section_update(
+            project_state, section_id, code
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     async def _sync_code_section_lsp_for_watch_code(
         self,

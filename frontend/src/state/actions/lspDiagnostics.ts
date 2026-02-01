@@ -93,10 +93,16 @@ function mergeDiagnosticsBySection(
     const { formatter: prevFormatter } = splitFormatterDiagnostics(
       prevDiagnostics ?? [],
     );
-    const mergedDiagnostics =
-      nextDiagnostics.length === 0
-        ? prevFormatter
-        : nextDiagnostics.concat(prevFormatter);
+    const { formatter: incomingFormatter } =
+      splitFormatterDiagnostics(nextDiagnostics);
+    let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+    if (nextDiagnostics.length > 0) {
+      if (incomingFormatter.length > 0) {
+        mergedDiagnostics = nextDiagnostics;
+      } else {
+        mergedDiagnostics = nextDiagnostics.concat(prevFormatter);
+      }
+    }
     if (mergedDiagnostics.length === 0) {
       if (prevDiagnostics?.length) {
         changed = true;
@@ -122,19 +128,9 @@ function mergeDiagnosticsBySection(
       continue;
     }
     const prevDiagnostics = previous[sectionId] ?? [];
-    const { formatter } = splitFormatterDiagnostics(prevDiagnostics);
-    if (formatter.length === 0) {
-      if (prevDiagnostics.length > 0) {
-        changed = true;
-      }
-      continue;
+    if (prevDiagnostics.length > 0) {
+      changed = true;
     }
-    if (areDiagnosticsListEqual(prevDiagnostics, formatter)) {
-      merged[sectionId] = prevDiagnostics;
-      continue;
-    }
-    merged[sectionId] = formatter;
-    changed = true;
   }
 
   return { codeSections: merged, changed };
@@ -145,8 +141,15 @@ function mergeUnmappedGenCode(
   incoming: Array<SettaLspDiagnostic>,
 ) {
   const { formatter: prevFormatter } = splitFormatterDiagnostics(previous);
-  const mergedDiagnostics =
-    incoming.length === 0 ? prevFormatter : incoming.concat(prevFormatter);
+  const { formatter: incomingFormatter } = splitFormatterDiagnostics(incoming);
+  let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+  if (incoming.length > 0) {
+    if (incomingFormatter.length > 0) {
+      mergedDiagnostics = incoming;
+    } else {
+      mergedDiagnostics = incoming.concat(prevFormatter);
+    }
+  }
   if (areDiagnosticsListEqual(previous, mergedDiagnostics)) {
     return { unmappedGenCode: previous, changed: false };
   }

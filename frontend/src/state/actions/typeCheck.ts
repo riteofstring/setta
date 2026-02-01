@@ -93,10 +93,8 @@ function areTypeErrorsEqual(left: TypeErrors, right: TypeErrors) {
 
 function mergeTypeErrorsBySection(previous: TypeErrors, incoming: TypeErrors) {
   const merged: TypeErrors = {};
-  const seen = new Set<string>();
 
   for (const [sectionId, nextErrors] of Object.entries(incoming)) {
-    seen.add(sectionId);
     const prevErrors = previous[sectionId];
     if (isSectionTypeErrorsEmpty(nextErrors)) {
       continue;

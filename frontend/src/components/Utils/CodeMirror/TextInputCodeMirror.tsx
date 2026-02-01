@@ -5,7 +5,6 @@ import { applyActiveSectionChange } from "state/actions/activeSectionController"
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
-import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
@@ -121,6 +120,15 @@ export function TextInputCodeMirror({
   );
 }
 
+export function resolveTooltipParentDivId(
+  tooltipParentDivId: string | null | undefined,
+): string | null {
+  if (tooltipParentDivId === undefined) {
+    return null;
+  }
+  return tooltipParentDivId;
+}
+
 function CoreCodeMirror({
   sectionId,
   paramInfoId,
@@ -149,9 +157,7 @@ function CoreCodeMirror({
   const canUseLsp = !isShareMode;
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
   const resolvedTooltipParentDivId =
-    tooltipParentDivId === undefined
-      ? CODEMIRROR_TOOLTIP_PARENT_ID
-      : tooltipParentDivId;
+    resolveTooltipParentDivId(tooltipParentDivId);
   const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
 
   const resolvedCompletionsFn = useCallback(

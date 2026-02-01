@@ -24,6 +24,35 @@ type ProjectMetadataResponse = {
 };
 type CreateTopLevelSectionResponse = { sectionId?: string };
 
+test("cleanup removes project config after early exit", async ({ page }) => {
+  test.setTimeout(60000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    throw new Error("Simulated failure");
+  } catch {
+    // Intentional: ensure cleanup path runs even after an error.
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+  const stillExists = metadata.projectMetadata.some(
+    (entry) => entry.id === projectConfigId,
+  );
+  expect(stillExists).toBe(false);
+});
+
 test("formatting errors show diagnostics for code sections", async ({
   page,
 }) => {
@@ -32,7 +61,6 @@ test("formatting errors show diagnostics for code sections", async ({
 
   const { projectConfigId, projectConfigName } =
     await createNewProjectConfig(page);
-  let shouldCleanup = false;
 
   try {
     const sectionName = "Formatter Code";
@@ -83,11 +111,8 @@ test("formatting errors show diagnostics for code sections", async ({
     } else {
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
-    shouldCleanup = true;
   } finally {
-    if (shouldCleanup) {
-      await deleteProjectConfigByName(page, projectConfigName);
-    }
+    await deleteProjectConfigByName(page, projectConfigName);
   }
 });
 
@@ -99,7 +124,6 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
 
   const { projectConfigId, projectConfigName } =
     await createNewProjectConfig(page);
-  let shouldCleanup = false;
 
   try {
     await postBackend(page, "/setGenCodeSuffix", {
@@ -144,11 +168,8 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
     } else {
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
-    shouldCleanup = true;
   } finally {
-    if (shouldCleanup) {
-      await deleteProjectConfigByName(page, projectConfigName);
-    }
+    await deleteProjectConfigByName(page, projectConfigName);
   }
 });
 
