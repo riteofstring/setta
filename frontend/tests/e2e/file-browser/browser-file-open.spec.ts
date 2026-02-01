@@ -6,7 +6,7 @@ import {
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   postBackend,
-} from "./helpers";
+} from "../helpers";
 
 type ProjectStateResponse = {
   projectConfig: {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureAppReady, seedLocalStorage } from "./helpers";
+import { ensureAppReady, seedLocalStorage } from "../helpers";
 
 test("project ai combobox chevron sizing", async ({ page }) => {
   await seedLocalStorage(page, { overviewTab: "ProjectAIChat", overviewVis: true });

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureAppReady, seedLocalStorage } from "./helpers";
+import { ensureAppReady, seedLocalStorage } from "../helpers";
 
 const MIN_EXPECTED_PADDING = 12;
 

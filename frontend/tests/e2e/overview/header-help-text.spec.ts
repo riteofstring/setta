@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { ensureAppReady } from "./helpers";
+import { ensureAppReady } from "../helpers";
 
 test("header tooltip hint is hidden", async ({ page }) => {
   await ensureAppReady(page);

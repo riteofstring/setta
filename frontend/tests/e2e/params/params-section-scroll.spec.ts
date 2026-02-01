@@ -4,7 +4,7 @@ import {
   ensureAppReady,
   getCurrentProjectConfigId,
   postBackend,
-} from "./helpers";
+} from "../helpers";
 
 const CALLABLE_NAME = "sorted";
 

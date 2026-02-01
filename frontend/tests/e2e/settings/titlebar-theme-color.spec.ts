@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureAppReady } from "./helpers";
+import { ensureAppReady } from "../helpers";
 
 const LIGHT_THEME_COLOR = "#dce1ea";
 const DARK_THEME_COLOR = "#0b0e13";

@@ -6,7 +6,7 @@ import {
   loadProjectConfig,
   type ProjectStateSingleConfigResponse,
   postBackend,
-} from "./helpers";
+} from "../helpers";
 
 async function createSection(
   page: Page,

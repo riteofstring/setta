@@ -4,7 +4,7 @@ import {
   ensureAppReady,
   getCurrentProjectConfigId,
   postBackend,
-} from "./helpers";
+} from "../helpers";
 
 test("escape clears active section when focused in section input", async ({
   page,

@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { ensureAppReady, seedLocalStorage } from "./helpers";
+import { ensureAppReady, seedLocalStorage } from "../helpers";
 
 const MIN_PADDING_PX = 8;
 const MAX_PADDING_PX = 12;
