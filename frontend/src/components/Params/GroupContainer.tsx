@@ -123,7 +123,7 @@ function useMeasuredParamAreaMinHeight({
       isBaseSectionWithParamsImpl,
     );
     return {
-      sectionWidth: state.sections[sectionId].size.width,
+      sectionWidth: impl.size?.width ?? null,
       columnWidth: impl.columnWidth,
     };
   }, _.isEqual);

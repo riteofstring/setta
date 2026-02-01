@@ -721,7 +721,9 @@ def _resolve_new_section_dimensions(
     normalized_size = normalize_section_size(
         settings, section_type, f"new-{section_type.value}", size
     )
-    return _resolve_section_dimensions_from_size(settings, section_type, normalized_size)
+    return _resolve_section_dimensions_from_size(
+        settings, section_type, normalized_size
+    )
 
 
 def _build_top_level_layout_rects(

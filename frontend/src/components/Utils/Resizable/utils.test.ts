@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getChangedSize,
-  getResizeHandleClickState,
-  SIZE_MODE,
-} from "./utils";
+import { getChangedSize, getResizeHandleClickState, SIZE_MODE } from "./utils";
 
 describe("resize utils", () => {
   it("treats double-click overrides as auto even when event.detail is not 2", () => {

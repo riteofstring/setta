@@ -6,7 +6,7 @@ export const SIZE_MODE = {
   manual_only: "manual_only",
 };
 
-export const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
+const RESIZE_HANDLE_DOUBLE_CLICK_MS = 300;
 
 type ResizeHandleClickState = {
   lastTimestampMs: number | null;
@@ -146,7 +146,8 @@ export function getChangedSize({
 }) {
   const [e, direction, ref, d] = props;
   const isDoubleClick =
-    isDoubleClickOverride ?? (d.width === 0 && d.height === 0 && e.detail === 2);
+    isDoubleClickOverride ??
+    (d.width === 0 && d.height === 0 && e.detail === 2);
   if (isDoubleClick) {
     return getDoubleClickSize({
       direction,

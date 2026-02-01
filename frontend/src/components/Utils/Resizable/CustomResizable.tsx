@@ -30,11 +30,7 @@ import {
 import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
-import {
-  getChangedSize,
-  getResizeHandleClickState,
-  SIZE_MODE,
-} from "./utils";
+import { getChangedSize, getResizeHandleClickState, SIZE_MODE } from "./utils";
 
 const AUTO_CLAMP_TOLERANCE = 2;
 

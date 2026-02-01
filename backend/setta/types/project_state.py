@@ -61,6 +61,7 @@ from setta.utils.utils import (
     build_project_sections_dir,
     normalize_path,
 )
+
 SINGLETON_SECTION_TYPES = set(
     [
         SectionType.GlobalVariables,
