@@ -10,7 +10,7 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
 
-  const coreTab = page.getByRole("button", { name: "Core" });
+  const coreTab = page.getByRole("button", { name: "Core", exact: true });
   await expect(coreTab).toBeVisible();
   await coreTab.click();
   await waitForNodeCount(page, 5);
@@ -19,7 +19,10 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
 
   const coreZoom = await getViewportScale(page);
 
-  const allTab = page.getByRole("button", { name: "All Settings" });
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
   await expect(allTab).toBeVisible();
   await allTab.click();
   await page.waitForFunction(
@@ -31,7 +34,10 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   const allZoom = await getViewportScale(page);
   expect(coreZoom).toBeGreaterThan(allZoom);
 
-  const paramTab = page.getByRole("button", { name: "Param Defaults" });
+  const paramTab = page.getByRole("button", {
+    name: "Param Defaults",
+    exact: true,
+  });
   await expect(paramTab).toBeVisible();
   await paramTab.click();
   await waitForNodeCount(page, 13);
@@ -75,7 +81,10 @@ test("settings view modes keep visible sections when layout payload is partial",
   const corruptedState = await getLatestProjectState(page, projectConfigId);
   await applyProjectStateUpdate(page, corruptedState);
 
-  const paramTab = page.getByRole("button", { name: "Param Defaults" });
+  const paramTab = page.getByRole("button", {
+    name: "Param Defaults",
+    exact: true,
+  });
   await expect(paramTab).toBeVisible();
   await paramTab.click();
   await waitForNodeCount(page, 13);
@@ -93,10 +102,7 @@ async function waitForOverviewCount(
   page: Page,
   expected: number,
 ): Promise<void> {
-  const overviewTab = page.getByRole("button", { name: "Overview" });
-  if (await overviewTab.isVisible()) {
-    await overviewTab.click();
-  }
+  await setOverviewTab(page, "Overview");
   await page.waitForFunction(
     (count) =>
       document.querySelectorAll("#OverviewPane li").length === count,
@@ -195,6 +201,35 @@ async function applyProjectStateUpdate(
     const mod = await import("/src/state/actions/sectionInfos");
     mod.processProjectStateUpdateFromBackend(stateUpdate);
   }, payload);
+}
+
+async function setOverviewTab(page: Page, tabName: string): Promise<void> {
+  await page.evaluate((tab) => {
+    const key = "setta_data";
+    let payload: { state: Record<string, unknown>; version: number } = {
+      state: {},
+      version: 0,
+    };
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          payload = {
+            state:
+              typeof parsed.state === "object" && parsed.state
+                ? parsed.state
+                : {},
+            version: typeof parsed.version === "number" ? parsed.version : 0,
+          };
+        }
+      } catch {
+        payload = { state: {}, version: 0 };
+      }
+    }
+    payload.state = { ...payload.state, overviewTab: tab, overviewVis: true };
+    localStorage.setItem(key, JSON.stringify(payload));
+  }, tabName);
 }
 
 type ProjectConfigIdResponse = {
