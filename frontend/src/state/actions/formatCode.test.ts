@@ -4,7 +4,8 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { route_format_code } from "utils/generatedEndpoints";
+import { queueCodeUpdate } from "./codeUpdates";
+import { route_format_code, route_set_code } from "utils/generatedEndpoints";
 import {
   CodeLanguageEnum,
   createProjectConfig,
@@ -20,6 +21,7 @@ import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_format_code: vi.fn(),
+  route_set_code: vi.fn(),
 }));
 
 vi.mock("./notifications", () => ({
@@ -27,6 +29,7 @@ vi.mock("./notifications", () => ({
 }));
 
 const mockedRouteFormatCode = vi.mocked(route_format_code);
+const mockedRouteSetCode = vi.mocked(route_set_code);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 describe("formatActiveCodeSection", () => {
@@ -144,6 +147,73 @@ describe("formatActiveCodeSection", () => {
     expect(formatterDiagnostic?.range.start.line).toBe(1);
     expect(formatterDiagnostic?.range.start.character).toBe(4);
     expect(diagnostics).toHaveLength(2);
+  });
+
+  it("waits for pending code updates before formatting", async () => {
+    vi.useFakeTimers();
+    try {
+      setupProject({
+        type: SectionTypeEnum.Code,
+        id: implId,
+        name: "Code",
+        isFrozen: false,
+        isInOtherProjectConfigs: false,
+        size: { width: 500, height: 300 },
+        aspectRatio: false,
+        aspectRatioExtraHeight: 0,
+        aspectRatioExtraWidth: 0,
+        isMinimized: false,
+        positionAndSizeLocked: false,
+        isPreset: false,
+        code: "print('hi')",
+        codeFileBinding: null,
+        codeLanguage: CodeLanguageEnum.python,
+        diagnosticsIgnoreState: {
+          muted: false,
+          suppressedCodes: [],
+        },
+      });
+
+      let resolveSetCode: (value: {
+        status: number;
+        data: null;
+        hasResponse: boolean;
+      }) => void = () => {};
+      const setCodePromise = new Promise<{
+        status: number;
+        data: null;
+        hasResponse: boolean;
+      }>((resolve) => {
+        resolveSetCode = resolve;
+      });
+      mockedRouteSetCode.mockReturnValue(setCodePromise);
+      mockedRouteFormatCode.mockResolvedValue({
+        status: 200,
+        data: null,
+        hasResponse: true,
+      });
+
+      queueCodeUpdate(sectionId, "print('latest')");
+      const formatPromise = formatActiveCodeSection();
+
+      expect(route_set_code).toHaveBeenCalledWith({
+        projectConfigId: "project-1",
+        sectionId,
+        code: "print('latest')",
+        frontendOpId: expect.any(String),
+      });
+      expect(route_format_code).not.toHaveBeenCalled();
+
+      resolveSetCode({ status: 200, data: null, hasResponse: true });
+      await formatPromise;
+
+      expect(route_format_code).toHaveBeenCalledWith({
+        projectConfigId: "project-1",
+        sectionId,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("parses line/column formatter errors into diagnostic ranges", async () => {

@@ -16,20 +16,17 @@ import { processTypeErrors } from "./typeCheck";
 
 export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
 
-function splitFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
+function getFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
   if (diagnostics.length === 0) {
-    return { formatter: [], rest: [] };
+    return [];
   }
   const formatter: Array<SettaLspDiagnostic> = [];
-  const rest: Array<SettaLspDiagnostic> = [];
   for (const diagnostic of diagnostics) {
     if (diagnostic.source === FORMATTER_DIAGNOSTIC_SOURCE) {
       formatter.push(diagnostic);
-    } else {
-      rest.push(diagnostic);
     }
   }
-  return { formatter, rest };
+  return formatter;
 }
 
 function areDiagnosticRangesEqual(
@@ -90,11 +87,8 @@ function mergeDiagnosticsBySection(
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
     seen.add(sectionId);
     const prevDiagnostics = previous[sectionId];
-    const { formatter: prevFormatter } = splitFormatterDiagnostics(
-      prevDiagnostics ?? [],
-    );
-    const { formatter: incomingFormatter } =
-      splitFormatterDiagnostics(nextDiagnostics);
+    const prevFormatter = getFormatterDiagnostics(prevDiagnostics ?? []);
+    const incomingFormatter = getFormatterDiagnostics(nextDiagnostics);
     let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
     if (nextDiagnostics.length > 0) {
       if (incomingFormatter.length > 0) {
@@ -140,8 +134,8 @@ function mergeUnmappedGenCode(
   previous: Array<SettaLspDiagnostic>,
   incoming: Array<SettaLspDiagnostic>,
 ) {
-  const { formatter: prevFormatter } = splitFormatterDiagnostics(previous);
-  const { formatter: incomingFormatter } = splitFormatterDiagnostics(incoming);
+  const prevFormatter = getFormatterDiagnostics(previous);
+  const incomingFormatter = getFormatterDiagnostics(incoming);
   let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
   if (incoming.length > 0) {
     if (incomingFormatter.length > 0) {

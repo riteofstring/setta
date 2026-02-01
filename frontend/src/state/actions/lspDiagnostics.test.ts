@@ -203,6 +203,34 @@ describe("processLspDiagnostics", () => {
     expect(diagnostics).toEqual([baseDiagnostic, formatterDiagnostic]);
   });
 
+  it("keeps incoming formatter diagnostics without duplicating previous ones", () => {
+    const incomingFormatter: SettaLspDiagnostic = {
+      ...formatterDiagnostic,
+      message: "Fresh formatter error",
+    };
+    useLspDiagnostics.setState({
+      codeSections: { "section-1": [formatterDiagnostic] },
+      unmappedGenCode: [],
+    });
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [incomingFormatter, baseDiagnostic],
+      },
+      unmappedGenCode: [],
+    };
+
+    processLspDiagnostics(payload);
+
+    const diagnostics = useLspDiagnostics.getState().codeSections["section-1"];
+    expect(diagnostics).toEqual([incomingFormatter, baseDiagnostic]);
+  });
+
   it("clears formatter diagnostics when a section disappears", () => {
     useLspDiagnostics.setState({
       codeSections: { "section-1": [formatterDiagnostic] },

@@ -23,12 +23,15 @@ import React, {
   useState,
 } from "react";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import {
+  queueCodeUpdate,
+  queueGenCodePrefixUpdate,
+  queueGenCodeSuffixUpdate,
+} from "state/actions/codeUpdates";
 import {
   useLspDiagnostics,
   useMisc,
@@ -54,9 +57,6 @@ import {
   route_code_area_completion,
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
-  route_set_code,
-  route_set_gen_code_prefix,
-  route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
 
@@ -416,10 +416,10 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
       return;
     }
     if (nextParts.prefix !== prefix) {
-      debouncedSetGenCodePrefix(nextParts.prefix);
+      queueGenCodePrefixUpdate(nextParts.prefix);
     }
     if (nextParts.suffix !== suffix) {
-      debouncedSetGenCodeSuffix(nextParts.suffix);
+      queueGenCodeSuffixUpdate(nextParts.suffix);
     }
   }
 
@@ -673,7 +673,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     if (isDisabled) {
       return;
     }
-    debouncedSetCode(sectionId, v);
+    queueCodeUpdate(sectionId, v);
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
@@ -857,59 +857,6 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
-
-const debouncedSetCode = _.debounce((sectionId: string, code: string) => {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
-        code,
-      });
-    },
-    send: (frontendOpId) =>
-      route_set_code({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        code,
-        frontendOpId,
-      }),
-  });
-}, 200);
-
-const debouncedSetGenCodePrefix = _.debounce((value: string) => {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
-      if (!pythonTarget) {
-        return;
-      }
-      pythonTarget.genCodePrefix = value;
-    },
-    send: (frontendOpId) =>
-      route_set_gen_code_prefix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodePrefix: value,
-        frontendOpId,
-      }),
-  });
-}, 50);
-
-const debouncedSetGenCodeSuffix = _.debounce((value: string) => {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      const pythonTarget = getPythonCodegenTarget(state.projectConfig);
-      if (!pythonTarget) {
-        return;
-      }
-      pythonTarget.genCodeSuffix = value;
-    },
-    send: (frontendOpId) =>
-      route_set_gen_code_suffix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodeSuffix: value,
-        frontendOpId,
-      }),
-  });
-}, 50);
 
 function getPythonCodeAreaCompletionsFn(sectionId: string, canUseLsp: boolean) {
   const fn = async (fullText: string, position: number) => {

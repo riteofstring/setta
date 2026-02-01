@@ -11,6 +11,10 @@ import {
   SectionTypeEnum,
   type SettaLspDiagnostic,
 } from "utils/generatedTypes";
+import {
+  flushPendingCodeUpdate,
+  flushPendingGenCodeUpdates,
+} from "./codeUpdates";
 import { FORMATTER_DIAGNOSTIC_SOURCE } from "./lspDiagnostics";
 import { addTemporaryNotification } from "./notifications";
 import {
@@ -145,6 +149,12 @@ export async function formatActiveCodeSection(): Promise<void> {
   ) {
     addTemporaryNotification("This code section is read-only.");
     return;
+  }
+
+  if (impl.type === SectionTypeEnum.GenPythonCode) {
+    await flushPendingGenCodeUpdates();
+  } else {
+    await flushPendingCodeUpdate(sectionId);
   }
 
   const res = await route_format_code({
