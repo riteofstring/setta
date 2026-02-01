@@ -28,7 +28,11 @@ function _CallableArea({ sectionId, bgColor }) {
       {!hideParams && (
         <>
           <KwargsControls sectionId={sectionId} bgColor={bgColor} />
-          <ParamGroupContainer sectionId={sectionId} />
+          <ParamGroupContainer
+            sectionId={sectionId}
+            bgColor={bgColor}
+            sectionTypeName={SectionTypeEnum.Callable}
+          />
         </>
       )}
     </>

@@ -11,7 +11,6 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.edges import Edge, EdgePort
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
@@ -52,8 +51,6 @@ def _build_backend() -> ProjectStateBackend:
     code_impl_id = _uuid_for_int(25)
     code_variant_id = _uuid_for_int(26)
     edge_id = _uuid_for_int(27)
-    project_chat_id = _uuid_for_int(28)
-    agentic_edge_id = _uuid_for_int(29)
 
     callable_impl = CodeCallableCodeObjImpl(
         id=callable_impl_id,
@@ -211,12 +208,6 @@ def _build_backend() -> ProjectStateBackend:
         targetVariantId=target_variant_id,
         targetPortId=target_param_id,
     )
-    agentic_edge = AgenticEdge(
-        id=agentic_edge_id,
-        sourceSectionId=project_chat_id,
-        targetSectionId=target_section_id,
-        kind=AgenticEdgeKind.chat_section,
-    )
 
     project_config = ProjectConfig(
         id=project_config_id,
@@ -234,7 +225,6 @@ def _build_backend() -> ProjectStateBackend:
             code_section_id: TopLevelSectionLayout(),
         },
         edges=[edge],
-        agenticEdges=[agentic_edge],
     )
 
     project_state = ProjectStateSingleConfig(
@@ -323,7 +313,3 @@ class TestReadableProjectExport:
     def test_readable_export_edges_use_paths(self) -> None:
         edges = self.config["edges"]
         assert {"from": "Source.out.result", "to": "Target.param.alpha"} in edges
-
-    def test_readable_export_ignores_agentic_edges(self) -> None:
-        edges = self.config["edges"]
-        assert len(edges) == 1

@@ -22,7 +22,11 @@ from setta.project_state.code_files import CodeFiles
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPServers, LSPWriters, NoopLSPWriters
-from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeParamCodeObjImpl
+from setta.types.code_obj_impls import (
+    CodeCallableCodeObjImpl,
+    CodeParamCodeObjImpl,
+    ParameterPassingStyle,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dependency_key import create_dep_key
 from setta.types.generated.settings_state import SettingsState
@@ -44,7 +48,11 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-def build_project_state(param_value: str):
+def build_project_state(
+    param_value: str,
+    *,
+    passing_style: ParameterPassingStyle = ParameterPassingStyle.DEFAULT,
+):
     section_id = ID("section-1")
     section_impl_id = ID("section-impl-1")
     section_variant_id = ID("section-variant-1")
@@ -76,6 +84,7 @@ def build_project_state(param_value: str):
     param_impl = CodeParamCodeObjImpl(
         id=param_impl_id,
         value=param_value,
+        passingStyle=passing_style,
     )
     param_variant = Variant(
         id=param_variant_id,
@@ -233,6 +242,65 @@ class TestLspDiagnosticsProcessing:
         assert param_id in errors[section_id].params
         assert errors[section_id].params[param_id] == [
             "unknown_symbol is not defined"
+        ]
+
+    def test_call_issue_maps_from_assignment_target(self):
+        project_state, section_id, param_id = build_project_state("")
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        dep_key = create_dep_key(sectionId=section_id)
+        var_name = code_generator.var_name_mapping[dep_key]
+        code = code_generator.code
+        start = code.index(var_name)
+        end = start + len(var_name)
+        diagnostic = build_diagnostic(
+            code,
+            start,
+            end,
+            'Argument missing for parameter "param"',
+            "reportCallIssue",
+        )
+
+        errors = process_gen_code_diagnostics(
+            [diagnostic],
+            code_generator,
+            dep_graph,
+        )
+        assert section_id in errors
+        assert param_id in errors[section_id].params
+        assert errors[section_id].params[param_id] == [
+            'Argument missing for parameter "param"'
+        ]
+
+    def test_positional_call_issue_maps_from_line_start(self):
+        project_state, section_id, param_id = build_project_state(
+            "",
+            passing_style=ParameterPassingStyle.POSITIONAL_ONLY,
+        )
+        dep_graph, code_generator = build_code_generator(project_state)
+
+        dep_key = create_dep_key(sectionId=section_id)
+        line = code_generator.lines[dep_key]
+        assert line.pos is not None
+        start = line.pos
+        end = start + 1
+        diagnostic = build_diagnostic(
+            code_generator.code,
+            start,
+            end,
+            'Positional argument missing for parameter "param"',
+            "reportCallIssue",
+        )
+
+        errors = process_gen_code_diagnostics(
+            [diagnostic],
+            code_generator,
+            dep_graph,
+        )
+        assert section_id in errors
+        assert param_id in errors[section_id].params
+        assert errors[section_id].params[param_id] == [
+            'Positional argument missing for parameter "param"'
         ]
 
     def test_undefined_callable_symbol_tracked(self):

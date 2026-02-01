@@ -4,6 +4,7 @@ import _ from "lodash";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type MouseEvent,
@@ -21,11 +22,16 @@ import {
   useProjectState,
   useShareSession,
   useToolArgumentPreview,
+  useTemporaryMiscState,
   useTypeErrors,
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import { NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_PAN_CLASS_NAME,
+  getSectionSearchHeightKey,
+} from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_clear_text_field_completion,
@@ -88,6 +94,40 @@ function SectionSearchCore({
   divId: string;
   lspEnabled: boolean;
 }) {
+  const searchRef = useRef<HTMLElement | null>(null);
+  const heightKey = getSectionSearchHeightKey(sectionId);
+
+  useLayoutEffect(() => {
+    const node = searchRef.current;
+    if (!node) {
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      return;
+    }
+    let lastMeasuredHeight: number | null = null;
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
+      const nextHeight = Math.ceil(measuredHeight);
+      if (lastMeasuredHeight === nextHeight) {
+        return;
+      }
+      lastMeasuredHeight = nextHeight;
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight > 0 ? nextHeight : 0,
+      });
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+    };
+  }, [heightKey]);
+
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
     name: baseCodeInfoName,
@@ -245,6 +285,7 @@ function SectionSearchCore({
     <search
       className="section-search single-cell-container relative w-full"
       {...getFloatingBoxHandlers(...tooltipContentArray)}
+      ref={searchRef}
     >
       <TextInputCodeMirror
         dummyDivId={divId}
@@ -261,6 +302,7 @@ function SectionSearchCore({
         onEscape={onEscape}
         language={configLanguage}
         isDisabled={isDisabled}
+        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {showRightIndicator && (
         <div className="single-cell-child pointer-events-none mr-2 flex items-center gap-1 self-center justify-self-end">
@@ -303,12 +345,13 @@ async function setCallable(
   }
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
   const projectConfigId = getCurrProjectConfigId();
-  const res = await route_set_callable({
+  const payload = {
     projectConfigId,
     sectionId,
     callableName,
     refetchParams,
-  });
+  };
+  const res = await route_set_callable(payload);
   if (res200(res)) {
     // state update occurs by websocket
     setToNotWaiting();
