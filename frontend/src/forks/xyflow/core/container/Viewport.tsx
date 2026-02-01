@@ -1,5 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { type ReactNode } from "react";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import type { ReactFlowState } from "../types";
 
 const selector = (s: ReactFlowState) =>
@@ -18,6 +19,10 @@ function Viewport({ children }: ViewportProps) {
       style={{ transform }}
     >
       {children}
+      <div
+        className="setta-codemirror-tooltips"
+        id={CODEMIRROR_TOOLTIP_PARENT_ID}
+      />
     </div>
   );
 }

@@ -99,6 +99,7 @@ is configurable.
 
 - Mod + Z / Mod + Shift + Z: undo/redo project state even while a CodeMirror
   field is focused.
+- Shift + Alt + F: format the active Python code section (Code or GenPythonCode).
 - Tab:
   - Accept autocomplete if it is active.
   - Otherwise, advance focus in single-line fields.

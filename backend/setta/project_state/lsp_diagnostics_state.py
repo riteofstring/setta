@@ -59,12 +59,18 @@ class ProjectLspDiagnosticsState:
         gen_code: SettaProjectConfigDiagnostics,
         unmapped_gen_code: list[SettaLspDiagnostic],
     ) -> None:
-        if self.gen_code.model_dump() == gen_code.model_dump() and _diagnostics_equal(
-            self.unmapped_gen_code, unmapped_gen_code
+        merged_errors = gen_code.errors
+        merged_unmapped = unmapped_gen_code
+        if self.gen_code.errors == merged_errors and _diagnostics_equal(
+            self.unmapped_gen_code, merged_unmapped
         ):
             return
-        self.gen_code = gen_code
-        self.unmapped_gen_code = unmapped_gen_code
+        self.gen_code = SettaProjectConfigDiagnostics(
+            projectConfigId=self.project_config_id,
+            errors=merged_errors,
+            isGenCode=gen_code.isGenCode,
+        )
+        self.unmapped_gen_code = merged_unmapped
         await self.broadcast()
 
     async def update_code_section(

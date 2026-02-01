@@ -7067,6 +7067,14 @@ export type ForceRefreshProjectRequestInput = z.input<
   typeof ForceRefreshProjectRequestSchema
 >;
 
+const FormatCodeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type FormatCodeRequestInput = z.input<typeof FormatCodeRequestSchema>;
+
 const GenCodePrefixCompletionRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
