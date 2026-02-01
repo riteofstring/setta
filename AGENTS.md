@@ -41,6 +41,7 @@
 ## Testing Guidelines
 
 - Default workflow: think, plan, write tests (Playwright, Vitest, Python unit tests), implement, then run tests. Stay flexible and update tests as the approach evolves or new components are introduced.
+- Ensure all tests are well commented so it's clear what each test is validating.
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts` files.
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.
@@ -61,6 +62,12 @@
 ## Commit & Pull Request Guidelines
 
 - Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
+
+## Memory Logging
+
+- When a task is particularly difficult but is ultimately completed, document how it was achieved in `MEMORIES.md` so we can avoid repeating the same work. Keep entries succinct; telegraphic notes are fine. Always append; never edit or delete prior entries.
+- Only reference past memories when the user prompts for them or when they are directly relevant to avoid repeating a known hard issue.
+- Only append a new memory after asking for permission first, unless the user explicitly asks to log it.
 
 ## Environment & Tooling
 
