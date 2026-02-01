@@ -7,7 +7,6 @@ AllImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
-    "attachedTerminalSectionId",
     "brushColor",
     "brushOpacity",
     "brushShape",

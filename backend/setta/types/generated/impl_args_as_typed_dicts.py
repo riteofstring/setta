@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -64,7 +65,6 @@ class CoreArgs(TypedDict):
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
-                "attachedTerminalSectionId",
                 "brushColor",
                 "brushOpacity",
                 "brushShape",
@@ -177,6 +177,7 @@ class ProjectConfigArgs(TypedDict):
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
+    agenticEdges: NotRequired[list[AgenticEdge]]
     watchCodeEnabled: NotRequired[bool]
     watchCodeFolders: NotRequired[list[WatchCodeFolder]]
     watchCodeFiles: NotRequired[list[str]]
@@ -258,6 +259,22 @@ class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
 
 
+class BaseCodeSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Any]
+    code: NotRequired[str]
+    codeFileBinding: NotRequired[CodeFileBinding | None]
+
+
+class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[Any | Callable[[Any], Any]]
+    code: NotRequired[str | Callable[[str], str]]
+    codeFileBinding: NotRequired[
+        CodeFileBinding
+        | None
+        | Callable[[CodeFileBinding | None], CodeFileBinding | None]
+    ]
+
+
 class BaseParentSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     children: NotRequired[list[ID]]
@@ -266,24 +283,6 @@ class BaseParentSectionImplArgs(BaseSectionImplArgs):
 class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
-
-
-class BaseCodeSectionImplArgs(BaseParentSectionImplArgs):
-    type: NotRequired[Any]
-    code: NotRequired[str]
-    codeFileBinding: NotRequired[CodeFileBinding | None]
-    attachedTerminalSectionId: NotRequired[ID | None]
-
-
-class BaseCodeSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
-    type: NotRequired[Any | Callable[[Any], Any]]
-    code: NotRequired[str | Callable[[str], str]]
-    codeFileBinding: NotRequired[
-        CodeFileBinding
-        | None
-        | Callable[[CodeFileBinding | None], CodeFileBinding | None]
-    ]
-    attachedTerminalSectionId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
 
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):

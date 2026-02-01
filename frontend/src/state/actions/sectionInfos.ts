@@ -9,6 +9,10 @@ import {
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
 import {
+  getMessageCompletenessScore,
+  mergeChatMessages,
+} from "state/actions/chatMergeUtils";
+import {
   PendingOperation,
   useAllProjectMetadata,
   useMisc,
@@ -33,6 +37,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
+  BaseChatMessageUnion,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
@@ -59,7 +64,7 @@ function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
 }
 
 function getEffectiveSectionImplIfPresent(
-  projectState: ZustandProjectState,
+  projectState: ProjectStateSingleConfig,
   sectionId: string,
 ): BaseSectionImplUnion | null {
   const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
@@ -81,83 +86,134 @@ function getEffectiveSectionImplIfPresent(
   return getEffectiveImpl(impl, core, variant);
 }
 
-function getAttachedTerminalSectionIds(
-  projectState: ZustandProjectState,
-): Set<string> {
-  const attachedIds = new Set<string>();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const sectionImpl = getEffectiveSectionImplIfPresent(
-      projectState,
-      sectionId,
-    );
-    if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Code) {
-      continue;
-    }
-    const terminalId = sectionImpl.attachedTerminalSectionId;
-    if (!terminalId) {
-      continue;
-    }
-    const terminalImpl = getEffectiveSectionImplIfPresent(
-      projectState,
-      terminalId,
-    );
-    if (!terminalImpl || terminalImpl.type !== SectionTypeEnum.Terminal) {
-      continue;
-    }
-    attachedIds.add(terminalId);
-  }
-  return attachedIds;
-}
+type ChatSectionImpl = Extract<
+  BaseSectionImplUnion,
+  { type: SectionTypeEnum.Chat }
+>;
 
-function normalizeAttachedTerminalChildren(projectState: ZustandProjectState) {
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
-    if (variantId === undefined) {
-      continue;
-    }
+function mergeStreamingChatSections(
+  projectState: ProjectStateSingleConfig,
+  currentState: ZustandProjectState,
+): string[] {
+  const mergedSectionIds: string[] = [];
+  const incomingVariantMap = projectState.projectConfig.sectionVariantMap;
+  const currentVariantMap = currentState.projectConfig.sectionVariantMap;
+
+  for (const [sectionId, variantId] of Object.entries(incomingVariantMap)) {
     const variant = projectState.sectionVariants[variantId];
     if (!variant) {
       continue;
     }
-    const impl = projectState.sectionImpls[variant.impl];
-    if (!impl || impl.type !== SectionTypeEnum.Code) {
+    const incomingCore = projectState.sections[sectionId];
+    if (!incomingCore) {
       continue;
     }
-    const terminalId = impl.attachedTerminalSectionId;
-    if (!terminalId) {
+    const incomingImpl = projectState.sectionImpls[variant.impl];
+    if (!incomingImpl || incomingImpl.type !== SectionTypeEnum.Chat) {
       continue;
     }
-    const terminalVariantId =
-      projectState.projectConfig.sectionVariantMap[terminalId];
-    if (terminalVariantId === undefined) {
+    const currentVariantId = currentVariantMap[sectionId];
+    if (!currentVariantId) {
       continue;
     }
-    const terminalVariant = projectState.sectionVariants[terminalVariantId];
-    if (!terminalVariant) {
+    const currentVariant = currentState.sectionVariants[currentVariantId];
+    if (!currentVariant) {
       continue;
     }
-    const terminalImpl = projectState.sectionImpls[terminalVariant.impl];
-    if (!terminalImpl || terminalImpl.type !== SectionTypeEnum.Terminal) {
+    const currentImpl = currentState.sectionImpls[currentVariant.impl];
+    if (!currentImpl || currentImpl.type !== SectionTypeEnum.Chat) {
       continue;
     }
-    if (isBaseParentSectionImpl(impl)) {
-      const currentChildren = impl.children ?? [];
-      if (currentChildren.length !== 1 || currentChildren[0] !== terminalId) {
-        impl.children = [terminalId];
-      }
+    const currentCore = currentState.sections[sectionId];
+    if (!currentCore) {
+      continue;
     }
-    projectState.parentSectionMap[terminalId] = sectionId;
+    const incomingChat = getEffectiveImpl(
+      incomingImpl,
+      incomingCore,
+      variant,
+    ) as ChatSectionImpl;
+    const currentChat = getEffectiveImpl(
+      currentImpl,
+      currentCore,
+      currentVariant,
+    ) as ChatSectionImpl;
+
+    const incomingMessages = Array.isArray(incomingChat.messages)
+      ? incomingChat.messages
+      : [];
+    const currentMessages = Array.isArray(currentChat.messages)
+      ? currentChat.messages
+      : [];
+    const incomingToolArgs = incomingChat.toolCallArguments ?? {};
+    const currentToolArgs = currentChat.toolCallArguments ?? {};
+    const incomingInputText = incomingChat.inputText ?? "";
+    const currentInputText = currentChat.inputText ?? "";
+    const hasMoreCompleteMessages = hasMoreCompleteChatMessages(
+      currentMessages,
+      incomingMessages,
+    );
+    const shouldMerge =
+      Boolean(currentChat.waitingForResponse) ||
+      currentMessages.length > incomingMessages.length ||
+      Object.keys(currentToolArgs).length >
+        Object.keys(incomingToolArgs).length ||
+      currentInputText.length > incomingInputText.length ||
+      hasMoreCompleteMessages;
+    if (!shouldMerge) {
+      continue;
+    }
+
+    const mergedMessages = mergeChatMessages(incomingMessages, currentMessages);
+    const mergedToolArgs = {
+      ...incomingToolArgs,
+      ...currentToolArgs,
+    };
+    const mergedInputText =
+      currentInputText.length > incomingInputText.length
+        ? currentInputText
+        : incomingInputText;
+    const mergedWaitingForResponse =
+      incomingChat.waitingForResponse || currentChat.waitingForResponse;
+    setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
+      messages: mergedMessages,
+      toolCallArguments: mergedToolArgs,
+      inputText: mergedInputText,
+      waitingForResponse: mergedWaitingForResponse,
+    });
+    mergedSectionIds.push(sectionId);
   }
+
+  return mergedSectionIds;
 }
 
-export function getTopLevelSectionIdsForDisplay(
-  projectState: ZustandProjectState,
-): string[] {
-  const attachedTerminalIds = getAttachedTerminalSectionIds(projectState);
-  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  return Object.keys(topLevelSections).filter(
-    (sectionId) => !attachedTerminalIds.has(sectionId),
-  );
+function hasMoreCompleteChatMessages(
+  currentMessages: Array<BaseChatMessageUnion>,
+  incomingMessages: Array<BaseChatMessageUnion>,
+): boolean {
+  if (currentMessages.length === 0) {
+    return false;
+  }
+  if (incomingMessages.length === 0) {
+    return currentMessages.length > 0;
+  }
+  const incomingById = new Map<string, BaseChatMessageUnion>();
+  for (const message of incomingMessages) {
+    incomingById.set(message.id, message);
+  }
+  for (const message of currentMessages) {
+    const incoming = incomingById.get(message.id);
+    if (!incoming) {
+      return true;
+    }
+    if (
+      getMessageCompletenessScore(message) >
+      getMessageCompletenessScore(incoming)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function getEffectiveCodeObjImplIfPresent(
@@ -682,6 +738,8 @@ export function processProjectStateUpdateFromBackend(
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
+  const currentState = useProjectState.getState();
+  mergeStreamingChatSections(x.projectState, currentState);
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -691,9 +749,6 @@ export function processProjectStateUpdateFromBackend(
         return acc;
       }
       const isBackendPending = backendPendingIds.has(opInfo.opId);
-      if (opInfo.acknowledged && !isBackendPending) {
-        return acc;
-      }
       const acknowledged = opInfo.acknowledged || isBackendPending;
       acc.push({
         ...opInfo,
@@ -703,10 +758,10 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
+  reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  normalizeAttachedTerminalChildren(x.projectState);
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
@@ -900,32 +955,27 @@ export function createNodesMapFromProjectConfigChildren(
   const nodesMap: Map<string, Node> = new Map();
   const { activeViewModeId, viewModes } = p.projectConfig;
   const topLevelSections = getActiveViewModeTopLevelSections(p);
-  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
   const canFilterByView =
     Boolean(activeViewModeId) &&
     Boolean(activeViewModeId && viewModes[activeViewModeId]);
 
-  for (const sectionId of topLevelSectionIds) {
-    const layout = topLevelSections[sectionId];
-    if (!layout) {
-      continue;
-    }
+  for (const [k, v] of Object.entries(topLevelSections)) {
     if (canFilterByView) {
       const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
-        sectionId,
+        k,
         p,
       );
       if (!getSectionShouldRender(visibility, isEditingViewMode)) {
         continue;
       }
     }
-    nodesMap.set(sectionId, {
-      id: sectionId,
-      position: { x: layout.x, y: layout.y },
-      width: nodes.get(sectionId)?.width ?? layout.w,
-      height: nodes.get(sectionId)?.height ?? layout.h,
-      zIndex: layout.zIndex,
-      tempZIndex: layout.zIndex,
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      width: nodes.get(k)?.width ?? v.w,
+      height: nodes.get(k)?.height ?? v.h,
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
     });
   }
 
@@ -962,8 +1012,8 @@ function getDisplayedSectionIdToChildrenHelper(
 
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
-  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
-  for (const sectionId of topLevelSectionIds) {
+  const topLevelSections = getActiveViewModeTopLevelSections(state);
+  for (const sectionId of Object.keys(topLevelSections)) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
@@ -1136,19 +1186,107 @@ export function createTopLevelSectionLayoutDict(
   for (const c of nodeInternals.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
+      const existing = topLevelSections[c.id];
       topLevelSections[c.id] = {
         x: c.position.x,
         y: c.position.y,
-        zIndex: c.zIndex,
-        w: c.width, // save width and height so we can show preview on home page
-        h: c.height,
+        zIndex: c.zIndex ?? existing?.zIndex ?? 0,
+        w: c.width ?? existing?.w ?? null, // save width and height so we can show preview on home page
+        h: c.height ?? existing?.h ?? null,
       };
     }
   }
   return topLevelSections;
 }
 
-export const debounced_route_set_top_level_section_layout = _.debounce(() => {
+type TopLevelSectionLayoutMap =
+  ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
+
+const pendingTopLevelLayoutRef: {
+  opId: string | null;
+  snapshot: TopLevelSectionLayoutMap | null;
+  hasQueuedSend: boolean;
+} = {
+  opId: null,
+  snapshot: null,
+  hasQueuedSend: false,
+};
+
+function applyPendingTopLevelLayout(state: ZustandProjectState) {
+  if (!pendingTopLevelLayoutRef.snapshot) {
+    return;
+  }
+  const currentLayouts = state.projectConfig.topLevelSections;
+  const { activeViewModeId, viewModes } = state.projectConfig;
+  const viewModeLayouts =
+    activeViewModeId && viewModes[activeViewModeId]
+      ? viewModes[activeViewModeId].topLevelSections
+      : null;
+  for (const [sectionId, layout] of Object.entries(
+    pendingTopLevelLayoutRef.snapshot,
+  )) {
+    currentLayouts[sectionId] = layout;
+    if (viewModeLayouts) {
+      viewModeLayouts[sectionId] = layout;
+    }
+  }
+}
+
+const sendTopLevelLayoutToBackend = _.debounce(() => {
+  if (!pendingTopLevelLayoutRef.opId || !pendingTopLevelLayoutRef.snapshot) {
+    return;
+  }
+  const opId = pendingTopLevelLayoutRef.opId;
+  const snapshot = pendingTopLevelLayoutRef.snapshot;
+  pendingTopLevelLayoutRef.hasQueuedSend = false;
+  const projectConfigId = getCurrProjectConfigId();
+  const result = route_set_top_level_section_layout({
+    projectConfigId,
+    topLevelSections: snapshot,
+    frontendOpId: opId,
+  });
+  if (result instanceof Promise) {
+    void result.then((res) => {
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        acknowledgePendingOp(opId);
+      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
+        removePendingOp(opId);
+        if (pendingTopLevelLayoutRef.opId === opId) {
+          pendingTopLevelLayoutRef.opId = null;
+        }
+      }
+    });
+  }
+}, 500);
+
+function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
+  const currentOpId = pendingTopLevelLayoutRef.opId;
+  if (!currentOpId) {
+    return;
+  }
+  const stillPending = nextPending.some((op) => op.opId === currentOpId);
+  if (stillPending) {
+    return;
+  }
+  if (
+    pendingTopLevelLayoutRef.hasQueuedSend &&
+    pendingTopLevelLayoutRef.snapshot
+  ) {
+    const opId = createNewId();
+    pendingTopLevelLayoutRef.opId = opId;
+    nextPending.push({
+      opId,
+      apply: applyPendingTopLevelLayout,
+      acknowledged: false,
+    });
+    return;
+  }
+  pendingTopLevelLayoutRef.opId = null;
+  pendingTopLevelLayoutRef.snapshot = null;
+  pendingTopLevelLayoutRef.hasQueuedSend = false;
+}
+
+export function debounced_route_set_top_level_section_layout() {
   const shareSession = useShareSession.getState();
   if (
     shareSession.isShareMode &&
@@ -1158,15 +1296,34 @@ export const debounced_route_set_top_level_section_layout = _.debounce(() => {
   }
   const projectState = useProjectState.getState();
   const existingLayouts = getActiveViewModeTopLevelSections(projectState);
-  route_set_top_level_section_layout({
-    projectConfigId: getCurrProjectConfigId(),
-    topLevelSections: createTopLevelSectionLayoutDict(
-      projectState.sections,
-      useNodeInternals.getState().x,
-      existingLayouts,
-    ),
+  const topLevelSections = createTopLevelSectionLayoutDict(
+    projectState.sections,
+    useNodeInternals.getState().x,
+    existingLayouts,
+  );
+  if (pendingTopLevelLayoutRef.opId) {
+    const pendingOps = usePendingOperations.getState().pending;
+    const stillPending = pendingOps.some(
+      (opInfo) => opInfo.opId === pendingTopLevelLayoutRef.opId,
+    );
+    if (!stillPending) {
+      pendingTopLevelLayoutRef.opId = null;
+    }
+  }
+  pendingTopLevelLayoutRef.snapshot = topLevelSections;
+  pendingTopLevelLayoutRef.hasQueuedSend = true;
+  useProjectState.setState((state) => {
+    state.projectConfig.topLevelSections = topLevelSections;
+    const { activeViewModeId, viewModes } = state.projectConfig;
+    if (activeViewModeId && viewModes[activeViewModeId]) {
+      viewModes[activeViewModeId].topLevelSections = topLevelSections;
+    }
   });
-}, 500);
+  if (!pendingTopLevelLayoutRef.opId) {
+    pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
+  }
+  sendTopLevelLayoutToBackend();
+}
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
