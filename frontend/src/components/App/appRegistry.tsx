@@ -17,6 +17,7 @@ import { bumpRemoteRevisions } from "state/utils/revisions";
 import { res200 } from "utils/endpointUtils";
 import { route_load_cached_image_artifacts } from "utils/generatedEndpoints";
 import {
+  isBaseSectionWithParamsImpl,
   SectionTypeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
@@ -151,17 +152,58 @@ function ParamInputBlock({ element }: AppComponentProps) {
     props,
     runtime?.dataBindings,
   );
-  const displayName = useProjectState((state) => {
+  const { canRenderParam, displayName } = useProjectState((state) => {
     if (!sectionId || !paramId) {
-      return null;
+      return { canRenderParam: false, displayName: null };
+    }
+    const variantId =
+      state.previewSectionVariantMap[sectionId] ??
+      state.projectConfig.sectionVariantMap[sectionId];
+    if (variantId === undefined) {
+      return { canRenderParam: false, displayName: null };
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      return { canRenderParam: false, displayName: null };
+    }
+    const sectionImpl = state.sectionImpls[variant.impl];
+    if (!sectionImpl || !state.sections[sectionId]) {
+      return { canRenderParam: false, displayName: null };
+    }
+
+    let codeObjVariantId: string | null = null;
+    if (sectionImpl.type === SectionTypeEnum.MetaControl) {
+      const controlParamId = sectionImpl.metaControlParamId;
+      if (!controlParamId || controlParamId !== paramId) {
+        return { canRenderParam: false, displayName: null };
+      }
+      codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
+    } else if (isBaseSectionWithParamsImpl(sectionImpl)) {
+      codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
+    } else {
+      return { canRenderParam: false, displayName: null };
+    }
+
+    if (!codeObjVariantId) {
+      return { canRenderParam: false, displayName: null };
+    }
+    const codeObjVariant = state.codeObjVariants[codeObjVariantId];
+    if (!codeObjVariant) {
+      return { canRenderParam: false, displayName: null };
+    }
+    if (!state.codeObjImpls[codeObjVariant.impl]) {
+      return { canRenderParam: false, displayName: null };
     }
     if (!state.codeObjs[paramId]) {
-      return null;
+      return { canRenderParam: false, displayName: null };
     }
-    return getParamDisplayName(state, sectionId, paramId);
+    return {
+      canRenderParam: true,
+      displayName: getParamDisplayName(state, sectionId, paramId),
+    };
   });
   const canEditParams = runtime?.canEditParams ?? true;
-  if (!sectionId || !paramId) {
+  if (!sectionId || !paramId || !canRenderParam) {
     return (
       <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
         Missing param binding.
