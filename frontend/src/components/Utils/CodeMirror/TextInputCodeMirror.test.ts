@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
+import { describe, expect, it } from "vitest";
 import { resolveTooltipParentDivId } from "./TextInputCodeMirror";
 
 describe("resolveTooltipParentDivId", () => {
@@ -12,8 +12,8 @@ describe("resolveTooltipParentDivId", () => {
   });
 
   it("returns the provided tooltip parent id", () => {
-    expect(
-      resolveTooltipParentDivId(CODEMIRROR_TOOLTIP_PARENT_ID),
-    ).toBe(CODEMIRROR_TOOLTIP_PARENT_ID);
+    expect(resolveTooltipParentDivId(CODEMIRROR_TOOLTIP_PARENT_ID)).toBe(
+      CODEMIRROR_TOOLTIP_PARENT_ID,
+    );
   });
 });

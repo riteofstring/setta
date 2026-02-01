@@ -25,7 +25,10 @@ import {
 } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
-import { CODEMIRROR_TOOLTIP_PARENT_ID, NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_PAN_CLASS_NAME,
+} from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_clear_text_field_completion,

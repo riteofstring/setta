@@ -20,7 +20,10 @@ import {
 } from "state/actions/sectionInfos";
 import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { CODEMIRROR_TOOLTIP_PARENT_ID, NO_PAN_CLASS_NAME } from "utils/constants";
+import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_PAN_CLASS_NAME,
+} from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
   route_set_code_obj_display_name,
