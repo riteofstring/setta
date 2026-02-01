@@ -11,10 +11,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  createEdgeFromConnection,
-  isValidDataEdgeConnection,
-} from "state/actions/edges";
+import { createEdgeFromConnection } from "state/actions/edges";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -52,6 +49,7 @@ import {
   isBaseSectionWithParamsImpl,
   SectionSize,
   SectionSizeModeEnum,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { ParamDndList } from "./ParamDndList";
 import { getPinnedResizeHeight, type ResizeDelta } from "./pinnedResize";
@@ -77,7 +75,15 @@ type ResizeArgs = [
   delta: ResizeDelta,
 ];
 
-function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
+function _ParamGroupContainer({
+  sectionId,
+  bgColor,
+  sectionTypeName,
+}: {
+  sectionId: string;
+  bgColor: string;
+  sectionTypeName: SectionTypeEnum;
+}) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const [maxNestedDepth, setMaxNestedDepth] = useState({
     pinned: 1,
@@ -143,13 +149,14 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
           <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
         ) : (
           <>
-            <EdgesStrip sectionId={sectionId} />
+            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
             <GetPinnedParams
               sectionId={sectionId}
               outerRef={outerRef}
               handleColumnResizeStart={handleColumnResizeStart}
               setMaxNestedDepth={setMaxNestedDepth}
               unpinnedMinHeight={unpinnedMinHeight}
+              sectionTypeName={sectionTypeName}
             />
             <GetUnpinnedParams
               sectionId={sectionId}
@@ -167,7 +174,23 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-function EdgesStrip({ sectionId }: { sectionId: string }) {
+export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
+  if (sectionTypeName === SectionTypeEnum.Callable) {
+    return "bg-white dark:bg-blue-950/30";
+  }
+  if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
+    return "bg-setta-50 dark:bg-blue-950/30";
+  }
+  return "bg-setta-100/50 dark:bg-blue-950/30";
+}
+
+function EdgesStrip({
+  sectionId,
+  bgColor,
+}: {
+  sectionId: string;
+  bgColor: string;
+}) {
   const { canEditStructure } = useShareCapabilities();
   const edgesStripRef = useRef<HTMLDivElement | null>(null);
   const lastHeightRef = useRef(0);
@@ -306,7 +329,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-50 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white pt-5 dark:border-setta-700/30 ${bgColor} ${roundedBottomClassName}`}
       ref={edgesStripRef}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
@@ -325,7 +348,6 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
                   type="target"
                   position={HandlePosition.Left}
                   onConnect={createEdgeFromConnection}
-                  isValidConnection={isValidDataEdgeConnection}
                   isConnectable={canEditStructure}
                   isConnectableStart={canEditStructure}
                   isConnectableEnd={canEditStructure}
@@ -357,7 +379,6 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
                   type="source"
                   position={HandlePosition.Right}
                   onConnect={createEdgeFromConnection}
-                  isValidConnection={isValidDataEdgeConnection}
                   isConnectable={canEditStructure}
                   isConnectableStart={canEditStructure}
                   isConnectableEnd={canEditStructure}
@@ -382,6 +403,7 @@ type GetPinnedParamsProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
   unpinnedMinHeight: number | null;
+  sectionTypeName: SectionTypeEnum;
 };
 
 type ResizablePinnedAreaProps = {
@@ -393,6 +415,7 @@ type ResizablePinnedAreaProps = {
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   unpinnedMinHeight: number | null;
+  sectionTypeName: SectionTypeEnum;
 };
 
 type GetUnpinnedParamsProps = {
@@ -409,6 +432,7 @@ function GetPinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
   unpinnedMinHeight,
+  sectionTypeName,
 }: GetPinnedParamsProps) {
   const {
     requiredParamIdsToPaths,
@@ -465,6 +489,7 @@ function GetPinnedParams({
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         unpinnedMinHeight={unpinnedMinHeight}
+        sectionTypeName={sectionTypeName}
       />
     )
   );
@@ -479,7 +504,9 @@ function ResizablePinnedArea({
   shouldRoundBottom,
   positionAndSizeLocked,
   unpinnedMinHeight,
+  sectionTypeName,
 }: ResizablePinnedAreaProps) {
+  const pinnedBgClassName = getPinnedParamsBgClassName(sectionTypeName);
   const { height, hasUnpinnedParams, sectionHeight } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -1089,7 +1116,7 @@ function ResizablePinnedArea({
   return (
     <ResizableWithScale
       handleWrapperClass="nodrag"
-      className={`relative flex min-h-0 w-full flex-col items-start overflow-hidden border-b border-white bg-blue-200/50 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${isPinnedManual ? "flex-none" : "flex-initial"} ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full flex-col items-start overflow-hidden border-b border-white shadow-sm dark:border-setta-700/30 ${pinnedBgClassName} ${isPinnedManual ? "flex-none" : "flex-initial"} ${roundedBottomClassName}`}
       as="section"
       size={{ height: resolvedHeight }}
       onResizeStart={onResizeStart}
