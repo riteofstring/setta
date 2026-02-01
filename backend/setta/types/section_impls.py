@@ -141,6 +141,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedParams: list[ID] = Field(default_factory=list)
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[ID] = Field(default_factory=list)
     ignoreTypeErrors: TypeErrorIgnoreState = Field(default_factory=TypeErrorIgnoreState)
     edgeInputParams: list[ID] = Field(default_factory=list)

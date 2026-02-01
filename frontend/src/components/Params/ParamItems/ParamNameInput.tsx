@@ -20,10 +20,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-  NO_PAN_CLASS_NAME,
-} from "utils/constants";
+import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/focusManager";
 import {
   route_set_code_obj_display_name,
@@ -333,7 +330,6 @@ export function ParamNameInput({
         isKeyName={true}
         isDisabled={isDisabled}
         onMouseDown={onMouseDown}
-        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       <span
         className={`${hasChildren ? "section-key-value grid-row-start-1 mx-[2px]" : "section-key"} border-box self-end border-b border-setta-200/50 peer-focus-within/nameinput:border-blue-400 dark:border-setta-600/30 ${hasError ? "border-red-400" : ""}`}

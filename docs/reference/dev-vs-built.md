@@ -6,10 +6,7 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Frontend: Vite on `http://127.0.0.1:3000` (`pnpm start`).
 - Backend: Setta on `http://127.0.0.1:8000` (`frontend/backendStart.sh`).
 - UI assets come from Vite; the backend does **not** serve static files in dev.
-- In dev mode, requests from the local Vite origin auto-mint an auth cookie so
-  the frontend can connect without manual bootstrapping.
-- The bootstrap page (`/__setta__/bootstrap`) is still available for manual
-  auth or non-local clients.
+- Auth cookie is set via the backend bootstrap page (`/__setta__/bootstrap`), then the page redirects to the dev frontend.
 - CORS is enabled with credentials so the frontend can send cookies.
 
 ## Built (Single Origin)

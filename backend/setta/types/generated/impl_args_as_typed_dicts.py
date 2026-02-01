@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -41,6 +42,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     PromptFormat,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -127,6 +129,7 @@ class CoreArgs(TypedDict):
                 "overflowMode",
                 "paramFilter",
                 "passingStyle",
+                "pinnedAreaHeight",
                 "pinnedParams",
                 "placeholder",
                 "positionAndSizeLocked",
@@ -176,6 +179,7 @@ class ProjectConfigArgs(TypedDict):
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
+    agenticEdges: NotRequired[list[AgenticEdge]]
     watchCodeEnabled: NotRequired[bool]
     watchCodeFolders: NotRequired[list[WatchCodeFolder]]
     watchCodeFiles: NotRequired[list[str]]
@@ -221,6 +225,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
     pinnedParams: NotRequired[list[ID]]
+    pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[ID]]
     ignoreTypeErrors: NotRequired[TypeErrorIgnoreState]
     edgeInputParams: NotRequired[list[ID]]
@@ -239,6 +244,14 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
         ConfigLanguage | Callable[[ConfigLanguage], ConfigLanguage]
     ]
     pinnedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
+    pinnedAreaHeight: NotRequired[
+        float
+        | Literal[SectionSizeMode.auto]
+        | Callable[
+            [float | Literal[SectionSizeMode.auto]],
+            float | Literal[SectionSizeMode.auto],
+        ]
+    ]
     selectedParams: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
     ignoreTypeErrors: NotRequired[
         TypeErrorIgnoreState | Callable[[TypeErrorIgnoreState], TypeErrorIgnoreState]
