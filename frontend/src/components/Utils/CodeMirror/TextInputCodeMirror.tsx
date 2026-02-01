@@ -5,13 +5,11 @@ import { applyActiveSectionChange } from "state/actions/activeSectionController"
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
-import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
-import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
 export function TextInputCodeMirror({
   sectionId,
@@ -150,9 +148,8 @@ function CoreCodeMirror({
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
   const resolvedTooltipParentDivId =
     tooltipParentDivId === undefined
-      ? CODEMIRROR_TOOLTIP_PARENT_ID
+      ? `${sectionId}-CustomResizable`
       : tooltipParentDivId;
-  const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
 
   const resolvedCompletionsFn = useCallback(
     shouldAutocomplete
@@ -162,7 +159,7 @@ function CoreCodeMirror({
   );
 
   const extensions = getExtensions({
-    parent: tooltipParent,
+    parentDivId: resolvedTooltipParentDivId,
     language,
     completionsFn: resolvedCompletionsFn,
     singleLine,
