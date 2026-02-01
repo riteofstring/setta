@@ -10,45 +10,6 @@ import { getCurrProjectConfigId } from "./sectionInfos";
 
 type TypeErrors = SettaProjectConfigDiagnostics["errors"];
 
-type TypeErrorsSummary = {
-  sections: number;
-  callableErrors: number;
-  paramErrors: number;
-  paramSections: number;
-};
-
-const SHOULD_LOG_TYPE_ERRORS =
-  import.meta.env?.DEV && import.meta.env?.VITE_LOG_TYPE_ERRORS === "1";
-
-function summarizeTypeErrors(errors: TypeErrors): TypeErrorsSummary {
-  let callableErrors = 0;
-  let paramErrors = 0;
-  let paramSections = 0;
-  for (const section of Object.values(errors)) {
-    callableErrors += section.callable.length;
-    const paramIds = Object.keys(section.params);
-    if (paramIds.length > 0) {
-      paramSections += 1;
-    }
-    for (const paramId of paramIds) {
-      paramErrors += section.params[paramId].length;
-    }
-  }
-  return {
-    sections: Object.keys(errors).length,
-    callableErrors,
-    paramErrors,
-    paramSections,
-  };
-}
-
-function logTypeErrors(event: string, payload: Record<string, unknown>) {
-  if (!SHOULD_LOG_TYPE_ERRORS) {
-    return;
-  }
-  console.info(`[type-check:${event}]`, payload);
-}
-
 function areStringArraysEqual(left: Array<string>, right: Array<string>) {
   if (left === right) {
     return true;
@@ -133,62 +94,23 @@ function areTypeErrorsEqual(left: TypeErrors, right: TypeErrors) {
 function mergeTypeErrorsBySection(
   previous: TypeErrors,
   incoming: TypeErrors,
-  projectConfigId: string,
 ) {
   const merged: TypeErrors = {};
   const seen = new Set<string>();
-
-  logTypeErrors("merge-start", {
-    projectConfigId,
-    prevSummary: summarizeTypeErrors(previous),
-    incomingSummary: summarizeTypeErrors(incoming),
-  });
 
   for (const [sectionId, nextErrors] of Object.entries(incoming)) {
     seen.add(sectionId);
     const prevErrors = previous[sectionId];
     if (isSectionTypeErrorsEmpty(nextErrors)) {
-      if (prevErrors && !isSectionTypeErrorsEmpty(prevErrors)) {
-        logTypeErrors("empty-incoming-cleared", {
-          projectConfigId,
-          sectionId,
-        });
-      }
       continue;
     }
 
     if (prevErrors && areSectionErrorsEqual(prevErrors, nextErrors)) {
       merged[sectionId] = prevErrors;
-      logTypeErrors("section-unchanged", {
-        projectConfigId,
-        sectionId,
-      });
       continue;
     }
     merged[sectionId] = nextErrors;
-    logTypeErrors("section-updated", {
-      projectConfigId,
-      sectionId,
-    });
   }
-
-  for (const sectionId of Object.keys(previous)) {
-    if (seen.has(sectionId)) {
-      continue;
-    }
-    const prevErrors = previous[sectionId];
-    if (prevErrors && !isSectionTypeErrorsEmpty(prevErrors)) {
-      logTypeErrors("section-missing-cleared", {
-        projectConfigId,
-        sectionId,
-      });
-    }
-  }
-
-  logTypeErrors("merge-end", {
-    projectConfigId,
-    mergedSummary: summarizeTypeErrors(merged),
-  });
 
   return merged;
 }
@@ -231,7 +153,6 @@ export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
   const merged = mergeTypeErrorsBySection(
     prevState.errors,
     errors,
-    projectConfigId,
   );
   const errorsChanged = !areTypeErrorsEqual(prevState.errors, merged);
   if (!errorsChanged) {
