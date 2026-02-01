@@ -9,9 +9,18 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { resetAppDeployment } from "state/actions/app";
 import { useProjectState, useShareSession } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_run_code } from "utils/generatedEndpoints";
+import {
+  route_get_attachment_download_url,
+  route_run_code,
+} from "utils/generatedEndpoints";
 import type { AppConfig, SharePolicy } from "utils/generatedTypes";
-import { AppActionContext } from "./appContext";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { RouteEnum } from "utils/generatedTypes";
+import {
+  normalizeActionDefinitions,
+  resolveActionType,
+} from "./appBindings";
+import { AppActionContext, AppRuntimeContext } from "./appContext";
 import { appRegistry } from "./appRegistry";
 
 type UIElement = {
@@ -157,6 +166,7 @@ export function AppRenderer({
 }: AppRendererProps) {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const sharePolicy = useShareSession((x) => x.sharePolicy);
+  const shareSessionId = useShareSession((x) => x.shareSessionId);
   const resolvedPolicy = resolvePolicyOverrides(appPolicy ?? sharePolicy);
   const tree = useMemo(() => normalizeAppSpec(appSpec), [appSpec]);
   const [runCount, setRunCount] = useState(0);
@@ -165,6 +175,9 @@ export function AppRenderer({
   const canRun =
     resolvedPolicy.allowRun &&
     (allowMultipleRuns || runCount === 0);
+  const canEditParams = resolvedPolicy.allowParamChanges ?? true;
+  const allowExternalLinks = resolvedPolicy.allowExternalLinks ?? false;
+  const allowFileDownloads = resolvedPolicy.allowFileDownloads ?? false;
   let runDisabledReason: string | null = null;
   if (!resolvedPolicy.allowRun) {
     runDisabledReason = "Runs are disabled by policy.";
@@ -215,12 +228,160 @@ export function AppRenderer({
     }
   }, [sharePolicy]);
 
+  const handleDownloadArtifact = useCallback(
+    async (artifactId?: string | null, filename?: string | null) => {
+      if (!allowFileDownloads) {
+        addTemporaryNotification("File downloads are disabled by policy.");
+        return;
+      }
+      if (!artifactId) {
+        addTemporaryNotification("Missing artifact id for download.");
+        return;
+      }
+      const res = await route_get_attachment_download_url({
+        artifactId,
+        projectConfigId,
+      });
+      if (res200(res) && res.data.url) {
+        triggerDownload(res.data.url, filename ?? undefined);
+        return;
+      }
+      addTemporaryNotification("Failed to start download.");
+    },
+    [allowFileDownloads, projectConfigId],
+  );
+
+  const handleDownloadBinary = useCallback(
+    (contentId?: string | null, filename?: string | null) => {
+      if (!allowFileDownloads) {
+        addTemporaryNotification("File downloads are disabled by policy.");
+        return;
+      }
+      if (!contentId) {
+        addTemporaryNotification("Missing file content id for download.");
+        return;
+      }
+      const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+        "{contentId}",
+        encodeURIComponent(contentId),
+      );
+      const url = new URL(`${C_ADDRESSES.BACKEND}${endpoint}`);
+      if (shareSessionId) {
+        url.searchParams.set("shareSessionId", shareSessionId);
+      }
+      triggerDownload(url.toString(), filename ?? undefined);
+    },
+    [allowFileDownloads, shareSessionId],
+  );
+
+  const handleOpenExternalLink = useCallback(
+    (url?: string | null) => {
+      if (!allowExternalLinks) {
+        addTemporaryNotification("External links are disabled by policy.");
+        return;
+      }
+      if (!url) {
+        addTemporaryNotification("Missing link url.");
+        return;
+      }
+      if (typeof window !== "undefined") {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    },
+    [allowExternalLinks],
+  );
+
+  const actionDefinitions = useMemo(
+    () => normalizeActionDefinitions(appConfig?.actions),
+    [appConfig?.actions],
+  );
+
   const actionHandlers = useMemo(
-    () => ({
-      run: handleRun,
-      reset: handleReset,
-    }),
-    [handleReset, handleRun],
+    () => {
+      const handlers: Record<
+        string,
+        (params?: Record<string, unknown>) => void | Promise<void>
+      > = {
+        run: handleRun,
+        reset: handleReset,
+      };
+      for (const [name, definition] of Object.entries(actionDefinitions)) {
+        const actionType = resolveActionType(name, definition);
+        if (actionType === "run") {
+          handlers[name] = (params) => {
+            const paramSectionId =
+              params && typeof params.sectionId === "string"
+                ? params.sectionId
+                : null;
+            const fallbackSectionId =
+              typeof definition.sectionId === "string" ? definition.sectionId : null;
+            const resolvedSectionId = paramSectionId ?? fallbackSectionId;
+            return handleRun(
+              resolvedSectionId ? { sectionId: resolvedSectionId } : undefined,
+            );
+          };
+          continue;
+        }
+        if (actionType === "reset") {
+          handlers[name] = () => handleReset();
+          continue;
+        }
+        if (actionType === "downloadArtifact") {
+          handlers[name] = (params) => {
+            const paramArtifactId =
+              params && typeof params.artifactId === "string"
+                ? params.artifactId
+                : null;
+            const fallbackArtifactId =
+              typeof definition.artifactId === "string"
+                ? definition.artifactId
+                : null;
+            const filename =
+              typeof definition.filename === "string"
+                ? definition.filename
+                : null;
+            return handleDownloadArtifact(paramArtifactId ?? fallbackArtifactId, filename);
+          };
+          continue;
+        }
+        if (actionType === "downloadBinary") {
+          handlers[name] = (params) => {
+            const paramContentId =
+              params && typeof params.contentId === "string"
+                ? params.contentId
+                : null;
+            const fallbackContentId =
+              typeof definition.contentId === "string"
+                ? definition.contentId
+                : null;
+            const filename =
+              typeof definition.filename === "string"
+                ? definition.filename
+                : null;
+            return handleDownloadBinary(paramContentId ?? fallbackContentId, filename);
+          };
+          continue;
+        }
+        if (actionType === "openExternalLink") {
+          handlers[name] = (params) => {
+            const paramUrl =
+              params && typeof params.url === "string" ? params.url : null;
+            const fallbackUrl =
+              typeof definition.url === "string" ? definition.url : null;
+            return handleOpenExternalLink(paramUrl ?? fallbackUrl);
+          };
+        }
+      }
+      return handlers;
+    },
+    [
+      actionDefinitions,
+      handleDownloadArtifact,
+      handleDownloadBinary,
+      handleOpenExternalLink,
+      handleReset,
+      handleRun,
+    ],
   );
 
   if (!tree || !tree.root) {
@@ -232,21 +393,47 @@ export function AppRenderer({
   }
 
   return (
-    <AppActionContext.Provider
+    <AppRuntimeContext.Provider
       value={{
-        canRun,
-        canReset: true,
-        isRunning,
-        runDisabledReason,
+        dataBindings: appConfig?.dataBindings ?? {},
+        actions: actionDefinitions,
+        policy: resolvedPolicy,
+        canEditParams,
+        allowExternalLinks,
+        allowFileDownloads,
       }}
     >
-      <DataProvider initialData={appConfig?.dataBindings ?? {}}>
-        <VisibilityProvider>
-          <ActionProvider handlers={actionHandlers}>
-            <Renderer tree={tree} registry={appRegistry} />
-          </ActionProvider>
-        </VisibilityProvider>
-      </DataProvider>
-    </AppActionContext.Provider>
+      <AppActionContext.Provider
+        value={{
+          canRun,
+          canReset: true,
+          isRunning,
+          runDisabledReason,
+        }}
+      >
+        <DataProvider initialData={appConfig?.dataBindings ?? {}}>
+          <VisibilityProvider>
+            <ActionProvider handlers={actionHandlers}>
+              <Renderer tree={tree} registry={appRegistry} />
+            </ActionProvider>
+          </VisibilityProvider>
+        </DataProvider>
+      </AppActionContext.Provider>
+    </AppRuntimeContext.Provider>
   );
+}
+
+function triggerDownload(url: string, filename?: string) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.rel = "noopener";
+  if (filename) {
+    anchor.download = filename;
+  }
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 }

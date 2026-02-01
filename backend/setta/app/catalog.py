@@ -64,6 +64,7 @@ APP_CATALOG: JSONValue = {
                 "paramId": {"type": "string", "required": True},
                 "label": {"type": "string"},
                 "description": {"type": "string"},
+                "dataPath": {"type": "string"},
             },
             "children": False,
         },
@@ -74,6 +75,7 @@ APP_CATALOG: JSONValue = {
                 "label": {"type": "string", "required": True},
                 "action": {"type": "string", "required": True},
                 "sectionId": {"type": "string"},
+                "dataPath": {"type": "string"},
             },
             "children": False,
         },
@@ -83,6 +85,7 @@ APP_CATALOG: JSONValue = {
             "props": {
                 "sectionId": {"type": "string", "required": True},
                 "label": {"type": "string"},
+                "dataPath": {"type": "string"},
             },
             "children": False,
         },
@@ -92,6 +95,7 @@ APP_CATALOG: JSONValue = {
             "props": {
                 "artifactId": {"type": "string", "required": True},
                 "alt": {"type": "string"},
+                "dataPath": {"type": "string"},
             },
             "children": False,
         },
@@ -112,6 +116,16 @@ APP_CATALOG: JSONValue = {
             "name": "reset",
             "description": "Reset bound params to defaults.",
             "params": {},
+        },
+        {
+            "name": "downloadArtifact",
+            "description": "Download an artifact by id.",
+            "params": {"artifactId": {"type": "string"}},
+        },
+        {
+            "name": "openExternalLink",
+            "description": "Open an external link.",
+            "params": {"url": {"type": "string"}},
         },
     ],
 }

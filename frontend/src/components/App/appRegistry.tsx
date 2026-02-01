@@ -20,7 +20,14 @@ import {
   SectionTypeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
-import { useAppActionState } from "./appContext";
+import {
+  resolveActionBinding,
+  resolveImageOutputBinding,
+  resolveParamBinding,
+  resolveTextOutputBinding,
+  resolveActionType,
+} from "./appBindings";
+import { useAppActionState, useAppRuntime } from "./appContext";
 
 type RawElementProps = {
   key?: unknown;
@@ -139,17 +146,21 @@ function Text({ element }: AppComponentProps) {
 
 function ParamInputBlock({ element }: AppComponentProps) {
   const props = element.props ?? {};
-  const sectionId = typeof props.sectionId === "string" ? props.sectionId : null;
-  const paramId = typeof props.paramId === "string" ? props.paramId : null;
-  const label = typeof props.label === "string" ? props.label : null;
-  const description =
-    typeof props.description === "string" ? props.description : null;
+  const runtime = useAppRuntime();
+  const { sectionId, paramId, label, description } = resolveParamBinding(
+    props,
+    runtime?.dataBindings,
+  );
   const displayName = useProjectState((state) => {
     if (!sectionId || !paramId) {
       return null;
     }
+    if (!state.codeObjs[paramId]) {
+      return null;
+    }
     return getParamDisplayName(state, sectionId, paramId);
   });
+  const canEditParams = runtime?.canEditParams ?? true;
   if (!sectionId || !paramId) {
     return (
       <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
@@ -171,7 +182,14 @@ function ParamInputBlock({ element }: AppComponentProps) {
         )}
       </div>
       <div className="rounded-md border border-setta-200 bg-white px-2 py-1 dark:border-setta-700 dark:bg-setta-900">
-        <ParamInput sectionId={sectionId} paramInfoId={paramId} />
+        <div className={canEditParams ? "" : "pointer-events-none opacity-60"}>
+          <ParamInput sectionId={sectionId} paramInfoId={paramId} />
+        </div>
+        {!canEditParams && (
+          <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
+            Param edits are disabled by policy.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -179,12 +197,38 @@ function ParamInputBlock({ element }: AppComponentProps) {
 
 function ActionButton({ element, onAction }: AppComponentProps) {
   const props = element.props ?? {};
-  const label = typeof props.label === "string" ? props.label : "Run";
-  const action = typeof props.action === "string" ? props.action : "";
-  const sectionId = typeof props.sectionId === "string" ? props.sectionId : null;
+  const runtime = useAppRuntime();
+  const { action, sectionId, label } = resolveActionBinding(
+    props,
+    runtime?.dataBindings,
+  );
+  const resolvedLabel = label ?? "Run";
+  const actionName = action ?? "";
+  const actionDefinition = runtime?.actions[actionName] ?? null;
+  const actionType = resolveActionType(actionName, actionDefinition ?? undefined);
   const { canRun, isRunning, runDisabledReason } = useAppActionState();
-  const isRunAction = action === "run";
-  const isDisabled = isRunAction ? !canRun || isRunning : false;
+  const isRunAction = actionName === "run" || actionType === "run";
+  const isDownloadAction = actionType === "downloadArtifact" || actionType === "downloadBinary";
+  const isExternalLink = actionType === "openExternalLink";
+  const allowDownloads = runtime?.allowFileDownloads ?? true;
+  const allowLinks = runtime?.allowExternalLinks ?? true;
+  let isDisabled = false;
+  if (isRunAction) {
+    isDisabled = !canRun || isRunning;
+  } else if (isDownloadAction) {
+    isDisabled = !allowDownloads;
+  } else if (isExternalLink) {
+    isDisabled = !allowLinks;
+  }
+
+  let disabledReason: string | null = null;
+  if (isRunAction && isDisabled) {
+    disabledReason = runDisabledReason ?? "Run disabled";
+  } else if (isDownloadAction && isDisabled) {
+    disabledReason = "File downloads are disabled by policy.";
+  } else if (isExternalLink && isDisabled) {
+    disabledReason = "External links are disabled by policy.";
+  }
 
   return (
     <button
@@ -194,25 +238,28 @@ function ActionButton({ element, onAction }: AppComponentProps) {
           ? "cursor-not-allowed bg-setta-200 text-setta-400 dark:bg-setta-800 dark:text-setta-500"
           : "bg-blue-600 text-white hover:bg-blue-700"
       }`}
-      title={isDisabled ? runDisabledReason ?? "Run disabled" : undefined}
+      title={isDisabled ? disabledReason ?? undefined : undefined}
       onClick={() => {
-        if (!action || !onAction) {
+        if (!actionName || !onAction || isDisabled) {
           return;
         }
         const params = sectionId ? { sectionId } : {};
-        onAction(action, params);
+        onAction(actionName, params);
       }}
       disabled={isDisabled}
     >
-      {isRunning && isRunAction ? "Running..." : label}
+      {isRunning && isRunAction ? "Running..." : resolvedLabel}
     </button>
   );
 }
 
 function TextOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
-  const sectionId = typeof props.sectionId === "string" ? props.sectionId : null;
-  const label = typeof props.label === "string" ? props.label : null;
+  const runtime = useAppRuntime();
+  const { sectionId, label } = resolveTextOutputBinding(
+    props,
+    runtime?.dataBindings,
+  );
   const textBlock = useProjectState((state) => {
     if (!sectionId) {
       return null;
@@ -320,9 +367,12 @@ function useImageArtifactById(artifactId: string | null) {
 
 function ImageOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
-  const artifactId =
-    typeof props.artifactId === "string" ? props.artifactId : null;
-  const alt = typeof props.alt === "string" ? props.alt : "App output image";
+  const runtime = useAppRuntime();
+  const { artifactId, alt } = resolveImageOutputBinding(
+    props,
+    runtime?.dataBindings,
+  );
+  const resolvedAlt = alt ?? "App output image";
   const imageArtifact = useImageArtifactById(artifactId);
   const decodedImage = useDecodedImages((state) =>
     imageArtifact ? state.x[imageArtifact.id] : null,
@@ -351,7 +401,7 @@ function ImageOutput({ element }: AppComponentProps) {
       {decodedImage ? (
         <img
           src={decodedImage.src}
-          alt={alt}
+          alt={resolvedAlt}
           className="h-auto max-h-[320px] w-full object-contain"
         />
       ) : (
