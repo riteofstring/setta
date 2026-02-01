@@ -22,10 +22,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
   const navigate = useNavigate();
   const lastSyncedPathRef = useRef<string | null>(null);
   const isUrlDrivenRef = useRef(false);
-  const pendingUrlSyncRef = useRef<{
-    id: string;
-    activeAtRequest: string | null;
-  } | null>(null);
   const { canEditVariants } = useShareCapabilities();
   const { projectConfigId, activeViewModeId, viewModes } = useProjectState(
     (x) => ({
@@ -52,7 +48,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     if (!enabled || !isViewRoute) {
       isUrlDrivenRef.current = false;
       lastSyncedPathRef.current = null;
-      pendingUrlSyncRef.current = null;
       return;
     }
     if (
@@ -64,7 +59,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
       return;
     }
     isUrlDrivenRef.current = true;
-    pendingUrlSyncRef.current = null;
   }, [enabled, isViewRoute, location.pathname]);
 
   useEffect(() => {
@@ -73,7 +67,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     }
     if (requestedViewModeId === activeViewModeId) {
       isUrlDrivenRef.current = false;
-      pendingUrlSyncRef.current = null;
       return;
     }
     if (!canEditVariants) {
@@ -82,10 +75,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     if (!isUrlDrivenRef.current) {
       return;
     }
-    pendingUrlSyncRef.current = {
-      id: requestedViewModeId,
-      activeAtRequest: activeViewModeId ?? null,
-    };
     void route_set_active_view_mode({
       projectConfigId,
       activeViewModeId: requestedViewModeId,
@@ -99,24 +88,6 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
     requestedViewModeName,
     isViewRoute,
   ]);
-
-  useEffect(() => {
-    if (!enabled || !isViewRoute) {
-      return;
-    }
-    const pending = pendingUrlSyncRef.current;
-    if (!pending || !activeViewModeId) {
-      return;
-    }
-    if (activeViewModeId === pending.id) {
-      pendingUrlSyncRef.current = null;
-      return;
-    }
-    if (activeViewModeId !== pending.activeAtRequest) {
-      isUrlDrivenRef.current = false;
-      pendingUrlSyncRef.current = null;
-    }
-  }, [activeViewModeId, enabled, isViewRoute]);
 
   useEffect(() => {
     if (!enabled || !viewMatch || !projectConfigName || !activeViewModeId) {

@@ -1,3 +1,4 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   ChangeEvent,
   DragEvent,
@@ -11,6 +12,7 @@ import {
   useState,
 } from "react";
 import {
+  IoAdd,
   IoAttach,
   IoClose,
   IoFolderOpen,
@@ -29,11 +31,6 @@ import {
   isAttachmentMimeAllowed,
 } from "utils/attachmentPolicy";
 import { formatBytes } from "utils/attachments";
-import {
-  CHAT_SUPPORTED_IMAGE_LABEL,
-  isChatImageAttachmentSupported,
-  isChatImageFileSupported,
-} from "utils/chatAttachmentSupport";
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -106,8 +103,24 @@ export const ChatInput = memo(function ChatInput({
   const showSharePolicyMessage = isShareMode && !canEditParams;
   const showAttachmentDisabledMessage =
     attachmentsDisabled && !showSharePolicyMessage;
-  const showSlots =
-    !attachmentsDisabled && !showSharePolicyMessage && remainingSlots !== null;
+  const attachmentCount = attachments.length;
+  const attachmentCountLabel = useMemo(() => {
+    if (attachmentsDisabled) {
+      return "Attachments disabled";
+    }
+    if (showSharePolicyMessage) {
+      return "Attachments blocked";
+    }
+    if (attachmentLimit === null) {
+      return `Attachments ${attachmentCount}`;
+    }
+    return `Attachments ${attachmentCount}/${attachmentLimit}`;
+  }, [
+    attachmentCount,
+    attachmentLimit,
+    attachmentsDisabled,
+    showSharePolicyMessage,
+  ]);
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
@@ -258,21 +271,7 @@ export const ChatInput = memo(function ChatInput({
       if (typeAllowedFiles.length === 0) {
         return;
       }
-      const unsupportedImages = typeAllowedFiles.filter(
-        (file) => !isChatImageFileSupported(file),
-      );
-      if (unsupportedImages.length > 0) {
-        notifyAttachmentWarning(
-          `Some images were skipped. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim(),
-        );
-      }
-      const imageAllowedFiles = typeAllowedFiles.filter((file) =>
-        isChatImageFileSupported(file),
-      );
-      if (imageAllowedFiles.length === 0) {
-        return;
-      }
-      const oversized = imageAllowedFiles.filter(
+      const oversized = typeAllowedFiles.filter(
         (file) => file.size > chatPolicy.maxFileBytes,
       );
       if (oversized.length > 0) {
@@ -280,7 +279,7 @@ export const ChatInput = memo(function ChatInput({
           `File exceeds ${chatPolicy.maxFileLabel} limit.`,
         );
       }
-      const validFiles = imageAllowedFiles.filter(
+      const validFiles = typeAllowedFiles.filter(
         (file) => file.size <= chatPolicy.maxFileBytes,
       );
       if (validFiles.length === 0) {
@@ -389,32 +388,7 @@ export const ChatInput = memo(function ChatInput({
         if (newAttachments.length === 0) {
           return;
         }
-        const unsupported = newAttachments.filter(
-          (attachment) => !isChatImageAttachmentSupported(attachment),
-        );
-        const supported = newAttachments.filter((attachment) =>
-          isChatImageAttachmentSupported(attachment),
-        );
-        if (unsupported.length > 0) {
-          notifyAttachmentWarning(
-            `Some images were skipped. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim(),
-          );
-          const deleteRes = await route_delete_artifacts({
-            artifacts: unsupported.map((attachment) => ({
-              id: attachment.id,
-              type: ArtifactTypeEnum.File,
-            })),
-          });
-          if (!res200(deleteRes)) {
-            const detail = getErrorDetail(deleteRes.data);
-            const message = detail ?? "Failed to delete skipped attachments.";
-            notifyAttachmentWarning(message);
-          }
-        }
-        if (supported.length === 0) {
-          return;
-        }
-        setAttachments((prev) => [...prev, ...supported]);
+        setAttachments((prev) => [...prev, ...newAttachments]);
       },
     });
   }, [
@@ -553,7 +527,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag prose prose-sm my-2 max-h-48 flex-1 resize-none overflow-y-auto rounded-lg border border-setta-200 bg-transparent px-4 py-2 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
+      "nodrag text-sm leading-5 max-h-48 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-lg border border-setta-200 bg-transparent py-2 pl-10 pr-10 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -573,7 +547,7 @@ export const ChatInput = memo(function ChatInput({
 
   return (
     <form onSubmit={handleSubmit} className="flex justify-center">
-      <div className="flex w-full max-w-xl gap-2">
+      <div className="flex w-full gap-2">
         <div
           className="flex min-w-0 flex-1 flex-col"
           onDragEnter={handleDragEnter}
@@ -581,16 +555,7 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          <textarea
-            type="text"
-            value={inputValue}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholderText}
-            className={textAreaClassName}
-            disabled={isDisabled}
-          />
-          <div className="flex flex-wrap items-center gap-2 pb-2">
+          <div className="relative my-1 w-full">
             <input
               ref={fileInputRef}
               type="file"
@@ -599,31 +564,70 @@ export const ChatInput = memo(function ChatInput({
               onChange={handleFileInputChange}
               disabled={attachmentInputDisabled}
             />
+            <DropdownMenu.Root modal={false}>
+              <DropdownMenu.Trigger asChild>
+                <button
+                  type="button"
+                  aria-label="Attachment options"
+                  className={`absolute left-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200 ${
+                    attachmentInputDisabled
+                      ? "cursor-not-allowed opacity-40 hover:bg-transparent"
+                      : "cursor-pointer"
+                  }`}
+                  disabled={attachmentInputDisabled}
+                >
+                  <IoAdd />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  align="start"
+                  sideOffset={8}
+                  className="z-30 flex min-w-[170px] flex-col gap-1 rounded-lg border border-setta-200 bg-white p-2 text-xs font-semibold text-setta-600 shadow-xl dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-200"
+                >
+                  <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                    {attachmentCountLabel}
+                  </DropdownMenu.Label>
+                  <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                  <DropdownMenu.Item
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
+                    onSelect={() => fileInputRef.current?.click()}
+                    disabled={attachmentInputDisabled}
+                  >
+                    <IoAttach />
+                    Attach
+                  </DropdownMenu.Item>
+                  {!isShareMode ? (
+                    <DropdownMenu.Item
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
+                      onSelect={handlePickFromProject}
+                      disabled={attachmentInputDisabled}
+                    >
+                      <IoFolderOpen />
+                      Project
+                    </DropdownMenu.Item>
+                  ) : null}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+            <textarea
+              type="text"
+              value={inputValue}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder={placeholderText}
+              className={textAreaClassName}
+              disabled={isDisabled}
+            />
             <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded-full border border-setta-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-850"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={attachmentInputDisabled}
+              type="submit"
+              disabled={isSubmitDisabled}
+              className={`absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-base transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${buttonClassName} disabled:opacity-40`}
             >
-              <IoAttach />
-              Attach
+              {buttonIcon}
             </button>
-            {!isShareMode ? (
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 rounded-full border border-setta-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-setta-500 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-850"
-                onClick={handlePickFromProject}
-                disabled={attachmentInputDisabled}
-              >
-                <IoFolderOpen />
-                Project
-              </button>
-            ) : null}
-            {showSlots ? (
-              <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
-                Slots: {remainingSlots}
-              </span>
-            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pb-1">
             {showSharePolicyMessage ? (
               <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
                 Attachments blocked by share policy
@@ -641,7 +645,7 @@ export const ChatInput = memo(function ChatInput({
             ) : null}
           </div>
           {attachments.length > 0 ? (
-            <div className="mb-2 flex flex-wrap gap-2">
+            <div className="mb-1 flex flex-wrap gap-2">
               {attachments.map((attachment) => (
                 <div
                   key={attachment.id}
@@ -679,20 +683,13 @@ export const ChatInput = memo(function ChatInput({
           ) : null}
           {attachmentWarning ? (
             <div
-              className="mb-2 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200"
+              className="mb-1 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200"
               role="alert"
             >
               {attachmentWarning}
             </div>
           ) : null}
         </div>
-        <button
-          type="submit"
-          disabled={isSubmitDisabled}
-          className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${buttonClassName} focus:outline-none focus:ring-0 disabled:opacity-40 dark:hover:text-blue-700`}
-        >
-          {buttonIcon}
-        </button>
       </div>
     </form>
   );

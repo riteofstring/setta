@@ -5,18 +5,12 @@ import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { unstable_batchedUpdates } from "react-dom";
 import {
-  getMessageCompletenessScore,
-  mergeChatMessages,
-} from "state/actions/chatMergeUtils";
-import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   PendingOperation,
   useAllProjectMetadata,
-  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
@@ -38,7 +32,6 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
-  BaseChatMessageUnion,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
@@ -65,7 +58,7 @@ function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
 }
 
 function getEffectiveSectionImplIfPresent(
-  projectState: ProjectStateSingleConfig,
+  projectState: ZustandProjectState,
   sectionId: string,
 ): BaseSectionImplUnion | null {
   const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
@@ -85,151 +78,6 @@ function getEffectiveSectionImplIfPresent(
     return null;
   }
   return getEffectiveImpl(impl, core, variant);
-}
-
-type ChatSectionImpl = Extract<
-  BaseSectionImplUnion,
-  { type: SectionTypeEnum.Chat }
->;
-
-function mergeStreamingChatSections(
-  projectState: ProjectStateSingleConfig,
-  currentState: ZustandProjectState,
-): string[] {
-  const mergedSectionIds: string[] = [];
-  const incomingVariantMap = projectState.projectConfig.sectionVariantMap;
-  const currentVariantMap = currentState.projectConfig.sectionVariantMap;
-
-  for (const [sectionId, variantId] of Object.entries(incomingVariantMap)) {
-    const variant = projectState.sectionVariants[variantId];
-    if (!variant) {
-      continue;
-    }
-    const incomingCore = projectState.sections[sectionId];
-    if (!incomingCore) {
-      continue;
-    }
-    const incomingImpl = projectState.sectionImpls[variant.impl];
-    if (!incomingImpl || incomingImpl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const currentVariantId = currentVariantMap[sectionId];
-    if (!currentVariantId) {
-      continue;
-    }
-    const currentVariant = currentState.sectionVariants[currentVariantId];
-    if (!currentVariant) {
-      continue;
-    }
-    const currentImpl = currentState.sectionImpls[currentVariant.impl];
-    if (!currentImpl || currentImpl.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const currentCore = currentState.sections[sectionId];
-    if (!currentCore) {
-      continue;
-    }
-    const incomingChat = getEffectiveImpl(
-      incomingImpl,
-      incomingCore,
-      variant,
-    ) as ChatSectionImpl;
-    const currentChat = getEffectiveImpl(
-      currentImpl,
-      currentCore,
-      currentVariant,
-    ) as ChatSectionImpl;
-
-    const incomingMessages = Array.isArray(incomingChat.messages)
-      ? incomingChat.messages
-      : [];
-    const currentMessages = Array.isArray(currentChat.messages)
-      ? currentChat.messages
-      : [];
-    const incomingToolArgs = incomingChat.toolCallArguments ?? {};
-    const currentToolArgs = currentChat.toolCallArguments ?? {};
-    const incomingInputText = incomingChat.inputText ?? "";
-    const currentInputText = currentChat.inputText ?? "";
-    const shouldPreserveStreaming = isSectionStreamActive(sectionId);
-    const shouldMergeFast =
-      shouldPreserveStreaming ||
-      currentMessages.length > incomingMessages.length ||
-      Object.keys(currentToolArgs).length >
-        Object.keys(incomingToolArgs).length ||
-      currentInputText.length > incomingInputText.length;
-    const shouldMerge = shouldMergeFast
-      ? true
-      : hasMoreCompleteChatMessages(currentMessages, incomingMessages);
-    if (!shouldMerge) {
-      continue;
-    }
-
-    const mergedMessages = mergeChatMessages(incomingMessages, currentMessages);
-    const mergedToolArgs = {
-      ...incomingToolArgs,
-      ...currentToolArgs,
-    };
-    const mergedInputText =
-      currentInputText.length > incomingInputText.length
-        ? currentInputText
-        : incomingInputText;
-    const mergedWaitingForResponse = shouldPreserveStreaming
-      ? incomingChat.waitingForResponse || currentChat.waitingForResponse
-      : incomingChat.waitingForResponse;
-    setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
-      messages: mergedMessages,
-      toolCallArguments: mergedToolArgs,
-      inputText: mergedInputText,
-      waitingForResponse: mergedWaitingForResponse,
-    });
-    mergedSectionIds.push(sectionId);
-  }
-
-  return mergedSectionIds;
-}
-
-function hasMoreCompleteChatMessages(
-  currentMessages: Array<BaseChatMessageUnion>,
-  incomingMessages: Array<BaseChatMessageUnion>,
-): boolean {
-  if (currentMessages.length === 0) {
-    return false;
-  }
-  if (incomingMessages.length === 0) {
-    return currentMessages.length > 0;
-  }
-  const incomingById = new Map<string, BaseChatMessageUnion>();
-  for (const message of incomingMessages) {
-    incomingById.set(message.id, message);
-  }
-  for (const message of currentMessages) {
-    const incoming = incomingById.get(message.id);
-    if (!incoming) {
-      return true;
-    }
-    if (
-      getMessageCompletenessScore(message) >
-      getMessageCompletenessScore(incoming)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-export function isBaseCodeSectionType(sectionType: SectionType): boolean {
-  return (
-    sectionType === SectionTypeEnum.Code ||
-    sectionType === SectionTypeEnum.GenPythonCode ||
-    sectionType === SectionTypeEnum.GenPythonMetadata
-  );
-}
-
-export function getTopLevelSectionIdsForDisplay(
-  projectState: ZustandProjectState,
-): string[] {
-  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  return Object.keys(topLevelSections);
 }
 
 function getEffectiveCodeObjImplIfPresent(
@@ -754,8 +602,6 @@ export function processProjectStateUpdateFromBackend(
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  const currentState = useProjectState.getState();
-  mergeStreamingChatSections(x.projectState, currentState);
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -765,6 +611,9 @@ export function processProjectStateUpdateFromBackend(
         return acc;
       }
       const isBackendPending = backendPendingIds.has(opInfo.opId);
+      if (opInfo.acknowledged && !isBackendPending) {
+        return acc;
+      }
       const acknowledged = opInfo.acknowledged || isBackendPending;
       acc.push({
         ...opInfo,
@@ -774,11 +623,9 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
@@ -788,9 +635,6 @@ export function processProjectStateUpdateFromBackend(
     useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => x.projectState);
   });
-  if (shouldRequestFitView) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
 
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
@@ -798,64 +642,6 @@ export function processProjectStateUpdateFromBackend(
     projectConfigId,
     useProjectState.getState(),
   );
-}
-
-function applyViewportFromProjectState(
-  projectState: ProjectStateSingleConfig,
-): boolean {
-  const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentConfig = useProjectState.getState().projectConfig;
-  const viewModeChanged =
-    currentConfig.activeViewModeId !==
-    projectState.projectConfig.activeViewModeId;
-  const viewportChanged =
-    !_.isEqual(currentConfig.viewport, viewport) ||
-    currentConfig.viewportInitialized !== viewportInitialized;
-  if (!viewportChanged && !viewModeChanged) {
-    return false;
-  }
-  if (!viewport || !viewportInitialized) {
-    useReactFlow.setState({
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
-    });
-    return true;
-  }
-  useReactFlow.setState({
-    fitViewOnInit: false,
-    fitViewOnInitDone: true,
-    fitViewOnInitOptions: undefined,
-    transform: [viewport.x, viewport.y, viewport.zoom],
-  });
-  return false;
-}
-
-function getFitViewOptionsForVisibleSections(
-  projectState: ProjectStateSingleConfig,
-) {
-  const { activeViewModeId, isEditingViewMode, viewModes } =
-    projectState.projectConfig;
-  if (isEditingViewMode) {
-    return undefined;
-  }
-  if (!activeViewModeId) {
-    return undefined;
-  }
-  const viewMode = viewModes[activeViewModeId];
-  if (!viewMode) {
-    return undefined;
-  }
-  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  const visibleNodeIds = Object.keys(topLevelSections).filter(
-    (sectionId) => viewMode.visibilityBySectionId[sectionId],
-  );
-  if (visibleNodeIds.length === 0) {
-    return undefined;
-  }
-  return {
-    nodes: visibleNodeIds.map((id) => ({ id }) as Node),
-  };
 }
 
 function clearToolArgumentPreviewForProjectState(
@@ -969,34 +755,15 @@ export function createNodesMapFromProjectConfigChildren(
   nodes: ZustandNodeInternalsState["x"],
 ) {
   const nodesMap: Map<string, Node> = new Map();
-  const { activeViewModeId, viewModes } = p.projectConfig;
-  const topLevelSections = getActiveViewModeTopLevelSections(p);
-  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
-  const canFilterByView =
-    Boolean(activeViewModeId) &&
-    Boolean(activeViewModeId && viewModes[activeViewModeId]);
 
-  for (const sectionId of topLevelSectionIds) {
-    const layout = topLevelSections[sectionId];
-    if (!layout) {
-      continue;
-    }
-    if (canFilterByView) {
-      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
-        sectionId,
-        p,
-      );
-      if (!getSectionShouldRender(visibility, isEditingViewMode)) {
-        continue;
-      }
-    }
-    nodesMap.set(sectionId, {
-      id: sectionId,
-      position: { x: layout.x, y: layout.y },
-      width: nodes.get(sectionId)?.width ?? layout.w,
-      height: nodes.get(sectionId)?.height ?? layout.h,
-      zIndex: layout.zIndex,
-      tempZIndex: layout.zIndex,
+  for (const [k, v] of Object.entries(p.projectConfig.topLevelSections)) {
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      width: nodes.get(k)?.width ?? v.w,
+      height: nodes.get(k)?.height ?? v.h,
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
     });
   }
 
@@ -1033,8 +800,7 @@ function getDisplayedSectionIdToChildrenHelper(
 
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
-  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
-  for (const sectionId of topLevelSectionIds) {
+  for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
@@ -1081,7 +847,7 @@ export function getSectionShouldRender(
   return isEditingViewMode || visibility;
 }
 
-export function getActiveViewModeConfig(state: ProjectStateSingleConfig) {
+export function getActiveViewModeConfig(state: ZustandProjectState) {
   const { activeViewModeId, viewModes } = state.projectConfig;
   if (!activeViewModeId) {
     throw new Error("Active view mode is not set");
@@ -1091,25 +857,6 @@ export function getActiveViewModeConfig(state: ProjectStateSingleConfig) {
     throw new Error(`Active view mode ${activeViewModeId} not found`);
   }
   return viewMode;
-}
-
-export function getActiveViewModeTopLevelSections(
-  projectState: ProjectStateSingleConfig,
-) {
-  const { activeViewModeId, topLevelSections, viewModes } =
-    projectState.projectConfig;
-  if (!activeViewModeId || !(activeViewModeId in viewModes)) {
-    return topLevelSections;
-  }
-  const viewMode = viewModes[activeViewModeId];
-  const viewModeLayout = viewMode.topLevelSections;
-  if (!viewModeLayout || Object.keys(viewModeLayout).length === 0) {
-    return topLevelSections;
-  }
-  if (!topLevelSections || Object.keys(topLevelSections).length === 0) {
-    return viewModeLayout;
-  }
-  return { ...topLevelSections, ...viewModeLayout };
 }
 
 function getSectionVisibilityForActiveViewMode(
@@ -1191,123 +938,25 @@ export function deleteAllActiveSections() {
 export function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
-  existingLayouts:
-    | ProjectStateSingleConfig["projectConfig"]["topLevelSections"]
-    | null = null,
 ) {
   const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
     {};
-  if (existingLayouts) {
-    for (const [sectionId, layout] of Object.entries(existingLayouts)) {
-      if (sectionId in sections) {
-        topLevelSections[sectionId] = { ...layout };
-      }
-    }
-  }
   for (const c of nodeInternals.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
-      const existing = topLevelSections[c.id];
       topLevelSections[c.id] = {
         x: c.position.x,
         y: c.position.y,
-        zIndex: c.zIndex ?? existing?.zIndex ?? 0,
-        w: c.width ?? existing?.w ?? null, // save width and height so we can show preview on home page
-        h: c.height ?? existing?.h ?? null,
+        zIndex: c.zIndex,
+        w: c.width, // save width and height so we can show preview on home page
+        h: c.height,
       };
     }
   }
   return topLevelSections;
 }
 
-type TopLevelSectionLayoutMap =
-  ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
-
-const pendingTopLevelLayoutRef: {
-  opId: string | null;
-  snapshot: TopLevelSectionLayoutMap | null;
-  hasQueuedSend: boolean;
-} = {
-  opId: null,
-  snapshot: null,
-  hasQueuedSend: false,
-};
-
-function applyPendingTopLevelLayout(state: ZustandProjectState) {
-  if (!pendingTopLevelLayoutRef.snapshot) {
-    return;
-  }
-  const currentLayouts = state.projectConfig.topLevelSections;
-  const { activeViewModeId, viewModes } = state.projectConfig;
-  const viewModeLayouts =
-    activeViewModeId && viewModes[activeViewModeId]
-      ? viewModes[activeViewModeId].topLevelSections
-      : null;
-  for (const [sectionId, layout] of Object.entries(
-    pendingTopLevelLayoutRef.snapshot,
-  )) {
-    currentLayouts[sectionId] = layout;
-    if (viewModeLayouts) {
-      viewModeLayouts[sectionId] = layout;
-    }
-  }
-}
-
-const sendTopLevelLayoutToBackend = _.debounce(() => {
-  if (!pendingTopLevelLayoutRef.opId || !pendingTopLevelLayoutRef.snapshot) {
-    return;
-  }
-  const opId = pendingTopLevelLayoutRef.opId;
-  const snapshot = pendingTopLevelLayoutRef.snapshot;
-  pendingTopLevelLayoutRef.hasQueuedSend = false;
-  const projectConfigId = getCurrProjectConfigId();
-  const result = route_set_top_level_section_layout({
-    projectConfigId,
-    topLevelSections: snapshot,
-    frontendOpId: opId,
-  });
-  if (result instanceof Promise) {
-    void result.then((res) => {
-      if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
-        if (pendingTopLevelLayoutRef.opId === opId) {
-          pendingTopLevelLayoutRef.opId = null;
-        }
-      }
-    });
-  }
-}, 500);
-
-function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
-  const currentOpId = pendingTopLevelLayoutRef.opId;
-  if (!currentOpId) {
-    return;
-  }
-  const stillPending = nextPending.some((op) => op.opId === currentOpId);
-  if (stillPending) {
-    return;
-  }
-  if (
-    pendingTopLevelLayoutRef.hasQueuedSend &&
-    pendingTopLevelLayoutRef.snapshot
-  ) {
-    const opId = createNewId();
-    pendingTopLevelLayoutRef.opId = opId;
-    nextPending.push({
-      opId,
-      apply: applyPendingTopLevelLayout,
-      acknowledged: false,
-    });
-    return;
-  }
-  pendingTopLevelLayoutRef.opId = null;
-  pendingTopLevelLayoutRef.snapshot = null;
-  pendingTopLevelLayoutRef.hasQueuedSend = false;
-}
-
-export function debounced_route_set_top_level_section_layout() {
+export const debounced_route_set_top_level_section_layout = _.debounce(() => {
   const shareSession = useShareSession.getState();
   if (
     shareSession.isShareMode &&
@@ -1315,36 +964,14 @@ export function debounced_route_set_top_level_section_layout() {
   ) {
     return;
   }
-  const projectState = useProjectState.getState();
-  const existingLayouts = getActiveViewModeTopLevelSections(projectState);
-  const topLevelSections = createTopLevelSectionLayoutDict(
-    projectState.sections,
-    useNodeInternals.getState().x,
-    existingLayouts,
-  );
-  if (pendingTopLevelLayoutRef.opId) {
-    const pendingOps = usePendingOperations.getState().pending;
-    const stillPending = pendingOps.some(
-      (opInfo) => opInfo.opId === pendingTopLevelLayoutRef.opId,
-    );
-    if (!stillPending) {
-      pendingTopLevelLayoutRef.opId = null;
-    }
-  }
-  pendingTopLevelLayoutRef.snapshot = topLevelSections;
-  pendingTopLevelLayoutRef.hasQueuedSend = true;
-  useProjectState.setState((state) => {
-    state.projectConfig.topLevelSections = topLevelSections;
-    const { activeViewModeId, viewModes } = state.projectConfig;
-    if (activeViewModeId && viewModes[activeViewModeId]) {
-      viewModes[activeViewModeId].topLevelSections = topLevelSections;
-    }
+  route_set_top_level_section_layout({
+    projectConfigId: getCurrProjectConfigId(),
+    topLevelSections: createTopLevelSectionLayoutDict(
+      useProjectState.getState().sections,
+      useNodeInternals.getState().x,
+    ),
   });
-  if (!pendingTopLevelLayoutRef.opId) {
-    pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
-  }
-  sendTopLevelLayoutToBackend();
-}
+}, 500);
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;

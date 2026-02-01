@@ -1,9 +1,8 @@
 # External Agents
 
 Setta supports external agent adapters for Claude Code, Codex, and OpenCode.
-Chat attachments are forwarded as inline text blocks or expiring download URLs
-depending on the adapter. Agents that consume URLs must be able to reach the
-Setta backend to fetch them.
+Chat attachments are forwarded to external agents using expiring download URLs, so the
+agent process must be able to reach the Setta backend to fetch them.
 
 ## Claude Code (SDK)
 
@@ -19,8 +18,8 @@ Key points:
   passes it via the `mcpConfig` input
 - Approvals: handled via SDK permission callbacks; AskUserQuestion responses are
   sent back through the SDK
-- Attachments: provided via `attachmentText` (text files inlined, non-text files
-  summarized with metadata placeholders)
+- Attachments: appended as text blocks; text files are inlined, non-text files
+  (including images) are summarized with metadata placeholders
 
 ## Codex (app-server)
 
@@ -35,9 +34,8 @@ Key points:
 - Threading: `thread/start` or `thread/resume`, then `turn/start`
 - Approvals: server-initiated JSON-RPC requests (`item/*/requestApproval`)
 - Config output: `setta_files/external_agent_settings/codex/<id>/config.toml`
-- Attachments: `attachmentTextNoImages` is appended as extra text input, and
-  image attachments are passed as `image` inputs using URLs from
-  `attachmentUrls`
+- Attachments: text/binary files are appended as extra text input; image
+  attachments are passed as `image` inputs using expiring URLs
 
 ## OpenCode (SDK)
 
@@ -54,4 +52,3 @@ Key points:
   OpenCode permission rules
 - Tool naming: MCP tools are surfaced as `<serverId>_<toolName>`
 - Attachments: sent as `file` parts with `mime`, `url`, and optional filename
-  (from `attachmentUrls`)

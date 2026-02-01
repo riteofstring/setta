@@ -421,7 +421,7 @@ test("right resize handle mousedown does not expand auto height with overflow", 
     await sectionNode.hover();
 
     const scrollContainer = sectionNode.locator(
-      "div.section-row-pin-main.overflow-y-auto",
+      "div.section-args-nested.overflow-y-scroll",
     );
     await expect(scrollContainer).toHaveCount(1);
 
@@ -536,7 +536,7 @@ test("bottom resize handle mousedown does not expand auto height with overflow",
     await sectionNode.hover();
 
     const scrollContainer = sectionNode.locator(
-      "div.section-row-pin-main.overflow-y-auto",
+      "div.section-args-nested.overflow-y-scroll",
     );
     await expect(scrollContainer).toHaveCount(1);
 
@@ -651,7 +651,7 @@ test("bottom resize handle mousedown does not start resize event for auto height
     await sectionNode.hover();
 
     const scrollContainer = sectionNode.locator(
-      "div.section-row-pin-main.overflow-y-auto",
+      "div.section-args-nested.overflow-y-scroll",
     );
     await expect(scrollContainer).toHaveCount(1);
 
