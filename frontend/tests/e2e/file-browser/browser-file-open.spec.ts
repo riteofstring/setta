@@ -115,6 +115,38 @@ async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
   return value ?? "";
 }
 
+async function setBrowserPath(
+  page: Page,
+  sectionNode: ReturnType<Page["locator"]>,
+  sectionId: string,
+  targetPath: string,
+): Promise<string> {
+  const pathInputId = `CodeMirror-${sectionId}-browser-path`;
+  const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
+  await expect(pathInput).toBeVisible();
+  const currentValue = await readCodeMirrorValue(page, pathInputId);
+  const normalizedCurrent = normalizePathForComparison(currentValue);
+  const normalizedTarget = normalizePathForComparison(targetPath);
+  const nextValue =
+    normalizedCurrent === normalizedTarget &&
+    !targetPath.endsWith(path.sep)
+      ? `${targetPath}${path.sep}`
+      : targetPath;
+
+  await pathInput.click();
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.type(nextValue);
+  await page.keyboard.press("Enter");
+
+  await expect
+    .poll(async () =>
+      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+    )
+    .toContain(normalizedTarget);
+
+  return pathInputId;
+}
+
 async function waitForTextSection(
   page: Page,
   projectConfigName: string,
@@ -190,14 +222,7 @@ test("browser opens markdown and text files in text sections", async ({
       .locator('button[aria-label="Carousel view"]')
       .click();
 
-    const pathInput = sectionNode.locator(
-      `[id="CodeMirror-${sectionId}-browser-path"]`,
-    );
-    await expect(pathInput).toBeVisible();
-    await pathInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(workspaceRoot);
-    await page.keyboard.press("Enter");
+    await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
     const thumbnailRow = sectionNode
       .locator('[class*="overflow-x-scroll"]')
@@ -290,13 +315,12 @@ test("browser history buttons navigate folders", async ({ page }) => {
       .locator('button[aria-label="Carousel view"]')
       .click();
 
-    const pathInputId = `CodeMirror-${sectionId}-browser-path`;
-    const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
-    await expect(pathInput).toBeVisible();
-    await pathInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(workspaceRoot);
-    await page.keyboard.press("Enter");
+    const pathInputId = await setBrowserPath(
+      page,
+      sectionNode,
+      sectionId,
+      workspaceRoot,
+    );
 
     const thumbnailRow = sectionNode
       .locator('[class*="overflow-x-scroll"]')
