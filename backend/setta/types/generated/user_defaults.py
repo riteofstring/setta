@@ -56,6 +56,7 @@ class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid")
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
+    attachedTerminalSectionId: ID | None = None
 
 
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

@@ -1,10 +1,15 @@
 import { addNodes, deleteNodes, moveNodes } from "state/actions/nodeInternals";
-import { useNodeInternals, ZustandProjectState } from "state/definitions";
+import {
+  useNodeInternals,
+  useProjectState,
+  ZustandProjectState,
+} from "state/definitions";
 import { route_move_sections } from "utils/generatedEndpoints";
-import { Position } from "utils/generatedTypes";
+import { Position, SectionTypeEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setSectionChildren,
 } from "../sectionInfos";
@@ -29,23 +34,29 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
+  const { sectionIds: resolvedSectionIds, positionsById: resolvedPositions } =
+    resolveMoveSectionsWithAttachedTerminals({
+      sectionIds,
+      positionsById,
+      state: useProjectState.getState(),
+    });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
-        sectionIds,
+        sectionIds: resolvedSectionIds,
         newParentId,
         newIndex,
-        positionsById,
+        positionsById: resolvedPositions,
         state,
       });
     },
     send: (frontendOpId) =>
       route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
-        sectionIds,
+        sectionIds: resolvedSectionIds,
         newParentId,
         newIndex,
-        positionsById,
+        positionsById: resolvedPositions,
         frontendOpId,
       }),
   });
@@ -114,8 +125,43 @@ function moveSectionsToPane({
   });
   let maxZIndex = getMaxZIndex();
   const existingMoves: Array<{ id: string; position: Position }> = [];
+  const terminalMoves: Array<{ id: string; position: Position }> = [];
+  const movedTerminalIds = new Set<string>();
   for (const sectionId of sectionIds) {
     const position = positionsById[sectionId];
+    const previousLayout = state.projectConfig.topLevelSections[sectionId];
+    const delta = previousLayout
+      ? { x: position.x - previousLayout.x, y: position.y - previousLayout.y }
+      : null;
+    const attachedTerminalId = resolveAttachedTerminalId(state, sectionId);
+    if (
+      delta &&
+      attachedTerminalId &&
+      !movedTerminalIds.has(attachedTerminalId) &&
+      !sectionIds.includes(attachedTerminalId)
+    ) {
+      const terminalLayout =
+        state.projectConfig.topLevelSections[attachedTerminalId];
+      if (terminalLayout) {
+        const terminalPosition = {
+          x: terminalLayout.x + delta.x,
+          y: terminalLayout.y + delta.y,
+        };
+        updateTopLevelLayout(
+          state,
+          attachedTerminalId,
+          terminalPosition,
+          getNodeZIndex(attachedTerminalId),
+        );
+        if (hasNode(attachedTerminalId)) {
+          terminalMoves.push({
+            id: attachedTerminalId,
+            position: terminalPosition,
+          });
+        }
+        movedTerminalIds.add(attachedTerminalId);
+      }
+    }
     if (hasNode(sectionId)) {
       existingMoves.push({ id: sectionId, position });
       updateTopLevelLayout(
@@ -139,10 +185,81 @@ function moveSectionsToPane({
     ]);
     updateTopLevelLayout(state, sectionId, position, maxZIndex);
   }
-  moveNodes(existingMoves);
+  moveNodes([...existingMoves, ...terminalMoves]);
   for (const sectionId of sectionIds) {
     state.parentSectionMap[sectionId] = null;
   }
+}
+
+function resolveAttachedTerminalId(
+  state: ZustandProjectState,
+  sectionId: string,
+): string | null {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  if (impl.type !== SectionTypeEnum.Code) {
+    return null;
+  }
+  if (!impl.attachedTerminalSectionId) {
+    return null;
+  }
+  const terminalId = impl.attachedTerminalSectionId;
+  if (!(terminalId in state.sections)) {
+    return null;
+  }
+  const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
+  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+    return null;
+  }
+  return terminalId;
+}
+
+function resolveMoveSectionsWithAttachedTerminals({
+  sectionIds,
+  positionsById,
+  state,
+}: {
+  sectionIds: string[];
+  positionsById: Record<string, Position> | null;
+  state: ZustandProjectState;
+}): {
+  sectionIds: string[];
+  positionsById: Record<string, Position> | null;
+} {
+  if (!positionsById) {
+    return { sectionIds, positionsById };
+  }
+  const nextSectionIds = [...sectionIds];
+  const nextPositionsById = { ...positionsById };
+  const includedIds = new Set(nextSectionIds);
+
+  for (const sectionId of sectionIds) {
+    const attachedTerminalId = resolveAttachedTerminalId(state, sectionId);
+    if (!attachedTerminalId || includedIds.has(attachedTerminalId)) {
+      continue;
+    }
+    const currentLayout = state.projectConfig.topLevelSections[sectionId];
+    const nextLayout = positionsById[sectionId];
+    const terminalLayout =
+      state.projectConfig.topLevelSections[attachedTerminalId];
+    if (!currentLayout || !nextLayout || !terminalLayout) {
+      continue;
+    }
+    const delta = {
+      x: nextLayout.x - currentLayout.x,
+      y: nextLayout.y - currentLayout.y,
+    };
+    nextSectionIds.push(attachedTerminalId);
+    nextPositionsById[attachedTerminalId] = {
+      x: terminalLayout.x + delta.x,
+      y: terminalLayout.y + delta.y,
+    };
+    includedIds.add(attachedTerminalId);
+  }
+
+  return {
+    sectionIds: nextSectionIds,
+    positionsById: nextPositionsById,
+  };
 }
 
 function removeSectionsFromParents({

@@ -146,6 +146,7 @@ from setta.project_state.project_manager_types import (
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
+    SetCodeSectionAttachedTerminalRequest,
     SetCodeSectionDiagnosticCodeSuppressionRequest,
     SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
@@ -227,6 +228,7 @@ from setta.types.generated.unions import (
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
+    set_curr_effective_section_impl_value,
 )
 from setta.types.helpers_lvl2 import (
     add_kwarg,
@@ -353,6 +355,7 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
     SectionType,
+    TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -1760,6 +1763,32 @@ class BaseProjectManager(ABC):
         await self._apply_code_section_diagnostics_ignore_state(
             x.projectConfigId, x.sectionId
         )
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId", "terminalSectionId"]}
+        )
+    )
+    async def set_code_section_attached_terminal(
+        self, x: SetCodeSectionAttachedTerminalRequest
+    ):
+        """Attach or detach a terminal section for a code section."""
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        get_curr_effective_section_impl_with_type_guard(
+            project_state, x.sectionId, BaseCodeSectionImpl
+        )
+        if x.terminalSectionId is not None:
+            get_curr_effective_section_impl_with_type_guard(
+                project_state, x.terminalSectionId, TerminalSectionImpl
+            )
+        set_curr_effective_section_impl_value(
+            project_state,
+            x.sectionId,
+            {"attachedTerminalSectionId": x.terminalSectionId},
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
