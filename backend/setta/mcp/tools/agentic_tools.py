@@ -49,5 +49,8 @@ async def run_agent_profile(
             runner = ctx.fastmcp.state.agent_runner
             if runner.disabled:
                 raise RuntimeError("Agent runner is not available")
-            return await runner.run_sub_agent(profile, inputs)
+            normalized_inputs = dict(inputs or {})
+            if "chatId" not in normalized_inputs:
+                normalized_inputs["chatId"] = ctx.request_id
+            return await runner.run_sub_agent(profile, normalized_inputs)
     raise KeyError(f"Agent profile {profileId} not found")

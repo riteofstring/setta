@@ -226,6 +226,7 @@ describe("sub-agent chat section surfacing", () => {
     expect(createArgs.implOverrides.messages[2].tool_calls[0].id).toBe(
       toolCallId,
     );
+    expect(createArgs.implOverrides.chatId).toBe(toolCallId);
 
     expect(route_set_section_name).toHaveBeenCalledWith({
       projectConfigId,

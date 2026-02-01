@@ -1061,6 +1061,16 @@ class _ClaudeSdkEventParser:
                     tool_use_id, _ToolResultBuffer(tool_use_id=tool_use_id)
                 )
                 buffer.text += text
+                events.append(
+                    ExternalAgentStreamEvent(
+                        raw={
+                            "type": "tool_result_delta",
+                            "toolUseId": tool_use_id,
+                            "text": text,
+                            "isError": buffer.is_error,
+                        }
+                    )
+                )
         return events or [ExternalAgentStreamEvent(raw=raw_payload)]
 
     def _handle_content_block_stop(

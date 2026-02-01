@@ -104,6 +104,10 @@ const SUB_AGENT_TOOL_NAMES = new Set([
 ]);
 const subAgentSectionsByCallId = new Map<string, SubAgentSectionInfo>();
 const pendingSubAgentResultsByCallId = new Map<string, ToolChatMessage>();
+const pendingSubAgentChunksByCallId = new Map<
+  string,
+  Array<LLMStreamingResponse["chunk"]>
+>();
 
 function buildSubAgentKey(projectConfigId: string, toolCallId: string): string {
   return `${projectConfigId}:${toolCallId}`;
@@ -287,6 +291,10 @@ function buildSubAgentMessages(
   return messages;
 }
 
+function getSubAgentStreamMessageId(toolCallId: string): string {
+  return `subagent-result:${toolCallId}`;
+}
+
 function buildSubAgentResultMessage(
   toolResult: ToolChatMessage,
 ): AssistantChatMessage | null {
@@ -395,6 +403,7 @@ async function createSubAgentSection({
       managed: parentImpl.managed,
       engineConfigId: parentImpl.engineConfigId,
       agentProfileId: agentProfileId ?? parentImpl.agentProfileId,
+      chatId: toolCall.id,
       thinking: parentImpl.thinking,
       messages,
       inputText: "",
@@ -416,6 +425,7 @@ async function createSubAgentSection({
     const failedKey = buildSubAgentKey(projectConfigId, toolCall.id);
     subAgentSectionsByCallId.delete(failedKey);
     pendingSubAgentResultsByCallId.delete(failedKey);
+    pendingSubAgentChunksByCallId.delete(failedKey);
     return;
   }
   const childSectionId = response.data.sectionId;
@@ -473,6 +483,7 @@ async function createSubAgentSection({
       createdAtMs: Date.now(),
     });
   }
+  flushPendingSubAgentChunks(key, childSectionId, projectConfigId);
   const pendingResult = pendingSubAgentResultsByCallId.get(key);
   if (pendingResult) {
     console.log(
@@ -486,6 +497,29 @@ async function createSubAgentSection({
     pendingSubAgentResultsByCallId.delete(key);
     appendSubAgentToolResult(childSectionId, pendingResult);
     subAgentSectionsByCallId.delete(key);
+  }
+}
+
+function flushPendingSubAgentChunks(
+  key: string,
+  sectionId: string,
+  projectConfigId: string,
+) {
+  const pendingChunks = pendingSubAgentChunksByCallId.get(key);
+  if (!pendingChunks || pendingChunks.length === 0) {
+    return;
+  }
+  console.log(
+    "[createSubAgentSection] pending-stream-chunks",
+    JSON.stringify({
+      projectConfigId,
+      sectionId,
+      chunkCount: pendingChunks.length,
+    }),
+  );
+  pendingSubAgentChunksByCallId.delete(key);
+  for (const chunk of pendingChunks) {
+    applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
   }
 }
 
@@ -515,6 +549,21 @@ function appendSubAgentToolResult(
     console.log(
       "[appendSubAgentToolResult] missing-impl",
       JSON.stringify({ sectionId, toolCallId: toolResult.tool_call_id }),
+    );
+    return;
+  }
+  const streamMessageId = getSubAgentStreamMessageId(toolResult.tool_call_id);
+  const hasStreamMessage = impl.messages.some(
+    (message) => message.id === streamMessageId,
+  );
+  if (hasStreamMessage) {
+    console.log(
+      "[appendSubAgentToolResult] skip-streamed",
+      JSON.stringify({
+        sectionId,
+        toolCallId: toolResult.tool_call_id,
+        streamMessageId,
+      }),
     );
     return;
   }
@@ -685,6 +734,7 @@ function handleSubAgentToolCalls(
       );
       subAgentSectionsByCallId.delete(key);
       pendingSubAgentResultsByCallId.delete(key);
+      pendingSubAgentChunksByCallId.delete(key);
     });
   }
 }
@@ -727,6 +777,28 @@ function handleSubAgentToolResult(toolResult: ToolChatMessage): void {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveSectionIdForChatId(chatId: string): string | null {
+  const state = useProjectState.getState();
+  for (const sectionId of Object.keys(state.sections)) {
+    let impl;
+    try {
+      impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+    } catch {
+      continue;
+    }
+    const candidate =
+      typeof impl.chatId === "string" && impl.chatId.trim() ? impl.chatId : null;
+    if (candidate === chatId) {
+      return sectionId;
+    }
+  }
+  return null;
 }
 
 export async function loadLLMConfig() {
@@ -1554,9 +1626,59 @@ export async function findLatestRunningExternalRunId(
   return runs[0]?.id ?? null;
 }
 
+function applyStreamingChunkToSection(
+  sectionId: string,
+  chunk: LLMStreamingResponse["chunk"],
+  projectConfigId: string,
+) {
+  const nextState = applyChatSectionStreamDelta(sectionId, chunk);
+  if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
+    applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+    return;
+  }
+  if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+    persistChatSectionState({
+      sectionId,
+      nextState,
+      reason: chunk.type,
+    });
+    handleSubAgentToolResult(chunk.result);
+    clearToolArgumentPreviewByToolCallId(
+      projectConfigId,
+      chunk.result.tool_call_id,
+    );
+    return;
+  }
+  if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+    persistChatSectionState({
+      sectionId,
+      nextState,
+      reason: chunk.type,
+    });
+    handleSubAgentToolCalls(sectionId, chunk.message);
+    const toolCallIds =
+      chunk.message.role === ChatRoleEnum.assistant
+        ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
+        : [];
+    clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
+    return;
+  }
+}
+
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
-  const sectionId = msg.sectionId;
+  let sectionId = msg.sectionId;
+  const projectConfigId = getCurrProjectConfigId();
+  if (!sectionId && chatId) {
+    const resolvedSectionId = resolveSectionIdForChatId(chatId);
+    if (resolvedSectionId) {
+      sectionId = resolvedSectionId;
+      console.log(
+        "[receiveLLMResponseChunk] resolved-section",
+        JSON.stringify({ chatId, sectionId }),
+      );
+    }
+  }
   console.log(
     "[receiveLLMResponseChunk] incoming",
     JSON.stringify({ chatId, sectionId, chunk }),
@@ -1568,46 +1690,28 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     );
     return;
   }
+  if (!sectionId && chatId) {
+    const key = buildSubAgentKey(projectConfigId, chatId);
+    const info = subAgentSectionsByCallId.get(key);
+    if (info?.sectionId) {
+      sectionId = info.sectionId;
+      console.log(
+        "[receiveLLMResponseChunk] resolved-subagent-section",
+        JSON.stringify({ chatId, sectionId }),
+      );
+    } else if (info) {
+      const pendingChunks = pendingSubAgentChunksByCallId.get(key) ?? [];
+      pendingChunks.push(chunk);
+      pendingSubAgentChunksByCallId.set(key, pendingChunks);
+      console.log(
+        "[receiveLLMResponseChunk] queued-subagent-chunk",
+        JSON.stringify({ chatId, chunkType: chunk.type }),
+      );
+      return;
+    }
+  }
   if (sectionId) {
-    const nextState = applyChatSectionStreamDelta(sectionId, chunk);
-    if (
-      chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED ||
-      chunk.type === StreamingEventTypeEnum.TOOL_RESULT
-    ) {
-      persistChatSectionState({
-        sectionId,
-        nextState,
-        reason: chunk.type,
-      });
-    }
-    if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
-      handleSubAgentToolResult(chunk.result);
-    }
-    if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
-      handleSubAgentToolCalls(sectionId, chunk.message);
-    }
-    if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
-      applyToolArgumentPreviewDeltaToPreviewStore(chunk);
-      return;
-    }
-    if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
-      clearToolArgumentPreviewByToolCallId(
-        getCurrProjectConfigId(),
-        chunk.result.tool_call_id,
-      );
-      return;
-    }
-    if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
-      const toolCallIds =
-        chunk.message.role === ChatRoleEnum.assistant
-          ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
-          : [];
-      clearToolArgumentPreviewByToolCallIds(
-        getCurrProjectConfigId(),
-        toolCallIds,
-      );
-      return;
-    }
+    applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
     return;
   }
   if (!chatId) {

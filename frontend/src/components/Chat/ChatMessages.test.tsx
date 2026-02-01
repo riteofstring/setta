@@ -134,6 +134,7 @@ describe("ChatMessageList sub-agent rendering", () => {
 
     expect(markup).toContain("Sub-agent");
     expect(markup).toContain("Summarize logs");
+    expect(markup).not.toContain("Starting task");
   });
 
   it("adds nodrag to chat bubbles for text selection", () => {

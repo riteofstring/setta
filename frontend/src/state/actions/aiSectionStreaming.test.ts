@@ -1,4 +1,7 @@
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplOfType,
+  processProjectStateUpdateFromBackend,
+} from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -6,6 +9,7 @@ import {
   StreamingEventTypeEnum,
   createChatSectionImpl,
   createCore,
+  createMessageTextContent,
   createProjectConfig,
   createUserDefaultChatSectionImpl,
   createVariant,
@@ -119,6 +123,42 @@ describe("section chat streaming updates", () => {
     expect(impl.waitingForResponse).toBe(false);
   });
 
+  it("routes streaming to section by chatId when sectionId is missing", () => {
+    const assistantMessage = {
+      id: "msg-1b",
+      role: ChatRoleEnum.assistant,
+      content: [{ type: "text", text: "Hello via chatId" }],
+      attachments: [],
+      tool_calls: null,
+    };
+
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId: null,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        message: assistantMessage,
+      },
+    });
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(
+      impl.messages.some((message) => {
+        if (message.role !== ChatRoleEnum.assistant) {
+          return false;
+        }
+        return message.content?.some(
+          (content) =>
+            content.type === "text" && content.text === "Hello via chatId",
+        );
+      }),
+    ).toBe(true);
+  });
+
   it("persists section state on finalized messages", async () => {
     const route_set_chat_section_state =
       (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
@@ -187,5 +227,93 @@ describe("section chat streaming updates", () => {
     expect(payload.sectionId).toBe(sectionId);
     expect(payload.projectConfigId).toBe(projectConfigId);
     expect(payload.state.messages).toHaveLength(1);
+  });
+
+  it("keeps streaming content when backend updates arrive mid-stream", () => {
+    const userMessage = {
+      id: "user-1",
+      role: ChatRoleEnum.user,
+      content: [createMessageTextContent({ text: "Hi" })],
+      attachments: [],
+    };
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (impl && impl.type === SectionTypeEnum.Chat) {
+        impl.messages = [userMessage];
+        impl.waitingForResponse = true;
+      }
+    });
+
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: {
+          id: "msg-stream",
+          role: ChatRoleEnum.assistant,
+          content: [],
+          attachments: [],
+          tool_calls: null,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.DELTA,
+        message_id: "msg-stream",
+        content: [{ type: "text_delta", index: 0, text: "Streaming" }],
+      },
+    });
+
+    let impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(
+      impl.messages.some((message) => {
+        if (message.role !== ChatRoleEnum.assistant) {
+          return false;
+        }
+        return message.content?.some(
+          (content) =>
+            content.type === "text" && content.text.includes("Streaming"),
+        );
+      }),
+    ).toBe(true);
+
+    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
+    const backendImpl = backendState.sectionImpls[implId];
+    if (backendImpl && backendImpl.type === SectionTypeEnum.Chat) {
+      backendImpl.messages = [userMessage];
+      backendImpl.waitingForResponse = true;
+      backendImpl.toolCallArguments = {};
+    }
+
+    processProjectStateUpdateFromBackend({
+      projectState: backendState,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(
+      impl.messages.some((message) => {
+        if (message.role !== ChatRoleEnum.assistant) {
+          return false;
+        }
+        return message.content?.some(
+          (content) =>
+            content.type === "text" && content.text.includes("Streaming"),
+        );
+      }),
+    ).toBe(true);
   });
 });

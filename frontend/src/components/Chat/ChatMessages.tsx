@@ -1256,16 +1256,18 @@ const ChatMessage = memo(function ChatMessage({
       ? message.attachments
       : [];
   const isAssistant = message.role === ChatRoleEnum.assistant;
-  const assistantContent = isAssistant
-    ? message.content
-    : EMPTY_ASSISTANT_CONTENT;
+  const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
+  const hideAssistantContent = isAssistant && toolCalls.length > 0;
+  const assistantContent =
+    isAssistant && !hideAssistantContent
+      ? message.content
+      : EMPTY_ASSISTANT_CONTENT;
   const { activityKey, lastTextIndex } = useMemo(
     () => getStreamActivitySummary(assistantContent),
     [assistantContent],
   );
   const spinnerDelayMs =
     assistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
-  const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
   const showAssistantSpinner = useIdleStreamSpinner(
     isAssistant && isStreaming && toolCalls.length === 0,
     activityKey,
@@ -1281,7 +1283,7 @@ const ChatMessage = memo(function ChatMessage({
           attachmentUrlMap={attachmentUrlMap}
           requestAttachmentUrls={requestAttachmentUrls}
         />
-        {message.content.map((item, idx) => (
+        {assistantContent.map((item, idx) => (
           <StreamItem
             key={idx}
             item={item}
