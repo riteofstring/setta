@@ -161,7 +161,7 @@ class DBE:
         return ProjectStateBackend.model_validate(self.read_json(self.project))
 
     def write_project(self, project: ProjectStateBackend):
-        self.write_json(self.project, project.model_dump())
+        self.write_json(self.project, project.model_dump(mode="json"))
 
     def read_project_required(self) -> ProjectStateBackend:
         if not self.project.exists():
@@ -227,7 +227,7 @@ class DBE:
         )
 
     def write_settings_project(self, settings_project: ProjectStateSingleConfig):
-        self.write_json(self.settings_project, settings_project.model_dump())
+        self.write_json(self.settings_project, settings_project.model_dump(mode="json"))
 
     def read_llm_config(self) -> dict[str, Any]:
         return self.read_json(self.llm_config)

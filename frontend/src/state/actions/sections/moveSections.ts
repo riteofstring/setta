@@ -29,26 +29,74 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
-  dispatchOptimisticProjectStateUpdate({
+  const stableSectionIds = [...sectionIds];
+  const stablePositionsById = positionsById
+    ? Object.fromEntries(
+        Object.entries(positionsById).map(([id, position]) => [
+          id,
+          { x: position.x, y: position.y },
+        ]),
+      )
+    : null;
+  const stableNewParentId = newParentId;
+  const stableNewIndex = newIndex;
+  console.log(
+    "[moveSectionsWithBackend] start",
+    JSON.stringify({
+      sectionIds: stableSectionIds,
+      newParentId: stableNewParentId,
+      newIndex: stableNewIndex,
+      positionsCount: stablePositionsById
+        ? Object.keys(stablePositionsById).length
+        : 0,
+      movingToPane: stableNewParentId === null,
+    }),
+  );
+  const opId = dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
-        sectionIds,
-        newParentId,
-        newIndex,
-        positionsById,
+        sectionIds: stableSectionIds,
+        newParentId: stableNewParentId,
+        newIndex: stableNewIndex,
+        positionsById: stablePositionsById,
         state,
       });
     },
-    send: (frontendOpId) =>
-      route_move_sections({
+    send: (frontendOpId) => {
+      console.log(
+        "[moveSectionsWithBackend] send",
+        JSON.stringify({
+          frontendOpId,
+          sectionIds: stableSectionIds,
+          newParentId: stableNewParentId,
+          newIndex: stableNewIndex,
+          positionsCount: stablePositionsById
+            ? Object.keys(stablePositionsById).length
+            : 0,
+        }),
+      );
+      return route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
-        sectionIds,
-        newParentId,
-        newIndex,
-        positionsById,
+        sectionIds: stableSectionIds,
+        newParentId: stableNewParentId,
+        newIndex: stableNewIndex,
+        positionsById: stablePositionsById,
         frontendOpId,
-      }),
+      });
+    },
   });
+  console.log(
+    "[moveSectionsWithBackend] pending",
+    JSON.stringify({
+      frontendOpId: opId,
+      sectionIds: stableSectionIds,
+      newParentId: stableNewParentId,
+      newIndex: stableNewIndex,
+      positionsCount: stablePositionsById
+        ? Object.keys(stablePositionsById).length
+        : 0,
+    }),
+  );
 }
 
 function moveSectionsInState({
