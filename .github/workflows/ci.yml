@@ -100,6 +100,14 @@ jobs:
 
       - uses: astral-sh/setup-uv@v3
 
+      - name: Cache uv downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
       - name: Install Python deps
         run: uv sync --all-extras
 
@@ -121,11 +129,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: scripts/node_version.txt
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
+
+      - name: Cache uv downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-uv-
 
       - name: Install frontend deps
         run: pnpm -C frontend install --frozen-lockfile
@@ -156,17 +174,35 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: scripts/node_version.txt
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
+      - name: Cache uv downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
       - name: Install frontend deps
         run: pnpm -C frontend install --frozen-lockfile
 
       - name: Install Python deps
         run: uv sync --all-extras
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/pnpm-lock.yaml') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
       - name: Install Playwright browsers
         run: pnpm -C frontend exec playwright install --with-deps
