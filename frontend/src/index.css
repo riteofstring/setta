@@ -125,30 +125,20 @@
   box-shadow: 0 12px 30px -20px rgb(2 6 23 / 0.7);
 }
 
-.setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnostic.cm-diagnosticError,
-.setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnostic.cm-diagnostic-error {
+.setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnosticError,
+.setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnostic-error {
   border-left: 2px solid rgb(248 113 113);
 }
 
-.setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnostic.cm-diagnosticWarning,
+.setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnosticWarning,
 .setta-codemirror-tooltips
   .cm-tooltip-lint
   .cm-diagnostic.cm-diagnostic-warning {
   border-left: 2px solid rgb(251 191 36);
 }
 
-.setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnostic.cm-diagnosticInfo,
-.setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnostic.cm-diagnostic-info {
+.setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnosticInfo,
+.setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic.cm-diagnostic-info {
   border-left: 2px solid rgb(56 189 248);
 }
 
@@ -167,10 +157,7 @@
   color: rgb(30 41 59);
 }
 
-.dark
-  .setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnostic::before {
+.dark .setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnostic::before {
   background: rgb(51 65 85);
   color: rgb(226 232 240);
 }
@@ -223,10 +210,7 @@
   color: rgb(100 116 139);
 }
 
-.dark
-  .setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnosticSource {
+.dark .setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnosticSource {
   color: rgb(148 163 184);
 }
 
@@ -246,10 +230,7 @@
   color: rgb(71 85 105);
 }
 
-.dark
-  .setta-codemirror-tooltips
-  .cm-tooltip-lint
-  .cm-diagnosticAction {
+.dark .setta-codemirror-tooltips .cm-tooltip-lint .cm-diagnosticAction {
   border-color: rgb(51 65 85 / 0.8);
   background: rgb(15 23 42 / 0.85);
   color: rgb(226 232 240);

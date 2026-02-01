@@ -721,6 +721,12 @@ export async function route_get_latest_project_state(
   return await post("/getLatestProjectState", x);
 }
 
+export async function route_get_latest_lsp_diagnostics(
+  x: gt.GetLatestLspDiagnosticsRequestInput,
+): Promise<ResponseDataAndStatus<gt.SettaLspDiagnosticsPayload>> {
+  return await post("/getLatestLspDiagnostics", x);
+}
+
 export async function route_force_refresh_listener(
   x: gt.ForceRefreshProjectRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

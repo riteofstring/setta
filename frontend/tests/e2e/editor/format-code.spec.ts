@@ -257,6 +257,66 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
   }
 });
 
+test("lsp diagnostics persist after hard refresh", async ({ page }) => {
+  test.setTimeout(60000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionName = "LSP Code";
+    const sectionId = await createCodeSection(page, projectConfigId);
+    await postBackend(page, "/setSectionName", {
+      projectConfigId,
+      sectionId,
+      name: sectionName,
+    });
+    await postBackend(page, "/setCode", {
+      projectConfigId,
+      sectionId,
+      code: "print(unknown_var)\\n",
+    });
+
+    const section = findSectionByName(page, sectionName).first();
+    await expect(section).toBeVisible();
+    const codeArea = section
+      .locator("article.section-full-no-title")
+      .first();
+    await expect(codeArea).toBeVisible();
+    await codeArea.click();
+
+    const issuesButton = section
+      .locator("header.section-title")
+      .getByRole("button", { name: /Issues/ })
+      .first();
+    await expect.poll(async () => (await issuesButton.count()) > 0).toBe(true);
+    await expect(issuesButton).toBeVisible();
+    await issuesButton.click();
+    await expect(page.getByText("Problems").first()).toBeVisible();
+    await expect(page.getByText("is not defined").first()).toBeVisible();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+
+    const sectionAfter = findSectionByName(page, sectionName).first();
+    await expect(sectionAfter).toBeVisible();
+    const issuesButtonAfter = sectionAfter
+      .locator("header.section-title")
+      .getByRole("button", { name: /Issues/ })
+      .first();
+    await expect
+      .poll(async () => (await issuesButtonAfter.count()) > 0)
+      .toBe(true);
+    await expect(issuesButtonAfter).toBeVisible();
+    await issuesButtonAfter.click();
+    await expect(page.getByText("Problems").first()).toBeVisible();
+    await expect(page.getByText("is not defined").first()).toBeVisible();
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 async function ensureAppReady(page: Page): Promise<void> {
   await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
   if (await isAppReady(page)) {
