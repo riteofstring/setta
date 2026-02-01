@@ -24,7 +24,6 @@ type UseBrowserColumnWidthArgs = {
   outerRef: RefObject<HTMLDivElement>;
   widthKey: BrowserColumnWidthKey;
   cssVarName: string;
-  getBoundedWidth?: (width: number, containerWidth: number) => number;
 };
 
 export function useBrowserColumnWidth({
@@ -32,7 +31,6 @@ export function useBrowserColumnWidth({
   outerRef,
   widthKey,
   cssVarName,
-  getBoundedWidth,
 }: UseBrowserColumnWidthArgs): MouseEventHandler<HTMLDivElement> {
   const maxNestedDepthRef = useRef(1);
   const widthsRef = useRef<{
@@ -88,7 +86,6 @@ export function useBrowserColumnWidth({
     maxNestedDepthRef,
     applyWidth,
     persistWidth,
-    getBoundedWidth,
   });
 
   useEffect(() => {

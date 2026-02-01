@@ -298,15 +298,6 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
-export const useBrowserSectionFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-  })),
-);
-
 export const useDropzoneFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
@@ -703,12 +694,9 @@ export const useToolArgumentPreview = withProjectState(
   ),
 );
 
-export type ColorModePreference = "dark" | "light" | "auto";
-
 type ZustandLocalStorage = {
   snapToGrid: boolean;
   darkMode: boolean;
-  colorMode: ColorModePreference;
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   overviewVis: boolean;
@@ -730,7 +718,6 @@ export const useLocalStorage = createWithEqualityFn(
     () => ({
       snapToGrid: true,
       darkMode: true,
-      colorMode: "dark",
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       overviewVis: true,
@@ -748,20 +735,6 @@ export const useLocalStorage = createWithEqualityFn(
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
-      merge: (persistedState, currentState) => {
-        const persisted =
-          (persistedState as Partial<ZustandLocalStorage> | null) ?? {};
-        const merged = {
-          ...currentState,
-          ...persisted,
-        };
-
-        if (persisted.colorMode === undefined) {
-          merged.colorMode = merged.darkMode ? "dark" : "light";
-        }
-
-        return merged;
-      },
       storage: getPersistStorage(),
     },
   ),
