@@ -8,6 +8,7 @@ import { useState } from "react";
 import {
   getDisplayedSectionIdToChildren,
   getParamDisplayName,
+  getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
@@ -78,6 +79,7 @@ function getAllVisibleParams() {
   const state = useProjectState.getState();
   const output: ZustandProjectSearch["codeInfo"] = [];
   const sectionIdToChildren = getDisplayedSectionIdToChildren(state);
+  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
 
   function dfs(sectionId: string) {
     if (sectionId) {
@@ -90,7 +92,7 @@ function getAllVisibleParams() {
     }
   }
 
-  for (const t of Object.keys(state.projectConfig.topLevelSections)) {
+  for (const t of topLevelSectionIds) {
     dfs(t);
   }
 

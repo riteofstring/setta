@@ -56,11 +56,17 @@ BaseSectionWithParamsImplUnion = (
 
 BaseCanvasSectionImplUnion = ChartSectionImpl | DrawSectionImpl
 
+BaseParentSectionImplUnion = (
+    ListRootSectionImpl
+    | GroupSectionImpl
+    | CodeSectionImpl
+    | GenPythonCodeSectionImpl
+    | GenPythonMetadataSectionImpl
+)
+
 BaseCodeSectionImplUnion = (
     CodeSectionImpl | GenPythonCodeSectionImpl | GenPythonMetadataSectionImpl
 )
-
-BaseParentSectionImplUnion = ListRootSectionImpl | GroupSectionImpl
 
 BaseDictSectionImplUnion = DictSectionImpl | GlobalVariablesSectionImpl
 
