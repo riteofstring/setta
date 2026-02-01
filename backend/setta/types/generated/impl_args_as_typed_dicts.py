@@ -168,7 +168,6 @@ class ProjectConfigArgs(TypedDict):
     allowJsonSourceKeyEdits: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
-    viewportInitialized: NotRequired[bool]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]

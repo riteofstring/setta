@@ -2,6 +2,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import _ from "lodash";
 import { useRef } from "react";
+import { BiHelpCircle } from "react-icons/bi";
 import { BsCardChecklist } from "react-icons/bs";
 import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
@@ -68,7 +69,7 @@ export function UiEditor() {
       ref={uiEditorRef}
       data-tab-scope="ui-editor"
     >
-      <div className="absolute right-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
+      <div className="absolute right-0 z-[19] flex h-[calc(100%_-_40px)] w-11 flex-col items-center gap-0 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
@@ -99,6 +100,14 @@ export function UiEditor() {
           {...getFloatingBoxHandlers({ content: "Section Variants" })}
           icon={<TbVersions />}
         />
+        <a
+          href="https://docs.setta.dev"
+          target="_blank"
+          className="focus-visible:ring-light-blue-500 absolute bottom-1 left-1/2 flex h-10 w-10 -translate-x-1/2 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
+          rel="noreferrer"
+        >
+          <BiHelpCircle />
+        </a>
       </div>
       <PaneContainer
         paneName={PaneNameEnum.uiEditor}
