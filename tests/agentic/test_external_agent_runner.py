@@ -1882,6 +1882,115 @@ class TestExternalAgentRunnerClaudeCapture:
             assert len(tool_calls) == 1
             assert tool_calls[0].get("id") == "toolu-1"
 
+    async def test_streamed_task_tool_use_persists_name(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            await _apply_claude_payloads(
+                runner,
+                context,
+                run,
+                [
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "message_start",
+                            "message": {"id": "msg-task-1", "content": []},
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_start",
+                            "index": 0,
+                            "content_block": {
+                                "type": "tool_use",
+                                "id": "toolu-task-1",
+                                "name": "Task",
+                                "input": {"task": "Summarize logs"},
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_delta",
+                            "index": 0,
+                            "delta": {
+                                "type": "input_json_delta",
+                                "partial_json": "{\"task\": \"Summarize logs\"}",
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_stop",
+                            "index": 0,
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_start",
+                            "index": 1,
+                            "content_block": {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu-task-1",
+                                "content": [{"type": "text", "text": "ok"}],
+                            },
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {
+                            "type": "content_block_stop",
+                            "index": 1,
+                        },
+                    },
+                    {
+                        "type": "raw_message_stream_event",
+                        "stream_event": {"type": "message_stop"},
+                    },
+                ],
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            assert updated is not None
+            if updated is None:
+                return
+            outputs = updated.outputs
+            assert isinstance(outputs, dict)
+            messages = outputs.get("messages")
+            assert isinstance(messages, list)
+            assistant = next(
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            )
+            tool_calls = assistant.get("tool_calls")
+            assert isinstance(tool_calls, list)
+            assert len(tool_calls) == 1
+            function = tool_calls[0].get("function")
+            assert isinstance(function, dict)
+            assert function.get("name") == "Task"
+            tool_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "tool"
+            ]
+            assert len(tool_messages) == 1
+            assert tool_messages[0].get("tool_name") == "Task"
+
 
 class TestExternalAgentRunnerMcpAuth:
     @contextmanager

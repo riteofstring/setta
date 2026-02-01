@@ -77,8 +77,7 @@ is configurable.
 - Tab / Shift + Tab: indent / unindent selected params when param selection is
   active.
 - Alt + ArrowUp / ArrowDown: move selected params up or down.
-- Escape: clear param selection; if none are selected and focus is inside a
-  section, clear the active section and blur the focused input.
+- Escape: clear param selection and close frozen tooltips.
 
 ## Tooltip inspection
 

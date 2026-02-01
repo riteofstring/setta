@@ -70,6 +70,7 @@ AllImplFields = Literal[
     "overflowMode",
     "paramFilter",
     "passingStyle",
+    "pinnedAreaHeight",
     "pinnedParams",
     "placeholder",
     "positionAndSizeLocked",
