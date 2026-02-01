@@ -14,7 +14,15 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -35,11 +43,7 @@ const variantId = "variant-1";
 const implId = "impl-1";
 const chatId = "chat-1";
 
-function seedChatSection({
-  chatId: initialChatId,
-}: {
-  chatId: string | null;
-}) {
+function seedChatSection({ chatId: initialChatId }: { chatId: string | null }) {
   const sectionCore = createCore({
     id: sectionId,
     name: "Chat",
@@ -112,14 +116,17 @@ describe("section chat streaming updates", () => {
       sectionId,
       SectionTypeEnum.Chat,
     );
-    expect(impl.messages.some((message) => {
-      if (message.role !== ChatRoleEnum.assistant) {
-        return false;
-      }
-      return message.content?.some(
-        (content) => content.type === "text" && content.text === "Hello there",
-      );
-    })).toBe(true);
+    expect(
+      impl.messages.some((message) => {
+        if (message.role !== ChatRoleEnum.assistant) {
+          return false;
+        }
+        return message.content?.some(
+          (content) =>
+            content.type === "text" && content.text === "Hello there",
+        );
+      }),
+    ).toBe(true);
     expect(impl.waitingForResponse).toBe(false);
   });
 
@@ -160,8 +167,9 @@ describe("section chat streaming updates", () => {
   });
 
   it("persists section state on finalized messages", async () => {
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     route_set_chat_section_state.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -193,8 +201,9 @@ describe("section chat streaming updates", () => {
   });
 
   it("persists section state on tool results", async () => {
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     route_set_chat_section_state.mockResolvedValue({
       status: 200,
       hasResponse: true,

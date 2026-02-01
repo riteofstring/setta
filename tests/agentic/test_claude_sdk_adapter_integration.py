@@ -12,6 +12,7 @@ from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
 from setta.agentic.external_adapters.base import ExternalAgentRunHandle
+from setta.agentic.external_agent_defaults import build_default_claude_settings_block
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -182,6 +183,10 @@ def _summarize_streaming_payloads(
     main_tool_call_ids: set[str] = set()
     subagent_tool_call_ids: set[str] = set()
     subagent_stream_chat_ids: set[str] = set()
+    subagent_message_start_chat_ids: set[str] = set()
+    subagent_delta_chat_ids: set[str] = set()
+    subagent_delta_counts: dict[str, int] = {}
+    subagent_delta_text_lengths: dict[str, int] = {}
     main_tool_result_ids: set[str] = set()
     unknown_main_tool_results: list[dict] = []
 
@@ -240,11 +245,38 @@ def _summarize_streaming_payloads(
             suffix = message_id.split("subagent-result:", 1)[1]
             if isinstance(chat_id, str) and chat_id == suffix and chat_id != main_chat_id:
                 subagent_stream_chat_ids.add(chat_id)
+                if chunk_type == "message_start":
+                    subagent_message_start_chat_ids.add(chat_id)
+                if chunk_type == "delta":
+                    subagent_delta_chat_ids.add(chat_id)
+                    subagent_delta_counts[chat_id] = (
+                        subagent_delta_counts.get(chat_id, 0) + 1
+                    )
+                    delta_text_length = 0
+                    content_entries = chunk.get("content")
+                    if isinstance(content_entries, list):
+                        for entry in content_entries:
+                            if not isinstance(entry, dict):
+                                continue
+                            if entry.get("type") != "text_delta":
+                                continue
+                            text = entry.get("text")
+                            if isinstance(text, str):
+                                delta_text_length += len(text)
+                    if delta_text_length:
+                        subagent_delta_text_lengths[chat_id] = (
+                            subagent_delta_text_lengths.get(chat_id, 0)
+                            + delta_text_length
+                        )
 
     return {
         "main_tool_call_ids": main_tool_call_ids,
         "subagent_tool_call_ids": subagent_tool_call_ids,
         "subagent_stream_chat_ids": subagent_stream_chat_ids,
+        "subagent_message_start_chat_ids": subagent_message_start_chat_ids,
+        "subagent_delta_chat_ids": subagent_delta_chat_ids,
+        "subagent_delta_counts": subagent_delta_counts,
+        "subagent_delta_text_lengths": subagent_delta_text_lengths,
         "main_tool_result_ids": main_tool_result_ids,
         "unknown_main_tool_results": unknown_main_tool_results,
     }
@@ -464,6 +496,7 @@ class TestClaudeSdkAdapterIntegration:
                 toolType=ExternalAgentToolType.claude_code,
                 runMode=ExternalAgentRunMode.sdk,
                 approvalPolicy="allow",
+                settingsManagedBlock=build_default_claude_settings_block(),
                 envVarWhitelist=["ANTHROPIC_API_KEY"],
             )
 
@@ -526,7 +559,9 @@ class TestClaudeSdkAdapterIntegration:
                     {
                         "prompt": (
                             "Can you get some sub-agents to do some really simple "
-                            "random tasks? I want to see how they render in this UI."
+                            "random tasks? I want to see how they render in this UI. "
+                            "For each sub-agent, please include a short numbered list "
+                            "of at least 8 items plus a brief summary paragraph."
                         ),
                         "mcpConfig": mcp_config,
                     },
@@ -542,6 +577,7 @@ class TestClaudeSdkAdapterIntegration:
                 ) = await _await_subagent_stream(
                     messages,
                     main_chat_id=str(run.id),
+                    timeout_s=180.0,
                 )
                 payloads = _iter_streaming_payloads(messages)
                 summary = _summarize_streaming_payloads(
@@ -561,9 +597,12 @@ class TestClaudeSdkAdapterIntegration:
                 )
                 if not subagent_tool_call_ids:
                     tail = payloads[-5:] if len(payloads) > 5 else payloads
+                    stored = await self._await_completed_run(dbe, run.id)
+                    events = stored.get("events")
+                    outputs = stored.get("outputs")
                     raise AssertionError(
                         "Expected at least one sub-agent tool call delta in main chat "
-                        f"recent_payloads={tail}"
+                        f"recent_payloads={tail} events={events} outputs={outputs}"
                     )
                 if not subagent_tool_call_ids.intersection(subagent_chat_ids):
                     tail = payloads[-5:] if len(payloads) > 5 else payloads
@@ -591,14 +630,66 @@ class TestClaudeSdkAdapterIntegration:
                     final_summary["subagent_tool_call_ids"]
                     - final_summary["subagent_stream_chat_ids"]
                 )
+                missing_message_starts = (
+                    final_summary["subagent_tool_call_ids"]
+                    - final_summary["subagent_message_start_chat_ids"]
+                )
+                missing_deltas = (
+                    final_summary["subagent_tool_call_ids"]
+                    - final_summary["subagent_delta_chat_ids"]
+                )
                 print(
                     "[subagent-test] missing subagent streams",
                     sorted(missing_subagent_streams),
+                )
+                print(
+                    "[subagent-test] missing subagent message_start",
+                    sorted(missing_message_starts),
+                )
+                print(
+                    "[subagent-test] missing subagent delta",
+                    sorted(missing_deltas),
                 )
                 if missing_subagent_streams:
                     raise AssertionError(
                         "Expected a sub-agent stream for every Task tool call; "
                         f"missing={sorted(missing_subagent_streams)}"
+                    )
+                if missing_message_starts:
+                    raise AssertionError(
+                        "Expected a sub-agent message_start for every Task tool call; "
+                        f"missing={sorted(missing_message_starts)}"
+                    )
+                if missing_deltas:
+                    raise AssertionError(
+                        "Expected a sub-agent delta before completion for every Task "
+                        f"tool call; missing={sorted(missing_deltas)}"
+                    )
+                delta_counts = final_summary["subagent_delta_counts"]
+                delta_text_lengths = final_summary["subagent_delta_text_lengths"]
+                insufficient_deltas = [
+                    tool_call_id
+                    for tool_call_id in final_summary["subagent_tool_call_ids"]
+                    if delta_counts.get(tool_call_id, 0) < 2
+                ]
+                print(
+                    "[subagent-test] delta counts",
+                    {
+                        "counts": {
+                            tool_call_id: delta_counts.get(tool_call_id, 0)
+                            for tool_call_id in final_summary["subagent_tool_call_ids"]
+                        },
+                        "textLengths": {
+                            tool_call_id: delta_text_lengths.get(tool_call_id, 0)
+                            for tool_call_id in final_summary["subagent_tool_call_ids"]
+                        },
+                    },
+                )
+                if insufficient_deltas:
+                    raise AssertionError(
+                        "Expected multiple sub-agent delta chunks for streaming output; "
+                        f"insufficient={sorted(insufficient_deltas)} "
+                        f"counts={delta_counts} text_lengths={delta_text_lengths}"
                     )
                 unknown_results = final_summary["unknown_main_tool_results"]
                 if unknown_results:

@@ -136,7 +136,11 @@ function getTopLevelSectionLayoutSnapshot() {
   if (nodeInternals.size === 0) {
     return { ...projectState.projectConfig.topLevelSections };
   }
-  return createTopLevelSectionLayoutDict(projectState.sections, nodeInternals);
+  return createTopLevelSectionLayoutDict(
+    projectState.sections,
+    nodeInternals,
+    projectState.projectConfig.topLevelSections,
+  );
 }
 
 function getViewportBoundsForPlacement(): ViewportBounds | null {

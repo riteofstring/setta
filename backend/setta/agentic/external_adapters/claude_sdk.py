@@ -997,6 +997,16 @@ class _ClaudeSdkEventParser:
                 text = _extract_tool_result_text(content_block.get("content"))
                 if text:
                     buffer.text += text
+                    raw_delta: dict[str, Any] = {
+                        "type": "tool_result_delta",
+                        "toolUseId": tool_use_id,
+                        "text": text,
+                        "isError": buffer.is_error,
+                    }
+                    if parent_tool_use_id:
+                        raw_delta["parentToolUseId"] = parent_tool_use_id
+                        raw_delta["parentToolCallId"] = parent_tool_use_id
+                    events.append(ExternalAgentStreamEvent(raw=raw_delta))
         return events or [ExternalAgentStreamEvent(raw=raw_payload)]
 
     def _handle_content_block_delta(

@@ -137,7 +137,10 @@ function summarizeChatSections(
   return summaries;
 }
 
-type ChatSectionImpl = Extract<BaseSectionImplUnion, { type: SectionTypeEnum.Chat }>;
+type ChatSectionImpl = Extract<
+  BaseSectionImplUnion,
+  { type: SectionTypeEnum.Chat }
+>;
 
 function mergeStreamingChatSections(
   projectState: ProjectStateSingleConfig,
@@ -150,6 +153,10 @@ function mergeStreamingChatSections(
   for (const [sectionId, variantId] of Object.entries(incomingVariantMap)) {
     const variant = projectState.sectionVariants[variantId];
     if (!variant) {
+      continue;
+    }
+    const incomingCore = projectState.sections[sectionId];
+    if (!incomingCore) {
       continue;
     }
     const incomingImpl = projectState.sectionImpls[variant.impl];
@@ -168,8 +175,20 @@ function mergeStreamingChatSections(
     if (!currentImpl || currentImpl.type !== SectionTypeEnum.Chat) {
       continue;
     }
-    const incomingChat = incomingImpl as ChatSectionImpl;
-    const currentChat = currentImpl as ChatSectionImpl;
+    const currentCore = currentState.sections[sectionId];
+    if (!currentCore) {
+      continue;
+    }
+    const incomingChat = getEffectiveImpl(
+      incomingImpl,
+      incomingCore,
+      variant,
+    ) as ChatSectionImpl;
+    const currentChat = getEffectiveImpl(
+      currentImpl,
+      currentCore,
+      currentVariant,
+    ) as ChatSectionImpl;
 
     const incomingMessages = Array.isArray(incomingChat.messages)
       ? incomingChat.messages
@@ -181,32 +200,79 @@ function mergeStreamingChatSections(
     const currentToolArgs = currentChat.toolCallArguments ?? {};
     const incomingInputText = incomingChat.inputText ?? "";
     const currentInputText = currentChat.inputText ?? "";
+    const hasMoreCompleteMessages = hasMoreCompleteChatMessages(
+      currentMessages,
+      incomingMessages,
+    );
     const shouldMerge =
       Boolean(currentChat.waitingForResponse) ||
       currentMessages.length > incomingMessages.length ||
-      Object.keys(currentToolArgs).length > Object.keys(incomingToolArgs).length ||
-      currentInputText.length > incomingInputText.length;
+      Object.keys(currentToolArgs).length >
+        Object.keys(incomingToolArgs).length ||
+      currentInputText.length > incomingInputText.length ||
+      hasMoreCompleteMessages;
     if (!shouldMerge) {
       continue;
     }
 
-    incomingChat.messages = mergeChatMessages(
+    const mergedMessages = mergeChatMessages(
       incomingMessages,
       currentMessages,
     );
-    incomingChat.toolCallArguments = {
+    const mergedToolArgs = {
       ...incomingToolArgs,
       ...currentToolArgs,
     };
-    if (currentInputText.length > incomingInputText.length) {
-      incomingChat.inputText = currentInputText;
-    }
-    incomingChat.waitingForResponse =
+    const mergedInputText =
+      currentInputText.length > incomingInputText.length
+        ? currentInputText
+        : incomingInputText;
+    const mergedWaitingForResponse =
       incomingChat.waitingForResponse || currentChat.waitingForResponse;
+    setEffectiveImplValue<"ChatSection">(
+      incomingImpl,
+      incomingCore,
+      variant,
+      {
+        messages: mergedMessages,
+        toolCallArguments: mergedToolArgs,
+        inputText: mergedInputText,
+        waitingForResponse: mergedWaitingForResponse,
+      },
+    );
     mergedSectionIds.push(sectionId);
   }
 
   return mergedSectionIds;
+}
+
+function hasMoreCompleteChatMessages(
+  currentMessages: Array<BaseChatMessageUnion>,
+  incomingMessages: Array<BaseChatMessageUnion>,
+): boolean {
+  if (currentMessages.length === 0) {
+    return false;
+  }
+  if (incomingMessages.length === 0) {
+    return currentMessages.length > 0;
+  }
+  const incomingById = new Map<string, BaseChatMessageUnion>();
+  for (const message of incomingMessages) {
+    incomingById.set(message.id, message);
+  }
+  for (const message of currentMessages) {
+    const incoming = incomingById.get(message.id);
+    if (!incoming) {
+      return true;
+    }
+    if (
+      getMessageCompletenessScore(message) >
+      getMessageCompletenessScore(incoming)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function mergeChatMessages(
@@ -1258,18 +1324,27 @@ export function deleteAllActiveSections() {
 export function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
+  existingLayouts:
+    | ProjectStateSingleConfig["projectConfig"]["topLevelSections"]
+    | null = null,
 ) {
   const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
-    {};
+    { ...(existingLayouts ?? {}) };
+  for (const sectionId of Object.keys(topLevelSections)) {
+    if (!(sectionId in sections)) {
+      delete topLevelSections[sectionId];
+    }
+  }
   for (const c of nodeInternals.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
+      const existing = topLevelSections[c.id];
       topLevelSections[c.id] = {
         x: c.position.x,
         y: c.position.y,
-        zIndex: c.zIndex,
-        w: c.width, // save width and height so we can show preview on home page
-        h: c.height,
+        zIndex: c.zIndex ?? existing?.zIndex ?? 0,
+        w: c.width ?? existing?.w ?? null, // save width and height so we can show preview on home page
+        h: c.height ?? existing?.h ?? null,
       };
     }
   }
@@ -1289,6 +1364,7 @@ export const debounced_route_set_top_level_section_layout = _.debounce(() => {
     topLevelSections: createTopLevelSectionLayoutDict(
       useProjectState.getState().sections,
       useNodeInternals.getState().x,
+      useProjectState.getState().projectConfig.topLevelSections,
     ),
   });
 }, 500);

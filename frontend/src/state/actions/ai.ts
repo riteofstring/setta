@@ -15,7 +15,14 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import { normalizeToolName, resolveToolCallArguments } from "utils/claudeTools";
+import {
+  APPROVAL_TOOL_NAME,
+  extractSubAgentToolCallIdFromApproval,
+  normalizeToolName,
+  parseApprovalPayload,
+  parseToolCallArguments,
+  resolveToolCallArguments,
+} from "utils/claudeTools";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -108,9 +115,58 @@ const pendingSubAgentChunksByCallId = new Map<
   string,
   Array<LLMStreamingResponse["chunk"]>
 >();
+type StreamRoutingInfo = {
+  sectionId: string | null;
+  toolCallId: string | null;
+  reason: "approval" | "subagent";
+};
+const streamRoutingByMessageId = new Map<string, StreamRoutingInfo>();
+const pendingApprovalArgumentsByToolCallId = new Map<string, string>();
+const pendingSubAgentFlushKeys = new Set<string>();
 
 function buildSubAgentKey(projectConfigId: string, toolCallId: string): string {
   return `${projectConfigId}:${toolCallId}`;
+}
+
+function splitSubAgentKey(key: string): {
+  projectConfigId: string;
+  toolCallId: string;
+} {
+  const separatorIndex = key.indexOf(":");
+  if (separatorIndex <= 0) {
+    return { projectConfigId: key, toolCallId: "" };
+  }
+  return {
+    projectConfigId: key.slice(0, separatorIndex),
+    toolCallId: key.slice(separatorIndex + 1),
+  };
+}
+
+function resolvePendingSubAgentChunkKey(preferredKey: string): string | null {
+  if (pendingSubAgentChunksByCallId.has(preferredKey)) {
+    return preferredKey;
+  }
+  const { toolCallId } = splitSubAgentKey(preferredKey);
+  if (!toolCallId) {
+    return null;
+  }
+  const matches = Array.from(pendingSubAgentChunksByCallId.keys()).filter(
+    (candidate) => candidate.endsWith(`:${toolCallId}`),
+  );
+  if (matches.length === 1) {
+    console.log(
+      "[createSubAgentSection] pending-stream-key-override",
+      JSON.stringify({ preferredKey, resolvedKey: matches[0] }),
+    );
+    return matches[0];
+  }
+  if (matches.length > 1) {
+    console.log(
+      "[createSubAgentSection] pending-stream-key-conflict",
+      JSON.stringify({ preferredKey, matches }),
+    );
+  }
+  return null;
 }
 
 function normalizeSubAgentToolName(
@@ -295,6 +351,232 @@ function getSubAgentStreamMessageId(toolCallId: string): string {
   return `subagent-result:${toolCallId}`;
 }
 
+function isSubAgentStreamMessageId(messageId: string | null): boolean {
+  if (!messageId) {
+    return false;
+  }
+  return messageId.startsWith("subagent-result:");
+}
+
+function getStreamMessageId(
+  chunk: LLMStreamingResponse["chunk"],
+): string | null {
+  switch (chunk.type) {
+    case StreamingEventTypeEnum.MESSAGE_START:
+      return chunk.message.id;
+    case StreamingEventTypeEnum.MESSAGE_FINALIZED:
+      return chunk.message.id;
+    case StreamingEventTypeEnum.DELTA:
+    case StreamingEventTypeEnum.MESSAGE_STOP:
+    case StreamingEventTypeEnum.TOOL_CALL_DELTA:
+    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
+      return chunk.message_id;
+    case StreamingEventTypeEnum.TOOL_RESULT:
+      return chunk.result.tool_call_id ?? null;
+    default:
+      chunk satisfies never;
+      return null;
+  }
+}
+
+function getChunkToolCallId(
+  chunk: LLMStreamingResponse["chunk"],
+): string | null {
+  switch (chunk.type) {
+    case StreamingEventTypeEnum.TOOL_CALL_DELTA:
+    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
+      return chunk.tool_call_id;
+    case StreamingEventTypeEnum.TOOL_RESULT:
+      return chunk.result.tool_call_id ?? null;
+    default:
+      return null;
+  }
+}
+
+function resolveApprovalParentToolCallIdFromChunk(
+  chunk: LLMStreamingResponse["chunk"],
+): string | null {
+  if (
+    chunk.type === StreamingEventTypeEnum.MESSAGE_START ||
+    chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED
+  ) {
+    return extractApprovalParentToolCallIdFromMessage(chunk.message);
+  }
+  if (chunk.type === StreamingEventTypeEnum.TOOL_CALL_DELTA) {
+    return extractApprovalParentToolCallIdFromToolCallDelta(chunk);
+  }
+  return null;
+}
+
+function extractApprovalParentToolCallIdFromMessage(
+  message: BaseChatMessageUnion,
+): string | null {
+  if (message.role !== ChatRoleEnum.assistant) {
+    return null;
+  }
+  const toolCalls = message.tool_calls ?? [];
+  for (const toolCall of toolCalls) {
+    const normalizedName = normalizeToolName(toolCall.function?.name);
+    if (normalizedName !== APPROVAL_TOOL_NAME) {
+      continue;
+    }
+    const payload = resolveApprovalPayloadFromArgs(
+      toolCall.function?.arguments,
+    );
+    if (!payload) {
+      continue;
+    }
+    const parentToolCallId = extractSubAgentToolCallIdFromApproval(payload);
+    if (parentToolCallId) {
+      return parentToolCallId;
+    }
+  }
+  return null;
+}
+
+function extractApprovalParentToolCallIdFromToolCallDelta(
+  chunk: ToolCallDeltaEvent,
+): string | null {
+  const normalizedName = normalizeToolName(chunk.tool_name);
+  if (normalizedName !== APPROVAL_TOOL_NAME) {
+    return null;
+  }
+  const existing = pendingApprovalArgumentsByToolCallId.get(chunk.tool_call_id);
+  const next = `${existing ?? ""}${chunk.arguments_delta ?? ""}`;
+  pendingApprovalArgumentsByToolCallId.set(chunk.tool_call_id, next);
+  const parsed = parseToolCallArguments(next);
+  if (!isRecord(parsed)) {
+    return null;
+  }
+  const payload = parseApprovalPayload(parsed);
+  if (!payload) {
+    return null;
+  }
+  const parentToolCallId = extractSubAgentToolCallIdFromApproval(payload);
+  if (!parentToolCallId) {
+    return null;
+  }
+  pendingApprovalArgumentsByToolCallId.delete(chunk.tool_call_id);
+  return parentToolCallId;
+}
+
+function resolveApprovalPayloadFromArgs(
+  args: unknown,
+): ReturnType<typeof parseApprovalPayload> {
+  if (isRecord(args)) {
+    return parseApprovalPayload(args);
+  }
+  if (typeof args === "string") {
+    const parsed = parseToolCallArguments(args);
+    if (isRecord(parsed)) {
+      return parseApprovalPayload(parsed);
+    }
+  }
+  return null;
+}
+
+function registerStreamRouting({
+  messageId,
+  toolCallId,
+  projectConfigId,
+  reason,
+}: {
+  messageId: string;
+  toolCallId: string;
+  projectConfigId: string;
+  reason: StreamRoutingInfo["reason"];
+}) {
+  const existing = streamRoutingByMessageId.get(messageId);
+  if (existing) {
+    if (existing.toolCallId && existing.toolCallId !== toolCallId) {
+      console.log(
+        "[stream-routing] conflict",
+        JSON.stringify({
+          messageId,
+          existingToolCallId: existing.toolCallId,
+          nextToolCallId: toolCallId,
+          reason,
+        }),
+      );
+      return;
+    }
+    if (!existing.sectionId) {
+      const resolved = resolveSubAgentSectionId(projectConfigId, toolCallId);
+      if (resolved) {
+        existing.sectionId = resolved;
+      }
+    }
+    return;
+  }
+  const resolvedSectionId = resolveSubAgentSectionId(
+    projectConfigId,
+    toolCallId,
+  );
+  streamRoutingByMessageId.set(messageId, {
+    sectionId: resolvedSectionId,
+    toolCallId,
+    reason,
+  });
+  console.log(
+    "[stream-routing] registered",
+    JSON.stringify({
+      messageId,
+      toolCallId,
+      sectionId: resolvedSectionId,
+      reason,
+    }),
+  );
+}
+
+function finalizeStreamRoutingForChunk(
+  chunk: LLMStreamingResponse["chunk"],
+  messageId: string | null,
+) {
+  if (!messageId) {
+    return;
+  }
+  if (
+    chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED ||
+    chunk.type === StreamingEventTypeEnum.TOOL_RESULT
+  ) {
+    streamRoutingByMessageId.delete(messageId);
+    pendingApprovalArgumentsByToolCallId.delete(messageId);
+  }
+}
+
+function resolveSubAgentSectionId(
+  projectConfigId: string,
+  toolCallId: string,
+): string | null {
+  const key = buildSubAgentKey(projectConfigId, toolCallId);
+  const info = subAgentSectionsByCallId.get(key);
+  if (info?.sectionId) {
+    return info.sectionId;
+  }
+  return resolveSectionIdForChatId(toolCallId);
+}
+
+function queueSubAgentChunk(
+  projectConfigId: string,
+  toolCallId: string,
+  chunk: LLMStreamingResponse["chunk"],
+  reason: string,
+) {
+  const key = buildSubAgentKey(projectConfigId, toolCallId);
+  const pendingChunks = pendingSubAgentChunksByCallId.get(key) ?? [];
+  pendingChunks.push(chunk);
+  pendingSubAgentChunksByCallId.set(key, pendingChunks);
+  console.log(
+    "[receiveLLMResponseChunk] queued-subagent-chunk",
+    JSON.stringify({
+      toolCallId,
+      chunkType: chunk.type,
+      reason,
+      queuedCount: pendingChunks.length,
+    }),
+  );
+}
+
 function buildSubAgentResultMessage(
   toolResult: ToolChatMessage,
 ): AssistantChatMessage | null {
@@ -359,7 +641,11 @@ async function createSubAgentSection({
   if (useShareSession.getState().isShareMode) {
     console.log(
       "[createSubAgentSection] share-mode-skip",
-      JSON.stringify({ projectConfigId, parentSectionId, toolCallId: toolCall.id }),
+      JSON.stringify({
+        projectConfigId,
+        parentSectionId,
+        toolCallId: toolCall.id,
+      }),
     );
     return;
   }
@@ -374,7 +660,11 @@ async function createSubAgentSection({
   } catch {
     console.log(
       "[createSubAgentSection] missing-parent-impl",
-      JSON.stringify({ projectConfigId, parentSectionId, toolCallId: toolCall.id }),
+      JSON.stringify({
+        projectConfigId,
+        parentSectionId,
+        toolCallId: toolCall.id,
+      }),
     );
     return;
   }
@@ -483,7 +773,7 @@ async function createSubAgentSection({
       createdAtMs: Date.now(),
     });
   }
-  flushPendingSubAgentChunks(key, childSectionId, projectConfigId);
+  schedulePendingSubAgentFlush(key, childSectionId, projectConfigId);
   const pendingResult = pendingSubAgentResultsByCallId.get(key);
   if (pendingResult) {
     console.log(
@@ -505,6 +795,9 @@ function flushPendingSubAgentChunks(
   sectionId: string,
   projectConfigId: string,
 ) {
+  if (!isChatSectionReadyForStream(useProjectState.getState(), sectionId)) {
+    return;
+  }
   const pendingChunks = pendingSubAgentChunksByCallId.get(key);
   if (!pendingChunks || pendingChunks.length === 0) {
     return;
@@ -520,6 +813,53 @@ function flushPendingSubAgentChunks(
   pendingSubAgentChunksByCallId.delete(key);
   for (const chunk of pendingChunks) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
+  }
+  console.log(
+    "[createSubAgentSection] pending-stream-chunks-flushed",
+    JSON.stringify({
+      projectConfigId,
+      sectionId,
+      flushedCount: pendingChunks.length,
+    }),
+  );
+}
+
+function schedulePendingSubAgentFlush(
+  key: string,
+  sectionId: string,
+  projectConfigId: string,
+) {
+  const resolvedKey = resolvePendingSubAgentChunkKey(key);
+  if (!resolvedKey) {
+    return;
+  }
+  if (isChatSectionReadyForStream(useProjectState.getState(), sectionId)) {
+    flushPendingSubAgentChunks(resolvedKey, sectionId, projectConfigId);
+    return;
+  }
+  if (pendingSubAgentFlushKeys.has(resolvedKey)) {
+    return;
+  }
+  pendingSubAgentFlushKeys.add(resolvedKey);
+  console.log(
+    "[createSubAgentSection] pending-stream-chunks-defer",
+    JSON.stringify({ projectConfigId, sectionId }),
+  );
+  const unsubscribe = useProjectState.subscribe(
+    (state) => isChatSectionReadyForStream(state, sectionId),
+    (ready) => {
+      if (!ready) {
+        return;
+      }
+      pendingSubAgentFlushKeys.delete(resolvedKey);
+      flushPendingSubAgentChunks(resolvedKey, sectionId, projectConfigId);
+      unsubscribe();
+    },
+  );
+  if (isChatSectionReadyForStream(useProjectState.getState(), sectionId)) {
+    pendingSubAgentFlushKeys.delete(resolvedKey);
+    flushPendingSubAgentChunks(resolvedKey, sectionId, projectConfigId);
+    unsubscribe();
   }
 }
 
@@ -647,7 +987,9 @@ function handleSubAgentToolCalls(
     JSON.stringify({
       sectionId,
       toolCallIds: toolCalls.map((toolCall) => toolCall.id),
-      toolCallNames: toolCalls.map((toolCall) => toolCall.function?.name ?? null),
+      toolCallNames: toolCalls.map(
+        (toolCall) => toolCall.function?.name ?? null,
+      ),
     }),
   );
   const projectConfigId = getCurrProjectConfigId();
@@ -793,7 +1135,9 @@ function resolveSectionIdForChatId(chatId: string): string | null {
       continue;
     }
     const candidate =
-      typeof impl.chatId === "string" && impl.chatId.trim() ? impl.chatId : null;
+      typeof impl.chatId === "string" && impl.chatId.trim()
+        ? impl.chatId
+        : null;
     if (candidate === chatId) {
       return sectionId;
     }
@@ -1452,10 +1796,9 @@ export async function submitMessage(
     console.log(
       "[submitMessage] early-exit",
       JSON.stringify({
-        reason:
-          !engineConfigId
-            ? "missing-engine-config"
-            : "empty-message-and-attachments",
+        reason: !engineConfigId
+          ? "missing-engine-config"
+          : "empty-message-and-attachments",
         chatId,
         attachmentsCount: attachments.length,
       }),
@@ -1663,12 +2006,95 @@ function applyStreamingChunkToSection(
     clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
     return;
   }
+  if (chunk.type === StreamingEventTypeEnum.MESSAGE_STOP) {
+    persistChatSectionState({
+      sectionId,
+      nextState,
+      reason: chunk.type,
+    });
+  }
 }
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
-  let sectionId = msg.sectionId;
   const projectConfigId = getCurrProjectConfigId();
+  const messageId = getStreamMessageId(chunk);
+  const toolCallId = getChunkToolCallId(chunk);
+  const approvalParentToolCallId =
+    resolveApprovalParentToolCallIdFromChunk(chunk);
+  console.log(
+    "[receiveLLMResponseChunk] incoming",
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      chatId,
+      sectionId: msg.sectionId,
+      chunkType: chunk.type,
+      messageId,
+      toolCallId,
+      approvalParentToolCallId,
+    }),
+  );
+  if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
+    console.log(
+      "[receiveLLMResponseChunk] ignored-placeholder",
+      JSON.stringify({
+        chatId,
+        sectionId: msg.sectionId,
+        chunkType: chunk.type,
+      }),
+    );
+    return;
+  }
+  if (messageId && approvalParentToolCallId) {
+    registerStreamRouting({
+      messageId,
+      toolCallId: approvalParentToolCallId,
+      projectConfigId,
+      reason: "approval",
+    });
+  }
+  if (messageId && chatId && isSubAgentStreamMessageId(messageId)) {
+    registerStreamRouting({
+      messageId,
+      toolCallId: chatId,
+      projectConfigId,
+      reason: "subagent",
+    });
+  }
+
+  let sectionId = msg.sectionId;
+  const routed = messageId ? streamRoutingByMessageId.get(messageId) : null;
+  if (routed) {
+    if (!routed.sectionId && routed.toolCallId) {
+      const resolved = resolveSubAgentSectionId(
+        projectConfigId,
+        routed.toolCallId,
+      );
+      if (resolved) {
+        routed.sectionId = resolved;
+        console.log(
+          "[stream-routing] resolved",
+          JSON.stringify({
+            messageId,
+            toolCallId: routed.toolCallId,
+            sectionId: resolved,
+            reason: routed.reason,
+          }),
+        );
+      }
+    }
+    if (routed.sectionId) {
+      sectionId = routed.sectionId;
+    } else if (routed.toolCallId) {
+      queueSubAgentChunk(
+        projectConfigId,
+        routed.toolCallId,
+        chunk,
+        `routing-${routed.reason}`,
+      );
+      return;
+    }
+  }
   if (!sectionId && chatId) {
     const resolvedSectionId = resolveSectionIdForChatId(chatId);
     if (resolvedSectionId) {
@@ -1678,17 +2104,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
         JSON.stringify({ chatId, sectionId }),
       );
     }
-  }
-  console.log(
-    "[receiveLLMResponseChunk] incoming",
-    JSON.stringify({ chatId, sectionId, chunk }),
-  );
-  if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
-    console.log(
-      "[receiveLLMResponseChunk] ignored-placeholder",
-      JSON.stringify({ chatId, sectionId, chunkType: chunk.type }),
-    );
-    return;
   }
   if (!sectionId && chatId) {
     const key = buildSubAgentKey(projectConfigId, chatId);
@@ -1700,21 +2115,25 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
         JSON.stringify({ chatId, sectionId }),
       );
     } else if (info) {
-      const pendingChunks = pendingSubAgentChunksByCallId.get(key) ?? [];
-      pendingChunks.push(chunk);
-      pendingSubAgentChunksByCallId.set(key, pendingChunks);
-      console.log(
-        "[receiveLLMResponseChunk] queued-subagent-chunk",
-        JSON.stringify({ chatId, chunkType: chunk.type }),
+      queueSubAgentChunk(
+        projectConfigId,
+        chatId,
+        chunk,
+        "subagent-section-pending",
       );
+      return;
+    } else if (messageId && isSubAgentStreamMessageId(messageId)) {
+      queueSubAgentChunk(projectConfigId, chatId, chunk, "subagent-stream");
       return;
     }
   }
   if (sectionId) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
+    finalizeStreamRoutingForChunk(chunk, messageId);
     return;
   }
   if (!chatId) {
+    finalizeStreamRoutingForChunk(chunk, messageId);
     return;
   }
   if (!sectionId) {
@@ -1735,14 +2154,18 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
       return;
     case StreamingEventTypeEnum.TOOL_RESULT:
       handleToolResult(chatId, chunk);
+      finalizeStreamRoutingForChunk(chunk, messageId);
       return;
     case StreamingEventTypeEnum.MESSAGE_STOP:
       handleMessageStop(chatId);
+      finalizeStreamRoutingForChunk(chunk, messageId);
       return;
     case StreamingEventTypeEnum.MESSAGE_FINALIZED:
       handleMessageFinalized(chatId, chunk);
+      finalizeStreamRoutingForChunk(chunk, messageId);
       return;
     default:
+      finalizeStreamRoutingForChunk(chunk, messageId);
       return chunk satisfies never;
   }
 }
@@ -1841,11 +2264,21 @@ function applyChatSectionStreamDelta(
   sectionId: string,
   chunk: ChatSectionStreamChunk,
 ): ChatSectionState | null {
+  const messageId = getStreamMessageId(chunk);
+  const toolCallId = getChunkToolCallId(chunk);
   console.log(
     "[applyChatSectionStreamDelta] incoming",
-    JSON.stringify({ sectionId, chunk }),
+    JSON.stringify({
+      sectionId,
+      chunkType: chunk.type,
+      messageId,
+      toolCallId,
+    }),
   );
   let nextState: ChatSectionState | null = null;
+  let messageCountBefore: number | null = null;
+  let messageCountAfter: number | null = null;
+  let waitingForResponse: boolean | null = null;
   useProjectState.setState((state) => {
     const currentState = getChatSectionStateFromStore(state, sectionId);
     if (!currentState) {
@@ -1855,7 +2288,10 @@ function applyChatSectionStreamDelta(
       );
       return;
     }
+    messageCountBefore = currentState.messages.length;
     nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
+    messageCountAfter = nextState.messages.length;
+    waitingForResponse = nextState.waitingForResponse;
     setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
       messages: nextState.messages,
       inputText: nextState.inputText,
@@ -1863,6 +2299,20 @@ function applyChatSectionStreamDelta(
       toolCallArguments: nextState.toolCallArguments,
     });
   });
+  if (nextState) {
+    console.log(
+      "[applyChatSectionStreamDelta] applied",
+      JSON.stringify({
+        sectionId,
+        chunkType: chunk.type,
+        messageId,
+        toolCallId,
+        messageCountBefore,
+        messageCountAfter,
+        waitingForResponse,
+      }),
+    );
+  }
   return nextState;
 }
 
@@ -2492,6 +2942,15 @@ export function finalizePendingChatDetails(chatId: string) {
   });
 }
 
+export function resetAIStreamingStateForTests() {
+  subAgentSectionsByCallId.clear();
+  pendingSubAgentResultsByCallId.clear();
+  pendingSubAgentChunksByCallId.clear();
+  pendingSubAgentFlushKeys.clear();
+  streamRoutingByMessageId.clear();
+  pendingApprovalArgumentsByToolCallId.clear();
+}
+
 function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
@@ -2560,6 +3019,34 @@ function upsertMessage(
   const nextMessages = [...messages];
   nextMessages[existingIndex] = message;
   return nextMessages;
+}
+
+function isChatSectionReadyForStream(
+  state: ZustandProjectState,
+  sectionId: string,
+): boolean {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return false;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return false;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return false;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return false;
+  }
+  const effective = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  };
+  return effective.type === SectionTypeEnum.Chat;
 }
 
 function getChatSectionStateFromStore(

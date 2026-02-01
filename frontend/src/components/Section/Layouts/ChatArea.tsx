@@ -704,7 +704,11 @@ function ManagedChatArea({
       if (!hasEngineConfig) {
         console.log(
           "[ManagedChatArea] submit-blocked",
-          JSON.stringify({ reason: "missing-engine-config", sectionId, chatId }),
+          JSON.stringify({
+            reason: "missing-engine-config",
+            sectionId,
+            chatId,
+          }),
         );
         return false;
       }
@@ -830,8 +834,9 @@ function ManagedChatArea({
       } finally {
         if (!succeeded) {
           const currentState = useProjectState.getState();
-          let impl: ReturnType<typeof getCurrEffectiveSectionImplOfType> | null =
-            null;
+          let impl: ReturnType<
+            typeof getCurrEffectiveSectionImplOfType
+          > | null = null;
           try {
             impl = getCurrEffectiveSectionImplOfType(
               currentState,

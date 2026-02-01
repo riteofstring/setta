@@ -11,7 +11,16 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("state/actions/agenticEdges", () => ({
   createAgenticEdgeFromSections: vi.fn(),
@@ -30,6 +39,7 @@ vi.mock("utils/generatedEndpoints", async () => {
 });
 
 let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
+let resetAIStreamingStateForTests: typeof import("./ai").resetAIStreamingStateForTests;
 
 const projectConfigId = "project-1";
 const parentSectionId = "section-parent";
@@ -103,11 +113,14 @@ function seedParentSection() {
 
 describe("sub-agent streaming buffering", () => {
   beforeAll(async () => {
-    receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
+    const aiModule = await import("./ai");
+    receiveLLMResponseChunk = aiModule.receiveLLMResponseChunk;
+    resetAIStreamingStateForTests = aiModule.resetAIStreamingStateForTests;
   });
 
   beforeEach(() => {
     resetProjectStores();
+    resetAIStreamingStateForTests();
     seedParentSection();
     vi.clearAllMocks();
   });
@@ -121,8 +134,9 @@ describe("sub-agent streaming buffering", () => {
   });
 
   it("queues sub-agent stream chunks until the section exists", async () => {
-    const route_create_top_level_section =
-      (await import("utils/generatedEndpoints")).route_create_top_level_section as unknown as vi.Mock;
+    const route_create_top_level_section = (
+      await import("utils/generatedEndpoints")
+    ).route_create_top_level_section as unknown as vi.Mock;
 
     let resolveCreate: (value: unknown) => void;
     const createPromise = new Promise((resolve) => {

@@ -11,7 +11,16 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 let getExternalAgentChat: typeof import("./ai").getExternalAgentChat;
 let getLLMChat: typeof import("./ai").getLLMChat;
@@ -123,10 +132,12 @@ describe("chat history sync to section state", () => {
   });
 
   it("syncs external agent chat history to section state", async () => {
-    const route_get_external_agent_chat =
-      (await import("utils/generatedEndpoints")).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_get_external_agent_chat = (
+      await import("utils/generatedEndpoints")
+    ).route_get_external_agent_chat as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     route_get_external_agent_chat.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -157,14 +168,17 @@ describe("chat history sync to section state", () => {
       sectionId,
       SectionTypeEnum.Chat,
     );
-    expect(impl.messages.some((message) => {
-      if (message.role !== ChatRoleEnum.assistant) {
-        return false;
-      }
-      return message.content?.some(
-        (content) => content.type === "text" && content.text === "Sub agent done",
-      );
-    })).toBe(true);
+    expect(
+      impl.messages.some((message) => {
+        if (message.role !== ChatRoleEnum.assistant) {
+          return false;
+        }
+        return message.content?.some(
+          (content) =>
+            content.type === "text" && content.text === "Sub agent done",
+        );
+      }),
+    ).toBe(true);
     expect(impl.toolCallArguments).toEqual({ "tool-1": "{}" });
     expect(impl.waitingForResponse).toBe(false);
     const persistedCall = route_set_chat_section_state.mock.calls.find(
@@ -176,8 +190,9 @@ describe("chat history sync to section state", () => {
   it("syncs LLM chat history to section state", async () => {
     const route_get_llm_chat = (await import("utils/generatedEndpoints"))
       .route_get_llm_chat as unknown as vi.Mock;
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     const llmConfig: LLMConfig = {
       id: "llm-1",
       model: "test-model",
@@ -218,14 +233,16 @@ describe("chat history sync to section state", () => {
       sectionId,
       SectionTypeEnum.Chat,
     );
-    expect(impl.messages.some((message) => {
-      if (message.role !== ChatRoleEnum.assistant) {
-        return false;
-      }
-      return message.content?.some(
-        (content) => content.type === "text" && content.text === "Hello",
-      );
-    })).toBe(true);
+    expect(
+      impl.messages.some((message) => {
+        if (message.role !== ChatRoleEnum.assistant) {
+          return false;
+        }
+        return message.content?.some(
+          (content) => content.type === "text" && content.text === "Hello",
+        );
+      }),
+    ).toBe(true);
     expect(impl.waitingForResponse).toBe(true);
     const persistedCall = route_set_chat_section_state.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
@@ -234,10 +251,12 @@ describe("chat history sync to section state", () => {
   });
 
   it("merges hydrated chat history with existing section state", async () => {
-    const route_get_external_agent_chat =
-      (await import("utils/generatedEndpoints")).route_get_external_agent_chat as unknown as vi.Mock;
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_get_external_agent_chat = (
+      await import("utils/generatedEndpoints")
+    ).route_get_external_agent_chat as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     route_get_external_agent_chat.mockResolvedValue({
       status: 200,
       hasResponse: true,

@@ -42,14 +42,15 @@ import {
   QUESTION_TOOL_NAME,
   TODO_TOOL_NAME,
   type TodoListPayload,
+  extractSubAgentToolCallIdFromApproval,
   normalizeToolName,
   parseAnswers,
   parseApprovalPayload,
   parseAskUserQuestionPayload,
   parseTodoPayload,
   resolveToolCallArguments,
-  extractSubAgentToolCallIdFromApproval,
 } from "utils/claudeTools";
+import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
@@ -60,7 +61,6 @@ import {
   ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
-import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { ApprovalCard } from "./ApprovalCard";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
@@ -98,8 +98,7 @@ function isSubAgentSystemMessage(message: BaseChatMessageUnion): boolean {
   const content = message.content ?? [];
   return content.some(
     (item) =>
-      item.type === C.LLM_TEXT &&
-      item.text.toLowerCase().includes("sub-agent"),
+      item.type === C.LLM_TEXT && item.text.toLowerCase().includes("sub-agent"),
   );
 }
 
@@ -148,11 +147,8 @@ function buildSubAgentInfoByToolCallId(
       continue;
     }
     const core = state.sections[sectionId];
-    const rawLabel =
-      core?.displayName?.trim() || core?.name || "Sub-agent";
-    const cleanedLabel = rawLabel
-      .replace(/^sub-agent\s*[:\-]\s*/i, "")
-      .trim();
+    const rawLabel = core?.displayName?.trim() || core?.name || "Sub-agent";
+    const cleanedLabel = rawLabel.replace(/^sub-agent\s*[:\-]\s*/i, "").trim();
     const label = cleanedLabel || rawLabel;
     const info: SubAgentInfo = {
       sectionId,
@@ -1069,9 +1065,7 @@ const ToolCallItem = memo(function ToolCallItem({
         subAgentInfo.messageCount === 1 ? "" : "s"
       }`
     : null;
-  const statusLabel = subAgentInfo?.waitingForResponse
-    ? "Working"
-    : "Idle";
+  const statusLabel = subAgentInfo?.waitingForResponse ? "Working" : "Idle";
 
   return (
     <Accordion.Root type="single" collapsible>

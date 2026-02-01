@@ -217,9 +217,7 @@ describe("sub-agent chat section surfacing", () => {
     expect(createArgs.implOverrides.managed).toBe(true);
     expect(createArgs.implOverrides.engineConfigId).toBe("engine-1");
     expect(createArgs.implOverrides.messages[0].role).toBe(ChatRoleEnum.system);
-    expect(createArgs.implOverrides.messages[1].role).toBe(
-      ChatRoleEnum.user,
-    );
+    expect(createArgs.implOverrides.messages[1].role).toBe(ChatRoleEnum.user);
     expect(createArgs.implOverrides.messages[2].role).toBe(
       ChatRoleEnum.assistant,
     );

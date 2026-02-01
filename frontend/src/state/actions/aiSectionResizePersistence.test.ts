@@ -1,4 +1,7 @@
-import { getCurrEffectiveSectionImplOfType, processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplOfType,
+  processProjectStateUpdateFromBackend,
+} from "state/actions/sectionInfos";
 import { usePendingOperations, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -11,7 +14,16 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 let persistChatSectionState: typeof import("./ai").persistChatSectionState;
 
@@ -84,8 +96,9 @@ describe("chat section state persistence during backend updates", () => {
   });
 
   it("reapplies pending chat state over backend updates (e.g., resize)", async () => {
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     route_set_chat_section_state.mockReturnValue(new Promise(() => {}));
 
     const nextState = {
@@ -139,8 +152,9 @@ describe("chat section state persistence during backend updates", () => {
   });
 
   it("keeps acknowledged pending ops until backend completion arrives", async () => {
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
     route_set_chat_section_state.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -196,8 +210,7 @@ describe("chat section state persistence during backend updates", () => {
         (message) =>
           message.role === ChatRoleEnum.user &&
           message.content?.some(
-            (content) =>
-              content.type === "text" && content.text === "Hold on",
+            (content) => content.type === "text" && content.text === "Hold on",
           ),
       ),
     ).toBe(true);

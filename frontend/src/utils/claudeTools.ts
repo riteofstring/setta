@@ -315,10 +315,7 @@ function extractToolName(value: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function extractStringField(
-  value: unknown,
-  keys: string[],
-): string | null {
+function extractStringField(value: unknown, keys: string[]): string | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -346,7 +343,7 @@ function safeJsonParse(value: string): unknown | null {
   }
 }
 
-function parseToolCallArguments(value: string): unknown | null {
+export function parseToolCallArguments(value: string): unknown | null {
   const parsed = safeJsonParse(value);
   if (parsed !== null) {
     return parsed;

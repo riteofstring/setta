@@ -1351,6 +1351,97 @@ class TestExternalAgentRunnerSubagentRouting:
                 )
                 await websocket.close()
 
+    async def test_subagent_tool_result_delta_emits_multiple_chunks(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            runner = ExternalAgentRunner(dbe, frontend_sender)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(runner, config)
+            run = context.run
+
+            messages: list[Message] = []
+            websocket = await _build_websocket(messages)
+            websocket_id = await websocket_manager.on_connect(
+                websocket,
+                WebsocketConnectionType.FRONTEND,
+                id="frontend-subagent-multi-delta",
+                broadcast_connections=False,
+            )
+
+            tool_call_id = "toolu-subagent-multi"
+            try:
+                runner._store_tool_call_delta(
+                    run.id,
+                    ToolCallDeltaEvent(
+                        message_id="msg-multi",
+                        tool_call_id=tool_call_id,
+                        arguments_delta="{}",
+                        tool_name="Task",
+                    ),
+                )
+
+                await runner._handle_subagent_tool_result_delta(
+                    run,
+                    tool_call_id,
+                    "Hello ",
+                )
+                await runner._handle_subagent_tool_result_delta(
+                    run,
+                    tool_call_id,
+                    "world",
+                )
+
+                payloads = _extract_streaming_payloads(messages)
+                assert payloads
+                delta_texts: list[str] = []
+                delta_message_ids: set[str] = set()
+                start_count = 0
+                for payload in payloads:
+                    content = payload.get("content")
+                    if not isinstance(content, dict):
+                        continue
+                    if content.get("chatId") != tool_call_id:
+                        continue
+                    chunk = content.get("chunk")
+                    if not isinstance(chunk, dict):
+                        continue
+                    chunk_type = chunk.get("type")
+                    if chunk_type == "message_start":
+                        start_count += 1
+                    if chunk_type != "delta":
+                        continue
+                    message_id = chunk.get("message_id")
+                    if isinstance(message_id, str):
+                        delta_message_ids.add(message_id)
+                    content_entries = chunk.get("content")
+                    if not isinstance(content_entries, list):
+                        continue
+                    for entry in content_entries:
+                        if not isinstance(entry, dict):
+                            continue
+                        if entry.get("type") != "text_delta":
+                            continue
+                        text = entry.get("text")
+                        if isinstance(text, str):
+                            delta_texts.append(text)
+
+                assert start_count == 1
+                assert delta_texts == ["Hello ", "world"]
+                assert len(delta_message_ids) == 1
+            finally:
+                await websocket_manager.on_disconnect(
+                    websocket_id,
+                    broadcast_connections=False,
+                )
+                await websocket.close()
+
     async def test_subagent_tool_result_finalizes_and_clears_active(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

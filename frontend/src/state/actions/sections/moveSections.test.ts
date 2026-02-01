@@ -8,14 +8,7 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 let useProjectState: typeof import("state/definitions").useProjectState;
 let useNodeInternals: typeof import("state/definitions").useNodeInternals;
@@ -90,19 +83,23 @@ function seedProjectState() {
 describe("move section optimistic updates", () => {
   beforeEach(async () => {
     resetProjectStores();
-    (globalThis as { requestAnimationFrame?: (cb: FrameRequestCallback) => number })
-      .requestAnimationFrame = (cb) => {
+    (
+      globalThis as {
+        requestAnimationFrame?: (cb: FrameRequestCallback) => number;
+      }
+    ).requestAnimationFrame = (cb) => {
       cb(0);
       return 0;
     };
-    (globalThis as { cancelAnimationFrame?: (id: number) => void })
-      .cancelAnimationFrame = () => {};
+    (
+      globalThis as { cancelAnimationFrame?: (id: number) => void }
+    ).cancelAnimationFrame = () => {};
     const definitions = await import("state/definitions");
     useProjectState = definitions.useProjectState;
     useNodeInternals = definitions.useNodeInternals;
     seedProjectState();
-    const route_move_sections =
-      (await import("utils/generatedEndpoints")).route_move_sections as unknown as vi.Mock;
+    const route_move_sections = (await import("utils/generatedEndpoints"))
+      .route_move_sections as unknown as vi.Mock;
     route_move_sections.mockReturnValue(new Promise(() => {}));
   });
 
@@ -112,9 +109,7 @@ describe("move section optimistic updates", () => {
   });
 
   it("reapplies pending moves using a stable position snapshot", () => {
-    const backendState = JSON.parse(
-      JSON.stringify(useProjectState.getState()),
-    );
+    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     const positionsById = { [sectionId]: { x: 100, y: 200 } };
 
     moveSectionsWithBackend({
@@ -133,9 +128,8 @@ describe("move section optimistic updates", () => {
       pendingOpIds: [],
     });
 
-    const position = useProjectState.getState().projectConfig.topLevelSections[
-      sectionId
-    ];
+    const position =
+      useProjectState.getState().projectConfig.topLevelSections[sectionId];
     expect(position.x).toBe(100);
     expect(position.y).toBe(200);
   });
