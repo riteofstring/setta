@@ -414,28 +414,15 @@ class TestOpenCodeSdkAdapterIntegration:
             answer = None
             options = entry.get("options")
             if isinstance(options, list) and options:
-                preferred = None
-                for option in options:
-                    label = None
-                    if isinstance(option, str):
-                        label = option
-                    elif isinstance(option, dict):
-                        label = option.get("label") or option.get("value")
-                    if isinstance(label, str) and label.strip().lower() == "no":
-                        preferred = label.strip()
-                        break
-                if preferred:
-                    answer = preferred
-                else:
-                    option = options[0]
-                    if isinstance(option, str) and option.strip():
-                        answer = option.strip()
-                    elif isinstance(option, dict):
-                        label = option.get("label") or option.get("value")
-                        if isinstance(label, str) and label.strip():
-                            answer = label.strip()
+                option = options[0]
+                if isinstance(option, str) and option.strip():
+                    answer = option.strip()
+                elif isinstance(option, dict):
+                    label = option.get("label") or option.get("value")
+                    if isinstance(label, str) and label.strip():
+                        answer = label.strip()
             if not answer:
-                answer = "No"
+                answer = "Yes"
             answers[question_text] = answer
         return answers
 
@@ -654,22 +641,11 @@ class TestOpenCodeSdkAdapterIntegration:
         with TemporaryDirectory() as tmpdir:
             dbe, runner = self._build_runner(Path(tmpdir))
             config = self._build_config(model)
-            config.settingsManagedBlock = ExternalAgentSettingsManagedBlock(
-                opencode=OpenCodeSettingsManaged(
-                    permission={
-                        "*": "deny",
-                        "question": "allow",
-                        "AskUserQuestion": "allow",
-                    }
-                )
-            )
             port = self._reserve_port()
             prompt = (
                 "Use the question tool to ask exactly three questions. "
                 "Each question must include options Yes and No. "
-                "Do not answer yet; wait for my responses. "
-                "After I respond, reply with only OK. "
-                "Do not call any other tools or run any commands."
+                "Do not answer yet; wait for my responses."
             )
             run = runner.start_run(
                 config.id,

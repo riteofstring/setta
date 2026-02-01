@@ -10,6 +10,7 @@ export function ContainerSwitch({
   visibility,
   isEditingViewMode,
   isUserView,
+  containerClassName,
 }: {
   isGroup: boolean;
   sectionId: string;
@@ -19,6 +20,7 @@ export function ContainerSwitch({
   visibility: boolean;
   isEditingViewMode: boolean;
   isUserView: boolean;
+  containerClassName?: string;
 }) {
   return isTopLevel ? (
     <TopLevelContainer
@@ -39,6 +41,7 @@ export function ContainerSwitch({
       visibility={visibility}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
+      containerClassName={containerClassName}
     >
       {children}
     </DndSlotAndDndWatcher>
