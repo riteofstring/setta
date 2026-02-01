@@ -105,6 +105,7 @@ _APPROVAL_TOOL_NAME = "setta.approval"
 _ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
 _SUB_AGENT_TOOL_NAMES = {"task", "run_agent_profile", "subagent", "sub_agent"}
 _SUBAGENT_STREAM_MESSAGE_PREFIX = "subagent-result:"
+_SUBAGENT_STREAM_CHUNK_SIZE = 200
 _SUB_AGENT_TOOL_CONTEXT_KEYS = (
     "parentToolCallId",
     "parent_tool_call_id",
@@ -127,6 +128,15 @@ _SUMMARY_EVENT_TYPES = {
     "question_response",
     "tool_result",
 }
+
+
+def _split_subagent_stream_text(text: str) -> list[str]:
+    if len(text) <= _SUBAGENT_STREAM_CHUNK_SIZE:
+        return [text]
+    return [
+        text[index : index + _SUBAGENT_STREAM_CHUNK_SIZE]
+        for index in range(0, len(text), _SUBAGENT_STREAM_CHUNK_SIZE)
+    ]
 
 
 @dataclass(frozen=True)
@@ -1416,17 +1426,18 @@ class ExternalAgentRunner:
                 share_session_id=self.share_session_id,
             )
             stream_state.started = True
-        stream_state.text += text
-        delta_chunk = MessageDeltaEvent(
-            message_id=stream_state.message_id,
-            content=[MessageTextDelta(index=0, text=text)],
-        )
-        await self.websocket_msg_handler.send_streaming_response(
-            target_tool_call_id,
-            delta_chunk,
-            section_id=None,
-            share_session_id=self.share_session_id,
-        )
+        for chunk in _split_subagent_stream_text(text):
+            stream_state.text += chunk
+            delta_chunk = MessageDeltaEvent(
+                message_id=stream_state.message_id,
+                content=[MessageTextDelta(index=0, text=chunk)],
+            )
+            await self.websocket_msg_handler.send_streaming_response(
+                target_tool_call_id,
+                delta_chunk,
+                section_id=None,
+                share_session_id=self.share_session_id,
+            )
 
     async def _maybe_finalize_subagent_tool_result(
         self,
@@ -1461,17 +1472,18 @@ class ExternalAgentRunner:
                         share_session_id=self.share_session_id,
                     )
                     stream_state.started = True
-                stream_state.text = result_text
-                delta_chunk = MessageDeltaEvent(
-                    message_id=stream_state.message_id,
-                    content=[MessageTextDelta(index=0, text=result_text)],
-                )
-                await self.websocket_msg_handler.send_streaming_response(
-                    tool_call_id,
-                    delta_chunk,
-                    section_id=None,
-                    share_session_id=self.share_session_id,
-                )
+                for piece in _split_subagent_stream_text(result_text):
+                    stream_state.text += piece
+                    delta_chunk = MessageDeltaEvent(
+                        message_id=stream_state.message_id,
+                        content=[MessageTextDelta(index=0, text=piece)],
+                    )
+                    await self.websocket_msg_handler.send_streaming_response(
+                        tool_call_id,
+                        delta_chunk,
+                        section_id=None,
+                        share_session_id=self.share_session_id,
+                    )
             else:
                 streams.pop(tool_call_id, None)
                 self._discard_subagent_tool_call(run.id, tool_call_id)
