@@ -521,13 +521,16 @@ test("detaching a narrow attached terminal does not append extra output", async 
       codeSectionId,
     );
 
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+
+    await runCodeBlockInPage(page, codeSectionId);
     await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
 
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
     await expect(embeddedTerminalHost).toBeVisible();
     const embeddedTerminal = embeddedTerminalHost.locator(
       "xpath=ancestor::section[1]",
@@ -604,6 +607,12 @@ test("terminal resize messages are throttled during drag detach", async ({
       codeSectionId,
     );
 
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await runCodeBlockInPage(page, codeSectionId);
+
     await expect
       .poll(
         async () => {
@@ -622,9 +631,6 @@ test("terminal resize messages are throttled during drag detach", async ({
       window.__terminalResizePhase = "idle";
     });
 
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
     await expect(embeddedTerminalHost).toBeVisible();
     const embeddedTerminal = embeddedTerminalHost.locator(
       "xpath=ancestor::section[1]",
