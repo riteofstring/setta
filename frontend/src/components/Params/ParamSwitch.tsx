@@ -116,7 +116,6 @@ function TempParamSwitch({
         gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
         ...(dndStyle ?? {}),
       }}
-      data-param-row="true"
       ref={setNodeRef}
       {...(restAttributes ?? {})}
       {...(listeners ?? {})}

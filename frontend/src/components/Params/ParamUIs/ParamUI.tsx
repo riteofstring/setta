@@ -8,6 +8,7 @@ import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -328,6 +329,7 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
+        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
