@@ -10,14 +10,9 @@ import {
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useCallback, useMemo } from "react";
-import {
-  createAgenticEdgeFromSections,
-  deleteAgenticEdgesById,
-} from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -35,11 +30,7 @@ import {
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
-import {
-  AgenticEdgeKindEnum,
-  EngineTypeEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { EngineTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 type ChatAreaSettingsProps = {
   sectionId: string;
@@ -56,7 +47,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
-  const { canEditParams, canEditStructure } = useShareCapabilities();
+  const { canEditParams } = useShareCapabilities();
   const isShareMode = useShareSession((x) => x.isShareMode);
 
   const { managed, engineConfigId, agentProfileId, thinking, isFrozen } =
@@ -74,20 +65,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         isFrozen: impl.isFrozen,
       };
     }, _.isEqual);
-  const agenticEdges = useProjectState(
-    (state) => state.projectConfig.agenticEdges,
-    _.isEqual,
-  );
-  const { sections, sectionVariants, sectionImpls, sectionVariantMap } =
-    useProjectState(
-      (state) => ({
-        sections: state.sections,
-        sectionVariants: state.sectionVariants,
-        sectionImpls: state.sectionImpls,
-        sectionVariantMap: state.projectConfig.sectionVariantMap,
-      }),
-      _.isEqual,
-    );
 
   const {
     apiKeys,
@@ -207,95 +184,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     );
   }, [allLLMConfigs, selectedEngineConfig]);
 
-  const sectionLabelsById = useMemo(() => {
-    const labels: Record<string, string> = {};
-    for (const [id, core] of Object.entries(sections)) {
-      const display = core.displayName?.trim();
-      labels[id] = display && display.length > 0 ? display : core.name || id;
-    }
-    return labels;
-  }, [sections]);
-
-  const sectionOptions = useMemo(() => {
-    const options: Array<{
-      id: string;
-      name: string;
-      type: SectionTypeEnum;
-    }> = [];
-    for (const [id, core] of Object.entries(sections)) {
-      if (id === sectionId) {
-        continue;
-      }
-      const variantId = sectionVariantMap[id];
-      if (!variantId) {
-        continue;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = sectionImpls[variant.impl];
-      if (!impl) {
-        continue;
-      }
-      const displayName = core.displayName?.trim();
-      const name =
-        displayName && displayName.length > 0 ? displayName : core.name || id;
-      options.push({ id, name, type: impl.type });
-    }
-    return _.sortBy(options, (entry) => entry.name.toLowerCase());
-  }, [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections]);
-
-  const contextItems = useMemo<AllItemsType<string>>(() => {
-    const items = sectionOptions
-      .filter((entry) => entry.type !== SectionTypeEnum.Chat)
-      .map((entry) => ({ id: entry.id, name: entry.name }));
-    return [{ group: "Sections", items }];
-  }, [sectionOptions]);
-
-  const scopeItems = useMemo<AllItemsType<string>>(() => {
-    const items = sectionOptions
-      .filter((entry) => entry.type !== SectionTypeEnum.Chat)
-      .map((entry) => ({ id: entry.id, name: entry.name }));
-    return [{ group: "Sections", items }];
-  }, [sectionOptions]);
-
-  const agentItems = useMemo<AllItemsType<string>>(() => {
-    const items = sectionOptions
-      .filter((entry) => entry.type === SectionTypeEnum.Chat)
-      .map((entry) => ({ id: entry.id, name: entry.name }));
-    return [{ group: "Chat Sections", items }];
-  }, [sectionOptions]);
-
-  const contextEdges = useMemo(
-    () =>
-      agenticEdges.filter(
-        (edge) =>
-          edge.kind === AgenticEdgeKindEnum.section_chat &&
-          edge.targetSectionId === sectionId,
-      ),
-    [agenticEdges, sectionId],
-  );
-  const scopeEdges = useMemo(
-    () =>
-      agenticEdges.filter(
-        (edge) =>
-          edge.kind === AgenticEdgeKindEnum.chat_section &&
-          edge.sourceSectionId === sectionId,
-      ),
-    [agenticEdges, sectionId],
-  );
-  const linkedAgentEdges = useMemo(
-    () =>
-      agenticEdges.filter(
-        (edge) =>
-          edge.kind === AgenticEdgeKindEnum.chat_chat &&
-          (edge.sourceSectionId === sectionId ||
-            edge.targetSectionId === sectionId),
-      ),
-    [agenticEdges, sectionId],
-  );
-
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
       if (isDisabled) {
@@ -381,50 +269,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     [engineConfigId, managed, thinking, updateSettings],
   );
 
-  const canEditLinks = canEditStructure;
-
-  const handleAddContextSection = useCallback(
-    (value: string | null) => {
-      if (!value || !canEditLinks) {
-        return;
-      }
-      createAgenticEdgeFromSections({
-        sourceSectionId: value,
-        targetSectionId: sectionId,
-        kind: AgenticEdgeKindEnum.section_chat,
-      });
-    },
-    [canEditLinks, sectionId],
-  );
-
-  const handleAddScopeSection = useCallback(
-    (value: string | null) => {
-      if (!value || !canEditLinks) {
-        return;
-      }
-      createAgenticEdgeFromSections({
-        sourceSectionId: sectionId,
-        targetSectionId: value,
-        kind: AgenticEdgeKindEnum.chat_section,
-      });
-    },
-    [canEditLinks, sectionId],
-  );
-
-  const handleAddAgentLink = useCallback(
-    (value: string | null) => {
-      if (!value || !canEditLinks) {
-        return;
-      }
-      createAgenticEdgeFromSections({
-        sourceSectionId: sectionId,
-        targetSectionId: value,
-        kind: AgenticEdgeKindEnum.chat_chat,
-      });
-    },
-    [canEditLinks, sectionId],
-  );
-
   const handleNewChat = useCallback(() => {
     if (isDisabled || !managed) {
       return;
@@ -474,9 +318,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     engineType === EngineTypeEnum.setta_llm &&
     !selectedLLMConfigId &&
     !noConfigsAvailable;
-  const contextOptionCount = contextItems[0]?.items.length ?? 0;
-  const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
-  const agentOptionCount = agentItems[0]?.items.length ?? 0;
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -580,168 +421,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           </div>
         </>
       ) : null}
-
-      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Context & Links
-          </p>
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Add context sources, scope boundaries, or linked agents for this
-            chat.
-          </p>
-        </div>
-
-        <div className="mt-3 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Context sources
-            </p>
-            <IdNameCombobox
-              allItems={contextItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddContextSection}
-              placeholder={
-                contextOptionCount > 0
-                  ? "Add a section"
-                  : "No sections available"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || contextOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {contextEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No context links yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {contextEdges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                  >
-                    <span className="truncate">
-                      {sectionLabelsById[edge.sourceSectionId] ??
-                        edge.sourceSectionId}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                      onClick={() => deleteAgenticEdgesById([edge.id])}
-                      disabled={!canEditLinks}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Scope sections
-            </p>
-            <IdNameCombobox
-              allItems={scopeItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddScopeSection}
-              placeholder={
-                scopeOptionCount > 0 ? "Add a section" : "No sections available"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || scopeOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {scopeEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No scope links yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {scopeEdges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                  >
-                    <span className="truncate">
-                      {sectionLabelsById[edge.targetSectionId] ??
-                        edge.targetSectionId}
-                    </span>
-                    <button
-                      type="button"
-                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                      onClick={() => deleteAgenticEdgesById([edge.id])}
-                      disabled={!canEditLinks}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Linked agents
-            </p>
-            <IdNameCombobox
-              allItems={agentItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddAgentLink}
-              placeholder={
-                agentOptionCount > 0 ? "Link a chat" : "No other chats"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || agentOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {linkedAgentEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No linked agents yet.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {linkedAgentEdges.map((edge) => {
-                  const otherId =
-                    edge.sourceSectionId === sectionId
-                      ? edge.targetSectionId
-                      : edge.sourceSectionId;
-                  return (
-                    <div
-                      key={edge.id}
-                      className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                    >
-                      <span className="truncate">
-                        {sectionLabelsById[otherId] ?? otherId}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                        onClick={() => deleteAgenticEdgesById([edge.id])}
-                        disabled={!canEditLinks}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
