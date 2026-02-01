@@ -5,11 +5,6 @@ from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
-from setta.types.agentic_edges import (
-    AgenticEdge,
-    AgenticEdgeContextMode,
-    AgenticEdgeKind,
-)
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
@@ -37,7 +32,6 @@ from setta.types.section_impls import (
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
-    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -430,14 +424,6 @@ class ToggleViewModeUserFacingRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
-class ToggleViewModeTabRequest(ProjectManagerRequestWithProjectConfig):
-    """Update whether a view mode is shown as a tab."""
-
-    viewModeId: ID = Field(
-        description="Identifier of the view mode to update.",
-    )
-
-
 class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
     """Rename a view mode in the current project config."""
 
@@ -774,28 +760,6 @@ class SetEdgesRequest(ProjectManagerRequestWithProjectConfig):
     edges: list[Edge]
 
 
-class CreateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    sourceSectionId: ID
-    targetSectionId: ID
-    kind: AgenticEdgeKind
-    contextMode: AgenticEdgeContextMode = AgenticEdgeContextMode.reference_only
-    style: dict[str, str | int | float] | None = None
-    hidden: bool = False
-    zIndex: int = 0
-
-
-class UpdateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
-    edge: AgenticEdge
-
-
-class DeleteAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edgeIds: list[ID]
-
-
-class SetAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
-    edges: list[AgenticEdge]
-
-
 class SetSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
     """Swap a section to the specified variant."""
 
@@ -891,10 +855,6 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
-
-
-class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
-    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):

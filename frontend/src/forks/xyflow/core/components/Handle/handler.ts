@@ -87,17 +87,6 @@ export function handlePointerDown({
     handlePositions,
     `${nodeId}-${handleId}-${handleType}`,
   );
-  const isAgenticStart = Boolean(handleId?.startsWith("agentic-edge-"));
-  const shouldFilterByAgentic = handleId !== null;
-  const allowHandle = shouldFilterByAgentic
-    ? (handle: Pick<ConnectionHandle, "portId" | "type">) => {
-        if (!handle.portId) {
-          return !isAgenticStart;
-        }
-        const isAgenticHandle = handle.portId.startsWith("agentic-edge-");
-        return isAgenticStart ? isAgenticHandle : !isAgenticHandle;
-      }
-    : null;
 
   const autoPan = (): void => {
     if (!autoPanOnConnect) {
@@ -134,7 +123,6 @@ export function handlePointerDown({
       pointToRendererPoint(connectionPosition, transform, false, [1, 1], true),
       connectionRadius,
       handleLookup,
-      allowHandle,
       (handle) =>
         isValidHandle(
           handle,

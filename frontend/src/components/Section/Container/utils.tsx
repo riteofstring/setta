@@ -2,11 +2,8 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
-import {
-  getAllowedChatIdsForProject,
-  hasSectionIdInProject,
-} from "state/aiFollowUtils";
-import { useAIFollow, useMisc, useProjectState } from "state/definitions";
+import { hasSectionIdInProject } from "state/aiFollowUtils";
+import { useAIFollow, useMisc } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
@@ -86,36 +83,17 @@ export function useAiSectionHighlight(
   sectionId: string,
   projectConfigId: string,
 ): boolean {
-  const { sectionVariantMap, sectionVariants, sectionImpls } = useProjectState(
-    (state) => ({
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
-    }),
-    _.isEqual,
-  );
   const { isAiWorkingOnSection, isToolResultHighlight } = useAIFollow(
     (state) => {
-      const allowedChatIds = getAllowedChatIdsForProject(
-        state.mode,
-        state.selectedChatIdsByProjectConfigId,
-        state.selectedSectionIdsByProjectConfigId,
-        projectConfigId,
-        sectionVariantMap,
-        sectionVariants,
-        sectionImpls,
-      );
       const isAiWorkingOnSection = hasSectionIdInProject(
         state.toolArgumentsIdsByProjectConfigId,
         projectConfigId,
         sectionId,
-        allowedChatIds,
       );
       const isToolResultHighlight = hasSectionIdInProject(
         state.toolResultIdsByProjectConfigId,
         projectConfigId,
         sectionId,
-        allowedChatIds,
       );
       return { isAiWorkingOnSection, isToolResultHighlight };
     },

@@ -671,12 +671,6 @@ export async function route_toggle_view_mode_user_facing(
   return await post("/toggleViewModeUserFacing", x);
 }
 
-export async function route_toggle_view_mode_tab(
-  x: gt.ToggleViewModeTabRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleViewModeTab", x);
-}
-
 export async function route_set_view_mode_name(
   x: gt.SetViewModeNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -955,30 +949,6 @@ export async function route_set_edges(
   return await post("/setEdges", x);
 }
 
-export async function route_create_agentic_edge(
-  x: gt.CreateAgenticEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createAgenticEdge", x);
-}
-
-export async function route_update_agentic_edge(
-  x: gt.UpdateAgenticEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateAgenticEdge", x);
-}
-
-export async function route_delete_agentic_edges(
-  x: gt.DeleteAgenticEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteAgenticEdges", x);
-}
-
-export async function route_set_agentic_edges(
-  x: gt.SetAgenticEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setAgenticEdges", x);
-}
-
 export async function route_set_section_variant(
   x: gt.SetSectionVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1079,12 +1049,6 @@ export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionPinnedParams", x);
-}
-
-export async function route_set_section_pinned_area_height(
-  x: gt.SetSectionPinnedAreaHeightRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionPinnedAreaHeight", x);
 }
 
 export async function route_set_section_column_width(
