@@ -90,6 +90,20 @@ _QUEUE_KIND_ERROR = "error"
 _QUEUE_KIND_DONE = "done"
 
 _MAX_CLI_STDERR_LINES = 200
+_SUB_AGENT_CONTEXT_KEYS = (
+    "parentToolCallId",
+    "parent_tool_call_id",
+    "parentToolUseId",
+    "parent_tool_use_id",
+    "taskToolCallId",
+    "task_tool_call_id",
+    "taskId",
+    "task_id",
+    "subTaskId",
+    "sub_task_id",
+    "parentTaskId",
+    "parent_task_id",
+)
 
 _PERMISSION_MODE_VALUES = {
     "default",
@@ -466,6 +480,23 @@ def _build_options(
             tool_name if isinstance(tool_name, str) else str(tool_name)
         )
         normalized_tool_input = tool_input if isinstance(tool_input, dict) else {}
+        tool_context_payload = _normalize_tool_context_payload(tool_context)
+        if tool_context_payload is not None:
+            tool_use_id = None
+            for key in ("toolUseId", "tool_use_id", "toolCallId", "tool_call_id"):
+                value = tool_context_payload.get(key)
+                if isinstance(value, str) and value:
+                    tool_use_id = value
+                    break
+            raw_payload: dict[str, Any] = {
+                "type": "tool_context",
+                "toolName": normalized_tool_name,
+                "toolContext": tool_context_payload,
+            }
+            if tool_use_id:
+                raw_payload["toolUseId"] = tool_use_id
+                raw_payload["toolCallId"] = tool_use_id
+            await queue.put((_QUEUE_KIND_RAW, raw_payload))
         if decision_policy == "allow":
             return PermissionResultAllow(
                 behavior="allow",
@@ -480,7 +511,6 @@ def _build_options(
 
         approval_id = str(create_new_id())
         tool_type = None
-        tool_context_payload = _normalize_tool_context_payload(tool_context)
         if tool_context is not None:
             tool_type = getattr(tool_context, "tool_type", None) or getattr(
                 tool_context, "toolType", None
@@ -574,7 +604,15 @@ def _build_stream_event_payload(message: StreamEvent) -> dict[str, Any] | None:
         event_payload = raw_event.__dict__
     else:
         return None
-    return {"type": "stream_event", "event": event_payload}
+    payload: dict[str, Any] = {"type": "stream_event", "event": event_payload}
+    parent_tool_use_id = getattr(message, "parent_tool_use_id", None) or getattr(
+        message, "parentToolUseId", None
+    )
+    if isinstance(parent_tool_use_id, str) and parent_tool_use_id:
+        payload["parent_tool_use_id"] = parent_tool_use_id
+        payload["parentToolUseId"] = parent_tool_use_id
+        payload["parentToolCallId"] = parent_tool_use_id
+    return payload
 
 
 def _maybe_set_session_id(
@@ -645,6 +683,20 @@ def _build_assistant_payload(
     return {"id": message_id, "content": content_entries}
 
 
+def _build_tool_result_raw_payload(
+    tool_use_id: str, parent_tool_use_id: str | None
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "type": "tool_result",
+        "toolCallId": tool_use_id,
+        "toolUseId": tool_use_id,
+    }
+    if parent_tool_use_id:
+        payload["parentToolUseId"] = parent_tool_use_id
+        payload["parentToolCallId"] = parent_tool_use_id
+    return payload
+
+
 def _build_tool_result_events(
     message: UserMessage,
     tool_use_names: dict[str, str],
@@ -670,6 +722,9 @@ def _build_tool_result_events(
             tool_name = getattr(block, "tool_name", None) or getattr(
                 block, "name", None
             )
+        parent_tool_use_id = _extract_subagent_parent_id(block)
+        if parent_tool_use_id is None:
+            parent_tool_use_id = _extract_subagent_parent_id(message)
         text = _extract_tool_result_text(getattr(block, "content", None))
         tool_message = ToolChatMessage(
             tool_call_id=tool_use_id,
@@ -680,7 +735,7 @@ def _build_tool_result_events(
         )
         events.append(
             ExternalAgentStreamEvent(
-                raw={"type": "tool_result", "toolCallId": tool_use_id},
+                raw=_build_tool_result_raw_payload(tool_use_id, parent_tool_use_id),
                 stream_chunk=ToolResultEvent(result=tool_message),
             )
         )
@@ -738,6 +793,7 @@ class _ClaudeSdkEventParser:
         self._tool_result_ids_by_index: dict[int, str] = {}
         self._tool_call_buffers: dict[str, _ToolCallBuffer] = {}
         self._tool_result_buffers: dict[str, _ToolResultBuffer] = {}
+        self._tool_parent_ids: dict[str, str] = {}
         self._finalized_message_ids: set[str] = set()
         self._saw_partial_assistant = False
 
@@ -898,6 +954,11 @@ class _ClaudeSdkEventParser:
             tool_name = content_block.get("name")
             if isinstance(tool_use_id, str) and tool_use_id:
                 self._tool_use_ids_by_index[index] = tool_use_id
+                parent_tool_use_id = _extract_subagent_parent_id(content_block)
+                if parent_tool_use_id is None:
+                    parent_tool_use_id = _extract_subagent_parent_id(raw_payload)
+                if parent_tool_use_id:
+                    self._tool_parent_ids[tool_use_id] = parent_tool_use_id
                 buffer = self._tool_call_buffers.setdefault(
                     tool_use_id, _ToolCallBuffer()
                 )
@@ -924,6 +985,11 @@ class _ClaudeSdkEventParser:
             tool_use_id = content_block.get("tool_use_id")
             if isinstance(tool_use_id, str) and tool_use_id:
                 self._tool_result_ids_by_index[index] = tool_use_id
+                parent_tool_use_id = _extract_subagent_parent_id(content_block)
+                if parent_tool_use_id is None:
+                    parent_tool_use_id = _extract_subagent_parent_id(raw_payload)
+                if parent_tool_use_id:
+                    self._tool_parent_ids[tool_use_id] = parent_tool_use_id
                 buffer = self._tool_result_buffers.setdefault(
                     tool_use_id, _ToolResultBuffer(tool_use_id=tool_use_id)
                 )
@@ -1061,14 +1127,23 @@ class _ClaudeSdkEventParser:
                     tool_use_id, _ToolResultBuffer(tool_use_id=tool_use_id)
                 )
                 buffer.text += text
+                parent_tool_use_id = self._tool_parent_ids.get(tool_use_id)
+                if parent_tool_use_id is None:
+                    parent_tool_use_id = _extract_subagent_parent_id(raw_payload)
+                    if parent_tool_use_id:
+                        self._tool_parent_ids[tool_use_id] = parent_tool_use_id
+                raw_delta: dict[str, Any] = {
+                    "type": "tool_result_delta",
+                    "toolUseId": tool_use_id,
+                    "text": text,
+                    "isError": buffer.is_error,
+                }
+                if parent_tool_use_id:
+                    raw_delta["parentToolUseId"] = parent_tool_use_id
+                    raw_delta["parentToolCallId"] = parent_tool_use_id
                 events.append(
                     ExternalAgentStreamEvent(
-                        raw={
-                            "type": "tool_result_delta",
-                            "toolUseId": tool_use_id,
-                            "text": text,
-                            "isError": buffer.is_error,
-                        }
+                        raw=raw_delta
                     )
                 )
         return events or [ExternalAgentStreamEvent(raw=raw_payload)]
@@ -1093,11 +1168,21 @@ class _ClaudeSdkEventParser:
         elif block_type == "tool_result":
             tool_use_id = self._tool_result_ids_by_index.get(index)
             if tool_use_id:
+                parent_tool_use_id = self._tool_parent_ids.get(tool_use_id)
+                if parent_tool_use_id is None:
+                    parent_tool_use_id = _extract_subagent_parent_id(raw_payload)
+                    if parent_tool_use_id:
+                        self._tool_parent_ids[tool_use_id] = parent_tool_use_id
                 tool_result = self._finalize_tool_result(tool_use_id)
                 if tool_result is not None:
+                    raw_tool_result = _build_tool_result_raw_payload(
+                        tool_use_id, parent_tool_use_id
+                    )
+                    raw_tool_result["streamEvent"] = raw_payload
+                    self._tool_parent_ids.pop(tool_use_id, None)
                     events.append(
                         ExternalAgentStreamEvent(
-                            raw=raw_payload,
+                            raw=raw_tool_result,
                             stream_chunk=ToolResultEvent(result=tool_result),
                         )
                     )
@@ -1116,6 +1201,7 @@ class _ClaudeSdkEventParser:
         self._block_types_by_index.clear()
         self._tool_use_ids_by_index.clear()
         self._tool_result_ids_by_index.clear()
+        self._tool_parent_ids.clear()
         return [
             ExternalAgentStreamEvent(
                 raw=raw_payload,
@@ -1625,6 +1711,38 @@ def _extract_tool_result_text(payload: Any) -> str:
                 parts.append(part)
         return "".join(parts)
     return ""
+
+
+def _extract_subagent_parent_id_from_mapping(payload: dict[str, Any]) -> str | None:
+    for key in _SUB_AGENT_CONTEXT_KEYS:
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _extract_subagent_parent_id(payload: Any) -> str | None:
+    if payload is None:
+        return None
+    if isinstance(payload, dict):
+        return _extract_subagent_parent_id_from_mapping(payload)
+    if hasattr(payload, "model_dump"):
+        dumped = payload.model_dump(mode="json", exclude_none=True)
+        if isinstance(dumped, dict):
+            found = _extract_subagent_parent_id_from_mapping(dumped)
+            if found:
+                return found
+    if hasattr(payload, "__dict__"):
+        value = payload.__dict__
+        if isinstance(value, dict):
+            found = _extract_subagent_parent_id_from_mapping(value)
+            if found:
+                return found
+    for key in _SUB_AGENT_CONTEXT_KEYS:
+        value = getattr(payload, key, None)
+        if isinstance(value, str) and value:
+            return value
+    return None
 
 
 def _normalize_tool_context_payload(tool_context: Any) -> dict[str, Any] | None:
