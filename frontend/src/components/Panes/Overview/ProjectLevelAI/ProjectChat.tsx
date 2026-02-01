@@ -1,4 +1,3 @@
-import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildEngineGroups,
@@ -13,6 +12,7 @@ import {
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import * as Menubar from "@radix-ui/react-menubar";
 import _ from "lodash";
 import {
   SetStateAction,
