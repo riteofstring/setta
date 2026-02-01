@@ -18,9 +18,12 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
+import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { useAIStore } from "state/definitions";
+import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   route_stop_external_agent_run,
@@ -70,6 +73,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     shallow,
   );
+  const branchIndex = useChatBranchIndex(typeof chatId === "string");
+  const branchInfoByMessage = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return {};
+    }
+    return buildMessageBranchInfo({
+      chatId,
+      messages,
+      branchIndex,
+    });
+  }, [branchIndex, chatId, messages]);
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const lastFetchedChatIdRef = useRef<string | null>(null);
 
@@ -187,6 +201,56 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     await route_stop_llm_chat({ chatId });
   }, [chatId, isExternalEngine]);
 
+  const handleEditMessage = useCallback(
+    async (messageId: string, text: string, attachments: ChatFileAttachment[]) => {
+      if (waitingForResponse) {
+        return false;
+      }
+      if (!engineConfigId || typeof chatId !== "string") {
+        return false;
+      }
+      if (!isExternalEngine && !hasLLMConfig) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const nextChatId = await submitEditedMessage({
+        parentChatId: chatId,
+        messages,
+        messageId,
+        message: text,
+        attachments,
+        thinking,
+        engineConfigId,
+        isExternalEngine,
+        agentProfileId: null,
+        sectionId: null,
+      });
+      return Boolean(nextChatId);
+    },
+    [
+      chatId,
+      engineConfigId,
+      externalEngineAvailable,
+      hasLLMConfig,
+      isExternalEngine,
+      messages,
+      thinking,
+      waitingForResponse,
+    ],
+  );
+
+  const handleBranchSwitch = useCallback(
+    (nextChatId: string) => {
+      if (!nextChatId || nextChatId === chatId) {
+        return;
+      }
+      setChatId(nextChatId);
+    },
+    [chatId, setChatId],
+  );
+
   const isDisabled =
     !engineConfigId ||
     (!isExternalEngine && !hasLLMConfig) ||
@@ -203,9 +267,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         <EmptyChatState />
       ) : (
         <ChatMessageList
+          chatId={typeof chatId === "string" ? chatId : undefined}
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
+          onEditMessage={handleEditMessage}
+          onBranchSwitch={handleBranchSwitch}
+          branchInfoByMessage={branchInfoByMessage}
         />
       )}
       <ChatInput
