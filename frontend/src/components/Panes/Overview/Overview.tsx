@@ -39,8 +39,7 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
-const FILE_BROWSER_META_INSET_CLASS =
-  "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
+const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {

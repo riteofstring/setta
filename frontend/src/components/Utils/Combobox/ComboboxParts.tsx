@@ -24,10 +24,7 @@ export function ComboboxInput({
       : isPaneVariant
         ? "bg-white/80 dark:bg-setta-900"
         : "bg-white dark:bg-setta-900";
-  const resolvedOuterClasses = [
-    inputOuterClasses,
-    isPaneVariant ? "mx-0" : "",
-  ]
+  const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
   const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-6 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${

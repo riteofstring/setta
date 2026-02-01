@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { getAttachmentPolicy } from "utils/attachmentPolicy";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatInput } from "./ChatInput";
@@ -45,12 +44,12 @@ function getTextareaClassName(markup: string): string | null {
   if (startIndex < 0) {
     return null;
   }
-  const classIndex = markup.indexOf("class=\"", startIndex);
+  const classIndex = markup.indexOf('class="', startIndex);
   if (classIndex < 0) {
     return null;
   }
-  const valueStart = classIndex + "class=\"".length;
-  const valueEnd = markup.indexOf("\"", valueStart);
+  const valueStart = classIndex + 'class="'.length;
+  const valueEnd = markup.indexOf('"', valueStart);
   if (valueEnd < 0) {
     return null;
   }
@@ -97,10 +96,7 @@ describe("ChatInput attachment gating", () => {
 
     expect(markup).toContain("Attachments blocked by share policy");
     expect(markup).not.toContain("Slots:");
-    const menuButton = getButtonTagByAriaLabel(
-      markup,
-      "Attachment options",
-    );
+    const menuButton = getButtonTagByAriaLabel(markup, "Attachment options");
     expect(menuButton).not.toBeNull();
     expect(menuButton).toContain("disabled");
   });
@@ -116,10 +112,7 @@ describe("ChatInput attachment gating", () => {
 
     expect(markup).not.toContain("Attachments blocked by share policy");
     expect(markup).not.toContain("Slots:");
-    const menuButton = getButtonTagByAriaLabel(
-      markup,
-      "Attachment options",
-    );
+    const menuButton = getButtonTagByAriaLabel(markup, "Attachment options");
     expect(menuButton).not.toBeNull();
     expect(menuButton).not.toContain("disabled");
   });

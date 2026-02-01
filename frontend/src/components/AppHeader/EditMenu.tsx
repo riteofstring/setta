@@ -5,8 +5,8 @@ import {
   MenuSubTrigger,
 } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
-import { FiCheck } from "react-icons/fi";
 import { AiOutlineGroup } from "react-icons/ai";
+import { FiCheck } from "react-icons/fi";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
 import { setColorModePreference } from "state/actions/localStorage";
@@ -109,21 +109,9 @@ function Items() {
             alignOffset={-5}
             sideOffset={6}
           >
-            <ColorModeItem
-              label="Dark"
-              mode="dark"
-              activeMode={colorMode}
-            />
-            <ColorModeItem
-              label="Light"
-              mode="light"
-              activeMode={colorMode}
-            />
-            <ColorModeItem
-              label="Auto"
-              mode="auto"
-              activeMode={colorMode}
-            />
+            <ColorModeItem label="Dark" mode="dark" activeMode={colorMode} />
+            <ColorModeItem label="Light" mode="light" activeMode={colorMode} />
+            <ColorModeItem label="Auto" mode="auto" activeMode={colorMode} />
           </Menubar.SubContent>
         </Menubar.Portal>
       </Menubar.Sub>

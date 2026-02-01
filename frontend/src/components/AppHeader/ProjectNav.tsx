@@ -36,12 +36,12 @@ function ProjectNavSwitch() {
   } else if (projectConfigName) {
     content = (
       <>
-          <Menubar.Root className="contents">
-            <FileMenu />
-            <EditMenu />
-            <WebsocketConnections />
-            <RunButton />
-          </Menubar.Root>
+        <Menubar.Root className="contents">
+          <FileMenu />
+          <EditMenu />
+          <WebsocketConnections />
+          <RunButton />
+        </Menubar.Root>
         <StopButton />
       </>
     );

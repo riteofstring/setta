@@ -14,11 +14,7 @@ type WatchInputs = {
 
 export function WatchCodePane() {
   const { canEditLayout } = useShareCapabilities();
-  const {
-    watchCodeFolders,
-    watchCodeFiles,
-    projectConfigId,
-  } = useProjectState(
+  const { watchCodeFolders, watchCodeFiles, projectConfigId } = useProjectState(
     (
       state,
     ): {
@@ -155,7 +151,7 @@ export function WatchCodePane() {
             Watch Folders
           </h3>
           <button
-            className="inline-flex h-6 w-full shrink-0 items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100 cursor-pointer @[14rem]:ml-auto @[14rem]:w-auto"
+            className="inline-flex h-6 w-full shrink-0 cursor-pointer items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 @[14rem]:ml-auto @[14rem]:w-auto dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
             disabled={inputsDisabled}
             onClick={addFolder}
             type="button"
@@ -171,7 +167,10 @@ export function WatchCodePane() {
         ) : (
           <div className="space-y-2">
             {localFolders.map((folder, index) => (
-              <div className="flex w-full flex-wrap items-center gap-2 @container" key={index}>
+              <div
+                className="flex w-full flex-wrap items-center gap-2 @container"
+                key={index}
+              >
                 <input
                   className={`${inputClasses} ml-[2px] min-w-[10rem] flex-1`}
                   disabled={inputsDisabled}
@@ -195,7 +194,11 @@ export function WatchCodePane() {
                     className={`nodrag inline-flex h-6 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-[11px] font-semibold transition-colors focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-transparent active:dark:!bg-transparent ${folder.recursive ? "text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200" : "text-setta-500 hover:text-setta-900 dark:text-setta-400 dark:hover:text-setta-100"}`}
                     disabled={inputsDisabled}
                     onClick={() =>
-                      updateFolder(index, { recursive: !folder.recursive }, true)
+                      updateFolder(
+                        index,
+                        { recursive: !folder.recursive },
+                        true,
+                      )
                     }
                     type="button"
                   >
@@ -203,7 +206,7 @@ export function WatchCodePane() {
                     Recursive
                   </button>
                   <button
-                    className="inline-flex h-6 w-6 flex-none items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400 cursor-pointer"
+                    className="inline-flex h-6 w-6 flex-none cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFolder(index)}
                     type="button"
@@ -223,7 +226,7 @@ export function WatchCodePane() {
             Watch Files
           </h3>
           <button
-            className="inline-flex h-6 w-full shrink-0 items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100 cursor-pointer @[14rem]:ml-auto @[14rem]:w-auto"
+            className="inline-flex h-6 w-full shrink-0 cursor-pointer items-center justify-center gap-1 rounded px-2 text-[11px] font-semibold text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-50 @[14rem]:ml-auto @[14rem]:w-auto dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
             disabled={inputsDisabled}
             onClick={addFile}
             type="button"
@@ -239,7 +242,10 @@ export function WatchCodePane() {
         ) : (
           <div className="space-y-2">
             {localFiles.map((file, index) => (
-              <div className="flex w-full flex-wrap items-center gap-2 @container" key={index}>
+              <div
+                className="flex w-full flex-wrap items-center gap-2 @container"
+                key={index}
+              >
                 <input
                   className={`${inputClasses} min-w-[10rem] flex-1`}
                   disabled={inputsDisabled}
@@ -257,7 +263,7 @@ export function WatchCodePane() {
                 />
                 <div className="flex w-full items-center justify-center">
                   <button
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400 cursor-pointer"
+                    className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
                     disabled={inputsDisabled}
                     onClick={() => removeFile(index)}
                     type="button"

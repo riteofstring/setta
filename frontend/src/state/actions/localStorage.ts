@@ -1,6 +1,6 @@
 import { type ColorModePreference, useLocalStorage } from "state/definitions";
 
-export function toggleDarkMode() {
+function toggleDarkMode() {
   useLocalStorage.setState((state) => {
     const nextDarkMode = !state.darkMode;
     return {

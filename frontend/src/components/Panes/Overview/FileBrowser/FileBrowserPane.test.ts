@@ -18,7 +18,7 @@ function buildNode(
 describe("sortChildPaths", () => {
   it("sorts by name with folders first", () => {
     const nodesByPath: Record<string, FileNode> = {
-      "folder": buildNode("folder", "folder", 10),
+      folder: buildNode("folder", "folder", 10),
       "b.txt": buildNode("b.txt", "file", 20),
       "A.txt": buildNode("A.txt", "file", 30),
       "c.txt": buildNode("c.txt", "file", 40),
@@ -46,7 +46,7 @@ describe("sortChildPaths", () => {
 
   it("sorts by modified date with folders first", () => {
     const nodesByPath: Record<string, FileNode> = {
-      "folder": buildNode("folder", "folder", 5),
+      folder: buildNode("folder", "folder", 5),
       "old.txt": buildNode("old.txt", "file", 100),
       "new.txt": buildNode("new.txt", "file", 300),
     };

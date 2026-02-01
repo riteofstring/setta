@@ -1,17 +1,17 @@
+import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
-import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
   SetStateAction,

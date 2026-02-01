@@ -12,7 +12,10 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ParamGroupContainer, getPinnedParamsBgClassName } from "./GroupContainer";
+import {
+  ParamGroupContainer,
+  getPinnedParamsBgClassName,
+} from "./GroupContainer";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

@@ -26,7 +26,7 @@ export function WatchCodeToggleButton() {
       aria-label={actionLabel}
       aria-pressed={enabled}
       title={actionLabel}
-      className={`nodrag inline-flex w-full max-w-full cursor-pointer select-none items-center justify-center gap-2 rounded-md border border-solid px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 box-border ${stateClasses} ${disabledClasses}`}
+      className={`nodrag box-border inline-flex w-full max-w-full cursor-pointer select-none items-center justify-center gap-2 rounded-md border border-solid px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 ${stateClasses} ${disabledClasses}`}
       disabled={disabled}
       type="button"
       onClick={() => {

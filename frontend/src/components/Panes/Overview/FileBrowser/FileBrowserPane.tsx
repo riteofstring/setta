@@ -4,17 +4,17 @@ import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder } from "react-icons/tb";
 import { List, useListRef } from "react-window";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
+import { useFileBrowserState } from "state/definitions";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
-import { useFileBrowserState } from "state/definitions";
-import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { clamp } from "utils/utils";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
+import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
 const HEADER_HEIGHT = 28;
@@ -31,8 +31,8 @@ const MAX_ENTRIES = 5000;
 
 type NodeKind = "folder" | "file";
 
-export type SortKey = "name" | "modified";
-export type SortDirection = "asc" | "desc";
+type SortKey = "name" | "modified";
+type SortDirection = "asc" | "desc";
 
 export type FileNode = {
   name: string;
@@ -359,13 +359,7 @@ export function FileBrowserPane({
       };
     };
     return collectFiltered(rootPath, 0).items;
-  }, [
-    rootPath,
-    nodesByPath,
-    expandedPaths,
-    filterText,
-    getSortedChildPaths,
-  ]);
+  }, [rootPath, nodesByPath, expandedPaths, filterText, getSortedChildPaths]);
 
   const selectedIndex = useMemo(() => {
     if (!selectedPath) {
@@ -598,9 +592,7 @@ export function FileBrowserPane({
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
       {showMeta && (
-        <div
-          className={`flex flex-col gap-2 ${metaPaddingClassName ?? ""}`}
-        >
+        <div className={`flex flex-col gap-2 ${metaPaddingClassName ?? ""}`}>
           {showFilter && (
             <div className="flex flex-col gap-1">
               <FileBrowserFilter useFileBrowserStateHook={fileBrowserState} />
@@ -651,7 +643,7 @@ export function FileBrowserPane({
               )}
             </button>
             <div
-              className="group/resize absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center nopan nodrag"
+              className="group/resize nopan nodrag absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center"
               onMouseDown={handleResizeStart}
             >
               <div className="h-4 w-1.5 rounded-full bg-setta-400/90 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-500 dark:group-hover/resize:bg-blue-400" />
