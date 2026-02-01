@@ -429,6 +429,7 @@ class ProjectGenPythonCode(PythonCode):
             lsp_status,
             [obj.name for obj in codeObjs],
         )
+
         maybe_invoke_before_mutation()
         if not prev_selected:
             callable_base_impl = create_code_obj_impl(

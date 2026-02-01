@@ -39,8 +39,29 @@ function renderChatInput() {
   );
 }
 
-function getButtonTag(markup: string, label: string): string | null {
-  const marker = `${label}</button>`;
+function getTextareaClassName(markup: string): string | null {
+  const marker = "<textarea";
+  const startIndex = markup.indexOf(marker);
+  if (startIndex < 0) {
+    return null;
+  }
+  const classIndex = markup.indexOf("class=\"", startIndex);
+  if (classIndex < 0) {
+    return null;
+  }
+  const valueStart = classIndex + "class=\"".length;
+  const valueEnd = markup.indexOf("\"", valueStart);
+  if (valueEnd < 0) {
+    return null;
+  }
+  return markup.slice(valueStart, valueEnd);
+}
+
+function getButtonTagByAriaLabel(
+  markup: string,
+  ariaLabel: string,
+): string | null {
+  const marker = `aria-label=\"${ariaLabel}\"`;
   const labelIndex = markup.indexOf(marker);
   if (labelIndex < 0) {
     return null;
@@ -76,9 +97,12 @@ describe("ChatInput attachment gating", () => {
 
     expect(markup).toContain("Attachments blocked by share policy");
     expect(markup).not.toContain("Slots:");
-    const attachButton = getButtonTag(markup, "Attach");
-    expect(attachButton).not.toBeNull();
-    expect(attachButton).toContain("disabled");
+    const menuButton = getButtonTagByAriaLabel(
+      markup,
+      "Attachment options",
+    );
+    expect(menuButton).not.toBeNull();
+    expect(menuButton).toContain("disabled");
   });
 
   it("shows slots when param changes are allowed", () => {
@@ -91,14 +115,27 @@ describe("ChatInput attachment gating", () => {
     const markup = renderChatInput();
 
     expect(markup).not.toContain("Attachments blocked by share policy");
-    const chatPolicy = getAttachmentPolicy("chat");
-    if (!chatPolicy.maxFilesDisabled && chatPolicy.maxFiles !== null) {
-      expect(markup).toContain(`Slots: ${chatPolicy.maxFiles}`);
-    } else {
-      expect(markup).not.toContain("Slots:");
-    }
-    const attachButton = getButtonTag(markup, "Attach");
-    expect(attachButton).not.toBeNull();
-    expect(attachButton).not.toContain("disabled");
+    expect(markup).not.toContain("Slots:");
+    const menuButton = getButtonTagByAriaLabel(
+      markup,
+      "Attachment options",
+    );
+    expect(menuButton).not.toBeNull();
+    expect(menuButton).not.toContain("disabled");
+  });
+
+  it("renders a full-width textarea for wide layouts", () => {
+    useShareSession.setState({
+      isShareMode: false,
+      sharePolicy: buildSharePolicy(),
+    });
+    syncStoreInitialState(useShareSession);
+
+    const markup = renderChatInput();
+    const className = getTextareaClassName(markup);
+
+    expect(className).not.toBeNull();
+    expect(className).toContain("w-full");
+    expect(className).toContain("max-w-none");
   });
 });

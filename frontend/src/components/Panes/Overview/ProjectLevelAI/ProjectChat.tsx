@@ -3,6 +3,7 @@ import {
   getChatPlaceholderText,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
+import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
@@ -10,6 +11,7 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import {
   SetStateAction,
@@ -20,6 +22,7 @@ import {
 } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
+import { IoSettingsOutline } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
@@ -29,6 +32,17 @@ import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
+
+type ProjectAISettingsPopoverProps = {
+  engineGroups: ReturnType<typeof buildEngineGroups>;
+  availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
+  selectedEngineId: string | null;
+  selectedLLMConfigId: string | null;
+  engineType: EngineTypeEnum | null;
+  noConfigsAvailable: boolean;
+  onEngineChange: (value: string | null) => void;
+  onLLMConfigChange: (value: string | null) => void;
+};
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -232,8 +246,8 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
-        <nav className="-mt-1.5 flex min-h-[50px] flex-col gap-2 border-b border-setta-100 pb-8 pt-2 @[17.5rem]:flex-row @[17.5rem]:items-center @[17.5rem]:pb-2 dark:border-setta-800">
-          <div className="flex gap-2">
+        <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800">
+          <div className="mt-2 flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               aria-label="New Chat"
@@ -245,7 +259,7 @@ export function ProjectChat() {
               }}
             >
               <MdAdd size={15} />
-              <span className="@[17.5rem]:hidden @sm:block">New</span>
+              <span className="hidden @[17.5rem]:block">New</span>
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
@@ -262,56 +276,41 @@ export function ProjectChat() {
               ) : (
                 <>
                   <RiChatHistoryLine size={15} />
-                  <span className="@[17.5rem]:hidden @sm:block">History</span>
+                  <span className="hidden @[17.5rem]:block">History</span>
                 </>
               )}
             </button>
-          </div>
-
-          {viewHistory ? null : (
-            <div className="ml-auto flex w-full items-center justify-end gap-2">
-              <IdNameCombobox
-                allItems={engineGroups}
-                value={selectedEngineId}
-                small={false}
-                onSelectedItemChange={handleEngineChange}
-                placeholder="Select an engine"
-                outerDivClasses="@[17.5rem]:max-w-64 justify-center"
-              />
-              {showPlanModeBadge ? <PlanModeBadge /> : null}
-
-              {engineType === EngineTypeEnum.setta_llm ||
-              engineType === EngineTypeEnum.external_agent ? (
-                <button
-                  className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
-                  aria-label="Thinking"
-                  onClick={() => {
-                    setThinking(!thinking);
-                  }}
-                >
-                  <BiSolidBrain size={15} />
-                  <span className="hidden @[33.5rem]:block">Thinking</span>
-                </button>
-              ) : null}
-
-              {engineType === EngineTypeEnum.setta_llm ? (
-                <IdNameCombobox
-                  allItems={availableConfigGroups}
-                  value={selectedLLMConfigId}
-                  small={false}
-                  onSelectedItemChange={handleLLMConfigChange}
-                  placeholder={
-                    noConfigsAvailable
-                      ? "Add an LLM config or API key"
-                      : "Select an LLM"
-                  }
-                  // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                  bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
-                  outerDivClasses="@[17.5rem]:max-w-64 justify-center"
+            {!viewHistory ? <FollowAIToggleButton /> : null}
+            {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
+            {!viewHistory &&
+            (engineType === EngineTypeEnum.setta_llm ||
+              engineType === EngineTypeEnum.external_agent) ? (
+              <button
+                className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
+                aria-label="Thinking"
+                onClick={() => {
+                  setThinking(!thinking);
+                }}
+              >
+                <BiSolidBrain size={15} />
+                <span className="hidden @[33.5rem]:block">Thinking</span>
+              </button>
+            ) : null}
+            {!viewHistory ? (
+              <div className="ml-auto flex items-center">
+                <ProjectAISettingsPopover
+                  engineGroups={engineGroups}
+                  availableConfigGroups={availableConfigGroups}
+                  selectedEngineId={selectedEngineId}
+                  selectedLLMConfigId={selectedLLMConfigId}
+                  engineType={engineType}
+                  noConfigsAvailable={noConfigsAvailable}
+                  onEngineChange={handleEngineChange}
+                  onLLMConfigChange={handleLLMConfigChange}
                 />
-              ) : null}
-            </div>
-          )}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
         {viewHistory ? (
@@ -339,5 +338,79 @@ export function ProjectChat() {
         )}
       </div>
     )
+  );
+}
+
+function ProjectAISettingsPopover({
+  engineGroups,
+  availableConfigGroups,
+  selectedEngineId,
+  selectedLLMConfigId,
+  engineType,
+  noConfigsAvailable,
+  onEngineChange,
+  onLLMConfigChange,
+}: ProjectAISettingsPopoverProps) {
+  const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
+  const llmPlaceholder = noConfigsAvailable
+    ? "Add an LLM config or API key"
+    : "Select an LLM";
+  const llmBg = selectedLLMConfigId
+    ? ""
+    : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+
+  return (
+    <StandardPopover
+      trigger={
+        <button
+          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+          aria-label="Project AI Settings"
+          type="button"
+        >
+          <IoSettingsOutline size={15} />
+          <span className="hidden @[33.5rem]:block">Settings</span>
+        </button>
+      }
+      contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
+      arrowClasses="fill-white/95 dark:fill-setta-900/95"
+    >
+      <div className="flex flex-col gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
+          Project AI
+        </p>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Engine
+            </span>
+            <IdNameCombobox
+              allItems={engineGroups}
+              value={selectedEngineId}
+              small={false}
+              onSelectedItemChange={onEngineChange}
+              placeholder="Select an engine"
+              outerDivClasses="w-full"
+            />
+          </div>
+          {showLLMConfig ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+                LLM Config
+              </span>
+              <IdNameCombobox
+                allItems={availableConfigGroups}
+                value={selectedLLMConfigId}
+                small={false}
+                onSelectedItemChange={onLLMConfigChange}
+                placeholder={llmPlaceholder}
+                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                bg={llmBg}
+                outerDivClasses="w-full"
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </StandardPopover>
   );
 }

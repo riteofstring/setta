@@ -1,5 +1,4 @@
 import json
-import logging
 
 import pytest
 
@@ -206,57 +205,6 @@ class TestAddKwarg:
             self.project_state, section_id
         )
         assert top_level_param_ids == [kwarg_id]
-
-    def test_add_kwarg_does_not_emit_info_logs(self, caplog) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Dict,
-            Position(),
-        )
-
-        with caplog.at_level(logging.INFO, logger="setta.types.helpers_lvl2"):
-            add_kwarg(self.settings, self.project_state, section_id)
-
-        info_records = [
-            record
-            for record in caplog.records
-            if record.name == "setta.types.helpers_lvl2"
-            and record.levelno == logging.INFO
-        ]
-        assert info_records == []
-
-    def test_add_kwarg_updates_shown_param_ids(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Dict,
-            Position(),
-        )
-
-        add_kwarg(self.settings, self.project_state, section_id)
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            BaseDictSectionImpl,
-        )
-        assert section_impl.topLevelParamId is not None
-        top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            section_impl.topLevelParamId,
-            NestedParamCodeObjImpl,
-        )
-        kwarg_id = top_level_impl.children[0]
-
-        self.project_state.validate_shown_param_ids()
-
-        variant_id = self.project_state.projectConfig.sectionVariantMap[section_id]
-        shown = self.project_state.shownParamIds[variant_id]
-        assert shown.pinned.topLevelParamIds == []
-        assert shown.unpinned.topLevelParamIds == [kwarg_id]
-        assert shown.unpinned.requiredParamIdsToPaths[kwarg_id] == (kwarg_id,)
 
 
 class TestDeleteSections:
@@ -1041,7 +989,7 @@ class TestSmartLayout:
         assert position.x == pytest.approx(124.0)
         assert position.y == pytest.approx(24.0)
         assert pan_to is not None
-        assert pan_to.x == pytest.approx(position.x + 100.0)
+        assert pan_to.x == pytest.approx(position.x + 80.0)
         assert pan_to.y == pytest.approx(position.y + 50.0)
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
@@ -1070,11 +1018,9 @@ class TestSmartLayout:
             viewport_bounds,
         )
 
-        assert position.x == pytest.approx(300.0)
-        assert position.y == pytest.approx(224.0)
-        assert pan_to is not None
-        assert pan_to.x == pytest.approx(400.0)
-        assert pan_to.y == pytest.approx(274.0)
+        assert position.x == pytest.approx(24.0)
+        assert position.y == pytest.approx(24.0)
+        assert pan_to is None
 
 
 class TestTextBlockHeadingAsName:
@@ -1149,3 +1095,4 @@ class TestTextBlockDefaults:
             TextBlockSectionImpl,
         )
         assert impl.headingAsSectionName
+

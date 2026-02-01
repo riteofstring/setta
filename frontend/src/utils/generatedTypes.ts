@@ -191,9 +191,9 @@ export const HttpRequestMethodEnum = {
 
 export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
 
-export const ParamNameTypeEnum = { CODE: "CODE", TEXT: "TEXT" } as const;
+const ParamNameTypeEnum = { CODE: "CODE", TEXT: "TEXT" } as const;
 
-export const ParameterPassingStyleEnum = {
+const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
   ARGS: "ARGS",
   KWARGS: "KWARGS",
@@ -291,6 +291,8 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
+export const SectionSizeModeEnum = { auto: "auto" } as const;
+
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
   Edit: "Edit",
@@ -300,8 +302,6 @@ export const TextBlockFormatEnum = {
   Plaintext: "Plaintext",
   Markdown: "Markdown",
 } as const;
-
-const SectionSizeModeEnum = { auto: "auto" } as const;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -550,6 +550,7 @@ export const RouteEnum = {
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
   SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
+  SET_SECTION_PINNED_AREA_HEIGHT: "/setSectionPinnedAreaHeight",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
@@ -1452,6 +1453,7 @@ const SharedModifierSchema = z.object({
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
@@ -1567,6 +1569,7 @@ const CoreSchema = z.object({
         "overflowMode",
         "paramFilter",
         "passingStyle",
+        "pinnedAreaHeight",
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
@@ -1628,6 +1631,9 @@ const CallableSectionImplSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(IDSchema).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
@@ -1659,6 +1665,9 @@ const DictSectionImplSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(IDSchema).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
@@ -1890,6 +1899,9 @@ const GlobalVariablesSectionImplSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(IDSchema).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
@@ -2928,6 +2940,7 @@ const DictSectionImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   edgeInputParams: z.array(IDSchema).optional(),
@@ -2959,6 +2972,7 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   edgeInputParams: z.array(IDSchema).optional(),
@@ -3030,6 +3044,7 @@ const CallableSectionImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   edgeInputParams: z.array(IDSchema).optional(),
@@ -3775,7 +3790,6 @@ const ProjectConfigSchema = z.object({
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
-  viewportInitialized: z.boolean().default(false),
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
@@ -3837,8 +3851,6 @@ const ShownParamIdsSchema = z.object({
   pinned: ShownParamIdDetailsSchema.default(createShownParamIdDetails),
   unpinned: ShownParamIdDetailsSchema.default(createShownParamIdDetails),
 });
-
-export type ShownParamIds = z.infer<typeof ShownParamIdsSchema>;
 
 const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(IDSchema, CoreSchema).default({}),
@@ -4115,7 +4127,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
   ),
   Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 78.0,
+      minHeight: 0.0,
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
@@ -4161,27 +4173,19 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  Prompt: SectionSizingPolicyTypeEntrySchema.default(() =>
+  TextBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 100.0,
+      minHeight: 98.0,
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
     }),
   ),
-  TextBlock: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 49.0,
-      maxHeight: 100000.0,
-      minWidth: 100.0,
-      maxWidth: 100000.0,
-    }),
-  ),
   MetaControl: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 10.0,
+      minHeight: 20.0,
       maxHeight: 100000.0,
-      minWidth: 100.0,
+      minWidth: 200.0,
       maxWidth: 100000.0,
     }),
   ),
@@ -4458,6 +4462,9 @@ const UserDefaultCallableSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
@@ -4566,6 +4573,9 @@ const UserDefaultDictSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -4665,6 +4675,9 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   edgeInputParams: z.array(IDSchema).default([]),
   edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
@@ -5227,12 +5240,6 @@ const SettingsStateSchema = z.object({
 
 export type SettingsState = z.infer<typeof SettingsStateSchema>;
 
-export function createSettingsState(
-  options: Partial<SettingsState> = {},
-): SettingsState {
-  return SettingsStateSchema.parse(options);
-}
-
 const WebsocketMsgUpdateSettingsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: SettingsStateSchema,
@@ -5675,6 +5682,7 @@ const BaseDictSectionImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   edgeInputParams: z.array(IDSchema).optional(),
@@ -5769,6 +5777,7 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
+  pinnedAreaHeight: z.union([z.literal("auto"), z.number()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.optional(),
   edgeInputParams: z.array(IDSchema).optional(),
@@ -6103,6 +6112,9 @@ const BaseDictSectionImplSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(IDSchema).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
@@ -6154,6 +6166,9 @@ const BaseSectionWithParamsImplSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(IDSchema).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
@@ -7672,6 +7687,17 @@ const SetSectionParamFilterRequestSchema = z.object({
 
 export type SetSectionParamFilterRequestInput = z.input<
   typeof SetSectionParamFilterRequestSchema
+>;
+
+const SetSectionPinnedAreaHeightRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  pinnedAreaHeight: z.union([z.number(), z.enum(SectionSizeModeEnum)]),
+});
+
+export type SetSectionPinnedAreaHeightRequestInput = z.input<
+  typeof SetSectionPinnedAreaHeightRequestSchema
 >;
 
 const SetSectionPinnedParamsRequestSchema = z.object({
