@@ -77,6 +77,77 @@ def test_build_attachment_content_blocks_handles_images_text_and_binary() -> Non
         assert "Type: application/octet-stream" in binary_block.text
 
 
+def test_build_attachment_content_blocks_skips_unsupported_images() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        image_bytes = b"avif-payload"
+        image_path = dbe.path / "attachments" / "image.avif"
+        dbe.write(image_path, image_bytes, mode="wb")
+
+        attachments = [
+            ChatFileAttachment(
+                id=str(image_path),
+                name="image.avif",
+                mimeType="image/avif",
+                size=len(image_bytes),
+            )
+        ]
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
+
+        assert blocks == []
+
+
+def test_build_attachment_content_blocks_normalizes_image_mime_aliases() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = DBE(Path(tmpdir) / "setta_files")
+        jpeg_bytes = b"\xff\xd8\xff"
+        jpeg_path = dbe.path / "attachments" / "photo.jpg"
+        dbe.write(jpeg_path, jpeg_bytes, mode="wb")
+        png_bytes = b"\x89PNG\r\n\x1a\n"
+        png_path = dbe.path / "attachments" / "image.png"
+        dbe.write(png_path, png_bytes, mode="wb")
+
+        attachments = [
+            ChatFileAttachment(
+                id=str(jpeg_path),
+                name="photo.jpg",
+                mimeType="image/jpg",
+                size=len(jpeg_bytes),
+            ),
+            ChatFileAttachment(
+                id=str(png_path),
+                name="image.png",
+                mimeType="image/x-png",
+                size=len(png_bytes),
+            ),
+        ]
+
+        blocks = build_attachment_content_blocks(
+            dbe=dbe,
+            attachments=attachments,
+            base_root=Path(tmpdir),
+            artifacts_root=dbe.path / "artifacts",
+            allow_external=True,
+        )
+
+        assert len(blocks) == 2
+        first = blocks[0]
+        second = blocks[1]
+        assert isinstance(first, MessageImageUrlContent)
+        assert isinstance(second, MessageImageUrlContent)
+        encoded_jpeg = b64encode(jpeg_bytes).decode("utf-8")
+        encoded_png = b64encode(png_bytes).decode("utf-8")
+        assert first.image_url.url == f"data:image/jpeg;base64,{encoded_jpeg}"
+        assert second.image_url.url == f"data:image/png;base64,{encoded_png}"
+
+
 def test_build_attachment_content_blocks_inlines_text_for_known_extension() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = DBE(Path(tmpdir) / "setta_files")
