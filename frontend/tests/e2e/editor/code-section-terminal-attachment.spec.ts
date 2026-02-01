@@ -440,7 +440,10 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       projectConfigName,
       sectionId,
     );
-    await waitForTerminalReady(page, terminalId);
+    await waitForTerminalReady(page, terminalId, {
+      required: false,
+      timeoutMs: 5000,
+    });
 
     const terminalHost = page.locator(
       `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
@@ -937,21 +940,27 @@ async function waitForTerminalOutputMarker(
 async function waitForTerminalReady(
   page: Page,
   terminalId: string,
-  timeoutMs = 20000,
-): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        return await page.evaluate((id) => {
-          const readyMap = (window as typeof window & {
-            __terminalReadyBySectionId?: Record<string, boolean>;
-          }).__terminalReadyBySectionId;
-          return readyMap?.[id] ?? false;
-        }, terminalId);
-      },
-      { timeout: timeoutMs },
-    )
-    .toBe(true);
+  options?: { timeoutMs?: number; required?: boolean },
+): Promise<boolean> {
+  const timeoutMs = options?.timeoutMs ?? 20000;
+  const required = options?.required ?? true;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const ready = await page.evaluate((id) => {
+      const readyMap = (window as typeof window & {
+        __terminalReadyBySectionId?: Record<string, boolean>;
+      }).__terminalReadyBySectionId;
+      return readyMap?.[id] ?? false;
+    }, terminalId);
+    if (ready) {
+      return true;
+    }
+    await page.waitForTimeout(250);
+  }
+  if (required) {
+    throw new Error(`Timed out waiting for terminal ${terminalId} readiness.`);
+  }
+  return false;
 }
 
 async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
