@@ -10,6 +10,45 @@ import { getCurrProjectConfigId } from "./sectionInfos";
 
 type TypeErrors = SettaProjectConfigDiagnostics["errors"];
 
+type TypeErrorsSummary = {
+  sections: number;
+  callableErrors: number;
+  paramErrors: number;
+  paramSections: number;
+};
+
+const SHOULD_LOG_TYPE_ERRORS =
+  import.meta.env?.DEV && import.meta.env?.VITE_LOG_TYPE_ERRORS === "1";
+
+function summarizeTypeErrors(errors: TypeErrors): TypeErrorsSummary {
+  let callableErrors = 0;
+  let paramErrors = 0;
+  let paramSections = 0;
+  for (const section of Object.values(errors)) {
+    callableErrors += section.callable.length;
+    const paramIds = Object.keys(section.params);
+    if (paramIds.length > 0) {
+      paramSections += 1;
+    }
+    for (const paramId of paramIds) {
+      paramErrors += section.params[paramId].length;
+    }
+  }
+  return {
+    sections: Object.keys(errors).length,
+    callableErrors,
+    paramErrors,
+    paramSections,
+  };
+}
+
+function logTypeErrors(event: string, payload: Record<string, unknown>) {
+  if (!SHOULD_LOG_TYPE_ERRORS) {
+    return;
+  }
+  console.info(`[type-check:${event}]`, payload);
+}
+
 function areStringArraysEqual(left: Array<string>, right: Array<string>) {
   if (left === right) {
     return true;
