@@ -559,45 +559,6 @@ function ManagedChatArea({
   }, [externalEngineStatus]);
 
   useEffect(() => {
-    console.log(
-      "[ManagedChatArea] state",
-      JSON.stringify({
-        sectionId,
-        chatId,
-        engineConfigId,
-        agentProfileId,
-        effectiveEngineConfigId,
-        engineType,
-        isExternalEngine,
-        hasEngineConfig,
-        hasLLMConfig,
-        noConfigsAvailable,
-        externalEngineAvailable,
-        externalEngineStatus,
-        waitingForResponse,
-        isDisabled:
-          !hasEngineConfig ||
-          (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
-          (isExternalEngine && !externalEngineAvailable),
-      }),
-    );
-  }, [
-    agentProfileId,
-    chatId,
-    effectiveEngineConfigId,
-    engineConfigId,
-    engineType,
-    externalEngineAvailable,
-    externalEngineStatus,
-    hasEngineConfig,
-    hasLLMConfig,
-    isExternalEngine,
-    noConfigsAvailable,
-    sectionId,
-    waitingForResponse,
-  ]);
-
-  useEffect(() => {
     if (typeof chatId !== "string") {
       return;
     }
@@ -638,25 +599,12 @@ function ManagedChatArea({
   );
 
   const handleNewChatStart = useCallback(() => {
-    console.log(
-      "[ManagedChatArea] new-chat-start",
-      JSON.stringify({ sectionId, chatId }),
-    );
     initializePendingChatDetails();
     setChatId(null);
   }, [setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
-      console.log(
-        "[ManagedChatArea] new-chat-settled",
-        JSON.stringify({
-          sectionId,
-          priorChatId: chatId,
-          newChatId,
-          succeeded,
-        }),
-      );
       clearPendingChatDetails();
       setChatId((currentChatId) => {
         if (currentChatId !== null) {
@@ -674,57 +622,16 @@ function ManagedChatArea({
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
-      console.log(
-        "[ManagedChatArea] submit-attempt",
-        JSON.stringify({
-          sectionId,
-          chatId,
-          messageLength: message.length,
-          hasText: Boolean(trimmed),
-          attachmentsCount: attachments.length,
-          hasEngineConfig,
-          hasLLMConfig,
-          isExternalEngine,
-          externalEngineAvailable,
-          effectiveEngineConfigId,
-          agentProfileId,
-          thinking,
-        }),
-      );
       if (!trimmed && attachments.length === 0) {
-        console.log(
-          "[ManagedChatArea] submit-blocked",
-          JSON.stringify({ reason: "empty-input", sectionId, chatId }),
-        );
         return false;
       }
       if (!hasEngineConfig) {
-        console.log(
-          "[ManagedChatArea] submit-blocked",
-          JSON.stringify({ reason: "missing-engine-config", sectionId, chatId }),
-        );
         return false;
       }
       if (!isExternalEngine && !hasLLMConfig) {
-        console.log(
-          "[ManagedChatArea] submit-blocked",
-          JSON.stringify({
-            reason: "missing-llm-config",
-            sectionId,
-            chatId,
-          }),
-        );
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
-        console.log(
-          "[ManagedChatArea] submit-blocked",
-          JSON.stringify({
-            reason: "external-engine-unavailable",
-            sectionId,
-            chatId,
-          }),
-        );
         return false;
       }
       const messageId = createNewId();
@@ -747,27 +654,8 @@ function ManagedChatArea({
       let succeeded = false;
       try {
         if (!effectiveEngineConfigId) {
-          console.log(
-            "[ManagedChatArea] submit-blocked",
-            JSON.stringify({
-              reason: "missing-effective-engine-config",
-              sectionId,
-              chatId,
-            }),
-          );
           return false;
         }
-        console.log(
-          "[ManagedChatArea] submit-dispatch",
-          JSON.stringify({
-            sectionId,
-            chatId,
-            messageId,
-            effectiveEngineConfigId,
-            agentProfileId,
-            isExternalEngine,
-          }),
-        );
         submittedChatId = await submitMessage(
           chatId,
           message,
@@ -777,27 +665,10 @@ function ManagedChatArea({
           isExternalEngine,
           messageId,
           agentProfileId,
-          sectionId,
         );
         succeeded = Boolean(submittedChatId);
-        console.log(
-          "[ManagedChatArea] submit-result",
-          JSON.stringify({
-            sectionId,
-            chatId,
-            submittedChatId,
-            succeeded,
-          }),
-        );
       } catch (err) {
-        console.error(
-          "[ManagedChatArea] submit-error",
-          JSON.stringify({
-            sectionId,
-            chatId,
-            error: String(err),
-          }),
-        );
+        console.error("Failed to submit LLM chat message", err);
       } finally {
         if (isFirstMessage) {
           handleNewChatSettled(submittedChatId, succeeded);

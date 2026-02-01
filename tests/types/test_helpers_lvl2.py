@@ -206,6 +206,38 @@ class TestAddKwarg:
         )
         assert top_level_param_ids == [kwarg_id]
 
+    def test_add_kwarg_updates_shown_param_ids(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Dict,
+            Position(),
+        )
+
+        add_kwarg(self.settings, self.project_state, section_id)
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            BaseDictSectionImpl,
+        )
+        assert section_impl.topLevelParamId is not None
+        top_level_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            section_impl.topLevelParamId,
+            NestedParamCodeObjImpl,
+        )
+        kwarg_id = top_level_impl.children[0]
+
+        self.project_state.validate_shown_param_ids()
+
+        variant_id = self.project_state.projectConfig.sectionVariantMap[section_id]
+        shown = self.project_state.shownParamIds[variant_id]
+        assert shown.pinned.topLevelParamIds == []
+        assert shown.unpinned.topLevelParamIds == [kwarg_id]
+        assert shown.unpinned.requiredParamIdsToPaths[kwarg_id] == (kwarg_id,)
+
 
 class TestDeleteSections:
     @pytest.fixture(autouse=True)
@@ -1095,4 +1127,3 @@ class TestTextBlockDefaults:
             TextBlockSectionImpl,
         )
         assert impl.headingAsSectionName
-
