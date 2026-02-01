@@ -42,4 +42,8 @@ Defaults are mirrored into generated user defaults in
 ## Policy bounds
 - Sizing bounds come from `SectionSizingPolicy` in
   `backend/setta/types/settings_state.py`.
+- New sections and `set_section_sizes` payloads are normalized against the
+  policy min/max bounds (non-finite values are rejected).
+- When auto layout needs a width/height but a section size is `"auto"`, it
+  falls back to the policy min dimension instead of erroring.
 - Minimized sections use `globals.minimizedHeight` and ignore normal max heights.
