@@ -46,11 +46,11 @@ async def _build_websocket(messages: list[Message]) -> WebSocket:
     return WebSocket(scope=scope, receive=receive, send=send)
 
 
-def _build_diagnostic(message: str) -> SettaLspDiagnostic:
+def _build_diagnostic(message: str, code: str = "reportFoo") -> SettaLspDiagnostic:
     return SettaLspDiagnostic(
         message=message,
         severity=1,
-        code="reportFoo",
+        code=code,
         source="pyright",
         range=SettaLspDiagnosticRange(
             start=SettaLspDiagnosticPosition(line=0, character=0),
@@ -125,3 +125,67 @@ async def test_update_code_section_skips_duplicate_broadcast() -> None:
 
     await diagnostics_state.update_code_section(section_id, [diagnostic])
     assert len(_lsp_payloads(messages)) == 1
+
+
+@pytest.mark.asyncio
+async def test_update_gen_code_clears_when_empty() -> None:
+    project_config_id = ID("project-1")
+    diagnostics_state, messages = await _build_diagnostics_state(project_config_id)
+    section_id = ID("section-1")
+    gen_code = SettaProjectConfigDiagnostics(
+        projectConfigId=project_config_id,
+        errors={
+            section_id: SettaSectionTypeErrors(callable=["Bad code"], params={})
+        },
+        isGenCode=True,
+    )
+
+    await diagnostics_state.update_gen_code(gen_code, [])
+    assert len(_lsp_payloads(messages)) == 1
+    assert section_id in diagnostics_state.gen_code.errors
+
+    empty_gen_code = SettaProjectConfigDiagnostics(
+        projectConfigId=project_config_id,
+        errors={},
+        isGenCode=True,
+    )
+
+    await diagnostics_state.update_gen_code(empty_gen_code, [])
+    assert len(_lsp_payloads(messages)) == 2
+    assert diagnostics_state.gen_code.errors == {}
+
+
+@pytest.mark.asyncio
+async def test_update_gen_code_clears_unmapped_when_empty() -> None:
+    project_config_id = ID("project-1")
+    diagnostics_state, messages = await _build_diagnostics_state(project_config_id)
+    diagnostic = _build_diagnostic("Bad code")
+    gen_code = SettaProjectConfigDiagnostics(
+        projectConfigId=project_config_id,
+        errors={},
+        isGenCode=True,
+    )
+
+    await diagnostics_state.update_gen_code(gen_code, [diagnostic])
+    assert len(_lsp_payloads(messages)) == 1
+    assert diagnostics_state.unmapped_gen_code == [diagnostic]
+
+    await diagnostics_state.update_gen_code(gen_code, [])
+    assert len(_lsp_payloads(messages)) == 2
+    assert diagnostics_state.unmapped_gen_code == []
+
+
+@pytest.mark.asyncio
+async def test_update_code_section_clears_when_empty() -> None:
+    project_config_id = ID("project-1")
+    diagnostics_state, messages = await _build_diagnostics_state(project_config_id)
+    diagnostic = _build_diagnostic("Bad code")
+    section_id = ID("section-1")
+
+    await diagnostics_state.update_code_section(section_id, [diagnostic])
+    assert len(_lsp_payloads(messages)) == 1
+    assert diagnostics_state.code_sections[section_id] == [diagnostic]
+
+    await diagnostics_state.update_code_section(section_id, [])
+    assert len(_lsp_payloads(messages)) == 2
+    assert section_id not in diagnostics_state.code_sections

@@ -133,7 +133,6 @@ class LanguageServerReader(LanguageServerInteractor):
     def process_response(self, response):
         response_id = response.get("id")
         method = response.get("method")
-        logger.debug("Processing response (id=%s method=%s)", response_id, method)
         if response_id:
             self.process_response_with_id(response_id, method, response)
         else:
@@ -161,6 +160,8 @@ class LanguageServerReader(LanguageServerInteractor):
     def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
             uri = response["params"]["uri"]
+            diagnostics = response["params"].get("diagnostics", [])
+            version = response["params"].get("version")
             callback = self.diagnostics_response_callbacks.get(uri)
             if callback:
                 spawn_background_task(

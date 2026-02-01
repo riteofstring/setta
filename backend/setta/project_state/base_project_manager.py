@@ -166,6 +166,7 @@ from setta.project_state.project_manager_types import (
     SetSectionHideUnpinnedParamsRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
+    SetSectionPinnedAreaHeightRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -286,6 +287,7 @@ from setta.types.helpers_lvl2 import (
     set_section_hide_unpinned_params,
     set_section_name,
     set_section_param_filter,
+    set_section_pinned_area_height,
     set_section_pinned_params,
     set_section_sizes,
     set_section_variant,
@@ -1037,9 +1039,7 @@ class BaseProjectManager(ABC):
     ):
         """Automatically arrange top-level sections using rectangle packing."""
         project_state = self.get_single_config_state(x.projectConfigId)
-        auto_layout_top_level_sections(
-            self.settings_file.settings, project_state, margin=x.margin
-        )
+        auto_layout_top_level_sections(project_state, margin=x.margin)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -1057,7 +1057,7 @@ class BaseProjectManager(ABC):
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_sizes(self.settings_file.settings, project_state, x.sectionSizes)
+        set_section_sizes(project_state, x.sectionSizes)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -1088,8 +1088,6 @@ class BaseProjectManager(ABC):
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
         diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
-        prev_gen_code = self.gen_code.get(projectConfigId)
-        prev_full_code = prev_gen_code.code if prev_gen_code is not None else None
         valid_code_section_ids: set[ID] = set()
         for section_id in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, section_id)
@@ -1119,11 +1117,8 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
-            if prev_full_code != code_generator.code:
-                await diagnostics_state.reset(
-                    clear_gen_code=True,
-                    clear_unmapped=True,
-                )
+            # Keep existing diagnostics until the LSP publishes for the new code to
+            # avoid flicker from intermediate empty snapshots.
             ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
                 projectState
             )
@@ -2884,6 +2879,14 @@ class BaseProjectManager(ABC):
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_pinned_area_height(
+        self, x: SetSectionPinnedAreaHeightRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_pinned_area_height(project_state, x.sectionId, x.pinnedAreaHeight)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

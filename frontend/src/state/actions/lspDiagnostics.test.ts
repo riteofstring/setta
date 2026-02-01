@@ -167,6 +167,73 @@ describe("processLspDiagnostics", () => {
     expect(nextState.codeSections["section-1"]).toBe(prevArray);
   });
 
+  describe("immediate clears", () => {
+    it("clears diagnostics when a section disappears", () => {
+      useLspDiagnostics.setState({
+        codeSections: { "section-1": [baseDiagnostic] },
+        unmappedGenCode: [],
+      });
+      const payload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {},
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(payload);
+
+      expect(useLspDiagnostics.getState().codeSections["section-1"]).toBeUndefined();
+    });
+
+    it("clears diagnostics when a section sends an empty list", () => {
+      useLspDiagnostics.setState({
+        codeSections: { "section-1": [baseDiagnostic] },
+        unmappedGenCode: [],
+      });
+      const payload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {
+          "section-1": [],
+        },
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(payload);
+
+      expect(useLspDiagnostics.getState().codeSections["section-1"]).toBeUndefined();
+    });
+
+    it("clears unmapped gen-code diagnostics when payload is empty", () => {
+      useLspDiagnostics.setState({
+        codeSections: {},
+        unmappedGenCode: [baseDiagnostic],
+      });
+      const emptyPayload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {},
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(emptyPayload);
+
+      expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([]);
+    });
+  });
+
   it("ignores diagnostics in share mode", () => {
     useShareSession.setState({ isShareMode: true });
     const payload: SettaLspDiagnosticsPayload = {
