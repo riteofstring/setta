@@ -430,6 +430,14 @@ class ToggleViewModeUserFacingRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
+class ToggleViewModeTabRequest(ProjectManagerRequestWithProjectConfig):
+    """Update whether a view mode is shown as a tab."""
+
+    viewModeId: ID = Field(
+        description="Identifier of the view mode to update.",
+    )
+
+
 class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
     """Rename a view mode in the current project config."""
 

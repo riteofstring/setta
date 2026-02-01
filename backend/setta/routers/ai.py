@@ -8,7 +8,6 @@ from setta.agentic.chat_view import (
     get_run_engine_config_id,
     get_run_project_config_id,
     get_run_sort_key,
-    is_external_agent_run,
 )
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
@@ -17,7 +16,6 @@ from setta.agentic.external_agent_preflight import (
 from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.store import (
     list_agent_runs_by_metadata,
-    load_agent_run,
     require_agent_profile,
 )
 from setta.database.utils import create_new_id
@@ -86,26 +84,28 @@ def _ensure_external_chat_id_compatible(
 ) -> None:
     if chat_id is None:
         return
-    existing = load_agent_run(dbe, chat_id)
-    if existing is None:
+    llm_runs = _get_llm_chat_runs(dbe=dbe, chat_id=chat_id)
+    if llm_runs:
+        raise HTTPException(
+            status_code=409,
+            detail="Chat engine mismatch; start a new chat.",
+        )
+    external_runs = _get_external_agent_chat_runs(dbe=dbe, chat_id=chat_id)
+    if not external_runs:
         return
-    if not is_external_agent_run(existing):
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
-        )
-    existing_engine = get_run_engine_config_id(existing)
-    if existing_engine and existing_engine != engine_config_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
-        )
-    existing_project = get_run_project_config_id(existing)
-    if existing_project and existing_project != project_config_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat project config mismatch; start a new chat.",
-        )
+    for run in external_runs:
+        existing_engine = get_run_engine_config_id(run)
+        if existing_engine and existing_engine != engine_config_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Chat engine mismatch; start a new chat.",
+            )
+        existing_project = get_run_project_config_id(run)
+        if existing_project and existing_project != project_config_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Chat project config mismatch; start a new chat.",
+            )
 
 
 def _get_prior_messages_for_engine(
