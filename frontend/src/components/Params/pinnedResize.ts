@@ -1,4 +1,4 @@
-type ResizeDelta = { height: number; width: number };
+export type ResizeDelta = { height: number; width: number };
 
 type PinnedResizeInput = {
   didResize: boolean;

@@ -8,6 +8,7 @@ export function StopButton() {
         onClick={stopCode}
       >
         <RiStopFill />
+        Stop
       </button>
     </div>
   );

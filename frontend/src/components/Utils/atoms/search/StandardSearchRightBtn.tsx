@@ -8,25 +8,17 @@ export const StandardSearchRightBtn = React.forwardRef<
     size?: string;
     icon: React.ReactNode;
   } & React.ButtonHTMLAttributes<HTMLButtonElement>
->(function StandardSearchRightBtn(
-  { rounded, bg, size, icon, className, ...props },
-  ref,
-) {
-  const classes = [
-    "nodrag grid cursor-pointer place-items-center justify-center focus-visible:ring-2",
-    bg || "bg-transparent",
-    "text-setta-500",
-    rounded || "rounded-full",
-    "p-0",
-    size || "h-10 w-10",
-    "absolute right-0",
-    "hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+>(function StandardSearchRightBtn({ rounded, bg, size, icon, ...props }, ref) {
   return (
-    <button ref={ref} className={classes} {...props}>
+    <button
+      ref={ref}
+      className={`nodrag grid cursor-pointer place-items-center justify-center focus-visible:ring-2 ${
+        bg || "bg-transparent"
+      } text-setta-500 ${
+        rounded || "rounded-full"
+      } p-0 ${size || "h-10 w-10"} absolute right-0 hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100`}
+      {...props}
+    >
       {icon}
     </button>
   );

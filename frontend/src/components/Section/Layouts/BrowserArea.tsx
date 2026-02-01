@@ -1,9 +1,3 @@
-import {
-  FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
-  FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-  FileBrowserFilter,
-  FileBrowserPane,
-} from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import { MediaCarousel } from "components/Utils/MediaCarousel";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
@@ -22,10 +16,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import {
-  useBrowserSectionFileBrowserState,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
@@ -48,7 +39,6 @@ import {
   BrowserAreaViewModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { clamp } from "utils/utils";
 
 const artifactTypes = [
   // { type: "Select All" },
@@ -225,22 +215,6 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
     cssVarName: "--browser-types-column-width",
   });
   const typesColumnWidth = "var(--browser-types-column-width, 50%)";
-  const handleFilesColumnResizeStart = useBrowserColumnWidth({
-    sectionId,
-    outerRef: containerRef,
-    widthKey: "columnWidth",
-    cssVarName: "--browser-column-width",
-    getBoundedWidth: (width, containerWidth) =>
-      clamp(
-        width,
-        FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-        Math.max(
-          FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
-          containerWidth - FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
-        ),
-      ),
-  });
-  const filesColumnWidth = "var(--browser-column-width, 55%)";
 
   return (
     <div
@@ -254,13 +228,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
           onResizeStart={handleTypesColumnResizeStart}
         />
       )}
-      <ItemsColumn
-        sectionId={sectionId}
-        viewMode={viewMode}
-        folder={folder}
-        filesColumnWidth={filesColumnWidth}
-        onFilesColumnResizeStart={handleFilesColumnResizeStart}
-      />
+      <ItemsColumn sectionId={sectionId} viewMode={viewMode} folder={folder} />
     </div>
   );
 }
@@ -395,35 +363,90 @@ function ThumbnailItem({
   );
 }
 
+function ResizableFileList({
+  items,
+  sectionId,
+}: {
+  items: Array<BrowserAreaItem>;
+  sectionId: string;
+}) {
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const handleResize = useBrowserColumnWidth({
+    sectionId,
+    outerRef,
+    widthKey: "columnWidth",
+    cssVarName: "--browser-column-width",
+  });
+  const { ref, isScrollable } = useIsScrollable();
+  const columnWidth = "var(--browser-column-width, 50%)";
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" ref={outerRef}>
+      {/* Header Row */}
+      <div
+        className="mb-3 grid border-b border-solid border-setta-200 text-xs text-setta-300 dark:border-setta-700 dark:text-setta-700"
+        style={{
+          gridTemplateColumns: `minmax(min-content, ${columnWidth}) 1fr`,
+        }}
+      >
+        <div className="relative flex items-center px-1 py-2">
+          <p>Name</p>
+          <div className="absolute right-0 top-0 h-full">
+            <ResizeHandle showResizeHandle={true} onMouseDown={handleResize} />
+          </div>
+        </div>
+        <div className="flex items-center px-1 py-2">
+          <p>Last Modified</p>
+        </div>
+      </div>
+
+      {/* List Items */}
+      <div
+        className={`min-h-0 flex-1 overflow-x-auto overflow-y-scroll ${isScrollable ? "nowheel" : ""}`}
+        ref={ref}
+      >
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="group/listitem grid"
+            style={{
+              gridTemplateColumns: `minmax(min-content, ${columnWidth}) 1fr`,
+            }}
+          >
+            <div className="relative w-full">
+              <div className="absolute min-h-6 w-full min-w-0 cursor-pointer items-center gap-2 overflow-clip truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/listitem:!text-blue-500 dark:text-setta-200">
+                <div className="flex w-full justify-between">
+                  <p className="min-w-0 truncate">{item.id}</p>
+
+                  <button className="bottom-0 right-0 top-0 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500 focus-visible:outline group-hover/listitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/listitem:text-setta-600">
+                    <i className="gg-pen" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-400 group-hover/listitem:!text-blue-500 dark:text-setta-600">
+              {item.lastModified}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ViewSwitch({
   view,
+  sectionId,
   items,
-  filesColumnWidth,
-  onFilesColumnResizeStart,
 }: {
   view: BrowserAreaViewMode;
+  sectionId: string;
   items: Array<BrowserAreaItem>;
-  filesColumnWidth: string;
-  onFilesColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 }) {
   const { ref, isScrollable } = useIsScrollable();
   switch (view) {
     case BrowserAreaViewModeEnum.list:
-      return (
-        <section
-          aria-label="File explorer"
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <FileBrowserPane
-            useFileBrowserStateHook={useBrowserSectionFileBrowserState}
-            showFilter={false}
-            columnWidthConfig={{
-              columnWidth: filesColumnWidth,
-              onResizeStart: onFilesColumnResizeStart,
-            }}
-          />
-        </section>
-      );
+      return <ResizableFileList items={items} sectionId={sectionId} />;
 
     case BrowserAreaViewModeEnum.thumbnail:
       return (
@@ -502,18 +525,13 @@ function ItemsColumn({
   sectionId,
   viewMode,
   folder,
-  filesColumnWidth,
-  onFilesColumnResizeStart,
 }: {
   sectionId: string;
   viewMode: BrowserAreaViewMode;
   folder: string;
-  filesColumnWidth: string;
-  onFilesColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 }) {
   const [value, setValue] = useLocalPendingValue(viewMode);
   const [items, setItems] = useState<Array<BrowserAreaItem>>([]);
-  const isListView = value === BrowserAreaViewModeEnum.list;
 
   function setView(newView: BrowserAreaViewMode) {
     setValue(newView);
@@ -545,29 +563,17 @@ function ItemsColumn({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
-      <div className="-mt-[4.5px] mb-1 flex flex-row items-center gap-2">
-        <div className="flex w-full min-w-0 items-center gap-2">
-          {isListView ? (
-            <FileBrowserFilter
-              useFileBrowserStateHook={useBrowserSectionFileBrowserState}
-            />
-          ) : (
-            <>
-              <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-                Artifacts
-              </div>
-              <FolderPath folder={folder} setFolder={setFolder} />
-            </>
-          )}
+      <div className="-mt-[4.5px] mb-1 flex flex-row">
+        <div className="flex w-full min-w-0 gap-2">
+          <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
+            Artifacts
+          </div>
+          {/* <FilterSection /> */}
+          <FolderPath folder={folder} setFolder={setFolder} />
         </div>
         <ViewSelector view={value} setView={setView} />
       </div>
-      <ViewSwitch
-        view={value}
-        items={items}
-        filesColumnWidth={filesColumnWidth}
-        onFilesColumnResizeStart={onFilesColumnResizeStart}
-      />
+      <ViewSwitch view={value} sectionId={sectionId} items={items} />
     </div>
   );
 }
