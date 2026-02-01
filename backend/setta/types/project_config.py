@@ -56,6 +56,9 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     isUserFacing: bool = False
     isTab: bool = False
     visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
+    viewport: Viewport | None = Field(default_factory=Viewport)
+    viewportInitialized: bool = False
+    topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
 
 
 class ProjectCodegenLanguage(str, Enum):
