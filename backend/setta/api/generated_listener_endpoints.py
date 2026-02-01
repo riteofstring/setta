@@ -2,6 +2,7 @@ from typing import Awaitable, Callable, NotRequired, TypedDict
 
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
+    AppSpecResponse,
     CodeFileBindingUpdate,
     CreateTopLevelSectionResponse,
     GetPasswordParamValueResponse,
@@ -351,6 +352,11 @@ class ListenerGetAllChatMetadataRequestPayload(TypedDict):
     pass
 
 
+class ListenerGetAppSpecRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+
+
 class ListenerGetChatRequestPayload(TypedDict):
     chatId: ID
 
@@ -489,6 +495,15 @@ class ListenerSetAgenticEdgesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     edges: list[AgenticEdge]
+
+
+class ListenerSetAppSpecRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    appSpec: dict[str, object] | list[object] | str | int | float | bool | None
+    appSpecPath: NotRequired[str | None]
+    appSpecVersion: NotRequired[str | None]
+    catalogId: NotRequired[str | None]
 
 
 class ListenerSetBrowserAreaViewModeRequestPayload(TypedDict):
@@ -979,6 +994,12 @@ class ListenerUpdateAgenticEdgeRequestPayload(TypedDict):
     edge: AgenticEdge
 
 
+class ListenerUpdateAppSpecRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    patch: dict[str, object] | list[object] | str | int | float | bool | None
+
+
 class ListenerUpdateEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1152,6 +1173,11 @@ class RouterEndpointAPI:
     ) -> list[ChatMetadata]:
         return await self._caller("route_get_all_chat_metadata", payload)
 
+    async def get_app_spec(
+        self, payload: ListenerGetAppSpecRequestPayload
+    ) -> AppSpecResponse:
+        return await self._caller("route_get_app_spec", payload)
+
     async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
         return await self._caller("route_get_chat", payload)
 
@@ -1242,6 +1268,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetAgenticEdgesRequestPayload
     ) -> None:
         return await self._caller("route_set_agentic_edges", payload)
+
+    async def set_app_spec(
+        self, payload: ListenerSetAppSpecRequestPayload
+    ) -> AppSpecResponse:
+        return await self._caller("route_set_app_spec", payload)
 
     async def set_browser_area_view_mode(
         self, payload: ListenerSetBrowserAreaViewModeRequestPayload
@@ -1592,6 +1623,11 @@ class RouterEndpointAPI:
         self, payload: ListenerUpdateAgenticEdgeRequestPayload
     ) -> None:
         return await self._caller("route_update_agentic_edge", payload)
+
+    async def update_app_spec(
+        self, payload: ListenerUpdateAppSpecRequestPayload
+    ) -> AppSpecResponse:
+        return await self._caller("route_update_app_spec", payload)
 
     async def update_edge(self, payload: ListenerUpdateEdgeRequestPayload) -> None:
         return await self._caller("route_update_edge", payload)

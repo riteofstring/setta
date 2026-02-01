@@ -1,4 +1,3 @@
-import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildEngineGroups,
@@ -13,6 +12,7 @@ import {
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import * as Menubar from "@radix-ui/react-menubar";
 import _ from "lodash";
 import {
   SetStateAction,
@@ -28,12 +28,7 @@ import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import {
-  AllLLMConfigs,
-  EngineConfig,
-  EngineTypeEnum,
-  ExternalAgentPreflightStatus,
-} from "utils/generatedTypes";
+import { EngineTypeEnum } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -100,35 +95,9 @@ export function ProjectChat() {
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [apiKeys, allLLMConfigs],
   );
-  const availableConfigIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const group of availableConfigGroups) {
-      for (const item of group.items) {
-        ids.add(item.id);
-      }
-    }
-    return ids;
-  }, [availableConfigGroups]);
   const engineGroups = useMemo(
     () => buildEngineGroups(engineConfigs),
     [engineConfigs],
-  );
-  const preferredEngineId = useMemo(
-    () =>
-      findPreferredEngineId({
-        engineConfigs,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      }),
-    [
-      allLLMConfigs,
-      availableConfigIds,
-      engineConfigs,
-      externalAgentHealth,
-      externalAgentHealthInitialLoadComplete,
-    ],
   );
 
   const availableConfigCount = countLLMConfigs(availableConfigGroups);
@@ -141,43 +110,29 @@ export function ProjectChat() {
       engineConfigs.find((config) => config.id === selectedEngineId) ?? null
     );
   }, [engineConfigs, selectedEngineId]);
-  const effectiveEngineConfig = useMemo(() => {
-    if (selectedEngineConfig) {
-      return selectedEngineConfig;
-    }
-    if (preferredEngineId) {
-      return (
-        engineConfigs.find((config) => config.id === preferredEngineId) ?? null
-      );
-    }
-    return engineConfigs[0] ?? null;
-  }, [engineConfigs, preferredEngineId, selectedEngineConfig]);
-  const effectiveEngineId = effectiveEngineConfig?.id ?? null;
-  const engineType = effectiveEngineConfig?.engineType ?? null;
+  const engineType = selectedEngineConfig?.engineType ?? null;
   const selectedLLMConfigId = useMemo(() => {
-    if (!effectiveEngineConfig) {
+    if (!selectedEngineConfig) {
       return null;
     }
-    if (effectiveEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
       return null;
     }
     return (
-      effectiveEngineConfig.settaLlmConfigId ??
+      selectedEngineConfig.settaLlmConfigId ??
       pickDefaultConfigId(allLLMConfigs)
     );
-  }, [allLLMConfigs, effectiveEngineConfig]);
-  const hasLLMConfig = Boolean(
-    selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
-  );
+  }, [allLLMConfigs, selectedEngineConfig]);
+  const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
     () =>
       getExternalEngineStatus(
-        effectiveEngineConfig,
+        selectedEngineConfig,
         externalAgentHealth,
         externalAgentHealthInitialLoadComplete,
       ),
     [
-      effectiveEngineConfig,
+      selectedEngineConfig,
       externalAgentHealth,
       externalAgentHealthInitialLoadComplete,
     ],
@@ -186,22 +141,22 @@ export function ProjectChat() {
     ? externalEngineStatus.status === "available"
     : true;
   const externalAgentConfig = useMemo(() => {
-    if (!effectiveEngineConfig?.externalAgentConfigId) {
+    if (!selectedEngineConfig?.externalAgentConfigId) {
       return null;
     }
     return (
       externalAgentConfigs.find(
-        (config) => config.id === effectiveEngineConfig.externalAgentConfigId,
+        (config) => config.id === selectedEngineConfig.externalAgentConfigId,
       ) ?? null
     );
-  }, [externalAgentConfigs, effectiveEngineConfig]);
+  }, [externalAgentConfigs, selectedEngineConfig]);
   const showPlanModeBadge =
     engineType === EngineTypeEnum.external_agent &&
     externalAgentConfig?.toolType === "claude_code" &&
     externalAgentConfig.approvalPolicy === "plan";
   const placeholderText = getChatPlaceholderText({
     engineType,
-    hasEngineConfig: Boolean(effectiveEngineConfig),
+    hasEngineConfig: Boolean(selectedEngineConfig),
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
@@ -250,19 +205,19 @@ export function ProjectChat() {
 
   const handleLLMConfigChange = useCallback(
     (value: string | null) => {
-      if (!effectiveEngineConfig) {
+      if (!selectedEngineConfig) {
         return;
       }
-      if (effectiveEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+      if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
         return;
       }
       const nextConfig = {
-        ...effectiveEngineConfig,
+        ...selectedEngineConfig,
         settaLlmConfigId: value,
       };
       void updateEngineConfig({ config: nextConfig });
     },
-    [effectiveEngineConfig],
+    [selectedEngineConfig],
   );
 
   useEffect(() => {
@@ -275,37 +230,17 @@ export function ProjectChat() {
       }
       return;
     }
-    const selectedConfig = selectedEngineId
-      ? engineConfigs.find((config) => config.id === selectedEngineId) ?? null
-      : null;
-    const preferredId = preferredEngineId ?? engineConfigs[0].id;
-    if (!selectedConfig) {
-      setSelectedEngineId(preferredId);
+    if (selectedEngineId === null) {
+      setSelectedEngineId(engineConfigs[0].id);
       return;
     }
-    if (
-      preferredEngineId &&
-      preferredEngineId !== selectedEngineId &&
-      !isEngineUsable({
-        config: selectedConfig,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      setSelectedEngineId(preferredEngineId);
+    const exists = engineConfigs.some(
+      (config) => config.id === selectedEngineId,
+    );
+    if (!exists) {
+      setSelectedEngineId(engineConfigs[0].id);
     }
-  }, [
-    allLLMConfigs,
-    availableConfigIds,
-    engineConfigs,
-    engineConfigsInitialLoadComplete,
-    externalAgentHealth,
-    externalAgentHealthInitialLoadComplete,
-    preferredEngineId,
-    selectedEngineId,
-  ]);
+  }, [engineConfigs, engineConfigsInitialLoadComplete, selectedEngineId]);
 
   return (
     apiKeysInitialLoadComplete &&
@@ -371,7 +306,7 @@ export function ProjectChat() {
                 <ProjectAISettingsPopover
                   engineGroups={engineGroups}
                   availableConfigGroups={availableConfigGroups}
-                  selectedEngineId={effectiveEngineId}
+                  selectedEngineId={selectedEngineId}
                   selectedLLMConfigId={selectedLLMConfigId}
                   engineType={engineType}
                   noConfigsAvailable={noConfigsAvailable}
@@ -398,7 +333,7 @@ export function ProjectChat() {
               chatId={chatId}
               placeholderText={placeholderText}
               thinking={thinking}
-              engineConfigId={effectiveEngineId}
+              engineConfigId={selectedEngineId}
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
@@ -409,85 +344,6 @@ export function ProjectChat() {
       </div>
     )
   );
-}
-
-function findPreferredEngineId({
-  engineConfigs,
-  allLLMConfigs,
-  availableConfigIds,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
-  availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): string | null {
-  for (const config of engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.setta_llm) {
-      continue;
-    }
-    if (
-      isEngineUsable({
-        config,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      return config.id;
-    }
-  }
-  for (const config of engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.external_agent) {
-      continue;
-    }
-    if (
-      isEngineUsable({
-        config,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      return config.id;
-    }
-  }
-  return engineConfigs[0]?.id ?? null;
-}
-
-function isEngineUsable({
-  config,
-  allLLMConfigs,
-  availableConfigIds,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  config: EngineConfig;
-  allLLMConfigs: AllLLMConfigs | null;
-  availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): boolean {
-  if (config.engineType === EngineTypeEnum.setta_llm) {
-    const fallbackConfigId = pickDefaultConfigId(allLLMConfigs);
-    const configId = config.settaLlmConfigId ?? fallbackConfigId;
-    return Boolean(configId && availableConfigIds.has(configId));
-  }
-  if (config.engineType === EngineTypeEnum.external_agent) {
-    if (!externalAgentHealthInitialLoadComplete) {
-      return true;
-    }
-    const configId = config.externalAgentConfigId;
-    const status = externalAgentHealth.find(
-      (entry) => entry.configId === configId,
-    );
-    return Boolean(status?.available && status.supported);
-  }
-  return false;
 }
 
 function ProjectAISettingsPopover({

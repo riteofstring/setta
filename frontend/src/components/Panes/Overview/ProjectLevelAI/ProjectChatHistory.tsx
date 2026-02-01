@@ -123,9 +123,6 @@ function buildChatHistoryEntries(
     if (!isChatRun(run)) {
       continue;
     }
-    if (isBranchRun(run)) {
-      continue;
-    }
     const runChatId = getRunChatId(run);
     if (!runChatId) {
       continue;
@@ -215,15 +212,6 @@ function isChatRun(run: AgentRun): boolean {
     runType === "external_agent" ||
     runType === "scriptable_chat"
   );
-}
-
-function isBranchRun(run: AgentRun): boolean {
-  const inputs = isRecord(run.inputs) ? run.inputs : null;
-  const branchParentChatId = inputs ? inputs.branchParentChatId : null;
-  if (typeof branchParentChatId === "string" && branchParentChatId.trim()) {
-    return true;
-  }
-  return false;
 }
 
 function getRunLastUpdatedMs(run: AgentRun): number {

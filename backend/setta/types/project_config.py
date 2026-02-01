@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
 from setta.types.agentic_edges import AgenticEdge
+from setta.types.app_config import AppConfig
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge
 from setta.types.id import ID
@@ -419,6 +420,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     viewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
+    appConfig: AppConfig | None = None
     codegenTargets: list[ProjectCodegenTarget] = Field(
         default_factory=default_codegen_targets
     )
