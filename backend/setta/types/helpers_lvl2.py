@@ -146,7 +146,6 @@ from setta.utils.name_validation import (
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 logger = logging.getLogger(__name__)
-EMBEDDED_TERMINAL_EXTRA_HEIGHT = 80.0
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
@@ -1148,47 +1147,8 @@ def ensure_code_section_embedded_terminal_size(
     sectionId: ID,
     terminalId: ID | None,
 ) -> None:
-    code_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseCodeSectionImpl
-    )
-    height_value = _coerce_section_size_value(
-        sectionId, "height", code_impl.size.height
-    )
-    is_auto_height = height_value == SectionSizeMode.auto
-    code_min_height = _get_min_section_dimensions(settings, SectionType.Code)[1]
-    terminal_min_height = _get_min_section_dimensions(settings, SectionType.Terminal)[1]
-    desired_height = (
-        code_min_height + terminal_min_height + EMBEDDED_TERMINAL_EXTRA_HEIGHT
-    )
-    max_height = float(settings.sectionSizingPolicy.byType.Code.maxHeight)
-    if desired_height > max_height:
-        desired_height = max_height
-    if is_auto_height:
-        current_height = 0.0
-    else:
-        current_height = float(height_value)
-    if current_height >= desired_height:
-        return
-    if is_auto_height:
-        logger.info(
-            "embedded_terminal_resize_from_auto section=%s terminal=%s desired_height=%.2f",
-            sectionId,
-            terminalId,
-            desired_height,
-        )
-    next_size = SectionSize(width=code_impl.size.width, height=desired_height)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {"size": next_size},
-    )
-    logger.info(
-        "embedded_terminal_resized section=%s terminal=%s current_height=%.2f desired_height=%.2f",
-        sectionId,
-        terminalId,
-        current_height,
-        desired_height,
-    )
+    # Embedded terminals no longer resize their parent code section.
+    return
 
 
 def ensure_code_section_attached_terminal(

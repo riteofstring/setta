@@ -37,6 +37,7 @@ type SectionContainerCoreResizableProps = {
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
+  hideHeader?: boolean;
 };
 
 export function SectionContainerCoreResizable({
@@ -46,6 +47,7 @@ export function SectionContainerCoreResizable({
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
+  hideHeader = false,
 }: SectionContainerCoreResizableProps) {
   const {
     isMinimized,
@@ -136,7 +138,7 @@ export function SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : (
+      ) : hideHeader ? null : (
         <SectionHeader
           sectionId={sectionId}
           isActiveSection={isActiveSection}

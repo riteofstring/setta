@@ -105,7 +105,13 @@ function _SectionContainer({
                 isUserView={isUserView}
               />
             )}
-            {!isCode && (
+            {isCode ? (
+              <MaybeManyNestedSections
+                sectionId={sectionId}
+                isGroup={isGroup}
+                layoutVariant="tight"
+              />
+            ) : (
               <MaybeManyNestedSections
                 sectionId={sectionId}
                 isGroup={isGroup}
