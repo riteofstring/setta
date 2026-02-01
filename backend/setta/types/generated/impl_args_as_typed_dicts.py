@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
+from setta.types.agentic_edges import AgenticEdge
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -168,7 +169,6 @@ class ProjectConfigArgs(TypedDict):
     allowJsonSourceKeyEdits: NotRequired[bool]
     previewImgColor: NotRequired[str]
     viewport: NotRequired[Viewport | None]
-    viewportInitialized: NotRequired[bool]
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
@@ -178,6 +178,7 @@ class ProjectConfigArgs(TypedDict):
     sectionVariantMap: NotRequired[dict[ID, ID]]
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
+    agenticEdges: NotRequired[list[AgenticEdge]]
     watchCodeEnabled: NotRequired[bool]
     watchCodeFolders: NotRequired[list[WatchCodeFolder]]
     watchCodeFiles: NotRequired[list[str]]

@@ -35,7 +35,6 @@ class MockFileEvent:
 class SpecificFileWatcher:
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
         self.observer = Observer()
-        self.observer.daemon = True
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}
@@ -125,13 +124,7 @@ class SpecificFileWatcher:
         dirs_to_remove = current_watched_dirs - dirs_to_watch
         for dir_path in dirs_to_remove:
             if dir_path in self.watched_dirs:
-                try:
-                    self.observer.unschedule(self.watched_dirs[dir_path])
-                except KeyError:
-                    logger.debug(
-                        "Specific file watcher watch already unscheduled: %s",
-                        dir_path,
-                    )
+                self.observer.unschedule(self.watched_dirs[dir_path])
                 del self.watched_dirs[dir_path]
 
         dirs_to_add = dirs_to_watch - current_watched_dirs
@@ -177,14 +170,8 @@ class SpecificFileWatcher:
     def stop(self):
         if not self._started:
             return
-        observer = self.observer
-        if observer.is_alive():
-            observer.stop()
-            observer.join(timeout=1.0)
-            if observer.is_alive():
-                logger.warning(
-                    "Specific file watcher observer did not shut down within timeout."
-                )
+        self.observer.stop()
+        self.observer.join()
         self._started = False
 
 

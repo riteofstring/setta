@@ -393,7 +393,7 @@ function CustomResizableSuperCore({
 
   return (
     <ResizableWithScale
-      id={`${sectionId}-CustomResizable`} // IMPORTANT, used for section-scoped DOM lookups
+      id={`${sectionId}-CustomResizable`} // IMPORTANT, used as parent for codemirror autocomplete
       as={as}
       size={size}
       minHeight={minHeight}
