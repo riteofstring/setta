@@ -145,11 +145,6 @@ class Route(str, Enum):
     SET_VARIANT_JSON_SOURCE_KEYS = "/setVariantJsonSourceKeys"
     SET_TEXT_BLOCK_TEXT = "/setTextBlockText"
     SET_PROJECT_CONFIG_CODEGEN_TARGETS = "/setProjectConfigCodegenTargets"
-    GET_APP_SPEC = "/getAppSpec"
-    SET_APP_SPEC = "/setAppSpec"
-    UPDATE_APP_SPEC = "/updateAppSpec"
-    GET_APP_CATALOG = "/getAppCatalog"
-    LIST_APP_COMPONENTS = "/listAppComponents"
     SET_PROMPT_TEMPLATE = "/setPromptTemplate"
     SET_PROMPT_INPUTS = "/setPromptInputs"
     SET_PROMPT_FORMAT = "/setPromptFormat"
@@ -248,13 +243,4 @@ class Route(str, Enum):
         "/share/deployments/{deploymentName}/{version}/project_config"
     )
     SHARE_DEPLOYMENT_STATE = "/share/deployments/{deploymentName}/{version}/state"
-    APP_DEPLOYMENTS = "/app/deployments"
-    APP_DEPLOYMENT_VERSIONS = "/app/deployments/{deploymentName}/versions"
-    APP_DEPLOYMENT_LATEST = "/app/deployments/{deploymentName}/latest"
-    APP_DEPLOYMENT_CURRENT_SESSION = "/app/deployments/current/session"
-    APP_DEPLOYMENT_SESSION = "/app/deployments/{deploymentName}/{version}/session"
-    APP_DEPLOYMENT_STATE = "/app/deployments/{deploymentName}/{version}/state"
-    APP_DEPLOYMENT_PROJECT_CONFIG = (
-        "/app/deployments/{deploymentName}/{version}/project_config"
-    )
     WEBSOCKET_SHARE_FRONTEND = "/share/frontend"

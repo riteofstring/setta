@@ -886,11 +886,6 @@ export const RouteEnum = {
   SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
   SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
-  GET_APP_SPEC: "/getAppSpec",
-  SET_APP_SPEC: "/setAppSpec",
-  UPDATE_APP_SPEC: "/updateAppSpec",
-  GET_APP_CATALOG: "/getAppCatalog",
-  LIST_APP_COMPONENTS: "/listAppComponents",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -988,14 +983,6 @@ export const RouteEnum = {
   SHARE_DEPLOYMENT_PROJECT_CONFIG:
     "/share/deployments/{deploymentName}/{version}/project_config",
   SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
-  APP_DEPLOYMENTS: "/app/deployments",
-  APP_DEPLOYMENT_VERSIONS: "/app/deployments/{deploymentName}/versions",
-  APP_DEPLOYMENT_LATEST: "/app/deployments/{deploymentName}/latest",
-  APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
-  APP_DEPLOYMENT_SESSION: "/app/deployments/{deploymentName}/{version}/session",
-  APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
-  APP_DEPLOYMENT_PROJECT_CONFIG:
-    "/app/deployments/{deploymentName}/{version}/project_config",
   WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
 } as const;
 
@@ -1055,10 +1042,6 @@ export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
 export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
 
 export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
-
-export const DeploymentTypeEnum = { share: "share", app: "app" } as const;
-
-export type DeploymentType = ObjectValues<typeof DeploymentTypeEnum>;
 
 export const FileEventTypeEnum = {
   created: "created",
@@ -1162,20 +1145,6 @@ export const SharePolicyGuardEnum = {
 } as const;
 
 export type SharePolicyGuard = ObjectValues<typeof SharePolicyGuardEnum>;
-
-export const JSONValueSchema = z.union([
-  z.record(z.string(), z.any()),
-  z.array(z.any()),
-  z.string(),
-  z.int(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-]);
-
-export type JSONValue = z.infer<typeof JSONValueSchema>;
-
-export type JSONValueInput = z.input<typeof JSONValueSchema>;
 
 export const BrushStrokeSchema = z.object({
   strokeStyle: z.string(),
@@ -1905,6 +1874,20 @@ export type BaseChatMessageUnionInput = z.input<
   typeof BaseChatMessageUnionSchema
 >;
 
+export const JSONValueSchema = z.union([
+  z.record(z.string(), z.any()),
+  z.array(z.any()),
+  z.string(),
+  z.int(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+export type JSONValue = z.infer<typeof JSONValueSchema>;
+
+export type JSONValueInput = z.input<typeof JSONValueSchema>;
+
 export const MessageContentSchema = z.union([
   MessageTextContentSchema,
   MessageImageUrlContentSchema,
@@ -2213,12 +2196,14 @@ export type ChatActionEventInput = z.input<typeof ChatActionEventSchema>;
 
 export const AllImplFieldsSchema = z.literal([
   "actionMode",
+  "activeBranchId",
   "activeLayerIdx",
   "agentProfileId",
   "aspectRatio",
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
   "attachedTerminalSectionId",
+  "branches",
   "brushColor",
   "brushOpacity",
   "brushShape",
@@ -2480,6 +2465,32 @@ export function createContentChatMessageUnionWithDiscriminator(
   return ContentChatMessageUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const ChatSectionBranchSchema = z.object({
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .default([]),
+  createdAt: z.int().default(0),
+  parentBranchId: z.union([IDSchema, z.null()]).default(null),
+  branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type ChatSectionBranch = z.infer<typeof ChatSectionBranchSchema>;
+
+export type ChatSectionBranchInput = z.input<typeof ChatSectionBranchSchema>;
+
+export function createChatSectionBranch(
+  options: Partial<ChatSectionBranch> = {},
+): ChatSectionBranch {
+  return ChatSectionBranchSchema.parse(options);
+}
+
 export const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
@@ -2616,12 +2627,14 @@ export function createSectionSize(
 
 export const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
+  activeBranchId: z.union([IDSchema, z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).optional(),
   brushColor: z.string().optional(),
   brushOpacity: z.number().optional(),
   brushShape: z.enum(DrawAreaBrushShapeEnum).optional(),
@@ -2747,12 +2760,14 @@ export const CoreSchema = z.object({
     .array(
       z.literal([
         "actionMode",
+        "activeBranchId",
         "activeLayerIdx",
         "agentProfileId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "attachedTerminalSectionId",
+        "branches",
         "brushColor",
         "brushOpacity",
         "brushShape",
@@ -3477,6 +3492,8 @@ export const ChatSectionImplSchema = z.object({
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  activeBranchId: z.union([IDSchema, z.null()]).default(null),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).default({}),
 });
 
 export type ChatSectionImpl = z.infer<typeof ChatSectionImplSchema>;
@@ -5881,6 +5898,8 @@ export const ChatSectionImplArgsSchema = z.object({
   inputText: z.string().optional(),
   waitingForResponse: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
+  activeBranchId: z.union([IDSchema, z.null()]).optional(),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).optional(),
 });
 
 export type ChatSectionImplArgs = z.infer<typeof ChatSectionImplArgsSchema>;
@@ -6755,93 +6774,6 @@ export function createViewModeConfig(
   return ViewModeConfigSchema.parse(options);
 }
 
-export const AppRouteSchema = z.object({
-  path: z.string(),
-  name: z.union([z.string(), z.null()]).default(null),
-  rootKey: z.union([z.string(), z.null()]).default(null),
-});
-
-export type AppRoute = z.infer<typeof AppRouteSchema>;
-
-export type AppRouteInput = z.input<typeof AppRouteSchema>;
-
-export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
-  return AppRouteSchema.parse(options);
-}
-
-export const AppConfigSchema = z.object({
-  appSpecVersion: z.string().default("v1" as const),
-  catalogId: z.string().default("setta.app.default" as const),
-  appSpecPath: z.union([z.string(), z.null()]).default(null),
-  routes: z.array(AppRouteSchema).default([]),
-  dataBindings: z
-    .record(
-      z.string(),
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default({}),
-  actions: z
-    .record(
-      z.string(),
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default({}),
-  theme: z
-    .union([
-      z.record(
-        z.string(),
-        z.union([
-          z.record(z.string(), z.any()),
-          z.array(z.any()),
-          z.string(),
-          z.int(),
-          z.number(),
-          z.boolean(),
-          z.null(),
-        ]),
-      ),
-      z.null(),
-    ])
-    .default(null),
-  assets: z
-    .array(
-      z.union([
-        z.record(z.string(), z.any()),
-        z.array(z.any()),
-        z.string(),
-        z.int(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-      ]),
-    )
-    .default([]),
-});
-
-export type AppConfig = z.infer<typeof AppConfigSchema>;
-
-export type AppConfigInput = z.input<typeof AppConfigSchema>;
-
-export function createAppConfig(options: Partial<AppConfig> = {}): AppConfig {
-  return AppConfigSchema.parse(options);
-}
-
 export const SectionTypeCodegenPolicySchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
@@ -7175,7 +7107,6 @@ export const ProjectConfigSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
-  appConfig: z.union([AppConfigSchema, z.null()]).default(null),
   codegenTargets: z
     .array(ProjectCodegenPythonTargetSchema)
     .default(() => [createProjectCodegenPythonTarget()]),
@@ -8030,6 +7961,8 @@ export const UserDefaultChatSectionImplSchema = z.object({
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  activeBranchId: z.union([IDSchema, z.null()]).default(null),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).default({}),
 });
 
 export type UserDefaultChatSectionImpl = z.infer<
@@ -11085,6 +11018,10 @@ export const ChatSectionImplArgsWithCallableSchema = z.object({
   toolCallArguments: z
     .union([z.record(z.string(), z.string()), z.any()])
     .optional(),
+  activeBranchId: z.union([IDSchema, z.null(), z.any()]).optional(),
+  branches: z
+    .union([z.record(IDSchema, ChatSectionBranchSchema), z.any()])
+    .optional(),
 });
 
 export type ChatSectionImplArgsWithCallable = z.infer<
@@ -11989,12 +11926,14 @@ export const CoreArgsSchema = z.object({
     .array(
       z.literal([
         "actionMode",
+        "activeBranchId",
         "activeLayerIdx",
         "agentProfileId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "attachedTerminalSectionId",
+        "branches",
         "brushColor",
         "brushOpacity",
         "brushShape",
@@ -12109,7 +12048,6 @@ export const ProjectConfigArgsSchema = z.object({
   viewModes: z.record(IDSchema, ViewModeConfigSchema).optional(),
   activeViewModeId: z.union([IDSchema, z.null()]).optional(),
   isEditingViewMode: z.boolean().optional(),
-  appConfig: z.union([AppConfigSchema, z.null()]).optional(),
   codegenTargets: z.array(ProjectCodegenPythonTargetSchema).optional(),
   entryCodeBlockId: z.union([IDSchema, z.null()]).optional(),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).optional(),
@@ -12242,152 +12180,6 @@ export function createRunChainSpec(
   options: Partial<RunChainSpec> = {},
 ): RunChainSpec {
   return RunChainSpecSchema.parse(options);
-}
-
-export const AppDeploymentMetadataSchema = z.object({
-  deploymentName: z.string(),
-  deploymentVersion: z.string(),
-  defaultProjectConfigId: IDSchema,
-  defaultProjectConfigName: z.string(),
-  createdAt: z.iso.datetime(),
-  deploymentRoot: z.string(),
-  sharePolicyPath: z.string(),
-});
-
-export type AppDeploymentMetadata = z.infer<typeof AppDeploymentMetadataSchema>;
-
-export type AppDeploymentMetadataInput = z.input<
-  typeof AppDeploymentMetadataSchema
->;
-
-export function createAppDeploymentMetadata(
-  options: Partial<AppDeploymentMetadata> = {},
-): AppDeploymentMetadata {
-  return AppDeploymentMetadataSchema.parse(options);
-}
-
-export const SharePolicySchema = z.object({
-  allowParamChanges: z.boolean().default(true),
-  allowVariantChanges: z.boolean().default(true),
-  allowLayoutChanges: z.boolean().default(true),
-  allowRun: z.boolean().default(false),
-  allowLLM: z.boolean().default(false),
-  allowExternalLinks: z.boolean().default(false),
-  allowFileDownloads: z.boolean().default(false),
-  allowMultipleRuns: z.boolean().default(true),
-  runSnapshotMode: z
-    .enum(RunSnapshotModeEnum)
-    .default(RunSnapshotModeEnum.ephemeral),
-});
-
-export type SharePolicy = z.infer<typeof SharePolicySchema>;
-
-export type SharePolicyInput = z.input<typeof SharePolicySchema>;
-
-export function createSharePolicy(
-  options: Partial<SharePolicy> = {},
-): SharePolicy {
-  return SharePolicySchema.parse(options);
-}
-
-export const ShareDeploymentListenerConfigSchema = z.object({
-  entrypoint: z.string(),
-  enabled: z.boolean().default(true),
-});
-
-export type ShareDeploymentListenerConfig = z.infer<
-  typeof ShareDeploymentListenerConfigSchema
->;
-
-export type ShareDeploymentListenerConfigInput = z.input<
-  typeof ShareDeploymentListenerConfigSchema
->;
-
-export function createShareDeploymentListenerConfig(
-  options: Partial<ShareDeploymentListenerConfig> = {},
-): ShareDeploymentListenerConfig {
-  return ShareDeploymentListenerConfigSchema.parse(options);
-}
-
-export const ShareDeploymentManifestSchema = z.object({
-  version: z.int(),
-  deploymentName: z.string(),
-  deploymentType: z.enum(DeploymentTypeEnum),
-  defaultProjectConfigId: IDSchema,
-  deploymentVersion: z.string(),
-  createdAt: z.iso.datetime().default(get_now_timestamp),
-  listener: z
-    .union([ShareDeploymentListenerConfigSchema, z.null()])
-    .default(null),
-});
-
-export type ShareDeploymentManifest = z.infer<
-  typeof ShareDeploymentManifestSchema
->;
-
-export type ShareDeploymentManifestInput = z.input<
-  typeof ShareDeploymentManifestSchema
->;
-
-export function createShareDeploymentManifest(
-  options: Partial<ShareDeploymentManifest> = {},
-): ShareDeploymentManifest {
-  return ShareDeploymentManifestSchema.parse(options);
-}
-
-export const AppDeploymentSessionResponseSchema = z.object({
-  deploymentName: z.string(),
-  deploymentVersion: z.string(),
-  shareSessionId: z.string(),
-  defaultProjectConfigId: IDSchema,
-  projectMetadata: z.array(ProjectConfigSchema),
-  appPolicy: SharePolicySchema,
-  manifest: z.union([ShareDeploymentManifestSchema, z.null()]).default(null),
-});
-
-export type AppDeploymentSessionResponse = z.infer<
-  typeof AppDeploymentSessionResponseSchema
->;
-
-export type AppDeploymentSessionResponseInput = z.input<
-  typeof AppDeploymentSessionResponseSchema
->;
-
-export function createAppDeploymentSessionResponse(
-  options: Partial<AppDeploymentSessionResponse> = {},
-): AppDeploymentSessionResponse {
-  return AppDeploymentSessionResponseSchema.parse(options);
-}
-
-export const AppDeploymentStateResponseSchema = z.object({
-  projectState: ProjectStateSingleConfigSchema,
-  appConfig: z.union([AppConfigSchema, z.null()]).default(null),
-  appSpec: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-  appPolicy: SharePolicySchema,
-});
-
-export type AppDeploymentStateResponse = z.infer<
-  typeof AppDeploymentStateResponseSchema
->;
-
-export type AppDeploymentStateResponseInput = z.input<
-  typeof AppDeploymentStateResponseSchema
->;
-
-export function createAppDeploymentStateResponse(
-  options: Partial<AppDeploymentStateResponse> = {},
-): AppDeploymentStateResponse {
-  return AppDeploymentStateResponseSchema.parse(options);
 }
 
 export const BaseArtifactSchema = z.object({
@@ -13268,6 +13060,8 @@ export const ChatSectionStateSchema = z.object({
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  activeBranchId: z.union([IDSchema, z.null()]).default(null),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).default({}),
 });
 
 export type ChatSectionState = z.infer<typeof ChatSectionStateSchema>;
@@ -13461,6 +13255,50 @@ export function createBrowserAreaItem(
   return BrowserAreaItemSchema.parse(options);
 }
 
+export const ShareDeploymentListenerConfigSchema = z.object({
+  entrypoint: z.string(),
+  enabled: z.boolean().default(true),
+});
+
+export type ShareDeploymentListenerConfig = z.infer<
+  typeof ShareDeploymentListenerConfigSchema
+>;
+
+export type ShareDeploymentListenerConfigInput = z.input<
+  typeof ShareDeploymentListenerConfigSchema
+>;
+
+export function createShareDeploymentListenerConfig(
+  options: Partial<ShareDeploymentListenerConfig> = {},
+): ShareDeploymentListenerConfig {
+  return ShareDeploymentListenerConfigSchema.parse(options);
+}
+
+export const ShareDeploymentManifestSchema = z.object({
+  version: z.int(),
+  deploymentName: z.string(),
+  defaultProjectConfigId: IDSchema,
+  deploymentVersion: z.string(),
+  createdAt: z.iso.datetime().default(get_now_timestamp),
+  listener: z
+    .union([ShareDeploymentListenerConfigSchema, z.null()])
+    .default(null),
+});
+
+export type ShareDeploymentManifest = z.infer<
+  typeof ShareDeploymentManifestSchema
+>;
+
+export type ShareDeploymentManifestInput = z.input<
+  typeof ShareDeploymentManifestSchema
+>;
+
+export function createShareDeploymentManifest(
+  options: Partial<ShareDeploymentManifest> = {},
+): ShareDeploymentManifest {
+  return ShareDeploymentManifestSchema.parse(options);
+}
+
 export const ShareDeploymentMetadataSchema = z.object({
   deploymentName: z.string(),
   deploymentVersion: z.string(),
@@ -13483,6 +13321,27 @@ export function createShareDeploymentMetadata(
   options: Partial<ShareDeploymentMetadata> = {},
 ): ShareDeploymentMetadata {
   return ShareDeploymentMetadataSchema.parse(options);
+}
+
+export const SharePolicySchema = z.object({
+  allowParamChanges: z.boolean().default(true),
+  allowVariantChanges: z.boolean().default(true),
+  allowLayoutChanges: z.boolean().default(true),
+  allowRun: z.boolean().default(false),
+  allowLLM: z.boolean().default(false),
+  runSnapshotMode: z
+    .enum(RunSnapshotModeEnum)
+    .default(RunSnapshotModeEnum.ephemeral),
+});
+
+export type SharePolicy = z.infer<typeof SharePolicySchema>;
+
+export type SharePolicyInput = z.input<typeof SharePolicySchema>;
+
+export function createSharePolicy(
+  options: Partial<SharePolicy> = {},
+): SharePolicy {
+  return SharePolicySchema.parse(options);
 }
 
 export const ShareDeploymentSessionResponseSchema = z.object({
@@ -14206,6 +14065,8 @@ export const GetLLMResponseRequestSchema = z.object({
   thinking: z.boolean(),
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  branchParentChatId: z.union([IDSchema, z.null()]).default(null),
+  branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;
@@ -14232,72 +14093,6 @@ export function createStopLLMChatRequest(
   options: Partial<StopLLMChatRequest> = {},
 ): StopLLMChatRequest {
   return StopLLMChatRequestSchema.parse(options);
-}
-
-export const AppPolicyOverridesSchema = z.object({
-  allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowVariantChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
-  allowRun: z.union([z.boolean(), z.null()]).default(null),
-  allowLLM: z.union([z.boolean(), z.null()]).default(null),
-  allowExternalLinks: z.union([z.boolean(), z.null()]).default(null),
-  allowFileDownloads: z.union([z.boolean(), z.null()]).default(null),
-  allowMultipleRuns: z.union([z.boolean(), z.null()]).default(null),
-  runSnapshotMode: z
-    .union([z.enum(RunSnapshotModeEnum), z.null()])
-    .default(null),
-});
-
-export type AppPolicyOverrides = z.infer<typeof AppPolicyOverridesSchema>;
-
-export type AppPolicyOverridesInput = z.input<typeof AppPolicyOverridesSchema>;
-
-export function createAppPolicyOverrides(
-  options: Partial<AppPolicyOverrides> = {},
-): AppPolicyOverrides {
-  return AppPolicyOverridesSchema.parse(options);
-}
-
-export const LoadAppProjectConfigRequestSchema = z.object({
-  projectConfigId: IDSchema,
-});
-
-export type LoadAppProjectConfigRequest = z.infer<
-  typeof LoadAppProjectConfigRequestSchema
->;
-
-export type LoadAppProjectConfigRequestInput = z.input<
-  typeof LoadAppProjectConfigRequestSchema
->;
-
-export function createLoadAppProjectConfigRequest(
-  options: Partial<LoadAppProjectConfigRequest> = {},
-): LoadAppProjectConfigRequest {
-  return LoadAppProjectConfigRequestSchema.parse(options);
-}
-
-export const PublishAppDeploymentRequestSchema = z.object({
-  deploymentName: z.string(),
-  projectConfigId: IDSchema,
-  appPolicyOverrides: z
-    .union([AppPolicyOverridesSchema, z.null()])
-    .default(null),
-  listenerEntrypoint: z.union([z.string(), z.null()]).default(null),
-  listenerEnabled: z.boolean().default(true),
-});
-
-export type PublishAppDeploymentRequest = z.infer<
-  typeof PublishAppDeploymentRequestSchema
->;
-
-export type PublishAppDeploymentRequestInput = z.input<
-  typeof PublishAppDeploymentRequestSchema
->;
-
-export function createPublishAppDeploymentRequest(
-  options: Partial<PublishAppDeploymentRequest> = {},
-): PublishAppDeploymentRequest {
-  return PublishAppDeploymentRequestSchema.parse(options);
 }
 
 export const ArtifactSaveResultSchema = z.object({
@@ -14816,31 +14611,6 @@ export function createAddKwargRequest(
   options: Partial<AddKwargRequest> = {},
 ): AddKwargRequest {
   return AddKwargRequestSchema.parse(options);
-}
-
-export const AppSpecResponseSchema = z.object({
-  appSpec: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-  appConfig: z.union([AppConfigSchema, z.null()]).default(null),
-});
-
-export type AppSpecResponse = z.infer<typeof AppSpecResponseSchema>;
-
-export type AppSpecResponseInput = z.input<typeof AppSpecResponseSchema>;
-
-export function createAppSpecResponse(
-  options: Partial<AppSpecResponse> = {},
-): AppSpecResponse {
-  return AppSpecResponseSchema.parse(options);
 }
 
 export const AppendDrawAreaLayerItemRequestSchema = z.object({
@@ -15441,21 +15211,6 @@ export function createGenCodeSuffixCompletionRequest(
   return GenCodeSuffixCompletionRequestSchema.parse(options);
 }
 
-export const GetAppSpecRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-});
-
-export type GetAppSpecRequest = z.infer<typeof GetAppSpecRequestSchema>;
-
-export type GetAppSpecRequestInput = z.input<typeof GetAppSpecRequestSchema>;
-
-export function createGetAppSpecRequest(
-  options: Partial<GetAppSpecRequest> = {},
-): GetAppSpecRequest {
-  return GetAppSpecRequestSchema.parse(options);
-}
-
 export const GetChatSectionChatIdRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -15806,33 +15561,6 @@ export function createSetAgenticEdgesRequest(
   options: Partial<SetAgenticEdgesRequest> = {},
 ): SetAgenticEdgesRequest {
   return SetAgenticEdgesRequestSchema.parse(options);
-}
-
-export const SetAppSpecRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  appSpec: z.union([
-    z.record(z.string(), z.any()),
-    z.array(z.any()),
-    z.string(),
-    z.int(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-  ]),
-  appSpecPath: z.union([z.string(), z.null()]).default(null),
-  appSpecVersion: z.union([z.string(), z.null()]).default(null),
-  catalogId: z.union([z.string(), z.null()]).default(null),
-});
-
-export type SetAppSpecRequest = z.infer<typeof SetAppSpecRequestSchema>;
-
-export type SetAppSpecRequestInput = z.input<typeof SetAppSpecRequestSchema>;
-
-export function createSetAppSpecRequest(
-  options: Partial<SetAppSpecRequest> = {},
-): SetAppSpecRequest {
-  return SetAppSpecRequestSchema.parse(options);
 }
 
 export const SetBrowserAreaViewModeRequestSchema = z.object({
@@ -17324,32 +17052,6 @@ export function createUpdateAgenticEdgeRequest(
   return UpdateAgenticEdgeRequestSchema.parse(options);
 }
 
-export const UpdateAppSpecRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  patch: z.union([
-    z.record(z.string(), z.any()),
-    z.array(z.any()),
-    z.string(),
-    z.int(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-  ]),
-});
-
-export type UpdateAppSpecRequest = z.infer<typeof UpdateAppSpecRequestSchema>;
-
-export type UpdateAppSpecRequestInput = z.input<
-  typeof UpdateAppSpecRequestSchema
->;
-
-export function createUpdateAppSpecRequest(
-  options: Partial<UpdateAppSpecRequest> = {},
-): UpdateAppSpecRequest {
-  return UpdateAppSpecRequestSchema.parse(options);
-}
-
 export const UpdateEdgeRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -17781,9 +17483,6 @@ export const SharePolicyOverridesSchema = z.object({
   allowLayoutChanges: z.union([z.boolean(), z.null()]).default(null),
   allowRun: z.union([z.boolean(), z.null()]).default(null),
   allowLLM: z.union([z.boolean(), z.null()]).default(null),
-  allowExternalLinks: z.union([z.boolean(), z.null()]).default(null),
-  allowFileDownloads: z.union([z.boolean(), z.null()]).default(null),
-  allowMultipleRuns: z.union([z.boolean(), z.null()]).default(null),
   runSnapshotMode: z
     .union([z.enum(RunSnapshotModeEnum), z.null()])
     .default(null),

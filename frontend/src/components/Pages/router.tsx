@@ -4,14 +4,12 @@ import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
-import { AppMainContainer } from "components/Pages/App/AppMainContainer";
-import { AppWrapper } from "components/Pages/App/AppWrapper";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import { initializeServerMode } from "state/actions/serverMode";
+import { initializeShareSessionFromCurrentDeployment } from "state/actions/share";
 import {
   useAllProjectMetadata,
   useServerMode,
@@ -86,15 +84,14 @@ function ShareIndexRedirect() {
 type ModeWrapperProps = {
   ide: ReactNode;
   share: ReactNode;
-  app: ReactNode;
 };
 
-function ModeWrapper({ ide, share, app }: ModeWrapperProps) {
-  const { mode, modeResolved } = useServerMode((x) => x);
+function ModeWrapper({ ide, share }: ModeWrapperProps) {
+  const { isShareServer, modeResolved } = useServerMode((x) => x);
 
   useEffect(() => {
     if (!modeResolved) {
-      void initializeServerMode();
+      void initializeShareSessionFromCurrentDeployment();
     }
   }, [modeResolved]);
 
@@ -114,13 +111,7 @@ function ModeWrapper({ ide, share, app }: ModeWrapperProps) {
     );
   }
 
-  if (mode === "share") {
-    return share;
-  }
-  if (mode === "app") {
-    return app;
-  }
-  return ide;
+  return isShareServer ? share : ide;
 }
 
 const ideHomeRouteElement = (
@@ -164,14 +155,6 @@ const shareProjectRouteElement = (
   </ShareWrapper>
 );
 
-const appRouteElement = (
-  <AppWrapper>
-    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
-      <AppMainContainer doneLoading={doneLoading} is404={is404} />
-    )}
-  </AppWrapper>
-);
-
 const shareHomeRouteElement = (
   <ShareWrapper mode="home">
     {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
@@ -202,22 +185,14 @@ const shareIndexRouteElement = (
 const indexRoute = {
   path: INDEX_ROUTER_PATH,
   element: (
-    <ModeWrapper
-      ide={ideIndexRouteElement}
-      share={shareIndexRouteElement}
-      app={appRouteElement}
-    />
+    <ModeWrapper ide={ideIndexRouteElement} share={shareIndexRouteElement} />
   ),
 };
 
 const homeRoute = {
   path: HOME_ROUTER_PATH,
   element: (
-    <ModeWrapper
-      ide={ideHomeRouteElement}
-      share={shareHomeRouteElement}
-      app={appRouteElement}
-    />
+    <ModeWrapper ide={ideHomeRouteElement} share={shareHomeRouteElement} />
   ),
 };
 
@@ -227,7 +202,6 @@ const projectRoute = {
     <ModeWrapper
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
-      app={appRouteElement}
     />
   ),
 };
@@ -238,7 +212,6 @@ const viewModeRoute = {
     <ModeWrapper
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
-      app={appRouteElement}
     />
   ),
 };

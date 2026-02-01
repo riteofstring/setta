@@ -2,13 +2,11 @@ import logging
 
 from fastapi import HTTPException
 
-from setta.app.catalog import APP_CATALOG, list_app_components
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
     AppendDrawAreaLayerItemRequest,
-    AppSpecResponse,
     AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -35,7 +33,6 @@ from setta.project_state.project_manager_types import (
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetAppSpecRequest,
     GetChatSectionChatIdRequest,
     GetLatestProjectStateRequest,
     GetPasswordParamValueRequest,
@@ -54,7 +51,6 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetAgenticEdgesRequest,
-    SetAppSpecRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -126,7 +122,6 @@ from setta.project_state.project_manager_types import (
     UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateAgenticEdgeRequest,
-    UpdateAppSpecRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -145,7 +140,6 @@ from setta.share.policy import (
     ensure_share_param_value_allowed,
 )
 from setta.terminals.terminals import build_terminal_id
-from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
@@ -225,16 +219,6 @@ async def _deny_share_mode_diagnostics(ctx) -> None:
         message="Share mode disallows diagnostics settings.",
         share_session_id=ctx.share_session_id,
     )
-
-
-@router.get(Route.GET_APP_CATALOG)
-def route_get_app_catalog() -> JSONValue:
-    return APP_CATALOG
-
-
-@router.get(Route.LIST_APP_COMPONENTS)
-def route_list_app_components() -> list[str]:
-    return list_app_components()
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
@@ -614,33 +598,6 @@ async def route_set_project_config_codegen_targets(
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_project_config_codegen_targets(x)
-
-
-@router.post(Route.GET_APP_SPEC)
-async def route_get_app_spec(
-    x: GetAppSpecRequest, ctx: RuntimeContextFromRequest
-) -> AppSpecResponse:
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.get_app_spec(x)
-
-
-@router.post(Route.SET_APP_SPEC)
-async def route_set_app_spec(
-    x: SetAppSpecRequest, ctx: RuntimeContextFromRequest
-) -> AppSpecResponse:
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.set_app_spec(x)
-
-
-@router.post(Route.UPDATE_APP_SPEC)
-async def route_update_app_spec(
-    x: UpdateAppSpecRequest, ctx: RuntimeContextFromRequest
-) -> AppSpecResponse:
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.update_app_spec(x)
 
 
 @router.post(Route.SET_PROMPT_TEMPLATE)

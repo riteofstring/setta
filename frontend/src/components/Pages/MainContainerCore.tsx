@@ -8,11 +8,9 @@ import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
-import { useAppPreview } from "state/definitions";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
-import { AppPreview } from "./Project/AppPreview";
 import { UIPage } from "./Project/UiPage";
 
 type MainContainerCoreProps = {
@@ -24,7 +22,6 @@ export function MainContainerCore({
   doneLoading,
   is404,
 }: MainContainerCoreProps) {
-  const isAppPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
   useCodeMirrorStyleLoader(doneLoading, is404);
   useAddMouseLocationListener();
   useAIFollowViewport();
@@ -44,7 +41,7 @@ export function MainContainerCore({
       <Overview />
       <UiEditor />
       <GridWrapper>
-        {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
+        <UIPage />
       </GridWrapper>
       <FloatingBox />
     </>

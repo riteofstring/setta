@@ -22,6 +22,7 @@ from setta.routers.ai import (
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
+    _build_branch_messages,
     _get_prior_messages_for_engine,
     route_get_external_agent_chat,
     route_get_llm_chat,
@@ -50,7 +51,7 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.runtime_context import runtime_context
@@ -125,7 +126,6 @@ def _write_share_project(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -590,3 +590,47 @@ class TestAgentRunChatRoutes:
                 return
             assert stopped.status == AgentRunStatus.cancelled
             assert stopped.finishedAt is not None
+
+    def test_branch_messages_replace_and_truncate(self) -> None:
+        first = UserChatMessage(
+            id="msg-1",
+            content=[MessageTextContent(text="Original")],
+        )
+        second = AssistantChatMessage(
+            id="msg-2",
+            content=[MessageTextContent(text="Reply")],
+        )
+        third = UserChatMessage(
+            id="msg-3",
+            content=[MessageTextContent(text="Later")],
+        )
+        edited = UserChatMessage(
+            id="edited",
+            content=[MessageTextContent(text="Edited")],
+        )
+
+        result = _build_branch_messages(
+            prior_messages=[first, second, third],
+            edited_message=edited,
+            branch_from_message_id=ID("msg-1"),
+        )
+
+        assert [message.id for message in result] == ["msg-1"]
+        assert result[0].content[0].text == "Edited"
+
+    def test_branch_messages_missing_target_raises(self) -> None:
+        first = UserChatMessage(
+            id="msg-1",
+            content=[MessageTextContent(text="Original")],
+        )
+        edited = UserChatMessage(
+            id="edited",
+            content=[MessageTextContent(text="Edited")],
+        )
+
+        with pytest.raises(KeyError):
+            _build_branch_messages(
+                prior_messages=[first],
+                edited_message=edited,
+                branch_from_message_id=ID("missing"),
+            )

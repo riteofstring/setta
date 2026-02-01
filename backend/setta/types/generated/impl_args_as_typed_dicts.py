@@ -1,7 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
 from setta.types.agentic_edges import AgenticEdge
-from setta.types.app_config import AppConfig
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -37,6 +36,7 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
@@ -61,12 +61,14 @@ class CoreArgs(TypedDict):
         list[
             Literal[
                 "actionMode",
+                "activeBranchId",
                 "activeLayerIdx",
                 "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
                 "attachedTerminalSectionId",
+                "branches",
                 "brushColor",
                 "brushOpacity",
                 "brushShape",
@@ -173,7 +175,6 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    appConfig: NotRequired[AppConfig | None]
     codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
@@ -608,6 +609,8 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     inputText: NotRequired[str]
     waitingForResponse: NotRequired[bool]
     toolCallArguments: NotRequired[dict[str, str]]
+    activeBranchId: NotRequired[ID | None]
+    branches: NotRequired[dict[ID, ChatSectionBranch]]
 
 
 class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -645,6 +648,11 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     waitingForResponse: NotRequired[bool | Callable[[bool], bool]]
     toolCallArguments: NotRequired[
         dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
+    ]
+    activeBranchId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    branches: NotRequired[
+        dict[ID, ChatSectionBranch]
+        | Callable[[dict[ID, ChatSectionBranch]], dict[ID, ChatSectionBranch]]
     ]
 
 
