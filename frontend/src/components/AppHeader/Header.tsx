@@ -2,7 +2,6 @@ import { useRef } from "react";
 import { useProjectLoading, useShareSession } from "state/definitions";
 import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
-import { HelpText } from "./HelpText";
 import { Notification } from "./Notification";
 import { ProjectNav } from "./ProjectNav";
 import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
@@ -42,7 +41,7 @@ export function HeaderContainer({ path }: { path: string }) {
       )}
       <div className="relative flex flex-1 items-center justify-end">
         <Notification />
-        <HelpText />
+        {/* <HelpText /> */}
       </div>
     </header>
   );

@@ -17,6 +17,9 @@ import {
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
 
+const THEME_COLOR_LIGHT = "#dce1ea";
+const THEME_COLOR_DARK = "#0b0e13";
+
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useSetHTMLTitle();
@@ -85,6 +88,14 @@ function useColorModePreference() {
         root.classList.add("dark");
       } else {
         root.classList.remove("dark");
+      }
+
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) {
+        themeMeta.setAttribute(
+          "content",
+          nextDarkMode ? THEME_COLOR_DARK : THEME_COLOR_LIGHT,
+        );
       }
 
       if (useLocalStorage.getState().darkMode !== nextDarkMode) {

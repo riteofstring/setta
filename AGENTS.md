@@ -40,6 +40,7 @@
 
 ## Testing Guidelines
 
+- Default workflow: think, plan, write tests (Playwright, Vitest, Python unit tests), implement, then run tests. Stay flexible and update tests as the approach evolves or new components are introduced.
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts` files.
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.

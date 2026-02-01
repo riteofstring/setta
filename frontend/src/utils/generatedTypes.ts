@@ -576,6 +576,8 @@ export const RouteEnum = {
   PASTE_SECTIONS: "/pasteSections",
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
+  GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
+  FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
   IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
   DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
@@ -6208,14 +6210,6 @@ export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
 >;
 
-const BrowserAreaItemSchema = z.object({
-  id: z.string(),
-  type: z.any(),
-  lastModified: z.iso.datetime(),
-});
-
-export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
-
 const ShareDeploymentListenerConfigSchema = z.object({
   entrypoint: z.string(),
   enabled: z.boolean().default(true),
@@ -6624,6 +6618,24 @@ const DeleteArtifactsRequestSchema = z.object({
 
 export type DeleteArtifactsRequestInput = z.input<
   typeof DeleteArtifactsRequestSchema
+>;
+
+const FileBrowserDownloadUrlEntrySchema = z.object({
+  path: z.string(),
+  url: z.string(),
+  expiresAt: z.int(),
+});
+
+export type FileBrowserDownloadUrlEntry = z.infer<
+  typeof FileBrowserDownloadUrlEntrySchema
+>;
+
+const GetFileBrowserDownloadUrlsRequestSchema = z.object({
+  paths: z.array(z.string()),
+});
+
+export type GetFileBrowserDownloadUrlsRequestInput = z.input<
+  typeof GetFileBrowserDownloadUrlsRequestSchema
 >;
 
 const GetFileBrowserRootResponseSchema = z.object({
