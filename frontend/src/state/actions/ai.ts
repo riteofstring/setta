@@ -1,6 +1,5 @@
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
@@ -526,9 +525,9 @@ function mergeChatSectionState(
     currentState.messages ?? [],
     incoming.messages ?? [],
   );
-  const nextWaitingForResponse = incoming.waitingForResponse
-    ? currentState.waitingForResponse ?? true
-    : false;
+  const nextWaitingForResponse = Boolean(
+    incoming.waitingForResponse || currentState.waitingForResponse,
+  );
   return {
     messages: mergedMessages,
     inputText: currentState.inputText ?? "",
@@ -592,9 +591,9 @@ export async function getLLMChat(
     const { messages, waitingForResponse, llmConfig } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
-      const nextWaitingForResponse = waitingForResponse
-        ? existingDetails?.waitingForResponse ?? true
-        : false; // keep false once streaming finishes to avoid stale flips
+      const nextWaitingForResponse = Boolean(
+        waitingForResponse || existingDetails?.waitingForResponse,
+      );
       const nextMessages = mergeChatMessages(
         existingDetails?.messages ?? [],
         messages,
@@ -641,9 +640,9 @@ export async function getExternalAgentChat(
     const { messages, waitingForResponse, toolCallArguments } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
-      const nextWaitingForResponse = waitingForResponse
-        ? existingDetails?.waitingForResponse ?? true
-        : false;
+      const nextWaitingForResponse = Boolean(
+        waitingForResponse || existingDetails?.waitingForResponse,
+      );
       const nextMessages = mergeChatMessages(
         existingDetails?.messages ?? [],
         messages,
@@ -1570,28 +1569,74 @@ function getChatSectionStateFromStore(
   };
 }
 
-function resolveSectionIdForChatId(chatId: string): string | null {
-  const state = useProjectState.getState();
-  for (const sectionId of Object.keys(state.sections)) {
-    let impl;
-    try {
-      impl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Chat,
-      );
-    } catch {
+type ChatIdLookupCache = {
+  projectConfigId: string;
+  sectionVariantMap: ZustandProjectState["projectConfig"]["sectionVariantMap"];
+  sectionVariants: ZustandProjectState["sectionVariants"];
+  sectionImpls: ZustandProjectState["sectionImpls"];
+  sections: ZustandProjectState["sections"];
+  map: Map<string, string>;
+};
+
+let chatIdLookupCache: ChatIdLookupCache | null = null;
+
+function buildChatIdLookup(state: ZustandProjectState): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const [sectionId, variantId] of Object.entries(
+    state.projectConfig.sectionVariantMap,
+  )) {
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      continue;
+    }
+    const impl = state.sectionImpls[variant.impl];
+    if (!impl) {
+      continue;
+    }
+    const core = state.sections[sectionId];
+    if (!core) {
+      continue;
+    }
+    const effective = {
+      ...impl,
+      ...core.sharedModifier,
+      ...variant.modifier,
+    };
+    if (effective.type !== SectionTypeEnum.Chat) {
       continue;
     }
     const candidate =
-      typeof impl.chatId === "string" && impl.chatId.trim()
-        ? impl.chatId
+      typeof effective.chatId === "string" && effective.chatId.trim()
+        ? effective.chatId
         : null;
-    if (candidate === chatId) {
-      return sectionId;
+    if (!candidate) {
+      continue;
     }
+    lookup.set(candidate, sectionId);
   }
-  return null;
+  return lookup;
+}
+
+function resolveSectionIdForChatId(chatId: string): string | null {
+  const state = useProjectState.getState();
+  const shouldRebuild =
+    !chatIdLookupCache ||
+    chatIdLookupCache.projectConfigId !== state.projectConfig.id ||
+    chatIdLookupCache.sectionVariantMap !== state.projectConfig.sectionVariantMap ||
+    chatIdLookupCache.sectionVariants !== state.sectionVariants ||
+    chatIdLookupCache.sectionImpls !== state.sectionImpls ||
+    chatIdLookupCache.sections !== state.sections;
+  if (shouldRebuild) {
+    chatIdLookupCache = {
+      projectConfigId: state.projectConfig.id,
+      sectionVariantMap: state.projectConfig.sectionVariantMap,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
+      sections: state.sections,
+      map: buildChatIdLookup(state),
+    };
+  }
+  return chatIdLookupCache.map.get(chatId) ?? null;
 }
 
 function applyStreamDeltaToChatSectionState(

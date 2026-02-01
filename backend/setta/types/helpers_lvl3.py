@@ -537,17 +537,19 @@ def _remap_agentic_edges(
 ) -> list[AgenticEdge]:
     remapped: list[AgenticEdge] = []
     for edge in edges:
-        source_id = edge.sourceSectionId
-        target_id = edge.targetSectionId
-        if source_id in section_id_map:
-            source_id = section_id_map[source_id]
-        if target_id in section_id_map:
-            target_id = section_id_map[target_id]
+        if edge.sourceSectionId not in section_id_map:
+            raise KeyError(
+                f"Section {edge.sourceSectionId} missing for agentic edge remap."
+            )
+        if edge.targetSectionId not in section_id_map:
+            raise KeyError(
+                f"Section {edge.targetSectionId} missing for agentic edge remap."
+            )
         remapped.append(
             edge.model_copy(
                 update={
-                    "sourceSectionId": source_id,
-                    "targetSectionId": target_id,
+                    "sourceSectionId": section_id_map[edge.sourceSectionId],
+                    "targetSectionId": section_id_map[edge.targetSectionId],
                 },
                 deep=True,
             )

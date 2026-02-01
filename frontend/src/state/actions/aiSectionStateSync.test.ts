@@ -243,7 +243,7 @@ describe("chat history sync to section state", () => {
         );
       }),
     ).toBe(true);
-    expect(impl.waitingForResponse).toBe(false);
+    expect(impl.waitingForResponse).toBe(true);
     const persistedCall = route_set_chat_section_state.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
@@ -307,7 +307,7 @@ describe("chat history sync to section state", () => {
     const messageIds = impl.messages.map((message) => message.id);
     expect(messageIds).toContain("msg-local");
     expect(messageIds).toContain("msg-remote");
-    expect(impl.waitingForResponse).toBe(false);
+    expect(impl.waitingForResponse).toBe(true);
     expect(impl.toolCallArguments).toEqual({ local: "{}", remote: "{}" });
     const persistedCall = route_set_chat_section_state.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
@@ -328,7 +328,7 @@ describe("chat history sync to section state", () => {
         (message: { id: string }) => message.id === "msg-remote",
       ),
     ).toBe(true);
-    expect(persistedState.waitingForResponse).toBe(false);
+    expect(persistedState.waitingForResponse).toBe(true);
     expect(persistedState.toolCallArguments).toEqual({
       local: "{}",
       remote: "{}",

@@ -40,7 +40,7 @@ export function moveSectionsWithBackend({
     : null;
   const stableNewParentId = newParentId;
   const stableNewIndex = newIndex;
-  const opId = dispatchOptimisticProjectStateUpdate({
+  dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
         sectionIds: stableSectionIds,

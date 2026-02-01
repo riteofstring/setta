@@ -88,6 +88,12 @@ describe("AgenticEdgeRenderer", () => {
         kind: AgenticEdgeKindEnum.chat_section,
       }),
       createAgenticEdge({
+        id: "edge-chat-chat",
+        sourceSectionId: chatSectionId,
+        targetSectionId: contextSectionId,
+        kind: AgenticEdgeKindEnum.chat_chat,
+      }),
+      createAgenticEdge({
         id: "edge-tool",
         sourceSectionId: contextSectionId,
         targetSectionId: chatSectionId,
@@ -217,5 +223,8 @@ describe("AgenticEdgeRenderer", () => {
     expect(markup).toContain("agentic-edge--tool-args");
     expect(markup).toContain("agentic-edge--tool-result");
     expect(markup).toContain("agentic-edge--run");
+    expect(markup).toContain("agentic-edge--chat-chat");
+    expect(markup).not.toContain("agentic-edge--chat_chat");
+    expect(markup).not.toContain("agentic-edge-chat");
   });
 });

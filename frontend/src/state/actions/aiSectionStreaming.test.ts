@@ -175,6 +175,58 @@ describe("section chat streaming updates", () => {
     ).toBe(true);
   });
 
+  it("rebuilds chatId lookup when chatId changes", () => {
+    const initialMessage = {
+      id: "msg-lookup-1",
+      role: ChatRoleEnum.assistant,
+      content: [{ type: "text", text: "First routing" }],
+      attachments: [],
+      tool_calls: null,
+    };
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId: null,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        message: initialMessage,
+      },
+    });
+
+    const updatedChatId = "chat-2";
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (!impl || impl.type !== SectionTypeEnum.Chat) {
+        return;
+      }
+      impl.chatId = updatedChatId;
+    });
+
+    const updatedMessage = {
+      id: "msg-lookup-2",
+      role: ChatRoleEnum.assistant,
+      content: [{ type: "text", text: "Updated routing" }],
+      attachments: [],
+      tool_calls: null,
+    };
+    receiveLLMResponseChunk({
+      chatId: updatedChatId,
+      sectionId: null,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        message: updatedMessage,
+      },
+    });
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(
+      impl.messages.some((message) => message.id === updatedMessage.id),
+    ).toBe(true);
+  });
+
   it("persists section state on finalized messages", async () => {
     const route_set_chat_section_state = (
       await import("utils/generatedEndpoints")

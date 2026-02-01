@@ -12,7 +12,6 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  AgenticEdgeKindEnum,
   SectionTypeEnum,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
@@ -202,9 +201,13 @@ const AgenticEdgeRenderer = () => {
             edge.sourceSectionId,
           );
 
+          const kindClassName = `agentic-edge--${edge.kind.replaceAll(
+            "_",
+            "-",
+          )}`;
           const pathClassNames = [
             "react-flow__agentic-edge-path",
-            `agentic-edge--${edge.kind}`,
+            kindClassName,
             edge.selected ? "agentic-edge--selected" : null,
             touchesToolArgs ? "agentic-edge--tool-args" : null,
             touchesToolResults ? "agentic-edge--tool-result" : null,
@@ -224,11 +227,7 @@ const AgenticEdgeRenderer = () => {
           return (
             <g
               key={edge.id}
-              className={`react-flow__agentic-edge ${
-                edge.kind === AgenticEdgeKindEnum.chat_chat
-                  ? "agentic-edge-chat"
-                  : ""
-              }`}
+              className="react-flow__agentic-edge"
               onClick={onClick}
               role="button"
               tabIndex={0}
