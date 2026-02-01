@@ -82,19 +82,17 @@ export function buildMessageBranchInfo({
   branchIndex: ChatBranchIndex;
 }): Record<string, ChatMessageBranchInfo> {
   const info: Record<string, ChatMessageBranchInfo> = {};
-  const currentBranch = branchIndex.branchInfoByChatId[chatId] ?? null;
   const branchFamilies = buildBranchFamilies(branchIndex);
+  const ancestorChain = buildBranchAncestorChain(chatId, branchIndex);
 
   for (const message of messages) {
     if (!message || message.role === ChatRoleEnum.tool) {
       continue;
     }
     const switcher = resolveBranchSwitcher({
-      chatId,
       messageId: message.id,
-      branchIndex,
-      currentBranch,
       branchFamilies,
+      ancestorChain,
     });
     if (!switcher) {
       continue;
@@ -105,98 +103,31 @@ export function buildMessageBranchInfo({
 }
 
 function resolveBranchSwitcher({
-  chatId,
   messageId,
-  branchIndex,
-  currentBranch,
   branchFamilies,
+  ancestorChain,
 }: {
-  chatId: string;
   messageId: string;
-  branchIndex: ChatBranchIndex;
-  currentBranch: ChatBranchInfo | null;
   branchFamilies: Record<string, Array<string>>;
+  ancestorChain: Array<string>;
 }): ChatMessageBranchInfo | null {
-  if (currentBranch && currentBranch.branchFromMessageId === messageId) {
-    const rootChatId = currentBranch.branchRootChatId;
-    if (rootChatId) {
-      const family =
-        branchFamilies[buildBranchFamilyKey(rootChatId, messageId)];
-      if (family && family.length > 0) {
-        const branchChatIds = [rootChatId, ...family];
-        const activeIndex = branchChatIds.indexOf(chatId);
-        if (branchChatIds.length > 1 && activeIndex !== -1) {
-          return {
-            messageId,
-            branchChatIds,
-            activeIndex,
-          };
-        }
-      }
-    }
-    if (currentBranch.branchParentChatId) {
-      const siblings = buildSiblingEntries({
-        parentChatId: currentBranch.branchParentChatId,
-        messageId,
-        branchIndex,
-      });
-      const activeIndex = siblings.indexOf(chatId);
-      if (siblings.length <= 1 || activeIndex === -1) {
-        return null;
-      }
-      return {
-        messageId,
-        branchChatIds: siblings,
-        activeIndex,
-      };
-    }
+  const family = resolveBranchFamily(messageId, branchFamilies, ancestorChain);
+  if (!family) {
     return null;
   }
-
-  if (!currentBranch) {
-    const family = branchFamilies[buildBranchFamilyKey(chatId, messageId)];
-    if (family && family.length > 0) {
-      return {
-        messageId,
-        branchChatIds: [chatId, ...family],
-        activeIndex: 0,
-      };
-    }
-  }
-
-  const childEntry = branchIndex.branchChildrenByChatId[chatId];
-  if (!childEntry) {
+  const branchChatIds = [family.rootChatId, ...family.children];
+  const activeIndex = resolveActiveBranchIndex(
+    branchChatIds,
+    ancestorChain,
+  );
+  if (branchChatIds.length <= 1 || activeIndex === -1) {
     return null;
   }
-  const children = childEntry[messageId] ?? [];
-  if (children.length === 0) {
-    return null;
-  }
-  const orderedChildren = sortBranchChildren(children, branchIndex);
-  const branchChatIds = [chatId, ...orderedChildren];
   return {
     messageId,
     branchChatIds,
-    activeIndex: 0,
+    activeIndex,
   };
-}
-
-function buildSiblingEntries({
-  parentChatId,
-  messageId,
-  branchIndex,
-}: {
-  parentChatId: string;
-  messageId: string;
-  branchIndex: ChatBranchIndex;
-}): Array<string> {
-  const messageEntries = branchIndex.branchChildrenByChatId[parentChatId] ?? {};
-  const children = messageEntries[messageId] ?? [];
-  if (children.length === 0) {
-    return [parentChatId];
-  }
-  const orderedChildren = sortBranchChildren(children, branchIndex);
-  return [parentChatId, ...orderedChildren];
 }
 
 function sortBranchChildren(
@@ -236,6 +167,50 @@ function buildBranchFamilies(
     families[key] = sortBranchChildren(children, branchIndex);
   }
   return families;
+}
+
+function buildBranchAncestorChain(
+  chatId: string,
+  branchIndex: ChatBranchIndex,
+): Array<string> {
+  const chain: Array<string> = [];
+  let current: string | null = chatId;
+  const seen = new Set<string>();
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    chain.push(current);
+    const info = branchIndex.branchInfoByChatId[current];
+    current = info?.branchParentChatId ?? null;
+  }
+  return chain;
+}
+
+function resolveBranchFamily(
+  messageId: string,
+  branchFamilies: Record<string, Array<string>>,
+  ancestorChain: Array<string>,
+): { rootChatId: string; children: Array<string> } | null {
+  for (const ancestorId of ancestorChain) {
+    const key = buildBranchFamilyKey(ancestorId, messageId);
+    const children = branchFamilies[key];
+    if (children && children.length > 0) {
+      return { rootChatId: ancestorId, children };
+    }
+  }
+  return null;
+}
+
+function resolveActiveBranchIndex(
+  branchChatIds: Array<string>,
+  ancestorChain: Array<string>,
+): number {
+  for (const ancestorId of ancestorChain) {
+    const index = branchChatIds.indexOf(ancestorId);
+    if (index !== -1) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function getBranchMetadata(run: AgentRun): BranchMetadata {
