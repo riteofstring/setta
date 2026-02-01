@@ -1102,6 +1102,17 @@ class BaseProjectManager(ABC):
         )
 
         if python_codegen_enabled:
+            python_target = get_python_codegen_target_with_type_guard(projectConfig)
+            reset_gen_code_diagnostics = False
+            if projectConfigId in self.gen_code:
+                existing_generator = self.gen_code[projectConfigId].code_generator
+                if (
+                    existing_generator.gen_code_prefix
+                    != python_target.genCodePrefix
+                    or existing_generator.gen_code_suffix
+                    != python_target.genCodeSuffix
+                ):
+                    reset_gen_code_diagnostics = True
             dep_graph = DependencyGraph(projectState)
             prev_undefined_callable_sections: set[ID] = set()
             prev_callable_mismatch_sections: set[ID] = set()
@@ -1159,6 +1170,11 @@ class BaseProjectManager(ABC):
                 projectState, new_gen_code.meta_code
             )
             self.gen_code[projectConfigId] = new_gen_code
+            if reset_gen_code_diagnostics:
+                await diagnostics_state.reset(
+                    clear_gen_code=True,
+                    clear_unmapped=True,
+                )
         else:
             if projectConfigId in self.gen_code:
                 self.gen_code[projectConfigId].callback_cleanup()
