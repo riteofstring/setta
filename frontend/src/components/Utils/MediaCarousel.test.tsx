@@ -64,4 +64,13 @@ describe("MediaCarousel", () => {
 
     expect(markup).not.toContain("<button");
   });
+
+  it("marks preview and thumbnail row for scroll handling", () => {
+    const markup = renderToStaticMarkup(
+      <MediaCarousel items={imageItems} selectedId="image-1" />,
+    );
+
+    expect(markup).toContain("nowheel");
+    expect(markup).toContain("nopan");
+  });
 });

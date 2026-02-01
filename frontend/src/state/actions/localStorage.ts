@@ -1,7 +1,10 @@
-import { useLocalStorage } from "state/definitions";
+import { type ColorModePreference, useLocalStorage } from "state/definitions";
 
-export function toggleDarkMode() {
-  useLocalStorage.setState((state) => ({ darkMode: !state.darkMode }));
+export function setColorModePreference(colorMode: ColorModePreference) {
+  useLocalStorage.setState((state) => ({
+    colorMode,
+    darkMode: colorMode === "auto" ? state.darkMode : colorMode === "dark",
+  }));
 }
 
 export function toggleMiniMap() {
