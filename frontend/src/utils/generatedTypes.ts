@@ -7673,7 +7673,7 @@ export function createMetaControlSizingPolicyByType(
 
 export const SectionSizingPolicyGlobalsSchema = z.object({
   pinnedParamsAreaMinHeight: z.number().default(64),
-  unpinnedParamsAreaMinHeight: z.number().default(38),
+  unpinnedParamsAreaMinHeight: z.number().default(36),
   minimizedHeight: z.number().default(32),
   infiniteMaxHeight: z.number().default(100000),
   infiniteMaxWidth: z.number().default(100000),

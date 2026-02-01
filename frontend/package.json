@@ -106,6 +106,8 @@
     "postinstall": "rm -rf node_modules/.vite && python fix_xterm.py",
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
     "generate": "bash ./generation/generate.sh",
+    "acceptance:generate": "node ./tests/e2e/acceptance/generate.mjs",
+    "acceptance:verify": "node ./tests/e2e/acceptance/verify.mjs",
     "cdp-port": "cd .. && ./scripts/cdp-port.sh",
     "worktree": "cd .. && ./worktree.sh",
     "worktrees": "cd .. && ./worktree.sh",

@@ -45,8 +45,9 @@ import {
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
 
-const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
-const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 48;
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
+const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
 
 function _ParamGroupContainer({
   sectionId,
@@ -63,6 +64,10 @@ function _ParamGroupContainer({
     unpinned: 1,
   });
   const paramsFixedHeightKey = getParamsFixedHeightKey(sectionId);
+  const lastFixedHeightRef = useRef<number | null>(null);
+  const pendingFixedHeightRef = useRef<number | null>(null);
+  const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
+  const waitingForResultRef = useRef(waitingForResult);
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -70,49 +75,76 @@ function _ParamGroupContainer({
     maxNestedDepth: Math.max(maxNestedDepth.pinned, maxNestedDepth.unpinned),
   });
 
-  const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
-
   const setOuterRef = useCallback((node: HTMLDivElement | null) => {
     outerRef.current = node;
   }, []);
 
+  useEffect(() => {
+    waitingForResultRef.current = waitingForResult;
+  }, [waitingForResult]);
+
   useLayoutEffect(() => {
     const outer = outerRef.current;
     if (!outer) {
+      lastFixedHeightRef.current = null;
+      pendingFixedHeightRef.current = null;
       useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
       return;
     }
     let frameId = 0;
-    let lastFixedHeight: number | null = null;
-    let unpinnedElement: HTMLElement | null = null;
-    let unpinnedObserver: ResizeObserver | null = null;
+    const observed = new Set<HTMLElement>();
+    const resizeObserver = new ResizeObserver(() => scheduleMeasure());
+    const mutationObserver = new MutationObserver(() => scheduleMeasure());
+
+    const updateObserved = () => {
+      const fixedElements = Array.from(
+        outer.querySelectorAll<HTMLElement>('[data-params-fixed="true"]'),
+      );
+      const nextSet = new Set(fixedElements);
+      for (const el of observed) {
+        if (!nextSet.has(el)) {
+          resizeObserver.unobserve(el);
+          observed.delete(el);
+        }
+      }
+      for (const el of nextSet) {
+        if (!observed.has(el)) {
+          resizeObserver.observe(el);
+          observed.add(el);
+        }
+      }
+      return fixedElements;
+    };
 
     const updateFixedHeight = () => {
       if (!outer) {
         return;
       }
-      const nextUnpinned = outer.querySelector<HTMLElement>(
-        ".section-args-nested.overflow-y-scroll",
-      );
-      if (nextUnpinned !== unpinnedElement) {
-        unpinnedObserver?.disconnect();
-        unpinnedObserver = null;
-        unpinnedElement = nextUnpinned;
-        if (unpinnedElement) {
-          unpinnedObserver = new ResizeObserver(scheduleMeasure);
-          unpinnedObserver.observe(unpinnedElement);
-        }
+      const fixedElements = updateObserved();
+      const outerStyle = window.getComputedStyle(outer);
+      const paddingHeight =
+        (Number.parseFloat(outerStyle.paddingTop) || 0) +
+        (Number.parseFloat(outerStyle.paddingBottom) || 0);
+      const outerMarginHeight =
+        (Number.parseFloat(outerStyle.marginTop) || 0) +
+        (Number.parseFloat(outerStyle.marginBottom) || 0);
+      let totalHeight = paddingHeight + outerMarginHeight;
+      for (const element of fixedElements) {
+        const style = window.getComputedStyle(element);
+        const marginHeight =
+          (Number.parseFloat(style.marginTop) || 0) +
+          (Number.parseFloat(style.marginBottom) || 0);
+        totalHeight += element.offsetHeight + marginHeight;
       }
-      const outerHeight = outer.offsetHeight;
-      const unpinnedHeight = unpinnedElement ? unpinnedElement.offsetHeight : 0;
-      const nextFixedHeight = Math.max(
-        0,
-        Math.round(outerHeight - unpinnedHeight),
-      );
-      if (lastFixedHeight === nextFixedHeight) {
+      const nextFixedHeight = Math.round(totalHeight);
+      if (waitingForResultRef.current) {
+        pendingFixedHeightRef.current = nextFixedHeight;
         return;
       }
-      lastFixedHeight = nextFixedHeight;
+      if (lastFixedHeightRef.current === nextFixedHeight) {
+        return;
+      }
+      lastFixedHeightRef.current = nextFixedHeight;
       useTemporaryMiscState.setState({
         [paramsFixedHeightKey]: nextFixedHeight,
       });
@@ -125,44 +157,65 @@ function _ParamGroupContainer({
       frameId = requestAnimationFrame(updateFixedHeight);
     };
 
-    const outerObserver = new ResizeObserver(scheduleMeasure);
-    outerObserver.observe(outer);
+    mutationObserver.observe(outer, { childList: true, subtree: true });
     scheduleMeasure();
 
     return () => {
       if (frameId) {
         cancelAnimationFrame(frameId);
       }
-      outerObserver.disconnect();
-      unpinnedObserver?.disconnect();
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+      observed.clear();
+      lastFixedHeightRef.current = null;
+      pendingFixedHeightRef.current = null;
       useTemporaryMiscState.setState({ [paramsFixedHeightKey]: 0 });
     };
   }, [paramsFixedHeightKey]);
 
+  useEffect(() => {
+    if (waitingForResult) {
+      return;
+    }
+    const pendingHeight = pendingFixedHeightRef.current;
+    if (pendingHeight === null) {
+      return;
+    }
+    pendingFixedHeightRef.current = null;
+    if (lastFixedHeightRef.current === pendingHeight) {
+      return;
+    }
+    lastFixedHeightRef.current = pendingHeight;
+    useTemporaryMiscState.setState({
+      [paramsFixedHeightKey]: pendingHeight,
+    });
+  }, [paramsFixedHeightKey, waitingForResult]);
+
   return (
     <ParamDndContext>
       <div
-        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col pt-2"
+        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col pt-2 relative"
         ref={setOuterRef}
       >
-        {waitingForResult ? (
-          <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
-        ) : (
-          <>
-            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-            <GetPinnedParams
-              sectionId={sectionId}
-              handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
-              sectionTypeName={sectionTypeName}
-            />
-            <GetUnpinnedParams
-              sectionId={sectionId}
-              handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
-            />
-          </>
+        {waitingForResult && (
+          <div className="absolute inset-0 z-10 flex items-start justify-center pt-3 pointer-events-auto bg-transparent">
+            <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
+          </div>
         )}
+        <>
+          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+          <GetPinnedParams
+            sectionId={sectionId}
+            handleColumnResizeStart={handleColumnResizeStart}
+            setMaxNestedDepth={setMaxNestedDepth}
+            sectionTypeName={sectionTypeName}
+          />
+          <GetUnpinnedParams
+            sectionId={sectionId}
+            handleColumnResizeStart={handleColumnResizeStart}
+            setMaxNestedDepth={setMaxNestedDepth}
+          />
+        </>
       </div>
     </ParamDndContext>
   );
@@ -440,6 +493,7 @@ function EdgesStrip({
     <section
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white pt-5 dark:border-setta-700/30 ${bgColor} ${roundedBottomClassName}`}
       ref={stripRef}
+      data-params-fixed="true"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-3">
@@ -630,6 +684,7 @@ function PinnedParamsArea({
   return (
     <section
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b border-white shadow-sm dark:border-setta-700/30 ${pinnedBgClassName} ${roundedBottomClassName}`}
+      data-params-fixed="true"
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
@@ -707,11 +762,15 @@ function GetUnpinnedParams({
   )
     ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
     : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+  const normalizedUnpinnedMinHeight =
+    baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      : baseUnpinnedMinHeight;
   const resolvedPolicyMinHeight =
     hasPinnedParams &&
-    baseUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+    normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
       ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
-      : baseUnpinnedMinHeight;
+      : normalizedUnpinnedMinHeight;
   const resolvedMinHeight = resolvedPolicyMinHeight;
   const shouldApplyMinHeight =
     !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;

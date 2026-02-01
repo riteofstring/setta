@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
@@ -139,6 +140,7 @@ BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.code_obj_impls import (
     ButtonParamCodeObjImpl,
     CodeCallableCodeObjImpl,
@@ -287,6 +289,7 @@ BaseParentCodeObjImplTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
@@ -431,6 +434,7 @@ BaseDictSectionImplArgsTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.impl_args_as_typed_dicts import (
     ButtonParamCodeObjImplArgs,
     CodeCallableCodeObjImplArgs,
@@ -581,6 +585,7 @@ BaseParentCodeObjImplArgsTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.artifact import (
     BrushStrokeArtifact,
     ChartDataArtifact,

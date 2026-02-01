@@ -162,7 +162,7 @@ function buildSizingPolicy(): SectionSizingPolicy {
     },
     globals: {
       pinnedParamsAreaMinHeight: 64,
-      unpinnedParamsAreaMinHeight: 38,
+      unpinnedParamsAreaMinHeight: 36,
       minimizedHeight: 32,
       infiniteMaxHeight: 100000,
       infiniteMaxWidth: 100000,
@@ -317,7 +317,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(194);
+    expect(dims.minHeight).toBe(190);
   });
 
   it("uses policy mins for TextBlock sections", () => {
@@ -482,7 +482,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(190);
+    expect(dims.minHeight).toBe(196);
   });
 
   it("uses measured params fixed height for min sizing", () => {
@@ -554,7 +554,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(192);
+    expect(dims.minHeight).toBe(188);
   });
 
   it("keeps unpinned min height visible when pinned params exist", () => {
@@ -623,7 +623,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(156);
+    expect(dims.minHeight).toBe(152);
   });
 
   it("reserves unpinned min height when the list is empty", () => {
@@ -694,7 +694,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(138);
+    expect(dims.minHeight).toBe(144);
   });
 
   it("keeps auto max height at least min height after params expand", () => {
@@ -771,8 +771,8 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(228);
-    expect(dims.maxHeight).toBe(228);
+    expect(dims.minHeight).toBe(224);
+    expect(dims.maxHeight).toBe(224);
   });
 
   it("caps auto max height when height is auto", () => {

@@ -1,4 +1,7 @@
 import { chromium, type FullConfig } from "@playwright/test";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -11,6 +14,7 @@ const PROJECT_URL =
     : BASE_URL);
 
 async function globalSetup(config: FullConfig) {
+  await maybeVerifyAcceptanceSpecs();
   if (!BOOTSTRAP_TOKEN) {
     throw new Error(
       "Missing SETTA_BOOTSTRAP_TOKEN. Open /__setta__/bootstrap to mint one.",
@@ -34,6 +38,17 @@ async function globalSetup(config: FullConfig) {
 }
 
 export default globalSetup;
+
+const execFileAsync = promisify(execFile);
+
+async function maybeVerifyAcceptanceSpecs(): Promise<void> {
+  if (process.env.SETTA_ACCEPTANCE !== "1") {
+    return;
+  }
+  const verifyUrl = new URL("./acceptance/verify.mjs", import.meta.url);
+  const verifyPath = fileURLToPath(verifyUrl);
+  await execFileAsync(process.execPath, [verifyPath, "--quiet"]);
+}
 
 async function waitForBackend(origin: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;

@@ -40,8 +40,11 @@ type SizeMode = {
   width: (typeof SIZE_MODE)[keyof typeof SIZE_MODE];
 };
 
-const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
-const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 48;
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
+const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
+// Accounts for the fixed top + bottom gutters in the section grid.
+const SECTION_GRID_GUTTER_HEIGHT = 8;
 
 function getMetaControlSizingPolicyEntry({
   projectState,
@@ -261,20 +264,25 @@ export function useSectionMinMaxDims(sectionId: string) {
       )
         ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
         : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+      const normalizedUnpinnedMinHeight =
+        baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+          ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+          : baseUnpinnedMinHeight;
       const resolvedUnpinnedPolicyMinHeight =
         hasPinnedParams &&
-        baseUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+        normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
           ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
-          : baseUnpinnedMinHeight;
+          : normalizedUnpinnedMinHeight;
       const resolvedUnpinnedMinHeight = showsUnpinnedParams
         ? resolvedUnpinnedPolicyMinHeight
         : 0;
       const fixedTopHeight =
-        sectionHeaderHeight + sectionSearchHeight + kwargsControlsHeight;
+        sectionHeaderHeight +
+        sectionSearchHeight +
+        kwargsControlsHeight +
+        SECTION_GRID_GUTTER_HEIGHT;
       requiredParamsHeight += fixedTopHeight;
-      if (paramsFixedHeight > 0) {
-        requiredParamsHeight += paramsFixedHeight;
-      }
+      requiredParamsHeight += paramsFixedHeight;
       if (resolvedUnpinnedMinHeight > 0) {
         requiredParamsHeight += resolvedUnpinnedMinHeight;
       }
