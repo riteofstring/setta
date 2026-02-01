@@ -1,3 +1,4 @@
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { route_move_sections } from "utils/generatedEndpoints";
@@ -6,6 +7,7 @@ import {
   createCodeSectionImpl,
   createProjectConfig,
   createTerminalSectionImpl,
+  type BaseSectionImplUnion,
   type Core,
   type Variant,
 } from "utils/generatedTypes";
@@ -130,5 +132,114 @@ describe("moveSectionsWithBackend", () => {
     const call = mockedRouteMoveSections.mock.calls[0]?.[0];
     expect(call?.sectionIds).toEqual([codeSectionId]);
     expect(call?.positionsById?.[terminalSectionId]).toBeUndefined();
+  });
+
+  it("attaches terminals under gen python sections", () => {
+    const genSectionId = "gen-section";
+    const terminalId = "terminal-section";
+    const genVariantId = "gen-variant";
+    const terminalVariantId = "terminal-variant";
+    const genImplId = "gen-impl";
+    const terminalImplId = "terminal-impl";
+
+    const genCore: Core = {
+      id: genSectionId,
+      name: "Generated Code Section",
+      displayName: "",
+      variants: [genVariantId],
+      defaultVariant: genVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+    const terminalCore: Core = {
+      id: terminalId,
+      name: "Terminal Section",
+      displayName: "",
+      variants: [terminalVariantId],
+      defaultVariant: terminalVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+    const genVariant: Variant = {
+      id: genVariantId,
+      name: "Gen Variant",
+      impl: genImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+    const terminalVariant: Variant = {
+      id: terminalVariantId,
+      name: "Terminal Variant",
+      impl: terminalImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+    const genImpl: BaseSectionImplUnion = {
+      type: SectionTypeEnum.GenPythonCode,
+      id: genImplId,
+      name: "Generated Code Impl",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 500, height: 300 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      children: [],
+      code: "",
+      codeFileBinding: null,
+      attachedTerminalSectionId: null,
+    };
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [genSectionId]: genVariantId,
+          [terminalId]: terminalVariantId,
+        },
+        topLevelSections: {
+          [genSectionId]: { x: 10, y: 20, zIndex: 1 },
+          [terminalId]: { x: 30, y: 40, zIndex: 2 },
+        },
+      }),
+      sections: {
+        [genSectionId]: genCore,
+        [terminalId]: terminalCore,
+      },
+      sectionVariants: {
+        [genVariantId]: genVariant,
+        [terminalVariantId]: terminalVariant,
+      },
+      sectionImpls: {
+        [genImplId]: genImpl,
+        [terminalImplId]: createTerminalSectionImpl({
+          id: terminalImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      parentSectionMap: {
+        [genSectionId]: null,
+        [terminalId]: null,
+      },
+    });
+    useNodeInternals.setState({ x: new Map() });
+
+    moveSectionsWithBackend({
+      sectionIds: [terminalId],
+      newParentId: genSectionId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const state = useProjectState.getState();
+    const genEffective = getCurrEffectiveSectionImpl(state, genSectionId);
+    expect(genEffective.attachedTerminalSectionId).toBe(terminalId);
+    expect(state.parentSectionMap[terminalId]).toBe(genSectionId);
+    expect(state.projectConfig.topLevelSections[terminalId]).toBeUndefined();
   });
 });

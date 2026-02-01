@@ -7,6 +7,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  isBaseCodeSectionType,
   setCurrEffectiveSectionImplValue,
   setSectionChildren,
 } from "../sectionInfos";
@@ -22,15 +23,6 @@ type MoveSectionsStateInput = MoveSectionsInput & {
   state: ZustandProjectState;
 };
 
-function logMoveSections(payload: Record<string, unknown>) {
-  console.info(
-    JSON.stringify({
-      event: "move-sections",
-      ...payload,
-    }),
-  );
-}
-
 export function moveSectionsWithBackend({
   sectionIds,
   newParentId,
@@ -40,13 +32,6 @@ export function moveSectionsWithBackend({
   if (sectionIds.length === 0) {
     return;
   }
-  logMoveSections({
-    stage: "request",
-    sectionIds,
-    newParentId,
-    newIndex,
-    positionsById,
-  });
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
@@ -105,11 +90,6 @@ function moveSectionsInState({
       setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, newParentId, {
         attachedTerminalSectionId: sectionIds[0],
       });
-      logMoveSections({
-        stage: "attach-terminal",
-        parentId: newParentId,
-        terminalId: sectionIds[0],
-      });
     }
   }
   for (const sectionId of sectionIds) {
@@ -136,11 +116,6 @@ function moveSectionsToPane({
       throw new Error(`Missing position for section ${sectionId}.`);
     }
   }
-  logMoveSections({
-    stage: "move-to-pane",
-    sectionIds,
-    positionsById,
-  });
   removeSectionsFromParents({
     sectionIds,
     parentsById,
@@ -210,18 +185,12 @@ function removeSectionsFromParents({
     if (isCodeSection(state, parentId)) {
       const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
       if (
-        parentImpl.type === SectionTypeEnum.Code &&
+        isBaseCodeSectionType(parentImpl.type) &&
         parentImpl.attachedTerminalSectionId &&
         removalSet.has(parentImpl.attachedTerminalSectionId)
       ) {
-        const terminalId = parentImpl.attachedTerminalSectionId;
         setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, parentId, {
           attachedTerminalSectionId: null,
-        });
-        logMoveSections({
-          stage: "detach-terminal",
-          parentId,
-          terminalId,
         });
       }
     }
@@ -274,8 +243,8 @@ function updateTopLevelLayout(
 }
 
 function isCodeSection(state: ZustandProjectState, sectionId: string): boolean {
-  return (
-    getCurrEffectiveSectionImpl(state, sectionId).type === SectionTypeEnum.Code
+  return isBaseCodeSectionType(
+    getCurrEffectiveSectionImpl(state, sectionId).type,
   );
 }
 
@@ -296,7 +265,7 @@ function findAttachedParentId(
   for (const candidateId of Object.keys(state.sections)) {
     const impl = getCurrEffectiveSectionImpl(state, candidateId);
     if (
-      impl.type === SectionTypeEnum.Code &&
+      isBaseCodeSectionType(impl.type) &&
       impl.attachedTerminalSectionId === sectionId
     ) {
       return candidateId;

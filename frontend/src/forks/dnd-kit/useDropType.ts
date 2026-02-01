@@ -92,25 +92,6 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   const safeZoom = zoom > 0 ? zoom : 1;
   const dndState = useDndState.getState();
   const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
-  console.info(
-    JSON.stringify({
-      event: "dnd-drag-start",
-      activeId,
-      activeIsTopLevel: active.data.current.isTopLevel,
-      isMovingFree: dndState.isMovingFree,
-      isSorting: dndState.isSorting,
-      activeRect: activeRect
-        ? { width: activeRect.width, height: activeRect.height }
-        : null,
-      draggingIds: selection.draggingIds,
-      rectsByIdKeys: selection.rectsById
-        ? Object.keys(selection.rectsById)
-        : [],
-      draggingRectsByIdKeys: selection.draggingRectsById
-        ? Object.keys(selection.draggingRectsById)
-        : [],
-    }),
-  );
   const placeholderSize = resolveSectionPlaceholderSize({
     draggingIds: selection.draggingIds,
     rectsById: selection.rectsById,

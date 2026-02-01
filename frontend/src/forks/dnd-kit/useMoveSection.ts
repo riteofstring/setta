@@ -153,20 +153,6 @@ async function onFreeMoveEnd({
     }
   }
 
-  console.info(
-    JSON.stringify({
-      event: "dnd-free-move-end",
-      activeId,
-      draggingIds,
-      overId,
-      hasCollisions,
-      newParentId,
-      behaviorDropType,
-      newIndex,
-      positionsByIdPresent: Boolean(positionsById),
-    }),
-  );
-
   if (
     newParentId &&
     isDescendantOfSectionSelection(state, newParentId, draggingSet)

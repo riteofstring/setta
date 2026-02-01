@@ -4,6 +4,7 @@ import React from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
+  isBaseCodeSectionType,
   getSectionShouldRender,
   getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
@@ -55,7 +56,7 @@ function _SectionContainer({
       isEditingViewMode,
       isUserView: viewMode.isUserFacing && !isEditingViewMode,
       isGroup: impl.type === SectionTypeEnum.Group,
-      isCode: impl.type === SectionTypeEnum.Code,
+      isCode: isBaseCodeSectionType(impl.type),
       isGenPython: impl.type === SectionTypeEnum.GenPythonCode,
       isGenPythonMetadata: impl.type === SectionTypeEnum.GenPythonMetadata,
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
@@ -138,24 +139,6 @@ function EmbeddedSectionContainer({
   sectionTypeName: SectionTypeEnum;
 }) {
   const sectionRef = useSectionRefAndInit(sectionId, "selfOnly");
-  React.useEffect(() => {
-    console.info(
-      JSON.stringify({
-        event: "embedded-section-render",
-        sectionId,
-        sectionTypeName,
-      }),
-    );
-    return () => {
-      console.info(
-        JSON.stringify({
-          event: "embedded-section-unmount",
-          sectionId,
-          sectionTypeName,
-        }),
-      );
-    };
-  }, [sectionId, sectionTypeName]);
   if (sectionTypeName !== SectionTypeEnum.Terminal) {
     return null;
   }

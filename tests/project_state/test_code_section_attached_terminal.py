@@ -30,6 +30,7 @@ from setta.types.project_state import ProjectStateBackend, ProjectStateSingleCon
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     CodeSectionImpl,
+    GenPythonCodeSectionImpl,
     SectionSize,
     SectionSizeMode,
     TerminalSectionImpl,
@@ -205,6 +206,19 @@ class TestCodeSectionAttachedTerminal:
             defaultVariant=text_variant.id,
         )
 
+        gen_impl = GenPythonCodeSectionImpl(id=ID("gen-code-impl"))
+        gen_variant = Variant(
+            id=ID("variant-gen-code"),
+            impl=gen_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(gen_impl),
+        )
+        gen_section = Core(
+            id=ID("section-gen-code"),
+            name="Generated Code Section",
+            variants=[gen_variant.id],
+            defaultVariant=gen_variant.id,
+        )
+
         project_config = ProjectConfig(
             id=ID("project-config"),
             name="Terminal Attachment Project",
@@ -212,11 +226,13 @@ class TestCodeSectionAttachedTerminal:
                 code_section.id: code_variant.id,
                 terminal_section.id: terminal_variant.id,
                 text_section.id: text_variant.id,
+                gen_section.id: gen_variant.id,
             },
             topLevelSections={
                 code_section.id: TopLevelSectionLayout(),
                 terminal_section.id: TopLevelSectionLayout(),
                 text_section.id: TopLevelSectionLayout(),
+                gen_section.id: TopLevelSectionLayout(),
             },
         )
 
@@ -224,6 +240,7 @@ class TestCodeSectionAttachedTerminal:
         self.code_section_id = code_section.id
         self.terminal_section_id = terminal_section.id
         self.text_section_id = text_section.id
+        self.gen_section_id = gen_section.id
 
         return ProjectStateSingleConfig(
             projectConfig=project_config,
@@ -231,16 +248,19 @@ class TestCodeSectionAttachedTerminal:
                 code_section.id: code_section,
                 terminal_section.id: terminal_section,
                 text_section.id: text_section,
+                gen_section.id: gen_section,
             },
             sectionImpls={
                 code_impl.id: code_impl,
                 terminal_impl.id: terminal_impl,
                 text_impl.id: text_impl,
+                gen_impl.id: gen_impl,
             },
             sectionVariants={
                 code_variant.id: code_variant,
                 terminal_variant.id: terminal_variant,
                 text_variant.id: text_variant,
+                gen_variant.id: gen_variant,
             },
         )
 
@@ -364,6 +384,25 @@ class TestCodeSectionAttachedTerminal:
                     terminalSectionId=self.terminal_section_id,
                 )
             )
+
+    async def test_attach_terminal_to_genpython_section(self):
+        await self.manager.set_code_section_attached_terminal(
+            SetCodeSectionAttachedTerminalRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.gen_section_id,
+                terminalSectionId=self.terminal_section_id,
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.gen_section_id, BaseCodeSectionImpl
+        )
+        assert impl.attachedTerminalSectionId == self.terminal_section_id
+        assert impl.children == [self.terminal_section_id]
+        assert (
+            self.terminal_section_id not in state.projectConfig.topLevelSections
+        )
 
     async def test_move_sections_attach_and_detach_round_trip(self):
         await self.manager.move_sections(

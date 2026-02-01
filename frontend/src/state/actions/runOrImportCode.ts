@@ -19,6 +19,7 @@ import { addTemporaryNotification } from "./notifications";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  isBaseCodeSectionType,
 } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId: string | null) {
@@ -149,15 +150,6 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
   return await collectDrawSnapshotPayloads(drawSectionIds);
 }
 
-function logAttachedTerminal(payload: Record<string, unknown>) {
-  console.info(
-    JSON.stringify({
-      event: "attached-terminal",
-      ...payload,
-    }),
-  );
-}
-
 async function ensureAttachedTerminalForRun({
   sectionId,
   projectConfig,
@@ -169,23 +161,12 @@ async function ensureAttachedTerminalForRun({
     sectionId,
     projectConfig,
   );
-  logAttachedTerminal({
-    stage: "resolve-section",
-    sectionId,
-    resolvedSectionId,
-    projectConfigId: projectConfig.id,
-  });
   if (!resolvedSectionId) {
     return null;
   }
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
-  if (impl.type !== SectionTypeEnum.Code) {
-    logAttachedTerminal({
-      stage: "non-code-section",
-      resolvedSectionId,
-      sectionType: impl.type,
-    });
+  if (!isBaseCodeSectionType(impl.type)) {
     return null;
   }
   const existingTerminalId = resolveAttachedTerminalId(
@@ -193,18 +174,8 @@ async function ensureAttachedTerminalForRun({
     resolvedSectionId,
   );
   if (existingTerminalId) {
-    logAttachedTerminal({
-      stage: "existing-terminal",
-      resolvedSectionId,
-      terminalSectionId: existingTerminalId,
-    });
     return existingTerminalId;
   }
-  logAttachedTerminal({
-    stage: "await-backend-attach",
-    resolvedSectionId,
-    reason: "backend-run",
-  });
   return null;
 }
 
@@ -226,7 +197,7 @@ function resolveAttachedTerminalId(
   sectionId: string,
 ): string | null {
   const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  if (impl.type !== SectionTypeEnum.Code) {
+  if (!isBaseCodeSectionType(impl.type)) {
     return null;
   }
   if (!impl.attachedTerminalSectionId) {

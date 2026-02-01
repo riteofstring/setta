@@ -81,6 +81,14 @@ function getEffectiveSectionImplIfPresent(
   return getEffectiveImpl(impl, core, variant);
 }
 
+export function isBaseCodeSectionType(sectionType: SectionType): boolean {
+  return (
+    sectionType === SectionTypeEnum.Code ||
+    sectionType === SectionTypeEnum.GenPythonCode ||
+    sectionType === SectionTypeEnum.GenPythonMetadata
+  );
+}
+
 function getAttachedTerminalSectionIds(
   projectState: ZustandProjectState,
 ): Set<string> {
@@ -90,7 +98,7 @@ function getAttachedTerminalSectionIds(
       projectState,
       sectionId,
     );
-    if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Code) {
+    if (!sectionImpl || !isBaseCodeSectionType(sectionImpl.type)) {
       continue;
     }
     const terminalId = sectionImpl.attachedTerminalSectionId;
@@ -120,7 +128,7 @@ function normalizeAttachedTerminalChildren(projectState: ZustandProjectState) {
       continue;
     }
     const impl = projectState.sectionImpls[variant.impl];
-    if (!impl || impl.type !== SectionTypeEnum.Code) {
+    if (!impl || !isBaseCodeSectionType(impl.type)) {
       continue;
     }
     const terminalId = impl.attachedTerminalSectionId;

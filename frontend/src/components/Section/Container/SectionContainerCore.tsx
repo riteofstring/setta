@@ -1,6 +1,9 @@
 import _ from "lodash";
 import React from "react";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -38,7 +41,7 @@ function _SectionContainerCore({
       const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
       isAttachedTerminalChild =
         impl.type === SectionTypeEnum.Terminal &&
-        parentImpl.type === SectionTypeEnum.Code &&
+        isBaseCodeSectionType(parentImpl.type) &&
         parentImpl.attachedTerminalSectionId === sectionId;
     }
     return {

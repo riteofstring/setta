@@ -7,7 +7,7 @@ from setta.project_state.project_manager_types import RunCodeRequest
 from setta.terminals.terminals import Terminals, build_terminal_id
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
-from setta.types.section_impls import CodeSectionImpl
+from setta.types.section_impls import BaseCodeSectionImpl
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ async def run_code(
             section_impl = get_curr_effective_section_impl(
                 project_state, resolved_section_id
             )
-            if isinstance(section_impl, CodeSectionImpl):
+            if isinstance(section_impl, BaseCodeSectionImpl):
                 logger.info(
                     "run_code ensuring attached terminal project=%s section=%s",
                     x.projectConfigId,

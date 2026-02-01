@@ -1,6 +1,9 @@
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useTerminal } from "state/hooks/terminals/terminal";
@@ -16,7 +19,7 @@ function _TerminalArea({ sectionId }) {
       const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
       attachedTerminalChild =
         impl.type === SectionTypeEnum.Terminal &&
-        parentImpl.type === SectionTypeEnum.Code &&
+        isBaseCodeSectionType(parentImpl.type) &&
         parentImpl.attachedTerminalSectionId === sectionId;
     }
     return { ...impl.size, isAttachedTerminalChild: attachedTerminalChild };
@@ -66,25 +69,7 @@ function _EmbeddedTerminalArea({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [hasScrollbar, setHasScrollbar] = useState(false);
-  const loggedSizeRef = useRef(false);
   const disablePointerEvents = useShouldDisablePointerEvents();
-
-  useEffect(() => {
-    console.info(
-      JSON.stringify({
-        event: "embedded-terminal-mounted",
-        sectionId,
-      }),
-    );
-    return () => {
-      console.info(
-        JSON.stringify({
-          event: "embedded-terminal-unmounted",
-          sectionId,
-        }),
-      );
-    };
-  }, [sectionId]);
 
   useEffect(() => {
     if (!containerRef.current || typeof ResizeObserver === "undefined") {
@@ -106,20 +91,6 @@ function _EmbeddedTerminalArea({
 
   const width = Math.max(0, dimensions.width);
   const height = Math.max(0, dimensions.height);
-  useEffect(() => {
-    if (width <= 0 || height <= 0 || loggedSizeRef.current) {
-      return;
-    }
-    loggedSizeRef.current = true;
-    console.info(
-      JSON.stringify({
-        event: "embedded-terminal-sized",
-        sectionId,
-        width,
-        height,
-      }),
-    );
-  }, [height, sectionId, width]);
   const terminalRef = useTerminal({
     sectionId,
     width,

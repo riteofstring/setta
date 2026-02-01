@@ -2,14 +2,21 @@ from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl3 import copy_sections_and_other_info
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateCore
-from setta.types.section_impls import CodeSectionImpl, TerminalSectionImpl
+from setta.types.section_impls import (
+    BaseCodeSectionImpl,
+    CodeSectionImpl,
+    GenPythonCodeSectionImpl,
+    TerminalSectionImpl,
+)
 
 
-def _build_core_with_variants():
+def _build_core_with_variants(
+    impl_cls: type[BaseCodeSectionImpl],
+):
     code_section_id = ID("section-code")
     terminal_section_id = ID("section-terminal")
 
-    code_impl = CodeSectionImpl(
+    code_impl = impl_cls(
         id=ID("impl-code"),
         attachedTerminalSectionId=terminal_section_id,
     )
@@ -62,27 +69,47 @@ def _build_core_with_variants():
 def _resolve_impl_by_section(
     core: ProjectStateCore,
     section_id: ID,
-) -> CodeSectionImpl:
+    impl_cls: type[BaseCodeSectionImpl],
+) -> BaseCodeSectionImpl:
     section_core = core.sections[section_id]
     variant_id = section_core.defaultVariant
     if variant_id is None:
         raise AssertionError("Missing default variant.")
     variant = core.sectionVariants[variant_id]
     impl = core.sectionImpls[variant.impl]
-    if not isinstance(impl, CodeSectionImpl):
-        raise AssertionError("Expected CodeSectionImpl.")
+    if not isinstance(impl, impl_cls):
+        raise AssertionError("Expected matching code section type.")
     return impl
 
 
 def test_attached_terminal_remaps_when_included() -> None:
-    core, code_section_id, terminal_section_id = _build_core_with_variants()
+    core, code_section_id, terminal_section_id = _build_core_with_variants(
+        CodeSectionImpl
+    )
     new_core, section_id_map, _section_variant_id_map, _code_obj_id_map = (
         copy_sections_and_other_info(core)
     )
     new_code_section_id = section_id_map[code_section_id]
     new_terminal_section_id = section_id_map[terminal_section_id]
 
-    impl = _resolve_impl_by_section(new_core, new_code_section_id)
+    impl = _resolve_impl_by_section(new_core, new_code_section_id, CodeSectionImpl)
+
+    assert impl.attachedTerminalSectionId == new_terminal_section_id
+
+
+def test_attached_terminal_remaps_when_included_for_genpython() -> None:
+    core, code_section_id, terminal_section_id = _build_core_with_variants(
+        GenPythonCodeSectionImpl
+    )
+    new_core, section_id_map, _section_variant_id_map, _code_obj_id_map = (
+        copy_sections_and_other_info(core)
+    )
+    new_code_section_id = section_id_map[code_section_id]
+    new_terminal_section_id = section_id_map[terminal_section_id]
+
+    impl = _resolve_impl_by_section(
+        new_core, new_code_section_id, GenPythonCodeSectionImpl
+    )
 
     assert impl.attachedTerminalSectionId == new_terminal_section_id
 
@@ -119,6 +146,45 @@ def test_attached_terminal_clears_when_missing() -> None:
         copy_sections_and_other_info(core)
     )
     new_code_section_id = section_id_map[code_section_id]
-    impl = _resolve_impl_by_section(new_core, new_code_section_id)
+    impl = _resolve_impl_by_section(new_core, new_code_section_id, CodeSectionImpl)
+
+    assert impl.attachedTerminalSectionId is None
+
+
+def test_attached_terminal_clears_when_missing_for_genpython() -> None:
+    code_section_id = ID("section-code")
+    missing_terminal_id = ID("missing-terminal")
+
+    code_impl = GenPythonCodeSectionImpl(
+        id=ID("impl-code"),
+        attachedTerminalSectionId=missing_terminal_id,
+    )
+    code_variant = Variant(
+        id=ID("variant-code"),
+        impl=code_impl.id,
+        nonPresetImpls=compute_initial_nonPresetImpls(code_impl),
+    )
+    code_core = Core(
+        id=code_section_id,
+        name="Code",
+        variants=[code_variant.id],
+        defaultVariant=code_variant.id,
+    )
+    core = ProjectStateCore(
+        sections={code_core.id: code_core},
+        sectionImpls={code_impl.id: code_impl},
+        sectionVariants={code_variant.id: code_variant},
+        codeObjs={},
+        codeObjImpls={},
+        codeObjVariants={},
+    )
+
+    new_core, section_id_map, _section_variant_id_map, _code_obj_id_map = (
+        copy_sections_and_other_info(core)
+    )
+    new_code_section_id = section_id_map[code_section_id]
+    impl = _resolve_impl_by_section(
+        new_core, new_code_section_id, GenPythonCodeSectionImpl
+    )
 
     assert impl.attachedTerminalSectionId is None

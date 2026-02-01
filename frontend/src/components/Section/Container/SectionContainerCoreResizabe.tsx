@@ -1,9 +1,16 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  isBaseParentSectionImpl,
+  SectionTypeEnum,
+  type SectionType,
+} from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
@@ -56,10 +63,9 @@ export function SectionContainerCoreResizable({
     hasEmbeddedTerminal,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const variantId = x.sections[sectionId]?.variantId;
-    const children = variantId ? x.variants[variantId].children : [];
+    const children = isBaseParentSectionImpl(impl) ? impl.children : [];
     let hasEmbeddedTerminal = false;
-    if (impl.type === SectionTypeEnum.Code) {
+    if (isBaseCodeSectionType(impl.type)) {
       const candidateId =
         children.length > 0 ? children[0] : impl.attachedTerminalSectionId;
       if (candidateId) {
