@@ -3,6 +3,7 @@ import logging
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
+LSP_RESPONSE_TIMEOUT_SECONDS = 5.0
 
 
 class LanguageServer:
@@ -117,8 +118,18 @@ class LanguageServerInteractor:
         future = self.pending_requests.get(id)
         if future:
             try:
-                result = await asyncio.wait_for(future, timeout=timeout)
+                resolved_timeout = (
+                    LSP_RESPONSE_TIMEOUT_SECONDS if timeout is None else timeout
+                )
+                result = await asyncio.wait_for(future, timeout=resolved_timeout)
                 return result
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Timed out waiting for LSP response (id=%s server=%s timeout=%s)",
+                    id,
+                    self.server.name,
+                    resolved_timeout,
+                )
             except ConnectionResetError:
                 # Handle the error case
                 pass

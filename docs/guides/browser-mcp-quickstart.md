@@ -64,7 +64,9 @@ Optional overrides:
 - `PLAYWRIGHT_BASE_URL` (frontend URL)
 - `SETTA_BACKEND_ORIGIN` (backend origin)
 - `SETTA_PROJECT_URL` (project path)
+- `SETTA_PROJECT_PATH` (project path appended to `PLAYWRIGHT_BASE_URL`)
 - `SETTA_BOOTSTRAP_TOKEN` (skip auto-mint)
+- `SETTA_AUTH_COOKIE_NAME` (auth cookie override)
 
 If browser installs fail with permissions under `~/Library/Caches`, install to a
 repo-local path:

@@ -488,6 +488,7 @@ export const RouteEnum = {
   TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
   TOGGLE_SECTION_VISIBILITY: "/toggleSectionVisibility",
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
+  TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
   SET_VIEW_MODE_NAME: "/setViewModeName",
   DELETE_VIEW_MODE: "/deleteViewMode",
   UNDO: "/undo",
@@ -3536,6 +3537,7 @@ const ViewModeConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   isUserFacing: z.boolean().default(false),
+  isTab: z.boolean().default(false),
   visibilityBySectionId: z.record(IDSchema, z.boolean()).default({}),
 });
 
@@ -3773,6 +3775,7 @@ const ProjectConfigSchema = z.object({
     .string()
     .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
+  viewportInitialized: z.boolean().default(false),
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
@@ -7956,6 +7959,16 @@ const ToggleVariantJSONSourceRequestSchema = z.object({
 
 export type ToggleVariantJSONSourceRequestInput = z.input<
   typeof ToggleVariantJSONSourceRequestSchema
+>;
+
+const ToggleViewModeTabRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  viewModeId: IDSchema,
+});
+
+export type ToggleViewModeTabRequestInput = z.input<
+  typeof ToggleViewModeTabRequestSchema
 >;
 
 const ToggleViewModeUserFacingRequestSchema = z.object({

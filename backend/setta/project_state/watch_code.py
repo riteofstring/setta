@@ -472,6 +472,7 @@ class WatchCodeManager:
         self._project_manager = project_manager
         self._loop = loop
         self._observer = Observer()
+        self._observer.daemon = True
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
@@ -503,8 +504,14 @@ class WatchCodeManager:
 
     def shutdown(self) -> None:
         if self._started:
-            self._observer.stop()
-            self._observer.join()
+            observer = self._observer
+            if observer.is_alive():
+                observer.stop()
+                observer.join(timeout=1.0)
+                if observer.is_alive():
+                    logger.warning(
+                        "Watch code observer did not shut down within timeout."
+                    )
             self._started = False
         for debouncer in self._debouncers.values():
             debouncer.cancel()

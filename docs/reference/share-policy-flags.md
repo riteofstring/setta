@@ -5,14 +5,15 @@ In share mode only, those flags gate specific route families. Here is what each 
 - Param metadata/actions: toggle/unselect param selection, set type-error ignore (`Route.TOGGLE_PARAM_SELECTED`, `Route.UNSELECT_ALL_PARAMS`, `Route.SET_TYPE_ERROR_IGNORE`).
 - Content updates: text block text, draw strokes, image/chart paths, chart type/settings (`Route.SET_TEXT_BLOCK_TEXT`, `Route.APPEND_DRAW_AREA_LAYER_ITEM`, `Route.SET_IMAGE_AREA_IMAGE_PATH`, `Route.SET_CHART_AREA_IMAGE_PATH`, `Route.SET_CHART_TYPE`, `Route.SET_CHART_SETTINGS`).
 - Artifact + listener updates in share sessions (`Route.UPDATE_ARTIFACTS`, listener emits).
+- Chat and dropzone attachments: file uploads, deletes, and attachment metadata updates are blocked without `allowParamChanges` (chat attachments, dropzone files/text).
 - Example: viewer edits a text block or changes chart data -> allowed only if `allowParamChanges` is true.
 - Note: CodeParam edits are *always* blocked in share mode (even if this is true).
 - Note: Code section diagnostics settings (mute/suppress) are *always* blocked in share mode.
 
 **allowVariantChanges** (variants + view modes)
 - Section variants: create new variant, set active/default variant, rename variant, toggle frozen, toggle variant JSON source (`Route.CREATE_NEW_SECTION_VARIANT`, `Route.SET_SECTION_VARIANT`, `Route.SET_DEFAULT_SECTION_VARIANT`, `Route.SET_SECTION_VARIANT_NAME`, `Route.TOGGLE_VARIANT_FROZEN`, `Route.TOGGLE_VARIANT_JSON_SOURCE`).
-- View modes: set active (`Route.SET_ACTIVE_VIEW_MODE`).
-- Example: viewer switches to a different variant or toggles a view mode -> allowed only if `allowVariantChanges` is true.
+- View modes: set active (`Route.SET_ACTIVE_VIEW_MODE`). Other view mode edits (rename, toggle user-facing, show as tab, section visibility) are IDE-only and blocked in share mode.
+- Example: viewer switches to a different variant or active view mode -> allowed only if `allowVariantChanges` is true.
 
 **allowLayoutChanges** (layout + UI display controls)
 - Layout structure: set/auto layout of top-level sections, set section sizes, move sections (`Route.SET_TOP_LEVEL_SECTION_LAYOUT`, `Route.AUTO_LAYOUT_TOP_LEVEL_SECTIONS`, `Route.SET_SECTION_SIZES`, `Route.MOVE_SECTIONS`).
