@@ -1,13 +1,17 @@
+import { ChatBranchInfo } from "state/definitions";
 import {
   BaseChatMessageUnion,
   ChatSectionBranch,
   ChatSectionState,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { ChatBranchInfo } from "state/definitions";
 import { ChatBranchIndex } from "./aiBranches";
+import {
+  getMessageCompletenessScore,
+  mergeChatMessages,
+} from "./chatMergeUtils";
 
-export type BranchInitializationResult = {
+type BranchInitializationResult = {
   nextState: ChatSectionState;
   didInitialize: boolean;
 };
@@ -37,7 +41,30 @@ export function ensureChatBranchState(
   }
   const activeBranchId = state.activeBranchId;
   if (activeBranchId && branches[activeBranchId]) {
-    const activeMessages = branches[activeBranchId]?.messages ?? [];
+    const activeBranch = branches[activeBranchId];
+    const activeMessages = activeBranch?.messages ?? [];
+    const incomingMessages = state.messages ?? [];
+    if (shouldSyncBranchMessages(activeMessages, incomingMessages)) {
+      const mergedMessages = mergeChatMessages(
+        activeMessages,
+        incomingMessages,
+      );
+      const nextBranch: ChatSectionBranch = {
+        ...activeBranch,
+        messages: mergedMessages,
+      };
+      return {
+        nextState: {
+          ...state,
+          messages: [...mergedMessages],
+          branches: {
+            ...branches,
+            [activeBranchId]: nextBranch,
+          },
+        },
+        didInitialize: true,
+      };
+    }
     return {
       nextState: {
         ...state,
@@ -66,6 +93,35 @@ export function ensureChatBranchState(
     },
     didInitialize: true,
   };
+}
+
+function shouldSyncBranchMessages(
+  branchMessages: Array<BaseChatMessageUnion>,
+  incomingMessages: Array<BaseChatMessageUnion>,
+): boolean {
+  if (incomingMessages.length === 0) {
+    return false;
+  }
+  if (branchMessages.length === 0) {
+    return incomingMessages.length > 0;
+  }
+  const branchById = new Map<string, BaseChatMessageUnion>();
+  for (const message of branchMessages) {
+    branchById.set(message.id, message);
+  }
+  for (const message of incomingMessages) {
+    const existing = branchById.get(message.id);
+    if (!existing) {
+      return true;
+    }
+    if (
+      getMessageCompletenessScore(message) >
+      getMessageCompletenessScore(existing)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function buildEditedMessageHistory(
@@ -156,8 +212,7 @@ export function buildBranchIndexFromBranches(
     if (!info.branchParentChatId || !info.branchFromMessageId) {
       continue;
     }
-    const parentEntry =
-      branchChildrenByChatId[info.branchParentChatId] ?? {};
+    const parentEntry = branchChildrenByChatId[info.branchParentChatId] ?? {};
     const messageChildren = parentEntry[info.branchFromMessageId] ?? [];
     parentEntry[info.branchFromMessageId] = [...messageChildren, info.chatId];
     branchChildrenByChatId[info.branchParentChatId] = parentEntry;

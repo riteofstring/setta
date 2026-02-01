@@ -44,9 +44,11 @@ type UseChatAttachmentManagerArgs = {
   preserveInitialArtifacts?: boolean;
 };
 
+const EMPTY_ATTACHMENTS: ChatFileAttachment[] = [];
+
 export function useChatAttachmentManager({
   disabled = false,
-  initialAttachments = [],
+  initialAttachments = EMPTY_ATTACHMENTS,
   preserveInitialArtifacts = false,
 }: UseChatAttachmentManagerArgs) {
   const [attachments, setAttachments] =
@@ -309,7 +311,11 @@ export function useChatAttachmentManager({
         notifyAttachmentWarning(message);
       }
     },
-    [attachmentActionsDisabled, notifyAttachmentWarning, preserveInitialArtifacts],
+    [
+      attachmentActionsDisabled,
+      notifyAttachmentWarning,
+      preserveInitialArtifacts,
+    ],
   );
 
   const handleClearAttachments = useCallback(async () => {

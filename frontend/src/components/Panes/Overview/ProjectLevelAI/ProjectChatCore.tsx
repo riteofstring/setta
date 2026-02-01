@@ -86,6 +86,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [branchIndex, chatId, messages]);
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const lastFetchedChatIdRef = useRef<string | null>(null);
+  const lastChatIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof chatId === "string") {
+      lastChatIdRef.current = chatId;
+    }
+  }, [chatId]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -202,21 +209,21 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [chatId, isExternalEngine]);
 
   const handleEditMessage = useCallback(
-    async (messageId: string, text: string, attachments: ChatFileAttachment[]) => {
-      if (waitingForResponse) {
-        return false;
-      }
-      if (!engineConfigId || typeof chatId !== "string") {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId) {
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
         return false;
       }
       const nextChatId = await submitEditedMessage({
-        parentChatId: chatId,
+        parentChatId: resolvedChatId,
         messages,
         messageId,
         message: text,
@@ -233,11 +240,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       chatId,
       engineConfigId,
       externalEngineAvailable,
-      hasLLMConfig,
       isExternalEngine,
       messages,
       thinking,
-      waitingForResponse,
     ],
   );
 

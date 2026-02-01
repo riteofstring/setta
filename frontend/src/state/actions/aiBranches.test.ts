@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
 import {
   AgentRun,
   AgentRunStatusEnum,
   ChatRoleEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { buildChatBranchIndex, buildMessageBranchInfo } from "./aiBranches";
 
 function buildRun({

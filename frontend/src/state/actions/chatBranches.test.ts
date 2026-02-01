@@ -1,8 +1,5 @@
+import { ChatRoleEnum, createMessageTextContent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import {
-  ChatRoleEnum,
-  createMessageTextContent,
-} from "utils/generatedTypes";
 import { buildEditedMessageHistory } from "./chatBranches";
 
 describe("chatBranches", () => {

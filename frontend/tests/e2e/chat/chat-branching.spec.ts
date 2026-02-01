@@ -108,9 +108,13 @@ test.describe.serial("chat branching", () => {
       const chatInput = reloadedPane.getByPlaceholder("Type a message...");
       await expect(chatInput).toBeEnabled({ timeout: 20000 });
 
-      const reloadedOriginalGroup = getMessageGroup(
+      const originalMessageId = await getMessageGroupId(
         reloadedPane,
         "Original message",
+      );
+      const reloadedOriginalGroup = getMessageGroupById(
+        reloadedPane,
+        originalMessageId,
       );
       await expect(reloadedOriginalGroup).toBeVisible();
 
@@ -183,7 +187,11 @@ test.describe.serial("chat branching", () => {
         },
       });
 
-      const originalGroup = getMessageGroup(section, "Original section");
+      const originalMessageId = await getMessageGroupId(
+        section,
+        "Original section",
+      );
+      const originalGroup = getMessageGroupById(section, originalMessageId);
       await expect(originalGroup).toBeVisible();
 
       await originalGroup.hover();
@@ -215,6 +223,24 @@ test.describe.serial("chat branching", () => {
 
 function getMessageGroup(container: Locator, text: string): Locator {
   return container.locator("div.group").filter({ hasText: text }).first();
+}
+
+function getMessageGroupById(container: Locator, messageId: string): Locator {
+  return container
+    .locator(`div.group[data-message-id="${messageId}"]`)
+    .first();
+}
+
+async function getMessageGroupId(
+  container: Locator,
+  text: string,
+): Promise<string> {
+  const group = getMessageGroup(container, text);
+  const messageId = await group.getAttribute("data-message-id");
+  if (!messageId) {
+    throw new Error(`Missing message id for text: ${text}`);
+  }
+  return messageId;
 }
 
 async function setOverviewTab(page: Page, tabName: string): Promise<void> {

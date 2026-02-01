@@ -43,8 +43,7 @@ export function buildChatBranchIndex(runs: Array<AgentRun>): ChatBranchIndex {
       continue;
     }
     const fallbackTimestamp = getRunLastUpdatedMs(run);
-    const branchCreatedAt =
-      branchMetadata.branchCreatedAt ?? fallbackTimestamp;
+    const branchCreatedAt = branchMetadata.branchCreatedAt ?? fallbackTimestamp;
     const existing = branchInfoByChatId[chatId];
     if (existing && existing.branchCreatedAt !== null) {
       if (branchCreatedAt <= existing.branchCreatedAt) {
@@ -64,8 +63,7 @@ export function buildChatBranchIndex(runs: Array<AgentRun>): ChatBranchIndex {
     if (!info.branchParentChatId || !info.branchFromMessageId) {
       continue;
     }
-    const parentEntry =
-      branchChildrenByChatId[info.branchParentChatId] ?? {};
+    const parentEntry = branchChildrenByChatId[info.branchParentChatId] ?? {};
     const messageChildren = parentEntry[info.branchFromMessageId] ?? [];
     parentEntry[info.branchFromMessageId] = [...messageChildren, info.chatId];
     branchChildrenByChatId[info.branchParentChatId] = parentEntry;

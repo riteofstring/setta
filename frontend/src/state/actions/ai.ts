@@ -56,9 +56,9 @@ import {
   APIKeys,
   AssistantChatMessage,
   BaseChatMessageUnion,
-  ChatSectionBranch,
   ChatFileAttachment,
   ChatRoleEnum,
+  ChatSectionBranch,
   ChatSectionState,
   CreateAgentProfileRequestInput,
   CreateExternalAgentConfigRequestInput,
@@ -91,8 +91,8 @@ import {
   UpdatePromptTemplateRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { mergeChatMessages } from "./chatMergeUtils";
 import { buildEditedMessageHistory } from "./chatBranches";
+import { mergeChatMessages } from "./chatMergeUtils";
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -601,7 +601,7 @@ export function initializePendingChatDetails() {
   });
 }
 
-export function initializePendingChatDetailsWithMessages(
+function initializePendingChatDetailsWithMessages(
   messages: Array<BaseChatMessageUnion>,
 ) {
   useAIStore.setState({
@@ -798,13 +798,20 @@ export async function submitEditedMessage({
   message: string;
   attachments: ChatFileAttachment[];
   thinking: boolean;
-  engineConfigId: string;
+  engineConfigId: string | null;
   isExternalEngine: boolean;
   agentProfileId?: string | null;
   sectionId?: string | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
-  if ((!trimmed && attachments.length === 0) || !engineConfigId) {
+  if (!trimmed && attachments.length === 0) {
+    return null;
+  }
+  const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
+    parentChatId,
+    engineConfigId,
+  );
+  if (!resolvedEngineConfigId) {
     return null;
   }
 
@@ -819,11 +826,8 @@ export async function submitEditedMessage({
     attachments,
   };
   const nextMessages = buildEditedMessageHistory(messages, editedMessage);
-  if (!nextMessages) {
-    return null;
-  }
-
-  initializePendingChatDetailsWithMessages(nextMessages);
+  const pendingMessages = nextMessages ?? [...messages, editedMessage];
+  initializePendingChatDetailsWithMessages(pendingMessages);
   const projectConfigId = getCurrProjectConfigId();
 
   const setSectionChatId = async (nextChatId: string | null) => {
@@ -856,7 +860,7 @@ export async function submitEditedMessage({
       message: editedMessage,
       thinking,
       chatId: null,
-      engineConfigId,
+      engineConfigId: resolvedEngineConfigId,
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
@@ -1160,6 +1164,69 @@ function getRunLastUpdatedMs(run: AgentRun): number {
     return startedAt;
   }
   return 0;
+}
+
+function getRunInputString(run: AgentRun, key: string): string | null {
+  const inputs = run.inputs;
+  if (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) {
+    return null;
+  }
+  const raw = (inputs as Record<string, unknown>)[key];
+  if (typeof raw === "string" && raw.trim()) {
+    return raw;
+  }
+  return null;
+}
+
+async function resolveEngineConfigIdForChat(
+  chatId: string,
+  engineConfigId: string | null,
+): Promise<string | null> {
+  if (engineConfigId) {
+    return engineConfigId;
+  }
+  const resolveFromRuns = (runs: AgentRun[]): string | null => {
+    const matchingRuns = runs.filter(
+      (run) => getRunInputString(run, "chatId") === chatId,
+    );
+    const runsWithEngine = matchingRuns.filter((run) =>
+      getRunInputString(run, "engineConfigId"),
+    );
+    if (runsWithEngine.length === 0) {
+      return null;
+    }
+    const [latestRun] = [...runsWithEngine].sort(
+      (a, b) => getRunLastUpdatedMs(b) - getRunLastUpdatedMs(a),
+    );
+    return latestRun ? getRunInputString(latestRun, "engineConfigId") : null;
+  };
+
+  let { agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState();
+  if (!agentRunsInitialLoadComplete) {
+    await loadAgentRuns();
+    ({ agentRuns, agentRunsInitialLoadComplete } = useAIStore.getState());
+  }
+  if (!agentRunsInitialLoadComplete) {
+    return null;
+  }
+  let resolved = resolveFromRuns(agentRuns);
+  if (!resolved) {
+    await loadAgentRuns();
+    ({ agentRuns } = useAIStore.getState());
+    resolved = resolveFromRuns(agentRuns);
+  }
+  if (resolved) {
+    return resolved;
+  }
+  const { chatDetails, engineConfigs } = useAIStore.getState();
+  const llmConfigId = chatDetails[chatId]?.llmConfig?.id ?? null;
+  if (!llmConfigId) {
+    return null;
+  }
+  const matchingEngine = engineConfigs.find(
+    (config) => config.settaLlmConfigId === llmConfigId,
+  );
+  return matchingEngine?.id ?? null;
 }
 
 function applyChatSectionStreamDelta(
@@ -1659,7 +1726,8 @@ function commitPendingChatDetails(chatId: string) {
     if (!pendingDetails) {
       return {};
     }
-    const existingDetails = state.chatDetails[chatId] ?? getDefaultChatDetails();
+    const existingDetails =
+      state.chatDetails[chatId] ?? getDefaultChatDetails();
     return {
       chatDetails: {
         ...state.chatDetails,

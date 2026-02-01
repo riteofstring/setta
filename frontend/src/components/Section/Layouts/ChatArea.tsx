@@ -13,7 +13,7 @@ import {
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
@@ -313,6 +313,28 @@ function ScriptableChatArea({
     [projectConfigId, sectionId],
   );
 
+  const applyChatStateWithoutAck = useCallback(
+    (nextState: ChatSectionState) => {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+          messages: nextState.messages,
+          inputText: nextState.inputText,
+          waitingForResponse: nextState.waitingForResponse,
+          toolCallArguments: nextState.toolCallArguments,
+          activeBranchId: nextState.activeBranchId,
+          branches: nextState.branches,
+        });
+      });
+      return route_set_chat_section_state({
+        projectConfigId,
+        sectionId,
+        state: nextState,
+        frontendOpId: null,
+      });
+    },
+    [projectConfigId, sectionId],
+  );
+
   const branchState = useMemo(
     () =>
       ensureChatBranchState({
@@ -341,11 +363,11 @@ function ScriptableChatArea({
     if (!branchState.didInitialize) {
       return;
     }
-    const sendPromise = applyChatStateWithAck(effectiveState);
+    const sendPromise = applyChatStateWithoutAck(effectiveState);
     if (sendPromise) {
       void sendPromise;
     }
-  }, [applyChatStateWithAck, branchState.didInitialize, effectiveState]);
+  }, [applyChatStateWithoutAck, branchState.didInitialize, effectiveState]);
 
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
@@ -473,11 +495,20 @@ function ScriptableChatArea({
         await sendPromise;
       }
     },
-    [applyChatStateWithAck, effectiveBranchId, effectiveBranches, effectiveState],
+    [
+      applyChatStateWithAck,
+      effectiveBranchId,
+      effectiveBranches,
+      effectiveState,
+    ],
   );
 
   const handleEditMessage = useCallback(
-    async (messageId: string, text: string, attachments: ChatFileAttachment[]) => {
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
       if (waitingForResponse) {
         return false;
       }
@@ -524,7 +555,13 @@ function ScriptableChatArea({
       });
       return true;
     },
-    [applyChatStateWithAck, effectiveState, sectionId, toolCallArguments, waitingForResponse],
+    [
+      applyChatStateWithAck,
+      effectiveState,
+      sectionId,
+      toolCallArguments,
+      waitingForResponse,
+    ],
   );
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
@@ -592,6 +629,12 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
+  const lastChatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof chatId === "string") {
+      lastChatIdRef.current = chatId;
+    }
+  }, [chatId]);
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
       if (chatId === null) {
@@ -907,21 +950,21 @@ function ManagedChatArea({
   }, [chatId, isExternalEngine, projectConfigId, sectionId]);
 
   const handleEditMessage = useCallback(
-    async (messageId: string, text: string, attachments: ChatFileAttachment[]) => {
-      if (waitingForResponse) {
-        return false;
-      }
-      if (!effectiveEngineConfigId || typeof chatId !== "string") {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId) {
         return false;
       }
       if (isExternalEngine && !externalEngineAvailable) {
         return false;
       }
       const nextChatId = await submitEditedMessage({
-        parentChatId: chatId,
+        parentChatId: resolvedChatId,
         messages,
         messageId,
         message: text,
@@ -939,12 +982,10 @@ function ManagedChatArea({
       chatId,
       effectiveEngineConfigId,
       externalEngineAvailable,
-      hasLLMConfig,
       isExternalEngine,
       messages,
       sectionId,
       thinking,
-      waitingForResponse,
     ],
   );
 

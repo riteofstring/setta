@@ -32,8 +32,8 @@ from setta.types.agentic import (
     EngineType,
 )
 from setta.types.generated.chat_messages import (
-    BaseChatMessageUnion,
     BaseChatMessageTypeAdapter,
+    BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
 from setta.types.id import ID

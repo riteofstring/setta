@@ -32,10 +32,10 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareCapabilities } from "state/hooks/share";
-import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
 import {
   getAttachmentPreviewKind,
   isImageAttachment,
@@ -1073,13 +1073,18 @@ function StreamItem({
 function LLMChatBubble({
   children,
   actions,
+  messageId,
 }: {
   children: ReactNode;
   actions?: ReactNode;
+  messageId?: string;
 }) {
   return (
     <div className="my-4 flex justify-start">
-      <div className="group flex max-w-[min(85%,800px)] flex-col items-start">
+      <div
+        className="group flex max-w-[min(85%,800px)] flex-col items-start"
+        data-message-id={messageId}
+      >
         <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-full flex-shrink cursor-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
           {children}
         </div>
@@ -1092,13 +1097,18 @@ function LLMChatBubble({
 function UserChatBubble({
   children,
   actions,
+  messageId,
 }: {
   children: ReactNode;
   actions?: ReactNode;
+  messageId?: string;
 }) {
   return (
     <div className="my-4 flex justify-end">
-      <div className="group flex max-w-[min(85%,800px)] flex-col items-end">
+      <div
+        className="group flex max-w-[min(85%,800px)] flex-col items-end"
+        data-message-id={messageId}
+      >
         <div className="flex w-fit max-w-full flex-shrink cursor-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700">
           {children}
         </div>
@@ -1111,13 +1121,18 @@ function UserChatBubble({
 function SystemChatBubble({
   children,
   actions,
+  messageId,
 }: {
   children: ReactNode;
   actions?: ReactNode;
+  messageId?: string;
 }) {
   return (
     <div className="my-3 flex justify-center">
-      <div className="group flex max-w-[min(90%,800px)] flex-col items-start">
+      <div
+        className="group flex max-w-[min(90%,800px)] flex-col items-start"
+        data-message-id={messageId}
+      >
         <div className="flex max-w-full cursor-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
           {children}
         </div>
@@ -1330,7 +1345,7 @@ const ChatMessage = memo(function ChatMessage({
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
     return (
-      <LLMChatBubble actions={actionBar}>
+      <LLMChatBubble messageId={message.id} actions={actionBar}>
         <ChatAttachmentList
           attachments={attachments}
           isUser={false}
@@ -1436,7 +1451,7 @@ const ChatMessage = memo(function ChatMessage({
 
   if (isUser && isEditing) {
     return (
-      <UserChatBubble>
+      <UserChatBubble messageId={message.id}>
         <ChatMessageEditor
           initialText={getPlainTextFromMessage(message)}
           initialAttachments={attachments}
@@ -1460,7 +1475,7 @@ const ChatMessage = memo(function ChatMessage({
   const resolvedImageClassName = imageClassName || undefined;
 
   return (
-    <Wrapper actions={actionBar}>
+    <Wrapper messageId={message.id} actions={actionBar}>
       <ChatAttachmentList
         attachments={attachments}
         isUser={message.role === ChatRoleEnum.user}
@@ -1575,7 +1590,10 @@ function ChatMessages({
         if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
           return false;
         }
-        if (attachmentUrlRequests.current.has(attachment.id)) {
+        if (
+          attachmentUrlRequests.current.has(attachment.id) &&
+          !options.force
+        ) {
           return false;
         }
         return true;
