@@ -128,7 +128,6 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
     DropzoneMode,
 )
-from setta.types.agentic_edges import AgenticEdge
 from setta.types.edges import Edge, EdgePort
 from setta.types.chat_messages import (
     AssistantChatMessage,

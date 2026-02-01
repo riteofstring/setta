@@ -18,6 +18,7 @@ export function IdNameCombobox<T>({
   bg,
   isDisabled,
   inputDivId,
+  variant = "pill",
   selectedItemCanBeNull = false,
   clearInputAfterSelection = false,
 }: {
@@ -31,6 +32,7 @@ export function IdNameCombobox<T>({
   bg?: string;
   isDisabled?: boolean;
   inputDivId?: string;
+  variant?: "pill" | "pane";
   selectedItemCanBeNull?: boolean;
   clearInputAfterSelection?: boolean;
 }) {
@@ -72,6 +74,7 @@ export function IdNameCombobox<T>({
         isDisabled={isDisabled}
         inputRef={inputRef}
         inputOuterClasses={inputOuterClasses}
+        variant={variant}
       />
 
       <ComboboxList

@@ -1,10 +1,4 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type Locator,
-  type Page,
-} from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -56,53 +50,25 @@ const ATTACHMENT_FIXTURES_DIR = path.join(
 );
 
 test.describe.serial("chat attachments", () => {
-  test("project chat attachments via picker", async ({ page, request }) => {
+  test("project chat attachments via picker", async ({ page }) => {
     await setOverviewTab(page, "ProjectAIChat");
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page);
 
-    const initialConfig = await getBackend<AllLLMConfigs>(request, "/llm/config");
+    const initialConfig = await getBackend<AllLLMConfigs>(
+      page,
+      "/llm/config",
+    );
     if (!initialConfig) {
       throw new Error("Missing LLM config payload.");
     }
     let createdLlmConfigId: string | null = null;
     let didUpdateLlmConfig = false;
     const existingConfigs = initialConfig.configs ?? {};
-
-    const engineConfigs = await getBackend<EngineConfig[]>(
-      request,
-      "/getEngineConfigs",
-    );
-    const existingEngine =
-      engineConfigs?.find((config) => config.engineType === "setta_llm") ??
-      null;
-
-    let llmConfigId = existingEngine?.settaLlmConfigId ?? null;
-    if (llmConfigId && !existingConfigs[llmConfigId]) {
-      const updated: AllLLMConfigs = {
-        ...initialConfig,
-        configs: {
-          ...existingConfigs,
-          [llmConfigId]: { model: "gpt-test" },
-        },
-        default_config_id: initialConfig.default_config_id ?? llmConfigId,
-      };
-      await postBackend(
-        request,
-        "/llm/config",
-        updated as Record<string, unknown>,
-      );
-      createdLlmConfigId = llmConfigId;
-      didUpdateLlmConfig = true;
-    }
-
-    if (!llmConfigId) {
-      llmConfigId =
-        Object.entries(existingConfigs).find(
-          ([, config]) => !config.api_key_env,
-        )?.[0] ?? null;
-    }
-
+    let llmConfigId =
+      Object.entries(existingConfigs).find(
+        ([, config]) => !config.api_key_env,
+      )?.[0] ?? null;
     if (!llmConfigId) {
       llmConfigId = "e2e-llm";
       const updated: AllLLMConfigs = {
@@ -113,19 +79,23 @@ test.describe.serial("chat attachments", () => {
         },
         default_config_id: llmConfigId,
       };
-      await postBackend(
-        request,
-        "/llm/config",
-        updated as Record<string, unknown>,
-      );
+      await postBackend(page, "/llm/config", updated as Record<string, unknown>);
       createdLlmConfigId = llmConfigId;
       didUpdateLlmConfig = true;
     }
 
     let createdEngineConfigId: string | null = null;
+    let updatedEngineConfig: EngineConfig | null = null;
+    const engineConfigs = await getBackend<EngineConfig[]>(
+      page,
+      "/getEngineConfigs",
+    );
+    const existingEngine =
+      engineConfigs?.find((config) => config.engineType === "setta_llm") ??
+      null;
     if (!existingEngine) {
       const created = await postBackend<EngineConfig>(
-        request,
+        page,
         "/createEngineConfig",
         {
           name: "E2E Engine",
@@ -138,6 +108,21 @@ test.describe.serial("chat attachments", () => {
         throw new Error("Missing engine config id.");
       }
       createdEngineConfigId = created.id;
+    } else if (existingEngine.settaLlmConfigId !== llmConfigId) {
+      const updated = await postBackend<EngineConfig>(
+        page,
+        "/updateEngineConfig",
+        {
+          config: {
+            ...existingEngine,
+            settaLlmConfigId: llmConfigId,
+          },
+        },
+      );
+      if (!updated?.id) {
+        throw new Error("Failed to update engine config.");
+      }
+      updatedEngineConfig = existingEngine;
     }
 
     await page.reload();
@@ -182,31 +167,32 @@ test.describe.serial("chat attachments", () => {
       await expect(modal).toHaveCount(0);
     } finally {
       if (createdEngineConfigId) {
-        await postBackend(request, "/deleteEngineConfig", {
+        await postBackend(page, "/deleteEngineConfig", {
           configId: createdEngineConfigId,
+        });
+      }
+      if (updatedEngineConfig) {
+        await postBackend(page, "/updateEngineConfig", {
+          config: updatedEngineConfig,
         });
       }
       if (createdLlmConfigId || didUpdateLlmConfig) {
         await postBackend(
-          request,
+          page,
           "/llm/config",
           initialConfig as Record<string, unknown>,
         );
       }
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page, projectContext);
     }
   });
 
-  test("chat section drag-and-drop attachments", async ({ page, request }) => {
+  test("chat section drag-and-drop attachments", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page);
 
     try {
-      const chatSection = await ensureChatSection(
-        page,
-        request,
-        "__pw_chat_drop__",
-      );
+      const chatSection = await ensureChatSection(page, "__pw_chat_drop__");
       const input = chatSection.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
 
@@ -238,20 +224,16 @@ test.describe.serial("chat attachments", () => {
       await page.keyboard.press("Escape");
       await expect(modal).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page, projectContext);
     }
   });
 
-  test("chat section attachment remove and clear", async ({ page, request }) => {
+  test("chat section attachment remove and clear", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page);
 
     try {
-      const chatSection = await ensureChatSection(
-        page,
-        request,
-        "__pw_chat_clear__",
-      );
+      const chatSection = await ensureChatSection(page, "__pw_chat_clear__");
       const input = chatSection.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
 
@@ -288,23 +270,16 @@ test.describe.serial("chat attachments", () => {
       await thirdPill.locator("button").first().click();
       await expect(inputContainer.getByText("third.txt")).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page, projectContext);
     }
   });
 
-  test("chat section attachment size limit warning", async ({
-    page,
-    request,
-  }) => {
+  test("chat section attachment size limit warning", async ({ page }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page);
 
     try {
-      const chatSection = await ensureChatSection(
-        page,
-        request,
-        "__pw_chat_limit__",
-      );
+      const chatSection = await ensureChatSection(page, "__pw_chat_limit__");
       const input = chatSection.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
 
@@ -320,23 +295,18 @@ test.describe.serial("chat attachments", () => {
       const inputContainer = input.locator("..");
       await expect(inputContainer.getByText("oversized.txt")).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page, projectContext);
     }
   });
 
   test("chat attachment preview supports common file types", async ({
     page,
-    request,
   }) => {
     await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page, request);
+    const projectContext = await openIsolatedProject(page);
 
     try {
-      const chatSection = await ensureChatSection(
-        page,
-        request,
-        "__pw_chat_preview__",
-      );
+      const chatSection = await ensureChatSection(page, "__pw_chat_preview__");
       const input = chatSection.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
 
@@ -381,7 +351,7 @@ test.describe.serial("chat attachments", () => {
       await page.keyboard.press("Escape");
       await expect(modal).toHaveCount(0);
     } finally {
-      await cleanupIsolatedProject(request, projectContext);
+      await cleanupIsolatedProject(page, projectContext);
     }
   });
 });
@@ -440,11 +410,11 @@ async function isAppReady(page: Page): Promise<boolean> {
 }
 
 async function postBackend<T>(
-  request: APIRequestContext,
+  page: Page,
   path: string,
   payload: Record<string, unknown> | null,
 ): Promise<T | null> {
-  const response = await request.post(`${BACKEND_ORIGIN}/api${path}`, {
+  const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
     data: payload,
   });
   const text = await response.text();
@@ -460,11 +430,8 @@ async function postBackend<T>(
   return JSON.parse(text) as T;
 }
 
-async function getBackend<T>(
-  request: APIRequestContext,
-  path: string,
-): Promise<T | null> {
-  const response = await request.get(`${BACKEND_ORIGIN}/api${path}`);
+async function getBackend<T>(page: Page, path: string): Promise<T | null> {
+  const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`);
   const text = await response.text();
   if (!response.ok()) {
     const detail = text ? ` ${text}` : "";
@@ -478,12 +445,9 @@ async function getBackend<T>(
   return JSON.parse(text) as T;
 }
 
-async function getCurrentProjectConfigId(
-  page: Page,
-  request: APIRequestContext,
-): Promise<string> {
+async function getCurrentProjectConfigId(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
-    request,
+    page,
     "/loadAllProjectMetadata",
     {},
   );
@@ -507,19 +471,16 @@ async function getCurrentProjectConfigId(
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
-async function openIsolatedProject(
-  page: Page,
-  request: APIRequestContext,
-): Promise<IsolatedProjectContext> {
+async function openIsolatedProject(page: Page): Promise<IsolatedProjectContext> {
   const metadata = await postBackend<ProjectMetadataResponse>(
-    request,
+    page,
     "/loadAllProjectMetadata",
     {},
   );
   if (!metadata) {
     throw new Error("Missing project metadata response.");
   }
-  const name = await postBackend<string>(request, "/createProjectConfig", {
+  const name = await postBackend<string>(page, "/createProjectConfig", {
     previewImgColor: "bg-blue-500/60",
   });
   if (!name) {
@@ -528,7 +489,7 @@ async function openIsolatedProject(
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
   await page.waitForSelector(".react-flow__pane");
-  const projectConfigId = await getCurrentProjectConfigId(page, request);
+  const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,
     defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
@@ -536,7 +497,7 @@ async function openIsolatedProject(
 }
 
 async function cleanupIsolatedProject(
-  request: APIRequestContext,
+  page: Page,
   context: IsolatedProjectContext | null,
 ): Promise<void> {
   if (!context) {
@@ -546,11 +507,11 @@ async function cleanupIsolatedProject(
     context.defaultProjectConfigId &&
     context.defaultProjectConfigId !== context.projectConfigId
   ) {
-    await postBackend(request, "/setAsDefaultProject", {
+    await postBackend(page, "/setAsDefaultProject", {
       projectConfigId: context.defaultProjectConfigId,
     });
   }
-  await postBackend(request, "/deleteProjectConfigs", {
+  await postBackend(page, "/deleteProjectConfigs", {
     ids: [context.projectConfigId],
   });
 }
@@ -585,13 +546,12 @@ function findSectionCandidates(page: Page, name: string): Locator {
 
 async function ensureChatSection(
   page: Page,
-  request: APIRequestContext,
   baseName: string,
 ): Promise<Locator> {
-  const projectConfigId = await getCurrentProjectConfigId(page, request);
+  const projectConfigId = await getCurrentProjectConfigId(page);
   const sectionName = await resolveUniqueSectionName(page, baseName);
   const created = await postBackend<CreateSectionResponse>(
-    request,
+    page,
     "/createTopLevelSection",
     {
       projectConfigId,
@@ -601,7 +561,7 @@ async function ensureChatSection(
   if (!created?.sectionId) {
     throw new Error("Missing sectionId when creating chat section.");
   }
-  await postBackend(request, "/setSectionName", {
+  await postBackend(page, "/setSectionName", {
     projectConfigId,
     sectionId: created.sectionId,
     name: sectionName,
