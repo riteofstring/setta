@@ -40,6 +40,7 @@ import {
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
+import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { C } from "utils/c";
 import {
@@ -644,6 +645,67 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   });
   const value = previewCode ?? baseValue;
 
+  const attachedTerminalId = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Code,
+    );
+    if (!impl.attachedTerminalSectionId) {
+      return null;
+    }
+    const terminalId = impl.attachedTerminalSectionId;
+    if (!(terminalId in state.sections)) {
+      return null;
+    }
+    const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
+    if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+      return null;
+    }
+    return terminalId;
+  }, _.isEqual);
+  const disablePointerEvents = useShouldDisablePointerEvents();
+
+  useEffect(() => {
+    useProjectState.setState((state) => {
+      const codeImpl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Code,
+      );
+      let candidateId = attachedTerminalId;
+      if (!candidateId && codeImpl.children.length === 1) {
+        const childId = codeImpl.children[0];
+        if (childId in state.sections) {
+          const childImpl = getCurrEffectiveSectionImpl(state, childId);
+          if (childImpl.type === SectionTypeEnum.Terminal) {
+            candidateId = childId;
+          }
+        }
+      }
+      if (!candidateId || !(candidateId in state.sections)) {
+        return;
+      }
+      const candidateImpl = getCurrEffectiveSectionImpl(state, candidateId);
+      if (candidateImpl.type !== SectionTypeEnum.Terminal) {
+        return;
+      }
+      const hasChild = codeImpl.children.includes(candidateId);
+      const currentParent = state.parentSectionMap[candidateId] ?? null;
+      const attachedId = codeImpl.attachedTerminalSectionId;
+      if (hasChild && currentParent === sectionId && attachedId === candidateId) {
+        return;
+      }
+      if (!hasChild) {
+        codeImpl.children = [candidateId];
+      }
+      if (!attachedId) {
+        codeImpl.attachedTerminalSectionId = candidateId;
+      }
+      state.parentSectionMap[candidateId] = sectionId;
+    });
+  }, [attachedTerminalId, sectionId]);
+
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -699,19 +761,21 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     return buildLspDiagnosticsExtensions(codeSectionDiagnostics);
   }, [codeSectionDiagnostics, isShareMode]);
   const finalExtensions = extensions.concat(lspLintExtensions);
+  const codeAreaMaxHeight = maxHeight;
+  const codeAreaClassName = `${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel} ${disablePointerEvents ? "pointer-events-none select-none" : ""}`;
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
 
-  return (
+  const codeEditor = (
     <article
       ref={wrapperRef}
-      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      className={codeAreaClassName}
       data-section-main-editor
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
-        maxHeight={maxHeight}
+        maxHeight={codeAreaMaxHeight}
         value={value}
         theme={theme}
         extensions={finalExtensions}
@@ -722,6 +786,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       />
     </article>
   );
+
+  return codeEditor;
 }
 
 export function useCodeAreaHeight({ sectionId }) {

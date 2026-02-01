@@ -91,7 +91,6 @@ from setta.project_state.project_manager_types import (
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
-    CreateAgenticEdgeRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
@@ -100,7 +99,6 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
     DeclineRenameRefactorRequest,
-    DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteEdgesRequest,
     DeleteJSONSourceFileAndVariantRequest,
@@ -132,7 +130,6 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
-    SetAgenticEdgesRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -149,6 +146,7 @@ from setta.project_state.project_manager_types import (
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
+    SetCodeSectionAttachedTerminalRequest,
     SetCodeSectionDiagnosticCodeSuppressionRequest,
     SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
@@ -203,7 +201,6 @@ from setta.project_state.project_manager_types import (
     UngroupGroupsRequest,
     UnindentParamsRequest,
     UnselectAllParamsRequest,
-    UpdateAgenticEdgeRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -213,7 +210,6 @@ from setta.project_state.watch_code import (
     normalize_watch_code_files,
     normalize_watch_code_folders,
 )
-from setta.types.agentic_edges import AgenticEdge
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -240,13 +236,11 @@ from setta.types.helpers_lvl2 import (
     auto_layout_top_level_sections,
     change_param_impl,
     collect_ignore_type_errors_by_section,
-    create_agentic_edge,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_edge,
     create_new_section_variant,
     create_top_level_section,
-    delete_agentic_edges,
     delete_child_sections_via_decrementer,
     delete_edges,
     delete_kwarg,
@@ -254,6 +248,9 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant_or_ask,
     delete_sections,
     delete_selected_params,
+    detach_code_section_attached_terminal,
+    ensure_code_section_attached_terminal,
+    ensure_code_section_embedded_terminal_size,
     get_curr_section_callable_code_obj,
     group_sections,
     indent_params,
@@ -261,10 +258,10 @@ from setta.types.helpers_lvl2 import (
     maybe_update_gen_python_metadata_section,
     move_params_to_parent,
     move_section_to_pane,
+    move_section_to_parent_section,
     move_sections_to_parent_section,
     reconnect_edge,
     resolve_top_level_section_position_and_pan,
-    set_agentic_edges,
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
@@ -316,7 +313,6 @@ from setta.types.helpers_lvl2 import (
     ungroup_groups,
     unindent_params,
     unselect_all_params,
-    update_agentic_edge,
     update_edge,
     update_param_impl_config,
 )
@@ -364,6 +360,7 @@ from setta.types.section_impls import (
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
     SectionType,
+    TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
@@ -1804,6 +1801,103 @@ class BaseProjectManager(ABC):
     @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId", "terminalSectionId"]}
+        )
+    )
+    async def set_code_section_attached_terminal(
+        self, x: SetCodeSectionAttachedTerminalRequest
+    ):
+        """Attach or detach a terminal section for a code section."""
+        logger.info(
+            "set_code_section_attached_terminal start project=%s section=%s terminal=%s",
+            x.projectConfigId,
+            x.sectionId,
+            x.terminalSectionId,
+        )
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        get_curr_effective_section_impl_with_type_guard(
+            project_state, x.sectionId, BaseCodeSectionImpl
+        )
+        if x.terminalSectionId is None:
+            detach_code_section_attached_terminal(
+                self.settings_file.settings,
+                project_state,
+                x.sectionId,
+            )
+        else:
+            get_curr_effective_section_impl_with_type_guard(
+                project_state, x.terminalSectionId, TerminalSectionImpl
+            )
+            move_section_to_parent_section(
+                project_state, x.sectionId, x.terminalSectionId, 0
+            )
+            ensure_code_section_embedded_terminal_size(
+                self.settings_file.settings,
+                project_state,
+                x.sectionId,
+                x.terminalSectionId,
+            )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        logger.info(
+            "set_code_section_attached_terminal done project=%s section=%s terminal=%s",
+            x.projectConfigId,
+            x.sectionId,
+            x.terminalSectionId,
+        )
+
+    @enqueue_method
+    async def ensure_code_section_attached_terminal_for_run(
+        self, projectConfigId: ID, sectionId: ID
+    ) -> ID:
+        logger.info(
+            "ensure_code_section_attached_terminal start project=%s section=%s",
+            projectConfigId,
+            sectionId,
+        )
+        project_state = self.get_single_config_state(projectConfigId)
+        code_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state, sectionId, BaseCodeSectionImpl
+        )
+        attached_terminal_id = code_impl.attachedTerminalSectionId
+        if (
+            attached_terminal_id is not None
+            and code_impl.children == [attached_terminal_id]
+            and attached_terminal_id in project_state.sections
+        ):
+            terminal_impl = get_curr_effective_section_impl(
+                project_state, attached_terminal_id
+            )
+            if (
+                isinstance(terminal_impl, TerminalSectionImpl)
+                and attached_terminal_id
+                not in project_state.projectConfig.topLevelSections
+            ):
+                logger.info(
+                    "ensure_code_section_attached_terminal existing project=%s section=%s terminal=%s",
+                    projectConfigId,
+                    sectionId,
+                    attached_terminal_id,
+                )
+                return attached_terminal_id
+        self.add_new_history_entry()
+        terminal_id = ensure_code_section_attached_terminal(
+            self.settings_file.settings,
+            project_state,
+            sectionId,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        logger.info(
+            "ensure_code_section_attached_terminal done project=%s section=%s terminal=%s",
+            projectConfigId,
+            sectionId,
+            terminal_id,
+        )
+        return terminal_id
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["codeObjId"]}
         ),
         tool_argument_preview=ToolArgumentPreviewMetadata(
@@ -2224,43 +2318,6 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         set_edges(project_state, x.edges)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def create_agentic_edge(self, x: CreateAgenticEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        edge = AgenticEdge(
-            sourceSectionId=x.sourceSectionId,
-            targetSectionId=x.targetSectionId,
-            kind=x.kind,
-            contextMode=x.contextMode,
-            style=x.style,
-            hidden=x.hidden,
-            zIndex=x.zIndex,
-        )
-        create_agentic_edge(project_state, edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def update_agentic_edge(self, x: UpdateAgenticEdgeRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        update_agentic_edge(project_state, x.edge)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def delete_agentic_edges(self, x: DeleteAgenticEdgesRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        delete_agentic_edges(project_state, x.edgeIds)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_agentic_edges(self, x: SetAgenticEdgesRequest):
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_agentic_edges(project_state, x.edges)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -3318,6 +3375,18 @@ class BaseProjectManager(ABC):
             move_sections_to_parent_section(
                 project_state, x.newParentId, x.sectionIds, x.newIndex
             )
+            parent_impl = get_curr_effective_section_impl(project_state, x.newParentId)
+            if isinstance(parent_impl, BaseCodeSectionImpl):
+                terminal_id = parent_impl.attachedTerminalSectionId
+                if terminal_id is None and parent_impl.children:
+                    terminal_id = parent_impl.children[0]
+                if terminal_id:
+                    ensure_code_section_embedded_terminal_size(
+                        self.settings_file.settings,
+                        project_state,
+                        x.newParentId,
+                        terminal_id,
+                    )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
