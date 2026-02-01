@@ -1107,10 +1107,8 @@ class BaseProjectManager(ABC):
             if projectConfigId in self.gen_code:
                 existing_generator = self.gen_code[projectConfigId].code_generator
                 if (
-                    existing_generator.gen_code_prefix
-                    != python_target.genCodePrefix
-                    or existing_generator.gen_code_suffix
-                    != python_target.genCodeSuffix
+                    existing_generator.gen_code_prefix != python_target.genCodePrefix
+                    or existing_generator.gen_code_suffix != python_target.genCodeSuffix
                 ):
                     reset_gen_code_diagnostics = True
             dep_graph = DependencyGraph(projectState)

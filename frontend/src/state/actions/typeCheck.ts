@@ -91,10 +91,7 @@ function areTypeErrorsEqual(left: TypeErrors, right: TypeErrors) {
   return true;
 }
 
-function mergeTypeErrorsBySection(
-  previous: TypeErrors,
-  incoming: TypeErrors,
-) {
+function mergeTypeErrorsBySection(previous: TypeErrors, incoming: TypeErrors) {
   const merged: TypeErrors = {};
   const seen = new Set<string>();
 
@@ -150,10 +147,7 @@ export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
     });
     return;
   }
-  const merged = mergeTypeErrorsBySection(
-    prevState.errors,
-    errors,
-  );
+  const merged = mergeTypeErrorsBySection(prevState.errors, errors);
   const errorsChanged = !areTypeErrorsEqual(prevState.errors, merged);
   if (!errorsChanged) {
     return;
