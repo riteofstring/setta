@@ -22,7 +22,14 @@ type ProjectStateResponse = {
   };
   sections: Record<string, SectionCore>;
   sectionVariants: Record<string, { impl: string }>;
-  sectionImpls: Record<string, { type: string; attachedTerminalSectionId?: string | null }>;
+  sectionImpls: Record<
+    string,
+    {
+      type: string;
+      attachedTerminalSectionId?: string | null;
+      children?: string[];
+    }
+  >;
 };
 
 test("run attaches a terminal and reuses it", async ({ page }) => {
@@ -68,12 +75,282 @@ test("run attaches a terminal and reuses it", async ({ page }) => {
   }
 });
 
+test("embedded terminal keeps code editor visible", async ({ page }) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+
+    const codeEditor = page.locator(
+      `.react-flow__node[data-id="${sectionId}"] article[data-section-main-editor]`,
+    );
+    const terminalContainer = page.locator(
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+
+    await expect(codeEditor).toBeVisible();
+    await expect(terminalContainer).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const codeBox = await codeEditor.boundingBox();
+        const terminalBox = await terminalContainer.boundingBox();
+        if (!codeBox || !terminalBox) {
+          return { codeHeight: 0, terminalHeight: 0 };
+        }
+        return { codeHeight: codeBox.height, terminalHeight: terminalBox.height };
+      })
+      .toEqual(
+        expect.objectContaining({
+          codeHeight: expect.any(Number),
+          terminalHeight: expect.any(Number),
+        }),
+      );
+
+    await expect
+      .poll(async () => {
+        const codeBox = await codeEditor.boundingBox();
+        const terminalBox = await terminalContainer.boundingBox();
+        if (!codeBox || !terminalBox) {
+          return false;
+        }
+        return codeBox.height > terminalBox.height && codeBox.height > 120;
+      })
+      .toBe(true);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    const terminalSectionId = await createTerminalSection(page);
+
+    const codeNode = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"]`,
+    );
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalSectionId}"]`,
+    );
+
+    await expect(codeNode).toBeVisible();
+    await expect(terminalNode).toBeVisible();
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalSectionId],
+      newParentId: codeSectionId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const attachedId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+    expect(attachedId).toBe(terminalSectionId);
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        return Boolean(state.projectConfig.topLevelSections[terminalSectionId]);
+      })
+      .toBe(false);
+
+    const embeddedTerminal = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
+    );
+    await expect(embeddedTerminal).toBeVisible();
+    await expect(
+      page.locator(`.react-flow__node[data-id="${terminalSectionId}"]`),
+    ).toHaveCount(0);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("attach then drag-detach round trip", async ({ page }) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    const terminalSectionId = await createTerminalSection(page);
+
+    const codeNode = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"]`,
+    );
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalSectionId}"]`,
+    );
+
+    await expect(codeNode).toBeVisible();
+    await expect(terminalNode).toBeVisible();
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalSectionId],
+      newParentId: codeSectionId,
+      newIndex: 0,
+      positionsById: null,
+    });
+
+    const attachedId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+    expect(attachedId).toBe(terminalSectionId);
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        return Boolean(state.projectConfig.topLevelSections[terminalSectionId]);
+      })
+      .toBe(false);
+
+    const embeddedTerminal = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
+    );
+    await expect(embeddedTerminal).toBeVisible();
+
+    await page.keyboard.down("Alt");
+    const pane = page.locator(".react-flow__pane");
+    const paneBox = await pane.boundingBox();
+    const terminalBox = await embeddedTerminal.boundingBox();
+    const codeBox = await codeNode.boundingBox();
+
+    if (!paneBox || !terminalBox || !codeBox) {
+      throw new Error("Missing bounding boxes for drag.");
+    }
+
+    const startX = terminalBox.x + terminalBox.width / 2;
+    const startY = terminalBox.y + terminalBox.height / 2;
+    const targetX = Math.min(
+      codeBox.x + codeBox.width + 320,
+      paneBox.x + paneBox.width - 40,
+    );
+    const targetY = Math.min(
+      codeBox.y + 40,
+      paneBox.y + paneBox.height - 40,
+    );
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    await page.mouse.move(targetX, targetY, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.up("Alt");
+
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        const impl = resolveSectionImpl(state, codeSectionId);
+        const children = impl?.children ?? [];
+        const attached = impl?.attachedTerminalSectionId ?? null;
+        const isTopLevel = Boolean(
+          state.projectConfig.topLevelSections[terminalSectionId],
+        );
+        return attached === null && children.length === 0 && isTopLevel;
+      })
+      .toBe(true);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("embedded terminal can detach via drag and drop", async ({ page }) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+
+    const terminalContainer = page.locator(
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(terminalContainer).toBeVisible();
+
+    await page.keyboard.down("Alt");
+
+    const pane = page.locator(".react-flow__pane");
+    const paneBox = await pane.boundingBox();
+    const terminalBox = await terminalContainer.boundingBox();
+    const codeBox = await page
+      .locator(`.react-flow__node[data-id="${sectionId}"]`)
+      .boundingBox();
+
+    if (!paneBox || !terminalBox || !codeBox) {
+      throw new Error("Missing bounding boxes for drag.");
+    }
+
+    const startX = terminalBox.x + terminalBox.width / 2;
+    const startY = terminalBox.y + terminalBox.height / 2;
+    const targetX = Math.min(
+      codeBox.x + codeBox.width + 320,
+      paneBox.x + paneBox.width - 40,
+    );
+    const targetY = Math.min(
+      codeBox.y + 40,
+      paneBox.y + paneBox.height - 40,
+    );
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    await page.mouse.move(targetX, targetY, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.up("Alt");
+
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        const terminalLayout =
+          state.projectConfig.topLevelSections[terminalId];
+        const codeImpl = resolveSectionImpl(state, sectionId);
+        const children = codeImpl?.children ?? [];
+        return Boolean(terminalLayout) && !children.includes(terminalId);
+      })
+      .toBe(true);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 async function runCodeBlockInPage(page: Page, sectionId: string): Promise<void> {
   await page.evaluate(async (id) => {
     const { runCodeBlock } = await import("/src/state/actions/runOrImportCode");
     await runCodeBlock(id);
   }, sectionId);
 }
+
 
 
 async function waitForAttachedTerminalId(
@@ -177,19 +454,31 @@ async function resolveProjectConfigId(
 }
 
 async function createCodeSection(page: Page): Promise<string> {
-  const sectionId = await page.evaluate(async () => {
+  return await createTopLevelSectionOfType(page, "Code");
+}
+
+async function createTerminalSection(page: Page): Promise<string> {
+  return await createTopLevelSectionOfType(page, "Terminal");
+}
+
+async function createTopLevelSectionOfType(
+  page: Page,
+  implType: "Code" | "Terminal",
+): Promise<string> {
+  const sectionId = await page.evaluate(async (type) => {
     const { createTopLevelSection } = await import(
       "/src/state/actions/sections/createSections"
     );
     const { SectionTypeEnum } = await import("/src/utils/generatedTypes");
+    const resolvedType = SectionTypeEnum[type] ?? type;
     return await createTopLevelSection({
-      implType: SectionTypeEnum.Code,
+      implType: resolvedType,
       implOverrides: null,
       position: null,
     });
-  });
+  }, implType);
   if (!sectionId) {
-    throw new Error("Missing sectionId when creating code section.");
+    throw new Error("Missing sectionId when creating section.");
   }
   return sectionId;
 }

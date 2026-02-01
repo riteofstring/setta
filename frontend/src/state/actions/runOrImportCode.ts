@@ -1,7 +1,5 @@
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import {
   useLocalStorage,
-  useNodeInternals,
   useProjectState,
   useRunControl,
   useSettings,
@@ -13,26 +11,15 @@ import { isRunnableCodeLanguage } from "utils/codeLanguage";
 import {
   route_kill_subprocesses,
   route_run_code,
-  route_set_code_section_attached_terminal,
 } from "utils/generatedEndpoints";
-import {
-  BinaryContentRef,
-  Position,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { BinaryContentRef, SectionTypeEnum } from "utils/generatedTypes";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
 import {
-  createNodesMapFromProjectConfigChildren,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "./sectionInfos";
-import {
-  createTopLevelSection,
-  getEmptySpacePosition,
-} from "./sections/createSections";
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
@@ -162,8 +149,14 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
   return await collectDrawSnapshotPayloads(drawSectionIds);
 }
 
-const ATTACHED_TERMINAL_X_OFFSET = 24;
-const DEFAULT_CODE_SECTION_WIDTH = 500;
+function logAttachedTerminal(payload: Record<string, unknown>) {
+  console.info(
+    JSON.stringify({
+      event: "attached-terminal",
+      ...payload,
+    }),
+  );
+}
 
 async function ensureAttachedTerminalForRun({
   sectionId,
@@ -176,12 +169,23 @@ async function ensureAttachedTerminalForRun({
     sectionId,
     projectConfig,
   );
+  logAttachedTerminal({
+    stage: "resolve-section",
+    sectionId,
+    resolvedSectionId,
+    projectConfigId: projectConfig.id,
+  });
   if (!resolvedSectionId) {
     return null;
   }
   const state = useProjectState.getState();
   const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
   if (impl.type !== SectionTypeEnum.Code) {
+    logAttachedTerminal({
+      stage: "non-code-section",
+      resolvedSectionId,
+      sectionType: impl.type,
+    });
     return null;
   }
   const existingTerminalId = resolveAttachedTerminalId(
@@ -189,38 +193,19 @@ async function ensureAttachedTerminalForRun({
     resolvedSectionId,
   );
   if (existingTerminalId) {
+    logAttachedTerminal({
+      stage: "existing-terminal",
+      resolvedSectionId,
+      terminalSectionId: existingTerminalId,
+    });
     return existingTerminalId;
   }
-  const position = resolveAttachedTerminalPosition(resolvedSectionId);
-  const newTerminalId = await createTopLevelSection({
-    implType: SectionTypeEnum.Terminal,
-    implOverrides: null,
-    position,
+  logAttachedTerminal({
+    stage: "await-backend-attach",
+    resolvedSectionId,
+    reason: "backend-run",
   });
-  if (!newTerminalId) {
-    return null;
-  }
-  await route_set_code_section_attached_terminal({
-    projectConfigId: projectConfig.id,
-    sectionId: resolvedSectionId,
-    terminalSectionId: newTerminalId,
-  });
-  useProjectState.setState((state) => {
-    setCurrEffectiveSectionImplValue<"BaseCodeSection">(
-      state,
-      resolvedSectionId,
-      {
-        attachedTerminalSectionId: newTerminalId,
-      },
-    );
-  });
-  useNodeInternals.setState((state) => ({
-    x: createNodesMapFromProjectConfigChildren(
-      useProjectState.getState(),
-      state.x,
-    ),
-  }));
-  return newTerminalId;
+  return null;
 }
 
 function resolveAttachmentSectionId(
@@ -256,24 +241,4 @@ function resolveAttachedTerminalId(
     return null;
   }
   return terminalId;
-}
-
-function resolveAttachedTerminalPosition(sectionId: string): Position | null {
-  const rect = getSectionRect(sectionId);
-  if (rect) {
-    return {
-      x: rect.x + rect.width + ATTACHED_TERMINAL_X_OFFSET,
-      y: rect.y,
-    };
-  }
-  const state = useProjectState.getState();
-  const layout = state.projectConfig.topLevelSections[sectionId];
-  if (layout) {
-    const baseWidth = layout.w ?? DEFAULT_CODE_SECTION_WIDTH;
-    return {
-      x: layout.x + baseWidth + ATTACHED_TERMINAL_X_OFFSET,
-      y: layout.y,
-    };
-  }
-  return getEmptySpacePosition();
 }

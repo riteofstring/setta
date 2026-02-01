@@ -72,7 +72,13 @@ export const BaseParamCodeObjImplTypeSet = new Set([
 
 const BaseParentCodeObjImplTypeSet = new Set(["CodeCallable", "NestedParam"]);
 
-const BaseParentSectionImplTypeSet = new Set(["Group", "ListRoot"]);
+const BaseParentSectionImplTypeSet = new Set([
+  "Code",
+  "GenPythonCode",
+  "GenPythonMetadata",
+  "Group",
+  "ListRoot",
+]);
 
 const BaseSectionWithParamsImplTypeSet = new Set([
   "Callable",
@@ -1922,6 +1928,7 @@ const CodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -1953,6 +1960,7 @@ const GenPythonCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -1975,6 +1983,7 @@ const GenPythonMetadataSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -2548,6 +2557,9 @@ type BaseParentCodeObjImplUnion = z.infer<
 const BaseParentSectionImplUnionSchema = z.union([
   ListRootSectionImplSchema,
   GroupSectionImplSchema,
+  CodeSectionImplSchema,
+  GenPythonCodeSectionImplSchema,
+  GenPythonMetadataSectionImplSchema,
 ]);
 
 type BaseParentSectionImplUnion = z.infer<
@@ -2879,6 +2891,7 @@ const CodeSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  children: z.array(IDSchema).optional(),
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
@@ -2901,6 +2914,7 @@ const GenPythonCodeSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  children: z.array(IDSchema).optional(),
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
@@ -2923,6 +2937,7 @@ const GenPythonMetadataSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  children: z.array(IDSchema).optional(),
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
@@ -5676,6 +5691,7 @@ const BaseCodeSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  children: z.array(IDSchema).optional(),
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
@@ -6105,6 +6121,7 @@ const BaseCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -8410,19 +8427,19 @@ export type ImplArgsBundleMap = {
     >;
   };
 
-  BaseCodeSection: {
-    impl: BaseCodeSectionImpl;
-    args: ImplArgsBundleWithUpdaters<
-      BaseCodeSectionImplArgs,
-      BaseCodeSectionImpl
-    >;
-  };
-
   BaseParentSection: {
     impl: BaseParentSectionImpl;
     args: ImplArgsBundleWithUpdaters<
       BaseParentSectionImplArgs,
       BaseParentSectionImpl
+    >;
+  };
+
+  BaseCodeSection: {
+    impl: BaseCodeSectionImpl;
+    args: ImplArgsBundleWithUpdaters<
+      BaseCodeSectionImplArgs,
+      BaseCodeSectionImpl
     >;
   };
 

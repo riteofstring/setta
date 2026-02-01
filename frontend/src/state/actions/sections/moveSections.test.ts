@@ -40,14 +40,17 @@ describe("moveSectionsWithBackend", () => {
     vi.clearAllMocks();
   });
 
-  it("moves attached terminal layouts alongside code sections", () => {
+  it("does not move attached terminals as top-level nodes", () => {
     const codeCore: Core = {
       id: codeSectionId,
       name: "Code Section",
       displayName: "",
       variants: [codeVariantId],
       defaultVariant: codeVariantId,
-      sharedModifier: { attachedTerminalSectionId: terminalSectionId },
+      sharedModifier: {
+        attachedTerminalSectionId: terminalSectionId,
+        children: [terminalSectionId],
+      },
       unsharedKeys: [],
     };
     const terminalCore: Core = {
@@ -85,7 +88,6 @@ describe("moveSectionsWithBackend", () => {
         },
         topLevelSections: {
           [codeSectionId]: { x: 10, y: 20, zIndex: 1 },
-          [terminalSectionId]: { x: 110, y: 20, zIndex: 2 },
         },
       }),
       sections: {
@@ -108,7 +110,7 @@ describe("moveSectionsWithBackend", () => {
       },
       parentSectionMap: {
         [codeSectionId]: null,
-        [terminalSectionId]: null,
+        [terminalSectionId]: codeSectionId,
       },
     });
     useNodeInternals.setState({ x: new Map() });
@@ -124,16 +126,9 @@ describe("moveSectionsWithBackend", () => {
 
     const updated = useProjectState.getState().projectConfig.topLevelSections;
     expect(updated[codeSectionId]).toMatchObject({ x: 60, y: 80 });
-    expect(updated[terminalSectionId]).toMatchObject({ x: 160, y: 80 });
-
     expect(mockedRouteMoveSections).toHaveBeenCalledTimes(1);
     const call = mockedRouteMoveSections.mock.calls[0]?.[0];
-    expect(call?.sectionIds).toEqual(
-      expect.arrayContaining([codeSectionId, terminalSectionId]),
-    );
-    expect(call?.positionsById?.[terminalSectionId]).toEqual({
-      x: 160,
-      y: 80,
-    });
+    expect(call?.sectionIds).toEqual([codeSectionId]);
+    expect(call?.positionsById?.[terminalSectionId]).toBeUndefined();
   });
 });

@@ -15,18 +15,25 @@ from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
+    MoveSectionsRequest,
     SetCodeSectionAttachedTerminalRequest,
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl_with_type_guard,
+    set_curr_effective_section_impl_value,
+)
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.id import ID
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
+from setta.types.project_config import Position, ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     CodeSectionImpl,
+    SectionSize,
+    SectionSizeMode,
     TerminalSectionImpl,
+    TextBlockSectionImpl,
 )
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
@@ -185,36 +192,55 @@ class TestCodeSectionAttachedTerminal:
             defaultVariant=terminal_variant.id,
         )
 
+        text_impl = TextBlockSectionImpl(id=ID("text-impl"))
+        text_variant = Variant(
+            id=ID("variant-text"),
+            impl=text_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(text_impl),
+        )
+        text_section = Core(
+            id=ID("section-text"),
+            name="Text Section",
+            variants=[text_variant.id],
+            defaultVariant=text_variant.id,
+        )
+
         project_config = ProjectConfig(
             id=ID("project-config"),
             name="Terminal Attachment Project",
             sectionVariantMap={
                 code_section.id: code_variant.id,
                 terminal_section.id: terminal_variant.id,
+                text_section.id: text_variant.id,
             },
             topLevelSections={
                 code_section.id: TopLevelSectionLayout(),
                 terminal_section.id: TopLevelSectionLayout(),
+                text_section.id: TopLevelSectionLayout(),
             },
         )
 
         self.project_config_id = project_config.id
         self.code_section_id = code_section.id
         self.terminal_section_id = terminal_section.id
+        self.text_section_id = text_section.id
 
         return ProjectStateSingleConfig(
             projectConfig=project_config,
             sections={
                 code_section.id: code_section,
                 terminal_section.id: terminal_section,
+                text_section.id: text_section,
             },
             sectionImpls={
                 code_impl.id: code_impl,
                 terminal_impl.id: terminal_impl,
+                text_impl.id: text_impl,
             },
             sectionVariants={
                 code_variant.id: code_variant,
                 terminal_variant.id: terminal_variant,
+                text_variant.id: text_variant,
             },
         )
 
@@ -232,6 +258,10 @@ class TestCodeSectionAttachedTerminal:
             state, self.code_section_id, BaseCodeSectionImpl
         )
         assert impl.attachedTerminalSectionId == self.terminal_section_id
+        assert impl.children == [self.terminal_section_id]
+        assert (
+            self.terminal_section_id not in state.projectConfig.topLevelSections
+        )
 
         await self.manager.set_code_section_attached_terminal(
             SetCodeSectionAttachedTerminalRequest(
@@ -246,6 +276,74 @@ class TestCodeSectionAttachedTerminal:
             state, self.code_section_id, BaseCodeSectionImpl
         )
         assert impl.attachedTerminalSectionId is None
+        assert impl.children == []
+        assert self.terminal_section_id in state.projectConfig.topLevelSections
+
+    async def test_attach_bumps_code_section_height(self):
+        project_state = self.manager.get_single_config_state(self.project_config_id)
+        set_curr_effective_section_impl_value(
+            project_state,
+            self.code_section_id,
+            {"size": SectionSize(width=400.0, height=100.0)},
+        )
+        await self.manager.update(project_state)
+
+        await self.manager.set_code_section_attached_terminal(
+            SetCodeSectionAttachedTerminalRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                terminalSectionId=self.terminal_section_id,
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        sizing_policy = self.settings_file.settings.sectionSizingPolicy
+        expected_min_height = (
+            float(sizing_policy.byType.Code.minHeight)
+            + float(sizing_policy.byType.Terminal.minHeight)
+            + 80.0
+        )
+        expected_max_height = float(sizing_policy.byType.Code.maxHeight)
+        if expected_min_height > expected_max_height:
+            expected_min_height = expected_max_height
+        assert isinstance(impl.size.height, float)
+        assert impl.size.height >= expected_min_height
+
+    async def test_attach_bumps_auto_code_section_height(self):
+        project_state = self.manager.get_single_config_state(self.project_config_id)
+        set_curr_effective_section_impl_value(
+            project_state,
+            self.code_section_id,
+            {"size": SectionSize(width=420.0, height=SectionSizeMode.auto)},
+        )
+        await self.manager.update(project_state)
+
+        await self.manager.set_code_section_attached_terminal(
+            SetCodeSectionAttachedTerminalRequest(
+                projectConfigId=self.project_config_id,
+                sectionId=self.code_section_id,
+                terminalSectionId=self.terminal_section_id,
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        sizing_policy = self.settings_file.settings.sectionSizingPolicy
+        expected_min_height = (
+            float(sizing_policy.byType.Code.minHeight)
+            + float(sizing_policy.byType.Terminal.minHeight)
+            + 80.0
+        )
+        expected_max_height = float(sizing_policy.byType.Code.maxHeight)
+        if expected_min_height > expected_max_height:
+            expected_min_height = expected_max_height
+        assert isinstance(impl.size.height, float)
+        assert impl.size.height >= expected_min_height
 
     async def test_attach_invalid_terminal_raises(self):
         with pytest.raises(KeyError):
@@ -264,5 +362,78 @@ class TestCodeSectionAttachedTerminal:
                     projectConfigId=self.project_config_id,
                     sectionId=self.terminal_section_id,
                     terminalSectionId=self.terminal_section_id,
+                )
+            )
+
+    async def test_move_sections_attach_and_detach_round_trip(self):
+        await self.manager.move_sections(
+            MoveSectionsRequest(
+                projectConfigId=self.project_config_id,
+                sectionIds=[self.terminal_section_id],
+                newParentId=self.code_section_id,
+                newIndex=0,
+                positionsById=None,
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        assert impl.attachedTerminalSectionId == self.terminal_section_id
+        assert impl.children == [self.terminal_section_id]
+        assert (
+            self.terminal_section_id not in state.projectConfig.topLevelSections
+        )
+
+        await self.manager.move_sections(
+            MoveSectionsRequest(
+                projectConfigId=self.project_config_id,
+                sectionIds=[self.terminal_section_id],
+                newParentId=None,
+                newIndex=None,
+                positionsById={
+                    self.terminal_section_id: Position(x=120.0, y=80.0)
+                },
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        assert impl.attachedTerminalSectionId is None
+        assert impl.children == []
+        assert self.terminal_section_id in state.projectConfig.topLevelSections
+
+        await self.manager.move_sections(
+            MoveSectionsRequest(
+                projectConfigId=self.project_config_id,
+                sectionIds=[self.terminal_section_id],
+                newParentId=self.code_section_id,
+                newIndex=0,
+                positionsById=None,
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        assert impl.attachedTerminalSectionId == self.terminal_section_id
+        assert impl.children == [self.terminal_section_id]
+        assert (
+            self.terminal_section_id not in state.projectConfig.topLevelSections
+        )
+
+    async def test_move_sections_rejects_non_terminal_child(self):
+        with pytest.raises(ValueError):
+            await self.manager.move_sections(
+                MoveSectionsRequest(
+                    projectConfigId=self.project_config_id,
+                    sectionIds=[self.text_section_id],
+                    newParentId=self.code_section_id,
+                    newIndex=0,
+                    positionsById=None,
                 )
             )

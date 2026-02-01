@@ -258,24 +258,6 @@ class BaseCanvasSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
 
 
-class BaseCodeSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Any]
-    code: NotRequired[str]
-    codeFileBinding: NotRequired[CodeFileBinding | None]
-    attachedTerminalSectionId: NotRequired[ID | None]
-
-
-class BaseCodeSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[Any | Callable[[Any], Any]]
-    code: NotRequired[str | Callable[[str], str]]
-    codeFileBinding: NotRequired[
-        CodeFileBinding
-        | None
-        | Callable[[CodeFileBinding | None], CodeFileBinding | None]
-    ]
-    attachedTerminalSectionId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
-
-
 class BaseParentSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     children: NotRequired[list[ID]]
@@ -284,6 +266,24 @@ class BaseParentSectionImplArgs(BaseSectionImplArgs):
 class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
     children: NotRequired[list[ID] | Callable[[list[ID]], list[ID]]]
+
+
+class BaseCodeSectionImplArgs(BaseParentSectionImplArgs):
+    type: NotRequired[Any]
+    code: NotRequired[str]
+    codeFileBinding: NotRequired[CodeFileBinding | None]
+    attachedTerminalSectionId: NotRequired[ID | None]
+
+
+class BaseCodeSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
+    type: NotRequired[Any | Callable[[Any], Any]]
+    code: NotRequired[str | Callable[[str], str]]
+    codeFileBinding: NotRequired[
+        CodeFileBinding
+        | None
+        | Callable[[CodeFileBinding | None], CodeFileBinding | None]
+    ]
+    attachedTerminalSectionId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
 
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):

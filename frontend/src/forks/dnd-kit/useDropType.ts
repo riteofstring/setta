@@ -34,6 +34,7 @@ import {
   useSectionRefs,
   useShareSession,
 } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import type { DragMoveEvent, DragOverEvent, DragStartEvent } from "./adapter";
 import { computeNewIndex } from "./adapter";
 import { resetSortingOverState } from "./sortingOverState";
@@ -91,6 +92,25 @@ export function onDragStart({ active, activeRect }: DragStartEvent) {
   const safeZoom = zoom > 0 ? zoom : 1;
   const dndState = useDndState.getState();
   const selection = resolveSectionDragSelection(activeId, activeRect ?? null);
+  console.info(
+    JSON.stringify({
+      event: "dnd-drag-start",
+      activeId,
+      activeIsTopLevel: active.data.current.isTopLevel,
+      isMovingFree: dndState.isMovingFree,
+      isSorting: dndState.isSorting,
+      activeRect: activeRect
+        ? { width: activeRect.width, height: activeRect.height }
+        : null,
+      draggingIds: selection.draggingIds,
+      rectsByIdKeys: selection.rectsById
+        ? Object.keys(selection.rectsById)
+        : [],
+      draggingRectsByIdKeys: selection.draggingRectsById
+        ? Object.keys(selection.draggingRectsById)
+        : [],
+    }),
+  );
   const placeholderSize = resolveSectionPlaceholderSize({
     draggingIds: selection.draggingIds,
     rectsById: selection.rectsById,
@@ -462,21 +482,40 @@ export function getDndParentId(dndSectionId: string) {
 }
 
 function getBehaviorDropType(activeId: string, newParentId: string) {
+  const state = useProjectState.getState();
+  const parentType = getSectionType(state, newParentId);
+  const isCodeParent = parentType === SectionTypeEnum.Code;
+  const isRootParent = getIsRoot(parentType);
+  const draggingIds = useDndState.getState().draggingIds;
+  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
+  const activeType = getSectionType(state, String(activeId));
   // invalid
   // if parent can't have children
   // or if parent variant is frozen
   // or if dragged section is global variables (TODO: loosen this restriction)
   if (
-    !getSectionIsRoot(newParentId) ||
-    getCurrSectionVariant(useProjectState.getState(), newParentId).isFrozen ||
+    (!isRootParent && !isCodeParent) ||
+    getCurrSectionVariant(state, newParentId).isFrozen ||
     getSectionIsGlobalVariables(activeId)
   ) {
     return BehaviorDropTypeEnum.INVALID;
   }
 
-  const draggingIds = useDndState.getState().draggingIds;
-  const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
-  const state = useProjectState.getState();
+  if (isCodeParent) {
+    if (activeType !== SectionTypeEnum.Terminal) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+    if (selectedIds.length !== 1) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+    const children = getSectionChildren(state, newParentId);
+    if (children.length > 1) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+    if (children.length === 1 && !selectedIds.includes(children[0])) {
+      return BehaviorDropTypeEnum.INVALID;
+    }
+  }
   if (
     isDescendantOfSectionSelection(state, newParentId, new Set(selectedIds))
   ) {
