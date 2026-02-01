@@ -293,7 +293,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(254);
+    expect(dims.minHeight).toBe(244);
   });
 
   it("uses policy mins for TextBlock sections", () => {

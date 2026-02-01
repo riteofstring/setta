@@ -626,6 +626,7 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
+  applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
@@ -642,6 +643,26 @@ export function processProjectStateUpdateFromBackend(
     projectConfigId,
     useProjectState.getState(),
   );
+}
+
+function applyViewportFromProjectState(projectState: ProjectStateSingleConfig) {
+  const { viewport, viewportInitialized } = projectState.projectConfig;
+  const currentConfig = useProjectState.getState().projectConfig;
+  if (
+    _.isEqual(currentConfig.viewport, viewport) &&
+    currentConfig.viewportInitialized === viewportInitialized
+  ) {
+    return;
+  }
+  if (!viewport || !viewportInitialized) {
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    return;
+  }
+  useReactFlow.setState({
+    fitViewOnInit: false,
+    fitViewOnInitDone: true,
+    transform: [viewport.x, viewport.y, viewport.zoom],
+  });
 }
 
 function clearToolArgumentPreviewForProjectState(

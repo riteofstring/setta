@@ -12,10 +12,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  ParamGroupContainer,
-  getPinnedParamsBgClassName,
-} from "./GroupContainer";
+import { ParamGroupContainer } from "./GroupContainer";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -28,28 +25,6 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-describe("getPinnedParamsBgClassName", () => {
-  it("uses a setta light tint with the dark blue shade", () => {
-    const result = getPinnedParamsBgClassName(SectionTypeEnum.Dict);
-    expect(result).toBe("bg-setta-100/50 dark:bg-blue-950/30");
-  });
-
-  it("uses a solid light tint for global variables and keeps the dark blue shade", () => {
-    const result = getPinnedParamsBgClassName(SectionTypeEnum.GlobalVariables);
-    expect(result).toBe("bg-setta-50 dark:bg-blue-950/30");
-  });
-
-  it("uses the standard light tint for other sections", () => {
-    const result = getPinnedParamsBgClassName(SectionTypeEnum.Dict);
-    expect(result).toBe("bg-setta-100/50 dark:bg-blue-950/30");
-  });
-
-  it("uses a pure white background for callable sections", () => {
-    const result = getPinnedParamsBgClassName(SectionTypeEnum.Callable);
-    expect(result).toBe("bg-white dark:bg-blue-950/30");
-  });
-});
-
 describe("ParamGroupContainer layout", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -59,7 +34,7 @@ describe("ParamGroupContainer layout", () => {
     resetProjectStores();
   });
 
-  it("keeps the unpinned params list scrollable", () => {
+  it("keeps the param group in the pinned row area", () => {
     const sectionId = "section-1";
     const variantId = "variant-1";
     const implId = "impl-1";
@@ -181,19 +156,11 @@ describe("ParamGroupContainer layout", () => {
     expect(snapshot.projectConfig.sectionVariantMap[sectionId]).toBe(variantId);
 
     const markup = renderToStaticMarkup(
-      <ParamGroupContainer
-        sectionId={sectionId}
-        bgColor="bg-transparent"
-        sectionTypeName={SectionTypeEnum.Dict}
-      />,
+      <ParamGroupContainer sectionId={sectionId} />,
     );
-    const match = markup.match(
-      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-auto[^\"]*)\"/,
-    );
+    const match = markup.match(/class=\"([^\"]*overflow-y-auto[^\"]*)\"/);
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
-    expect(classes).toContain("section-args-nested");
-    expect(classes).toContain("overflow-y-auto");
-    expect(markup).toContain("section-row-pin-main");
+    expect(classes).toContain("section-row-pin-main");
   });
 });

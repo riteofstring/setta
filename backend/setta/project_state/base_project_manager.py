@@ -331,7 +331,9 @@ from setta.types.project_config import (
     Position,
     ProjectCodegenLanguage,
     ProjectConfig,
+    TopLevelSectionLayout,
     ViewModeConfig,
+    Viewport,
     get_python_codegen_target,
     get_python_codegen_target_with_type_guard,
     project_config_has_codegen_language,
@@ -1004,6 +1006,27 @@ class BaseProjectManager(ABC):
             )
         return self.gen_code[project_config_id]
 
+    def _get_active_view_mode(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> ViewModeConfig:
+        active_view_mode_id = project_state.projectConfig.activeViewModeId
+        if active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        view_mode = project_state.projectConfig.viewModes.get(active_view_mode_id)
+        if not view_mode:
+            raise KeyError(f"View mode {active_view_mode_id} not found")
+        return view_mode
+
+    def _clone_top_level_sections(
+        self,
+        top_level_sections: dict[ID, TopLevelSectionLayout],
+    ) -> dict[ID, TopLevelSectionLayout]:
+        return copy.deepcopy(top_level_sections)
+
+    def _clone_viewport(self, viewport: Viewport | None) -> Viewport | None:
+        return copy.deepcopy(viewport)
+
     @enqueue_method
     async def load_project_config(self, projectConfigId: ID):
         projectState = convert_backend_to_single_config(
@@ -1028,9 +1051,15 @@ class BaseProjectManager(ABC):
     )
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
         """Persist the provided top-level section layout ordering for a project."""
-        self.project_state_backend.projectConfigs[
-            x.projectConfigId
-        ].topLevelSections = x.topLevelSections
+        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
+        active_view_mode_id = project_config.activeViewModeId
+        if active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        view_mode = project_config.viewModes.get(active_view_mode_id)
+        if view_mode is None:
+            raise KeyError(f"View mode {active_view_mode_id} not found")
+        project_config.topLevelSections = x.topLevelSections
+        view_mode.topLevelSections = x.topLevelSections
 
     @enqueue_method
     @project_state_tool()
@@ -2782,6 +2811,14 @@ class BaseProjectManager(ABC):
         project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
         project_config.viewport = x.viewport
         project_config.viewportInitialized = x.viewport is not None
+        active_view_mode_id = project_config.activeViewModeId
+        if active_view_mode_id is None:
+            raise KeyError("Active view mode is not set")
+        view_mode = project_config.viewModes.get(active_view_mode_id)
+        if view_mode is None:
+            raise KeyError(f"View mode {active_view_mode_id} not found")
+        view_mode.viewport = x.viewport
+        view_mode.viewportInitialized = x.viewport is not None
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
@@ -2797,21 +2834,50 @@ class BaseProjectManager(ABC):
         name = generate_memorable_string()
         while sanitize_slug(name) in existing_slugs:
             name = generate_memorable_string()
+        top_level_sections = self._clone_top_level_sections(
+            project_state.projectConfig.topLevelSections
+        )
+        viewport = self._clone_viewport(project_state.projectConfig.viewport)
         view_mode = ViewModeConfig(
             name=name,
             visibilityBySectionId=visibility_by_section_id,
+            topLevelSections=top_level_sections,
+            viewport=viewport,
+            viewportInitialized=project_state.projectConfig.viewportInitialized,
         )
         project_state.projectConfig.viewModes[view_mode.id] = view_mode
         project_state.projectConfig.activeViewModeId = view_mode.id
         project_state.projectConfig.isEditingViewMode = True
+        project_state.projectConfig.topLevelSections = view_mode.topLevelSections
+        project_state.projectConfig.viewport = view_mode.viewport
+        project_state.projectConfig.viewportInitialized = view_mode.viewportInitialized
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return view_mode.id
 
     @enqueue_method
     async def set_active_view_mode(self, x: SetActiveViewModeRequest) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
-        if x.activeViewModeId not in project_state.projectConfig.viewModes:
+        view_modes = project_state.projectConfig.viewModes
+        if x.activeViewModeId not in view_modes:
             raise KeyError(f"View mode {x.activeViewModeId} not found")
+        current_view_mode = self._get_active_view_mode(project_state)
+        current_view_mode.topLevelSections = (
+            project_state.projectConfig.topLevelSections
+        )
+        current_view_mode.viewport = project_state.projectConfig.viewport
+        current_view_mode.viewportInitialized = (
+            project_state.projectConfig.viewportInitialized
+        )
+        next_view_mode = view_modes[x.activeViewModeId]
+        if not next_view_mode.topLevelSections:
+            next_view_mode.topLevelSections = self._clone_top_level_sections(
+                project_state.projectConfig.topLevelSections
+            )
+        project_state.projectConfig.topLevelSections = next_view_mode.topLevelSections
+        project_state.projectConfig.viewport = next_view_mode.viewport
+        project_state.projectConfig.viewportInitialized = (
+            next_view_mode.viewportInitialized
+        )
         project_state.projectConfig.activeViewModeId = x.activeViewModeId
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
@@ -2890,7 +2956,20 @@ class BaseProjectManager(ABC):
             return
         del view_modes[x.viewModeId]
         if project_state.projectConfig.activeViewModeId == x.viewModeId:
-            project_state.projectConfig.activeViewModeId = next(iter(view_modes))
+            next_view_mode_id = next(iter(view_modes))
+            next_view_mode = view_modes[next_view_mode_id]
+            if not next_view_mode.topLevelSections:
+                next_view_mode.topLevelSections = self._clone_top_level_sections(
+                    project_state.projectConfig.topLevelSections
+                )
+            project_state.projectConfig.activeViewModeId = next_view_mode_id
+            project_state.projectConfig.topLevelSections = (
+                next_view_mode.topLevelSections
+            )
+            project_state.projectConfig.viewport = next_view_mode.viewport
+            project_state.projectConfig.viewportInitialized = (
+                next_view_mode.viewportInitialized
+            )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

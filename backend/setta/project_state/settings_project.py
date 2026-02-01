@@ -1,3 +1,4 @@
+import copy
 import re
 from enum import Enum
 from inspect import isclass
@@ -23,6 +24,7 @@ from setta.types.project_config import (
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
+    Viewport,
 )
 from setta.types.project_state import (
     ProjectStateCore,
@@ -263,6 +265,106 @@ def create_settings_code_objs(section_names):
     )
 
 
+def _build_settings_view_mode_visibility(
+    section_name_to_id: dict[str, ID],
+    visible_section_names: set[str],
+) -> dict[ID, bool]:
+    unknown_sections = [
+        section_name
+        for section_name in visible_section_names
+        if section_name not in section_name_to_id
+    ]
+    if unknown_sections:
+        raise KeyError(
+            "Unknown settings sections in view mode definition: "
+            + ", ".join(sorted(unknown_sections))
+        )
+    visibility_by_section_id = {
+        section_id: False for section_id in section_name_to_id.values()
+    }
+    for section_name in visible_section_names:
+        visibility_by_section_id[section_name_to_id[section_name]] = True
+    return visibility_by_section_id
+
+
+def _create_settings_view_modes(
+    section_name_to_id: dict[str, ID],
+    top_level_sections: dict[ID, TopLevelSectionLayout],
+    viewport: Viewport | None,
+    viewport_initialized: bool,
+) -> list[ViewModeConfig]:
+    core_sections = {
+        "shortcuts",
+        "gui",
+        "backend",
+        "sectionSizingPolicy",
+        "languageServer",
+    }
+    structure_and_code_sections = {
+        "callableSectionDefault",
+        "dictSectionDefault",
+        "listRootSectionDefault",
+        "groupSectionDefault",
+        "globalVariablesSectionDefault",
+        "metaControlSectionDefault",
+        "codeSectionDefault",
+        "genPythonCodeSectionDefault",
+        "genPythonMetadataSectionDefault",
+    }
+    content_and_media_sections = {
+        "browserSectionDefault",
+        "chatSectionDefault",
+        "chartSectionDefault",
+        "drawSectionDefault",
+        "iFrameSectionDefault",
+        "imageSectionDefault",
+        "promptSectionDefault",
+        "socialSectionDefault",
+        "terminalSectionDefault",
+        "textBlockSectionDefault",
+    }
+    param_defaults_sections = {
+        "buttonParamCodeObjDefault",
+        "codeCallableCodeObjDefault",
+        "codeParamCodeObjDefault",
+        "colorPickerParamCodeObjDefault",
+        "dropdownParamCodeObjDefault",
+        "dropzoneParamCodeObjDefault",
+        "nestedParamCodeObjDefault",
+        "passwordParamCodeObjDefault",
+        "rotaryParamCodeObjDefault",
+        "sliderParamCodeObjDefault",
+        "switchParamCodeObjDefault",
+        "textAreaParamCodeObjDefault",
+        "textParamCodeObjDefault",
+    }
+    all_sections = set(section_name_to_id.keys())
+    view_mode_definitions = [
+        ("Core", core_sections),
+        ("Section Defaults Structure and Code", structure_and_code_sections),
+        ("Section Defaults Content and Media", content_and_media_sections),
+        ("Param Defaults", param_defaults_sections),
+        ("All Settings", all_sections),
+    ]
+    view_modes: list[ViewModeConfig] = []
+    for name, visible_section_names in view_mode_definitions:
+        visibility_by_section_id = _build_settings_view_mode_visibility(
+            section_name_to_id,
+            visible_section_names,
+        )
+        view_modes.append(
+            ViewModeConfig(
+                name=name,
+                isTab=True,
+                visibilityBySectionId=visibility_by_section_id,
+                topLevelSections=copy.deepcopy(top_level_sections),
+                viewport=copy.deepcopy(viewport),
+                viewportInitialized=viewport_initialized,
+            )
+        )
+    return view_modes
+
+
 def create_settings_project_state(settings_path: Path):
     section_names = SettingsState.model_fields.keys()
     (
@@ -274,6 +376,7 @@ def create_settings_project_state(settings_path: Path):
     ) = create_settings_code_objs(section_names)
 
     sections: dict[ID, Core] = {}
+    section_name_to_id: dict[str, ID] = {}
     sectionImpls: dict[ID, BaseSectionImplUnion] = {}
     sectionVariants: dict[ID, Variant] = {}
     sectionVariantMap: dict[ID, ID] = {}
@@ -301,6 +404,7 @@ def create_settings_project_state(settings_path: Path):
         sectionVariants[sectionVariant.id] = sectionVariant
         sectionVariantMap[section.id] = sectionVariant.id
         sections[section.id] = section
+        section_name_to_id[k] = section.id
 
     projectConfigChildren = {
         k: TopLevelSectionLayout(x=(idx % 3) * 600, y=(idx // 3) * 600)
@@ -315,10 +419,17 @@ def create_settings_project_state(settings_path: Path):
         viewport=None,
         codegenTargets=[],
     )
-    visibility_by_section_id = {section_id: True for section_id in sections.keys()}
-    view_mode = ViewModeConfig(visibilityBySectionId=visibility_by_section_id)
-    projectConfig.viewModes[view_mode.id] = view_mode
-    projectConfig.activeViewModeId = view_mode.id
+    view_modes = _create_settings_view_modes(
+        section_name_to_id,
+        projectConfigChildren,
+        projectConfig.viewport,
+        projectConfig.viewportInitialized,
+    )
+    if not view_modes:
+        raise KeyError("Settings project view modes could not be created.")
+    for view_mode in view_modes:
+        projectConfig.viewModes[view_mode.id] = view_mode
+    projectConfig.activeViewModeId = view_modes[0].id
 
     return ProjectStateSingleConfig(
         projectConfig=projectConfig,

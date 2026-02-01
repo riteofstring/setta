@@ -146,8 +146,7 @@ function getViewportBoundsForPlacement(): ViewportBounds | null {
     return null;
   }
   const overviewWidth = useLocalStorage.getState().overviewTrueWidth;
-  const uiEditorWidth = useLocalStorage.getState().uiEditorTrueWidth;
-  const paneRect = getPaneRect(reactFlowState, overviewWidth, uiEditorWidth);
+  const paneRect = getPaneRect(reactFlowState, overviewWidth);
   if (paneRect.width <= 0 || paneRect.height <= 0) {
     return null;
   }
