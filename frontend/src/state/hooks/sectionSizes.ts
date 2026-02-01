@@ -41,6 +41,7 @@ type SizeMode = {
 };
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_EDGES_AND_PINNED = 48;
 // Keep edge ports visible when sections are resized to their minimum.
 const EDGES_STRIP_MIN_HEIGHT = 72;
 
@@ -283,10 +284,19 @@ export function useSectionMinMaxDims(sectionId: string) {
         )
           ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
           : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+        const resolvedUnpinnedPolicyMinHeight =
+          hasEdges &&
+          hasPinnedParams &&
+          baseUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+            ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_EDGES_AND_PINNED
+            : baseUnpinnedMinHeight;
         const resolvedUnpinnedMinHeight =
           unpinnedParamsMeasuredHeight > 0
-            ? Math.max(unpinnedParamsMeasuredHeight, baseUnpinnedMinHeight)
-            : baseUnpinnedMinHeight;
+            ? Math.max(
+                unpinnedParamsMeasuredHeight,
+                resolvedUnpinnedPolicyMinHeight,
+              )
+            : resolvedUnpinnedPolicyMinHeight;
         if (hasPinnedParams) {
           requiredParamsHeight += resolvedPinnedMinHeight;
         }
