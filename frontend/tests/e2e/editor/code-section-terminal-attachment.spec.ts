@@ -337,7 +337,6 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
         return Boolean(state.projectConfig.topLevelSections[terminalSectionId]);
       })
       .toBe(false);
-
     const embeddedTerminalHost = page.locator(
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
     );

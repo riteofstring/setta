@@ -1246,6 +1246,9 @@ function applyPendingTopLevelLayout(state: ZustandProjectState) {
   for (const [sectionId, layout] of Object.entries(
     pendingTopLevelLayoutRef.snapshot,
   )) {
+    if (!(sectionId in currentLayouts)) {
+      continue;
+    }
     currentLayouts[sectionId] = layout;
     if (viewModeLayouts) {
       viewModeLayouts[sectionId] = layout;
