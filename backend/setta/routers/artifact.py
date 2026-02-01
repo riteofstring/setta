@@ -3,15 +3,12 @@ import mimetypes
 import os
 import stat
 from collections.abc import Callable
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, NotRequired, TypedDict, TypeVar
 
 from fastapi import HTTPException, status
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from setta.auth.session import load_current_session_secret
 from setta.binary import BinaryStore
 from setta.project_state.artifacts import (
     Artifacts,
@@ -37,7 +34,6 @@ from setta.utils.attachment_policy import (
     get_attachment_policy,
     resolve_attachment_policy_scope,
 )
-from setta.utils.attachment_tokens import AttachmentTokenManager
 from setta.utils.constants import CWD, C
 from setta.utils.utils import normalize_path
 
@@ -54,9 +50,6 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
-_FILE_BROWSER_TOKEN_MANAGER = AttachmentTokenManager(
-    C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
-)
 
 
 class CheckIfFileExistsRequests(BaseModel):
@@ -76,16 +69,6 @@ class GetFolderContentsRequest(BaseModel):
     includeHidden: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
-
-
-class GetFileBrowserDownloadUrlsRequest(BaseModel):
-    paths: list[str]
-
-
-class FileBrowserDownloadUrlEntry(BaseModel):
-    path: str
-    url: str
-    expiresAt: int
 
 
 class FolderContentItem(TypedDict):
@@ -236,23 +219,6 @@ def _resolve_file_path(path_str: str) -> Path:
     return resolved
 
 
-def _resolve_file_path_for_download(path_str: str) -> Path | None:
-    trimmed = path_str.strip()
-    if not trimmed:
-        return None
-    root = CWD.resolve()
-    path = Path(trimmed)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        resolved = (root / path).resolve()
-    if not resolved.is_relative_to(root):
-        return None
-    if not resolved.exists() or resolved.is_dir():
-        return None
-    return resolved
-
-
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
@@ -264,21 +230,6 @@ def _should_ignore(name: str, ignore_patterns: list[str]) -> bool:
         if fnmatch.fnmatch(name, pattern):
             return True
     return False
-
-
-def _require_session_secret() -> bytes:
-    session_info = load_current_session_secret()
-    if session_info is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="File browser token secret unavailable.",
-        )
-    return session_info[1]
-
-
-def _build_file_browser_download_url(token: str) -> str:
-    path = Route.FILE_BROWSER_DOWNLOAD.value.replace("{token}", token)
-    return f"{C.BACKEND}{Route.PREFIX.value}{path}"
 
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)
@@ -383,76 +334,6 @@ def route_get_folder_contents(
     )
 
     return contents
-
-
-@router.post(Route.GET_FILE_BROWSER_DOWNLOAD_URLS)
-def route_get_file_browser_download_urls(
-    x: GetFileBrowserDownloadUrlsRequest,
-    ctx: RuntimeContextFromRequest,
-) -> list[FileBrowserDownloadUrlEntry]:
-    if ctx.share_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
-        )
-    if not x.paths:
-        return []
-    secret = _require_session_secret()
-    now = datetime.now(timezone.utc)
-    expires_at = int(now.timestamp()) + C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
-    entries: list[FileBrowserDownloadUrlEntry] = []
-    for raw_path in x.paths:
-        resolved = _resolve_file_path_for_download(raw_path)
-        if resolved is None:
-            continue
-        normalized = _format_browser_path(resolved, share_mode=ctx.share_mode)
-        token = _FILE_BROWSER_TOKEN_MANAGER.mint(
-            artifact_id=normalized,
-            secret=secret,
-            now=now,
-        )
-        entries.append(
-            FileBrowserDownloadUrlEntry(
-                path=normalized,
-                url=_build_file_browser_download_url(token),
-                expiresAt=expires_at,
-            )
-        )
-    return entries
-
-
-@router.get(Route.FILE_BROWSER_DOWNLOAD)
-def route_file_browser_download(
-    token: str,
-    ctx: RuntimeContextFromRequest,
-):
-    if ctx.share_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
-        )
-    secret = _require_session_secret()
-    try:
-        payload = _FILE_BROWSER_TOKEN_MANAGER.validate(token, secret=secret)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or expired file browser token.",
-        ) from exc
-    resolved = _resolve_file_path(payload.artifactId)
-    if not resolved.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found.",
-        )
-    if not resolved.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File path is not a file.",
-        )
-    mime_type, _ = mimetypes.guess_type(resolved.as_posix())
-    media_type = mime_type or "application/octet-stream"
-    return FileResponse(resolved, media_type=media_type)
 
 
 @router.post(Route.IMPORT_FILES_TO_ARTIFACTS)

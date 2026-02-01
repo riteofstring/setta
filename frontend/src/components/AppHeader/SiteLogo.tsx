@@ -25,8 +25,8 @@ export function SiteLogo() {
       onKeyDown={onKeyDown}
     >
       <SVG
-        styles="w-10 mt-1 group"
-        color="fill-blue-600 dark:fill-[#00B5D8] group-hover:fill-[#00B5D8] dark:group-hover:fill-[#00E0FF] transition-colors"
+        styles="w-12 mt-[4px] group"
+        color="fill-[#213158] dark:fill-[#00B5D8] group-hover:fill-[#00B5D8] dark:group-hover:fill-[#00E0FF] transition-colors"
       />
     </Link>
   );

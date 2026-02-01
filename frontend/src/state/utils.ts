@@ -1,3 +1,4 @@
+import { resetStreamingTracker } from "state/aiStreamingTracker";
 import { StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
@@ -55,4 +56,5 @@ function resetStores(stateType) {
 
 export function resetProjectStores() {
   resetStores(STATE_TYPES.PROJECT_STATE);
+  resetStreamingTracker();
 }

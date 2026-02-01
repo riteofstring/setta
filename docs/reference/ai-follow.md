@@ -17,17 +17,19 @@ This page explains how AIFollow works end-to-end, covering the backend metadata 
 - Follow state is stored per chat id in memory. It is not persisted and resets on server restart (`backend/setta/llm/llm_chat_manager.py`).
 
 ## Frontend flow
-- AIFollow state lives in a zustand store keyed by `projectConfigId` and `chatId` (`frontend/src/state/definitions.ts`).
+- AIFollow state lives in a zustand store keyed by `projectConfigId` and `chatId`, plus a frontend-only follow mode (`off`, `all`, `selected`) and per-project selections (`frontend/src/state/definitions.ts`).
 - Websocket messages update the store:
   - `AIFollowToolArgumentsUpdate` replaces the ids for the chat (or clears them when the payload is empty).
   - `AIFollowToolResultUpdate` appends ids and schedules an auto-clear after 2 seconds so highlights are brief (`frontend/src/state/actions/aiFollow.ts`).
 - The snapshot endpoint is requested when loading a project config or reconnecting the websocket (`frontend/src/state/actions/project/loadProject.ts`, `frontend/src/state/actions/websocketReceive.ts`).
-- The "Follow AI" toggle only controls viewport follow. It does not change backend behavior (`frontend/src/components/AppHeader/FollowAIToggleButton.tsx`).
-- `useAIFollowViewport` collects ids for the active chat, groups tool-result bursts within 300ms, computes the bounds, and animates a 500ms zoom/pan to keep the sections in view (`frontend/src/state/hooks/aiFollow.ts`).
-- When follow is enabled, pan and zoom gestures are disabled so the viewport stays locked to the AI focus (`frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`).
+- The "Follow AI" menu only controls viewport + highlight filtering. It does not change backend behavior and supports `Off`, `Follow all`, or `Follow selected` (project chat + specific Chat sections) (`frontend/src/components/AppHeader/FollowAIToggleButton.tsx`).
+- `useAIFollowViewport` filters ids by the selected chat/section list, groups tool-result bursts within 300ms, computes bounds, and animates a 500ms zoom/pan to keep the sections in view (`frontend/src/state/hooks/aiFollow.ts`).
+- Pan and zoom gestures are disabled only while a follow transition is running (`isFollowTransitioning`), not for the entire follow mode (`frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`).
 - Sections add a gradient border while they are in the active follow set or highlighted by tool results. The highlight lingers for 650ms after ids clear to avoid flicker (`frontend/src/components/Section/Container/utils.tsx`, `frontend/src/components/Section/Container/SectionContainerCore.tsx`).
+- When follow is active (all/selected), agentic edges highlight if they touch tool-argument or tool-result sections, and edges originating from a streaming Chat section get a run highlight (`frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`).
 
 ## Current limitations
 - Only `section` ids drive viewport and highlighting; `codeObj` ids are tracked but not yet consumed in the UI (`frontend/src/state/aiFollowUtils.ts`).
 - The snapshot only returns argument-based follow ids, not transient tool-result highlights.
 - If a tool call does not carry any annotated ids, no follow updates are emitted.
+- Follow selections are frontend-only and reset on reload.

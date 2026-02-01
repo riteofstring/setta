@@ -9,6 +9,7 @@
 ## Reference
 - `reference/code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
 - `reference/ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
+- `reference/agentic-edges.md` – agentic edge data model, routes, and UI behavior.
 - `reference/column-width.md` – how column sizing works in the UI, including drag behavior, bounds, and persistence.
 - `reference/dev-vs-built.md` – differences between dev and built runtime setups.
 - `reference/emit_to_frontend.md` – how a listener script can push new values or artifacts back into the app.
@@ -27,6 +28,7 @@
 - `reference/share-policy-flags.md` – share policy flag coverage for route families and behavior.
 - `reference/sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
 - `reference/urls-and-routes.md` – frontend URL paths, routing behavior, and API route separation.
+- `reference/view-modes.md` – view mode ordering, layout/viewport storage, and settings defaults.
 
 ## Other Docs
 - `agent-cli-integration.md` – CLI integration notes for agent workflows.
@@ -55,4 +57,3 @@
 - `plans/ai-gen-standalone-app-plan.md` – standalone app planning notes.
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
-- `plans/setta-agentic-plan.md` – agentic workflow planning notes.

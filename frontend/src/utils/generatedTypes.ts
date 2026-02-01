@@ -93,6 +93,18 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+
 export const ArtifactTypeEnum = {
   Image: "Image",
   BrushStroke: "BrushStroke",
@@ -535,6 +547,10 @@ export const RouteEnum = {
   DELETE_EDGES: "/deleteEdges",
   RECONNECT_EDGE: "/reconnectEdge",
   SET_EDGES: "/setEdges",
+  CREATE_AGENTIC_EDGE: "/createAgenticEdge",
+  UPDATE_AGENTIC_EDGE: "/updateAgenticEdge",
+  DELETE_AGENTIC_EDGES: "/deleteAgenticEdges",
+  SET_AGENTIC_EDGES: "/setAgenticEdges",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
   SET_SECTION_VARIANT_NAME: "setSectionVariantName",
@@ -576,8 +592,6 @@ export const RouteEnum = {
   PASTE_SECTIONS: "/pasteSections",
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
-  GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
-  FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
   IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
   DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
@@ -1611,6 +1625,10 @@ const CoreSchema = z.object({
 
 export type Core = z.infer<typeof CoreSchema>;
 
+export function createCore(options: Partial<Core> = {}): Core {
+  return CoreSchema.parse(options);
+}
+
 const CallableSectionImplSchema = z.object({
   type: z.literal("Callable").default(SectionTypeEnum.Callable),
   id: IDSchema.default(create_new_id),
@@ -1674,6 +1692,13 @@ const DictSectionImplSchema = z.object({
 });
 
 type DictSectionImpl = z.infer<typeof DictSectionImplSchema>;
+
+export function createDictSectionImpl(
+  defaults: UserDefaultDictSectionImpl,
+  overrides: Partial<DictSectionImpl> = {},
+): DictSectionImpl {
+  return DictSectionImplSchema.parse({ ...defaults, ...overrides });
+}
 
 const ListRootSectionImplSchema = z.object({
   type: z.literal("ListRoot").default(SectionTypeEnum.ListRoot),
@@ -2046,6 +2071,13 @@ const ChatSectionImplSchema = z.object({
 
 type ChatSectionImpl = z.infer<typeof ChatSectionImplSchema>;
 
+export function createChatSectionImpl(
+  defaults: UserDefaultChatSectionImpl,
+  overrides: Partial<ChatSectionImpl> = {},
+): ChatSectionImpl {
+  return ChatSectionImplSchema.parse({ ...defaults, ...overrides });
+}
+
 const BrowserSectionImplSchema = z.object({
   type: z.literal("Browser").default(SectionTypeEnum.Browser),
   id: IDSchema.default(create_new_id),
@@ -2080,6 +2112,10 @@ const VariantSchema = z.object({
 });
 
 export type Variant = z.infer<typeof VariantSchema>;
+
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return VariantSchema.parse(options);
+}
 
 const CodeCallableCodeObjImplSchema = z.object({
   type: z.literal("CodeCallable").default(CodeObjTypeEnum.CodeCallable),
@@ -3535,12 +3571,32 @@ function createViewport(options: Partial<Viewport> = {}): Viewport {
   return ViewportSchema.parse(options);
 }
 
+const TopLevelSectionLayoutSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zIndex: z.int().default(0),
+  w: z.union([z.number(), z.null()]).default(null),
+  h: z.union([z.number(), z.null()]).default(null),
+});
+
+export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
+
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return TopLevelSectionLayoutSchema.parse(options);
+}
+
 const ViewModeConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
+  sortIndex: z.int().default(0),
   isUserFacing: z.boolean().default(false),
   isTab: z.boolean().default(false),
   visibilityBySectionId: z.record(IDSchema, z.boolean()).default({}),
+  viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
+  viewportInitialized: z.boolean().default(false),
+  topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
 });
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
@@ -3718,16 +3774,6 @@ export function createProjectCodegenPythonTarget(
   return ProjectCodegenPythonTargetSchema.parse(options);
 }
 
-const TopLevelSectionLayoutSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zIndex: z.int().default(0),
-  w: z.union([z.number(), z.null()]).default(null),
-  h: z.union([z.number(), z.null()]).default(null),
-});
-
-export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
-
 const EdgeSchema = z.object({
   id: IDSchema.default(create_new_id),
   sourceSectionId: IDSchema,
@@ -3750,6 +3796,33 @@ const EdgeSchema = z.object({
   data: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   selected: z.boolean().default(false),
 });
+
+const AgenticEdgeSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  sourceSectionId: IDSchema,
+  targetSectionId: IDSchema,
+  kind: z.enum(AgenticEdgeKindEnum),
+  contextMode: z
+    .enum(AgenticEdgeContextModeEnum)
+    .default(AgenticEdgeContextModeEnum.reference_only),
+  style: z
+    .union([
+      z.record(z.string(), z.union([z.string(), z.int(), z.number()])),
+      z.null(),
+    ])
+    .default(null),
+  hidden: z.boolean().default(false),
+  zIndex: z.int().default(0),
+  selected: z.boolean().default(false),
+});
+
+type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
+
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  return AgenticEdgeSchema.parse(options);
+}
 
 const WatchCodeFolderSchema = z.object({
   path: z.string(),
@@ -3789,6 +3862,7 @@ const ProjectConfigSchema = z.object({
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
   activeIds: z.array(IDSchema).default([]),
   edges: z.array(EdgeSchema).default([]),
+  agenticEdges: z.array(AgenticEdgeSchema).default([]),
   watchCodeEnabled: z.boolean().default(false),
   watchCodeFolders: z.array(WatchCodeFolderSchema).default([]),
   watchCodeFiles: z.array(z.string()).default([]),
@@ -4111,8 +4185,8 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
-      hideSearchMinHeight: 42.0,
-      hideParamsMinHeight: 90.0,
+      hideSearchMinHeight: 78.0,
+      hideParamsMinHeight: 32.0,
     }),
   ),
   Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
@@ -4165,9 +4239,9 @@ const SectionSizingPolicyByTypeSchema = z.object({
   ),
   Prompt: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 100.0,
+      minHeight: 150.0,
       maxHeight: 100000.0,
-      minWidth: 200.0,
+      minWidth: 300.0,
       maxWidth: 100000.0,
     }),
   ),
@@ -4388,7 +4462,7 @@ function createMetaControlSizingPolicyByType(
 
 const SectionSizingPolicyGlobalsSchema = z.object({
   pinnedParamsAreaMinHeight: z.number().default(64),
-  unpinnedParamsAreaMinHeight: z.number().default(36),
+  unpinnedParamsAreaMinHeight: z.number().default(38),
   minimizedHeight: z.number().default(32),
   infiniteMaxHeight: z.number().default(100000),
   infiniteMaxWidth: z.number().default(100000),
@@ -4528,7 +4602,7 @@ type UserDefaultChatSectionImpl = z.infer<
   typeof UserDefaultChatSectionImplSchema
 >;
 
-function createUserDefaultChatSectionImpl(
+export function createUserDefaultChatSectionImpl(
   options: Partial<UserDefaultChatSectionImpl> = {},
 ): UserDefaultChatSectionImpl {
   return UserDefaultChatSectionImplSchema.parse(options);
@@ -4578,7 +4652,7 @@ type UserDefaultDictSectionImpl = z.infer<
   typeof UserDefaultDictSectionImplSchema
 >;
 
-function createUserDefaultDictSectionImpl(
+export function createUserDefaultDictSectionImpl(
   options: Partial<UserDefaultDictSectionImpl> = {},
 ): UserDefaultDictSectionImpl {
   return UserDefaultDictSectionImplSchema.parse(options);
@@ -6210,6 +6284,14 @@ export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
 >;
 
+const BrowserAreaItemSchema = z.object({
+  id: z.string(),
+  type: z.any(),
+  lastModified: z.iso.datetime(),
+});
+
+export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
+
 const ShareDeploymentListenerConfigSchema = z.object({
   entrypoint: z.string(),
   enabled: z.boolean().default(true),
@@ -6577,6 +6659,7 @@ const GetLLMResponseRequestSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean(),
   projectConfigId: IDSchema,
+  sectionId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type GetLLMResponseRequestInput = z.input<
@@ -6618,24 +6701,6 @@ const DeleteArtifactsRequestSchema = z.object({
 
 export type DeleteArtifactsRequestInput = z.input<
   typeof DeleteArtifactsRequestSchema
->;
-
-const FileBrowserDownloadUrlEntrySchema = z.object({
-  path: z.string(),
-  url: z.string(),
-  expiresAt: z.int(),
-});
-
-export type FileBrowserDownloadUrlEntry = z.infer<
-  typeof FileBrowserDownloadUrlEntrySchema
->;
-
-const GetFileBrowserDownloadUrlsRequestSchema = z.object({
-  paths: z.array(z.string()),
-});
-
-export type GetFileBrowserDownloadUrlsRequestInput = z.input<
-  typeof GetFileBrowserDownloadUrlsRequestSchema
 >;
 
 const GetFileBrowserRootResponseSchema = z.object({
@@ -6858,6 +6923,30 @@ export type CodeAreaCompletionRequestInput = z.input<
   typeof CodeAreaCompletionRequestSchema
 >;
 
+const CreateAgenticEdgeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  id: z.union([IDSchema, z.null()]).default(null),
+  sourceSectionId: IDSchema,
+  targetSectionId: IDSchema,
+  kind: z.enum(AgenticEdgeKindEnum),
+  contextMode: z
+    .enum(AgenticEdgeContextModeEnum)
+    .default(AgenticEdgeContextModeEnum.reference_only),
+  style: z
+    .union([
+      z.record(z.string(), z.union([z.string(), z.int(), z.number()])),
+      z.null(),
+    ])
+    .default(null),
+  hidden: z.boolean().default(false),
+  zIndex: z.int().default(0),
+});
+
+export type CreateAgenticEdgeRequestInput = z.input<
+  typeof CreateAgenticEdgeRequestSchema
+>;
+
 const CreateChildSectionsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -6987,6 +7076,16 @@ const DeclineRenameRefactorRequestSchema = z.object({
 
 export type DeclineRenameRefactorRequestInput = z.input<
   typeof DeclineRenameRefactorRequestSchema
+>;
+
+const DeleteAgenticEdgesRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edgeIds: z.array(IDSchema),
+});
+
+export type DeleteAgenticEdgesRequestInput = z.input<
+  typeof DeleteAgenticEdgesRequestSchema
 >;
 
 const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
@@ -7285,6 +7384,16 @@ const SetActiveViewModeRequestSchema = z.object({
 
 export type SetActiveViewModeRequestInput = z.input<
   typeof SetActiveViewModeRequestSchema
+>;
+
+const SetAgenticEdgesRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edges: z.array(AgenticEdgeSchema),
+});
+
+export type SetAgenticEdgesRequestInput = z.input<
+  typeof SetAgenticEdgesRequestSchema
 >;
 
 const SetBrowserAreaViewModeRequestSchema = z.object({
@@ -8037,6 +8146,16 @@ const UnselectAllParamsRequestSchema = z.object({
 
 export type UnselectAllParamsRequestInput = z.input<
   typeof UnselectAllParamsRequestSchema
+>;
+
+const UpdateAgenticEdgeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  edge: AgenticEdgeSchema,
+});
+
+export type UpdateAgenticEdgeRequestInput = z.input<
+  typeof UpdateAgenticEdgeRequestSchema
 >;
 
 const UpdateEdgeRequestSchema = z.object({
