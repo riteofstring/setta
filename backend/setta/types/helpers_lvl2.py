@@ -778,9 +778,7 @@ def _build_top_level_layout_rects(
         height = _resolve_layout_dimension_with_fallback(
             settings, impl.type, snapshot_layout.h, impl.size.height, "height"
         )
-        rects.append(
-            LayoutRect(snapshot_layout.x, snapshot_layout.y, width, height)
-        )
+        rects.append(LayoutRect(snapshot_layout.x, snapshot_layout.y, width, height))
     return rects
 
 
