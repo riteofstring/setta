@@ -8,7 +8,6 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { logStateEvent } from "state/actions/stateLogs";
 import {
   PendingOperation,
   useAllProjectMetadata,
@@ -21,6 +20,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
   route_group_sections,
@@ -136,128 +136,6 @@ function summarizeChatSections(
   }
   return summaries;
 }
-
-type PendingTopLevelLayoutState = {
-  opId: string | null;
-  projectConfigId: string | null;
-  dirty: boolean;
-};
-
-const pendingTopLevelLayoutState: PendingTopLevelLayoutState = {
-  opId: null,
-  projectConfigId: null,
-  dirty: false,
-};
-
-function getLatestTopLevelLayoutSnapshot(state: ZustandProjectState) {
-  const nodeSnapshot = createTopLevelSectionLayoutDict(
-    state.sections,
-    useNodeInternals.getState().x,
-  );
-  const merged: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
-    {
-      ...state.projectConfig.topLevelSections,
-    };
-  for (const [sectionId, layout] of Object.entries(nodeSnapshot)) {
-    merged[sectionId] = layout;
-  }
-  for (const sectionId of Object.keys(merged)) {
-    if (!(sectionId in state.sections)) {
-      delete merged[sectionId];
-      continue;
-    }
-    if (state.parentSectionMap?.[sectionId]) {
-      delete merged[sectionId];
-    }
-  }
-  return merged;
-}
-
-function ensurePendingTopLevelLayoutOp(projectConfigId: string) {
-  const existingOpId = pendingTopLevelLayoutState.opId;
-  const pending = usePendingOperations.getState().pending;
-  if (existingOpId && pending.some((op) => op.opId === existingOpId)) {
-    return;
-  }
-  pendingTopLevelLayoutState.opId = addPendingOp((state) => {
-    if (state.projectConfig.id !== projectConfigId) {
-      return;
-    }
-    const snapshot = getLatestTopLevelLayoutSnapshot(state);
-    state.projectConfig.topLevelSections = snapshot;
-  });
-  logStateEvent(
-    "[layout] pending op",
-    JSON.stringify({
-      projectConfigId,
-      opId: pendingTopLevelLayoutState.opId,
-    }),
-  );
-}
-
-function queueTopLevelLayoutPersist() {
-  const projectConfigId = getCurrProjectConfigId();
-  pendingTopLevelLayoutState.projectConfigId = projectConfigId;
-  pendingTopLevelLayoutState.dirty = true;
-  ensurePendingTopLevelLayoutOp(projectConfigId);
-  logStateEvent(
-    "[layout] dirty",
-    JSON.stringify({
-      projectConfigId,
-      opId: pendingTopLevelLayoutState.opId,
-    }),
-  );
-  debounced_send_top_level_section_layout();
-}
-
-const debounced_send_top_level_section_layout = _.debounce(() => {
-  if (!pendingTopLevelLayoutState.dirty) {
-    return;
-  }
-  const projectConfigId =
-    pendingTopLevelLayoutState.projectConfigId ?? getCurrProjectConfigId();
-  pendingTopLevelLayoutState.projectConfigId = projectConfigId;
-  ensurePendingTopLevelLayoutOp(projectConfigId);
-  const opId = pendingTopLevelLayoutState.opId;
-  if (!opId) {
-    return;
-  }
-  const snapshot = getLatestTopLevelLayoutSnapshot(useProjectState.getState());
-  pendingTopLevelLayoutState.dirty = false;
-  useProjectState.setState((state) => {
-    state.projectConfig.topLevelSections = snapshot;
-  });
-  logStateEvent(
-    "[layout] send",
-    JSON.stringify({
-      projectConfigId,
-      opId,
-      sectionCount: Object.keys(snapshot).length,
-    }),
-  );
-  void route_set_top_level_section_layout({
-    projectConfigId,
-    topLevelSections: snapshot,
-    frontendOpId: opId,
-  }).then((res) => {
-    logStateEvent(
-      "[layout] response",
-      JSON.stringify({
-        projectConfigId,
-        opId,
-        status: res.status,
-        hasResponse: res.hasResponse,
-      }),
-    );
-    if (isSuccessfulResponse(res)) {
-      acknowledgePendingOp(opId);
-      return;
-    }
-    if (res.hasResponse) {
-      removePendingOp(opId);
-    }
-  });
-}, 500);
 
 type ChatSectionImpl = Extract<BaseSectionImplUnion, { type: SectionTypeEnum.Chat }>;
 
@@ -1018,7 +896,7 @@ export function processProjectStateUpdateFromBackend(
     x.projectState,
     currentState,
   );
-  logStateEvent(
+  console.log(
     "[processProjectStateUpdateFromBackend] start",
     JSON.stringify({
       projectConfigId,
@@ -1047,7 +925,7 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  logStateEvent(
+  console.log(
     "[processProjectStateUpdateFromBackend] pending",
     JSON.stringify({
       projectConfigId,
@@ -1057,26 +935,11 @@ export function processProjectStateUpdateFromBackend(
       completedIds: Array.from(completedIds),
     }),
   );
-  if (
-    pendingTopLevelLayoutState.opId &&
-    completedIds.has(pendingTopLevelLayoutState.opId)
-  ) {
-    logStateEvent(
-      "[layout] completed",
-      JSON.stringify({
-        projectConfigId,
-        opId: pendingTopLevelLayoutState.opId,
-      }),
-    );
-    pendingTopLevelLayoutState.opId = null;
-    pendingTopLevelLayoutState.projectConfigId = null;
-    pendingTopLevelLayoutState.dirty = false;
-  }
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
   const mergedChatSummary = summarizeChatSections(x.projectState);
-  logStateEvent(
+  console.log(
     "[processProjectStateUpdateFromBackend] merged",
     JSON.stringify({
       projectConfigId,
@@ -1413,7 +1276,7 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-export function debounced_route_set_top_level_section_layout() {
+export const debounced_route_set_top_level_section_layout = _.debounce(() => {
   const shareSession = useShareSession.getState();
   if (
     shareSession.isShareMode &&
@@ -1421,8 +1284,14 @@ export function debounced_route_set_top_level_section_layout() {
   ) {
     return;
   }
-  queueTopLevelLayoutPersist();
-}
+  route_set_top_level_section_layout({
+    projectConfigId: getCurrProjectConfigId(),
+    topLevelSections: createTopLevelSectionLayoutDict(
+      useProjectState.getState().sections,
+      useNodeInternals.getState().x,
+    ),
+  });
+}, 500);
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
@@ -1470,13 +1339,6 @@ function addPendingOp(apply: (x: ZustandProjectState) => void) {
   usePendingOperations.setState((state) => ({
     pending: [...state.pending, { apply, opId, acknowledged: false }],
   }));
-  logStateEvent(
-    "[pendingOps] add",
-    JSON.stringify({
-      opId,
-      pendingCount: usePendingOperations.getState().pending.length,
-    }),
-  );
   return opId;
 }
 
@@ -1494,37 +1356,12 @@ function acknowledgePendingOp(opId: string) {
     };
     return { pending: nextPending };
   });
-  logStateEvent(
-    "[pendingOps] acknowledge",
-    JSON.stringify({
-      opId,
-      pendingCount: usePendingOperations.getState().pending.length,
-    }),
-  );
 }
 
 function removePendingOp(opId: string) {
   usePendingOperations.setState((state) => ({
     pending: state.pending.filter((opInfo) => opInfo.opId !== opId),
   }));
-  if (pendingTopLevelLayoutState.opId === opId) {
-    pendingTopLevelLayoutState.opId = null;
-    pendingTopLevelLayoutState.projectConfigId = null;
-    pendingTopLevelLayoutState.dirty = false;
-    logStateEvent(
-      "[layout] cleared",
-      JSON.stringify({
-        opId,
-      }),
-    );
-  }
-  logStateEvent(
-    "[pendingOps] remove",
-    JSON.stringify({
-      opId,
-      pendingCount: usePendingOperations.getState().pending.length,
-    }),
-  );
 }
 
 function isResponseDataAndStatus(
@@ -1539,14 +1376,6 @@ function isResponseDataAndStatus(
   );
 }
 
-function isSuccessfulResponse(value: ResponseDataAndStatus<unknown>): boolean {
-  return (
-    typeof value.status === "number" &&
-    value.status >= 200 &&
-    value.status < 300
-  );
-}
-
 export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
@@ -1558,29 +1387,11 @@ export function dispatchOptimisticProjectStateUpdate({
 }) {
   useProjectState.setState(apply);
   const opId = addPendingOp(apply);
-  logStateEvent(
-    "[dispatchOptimisticProjectStateUpdate] queued",
-    JSON.stringify({
-      opId,
-      pendingCount: usePendingOperations.getState().pending.length,
-      hasRollback: Boolean(rollback),
-    }),
-  );
   const result = send(opId);
   if (result instanceof Promise) {
     void result.then((res) => {
-      if (isResponseDataAndStatus(res)) {
-        logStateEvent(
-          "[dispatchOptimisticProjectStateUpdate] response",
-          JSON.stringify({
-            opId,
-            status: res.status,
-            hasResponse: res.hasResponse,
-          }),
-        );
-      }
       // A 200 response means the backend accepted the op; don't keep reapplying it.
-      if (isResponseDataAndStatus(res) && isSuccessfulResponse(res)) {
+      if (isResponseDataAndStatus(res) && res200(res)) {
         acknowledgePendingOp(opId);
       } else if (isResponseDataAndStatus(res) && res.hasResponse) {
         removePendingOp(opId);

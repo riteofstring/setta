@@ -108,7 +108,6 @@ export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
     newNodes.get(n.id).position = n.position;
   }
   useNodeInternals.setState({ x: newNodes });
-  debounced_route_set_top_level_section_layout();
   const sectionIds = new Set<string>();
   const projectState = useProjectState.getState();
   for (const item of nodeDragItems) {

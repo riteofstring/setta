@@ -202,38 +202,4 @@ describe("chat section state persistence during backend updates", () => {
       ),
     ).toBe(true);
   });
-
-  it("treats 204 responses as successful acknowledgements", async () => {
-    const route_set_chat_section_state =
-      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
-    route_set_chat_section_state.mockResolvedValue({
-      status: 204,
-      hasResponse: true,
-      data: null,
-    });
-
-    persistChatSectionState({
-      sectionId,
-      nextState: {
-        messages: [
-          {
-            id: "msg-204",
-            role: ChatRoleEnum.user,
-            content: [createMessageTextContent({ text: "Ping" })],
-            attachments: [],
-          },
-        ],
-        inputText: "",
-        waitingForResponse: true,
-        toolCallArguments: {},
-      },
-      reason: "test-204",
-    });
-
-    await flushPromises();
-
-    const pendingOps = usePendingOperations.getState().pending;
-    expect(pendingOps.length).toBe(1);
-    expect(pendingOps[0].acknowledged).toBe(true);
-  });
 });

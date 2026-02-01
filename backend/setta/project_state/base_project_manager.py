@@ -629,11 +629,7 @@ class BaseProjectManager(ABC):
         logger.debug("Putting message in queue")
         self._register_pending_frontend_op(frontend_op_id)
         await self.message_queue.put((coroutine, future, frontend_op_id))
-        logger.debug(
-            "Message in queue, waiting for result op_id=%s queue_size=%s",
-            frontend_op_id,
-            self.message_queue.qsize(),
-        )
+        logger.debug("Message in queue, waiting for result")
 
         # Wait for the message to be processed and return the result
         logger.debug("Awaiting future %s", id(future))
@@ -727,24 +723,11 @@ class BaseProjectManager(ABC):
             self.pending_frontend_ops.pop(frontend_op_id, None)
             if success:
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
-        logger.debug(
-            "finalize_frontend_op op_id=%s success=%s pending_count=%s completed_count=%s",
-            frontend_op_id,
-            success,
-            len(self.pending_frontend_ops),
-            len(self.completed_op_ids_since_last_broadcast),
-        )
         self._update_pending_ops_idle_event()
 
     def _register_pending_frontend_op(self, frontend_op_id: str | None):
         if frontend_op_id:
             self.pending_frontend_ops[frontend_op_id] = None
-            logger.debug(
-                "register_frontend_op op_id=%s pending_count=%s queue_size=%s",
-                frontend_op_id,
-                len(self.pending_frontend_ops),
-                self.message_queue.qsize(),
-            )
         self._update_pending_ops_idle_event()
 
     @asynccontextmanager
@@ -1054,12 +1037,6 @@ class BaseProjectManager(ABC):
     )
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
         """Persist the provided top-level section layout ordering for a project."""
-        logger.debug(
-            "set_top_level_section_layout project_config_id=%s op_id=%s section_count=%s",
-            x.projectConfigId,
-            x.frontendOpId,
-            len(x.topLevelSections),
-        )
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
@@ -3359,7 +3336,6 @@ class BaseProjectManager(ABC):
         self._mark_current_frontend_op_completed_before_broadcast()
         completed_op_ids = self.completed_op_ids_since_last_broadcast
         pending_op_ids = list(self.pending_frontend_ops.keys())
-        current_op_id = self._current_frontend_op_id.get()
         logger.debug(
             "broadcast_project_state project_config_id=%s sections=%s code_objs=%s variants=%s completed_ops=%s pending_ops=%s",
             project_state.projectConfig.id,
@@ -3368,13 +3344,6 @@ class BaseProjectManager(ABC):
             len(project_state.sectionVariants),
             len(completed_op_ids),
             len(pending_op_ids),
-        )
-        logger.debug(
-            "broadcast_project_state detail current_op_id=%s pending_sample=%s completed_sample=%s queue_size=%s",
-            current_op_id,
-            pending_op_ids[:10],
-            completed_op_ids[:10],
-            self.message_queue.qsize(),
         )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,

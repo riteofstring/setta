@@ -5,7 +5,6 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { logStateEvent } from "state/actions/stateLogs";
 import {
   ChatDetails,
   ToolArgumentPreviewEntry,
@@ -16,13 +15,7 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  APPROVAL_TOOL_NAME,
-  extractSubAgentToolCallIdFromApproval,
-  normalizeToolName,
-  parseApprovalPayload,
-  resolveToolCallArguments,
-} from "utils/claudeTools";
+import { normalizeToolName, resolveToolCallArguments } from "utils/claudeTools";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -115,7 +108,6 @@ const pendingSubAgentChunksByCallId = new Map<
   string,
   Array<LLMStreamingResponse["chunk"]>
 >();
-const approvalSectionByMessageId = new Map<string, string>();
 
 function buildSubAgentKey(projectConfigId: string, toolCallId: string): string {
   return `${projectConfigId}:${toolCallId}`;
@@ -352,7 +344,7 @@ async function createSubAgentSection({
   agentProfileId: string | null;
   toolCallArguments: Record<string, string>;
 }): Promise<void> {
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] start",
     JSON.stringify({
       projectConfigId,
@@ -365,7 +357,7 @@ async function createSubAgentSection({
     }),
   );
   if (useShareSession.getState().isShareMode) {
-    logStateEvent(
+    console.log(
       "[createSubAgentSection] share-mode-skip",
       JSON.stringify({ projectConfigId, parentSectionId, toolCallId: toolCall.id }),
     );
@@ -380,7 +372,7 @@ async function createSubAgentSection({
       SectionTypeEnum.Chat,
     );
   } catch {
-    logStateEvent(
+    console.log(
       "[createSubAgentSection] missing-parent-impl",
       JSON.stringify({ projectConfigId, parentSectionId, toolCallId: toolCall.id }),
     );
@@ -391,7 +383,7 @@ async function createSubAgentSection({
     ? parentCore.displayName.trim()
     : parentCore?.name ?? null;
   const messages = buildSubAgentMessages(toolCall, label, parentLabel);
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] create-section",
     JSON.stringify({
       projectConfigId,
@@ -419,7 +411,7 @@ async function createSubAgentSection({
       toolCallArguments,
     },
   });
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] create-section-response",
     JSON.stringify({
       projectConfigId,
@@ -442,7 +434,7 @@ async function createSubAgentSection({
     `Sub-agent - ${displayLabel}`,
     "Sub-agent",
   );
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] created",
     JSON.stringify({
       projectConfigId,
@@ -458,7 +450,7 @@ async function createSubAgentSection({
     sectionId: childSectionId,
     name: sectionName,
   });
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] set-name-dispatch",
     JSON.stringify({
       projectConfigId,
@@ -471,7 +463,7 @@ async function createSubAgentSection({
     targetSectionId: childSectionId,
     kind: AgenticEdgeKindEnum.chat_chat,
   });
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] edge-created",
     JSON.stringify({
       projectConfigId,
@@ -494,7 +486,7 @@ async function createSubAgentSection({
   flushPendingSubAgentChunks(key, childSectionId, projectConfigId);
   const pendingResult = pendingSubAgentResultsByCallId.get(key);
   if (pendingResult) {
-    logStateEvent(
+    console.log(
       "[createSubAgentSection] pending-tool-result",
       JSON.stringify({
         projectConfigId,
@@ -517,7 +509,7 @@ function flushPendingSubAgentChunks(
   if (!pendingChunks || pendingChunks.length === 0) {
     return;
   }
-  logStateEvent(
+  console.log(
     "[createSubAgentSection] pending-stream-chunks",
     JSON.stringify({
       projectConfigId,
@@ -535,7 +527,7 @@ function appendSubAgentToolResult(
   sectionId: string,
   toolResult: ToolChatMessage,
 ): void {
-  logStateEvent(
+  console.log(
     "[appendSubAgentToolResult] start",
     JSON.stringify({
       sectionId,
@@ -554,7 +546,7 @@ function appendSubAgentToolResult(
       SectionTypeEnum.Chat,
     );
   } catch {
-    logStateEvent(
+    console.log(
       "[appendSubAgentToolResult] missing-impl",
       JSON.stringify({ sectionId, toolCallId: toolResult.tool_call_id }),
     );
@@ -565,7 +557,7 @@ function appendSubAgentToolResult(
     (message) => message.id === streamMessageId,
   );
   if (hasStreamMessage) {
-    logStateEvent(
+    console.log(
       "[appendSubAgentToolResult] skip-streamed",
       JSON.stringify({
         sectionId,
@@ -581,7 +573,7 @@ function appendSubAgentToolResult(
       message.tool_call_id === toolResult.tool_call_id,
   );
   if (existingToolResult) {
-    logStateEvent(
+    console.log(
       "[appendSubAgentToolResult] already-present",
       JSON.stringify({ sectionId, toolCallId: toolResult.tool_call_id }),
     );
@@ -614,7 +606,7 @@ function appendSubAgentToolResult(
         frontendOpId,
       }),
   });
-  logStateEvent(
+  console.log(
     "[appendSubAgentToolResult] dispatched",
     JSON.stringify({
       sectionId,
@@ -629,14 +621,14 @@ function handleSubAgentToolCalls(
   message: MessageFinalizedEvent["message"],
 ): void {
   if (useShareSession.getState().isShareMode) {
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolCalls] share-mode-skip",
       JSON.stringify({ sectionId }),
     );
     return;
   }
   if (message.role !== ChatRoleEnum.assistant) {
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolCalls] non-assistant",
       JSON.stringify({ sectionId, role: message.role }),
     );
@@ -644,13 +636,13 @@ function handleSubAgentToolCalls(
   }
   const toolCalls = message.tool_calls ?? [];
   if (toolCalls.length === 0) {
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolCalls] no-tool-calls",
       JSON.stringify({ sectionId }),
     );
     return;
   }
-  logStateEvent(
+  console.log(
     "[handleSubAgentToolCalls] tool-calls",
     JSON.stringify({
       sectionId,
@@ -668,7 +660,7 @@ function handleSubAgentToolCalls(
       SectionTypeEnum.Chat,
     );
   } catch {
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolCalls] missing-parent-impl",
       JSON.stringify({ sectionId, projectConfigId }),
     );
@@ -679,7 +671,7 @@ function handleSubAgentToolCalls(
   for (const toolCall of toolCalls) {
     const normalizedName = normalizeSubAgentToolName(toolCall.function?.name);
     if (!normalizedName || !SUB_AGENT_TOOL_NAMES.has(normalizedName)) {
-      logStateEvent(
+      console.log(
         "[handleSubAgentToolCalls] skip-tool",
         JSON.stringify({
           sectionId,
@@ -692,7 +684,7 @@ function handleSubAgentToolCalls(
     }
     const key = buildSubAgentKey(projectConfigId, toolCall.id);
     if (subAgentSectionsByCallId.has(key)) {
-      logStateEvent(
+      console.log(
         "[handleSubAgentToolCalls] already-tracked",
         JSON.stringify({ sectionId, toolCallId: toolCall.id }),
       );
@@ -701,7 +693,7 @@ function handleSubAgentToolCalls(
     const args = resolveToolCallArguments(toolCall, toolCallArguments);
     const label = resolveSubAgentLabel(normalizedName, args, profiles);
     const agentProfileId = resolveSubAgentProfileId(args);
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolCalls] create-sub-agent",
       JSON.stringify({
         sectionId,
@@ -752,7 +744,7 @@ function handleSubAgentToolResult(toolResult: ToolChatMessage): void {
   const key = buildSubAgentKey(projectConfigId, toolResult.tool_call_id);
   const info = subAgentSectionsByCallId.get(key);
   if (!info) {
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolResult] no-section",
       JSON.stringify({
         toolCallId: toolResult.tool_call_id,
@@ -762,7 +754,7 @@ function handleSubAgentToolResult(toolResult: ToolChatMessage): void {
     return;
   }
   if (!info.sectionId) {
-    logStateEvent(
+    console.log(
       "[handleSubAgentToolResult] pending-section",
       JSON.stringify({
         toolCallId: toolResult.tool_call_id,
@@ -772,7 +764,7 @@ function handleSubAgentToolResult(toolResult: ToolChatMessage): void {
     pendingSubAgentResultsByCallId.set(key, toolResult);
     return;
   }
-  logStateEvent(
+  console.log(
     "[handleSubAgentToolResult] append",
     JSON.stringify({
       toolCallId: toolResult.tool_call_id,
@@ -804,90 +796,6 @@ function resolveSectionIdForChatId(chatId: string): string | null {
       typeof impl.chatId === "string" && impl.chatId.trim() ? impl.chatId : null;
     if (candidate === chatId) {
       return sectionId;
-    }
-  }
-  return null;
-}
-
-function resolveSubAgentSectionIdForToolCallId(
-  toolCallId: string,
-  projectConfigId: string,
-): string | null {
-  const key = buildSubAgentKey(projectConfigId, toolCallId);
-  const info = subAgentSectionsByCallId.get(key);
-  if (info?.sectionId) {
-    return info.sectionId;
-  }
-  return resolveSectionIdForChatId(toolCallId);
-}
-
-function getChunkMessageId(chunk: LLMStreamingResponse["chunk"]): string | null {
-  switch (chunk.type) {
-    case StreamingEventTypeEnum.MESSAGE_START:
-    case StreamingEventTypeEnum.MESSAGE_FINALIZED:
-      return chunk.message.id;
-    case StreamingEventTypeEnum.MESSAGE_STOP:
-    case StreamingEventTypeEnum.DELTA:
-    case StreamingEventTypeEnum.TOOL_CALL_DELTA:
-      return chunk.message_id;
-    default:
-      return null;
-  }
-}
-
-function resolveApprovalTargetSectionId(
-  chunk: LLMStreamingResponse["chunk"],
-  sectionId: string | null,
-  projectConfigId: string,
-): string | null {
-  if (
-    chunk.type !== StreamingEventTypeEnum.MESSAGE_START &&
-    chunk.type !== StreamingEventTypeEnum.MESSAGE_FINALIZED
-  ) {
-    return null;
-  }
-  const message = chunk.message;
-  if (message.role !== ChatRoleEnum.assistant) {
-    return null;
-  }
-  const toolCalls = message.tool_calls ?? [];
-  if (toolCalls.length === 0) {
-    return null;
-  }
-  let toolCallArguments: Record<string, string> = {};
-  if (sectionId) {
-    try {
-      const impl = getCurrEffectiveSectionImplOfType(
-        useProjectState.getState(),
-        sectionId,
-        SectionTypeEnum.Chat,
-      );
-      toolCallArguments = impl.toolCallArguments ?? {};
-    } catch {
-      toolCallArguments = {};
-    }
-  }
-  for (const toolCall of toolCalls) {
-    const normalizedName = normalizeToolName(toolCall.function?.name);
-    if (normalizedName !== APPROVAL_TOOL_NAME) {
-      continue;
-    }
-    const resolvedArgs = resolveToolCallArguments(toolCall, toolCallArguments);
-    const approvalPayload = parseApprovalPayload(resolvedArgs);
-    if (!approvalPayload) {
-      continue;
-    }
-    const parentToolCallId =
-      extractSubAgentToolCallIdFromApproval(approvalPayload);
-    if (!parentToolCallId) {
-      continue;
-    }
-    const targetSectionId = resolveSubAgentSectionIdForToolCallId(
-      parentToolCallId,
-      projectConfigId,
-    );
-    if (targetSectionId) {
-      return targetSectionId;
     }
   }
   return null;
@@ -1394,15 +1302,15 @@ export async function getLLMChat(
   sectionId?: string,
 ): Promise<void> {
   const projectConfigId = getCurrProjectConfigId();
-  logStateEvent(
+  console.log(
     "[getLLMChat] request",
     JSON.stringify({ chatId, projectConfigId, sectionId: sectionId ?? null }),
   );
   const res = await route_get_llm_chat({ chatId, projectConfigId });
-  logStateEvent("[getLLMChat] response", JSON.stringify(res));
+  console.log("[getLLMChat] response", JSON.stringify(res));
   if (res200(res)) {
     const { messages, waitingForResponse, llmConfig } = res.data;
-    logStateEvent(
+    console.log(
       "[getLLMChat] apply",
       JSON.stringify({
         chatId,
@@ -1454,7 +1362,7 @@ export async function getExternalAgentChat(
   projectConfigId: string | null,
   sectionId?: string,
 ): Promise<void> {
-  logStateEvent(
+  console.log(
     "[getExternalAgentChat] request",
     JSON.stringify({ chatId, projectConfigId, sectionId: sectionId ?? null }),
   );
@@ -1462,10 +1370,10 @@ export async function getExternalAgentChat(
     chatId,
     projectConfigId,
   });
-  logStateEvent("[getExternalAgentChat] response", JSON.stringify(res));
+  console.log("[getExternalAgentChat] response", JSON.stringify(res));
   if (res200(res)) {
     const { messages, waitingForResponse, toolCallArguments } = res.data;
-    logStateEvent(
+    console.log(
       "[getExternalAgentChat] apply",
       JSON.stringify({
         chatId,
@@ -1525,7 +1433,7 @@ export async function submitMessage(
   sectionId?: string | null,
 ): Promise<string | null> {
   const trimmed = message.trim();
-  logStateEvent(
+  console.log(
     "[submitMessage] start",
     JSON.stringify({
       chatId,
@@ -1541,7 +1449,7 @@ export async function submitMessage(
     }),
   );
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
-    logStateEvent(
+    console.log(
       "[submitMessage] early-exit",
       JSON.stringify({
         reason:
@@ -1568,7 +1476,7 @@ export async function submitMessage(
   };
   const userMessageId = userMessage.id;
 
-  logStateEvent(
+  console.log(
     "[submitMessage] optimistic-user-message",
     JSON.stringify({
       chatId,
@@ -1581,7 +1489,7 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
-    logStateEvent(
+    console.log(
       "[submitMessage] route_get_llm_response request",
       JSON.stringify({
         chatId,
@@ -1605,13 +1513,13 @@ export async function submitMessage(
       projectConfigId,
       sectionId: sectionId ?? null,
     });
-    logStateEvent(
+    console.log(
       "[submitMessage] route_get_llm_response response",
       JSON.stringify(res),
     );
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
-      logStateEvent(
+      console.log(
         "[submitMessage] route_get_llm_response ok",
         JSON.stringify({
           returnedChatId,
@@ -1633,7 +1541,7 @@ export async function submitMessage(
       return returnedChatId;
     }
     rollbackOptimisticUserMessage(chatId, userMessageId);
-    logStateEvent(
+    console.log(
       "[submitMessage] route_get_llm_response rejected",
       JSON.stringify({
         chatId,
@@ -1761,68 +1669,33 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   let sectionId = msg.sectionId;
   const projectConfigId = getCurrProjectConfigId();
-  const chunkMessageId = getChunkMessageId(chunk);
   if (!sectionId && chatId) {
     const resolvedSectionId = resolveSectionIdForChatId(chatId);
     if (resolvedSectionId) {
       sectionId = resolvedSectionId;
-      logStateEvent(
+      console.log(
         "[receiveLLMResponseChunk] resolved-section",
         JSON.stringify({ chatId, sectionId }),
       );
     }
   }
-  logStateEvent(
+  console.log(
     "[receiveLLMResponseChunk] incoming",
     JSON.stringify({ chatId, sectionId, chunk }),
   );
   if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
-    logStateEvent(
+    console.log(
       "[receiveLLMResponseChunk] ignored-placeholder",
       JSON.stringify({ chatId, sectionId, chunkType: chunk.type }),
     );
     return;
-  }
-  if (chunkMessageId) {
-    const routedSectionId = approvalSectionByMessageId.get(chunkMessageId);
-    if (routedSectionId) {
-      sectionId = routedSectionId;
-      logStateEvent(
-        "[receiveLLMResponseChunk] routed-approval",
-        JSON.stringify({
-          messageId: chunkMessageId,
-          sectionId: routedSectionId,
-        }),
-      );
-    }
-  }
-  const approvalTargetSectionId = resolveApprovalTargetSectionId(
-    chunk,
-    sectionId,
-    projectConfigId,
-  );
-  if (approvalTargetSectionId) {
-    if (chunkMessageId) {
-      approvalSectionByMessageId.set(chunkMessageId, approvalTargetSectionId);
-    }
-    if (sectionId !== approvalTargetSectionId) {
-      logStateEvent(
-        "[receiveLLMResponseChunk] approval-reroute",
-        JSON.stringify({
-          fromSectionId: sectionId,
-          toSectionId: approvalTargetSectionId,
-          messageId: chunkMessageId,
-        }),
-      );
-    }
-    sectionId = approvalTargetSectionId;
   }
   if (!sectionId && chatId) {
     const key = buildSubAgentKey(projectConfigId, chatId);
     const info = subAgentSectionsByCallId.get(key);
     if (info?.sectionId) {
       sectionId = info.sectionId;
-      logStateEvent(
+      console.log(
         "[receiveLLMResponseChunk] resolved-subagent-section",
         JSON.stringify({ chatId, sectionId }),
       );
@@ -1830,7 +1703,7 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
       const pendingChunks = pendingSubAgentChunksByCallId.get(key) ?? [];
       pendingChunks.push(chunk);
       pendingSubAgentChunksByCallId.set(key, pendingChunks);
-      logStateEvent(
+      console.log(
         "[receiveLLMResponseChunk] queued-subagent-chunk",
         JSON.stringify({ chatId, chunkType: chunk.type }),
       );
@@ -1839,14 +1712,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
   if (sectionId) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
-    if (
-      chunk.type === StreamingEventTypeEnum.MESSAGE_STOP ||
-      chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED
-    ) {
-      if (chunkMessageId) {
-        approvalSectionByMessageId.delete(chunkMessageId);
-      }
-    }
     return;
   }
   if (!chatId) {
@@ -1976,7 +1841,7 @@ function applyChatSectionStreamDelta(
   sectionId: string,
   chunk: ChatSectionStreamChunk,
 ): ChatSectionState | null {
-  logStateEvent(
+  console.log(
     "[applyChatSectionStreamDelta] incoming",
     JSON.stringify({ sectionId, chunk }),
   );
@@ -1984,7 +1849,7 @@ function applyChatSectionStreamDelta(
   useProjectState.setState((state) => {
     const currentState = getChatSectionStateFromStore(state, sectionId);
     if (!currentState) {
-      logStateEvent(
+      console.log(
         "[applyChatSectionStreamDelta] missing-state",
         JSON.stringify({ sectionId, chunkType: chunk.type }),
       );
@@ -2011,14 +1876,14 @@ export function persistChatSectionState({
   reason: string;
 }): void {
   if (!nextState) {
-    logStateEvent(
+    console.log(
       "[persistChatSectionState] missing-state",
       JSON.stringify({ sectionId, reason }),
     );
     return;
   }
   const projectConfigId = getCurrProjectConfigId();
-  logStateEvent(
+  console.log(
     "[persistChatSectionState] send",
     JSON.stringify({
       sectionId,

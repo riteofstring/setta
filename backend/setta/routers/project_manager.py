@@ -501,10 +501,9 @@ async def route_set_top_level_section_layout(
     x: SetTopLevelSectionLayoutRequest, ctx: RuntimeContextFromRequest
 ):
     logger.debug(
-        "route_set_top_level_section_layout project_config_id=%s section_count=%s op_id=%s",
+        "route_set_top_level_section_layout project_config_id=%s section_count=%s",
         x.projectConfigId,
         len(x.topLevelSections),
-        x.frontendOpId,
     )
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
