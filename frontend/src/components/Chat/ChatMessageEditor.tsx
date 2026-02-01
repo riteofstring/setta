@@ -93,7 +93,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "w-full resize-none rounded-md border border-blue-200/60 bg-white/90 px-3 py-2 text-sm text-setta-900 outline-none focus-visible:ring-2 focus-visible:ring-blue-200 dark:border-blue-500/40 dark:bg-setta-900/70 dark:text-setta-100";
+      "w-full resize-none rounded-md border border-blue-200/60 bg-white/90 py-2 pl-10 pr-3 text-sm text-setta-900 outline-none focus-visible:ring-2 focus-visible:ring-blue-200 dark:border-blue-500/40 dark:bg-setta-900/70 dark:text-setta-100";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-200/80 dark:ring-blue-400/50"
       : "";
@@ -126,7 +126,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
               <button
                 type="button"
                 aria-label="Attachment options"
-                className={`absolute left-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
+                className={`absolute left-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
                   attachmentInputDisabled
                     ? "cursor-not-allowed opacity-40 hover:bg-transparent"
                     : "cursor-pointer"

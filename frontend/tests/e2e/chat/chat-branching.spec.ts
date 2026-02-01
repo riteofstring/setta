@@ -128,6 +128,14 @@ test.describe.serial("chat branching", () => {
 
       const editor = reloadedOriginalGroup.getByLabel("Edit message");
       await expect(editor).toBeVisible();
+      const editorLayout = await getEditLayout(
+        editor,
+        reloadedOriginalGroup.getByRole("button", {
+          name: "Attachment options",
+        }),
+      );
+      expect(editorLayout.paddingLeft).toBeGreaterThanOrEqual(36);
+      expect(editorLayout.buttonRight).toBeLessThan(editorLayout.textStartX);
       await editor.fill("Edited message");
       await reloadedOriginalGroup
         .getByRole("button", { name: "Save" })
@@ -241,6 +249,32 @@ async function getMessageGroupId(
     throw new Error(`Missing message id for text: ${text}`);
   }
   return messageId;
+}
+
+async function getEditLayout(
+  editor: Locator,
+  button: Locator,
+): Promise<{
+  paddingLeft: number;
+  textStartX: number;
+  buttonRight: number;
+}> {
+  const buttonHandle = await button.elementHandle();
+  if (!buttonHandle) {
+    throw new Error("Missing attachment options button.");
+  }
+  return editor.evaluate((element, buttonEl) => {
+    const editorRect = element.getBoundingClientRect();
+    const buttonRect = buttonEl.getBoundingClientRect();
+    const paddingLeft = Number.parseFloat(
+      window.getComputedStyle(element).paddingLeft,
+    );
+    return {
+      paddingLeft,
+      textStartX: editorRect.left + paddingLeft,
+      buttonRight: buttonRect.right,
+    };
+  }, buttonHandle);
 }
 
 async function setOverviewTab(page: Page, tabName: string): Promise<void> {
