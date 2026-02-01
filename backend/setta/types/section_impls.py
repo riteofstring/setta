@@ -171,7 +171,6 @@ class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     codeFileBinding: CodeFileBinding | None = None
-    attachedTerminalSectionId: ID | None = None
 
 
 class BaseParentSectionImpl(BaseSectionImpl):

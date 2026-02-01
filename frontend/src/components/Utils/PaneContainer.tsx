@@ -13,6 +13,7 @@ export function PaneContainer({
   vis,
   width,
   onResizeStop,
+  paddingClassName,
 }: {
   paneName: string;
   right: boolean;
@@ -21,6 +22,7 @@ export function PaneContainer({
   vis: boolean;
   width: number;
   onResizeStop?: (widthDiff: number) => void;
+  paddingClassName?: string;
 }) {
   const size = useWindowSize();
   const [vMax, setVMax] = useState(100000);
@@ -62,8 +64,9 @@ export function PaneContainer({
   const style = `${!right ? "-" : ""}${width - CLOSED_PANE_WIDTH}px`;
 
   const rightCondition = right
-    ? "justify-self-end left-auto border-l pr-10 place-items-center"
-    : "justify-self-start right-auto border-r pl-10 place-items-center";
+    ? "justify-self-end left-auto border-l pr-7 place-items-center"
+    : "justify-self-start right-auto border-r pl-9 place-items-center";
+  const paddingClasses = paddingClassName ?? "py-2.5";
 
   // flex flex-grow flex-col
 
@@ -84,7 +87,7 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3  min-h-0 min-w-0 border-setta-200 bg-setta-50 py-5 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${rightCondition} overflow-clip`}
+      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3  min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-clip`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
     >
       {children}

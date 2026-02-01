@@ -66,9 +66,13 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   nodes: Node[] | null;
 };
 
-function getSelector(nodes: Node[], overviewWidth: number) {
+function getSelector(
+  nodes: Node[],
+  overviewWidth: number,
+  uiEditorWidth: number,
+) {
   return (s: ReactFlowState): MiniMapSelector => {
-    const viewBB: Rect = getPaneRect(s, overviewWidth);
+    const viewBB: Rect = getPaneRect(s, overviewWidth, uiEditorWidth);
 
     return {
       viewBB,
@@ -125,8 +129,9 @@ function MiniMap({
   const svgRef = useRef<SVGSVGElement>(null);
   const nodes = useNodeInternals(getNodes, shallow);
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
+  const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
   const { boundingRect, viewBB } = useReactFlow(
-    getSelector(nodes, overviewWidth),
+    getSelector(nodes, overviewWidth, uiEditorWidth),
     shallow,
   );
   const elementWidth =

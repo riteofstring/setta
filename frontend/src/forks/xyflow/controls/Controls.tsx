@@ -58,7 +58,7 @@ const Controls = () => {
 
   return (
     <div
-      className="mb-11 mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800"
+      className="mt-auto flex w-8 flex-col items-center gap-1 overflow-hidden rounded-md border px-0.5 pb-2 pt-1.5 dark:border-setta-800"
       data-testid="rf__controls"
     >
       <button

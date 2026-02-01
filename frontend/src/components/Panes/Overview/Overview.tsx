@@ -2,7 +2,6 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
 import { useRef } from "react";
-import { BiHelpCircle } from "react-icons/bi";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import {
@@ -39,6 +38,9 @@ import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
+
+const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
+const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
@@ -77,6 +79,7 @@ export function Overview() {
   if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
+  const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
@@ -85,7 +88,7 @@ export function Overview() {
     selectedTabName: effectiveTabName,
     onTabClick: onOverviewTabClick,
     className:
-      "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
+      "flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs: null,
   };
 
@@ -96,7 +99,7 @@ export function Overview() {
       ref={overviewRef}
       data-tab-scope="overview"
     >
-      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
+      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_36px)] w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
@@ -173,14 +176,6 @@ export function Overview() {
           />
         )}
         <Controls />
-        <a
-          href="https://docs.setta.dev"
-          target="_blank"
-          className="focus-visible:ring-light-blue-500 absolute bottom-2 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
-          rel="noreferrer"
-        >
-          <BiHelpCircle />
-        </a>
       </div>
       <PaneContainer
         paneName={PaneNameEnum.overview}
@@ -189,6 +184,7 @@ export function Overview() {
         vis={vis}
         width={width}
         minimumWidth={250}
+        paddingClassName={isFileBrowserTab ? "pt-2.5 pb-0" : undefined}
       >
         {vis && <TabsVisible selectedTabName={effectiveTabName} />}
       </PaneContainer>
@@ -202,14 +198,26 @@ function TabsVisible({
   selectedTabName: OverviewTabName;
 }) {
   const title = OverviewTabNamePrettified[selectedTabName];
+  const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   return (
     <div
-      className="mx-[1px] flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1
-    flex-col overflow-hidden pl-1.5"
+      className={
+        isFullWidth
+          ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
+          : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
+      }
     >
-      <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-        {title}
-      </h2>
+      {isFullWidth ? (
+        <div className={FILE_BROWSER_META_INSET_CLASS}>
+          <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+            {title}
+          </h2>
+        </div>
+      ) : (
+        <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+          {title}
+        </h2>
+      )}
       <TabContent selectedTabName={selectedTabName} />
     </div>
   );
@@ -220,7 +228,12 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
     case OverviewTabNameEnum.FileBrowser:
-      return <FileBrowserPane />;
+      return (
+        <FileBrowserPane
+          metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
+          listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
+        />
+      );
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
