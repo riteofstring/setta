@@ -1,6 +1,7 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +27,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     PromptFormat,
     SectionSize,
+    SectionSizeMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -44,6 +46,7 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     edgeInputParams: list[ID] = Field(default_factory=list)
     edgeOutputPorts: list[EdgePort] = Field(default_factory=list)
 
