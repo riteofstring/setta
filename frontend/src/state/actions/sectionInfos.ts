@@ -108,6 +108,47 @@ function getAttachedTerminalSectionIds(
   return attachedIds;
 }
 
+function normalizeAttachedTerminalChildren(projectState: ZustandProjectState) {
+  for (const sectionId of Object.keys(projectState.sections)) {
+    const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
+    if (variantId === undefined) {
+      continue;
+    }
+    const variant = projectState.sectionVariants[variantId];
+    if (!variant) {
+      continue;
+    }
+    const impl = projectState.sectionImpls[variant.impl];
+    if (!impl || impl.type !== SectionTypeEnum.Code) {
+      continue;
+    }
+    const terminalId = impl.attachedTerminalSectionId;
+    if (!terminalId) {
+      continue;
+    }
+    const terminalVariantId =
+      projectState.projectConfig.sectionVariantMap[terminalId];
+    if (terminalVariantId === undefined) {
+      continue;
+    }
+    const terminalVariant = projectState.sectionVariants[terminalVariantId];
+    if (!terminalVariant) {
+      continue;
+    }
+    const terminalImpl = projectState.sectionImpls[terminalVariant.impl];
+    if (!terminalImpl || terminalImpl.type !== SectionTypeEnum.Terminal) {
+      continue;
+    }
+    if (isBaseParentSectionImpl(impl)) {
+      const currentChildren = impl.children ?? [];
+      if (currentChildren.length !== 1 || currentChildren[0] !== terminalId) {
+        impl.children = [terminalId];
+      }
+    }
+    projectState.parentSectionMap[terminalId] = sectionId;
+  }
+}
+
 export function getTopLevelSectionIdsForDisplay(
   projectState: ZustandProjectState,
 ): string[] {
@@ -663,6 +704,7 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
+  normalizeAttachedTerminalChildren(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,

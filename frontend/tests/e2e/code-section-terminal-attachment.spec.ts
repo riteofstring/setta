@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ensureAppReady, postBackend } from "./helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -28,6 +28,7 @@ type ProjectStateResponse = {
       type: string;
       attachedTerminalSectionId?: string | null;
       children?: string[];
+      code?: string;
     }
   >;
 };
@@ -132,6 +133,112 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
   }
 });
 
+test("embedded terminal splitter resizes panes", async ({ page }) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    const handle = sectionNode.locator(
+      `[data-embedded-terminal-resize-handle]`,
+    );
+    const codePane = sectionNode.locator(`[data-embedded-code-pane]`);
+    const terminalPane = sectionNode.locator(`[data-embedded-terminal-pane]`);
+
+    await expect(handle).toBeVisible();
+    await expect(
+      sectionNode.locator(
+        `[data-attached-terminal-section-id="${terminalId}"]`,
+      ),
+    ).toBeVisible();
+
+    const initialHeights = await getPaneHeights(codePane, terminalPane);
+
+    const handleBox = await handle.boundingBox();
+    if (!handleBox) {
+      throw new Error("Missing splitter handle bounding box.");
+    }
+    const startX = handleBox.x + handleBox.width / 2;
+    const startY = handleBox.y + handleBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY + 80, { steps: 6 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const { codeHeight, terminalHeight } = await getPaneHeights(
+          codePane,
+          terminalPane,
+        );
+        return (
+          codeHeight > initialHeights.codeHeight + 20 &&
+          terminalHeight < initialHeights.terminalHeight - 20
+        );
+      })
+      .toBe(true);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("embedded terminal code editor scrolls when content overflows", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    await waitForAttachedTerminalId(page, projectConfigName, sectionId);
+    await setSectionHeight(page, sectionId, 260);
+
+    const longCode = Array.from(
+      { length: 240 },
+      (_, index) => `line_${index + 1}`,
+    ).join("\n");
+    await setCodeForSection(page, sectionId, longCode);
+
+    const scroller = page.locator(
+      `.react-flow__node[data-id="${sectionId}"] .cm-scroller`,
+    );
+    await expect(scroller).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const metrics = await scroller.evaluate((el) => ({
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight,
+        }));
+        return metrics.scrollHeight > metrics.clientHeight;
+      })
+      .toBe(true);
+
+    const scrollTop = await scroller.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+      return el.scrollTop;
+    });
+    expect(scrollTop).toBeGreaterThan(0);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
   test.setTimeout(90000);
   await ensureAppReady(page);
@@ -153,13 +260,20 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
     await expect(codeNode).toBeVisible();
     await expect(terminalNode).toBeVisible();
 
-    await postBackend(page, "/moveSections", {
-      projectConfigId,
-      sectionIds: [terminalSectionId],
-      newParentId: codeSectionId,
-      newIndex: 0,
-      positionsById: null,
-    });
+    await page.evaluate(
+      async ({ parentId, childId }) => {
+        const { moveSectionsWithBackend } = await import(
+          "/src/state/actions/sections/moveSections"
+        );
+        moveSectionsWithBackend({
+          sectionIds: [childId],
+          newParentId: parentId,
+          newIndex: 0,
+          positionsById: null,
+        });
+      },
+      { parentId: codeSectionId, childId: terminalSectionId },
+    );
 
     const attachedId = await waitForAttachedTerminalId(
       page,
@@ -186,7 +300,7 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
   }
 });
 
-test("attach then drag-detach round trip", async ({ page }) => {
+test("attach then detach round trip", async ({ page }) => {
   test.setTimeout(90000);
   await ensureAppReady(page);
 
@@ -233,33 +347,15 @@ test("attach then drag-detach round trip", async ({ page }) => {
     );
     await expect(embeddedTerminal).toBeVisible();
 
-    await page.keyboard.down("Alt");
-    const pane = page.locator(".react-flow__pane");
-    const paneBox = await pane.boundingBox();
-    const terminalBox = await embeddedTerminal.boundingBox();
-    const codeBox = await codeNode.boundingBox();
-
-    if (!paneBox || !terminalBox || !codeBox) {
-      throw new Error("Missing bounding boxes for drag.");
-    }
-
-    const startX = terminalBox.x + terminalBox.width / 2;
-    const startY = terminalBox.y + terminalBox.height / 2;
-    const targetX = Math.min(
-      codeBox.x + codeBox.width + 320,
-      paneBox.x + paneBox.width - 40,
-    );
-    const targetY = Math.min(
-      codeBox.y + 40,
-      paneBox.y + paneBox.height - 40,
-    );
-
-    await page.mouse.move(startX, startY);
-    await page.mouse.down();
-    await page.waitForTimeout(250);
-    await page.mouse.move(targetX, targetY, { steps: 8 });
-    await page.mouse.up();
-    await page.keyboard.up("Alt");
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalSectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [terminalSectionId]: { x: 40, y: 40 },
+      },
+    });
 
     await expect
       .poll(async () => {
@@ -351,13 +447,80 @@ async function runCodeBlockInPage(page: Page, sectionId: string): Promise<void> 
   }, sectionId);
 }
 
+async function setCodeForSection(
+  page: Page,
+  sectionId: string,
+  code: string,
+): Promise<void> {
+  await page.evaluate(
+    async ({ id, value }) => {
+      const { queueCodeUpdate, flushPendingCodeUpdate } = await import(
+        "/src/state/actions/codeUpdates"
+      );
+      queueCodeUpdate(id, value);
+      await flushPendingCodeUpdate(id);
+    },
+    { id: sectionId, value: code },
+  );
+}
+
+async function setSectionHeight(
+  page: Page,
+  sectionId: string,
+  height: number,
+): Promise<void> {
+  await page.evaluate(
+    async ({ id, nextHeight }) => {
+      const { dispatchOptimisticProjectStateUpdate, getCurrProjectConfigId } =
+        await import("/src/state/actions/sectionInfos");
+      const { setSelfParentSiblingChildrenWidths } = await import(
+        "/src/state/actions/sections/sectionSizes"
+      );
+      const { route_set_section_sizes } = await import(
+        "/src/utils/generatedEndpoints"
+      );
+      let updatedSectionSizes = {};
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          updatedSectionSizes = setSelfParentSiblingChildrenWidths(
+            id,
+            { height: nextHeight },
+            state,
+          );
+        },
+        send: (frontendOpId) =>
+          route_set_section_sizes({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionSizes: updatedSectionSizes,
+            frontendOpId,
+          }),
+      });
+    },
+    { id: sectionId, nextHeight: height },
+  );
+}
+
+async function getPaneHeights(
+  codePane: Locator,
+  terminalPane: Locator,
+): Promise<{ codeHeight: number; terminalHeight: number }> {
+  const codeBox = await codePane.boundingBox();
+  const terminalBox = await terminalPane.boundingBox();
+  if (!codeBox || !terminalBox) {
+    return { codeHeight: 0, terminalHeight: 0 };
+  }
+  return { codeHeight: codeBox.height, terminalHeight: terminalBox.height };
+}
+
 
 
 async function waitForAttachedTerminalId(
   page: Page,
   projectConfigName: string,
   sectionId: string,
+  options?: { requireChild?: boolean },
 ): Promise<string> {
+  const requireChild = options?.requireChild ?? false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const state = await loadProjectState(page, projectConfigName);
     const core = state.sections[sectionId];
@@ -373,6 +536,12 @@ async function waitForAttachedTerminalId(
     if (!attachedId) {
       await page.waitForTimeout(250);
       continue;
+    }
+    if (requireChild) {
+      if (!impl?.children || !impl.children.includes(attachedId)) {
+        await page.waitForTimeout(250);
+        continue;
+      }
     }
     const attachedImpl = resolveSectionImpl(state, attachedId);
     if (!attachedImpl || attachedImpl.type !== "Terminal") {

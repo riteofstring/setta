@@ -289,13 +289,33 @@ function isTerminalSection(
   );
 }
 
+function findAttachedParentId(
+  state: ZustandProjectState,
+  sectionId: string,
+): string | null {
+  for (const candidateId of Object.keys(state.sections)) {
+    const impl = getCurrEffectiveSectionImpl(state, candidateId);
+    if (
+      impl.type === SectionTypeEnum.Code &&
+      impl.attachedTerminalSectionId === sectionId
+    ) {
+      return candidateId;
+    }
+  }
+  return null;
+}
+
 function resolveParentIds(
   state: ZustandProjectState,
   sectionIds: string[],
 ): Record<string, string | null> {
   const parentsById: Record<string, string | null> = {};
   for (const sectionId of sectionIds) {
-    parentsById[sectionId] = state.parentSectionMap[sectionId] ?? null;
+    let parentId = state.parentSectionMap[sectionId] ?? null;
+    if (!parentId && isTerminalSection(state, sectionId)) {
+      parentId = findAttachedParentId(state, sectionId);
+    }
+    parentsById[sectionId] = parentId;
   }
   return parentsById;
 }
