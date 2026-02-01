@@ -9,7 +9,6 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
@@ -23,18 +22,9 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import {
-  createAgenticEdgeFromSections,
-  deleteAgenticEdgesById,
-} from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
-import { useAIStore, useProjectState } from "state/definitions";
-import { useShareCapabilities } from "state/hooks/share";
-import {
-  AgenticEdgeKindEnum,
-  EngineTypeEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { useAIStore } from "state/definitions";
+import { EngineTypeEnum } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -335,7 +325,6 @@ export function ProjectChat() {
                 </p>
               </div>
             ) : null}
-            <ProjectChatContextLinks chatId={chatId} />
             <ProjectChatCore
               chatId={chatId}
               placeholderText={placeholderText}
@@ -350,145 +339,5 @@ export function ProjectChat() {
         )}
       </div>
     )
-  );
-}
-
-function ProjectChatContextLinks({
-  chatId,
-}: {
-  chatId: string | null | undefined;
-}) {
-  const { canEditStructure } = useShareCapabilities();
-  const {
-    sections,
-    sectionVariants,
-    sectionImpls,
-    sectionVariantMap,
-    agenticEdges,
-  } = useProjectState(
-    (state) => ({
-      sections: state.sections,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-      agenticEdges: state.projectConfig.agenticEdges,
-    }),
-    _.isEqual,
-  );
-
-  const sectionOptions = useMemo(() => {
-    const options: Array<{ id: string; name: string }> = [];
-    for (const [id, core] of Object.entries(sections)) {
-      const variantId = sectionVariantMap[id];
-      if (!variantId) {
-        continue;
-      }
-      const variant = sectionVariants[variantId];
-      if (!variant) {
-        continue;
-      }
-      const impl = sectionImpls[variant.impl];
-      if (!impl || impl.type === SectionTypeEnum.Chat) {
-        continue;
-      }
-      const displayName = core.displayName?.trim();
-      const name =
-        displayName && displayName.length > 0 ? displayName : core.name || id;
-      options.push({ id, name });
-    }
-    return _.sortBy(options, (entry) => entry.name.toLowerCase());
-  }, [sectionImpls, sectionVariantMap, sectionVariants, sections]);
-
-  const contextItems = useMemo<AllItemsType<string>>(() => {
-    return [{ group: "Sections", items: sectionOptions }];
-  }, [sectionOptions]);
-
-  const contextEdges = useMemo(() => {
-    if (typeof chatId !== "string") {
-      return [];
-    }
-    return agenticEdges.filter(
-      (edge) =>
-        edge.kind === AgenticEdgeKindEnum.section_chat &&
-        edge.targetSectionId === chatId,
-    );
-  }, [agenticEdges, chatId]);
-
-  const contextOptionCount = contextItems[0]?.items.length ?? 0;
-  const canEditLinks = canEditStructure && typeof chatId === "string";
-
-  const handleAddContextSection = useCallback(
-    (value: string | null) => {
-      if (!value || typeof chatId !== "string" || !canEditLinks) {
-        return;
-      }
-      createAgenticEdgeFromSections({
-        sourceSectionId: value,
-        targetSectionId: chatId,
-        kind: AgenticEdgeKindEnum.section_chat,
-      });
-    },
-    [canEditLinks, chatId],
-  );
-
-  const sectionLabelsById = useMemo(() => {
-    const labels: Record<string, string> = {};
-    for (const [id, core] of Object.entries(sections)) {
-      const display = core.displayName?.trim();
-      labels[id] = display && display.length > 0 ? display : core.name || id;
-    }
-    return labels;
-  }, [sections]);
-
-  if (typeof chatId !== "string") {
-    return null;
-  }
-
-  return (
-    <div className="mb-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-      <div className="flex flex-col gap-2">
-        <IdNameCombobox
-          allItems={contextItems}
-          value={null}
-          small={true}
-          onSelectedItemChange={handleAddContextSection}
-          placeholder={
-            contextOptionCount > 0 ? "Add a section" : "No sections available"
-          }
-          outerDivClasses="justify-center"
-          inputOuterClasses="!h-7"
-          isDisabled={!canEditLinks || contextOptionCount === 0}
-          selectedItemCanBeNull
-          clearInputAfterSelection
-        />
-        {contextEdges.length === 0 ? (
-          <p className="text-[11px] text-setta-500 dark:text-setta-500">
-            No context links yet.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {contextEdges.map((edge) => (
-              <div
-                key={edge.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-              >
-                <span className="truncate">
-                  {sectionLabelsById[edge.sourceSectionId] ??
-                    edge.sourceSectionId}
-                </span>
-                <button
-                  type="button"
-                  className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                  onClick={() => deleteAgenticEdgesById([edge.id])}
-                  disabled={!canEditLinks}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

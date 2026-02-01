@@ -665,7 +665,6 @@ function ManagedChatArea({
           isExternalEngine,
           messageId,
           agentProfileId,
-          sectionId,
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
