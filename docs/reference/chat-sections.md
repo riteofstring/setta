@@ -16,7 +16,7 @@ Chat sections store the following fields on the section impl:
 ## Managed mode
 Managed mode uses the central LLM chat manager:
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
-- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, and `thinking`.
+- `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.

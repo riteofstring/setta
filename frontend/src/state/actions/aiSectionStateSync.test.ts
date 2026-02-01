@@ -1,6 +1,6 @@
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { resetProjectStores } from "state/utils";
 import { markChatStreamActive } from "state/aiStreamingTracker";
+import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
   LLMConfig,
