@@ -859,6 +859,12 @@ export async function route_set_code_section_diagnostic_code_suppression(
   return await post("/setCodeSectionDiagnosticCodeSuppression", x);
 }
 
+export async function route_set_code_section_attached_terminal(
+  x: gt.SetCodeSectionAttachedTerminalRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeSectionAttachedTerminal", x);
+}
+
 export async function route_set_code_obj_name(
   x: gt.SetCodeObjNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -959,30 +965,6 @@ export async function route_set_edges(
   x: gt.SetEdgesRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setEdges", x);
-}
-
-export async function route_create_agentic_edge(
-  x: gt.CreateAgenticEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createAgenticEdge", x);
-}
-
-export async function route_update_agentic_edge(
-  x: gt.UpdateAgenticEdgeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateAgenticEdge", x);
-}
-
-export async function route_delete_agentic_edges(
-  x: gt.DeleteAgenticEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteAgenticEdges", x);
-}
-
-export async function route_set_agentic_edges(
-  x: gt.SetAgenticEdgesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setAgenticEdges", x);
 }
 
 export async function route_set_section_variant(
