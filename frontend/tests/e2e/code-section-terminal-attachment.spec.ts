@@ -239,6 +239,141 @@ test("embedded terminal code editor scrolls when content overflows", async ({
   }
 });
 
+test("embedded terminals only receive runs from their code section", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const codeXId = await createCodeSection(page);
+    const codeYId = await createCodeSection(page);
+    const markerX = `X_MARKER_${Date.now()}`;
+    const markerY = `Y_MARKER_${Date.now()}`;
+
+    await setCodeForSection(
+      page,
+      codeXId,
+      `import sys\nprint("${markerX}", flush=True)\n`,
+    );
+    await setCodeForSection(
+      page,
+      codeYId,
+      `import sys\nprint("${markerY}", flush=True)\n`,
+    );
+
+    await runCodeBlockInPage(page, codeXId);
+    const terminalXId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeXId,
+    );
+    await expect
+      .poll(async () => {
+        return await getEmbeddedTerminalText(page, terminalXId);
+      })
+      .toContain(markerX);
+
+    await runCodeBlockInPage(page, codeYId);
+    const terminalYId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeYId,
+    );
+    expect(terminalYId).not.toBe(terminalXId);
+    await expect
+      .poll(async () => {
+        return await getEmbeddedTerminalText(page, terminalYId);
+      })
+      .toContain(markerY);
+
+    await expect
+      .poll(async () => {
+        const text = await getEmbeddedTerminalText(page, terminalXId);
+        return text.includes(markerY);
+      })
+      .toBe(false);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("terminal drop placeholder matches embedded size", async ({ page }) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+  let dragStarted = false;
+  let altPressed = false;
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    const terminalSectionId = await createTerminalSection(page);
+
+    const codeNode = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"]`,
+    );
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalSectionId}"]`,
+    );
+
+    await expect(codeNode).toBeVisible();
+    await expect(terminalNode).toBeVisible();
+
+    await page.keyboard.down("Alt");
+    altPressed = true;
+
+    const terminalBox = await terminalNode.boundingBox();
+    const codeBox = await codeNode.boundingBox();
+    if (!terminalBox || !codeBox) {
+      throw new Error("Missing bounding boxes for drag.");
+    }
+
+    const startX = terminalBox.x + terminalBox.width / 2;
+    const startY = terminalBox.y + terminalBox.height / 2;
+    const targetX = codeBox.x + codeBox.width / 2;
+    const targetY = codeBox.y + codeBox.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    dragStarted = true;
+    await page.mouse.move(targetX, targetY, { steps: 8 });
+
+    const terminalPane = codeNode.locator(`[data-embedded-terminal-pane]`);
+    const placeholder = codeNode.locator(`[data-dnd-placeholder="true"]`);
+
+    await expect(terminalPane).toBeVisible();
+    await expect(placeholder).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const placeholderBox = await placeholder.boundingBox();
+        const paneBox = await terminalPane.boundingBox();
+        if (!placeholderBox || !paneBox) {
+          return false;
+        }
+        const widthDelta = Math.abs(
+          placeholderBox.width - paneBox.width,
+        );
+        const heightDelta = Math.abs(
+          placeholderBox.height - paneBox.height,
+        );
+        return widthDelta <= 2 && heightDelta <= 2;
+      })
+      .toBe(true);
+  } finally {
+    if (dragStarted) {
+      await page.mouse.up();
+    }
+    if (altPressed) {
+      await page.keyboard.up("Alt");
+    }
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
   test.setTimeout(90000);
   await ensureAppReady(page);
@@ -510,6 +645,25 @@ async function getPaneHeights(
     return { codeHeight: 0, terminalHeight: 0 };
   }
   return { codeHeight: codeBox.height, terminalHeight: terminalBox.height };
+}
+
+async function getEmbeddedTerminalText(
+  page: Page,
+  terminalId: string,
+): Promise<string> {
+  return await page.evaluate((id) => {
+    const container = document.querySelector(
+      `[data-attached-terminal-section-id="${id}"]`,
+    );
+    if (!container) {
+      return "";
+    }
+    const rows = container.querySelector(".xterm-rows");
+    if (!rows) {
+      return "";
+    }
+    return rows.textContent ?? "";
+  }, terminalId);
 }
 
 

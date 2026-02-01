@@ -169,7 +169,7 @@ function TempSectionOrNot({
 }) {
   if (isTempSection(sectionId)) {
     if (applyTransform) {
-      return <TempDNDSection />;
+      return <TempDNDSection renderMode={renderMode} />;
     }
     return null;
   } else {
