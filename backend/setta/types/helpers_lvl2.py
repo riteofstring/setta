@@ -729,7 +729,7 @@ def _resolve_new_section_dimensions(
 def _build_top_level_layout_rects(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
-    _layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
 ) -> list[LayoutRect]:
     layout_by_id = p.projectConfig.topLevelSections
     rects: list[LayoutRect] = []
@@ -739,14 +739,48 @@ def _build_top_level_layout_rects(
         parent_id = p.parentSectionMap[section_id]
         if parent_id:
             continue
+        snapshot_layout = None
+        if layout_snapshot is not None and section_id in layout_snapshot:
+            snapshot_layout = layout_snapshot[section_id]
         impl = get_curr_effective_section_impl(p, section_id)
+        x = layout.x
+        y = layout.y
+        layout_width = layout.w
+        layout_height = layout.h
+        if snapshot_layout is not None:
+            x = snapshot_layout.x
+            y = snapshot_layout.y
+            if snapshot_layout.w is not None:
+                layout_width = snapshot_layout.w
+            if snapshot_layout.h is not None:
+                layout_height = snapshot_layout.h
         width = _resolve_layout_dimension_with_fallback(
-            settings, impl.type, layout.w, impl.size.width, "width"
+            settings, impl.type, layout_width, impl.size.width, "width"
         )
         height = _resolve_layout_dimension_with_fallback(
-            settings, impl.type, layout.h, impl.size.height, "height"
+            settings, impl.type, layout_height, impl.size.height, "height"
         )
-        rects.append(LayoutRect(layout.x, layout.y, width, height))
+        rects.append(LayoutRect(x, y, width, height))
+    if layout_snapshot is None:
+        return rects
+    for section_id, snapshot_layout in layout_snapshot.items():
+        if section_id in layout_by_id:
+            continue
+        if section_id not in p.sections:
+            continue
+        parent_id = p.parentSectionMap[section_id]
+        if parent_id:
+            continue
+        impl = get_curr_effective_section_impl(p, section_id)
+        width = _resolve_layout_dimension_with_fallback(
+            settings, impl.type, snapshot_layout.w, impl.size.width, "width"
+        )
+        height = _resolve_layout_dimension_with_fallback(
+            settings, impl.type, snapshot_layout.h, impl.size.height, "height"
+        )
+        rects.append(
+            LayoutRect(snapshot_layout.x, snapshot_layout.y, width, height)
+        )
     return rects
 
 
@@ -782,6 +816,25 @@ def _find_position_in_bounds(
             x += step
         y += step
     return None
+
+
+def _bounds_intersect_any(bounds: LayoutRect, rects: list[LayoutRect]) -> bool:
+    return any(_rects_intersect(bounds, rect) for rect in rects)
+
+
+def _resolve_pan_target(
+    settings: SettingsState,
+    section_type: SectionType,
+    position: Position,
+    new_width: float,
+    new_height: float,
+) -> Position:
+    min_width, _ = _get_min_section_dimensions(settings, section_type)
+    pan_x_offset = max(min_width, new_width / 2)
+    return Position(
+        x=position.x + pan_x_offset,
+        y=position.y + new_height / 2,
+    )
 
 
 def _find_position_adjacent_to_bounds(
@@ -895,7 +948,7 @@ def _find_position_after_existing(
         return bottom_position
     if right_score < bottom_score:
         return right_position
-    if bounds.w <= bounds.h:
+    if bounds.w < bounds.h:
         return right_position
     return bottom_position
 
@@ -921,21 +974,29 @@ def compute_smart_top_level_section_position(
             w=viewport_bounds.w,
             h=viewport_bounds.h,
         )
-        position = _find_position_in_bounds(
-            bounds_rect, new_width, new_height, rects, padding, step
-        )
-        if position is not None:
-            return position, None
-        position = _find_position_adjacent_to_bounds(
-            bounds_rect, new_width, new_height, rects, padding, step
-        )
-        if position is None:
-            position = _find_position_after_existing(
-                rects, new_width, new_height, padding, step
+        use_viewport = not rects or _bounds_intersect_any(bounds_rect, rects)
+        if use_viewport:
+            position = _find_position_in_bounds(
+                bounds_rect, new_width, new_height, rects, padding, step
             )
-        pan_to = Position(
-            x=position.x + new_width / 2,
-            y=position.y + new_height / 2,
+            if position is not None:
+                return position, None
+            position = _find_position_adjacent_to_bounds(
+                bounds_rect, new_width, new_height, rects, padding, step
+            )
+            if position is None:
+                position = _find_position_after_existing(
+                    rects, new_width, new_height, padding, step
+                )
+            pan_to = _resolve_pan_target(
+                settings, impl_type, position, new_width, new_height
+            )
+            return position, pan_to
+        position = _find_position_after_existing(
+            rects, new_width, new_height, padding, step
+        )
+        pan_to = _resolve_pan_target(
+            settings, impl_type, position, new_width, new_height
         )
         return position, pan_to
     position = _find_position_after_existing(
