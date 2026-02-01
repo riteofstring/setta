@@ -218,16 +218,19 @@ describe("sub-agent chat section surfacing", () => {
     expect(createArgs.implOverrides.engineConfigId).toBe("engine-1");
     expect(createArgs.implOverrides.messages[0].role).toBe(ChatRoleEnum.system);
     expect(createArgs.implOverrides.messages[1].role).toBe(
+      ChatRoleEnum.user,
+    );
+    expect(createArgs.implOverrides.messages[2].role).toBe(
       ChatRoleEnum.assistant,
     );
-    expect(createArgs.implOverrides.messages[1].tool_calls[0].id).toBe(
+    expect(createArgs.implOverrides.messages[2].tool_calls[0].id).toBe(
       toolCallId,
     );
 
     expect(route_set_section_name).toHaveBeenCalledWith({
       projectConfigId,
       sectionId: childSectionId,
-      name: "Sub-agent: Summarize logs",
+      name: "Sub-agent - Summarize logs",
     });
     expect(route_create_agentic_edge).toHaveBeenCalledWith({
       projectConfigId,
@@ -281,6 +284,15 @@ describe("sub-agent chat section surfacing", () => {
         (message) =>
           message.role === ChatRoleEnum.tool &&
           message.tool_call_id === toolCallId,
+      ),
+    ).toBe(true);
+    expect(
+      setArgs.state.messages.some(
+        (message) =>
+          message.role === ChatRoleEnum.assistant &&
+          message.content?.some(
+            (entry) => entry.type === "text" && entry.text === "done",
+          ),
       ),
     ).toBe(true);
   });

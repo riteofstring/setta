@@ -1310,13 +1310,17 @@ class ExternalAgentRunner:
         tool_name = payload.get("toolName") or payload.get("tool_name")
         if not tool_name and isinstance(tool, str) and tool:
             tool_name = tool
-        return {
+        output = {
             "approvalId": approval_id,
             "tool": tool,
             "input": input_payload,
             "toolName": tool_name,
             "toolType": payload.get("toolType") or payload.get("tool_type"),
         }
+        tool_context = payload.get("toolContext") or payload.get("tool_context")
+        if tool_context is not None:
+            output["toolContext"] = tool_context
+        return output
 
     async def respond_to_approval(self, approval_id: str, approved: bool) -> None:
         state = self._pending_approvals.get(approval_id)

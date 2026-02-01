@@ -201,12 +201,50 @@ function resolveSubAgentLabel(
   return "Sub-agent";
 }
 
+function resolveSubAgentPrompt(args: unknown): string | null {
+  if (typeof args === "string" && args.trim()) {
+    return args.trim();
+  }
+  return (
+    extractStringArg(args, [
+      "task",
+      "description",
+      "prompt",
+      "query",
+      "instructions",
+      "input",
+      "message",
+      "content",
+    ]) ??
+    extractStringArg(isRecord(args) ? args.inputs : null, [
+      "task",
+      "description",
+      "prompt",
+      "query",
+      "instructions",
+      "input",
+      "message",
+      "content",
+    ])
+  );
+}
+
 function truncateLabel(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
     return value;
   }
   const sliceLength = Math.max(0, maxLength - 3);
   return `${value.slice(0, sliceLength)}...`;
+}
+
+function sanitizeSectionName(value: string, fallback: string): string {
+  const cleaned = value
+    .replace(/[^A-Za-z0-9 _-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[-_]+$/g, "")
+    .trim();
+  return cleaned || fallback;
 }
 
 function buildSubAgentMessages(
@@ -219,6 +257,7 @@ function buildSubAgentMessages(
   const title = parentLabel
     ? `Sub-agent spawned from ${parentLabel}: ${displayLabel}`
     : `Sub-agent: ${displayLabel}`;
+  const prompt = resolveSubAgentPrompt(toolCall.function?.arguments);
   const toolCallCopy: ToolCall = {
     ...toolCall,
     function: {
@@ -231,6 +270,13 @@ function buildSubAgentMessages(
     role: ChatRoleEnum.system,
     content: [createMessageTextContent({ text: title })],
   });
+  if (prompt) {
+    messages.push({
+      id: createNewId(),
+      role: ChatRoleEnum.user,
+      content: [createMessageTextContent({ text: prompt })],
+    });
+  }
   const assistantMessage: AssistantChatMessage = {
     id: createNewId(),
     role: ChatRoleEnum.assistant,
@@ -239,6 +285,40 @@ function buildSubAgentMessages(
   };
   messages.push(assistantMessage);
   return messages;
+}
+
+function buildSubAgentResultMessage(
+  toolResult: ToolChatMessage,
+): AssistantChatMessage | null {
+  const contentItems: MessageTextContent[] = [];
+  if (Array.isArray(toolResult.content)) {
+    for (const entry of toolResult.content) {
+      if (entry.type === "text" && entry.text?.trim()) {
+        contentItems.push(createMessageTextContent({ text: entry.text }));
+      }
+    }
+  }
+  if (contentItems.length === 0) {
+    const rawResult = toolResult.result;
+    if (typeof rawResult === "string" && rawResult.trim()) {
+      contentItems.push(createMessageTextContent({ text: rawResult }));
+    } else if (rawResult !== null && rawResult !== undefined) {
+      const serialized = JSON.stringify(rawResult, null, 2);
+      const text = serialized ?? String(rawResult);
+      if (text.trim()) {
+        contentItems.push(createMessageTextContent({ text }));
+      }
+    }
+  }
+  if (contentItems.length === 0) {
+    return null;
+  }
+  return {
+    id: createNewId(),
+    role: ChatRoleEnum.assistant,
+    content: contentItems,
+    tool_calls: null,
+  };
 }
 
 async function createSubAgentSection({
@@ -340,6 +420,10 @@ async function createSubAgentSection({
   }
   const childSectionId = response.data.sectionId;
   const displayLabel = truncateLabel(label, 48);
+  const sectionName = sanitizeSectionName(
+    `Sub-agent - ${displayLabel}`,
+    "Sub-agent",
+  );
   console.log(
     "[createSubAgentSection] created",
     JSON.stringify({
@@ -348,19 +432,20 @@ async function createSubAgentSection({
       childSectionId,
       toolCallId: toolCall.id,
       displayLabel,
+      sectionName,
     }),
   );
   void route_set_section_name({
     projectConfigId,
     sectionId: childSectionId,
-    name: `Sub-agent: ${displayLabel}`,
+    name: sectionName,
   });
   console.log(
     "[createSubAgentSection] set-name-dispatch",
     JSON.stringify({
       projectConfigId,
       sectionId: childSectionId,
-      name: `Sub-agent: ${displayLabel}`,
+      name: sectionName,
     }),
   );
   createAgenticEdgeFromSections({
@@ -445,7 +530,10 @@ function appendSubAgentToolResult(
     );
     return;
   }
-  const nextMessages = [...impl.messages, toolResult];
+  const resultMessage = buildSubAgentResultMessage(toolResult);
+  const nextMessages = resultMessage
+    ? [...impl.messages, toolResult, resultMessage]
+    : [...impl.messages, toolResult];
   const nextState: ChatSectionState = {
     messages: nextMessages,
     inputText: impl.inputText ?? "",
