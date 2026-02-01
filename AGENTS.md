@@ -34,10 +34,6 @@
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
 
-## UI Style Consistency
-
-- Use `docs/reference/ui-style-consistency.md` as the canonical style anchor map for UI work (component references, icon guidance, panes to ignore).
-
 ## Testing Guidelines
 
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
