@@ -50,10 +50,10 @@ import {
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import {
-  clearActiveSectionIds,
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
+import { deleteSelectedAgenticEdges } from "./agenticEdges";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
 import { restartLanguageServer } from "./lsp";
@@ -83,7 +83,8 @@ import { redoProjectState, undoProjectState } from "./undo";
 
 function deleteEdgesOrSections() {
   const deletedEdges = deleteSelectedEdges();
-  if (!deletedEdges) {
+  const deletedAgenticEdges = deleteSelectedAgenticEdges();
+  if (!deletedEdges && !deletedAgenticEdges) {
     deleteAllActiveSections();
   }
 }
@@ -429,9 +430,6 @@ function getIgnoreWhenInInputField(parsedShortcut, _isMacOs) {
   if (isParsedTabShortcut(parsedShortcut)) {
     return false;
   }
-  if (parsedShortcut.keys.has("Escape")) {
-    return false;
-  }
   return _isMacOs
     ? getMacosIgnoreWhenInInputField(parsedShortcut)
     : getWindowsIgnoreWhenInInputField(parsedShortcut);
@@ -759,49 +757,12 @@ function specialModTabCase(shortcutInfo) {
   }
 }
 
-function onEscapeKey(event: KeyboardEvent) {
+function onEscapeKey() {
+  unselectAllParams();
+  // if (!didUnselectSomeParams) {
+  //   clearActiveSectionIds();
+  // }
   removeFrozenFloatingBox();
-  const target = event.target instanceof HTMLElement ? event.target : null;
-  const sectionNode = target?.closest(".react-flow__node");
-  if (getIsInput(event) && !sectionNode) {
-    return;
-  }
-  const didUnselectSomeParams = unselectAllParams();
-  if (!didUnselectSomeParams && sectionNode) {
-    const sectionId = sectionNode.getAttribute("data-id");
-    const activeIds = useProjectState.getState().projectConfig.activeIds;
-    if (sectionId && activeIds.includes(sectionId)) {
-      clearActiveSectionIds();
-      const activeElement =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-      if (
-        activeElement &&
-        activeElement !== document.body &&
-        activeElement !== document.documentElement
-      ) {
-        activeElement.blur();
-      }
-      const postBlurActive =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-      if (
-        postBlurActive &&
-        postBlurActive !== document.body &&
-        postBlurActive !== document.documentElement
-      ) {
-        document.body.focus({ preventScroll: true });
-        if (
-          document.activeElement !== document.body &&
-          document.activeElement !== document.documentElement
-        ) {
-          document.documentElement.focus({ preventScroll: true });
-        }
-      }
-    }
-  }
 }
 
 function handleTabKeyDown(event: KeyboardEvent) {

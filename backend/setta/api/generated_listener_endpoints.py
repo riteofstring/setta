@@ -9,6 +9,11 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     SetCallableResponse,
 )
+from setta.types.agentic_edges import (
+    AgenticEdge,
+    AgenticEdgeContextMode,
+    AgenticEdgeKind,
+)
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayerItem,
@@ -75,6 +80,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -135,6 +141,18 @@ class ListenerCodeAreaCompletionRequestPayload(TypedDict):
     sectionId: ID
     fullText: str
     position: int
+
+
+class ListenerCreateAgenticEdgeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sourceSectionId: ID
+    targetSectionId: ID
+    kind: AgenticEdgeKind
+    contextMode: NotRequired[AgenticEdgeContextMode]
+    style: NotRequired[dict[str, str | int | float] | None]
+    hidden: NotRequired[bool]
+    zIndex: NotRequired[int]
 
 
 class ListenerCreateChatRequestPayload(TypedDict):
@@ -225,6 +243,12 @@ class ListenerCreateViewModeRequestPayload(TypedDict):
 class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
+
+
+class ListenerDeleteAgenticEdgesRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    edgeIds: list[ID]
 
 
 class ListenerDeleteChatRequestPayload(TypedDict):
@@ -452,6 +476,12 @@ class ListenerSetActiveViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     activeViewModeId: ID
+
+
+class ListenerSetAgenticEdgesRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    edges: list[AgenticEdge]
 
 
 class ListenerSetBrowserAreaViewModeRequestPayload(TypedDict):
@@ -708,6 +738,13 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     value: str
 
 
+class ListenerSetSectionPinnedAreaHeightRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    pinnedAreaHeight: float | SectionSizeMode
+
+
 class ListenerSetSectionPinnedParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -929,6 +966,12 @@ class ListenerUnselectAllParamsRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
 
 
+class ListenerUpdateAgenticEdgeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    edge: AgenticEdge
+
+
 class ListenerUpdateEdgeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -985,6 +1028,11 @@ class RouterEndpointAPI:
     ) -> list[CodeMirrorCompletion]:
         return await self._caller("route_code_area_completion", payload)
 
+    async def create_agentic_edge(
+        self, payload: ListenerCreateAgenticEdgeRequestPayload
+    ) -> None:
+        return await self._caller("route_create_agentic_edge", payload)
+
     async def create_chat(self, payload: ListenerCreateChatRequestPayload) -> Chat:
         return await self._caller("route_create_chat", payload)
 
@@ -1022,6 +1070,11 @@ class RouterEndpointAPI:
         self, payload: ListenerDeclineRenameRefactorRequestPayload
     ) -> None:
         return await self._caller("route_decline_rename_refactor", payload)
+
+    async def delete_agentic_edges(
+        self, payload: ListenerDeleteAgenticEdgesRequestPayload
+    ) -> None:
+        return await self._caller("route_delete_agentic_edges", payload)
 
     async def delete_chat(self, payload: ListenerDeleteChatRequestPayload) -> None:
         return await self._caller("route_delete_chat", payload)
@@ -1174,6 +1227,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetActiveViewModeRequestPayload
     ) -> None:
         return await self._caller("route_set_active_view_mode", payload)
+
+    async def set_agentic_edges(
+        self, payload: ListenerSetAgenticEdgesRequestPayload
+    ) -> None:
+        return await self._caller("route_set_agentic_edges", payload)
 
     async def set_browser_area_view_mode(
         self, payload: ListenerSetBrowserAreaViewModeRequestPayload
@@ -1351,6 +1409,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_section_param_filter", payload)
 
+    async def set_section_pinned_area_height(
+        self, payload: ListenerSetSectionPinnedAreaHeightRequestPayload
+    ) -> None:
+        return await self._caller("route_set_section_pinned_area_height", payload)
+
     async def set_section_pinned_params(
         self, payload: ListenerSetSectionPinnedParamsRequestPayload
     ) -> None:
@@ -1514,6 +1577,11 @@ class RouterEndpointAPI:
         self, payload: ListenerUnselectAllParamsRequestPayload
     ) -> None:
         return await self._caller("route_unselect_all_params", payload)
+
+    async def update_agentic_edge(
+        self, payload: ListenerUpdateAgenticEdgeRequestPayload
+    ) -> None:
+        return await self._caller("route_update_agentic_edge", payload)
 
     async def update_edge(self, payload: ListenerUpdateEdgeRequestPayload) -> None:
         return await self._caller("route_update_edge", payload)

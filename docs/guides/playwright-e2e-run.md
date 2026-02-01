@@ -7,7 +7,7 @@ Python venv active.
 
 ```
 source activate.sh
-scripts/run-playwright-e2e.sh frontend/tests/e2e/params-section-scroll.spec.ts
+scripts/run-playwright-e2e.sh tests/e2e/pinned-params-resize.spec.ts
 ```
 
 What this does:

@@ -87,7 +87,6 @@ function _ParamContainer({
           gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
           ...(dndStyle ?? {}),
         }}
-        data-param-row="true"
         {...getFloatingBoxHandlers(...tooltipContentArray)}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
         onClick={onClick}
@@ -139,7 +138,6 @@ function _ParamContainer({
         gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
         ...(dndStyle ?? {}),
       }}
-      data-param-row="true"
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
       ref={dndRef}
