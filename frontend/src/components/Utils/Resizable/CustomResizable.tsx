@@ -196,7 +196,11 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    if (!isDoubleClick && ref && typeof ref.getBoundingClientRect === "function") {
+    if (
+      !isDoubleClick &&
+      ref &&
+      typeof ref.getBoundingClientRect === "function"
+    ) {
       if (
         changedSize.height === "auto" ||
         (typeof changedSize.height === "number" &&

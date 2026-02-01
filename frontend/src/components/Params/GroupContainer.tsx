@@ -137,7 +137,8 @@ function useMeasuredParamAreaMinHeight({
     }
 
     frameId = requestAnimationFrame(() => {
-      const rowElements = rows.querySelectorAll<HTMLElement>("[data-param-row]");
+      const rowElements =
+        rows.querySelectorAll<HTMLElement>("[data-param-row]");
       if (rowElements.length === 0) {
         updateHeight(0);
         return;

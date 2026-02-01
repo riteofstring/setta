@@ -306,31 +306,33 @@ export function useSectionMinMaxDims(sectionId: string) {
         const hasPinnedParams = pinned.topLevelParamIds.some(
           (paramId) => !edgeInputSet.has(paramId),
         );
-      const hasUnpinnedParams =
-        !impl.hideUnpinnedParams &&
-        unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
-      const policyPinnedMinHeight =
-        sizingPolicy.globals.pinnedParamsAreaMinHeight;
-      const resolvedPinnedMinHeight =
-        pinnedParamsMeasuredHeight > 0
-          ? Math.max(pinnedParamsMeasuredHeight, policyPinnedMinHeight)
-          : policyPinnedMinHeight;
-      const baseUnpinnedMinHeight = Number.isFinite(
-        sizingPolicy.globals.unpinnedParamsAreaMinHeight,
-      )
-        ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
-        : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
-      const resolvedUnpinnedMinHeight =
-        unpinnedParamsMeasuredHeight > 0
-          ? Math.max(unpinnedParamsMeasuredHeight, baseUnpinnedMinHeight)
-          : baseUnpinnedMinHeight;
-      let requiredParamsHeight = 0;
-      if (hasPinnedParams) {
-        requiredParamsHeight += resolvedPinnedMinHeight;
-      }
-      if (hasUnpinnedParams) {
-        requiredParamsHeight += resolvedUnpinnedMinHeight;
-      }
+        const hasUnpinnedParams =
+          !impl.hideUnpinnedParams &&
+          unpinned.topLevelParamIds.some(
+            (paramId) => !edgeInputSet.has(paramId),
+          );
+        const policyPinnedMinHeight =
+          sizingPolicy.globals.pinnedParamsAreaMinHeight;
+        const resolvedPinnedMinHeight =
+          pinnedParamsMeasuredHeight > 0
+            ? Math.max(pinnedParamsMeasuredHeight, policyPinnedMinHeight)
+            : policyPinnedMinHeight;
+        const baseUnpinnedMinHeight = Number.isFinite(
+          sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+        )
+          ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+          : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+        const resolvedUnpinnedMinHeight =
+          unpinnedParamsMeasuredHeight > 0
+            ? Math.max(unpinnedParamsMeasuredHeight, baseUnpinnedMinHeight)
+            : baseUnpinnedMinHeight;
+        let requiredParamsHeight = 0;
+        if (hasPinnedParams) {
+          requiredParamsHeight += resolvedPinnedMinHeight;
+        }
+        if (hasUnpinnedParams) {
+          requiredParamsHeight += resolvedUnpinnedMinHeight;
+        }
         if (hasEdges) {
           const resolvedEdgesStripHeight =
             edgesStripHeight > 0 ? edgesStripHeight : EDGES_STRIP_MIN_HEIGHT;
