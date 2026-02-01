@@ -1,14 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const PROJECT_URL =
-  process.env.SETTA_PROJECT_URL ??
-  (process.env.SETTA_PROJECT_PATH
-    ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
-    : BASE_URL);
-
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
@@ -74,11 +68,6 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
     })
     .toBe(0);
 });
-
-async function ensureAppReady(page: Page): Promise<void> {
-  await page.goto(PROJECT_URL);
-  await page.waitForSelector(".react-flow__pane");
-}
 
 async function ensureDrawSection(
   page: Page,

@@ -11,6 +11,7 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
+const READY_TIMEOUT_MS = 30000;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -278,7 +279,7 @@ export async function postBackend<T>(
 
 async function isAppReady(page: Page): Promise<boolean> {
   try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: 10000 });
+    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
     return true;
   } catch {
     return false;
@@ -287,7 +288,7 @@ async function isAppReady(page: Page): Promise<boolean> {
 
 async function waitForProjectUrl(page: Page): Promise<void> {
   await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
-    timeout: 20000,
+    timeout: READY_TIMEOUT_MS,
     waitUntil: "domcontentloaded",
   });
 }
