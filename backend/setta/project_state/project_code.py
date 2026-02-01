@@ -482,14 +482,6 @@ class ProjectGenPythonCode(PythonCode):
             lsp_status,
             [obj.name for obj in codeObjs],
         )
-        logger.info(
-            "project_code.set_callable params section_id=%s callable=%s lsp_status=%s param_count=%s param_names=%s",
-            sectionId,
-            callableName,
-            lsp_status,
-            len(codeObjs),
-            [obj.name for obj in codeObjs],
-        )
         watch_code_result = None
         if not codeObjs:
             watch_code_result = _maybe_build_watch_code_params(

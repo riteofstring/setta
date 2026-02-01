@@ -3251,11 +3251,6 @@ class BaseProjectManager(ABC):
             len(completed_op_ids),
             len(pending_op_ids),
         )
-        logger.info(
-            "broadcast_project_state_snapshot project_config_id=%s shown_param_variants=%s",
-            project_state.projectConfig.id,
-            list(project_state.shownParamIds.keys()),
-        )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
             completed_op_ids,

@@ -159,6 +159,8 @@ export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
 const KWARGS_CONTROLS_HEIGHT_KEY_PREFIX = "kwargs-controls-height";
+const PINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX = "pinned-params-area-height";
+const UNPINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX = "unpinned-params-area-height";
 
 export function getEdgesStripHeightKey(sectionId: string) {
   return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
@@ -166,6 +168,14 @@ export function getEdgesStripHeightKey(sectionId: string) {
 
 export function getKwargsControlsHeightKey(sectionId: string) {
   return `${KWARGS_CONTROLS_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getPinnedParamsAreaHeightKey(sectionId: string) {
+  return `${PINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getUnpinnedParamsAreaHeightKey(sectionId: string) {
+  return `${UNPINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX}-${sectionId}`;
 }
 
 const MODEL_GROUPS = [

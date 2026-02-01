@@ -236,19 +236,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 if not isinstance(impl, BaseSectionWithParamsImpl):
                     continue
                 output[v] = get_param_ids_to_show(self, impl)
-                logger.info(
-                    "validate_shown_param_ids section_id=%s variant_id=%s pinned_top=%s unpinned_top=%s",
-                    s.id,
-                    v,
-                    len(output[v].pinned.topLevelParamIds),
-                    len(output[v].unpinned.topLevelParamIds),
-                )
         self.shownParamIds = output
-        logger.info(
-            "validate_shown_param_ids done project_config_id=%s variant_ids=%s",
-            self.projectConfig.id,
-            list(output.keys()),
-        )
         return self
 
     def validate_required_decoded_images(self):

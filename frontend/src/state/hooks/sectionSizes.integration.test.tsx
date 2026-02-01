@@ -13,6 +13,8 @@ import { resetProjectStores } from "state/utils";
 import {
   getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
+  getPinnedParamsAreaHeightKey,
+  getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 import {
   CodeObjTypeEnum,
@@ -292,6 +294,76 @@ describe("useSectionMinMaxDims integration", () => {
 
     const dims = renderDims(sectionId);
     expect(dims.minHeight).toBe(244);
+  });
+
+  it("prefers measured pinned/unpinned heights over policy defaults", () => {
+    const sectionId = "section-measured";
+    const variantId = "variant-measured";
+    const implId = "impl-measured";
+
+    const projectConfig = createProjectConfig({
+      id: "project-measured",
+      sectionVariantMap: { [sectionId]: variantId },
+      topLevelSections: {
+        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
+      },
+    });
+
+    const callableImpl = {
+      type: SectionTypeEnum.Callable,
+      id: implId,
+      name: "Callable",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      size: { width: 400, height: 200 },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: ConfigLanguageEnum.python,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: { callable: false, params: {} },
+      edgeInputParams: [],
+      edgeOutputPorts: [],
+      callable: null,
+      hideParams: false,
+    };
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
+      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
+      state.sectionImpls = { [implId]: callableImpl };
+      state.previewSectionVariantMap = {};
+      state.parentSectionMap = { [sectionId]: null };
+      state.shownParamIds = {
+        [variantId]: {
+          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["pin-1"] },
+          unpinned: {
+            requiredParamIdsToPaths: {},
+            topLevelParamIds: ["unpinned-1"],
+          },
+        },
+      };
+    });
+
+    useTemporaryMiscState.setState({
+      [getPinnedParamsAreaHeightKey(sectionId)]: 100,
+      [getUnpinnedParamsAreaHeightKey(sectionId)]: 20,
+    });
+
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useTemporaryMiscState);
+
+    const dims = renderDims(sectionId);
+    expect(dims.minHeight).toBe(178);
   });
 
   it("caps auto max height when height is auto", () => {

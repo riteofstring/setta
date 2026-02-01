@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -7,10 +7,9 @@ import {
 } from "state/actions/sectionInfos";
 import {
   adjustSizeToBeAtLeastMin,
-  getResizeStartAutoSizeUpdate,
   isHeightResizeDirection,
-  ResizeHandleDirection,
   setSelfParentSiblingChildrenWidths,
+  type ResizeHandleDirection,
 } from "state/actions/sections/sectionSizes";
 import {
   useLocalStorage,
@@ -105,68 +104,6 @@ function CustomResizableCore({
   const { size, aspectRatio, aspectRatioExtraHeight, aspectRatioExtraWidth } =
     useAspectRatio(sectionId);
   const { canEditLayout } = useShareCapabilities();
-  const autoSizeRestoreRef = useRef<SectionSize | null>(null);
-  const autoSizePromotedRef = useRef(false);
-  const autoSizePromotedSizeRef = useRef<SectionSize | null>(null);
-
-  function applyPromotedFallback(
-    changedSize: Partial<SectionSize>,
-    promotedSize: SectionSize,
-  ) {
-    const nextSize = { ...changedSize };
-    if ("width" in nextSize) {
-      const width = nextSize.width;
-      if (typeof width !== "number" || !Number.isFinite(width)) {
-        nextSize.width = promotedSize.width;
-      }
-    }
-    if ("height" in nextSize) {
-      const height = nextSize.height;
-      if (typeof height !== "number" || !Number.isFinite(height)) {
-        nextSize.height = promotedSize.height;
-      }
-    }
-    return nextSize;
-  }
-
-  function promoteAutoSizeOnResizeStart(
-    direction: ResizeHandleDirection,
-    element: HTMLElement,
-  ) {
-    if (autoSizePromotedRef.current) {
-      return;
-    }
-    if (!canEditLayout || positionAndSizeLocked) {
-      return;
-    }
-    const nextSize = getResizeStartAutoSizeUpdate({
-      size,
-      direction,
-      rect: { width: element.offsetWidth, height: element.offsetHeight },
-    });
-    if (!nextSize) {
-      return;
-    }
-    autoSizePromotedRef.current = true;
-    autoSizeRestoreRef.current = { ...size };
-    let updatedSectionSizes: Record<string, SectionSize> = {};
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-          sectionId,
-          nextSize,
-          state,
-        );
-        autoSizePromotedSizeRef.current = updatedSectionSizes[sectionId];
-      },
-      send: (frontendOpId) =>
-        route_set_section_sizes({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionSizes: updatedSectionSizes,
-          frontendOpId,
-        }),
-    });
-  }
 
   function onResizeStart(event, direction, ref) {
     if (isHeightResizeDirection(direction)) {
@@ -178,7 +115,6 @@ function CustomResizableCore({
     if (!ref || typeof ref.getBoundingClientRect !== "function") {
       return;
     }
-    promoteAutoSizeOnResizeStart(direction, ref);
   }
 
   function onResizeStop(...props) {
@@ -186,26 +122,20 @@ function CustomResizableCore({
     const isZeroDelta = delta.width === 0 && delta.height === 0;
     const isDoubleClick =
       typeof event.detail === "number" && event.detail === 2;
-    if (isZeroDelta && !isDoubleClick && !autoSizeRestoreRef.current) {
-      autoSizePromotedRef.current = false;
-      autoSizePromotedSizeRef.current = null;
+    if (isZeroDelta && !isDoubleClick) {
+      useResizeEvent.setState((state) => {
+        setSectionResizeEvent(sectionId, "end", state);
+      });
+      useMisc.setState({ mouseDownDraggingSection: false });
       return;
     }
-    autoSizeRestoreRef.current = null;
-    autoSizePromotedRef.current = false;
-    const promotedSize = autoSizePromotedSizeRef.current;
-    autoSizePromotedSizeRef.current = null;
     const changedSize = getChangedSize({
       props,
       sizeMode,
       aspectRatio,
     });
-    const resolvedChangedSize =
-      promotedSize && !isDoubleClick
-        ? applyPromotedFallback(changedSize, promotedSize)
-        : changedSize;
     const clampedSize = clampChangedSize({
-      changedSize: resolvedChangedSize,
+      changedSize,
       minHeight,
       minWidth,
       aspectRatio,
@@ -347,7 +277,6 @@ function CustomResizableCore({
       layoutClassName={layoutClassName}
       onResizeStart={onResizeStart}
       onResizeStop={onResizeStop}
-      onResizePointerDown={promoteAutoSizeOnResizeStart}
       aspectRatio={aspectRatio}
       aspectRatioExtraHeight={aspectRatioExtraHeight}
       aspectRatioExtraWidth={aspectRatioExtraWidth}

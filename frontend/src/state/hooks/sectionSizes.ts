@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImpl,
-  getCurrShownParamIds,
+  getCurrSectionVariantId,
   getSectionType,
 } from "state/actions/sectionInfos";
 import {
@@ -22,6 +22,8 @@ import {
 import {
   getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
+  getPinnedParamsAreaHeightKey,
+  getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -228,6 +230,14 @@ export function useSectionMinMaxDims(sectionId: string) {
     const height = x[getKwargsControlsHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
+  const pinnedParamsMeasuredHeight = useTemporaryMiscState((x) => {
+    const height = x[getPinnedParamsAreaHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
+  const unpinnedParamsMeasuredHeight = useTemporaryMiscState((x) => {
+    const height = x[getUnpinnedParamsAreaHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
 
   return useProjectState((x) => {
@@ -288,41 +298,53 @@ export function useSectionMinMaxDims(sectionId: string) {
               sizingPolicy,
             })
           : minHeight;
-      const pinned = getCurrShownParamIds(x, sectionId, true, true);
-      const unpinned = getCurrShownParamIds(x, sectionId, false, true);
-      const edgeInputSet = new Set(impl.edgeInputParams);
-      const hasEdges =
-        impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
-      const hasPinnedParams = pinned.topLevelParamIds.some(
-        (paramId) => !edgeInputSet.has(paramId),
-      );
+      const variantId = getCurrSectionVariantId(x, sectionId, true);
+      const shown = x.shownParamIds[variantId];
+      if (shown) {
+        const pinned = shown.pinned;
+        const unpinned = shown.unpinned;
+        const edgeInputSet = new Set(impl.edgeInputParams);
+        const hasEdges =
+          impl.edgeInputParams.length > 0 || impl.edgeOutputPorts.length > 0;
+        const hasPinnedParams = pinned.topLevelParamIds.some(
+          (paramId) => !edgeInputSet.has(paramId),
+        );
       const hasUnpinnedParams =
         !impl.hideUnpinnedParams &&
         unpinned.topLevelParamIds.some((paramId) => !edgeInputSet.has(paramId));
-      const resolvedPinnedMinHeight =
+      const policyPinnedMinHeight =
         sizingPolicy.globals.pinnedParamsAreaMinHeight;
+      const resolvedPinnedMinHeight =
+        pinnedParamsMeasuredHeight > 0
+          ? Math.max(pinnedParamsMeasuredHeight, policyPinnedMinHeight)
+          : policyPinnedMinHeight;
       const baseUnpinnedMinHeight = Number.isFinite(
         sizingPolicy.globals.unpinnedParamsAreaMinHeight,
       )
         ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
         : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+      const resolvedUnpinnedMinHeight =
+        unpinnedParamsMeasuredHeight > 0
+          ? Math.max(unpinnedParamsMeasuredHeight, baseUnpinnedMinHeight)
+          : baseUnpinnedMinHeight;
       let requiredParamsHeight = 0;
       if (hasPinnedParams) {
         requiredParamsHeight += resolvedPinnedMinHeight;
       }
       if (hasUnpinnedParams) {
-        requiredParamsHeight += baseUnpinnedMinHeight;
+        requiredParamsHeight += resolvedUnpinnedMinHeight;
       }
-      if (hasEdges) {
-        const resolvedEdgesStripHeight =
-          edgesStripHeight > 0 ? edgesStripHeight : EDGES_STRIP_MIN_HEIGHT;
-        requiredParamsHeight += resolvedEdgesStripHeight;
-      }
-      if (kwargsControlsHeight > 0) {
-        requiredParamsHeight += kwargsControlsHeight;
-      }
-      if (requiredParamsHeight > 0) {
-        minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
+        if (hasEdges) {
+          const resolvedEdgesStripHeight =
+            edgesStripHeight > 0 ? edgesStripHeight : EDGES_STRIP_MIN_HEIGHT;
+          requiredParamsHeight += resolvedEdgesStripHeight;
+        }
+        if (kwargsControlsHeight > 0) {
+          requiredParamsHeight += kwargsControlsHeight;
+        }
+        if (requiredParamsHeight > 0) {
+          minHeight = Math.max(minHeight, baseMinHeight + requiredParamsHeight);
+        }
       }
     }
 

@@ -135,10 +135,6 @@ export function KwargsControls({
     const nextPinnedParams = shouldUnpinSelected
       ? pinnedParams.filter((paramId) => !selectedParams.includes(paramId))
       : Array.from(new Set([...pinnedParams, ...selectedParams]));
-    console.log(
-      "[KwargsControls][pin][request]",
-      JSON.stringify({ sectionId, pinnedParams: nextPinnedParams }),
-    );
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -157,14 +153,7 @@ export function KwargsControls({
           pinnedParams: nextPinnedParams,
           frontendOpId,
         };
-        console.log("[KwargsControls][pin][send]", JSON.stringify(payload));
         const res = route_set_section_pinned_params(payload);
-        void res.then((response) => {
-          console.log(
-            "[KwargsControls][pin][response]",
-            JSON.stringify(response),
-          );
-        });
         return res;
       },
     });
@@ -189,16 +178,7 @@ export function KwargsControls({
       sectionId,
       paramInfoIds: deletableSelectedParamIds,
     };
-    console.log(
-      "[KwargsControls][delete_selected][request]",
-      JSON.stringify(payload),
-    );
-    void route_delete_selected_params(payload).then((response) => {
-      console.log(
-        "[KwargsControls][delete_selected][response]",
-        JSON.stringify(response),
-      );
-    });
+    void route_delete_selected_params(payload);
   }
 
   function onClickConvertToEdgeInputs() {
@@ -207,10 +187,6 @@ export function KwargsControls({
     }
     const nextInputs = Array.from(
       new Set([...edgeInputParams, ...selectedParams]),
-    );
-    console.log(
-      "[KwargsControls][convert_to_edge][request]",
-      JSON.stringify({ sectionId, edgeInputParams: nextInputs }),
     );
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
@@ -229,17 +205,7 @@ export function KwargsControls({
           edgeInputParams: nextInputs,
           frontendOpId,
         };
-        console.log(
-          "[KwargsControls][convert_to_edge][send]",
-          JSON.stringify(payload),
-        );
         const res = route_set_section_edge_inputs(payload);
-        void res.then((response) => {
-          console.log(
-            "[KwargsControls][convert_to_edge][response]",
-            JSON.stringify(response),
-          );
-        });
         return res;
       },
     });
@@ -263,16 +229,7 @@ export function KwargsControls({
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                console.log(
-                  "[KwargsControls][delete_kwarg][request]",
-                  JSON.stringify(payload),
-                );
-                void route_delete_kwarg(payload).then((response) => {
-                  console.log(
-                    "[KwargsControls][delete_kwarg][response]",
-                    JSON.stringify(response),
-                  );
-                });
+                void route_delete_kwarg(payload);
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}
@@ -288,16 +245,7 @@ export function KwargsControls({
                   projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 };
-                console.log(
-                  "[KwargsControls][add_kwarg][request]",
-                  JSON.stringify(payload),
-                );
-                void route_add_kwarg(payload).then((response) => {
-                  console.log(
-                    "[KwargsControls][add_kwarg][response]",
-                    JSON.stringify(response),
-                  );
-                });
+                void route_add_kwarg(payload);
               }}
               tabIndex={0}
               disabled={kwargButtonsDisabled}

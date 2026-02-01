@@ -2,7 +2,13 @@ import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createEdgeFromConnection } from "state/actions/edges";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
@@ -10,13 +16,21 @@ import {
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import { useProjectState, useTemporaryMiscState } from "state/definitions";
+import {
+  useProjectState,
+  useResizeEvent,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useShareCapabilities } from "state/hooks/share";
 import { useParamColumnWidth } from "state/hooks/useParamColumnWidth";
 import { C } from "utils/c";
-import { getEdgesStripHeightKey } from "utils/constants";
+import {
+  getEdgesStripHeightKey,
+  getPinnedParamsAreaHeightKey,
+  getUnpinnedParamsAreaHeightKey,
+} from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { getEdgeStripEstimatedHeight } from "./edgeStripUtils";
 import { ParamDndList } from "./ParamDndList";
@@ -77,6 +91,93 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
+
+function useMeasuredParamAreaMinHeight({
+  sectionId,
+  heightKey,
+  paramIds,
+  contentRef,
+  headerRef,
+  rowsRef,
+}: {
+  sectionId: string;
+  heightKey: string;
+  paramIds: Array<string>;
+  contentRef: React.RefObject<HTMLElement>;
+  headerRef?: React.RefObject<HTMLElement>;
+  rowsRef: React.RefObject<HTMLElement>;
+}) {
+  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
+  const lastMeasuredHeightRef = useRef<number | null>(null);
+  const paramIdsKey = paramIds.join("|");
+
+  useLayoutEffect(() => {
+    let frameId = 0;
+
+    const updateHeight = (nextHeight: number) => {
+      if (lastMeasuredHeightRef.current === nextHeight) {
+        return;
+      }
+      lastMeasuredHeightRef.current = nextHeight;
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight,
+      });
+    };
+
+    if (paramIds.length === 0) {
+      updateHeight(0);
+      return;
+    }
+
+    const content = contentRef.current;
+    const rows = rowsRef.current;
+    if (!content || !rows) {
+      updateHeight(0);
+      return;
+    }
+
+    frameId = requestAnimationFrame(() => {
+      const rowElements = rows.querySelectorAll<HTMLElement>("[data-param-row]");
+      if (rowElements.length === 0) {
+        updateHeight(0);
+        return;
+      }
+      let maxRowHeight = 0;
+      rowElements.forEach((row) => {
+        const rowHeight = row.offsetHeight;
+        if (rowHeight > maxRowHeight) {
+          maxRowHeight = rowHeight;
+        }
+      });
+      if (maxRowHeight <= 0) {
+        updateHeight(0);
+        return;
+      }
+      const headerHeight = headerRef?.current?.offsetHeight ?? 0;
+      const style = window.getComputedStyle(content);
+      const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+      const nextHeight = Math.ceil(
+        paddingTop + paddingBottom + headerHeight + maxRowHeight,
+      );
+      updateHeight(nextHeight > 0 ? nextHeight : 0);
+    });
+
+    return () => {
+      if (frameId) {
+        cancelAnimationFrame(frameId);
+      }
+    };
+  }, [heightKey, paramIdsKey, resizeEvent]);
+
+  useEffect(() => {
+    return () => {
+      useTemporaryMiscState.setState({
+        [heightKey]: 0,
+      });
+    };
+  }, [heightKey]);
+}
 
 function EdgesStrip({ sectionId }: { sectionId: string }) {
   const { canEditStructure } = useShareCapabilities();
@@ -255,6 +356,9 @@ type PinnedParamsAreaProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
+  contentRef: React.RefObject<HTMLDivElement>;
+  headerRef: React.RefObject<HTMLElement>;
+  rowsRef: React.RefObject<HTMLDivElement>;
 };
 
 type GetUnpinnedParamsProps = {
@@ -307,10 +411,23 @@ function GetPinnedParams({
   }, _.isEqual);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
+  const rowsRef = useRef<HTMLDivElement | null>(null);
+  const heightKey = getPinnedParamsAreaHeightKey(sectionId);
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
   }, [maxNestedDepth]);
+
+  useMeasuredParamAreaMinHeight({
+    sectionId,
+    heightKey,
+    paramIds: topLevelParamIds,
+    contentRef,
+    headerRef,
+    rowsRef,
+  });
 
   return (
     topLevelParamIds.length > 0 && (
@@ -321,6 +438,9 @@ function GetPinnedParams({
         handleColumnResizeStart={handleColumnResizeStart}
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
+        contentRef={contentRef}
+        headerRef={headerRef}
+        rowsRef={rowsRef}
       />
     )
   );
@@ -333,6 +453,9 @@ function PinnedParamsArea({
   handleColumnResizeStart,
   shouldRoundBottom,
   positionAndSizeLocked,
+  contentRef,
+  headerRef,
+  rowsRef,
 }: PinnedParamsAreaProps) {
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
@@ -345,15 +468,21 @@ function PinnedParamsArea({
     <section
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b border-white bg-blue-200/50 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${roundedBottomClassName}`}
     >
-      <div className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2">
-        <header className="flex w-full gap-1 px-2">
+      <div
+        className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
+        ref={contentRef}
+      >
+        <header className="flex w-full gap-1 px-2" ref={headerRef}>
           <i className="gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500" />
           <p className=" text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             Pinned Params
           </p>
         </header>
 
-        <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5">
+        <div
+          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
+          ref={rowsRef}
+        >
           <ParamDndList
             sectionId={sectionId}
             paramIds={topLevelParamIds}
@@ -384,24 +513,6 @@ function GetUnpinnedParams({
     };
   }, _.isEqual);
 
-  return (
-    <div className="section-args-nested grid min-h-0 min-w-0 !max-w-full shrink-0 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5">
-      {!hideUnpinnedParams && (
-        <GetUnpinnedParamsCore
-          sectionId={sectionId}
-          onResizeStart={handleColumnResizeStart}
-          setMaxNestedDepth={setMaxNestedDepth}
-        />
-      )}
-    </div>
-  );
-}
-
-function GetUnpinnedParamsCore({
-  sectionId,
-  onResizeStart,
-  setMaxNestedDepth,
-}) {
   const { requiredParamIdsToPaths, topLevelParamIds } = useProjectState((x) => {
     const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
       x,
@@ -422,20 +533,37 @@ function GetUnpinnedParamsCore({
   }, _.isEqual);
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
   }, [maxNestedDepth]);
 
+  useMeasuredParamAreaMinHeight({
+    sectionId,
+    heightKey,
+    paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
+    contentRef: containerRef,
+    rowsRef: containerRef,
+  });
+
   return (
-    <ParamDndList
-      sectionId={sectionId}
-      paramIds={topLevelParamIds}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
-      onResizeStart={onResizeStart}
-      isTopLevel={true}
-      listKey="unpinned"
-    />
+    <div
+      className="section-args-nested grid min-h-0 min-w-0 !max-w-full shrink-0 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5"
+      ref={containerRef}
+    >
+      {!hideUnpinnedParams && (
+        <ParamDndList
+          sectionId={sectionId}
+          paramIds={topLevelParamIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={handleColumnResizeStart}
+          isTopLevel={true}
+          listKey="unpinned"
+        />
+      )}
+    </div>
   );
 }
 
