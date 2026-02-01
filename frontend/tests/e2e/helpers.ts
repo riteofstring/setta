@@ -71,43 +71,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
   throw new Error("Setta UI did not become ready. Check bootstrap auth.");
 }
 
-export async function seedLocalStorage(
-  page: Page,
-  patch: Record<string, unknown>,
-): Promise<void> {
-  await page.addInitScript((nextState) => {
-    const key = "setta_data";
-    let payload: { state: Record<string, unknown>; version: number } = {
-      state: {},
-      version: 0,
-    };
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      try {
-        const parsed: unknown = JSON.parse(raw);
-        if (parsed && typeof parsed === "object") {
-          const parsedRecord = parsed as {
-            state?: unknown;
-            version?: unknown;
-          };
-          payload = {
-            state:
-              typeof parsedRecord.state === "object" && parsedRecord.state
-                ? (parsedRecord.state as Record<string, unknown>)
-                : {},
-            version:
-              typeof parsedRecord.version === "number" ? parsedRecord.version : 0,
-          };
-        }
-      } catch {
-        payload = { state: {}, version: 0 };
-      }
-    }
-    payload.state = { ...payload.state, ...nextState };
-    localStorage.setItem(key, JSON.stringify(payload));
-  }, patch);
-}
-
 export async function getCurrentProjectConfigId(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,

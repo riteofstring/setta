@@ -9,7 +9,6 @@
     hsl(219, 24%, 89%),
     hsl(219, 25%, 77%)
   );
-  --setta-titlebar-height: env(titlebar-area-height, 0px);
   --setta-callable-ready-from: #f59e0b;
   --setta-callable-ready-to: #3b82f6;
   --setta-callable-ready-glow: rgba(59, 130, 246, 0.35);
@@ -32,21 +31,6 @@ html.dark {
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
-}
-
-.setta-titlebar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  width: 100%;
-  height: var(--setta-titlebar-height);
-  -webkit-app-region: drag;
-}
-
-.setta-titlebar-offset {
-  padding-top: var(--setta-titlebar-height);
 }
 
 @layer utilities {

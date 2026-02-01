@@ -4,8 +4,10 @@ import { useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { EditMenu } from "./EditMenu";
 import { FileMenu } from "./FileMenu";
+import { FollowAIToggleButton } from "./FollowAIToggleButton";
 import { RunButton } from "./RunButton";
 import { StopButton } from "./StopButton";
+import { WatchCodeToggleButton } from "./WatchCodeToggleButton";
 import { WebsocketConnections } from "./WebsocketConnections";
 
 export function ProjectNav() {
@@ -40,6 +42,8 @@ function ProjectNavSwitch() {
           <FileMenu />
           <EditMenu />
           <WebsocketConnections />
+          <FollowAIToggleButton />
+          <WatchCodeToggleButton />
           <RunButton />
         </Menubar.Root>
         <StopButton />
@@ -53,5 +57,5 @@ function ProjectNavSwitch() {
     );
   }
 
-  return <div className="ml-2 flex">{content}</div>;
+  return <div className="ml-4 flex gap-1">{content}</div>;
 }

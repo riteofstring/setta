@@ -11,6 +11,7 @@ import {
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useTabScope } from "utils/focusManager";
 import { useReactFlow } from "../store";
+import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
 import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
@@ -76,6 +77,7 @@ const ReactFlow = () => {
             {readyToRender && (
               <>
                 <EdgeRenderer />
+                <AgenticEdgeRenderer />
                 <NodeRenderer />
               </>
             )}

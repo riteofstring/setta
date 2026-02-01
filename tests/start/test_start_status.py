@@ -161,6 +161,46 @@ def test_status_requires_session_or_latest_for_multiple_sessions_json(
     assert "Multiple sessions found" in result.output
 
 
+def test_status_ignores_stale_sessions_for_workspace(status_env) -> None:
+    active_session = status_env.create_session(port=61234)
+    stale_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "unit-test",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        status_env.registry.create_session(
+            workspace_path=status_env.workspace,
+            host="127.0.0.1",
+            port=61235,
+            pid=stale_process.pid,
+        )
+        runner = CliRunner()
+
+        result = runner.invoke(
+            status,
+            [
+                "--connect-info",
+                "--json",
+                "--workspace",
+                str(status_env.workspace),
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        payload = _decode_connect_info(result.output)
+        assert payload["session"]["port"] == active_session.port
+    finally:
+        if stale_process.poll() is None:
+            stale_process.terminate()
+        stale_process.wait()
+
+
 def test_status_rejects_missing_session(status_env) -> None:
     status_env.create_session(port=61234)
     runner = CliRunner()
