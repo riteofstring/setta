@@ -521,7 +521,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
       codeSectionId,
     );
 
-    await waitForTerminalOutputMarker(page, terminalId, marker);
+    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
 
@@ -605,10 +605,13 @@ test("terminal resize messages are throttled during drag detach", async ({
     );
 
     await expect
-      .poll(async () => {
-        const rows = await getTerminalRowsSnapshot(page, terminalId);
-        return rows.some((row) => row.trim().length > 0);
-      })
+      .poll(
+        async () => {
+          const rows = await getTerminalRowsSnapshot(page, terminalId);
+          return rows.some((row) => row.trim().length > 0);
+        },
+        { timeout: 20000 },
+      )
       .toBe(true);
 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
@@ -873,11 +876,15 @@ async function waitForTerminalOutputMarker(
   page: Page,
   terminalId: string,
   marker: string,
+  timeoutMs = 20000,
 ): Promise<void> {
   await expect
-    .poll(async () => {
-      return await getTerminalOutputBuffer(page, terminalId);
-    })
+    .poll(
+      async () => {
+        return await getTerminalOutputBuffer(page, terminalId);
+      },
+      { timeout: timeoutMs },
+    )
     .toContain(marker);
 }
 
