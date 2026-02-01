@@ -336,4 +336,60 @@ describe("chat history sync to section state", () => {
       remote: "{}",
     });
   });
+
+  it("replaces tool call arguments when not streaming", async () => {
+    const route_get_external_agent_chat = (
+      await import("utils/generatedEndpoints")
+    ).route_get_external_agent_chat as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
+    route_get_external_agent_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          {
+            id: "msg-remote",
+            role: ChatRoleEnum.assistant,
+            content: [{ type: "text", text: "Remote only" }],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: { remote: "{}" },
+      },
+    });
+    route_set_chat_section_state.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (!impl || impl.type !== SectionTypeEnum.Chat) {
+        return;
+      }
+      impl.toolCallArguments = { local: "{}" };
+    });
+
+    await getExternalAgentChat(chatId, projectConfigId, sectionId);
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.toolCallArguments).toEqual({ remote: "{}" });
+    const persistedCall = route_set_chat_section_state.mock.calls.find(
+      (call) => call[0]?.sectionId === sectionId,
+    );
+    expect(persistedCall).toBeDefined();
+    if (!persistedCall) {
+      throw new Error("Expected setChatSectionState call for replacement.");
+    }
+    expect(persistedCall[0].state.toolCallArguments).toEqual({ remote: "{}" });
+  });
 });

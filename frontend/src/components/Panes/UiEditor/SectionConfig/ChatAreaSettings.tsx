@@ -246,19 +246,15 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     return _.sortBy(options, (entry) => entry.name.toLowerCase());
   }, [sectionId, sectionImpls, sectionVariantMap, sectionVariants, sections]);
 
-  const contextItems = useMemo<AllItemsType<string>>(() => {
+  const nonChatSectionItems = useMemo<AllItemsType<string>>(() => {
     const items = sectionOptions
       .filter((entry) => entry.type !== SectionTypeEnum.Chat)
       .map((entry) => ({ id: entry.id, name: entry.name }));
     return [{ group: "Sections", items }];
   }, [sectionOptions]);
 
-  const scopeItems = useMemo<AllItemsType<string>>(() => {
-    const items = sectionOptions
-      .filter((entry) => entry.type !== SectionTypeEnum.Chat)
-      .map((entry) => ({ id: entry.id, name: entry.name }));
-    return [{ group: "Sections", items }];
-  }, [sectionOptions]);
+  const contextItems = nonChatSectionItems;
+  const scopeItems = nonChatSectionItems;
 
   const agentItems = useMemo<AllItemsType<string>>(() => {
     const items = sectionOptions

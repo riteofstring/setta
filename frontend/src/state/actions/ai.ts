@@ -537,14 +537,17 @@ function mergeChatSectionState(
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
     : Boolean(incoming.waitingForResponse);
+  const nextToolCallArguments = preserveWaitingForResponse
+    ? {
+        ...(currentState.toolCallArguments ?? {}),
+        ...(incoming.toolCallArguments ?? {}),
+      }
+    : { ...(incoming.toolCallArguments ?? {}) };
   return {
     messages: mergedMessages,
     inputText: currentState.inputText ?? "",
     waitingForResponse: nextWaitingForResponse,
-    toolCallArguments: {
-      ...(currentState.toolCallArguments ?? {}),
-      ...(incoming.toolCallArguments ?? {}),
-    },
+    toolCallArguments: nextToolCallArguments,
   };
 }
 

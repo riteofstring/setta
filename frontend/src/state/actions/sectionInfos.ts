@@ -150,18 +150,16 @@ function mergeStreamingChatSections(
     const currentToolArgs = currentChat.toolCallArguments ?? {};
     const incomingInputText = incomingChat.inputText ?? "";
     const currentInputText = currentChat.inputText ?? "";
-    const hasMoreCompleteMessages = hasMoreCompleteChatMessages(
-      currentMessages,
-      incomingMessages,
-    );
     const shouldPreserveStreaming = isSectionStreamActive(sectionId);
-    const shouldMerge =
+    const shouldMergeFast =
       shouldPreserveStreaming ||
       currentMessages.length > incomingMessages.length ||
       Object.keys(currentToolArgs).length >
         Object.keys(incomingToolArgs).length ||
-      currentInputText.length > incomingInputText.length ||
-      hasMoreCompleteMessages;
+      currentInputText.length > incomingInputText.length;
+    const shouldMerge = shouldMergeFast
+      ? true
+      : hasMoreCompleteChatMessages(currentMessages, incomingMessages);
     if (!shouldMerge) {
       continue;
     }
