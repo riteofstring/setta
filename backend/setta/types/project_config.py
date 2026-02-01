@@ -54,7 +54,6 @@ class ViewModeConfig(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     isUserFacing: bool = False
-    isTab: bool = False
     visibilityBySectionId: dict[ID, bool] = Field(default_factory=dict)
 
 
@@ -410,7 +409,6 @@ class ProjectConfig(BaseModel, extra="forbid"):
     allowJsonSourceKeyEdits: bool = True
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
-    viewportInitialized: bool = False
     viewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False

@@ -75,7 +75,6 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     ChatSectionState,
     SectionSize,
-    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -709,13 +708,6 @@ class ListenerSetSectionParamFilterRequestPayload(TypedDict):
     value: str
 
 
-class ListenerSetSectionPinnedAreaHeightRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    pinnedAreaHeight: float | SectionSizeMode
-
-
 class ListenerSetSectionPinnedParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -895,12 +887,6 @@ class ListenerToggleVariantJSONSourceRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     variantId: ID
-
-
-class ListenerToggleViewModeTabRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    viewModeId: ID
 
 
 class ListenerToggleViewModeUserFacingRequestPayload(TypedDict):
@@ -1359,11 +1345,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_section_param_filter", payload)
 
-    async def set_section_pinned_area_height(
-        self, payload: ListenerSetSectionPinnedAreaHeightRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_pinned_area_height", payload)
-
     async def set_section_pinned_params(
         self, payload: ListenerSetSectionPinnedParamsRequestPayload
     ) -> None:
@@ -1496,11 +1477,6 @@ class RouterEndpointAPI:
         self, payload: ListenerToggleVariantJSONSourceRequestPayload
     ) -> None:
         return await self._caller("route_toggle_variant_json_source", payload)
-
-    async def toggle_view_mode_tab(
-        self, payload: ListenerToggleViewModeTabRequestPayload
-    ) -> None:
-        return await self._caller("route_toggle_view_mode_tab", payload)
 
     async def toggle_view_mode_user_facing(
         self, payload: ListenerToggleViewModeUserFacingRequestPayload

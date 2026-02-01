@@ -45,7 +45,6 @@ from setta.project_state.project_manager_types import (
     ToggleParamSelectedRequest,
     ToggleSectionVisibilityRequest,
     ToggleVariantFrozenRequest,
-    ToggleViewModeTabRequest,
     ToggleViewModeUserFacingRequest,
     UngroupGroupsRequest,
     UnselectAllParamsRequest,
@@ -98,7 +97,6 @@ from setta.routers.project_manager import (
     route_toggle_param_selected,
     route_toggle_section_visibility,
     route_toggle_variant_frozen,
-    route_toggle_view_mode_tab,
     route_toggle_view_mode_user_facing,
     route_ungroup_groups,
     route_unselect_all_params,
@@ -982,14 +980,6 @@ class TestSharePolicyRoutes:
                     "toggle_view_mode_user_facing",
                     route_toggle_view_mode_user_facing,
                     ToggleViewModeUserFacingRequest(
-                        projectConfigId=project_config_id,
-                        viewModeId=create_new_id(),
-                    ),
-                ),
-                (
-                    "toggle_view_mode_tab",
-                    route_toggle_view_mode_tab,
-                    ToggleViewModeTabRequest(
                         projectConfigId=project_config_id,
                         viewModeId=create_new_id(),
                     ),

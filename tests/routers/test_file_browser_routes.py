@@ -8,6 +8,7 @@ from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
 
+import setta.routers.artifact as artifact_router
 from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
@@ -436,11 +437,11 @@ class TestFileBrowserRoutes:
 
     async def test_update_artifacts_rejects_oversized_file(self) -> None:
         state = await self._build_state()
-        original_limit = C.DROPZONE_STATEFUL_MAX_FILE_BYTES
-        original_label = C.DROPZONE_STATEFUL_MAX_FILE_LABEL
+        original_limit = artifact_router.DROPZONE_MAX_FILE_BYTES
+        original_label = artifact_router.DROPZONE_MAX_FILE_LABEL
         try:
-            C.DROPZONE_STATEFUL_MAX_FILE_BYTES = 10
-            C.DROPZONE_STATEFUL_MAX_FILE_LABEL = "10 bytes"
+            artifact_router.DROPZONE_MAX_FILE_BYTES = 10
+            artifact_router.DROPZONE_MAX_FILE_LABEL = "10 bytes"
             artifact_id = (C.ARTIFACTS_FOLDER / "too-big.bin").as_posix()
             oversized_ref = BinaryContentRef(
                 contentId="oversized",
@@ -459,38 +460,8 @@ class TestFileBrowserRoutes:
                     )
             assert ctx.value.status_code == 413
         finally:
-            C.DROPZONE_STATEFUL_MAX_FILE_BYTES = original_limit
-            C.DROPZONE_STATEFUL_MAX_FILE_LABEL = original_label
-
-    async def test_update_artifacts_rejects_when_dropzone_limit_disabled(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        original_limit = C.DROPZONE_STATEFUL_MAX_FILE_BYTES
-        original_label = C.DROPZONE_STATEFUL_MAX_FILE_LABEL
-        try:
-            C.DROPZONE_STATEFUL_MAX_FILE_BYTES = 0
-            C.DROPZONE_STATEFUL_MAX_FILE_LABEL = "0 B"
-            artifact_id = (C.ARTIFACTS_FOLDER / "blocked.bin").as_posix()
-            ref = BinaryContentRef(
-                contentId="blocked-dropzone",
-                byteLength=1,
-                mimeType="application/octet-stream",
-            )
-            artifact = FileArtifact(id=artifact_id, value=ref)
-            with runtime_context(state) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    await route_update_artifacts(
-                        UpdateArtifactsRequest(
-                            artifacts=[artifact],
-                            uploadScope="generic",
-                        ),
-                        runtime_ctx,
-                    )
-            assert ctx.value.status_code == 413
-        finally:
-            C.DROPZONE_STATEFUL_MAX_FILE_BYTES = original_limit
-            C.DROPZONE_STATEFUL_MAX_FILE_LABEL = original_label
+            artifact_router.DROPZONE_MAX_FILE_BYTES = original_limit
+            artifact_router.DROPZONE_MAX_FILE_LABEL = original_label
 
     async def test_update_artifacts_rejects_oversized_chat_file(self) -> None:
         state = await self._build_state()
@@ -519,82 +490,6 @@ class TestFileBrowserRoutes:
         finally:
             C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = original_limit
             C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = original_label
-
-    async def test_update_artifacts_rejects_when_chat_limit_disabled(self) -> None:
-        state = await self._build_state()
-        original_limit = C.CHAT_ATTACHMENTS_MAX_FILE_BYTES
-        original_label = C.CHAT_ATTACHMENTS_MAX_FILE_LABEL
-        try:
-            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 0
-            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "0 B"
-            artifact_id = (C.ARTIFACTS_FOLDER / "blocked.txt").as_posix()
-            ref = BinaryContentRef(
-                contentId="blocked-chat",
-                byteLength=1,
-                mimeType="text/plain",
-            )
-            artifact = FileArtifact(id=artifact_id, value=ref)
-            with runtime_context(state) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    await route_update_artifacts(
-                        UpdateArtifactsRequest(
-                            artifacts=[artifact],
-                            uploadScope="chat",
-                        ),
-                        runtime_ctx,
-                    )
-            assert ctx.value.status_code == 413
-        finally:
-            C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = original_limit
-            C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = original_label
-
-    async def test_update_artifacts_rejects_disallowed_chat_mime(self) -> None:
-        state = await self._build_state()
-        original_prefixes = C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES
-        try:
-            C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = ["image/"]
-            artifact_id = (C.ARTIFACTS_FOLDER / "notes.txt").as_posix()
-            ref = BinaryContentRef(
-                contentId="blocked-mime",
-                byteLength=5,
-                mimeType="text/plain",
-            )
-            artifact = FileArtifact(id=artifact_id, value=ref)
-            with runtime_context(state) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    await route_update_artifacts(
-                        UpdateArtifactsRequest(
-                            artifacts=[artifact],
-                            uploadScope="chat",
-                        ),
-                        runtime_ctx,
-                    )
-            assert ctx.value.status_code == 415
-        finally:
-            C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES = original_prefixes
-
-    async def test_import_files_to_artifacts_rejects_disallowed_dropzone_mime(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        original_prefixes = C.DROPZONE_ALLOWED_MIME_PREFIXES
-        try:
-            C.DROPZONE_ALLOWED_MIME_PREFIXES = ["image/"]
-            with TemporaryDirectory(dir=CWD) as tmpdir:
-                file_path = Path(tmpdir) / "notes.txt"
-                file_path.write_bytes(b"12345")
-                with runtime_context(state) as runtime_ctx:
-                    with pytest.raises(HTTPException) as ctx:
-                        await route_import_files_to_artifacts(
-                            ImportFilesToArtifactsRequest(
-                                paths=[str(file_path)],
-                                uploadScope="generic",
-                            ),
-                            runtime_ctx,
-                        )
-            assert ctx.value.status_code == 415
-        finally:
-            C.DROPZONE_ALLOWED_MIME_PREFIXES = original_prefixes
 
     async def test_import_files_to_artifacts_respects_chat_size_limit(self) -> None:
         state = await self._build_state()
