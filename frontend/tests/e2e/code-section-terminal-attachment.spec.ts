@@ -64,7 +64,7 @@ test("run attaches a terminal and reuses it", async ({ page }) => {
 
     expect(secondTerminalId).toBe(firstTerminalId);
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-terminal-section-id="${firstTerminalId}"]`,
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${firstTerminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     const terminalNode = page.locator(
@@ -96,7 +96,7 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
       `.react-flow__node[data-id="${sectionId}"] article[data-section-main-editor]`,
     );
     const terminalContainer = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-terminal-section-id="${terminalId}"]`,
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
 
     await expect(codeEditor).toBeVisible();
@@ -140,7 +140,7 @@ test("attached terminal renders without header and resizes independently", async
       `article[data-section-main-editor]`,
     );
     const terminalHost = codeNode.locator(
-      `[data-terminal-section-id="${terminalId}"]`,
+      `[data-attached-terminal-section-id="${terminalId}"]`,
     );
 
     await expect(codeEditor).toBeVisible();
@@ -339,7 +339,7 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
       .toBe(false);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-terminal-section-id="${terminalSectionId}"]`,
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await expect(
@@ -393,7 +393,7 @@ test("attach then detach round trip", async ({ page }) => {
       .toBe(false);
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-terminal-section-id="${terminalSectionId}"]`,
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalSectionId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
 
@@ -440,7 +440,7 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
     );
 
     const terminalHost = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-terminal-section-id="${terminalId}"]`,
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(terminalHost).toBeVisible();
     const terminalContainer = terminalHost.locator("xpath=ancestor::section[1]");
@@ -526,7 +526,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-terminal-section-id="${terminalId}"]`,
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     const embeddedTerminal = embeddedTerminalHost.locator(
@@ -620,7 +620,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     });
 
     const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-terminal-section-id="${terminalId}"]`,
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
     const embeddedTerminal = embeddedTerminalHost.locator(
@@ -769,7 +769,7 @@ async function getTerminalRowsSnapshot(
 ): Promise<string[]> {
   return await page.evaluate((id) => {
     const embedded = document.querySelector(
-      `[data-terminal-section-id="${id}"]`,
+      `[data-attached-terminal-section-id="${id}"]`,
     );
     const container =
       embedded ??
