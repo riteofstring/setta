@@ -13,7 +13,6 @@ from setta.lsp.managers import (
     LSPReaders,
     LSPServers,
     LSPWriters,
-    start_lsps,
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
@@ -138,7 +137,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             await manager._process_queue_task_started.wait()
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                await lsps.start()
+                await lsp_readers.start()
+                await lsp_writers.start()
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
@@ -231,7 +232,9 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             await manager._process_queue_task_started.wait()
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                await lsps.start()
+                await lsp_readers.start()
+                await lsp_writers.start()
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
