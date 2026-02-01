@@ -711,10 +711,6 @@ type ZustandLocalStorage = {
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
-  codeSectionSplitRatiosByProjectConfigId: Record<
-    string,
-    Record<string, number>
-  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -736,7 +732,6 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
-      codeSectionSplitRatiosByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation

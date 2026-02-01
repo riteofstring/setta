@@ -301,33 +301,13 @@ function shouldUseAttachedTerminalRoute({
   return isTerminalSection(state, sectionIds[0]);
 }
 
-function findAttachedParentId(
-  state: ZustandProjectState,
-  sectionId: string,
-): string | null {
-  for (const candidateId of Object.keys(state.sections)) {
-    const impl = getCurrEffectiveSectionImpl(state, candidateId);
-    if (
-      isBaseCodeSectionType(impl.type) &&
-      impl.attachedTerminalSectionId === sectionId
-    ) {
-      return candidateId;
-    }
-  }
-  return null;
-}
-
 function resolveParentIds(
   state: ZustandProjectState,
   sectionIds: string[],
 ): Record<string, string | null> {
   const parentsById: Record<string, string | null> = {};
   for (const sectionId of sectionIds) {
-    let parentId = state.parentSectionMap[sectionId] ?? null;
-    if (!parentId && isTerminalSection(state, sectionId)) {
-      parentId = findAttachedParentId(state, sectionId);
-    }
-    parentsById[sectionId] = parentId;
+    parentsById[sectionId] = state.parentSectionMap[sectionId] ?? null;
   }
   return parentsById;
 }

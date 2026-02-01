@@ -20,6 +20,7 @@ import {
   getSectionChildren,
   getSectionIsHorizontalOrientation,
   getSectionType,
+  isBaseCodeSectionType,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
 import {
@@ -462,10 +463,10 @@ export function getDndParentId(dndSectionId: string) {
   return useDndChildren.getState().y[dndSectionId];
 }
 
-function getBehaviorDropType(activeId: string, newParentId: string) {
+export function getBehaviorDropType(activeId: string, newParentId: string) {
   const state = useProjectState.getState();
   const parentType = getSectionType(state, newParentId);
-  const isCodeParent = parentType === SectionTypeEnum.Code;
+  const isCodeParent = isBaseCodeSectionType(parentType);
   const isRootParent = getIsRoot(parentType);
   const draggingIds = useDndState.getState().draggingIds;
   const selectedIds = draggingIds.length > 0 ? draggingIds : [String(activeId)];
