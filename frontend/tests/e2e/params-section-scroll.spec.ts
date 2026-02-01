@@ -19,7 +19,9 @@ test("params area uses section scroll and removes pinned resize handles", async 
     );
     await expect(sectionNode).toBeVisible();
 
-    const paramGroup = sectionNode.locator("div.section-row-pin-main").first();
+    const paramGroup = sectionNode.locator(
+      "div.section-row-pin-main.overflow-y-auto",
+    );
     await expect(paramGroup).toBeVisible();
     await expect(paramGroup).toHaveCSS("overflow-y", /auto|scroll/);
     await expect(page.locator(".pinned-resize-handle")).toHaveCount(0);

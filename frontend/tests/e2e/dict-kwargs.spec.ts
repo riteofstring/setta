@@ -2,18 +2,24 @@ import { expect, test } from "@playwright/test";
 import {
   ensureAppReady,
   getCurrentProjectConfigId,
+  getViewportBoundsForPlacement,
   postBackend,
 } from "./helpers";
 
 test("dict kwargs render after add_kwarg", async ({ page }) => {
   await ensureAppReady(page);
   const projectConfigId = await getCurrentProjectConfigId(page);
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for section placement.");
+  }
   const sectionResponse = await postBackend<{ sectionId?: string }>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType: "Dict",
+      viewportBounds,
     },
   );
   const sectionId = sectionResponse?.sectionId;

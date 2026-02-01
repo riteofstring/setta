@@ -783,6 +783,23 @@ function onEscapeKey(event: KeyboardEvent) {
       ) {
         activeElement.blur();
       }
+      const postBlurActive =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      if (
+        postBlurActive &&
+        postBlurActive !== document.body &&
+        postBlurActive !== document.documentElement
+      ) {
+        document.body.focus({ preventScroll: true });
+        if (
+          document.activeElement !== document.body &&
+          document.activeElement !== document.documentElement
+        ) {
+          document.documentElement.focus({ preventScroll: true });
+        }
+      }
     }
   }
 }

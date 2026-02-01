@@ -144,18 +144,78 @@ export async function createCallableSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for section placement.");
+  }
   const response = await postBackend<{ sectionId?: string }>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType: "Callable",
+      viewportBounds,
     },
   );
   if (!response?.sectionId) {
     throw new Error("Missing sectionId when creating callable section.");
   }
   return response.sectionId;
+}
+
+export async function getViewportBoundsForPlacement(
+  page: Page,
+): Promise<{
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} | null> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const bounds = await page.evaluate(async () => {
+      const pane = document.querySelector(".react-flow__pane");
+      const viewport = document.querySelector(".react-flow__viewport");
+      if (!(pane instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
+        return null;
+      }
+      const paneRect = pane.getBoundingClientRect();
+      if (paneRect.width <= 0 || paneRect.height <= 0) {
+        return null;
+      }
+      const overviewPane = document.getElementById("OverviewPane");
+      const overviewDomWidth = overviewPane
+        ? overviewPane.getBoundingClientRect().width
+        : 0;
+      const { useLocalStorage } = await import("/src/state/definitions");
+      const storedOverviewWidth =
+        useLocalStorage.getState().overviewTrueWidth;
+      const overviewWidth = Number.isFinite(storedOverviewWidth)
+        ? storedOverviewWidth
+        : overviewDomWidth;
+      const transform = window.getComputedStyle(viewport).transform;
+      if (!transform || transform === "none") {
+        return null;
+      }
+      const matrix = new DOMMatrixReadOnly(transform);
+      const scale = matrix.a || 1;
+      if (!Number.isFinite(scale) || scale <= 0) {
+        return null;
+      }
+      const x = (-matrix.e + overviewWidth) / scale;
+      const y = -matrix.f / scale;
+      return {
+        x,
+        y,
+        w: paneRect.width / scale,
+        h: paneRect.height / scale,
+      };
+    });
+    if (bounds) {
+      return bounds;
+    }
+    await page.waitForTimeout(100);
+  }
+  return null;
 }
 
 export async function postBackend<T>(

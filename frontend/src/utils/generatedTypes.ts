@@ -2078,10 +2078,6 @@ const VariantSchema = z.object({
 
 export type Variant = z.infer<typeof VariantSchema>;
 
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return VariantSchema.parse(options);
-}
-
 const CodeCallableCodeObjImplSchema = z.object({
   type: z.literal("CodeCallable").default(CodeObjTypeEnum.CodeCallable),
   id: IDSchema.default(create_new_id),

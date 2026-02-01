@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   ensureAppReady,
   getCurrentProjectConfigId,
+  getViewportBoundsForPlacement,
   loadProjectConfig,
   type ProjectStateSingleConfigResponse,
   postBackend,
@@ -12,12 +13,17 @@ async function createSection(
   projectConfigId: string,
   implType: string,
 ) {
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for section placement.");
+  }
   const response = await postBackend<{ sectionId?: string }>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType,
+      viewportBounds,
     },
   );
   if (!response?.sectionId) {

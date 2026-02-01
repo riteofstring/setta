@@ -158,7 +158,7 @@ describe("DictArea layout", () => {
     const markup = renderToStaticMarkup(
       <DictArea sectionId={sectionId} bgColor="bg-transparent" />,
     );
-    const match = markup.match(/class=\"([^\"]*-mt-3[^\"]*)\"/);
+    const match = markup.match(/class=\"([^\"]*overflow-y-auto[^\"]*)\"/);
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-row-pin-main");
