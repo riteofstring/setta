@@ -116,6 +116,75 @@ test("formatting errors show diagnostics for code sections", async ({
   }
 });
 
+test("code issues popover stays attached while panning", async ({ page }) => {
+  test.setTimeout(60000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionName = "Formatter Code";
+    const sectionId = await createCodeSection(page, projectConfigId);
+    await postBackend(page, "/setSectionName", {
+      projectConfigId,
+      sectionId,
+      name: sectionName,
+    });
+    await postBackend(page, "/setCode", {
+      projectConfigId,
+      sectionId,
+      code: "def bad(:\n  pass\n",
+    });
+
+    const section = findSectionByName(page, sectionName).first();
+    await expect(section).toBeVisible();
+    const codeArea = section
+      .locator("article.section-full-no-title")
+      .first();
+    await expect(codeArea).toBeVisible();
+    await codeArea.click();
+
+    const responsePromise = page.waitForResponse((response) => {
+      return (
+        response.url().includes("/api/formatCode") &&
+        response.status() === 422
+      );
+    });
+    await page.keyboard.press(FORMAT_SHORTCUT);
+    await responsePromise;
+
+    const issuesButton = section
+      .locator("header.section-title")
+      .getByRole("button", { name: /Issues/ })
+      .first();
+    await expect(issuesButton).toBeVisible();
+    await issuesButton.click();
+
+    const problemsLabel = page.getByText("Problems").first();
+    await expect(problemsLabel).toBeVisible();
+    const popover = page
+      .locator('[data-radix-popper-content-wrapper]')
+      .filter({ has: problemsLabel })
+      .first();
+    await expect(popover).toBeVisible();
+
+    const beforeDelta = await getCenterDelta(issuesButton, popover);
+
+    await setViewportTransform(page, { x: 160, y: 120, zoom: 1 });
+
+    await expect.poll(async () => {
+      const afterDelta = await getCenterDelta(issuesButton, popover);
+      return Math.max(
+        Math.abs(afterDelta.dx - beforeDelta.dx),
+        Math.abs(afterDelta.dy - beforeDelta.dy),
+      );
+    }).toBeLessThan(4);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 test("formatting errors show diagnostics for generated code prefix/suffix", async ({
   page,
 }) => {
@@ -394,4 +463,40 @@ function extractFirstDetailLine(detail: string): string {
   }
   const firstLine = trimmed.split("\n")[0]?.trim() ?? "";
   return firstLine;
+}
+
+async function setViewportTransform(
+  page: Page,
+  transform: { x: number; y: number; zoom: number },
+): Promise<void> {
+  await page.evaluate(async ({ x, y, zoom }) => {
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    useReactFlow.setState({
+      transform: [x, y, zoom],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+    window.reactFlowZoom = zoom;
+  }, transform);
+}
+
+async function getCenterDelta(
+  anchor: Locator,
+  popover: Locator,
+): Promise<{ dx: number; dy: number }> {
+  const [anchorBox, popoverBox] = await Promise.all([
+    anchor.boundingBox(),
+    popover.boundingBox(),
+  ]);
+  if (!anchorBox || !popoverBox) {
+    throw new Error("Unable to measure popover/anchor bounds.");
+  }
+  const anchorCenterX = anchorBox.x + anchorBox.width / 2;
+  const anchorCenterY = anchorBox.y + anchorBox.height / 2;
+  const popoverCenterX = popoverBox.x + popoverBox.width / 2;
+  const popoverCenterY = popoverBox.y + popoverBox.height / 2;
+  return {
+    dx: popoverCenterX - anchorCenterX,
+    dy: popoverCenterY - anchorCenterY,
+  };
 }
