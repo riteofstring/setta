@@ -21,7 +21,15 @@ export function attachParamAreaObservers({
     subtree: true,
   });
 
+  const inputEvents = ["input", "change", "compositionend"] as const;
+  for (const eventName of inputEvents) {
+    rowsElement.addEventListener(eventName, onMeasure);
+  }
+
   return () => {
+    for (const eventName of inputEvents) {
+      rowsElement.removeEventListener(eventName, onMeasure);
+    }
     resizeObserver.disconnect();
     mutationObserver.disconnect();
   };

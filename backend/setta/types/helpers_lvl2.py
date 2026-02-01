@@ -1504,11 +1504,6 @@ def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId:
     sectionImpl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
-    logger.debug(
-        "add_kwarg start section_id=%s section_type=%s",
-        sectionId,
-        sectionImpl.type,
-    )
     if isinstance(sectionImpl, CallableSectionImpl):
         new_param_id = add_kwarg_to_callable_section(
             settings, p, sectionId, sectionImpl
@@ -1517,17 +1512,6 @@ def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId:
         new_param_id = add_kwarg_to_dict_section(settings, p, sectionId, sectionImpl)
     else:
         raise TypeError
-    updated_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    logger.debug(
-        "add_kwarg done section_id=%s section_type=%s new_param_id=%s callable=%s top_level_param_id=%s",
-        sectionId,
-        updated_impl.type,
-        new_param_id,
-        getattr(updated_impl, "callable", None),
-        getattr(updated_impl, "topLevelParamId", None),
-    )
     return new_param_id
 
 

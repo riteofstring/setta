@@ -6,7 +6,7 @@ describe("attachParamAreaObservers", () => {
     vi.unstubAllGlobals();
   });
 
-  it("wires ResizeObserver and childList-only MutationObserver", () => {
+  it("wires ResizeObserver, childList-only MutationObserver, and input listeners", () => {
     const resizeObservers: Array<{
       observe: ReturnType<typeof vi.fn>;
       disconnect: ReturnType<typeof vi.fn>;
@@ -35,13 +35,20 @@ describe("attachParamAreaObservers", () => {
     vi.stubGlobal("ResizeObserver", ResizeObserverMock);
     vi.stubGlobal("MutationObserver", MutationObserverMock);
 
-    const rows = { id: "rows" } as HTMLElement;
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    const rows = {
+      id: "rows",
+      addEventListener,
+      removeEventListener,
+    } as unknown as HTMLElement;
     const header = { id: "header" } as HTMLElement;
+    const onMeasure = vi.fn();
 
     const cleanup = attachParamAreaObservers({
       rowsElement: rows,
       headerElement: header,
-      onMeasure: () => undefined,
+      onMeasure,
     });
 
     expect(resizeObservers).toHaveLength(1);
@@ -52,9 +59,18 @@ describe("attachParamAreaObservers", () => {
       childList: true,
       subtree: true,
     });
+    expect(addEventListener).toHaveBeenCalledWith("input", onMeasure);
+    expect(addEventListener).toHaveBeenCalledWith("change", onMeasure);
+    expect(addEventListener).toHaveBeenCalledWith("compositionend", onMeasure);
 
     cleanup();
 
+    expect(removeEventListener).toHaveBeenCalledWith("input", onMeasure);
+    expect(removeEventListener).toHaveBeenCalledWith("change", onMeasure);
+    expect(removeEventListener).toHaveBeenCalledWith(
+      "compositionend",
+      onMeasure,
+    );
     expect(resizeObservers[0].disconnect).toHaveBeenCalled();
     expect(mutationObservers[0].disconnect).toHaveBeenCalled();
   });
