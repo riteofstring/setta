@@ -35,9 +35,8 @@ import { C } from "utils/c";
 import {
   getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
-  getParamGroupPaddingKey,
-  getPinnedParamsMinHeightKey,
-  getUnpinnedParamsMinHeightKey,
+  getPinnedParamsAreaHeightKey,
+  getUnpinnedParamsAreaHeightKey,
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
@@ -92,17 +91,17 @@ function _ParamGroupContainer({
   const [unpinnedMinHeight, setUnpinnedMinHeight] = useState<number | null>(
     null,
   );
-  const paramGroupPaddingKey = getParamGroupPaddingKey(sectionId);
-  const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
-  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+  const pinnedAreaHeightKey = getPinnedParamsAreaHeightKey(sectionId);
+  const unpinnedAreaHeightKey = getUnpinnedParamsAreaHeightKey(sectionId);
+  const { ref: scrollRef, isScrollable: isGroupScrollable } = useIsScrollable();
 
   // Clear stale cached heights on mount to prevent using outdated values from previous sessions
   useLayoutEffect(() => {
     useTemporaryMiscState.setState({
-      [pinnedMinHeightKey]: 0,
-      [unpinnedMinHeightKey]: 0,
+      [pinnedAreaHeightKey]: 0,
+      [unpinnedAreaHeightKey]: 0,
     });
-  }, [pinnedMinHeightKey, unpinnedMinHeightKey]);
+  }, [pinnedAreaHeightKey, unpinnedAreaHeightKey]);
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -112,61 +111,41 @@ function _ParamGroupContainer({
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
 
-  useLayoutEffect(() => {
-    const node = outerRef.current;
-    if (!node) {
-      useTemporaryMiscState.setState({ [paramGroupPaddingKey]: 0 });
-      return;
-    }
-    const update = () => {
-      const style = window.getComputedStyle(node);
-      const nextPadding = Math.ceil(
-        (Number.parseFloat(style.paddingTop) || 0) +
-          (Number.parseFloat(style.paddingBottom) || 0),
-      );
-      useTemporaryMiscState.setState({
-        [paramGroupPaddingKey]: nextPadding > 0 ? nextPadding : 0,
-      });
-    };
-    update();
-    const observer = new ResizeObserver(() => {
-      update();
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      useTemporaryMiscState.setState({ [paramGroupPaddingKey]: 0 });
-    };
-  }, [paramGroupPaddingKey]);
-
   return (
     <ParamDndContext>
       <div
-        className="section-w-full section-row-pin-main -mt-3 flex min-h-0 flex-col overflow-y-hidden pt-2"
+        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col overflow-hidden pt-2"
         ref={outerRef}
       >
-        {waitingForResult ? (
-          <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
-        ) : (
-          <>
-            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-            <GetPinnedParams
-              sectionId={sectionId}
-              outerRef={outerRef}
-              handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
-              unpinnedMinHeight={unpinnedMinHeight}
-              sectionTypeName={sectionTypeName}
-            />
-            <GetUnpinnedParams
-              sectionId={sectionId}
-              handleColumnResizeStart={handleColumnResizeStart}
-              setMaxNestedDepth={setMaxNestedDepth}
-              setUnpinnedMinHeight={setUnpinnedMinHeight}
-              unpinnedMinHeight={unpinnedMinHeight}
-            />
-          </>
-        )}
+        <div
+          className={`section-row-pin-main section-w-full flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden ${
+            isGroupScrollable ? "nowheel" : ""
+          }`}
+          ref={scrollRef}
+        >
+          {waitingForResult ? (
+            <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+          ) : (
+            <>
+              <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+              <GetPinnedParams
+                sectionId={sectionId}
+                outerRef={outerRef}
+                handleColumnResizeStart={handleColumnResizeStart}
+                setMaxNestedDepth={setMaxNestedDepth}
+                unpinnedMinHeight={unpinnedMinHeight}
+                sectionTypeName={sectionTypeName}
+              />
+              <GetUnpinnedParams
+                sectionId={sectionId}
+                handleColumnResizeStart={handleColumnResizeStart}
+                setMaxNestedDepth={setMaxNestedDepth}
+                setUnpinnedMinHeight={setUnpinnedMinHeight}
+                unpinnedMinHeight={unpinnedMinHeight}
+              />
+            </>
+          )}
+        </div>
       </div>
     </ParamDndContext>
   );
@@ -559,10 +538,10 @@ function ResizablePinnedArea({
   const kwargsControlsHeight = useTemporaryMiscState(
     (x) => x[getKwargsControlsHeightKey(sectionId)] ?? 0,
   );
-  const pinnedMinHeightKey = getPinnedParamsMinHeightKey(sectionId);
-  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+  const pinnedAreaHeightKey = getPinnedParamsAreaHeightKey(sectionId);
+  const unpinnedAreaHeightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const cachedUnpinnedMinHeight = useTemporaryMiscState(
-    (x) => x[unpinnedMinHeightKey] ?? 0,
+    (x) => x[unpinnedAreaHeightKey] ?? 0,
   );
 
   let resolvedUnpinnedMinHeight: number;
@@ -756,7 +735,7 @@ function ResizablePinnedArea({
       setContentHeight(null);
       setMinContentHeight(null);
       lastMeasuredMinHeightRef.current = null;
-      useTemporaryMiscState.setState({ [pinnedMinHeightKey]: 0 });
+      useTemporaryMiscState.setState({ [pinnedAreaHeightKey]: 0 });
       return;
     }
     let didCleanup = false;
@@ -843,7 +822,7 @@ function ResizablePinnedArea({
         if (typeof lastMeasured === "number" && lastMeasured > 0) {
           setMinContentHeight(lastMeasured);
           useTemporaryMiscState.setState({
-            [pinnedMinHeightKey]: lastMeasured,
+            [pinnedAreaHeightKey]: lastMeasured,
           });
           return;
         }
@@ -855,7 +834,7 @@ function ResizablePinnedArea({
       lastMeasuredMinHeightRef.current = resolvedMinHeight;
       setMinContentHeight(resolvedMinHeight);
       useTemporaryMiscState.setState({
-        [pinnedMinHeightKey]: resolvedMinHeight ?? 0,
+        [pinnedAreaHeightKey]: resolvedMinHeight ?? 0,
       });
     };
     update();
@@ -924,7 +903,7 @@ function ResizablePinnedArea({
       unsubscribe();
       mutationObserver.disconnect();
     };
-  }, [listRef, pinnedMinHeightKey, topLevelParamIds.length]);
+  }, [listRef, pinnedAreaHeightKey, topLevelParamIds.length]);
 
   const containerHeight =
     measuredContainerHeight ??
@@ -1213,9 +1192,9 @@ function GetUnpinnedParams({
         unpinnedTopLevelParamIds: filteredUnpinned.topLevelParamIds,
       };
     }, _.isEqual);
-  const unpinnedMinHeightKey = getUnpinnedParamsMinHeightKey(sectionId);
+  const unpinnedAreaHeightKey = getUnpinnedParamsAreaHeightKey(sectionId);
   const cachedUnpinnedMinHeight = useTemporaryMiscState(
-    (x) => x[unpinnedMinHeightKey] ?? 0,
+    (x) => x[unpinnedAreaHeightKey] ?? 0,
   );
 
   const updateMinHeight = useCallback(
@@ -1225,7 +1204,7 @@ function GetUnpinnedParams({
           lastMeasuredMinHeightRef.current = null;
         }
         setUnpinnedMinHeight(null);
-        useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+        useTemporaryMiscState.setState({ [unpinnedAreaHeightKey]: 0 });
         return;
       }
       const rowCandidates = Array.from(
@@ -1266,7 +1245,7 @@ function GetUnpinnedParams({
         }
         lastMeasuredMinHeightRef.current = null;
         setUnpinnedMinHeight(null);
-        useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+        useTemporaryMiscState.setState({ [unpinnedAreaHeightKey]: 0 });
         return;
       }
       const style = window.getComputedStyle(node);
@@ -1281,10 +1260,10 @@ function GetUnpinnedParams({
       lastMeasuredMinHeightRef.current = resolvedMinHeight;
       setUnpinnedMinHeight(resolvedMinHeight);
       useTemporaryMiscState.setState({
-        [unpinnedMinHeightKey]: resolvedMinHeight ?? 0,
+        [unpinnedAreaHeightKey]: resolvedMinHeight ?? 0,
       });
     },
-    [hasUnpinnedParams, setUnpinnedMinHeight, unpinnedMinHeightKey],
+    [hasUnpinnedParams, setUnpinnedMinHeight, unpinnedAreaHeightKey],
   );
 
   const scheduleUpdate = useCallback(
@@ -1314,7 +1293,7 @@ function GetUnpinnedParams({
     } else if (!hasUnpinnedParams) {
       lastMeasuredMinHeightRef.current = null;
       setUnpinnedMinHeight(null);
-      useTemporaryMiscState.setState({ [unpinnedMinHeightKey]: 0 });
+      useTemporaryMiscState.setState({ [unpinnedAreaHeightKey]: 0 });
     }
     return () => {
       if (rafIdRef.current !== 0) {
@@ -1327,7 +1306,7 @@ function GetUnpinnedParams({
     ref,
     scheduleUpdate,
     setUnpinnedMinHeight,
-    unpinnedMinHeightKey,
+    unpinnedAreaHeightKey,
     unpinnedTopLevelParamIds.length,
   ]);
 

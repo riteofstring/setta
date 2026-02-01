@@ -15,6 +15,7 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  FORMATTER_DIAGNOSTIC_SOURCE,
   processLspDiagnostics,
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
@@ -97,6 +98,17 @@ describe("processLspDiagnostics", () => {
     },
     uri: "file:///tmp/section.py",
   };
+  const formatterDiagnostic: SettaLspDiagnostic = {
+    message: "Formatter failed.",
+    severity: 1,
+    code: null,
+    source: FORMATTER_DIAGNOSTIC_SOURCE,
+    range: {
+      start: { line: 0, character: 0 },
+      end: { line: 0, character: 1 },
+    },
+    uri: null,
+  };
 
   beforeEach(() => {
     resetProjectStores();
@@ -165,6 +177,198 @@ describe("processLspDiagnostics", () => {
 
     const nextState = useLspDiagnostics.getState();
     expect(nextState.codeSections["section-1"]).toBe(prevArray);
+  });
+
+  it("merges formatter diagnostics with incoming section diagnostics", () => {
+    useLspDiagnostics.setState({
+      codeSections: { "section-1": [formatterDiagnostic] },
+      unmappedGenCode: [],
+    });
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [baseDiagnostic],
+      },
+      unmappedGenCode: [],
+    };
+
+    processLspDiagnostics(payload);
+
+    const diagnostics = useLspDiagnostics.getState().codeSections["section-1"];
+    expect(diagnostics).toEqual([baseDiagnostic, formatterDiagnostic]);
+  });
+
+  it("keeps incoming formatter diagnostics without duplicating previous ones", () => {
+    const incomingFormatter: SettaLspDiagnostic = {
+      ...formatterDiagnostic,
+      message: "Fresh formatter error",
+    };
+    useLspDiagnostics.setState({
+      codeSections: { "section-1": [formatterDiagnostic] },
+      unmappedGenCode: [],
+    });
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {
+        "section-1": [incomingFormatter, baseDiagnostic],
+      },
+      unmappedGenCode: [],
+    };
+
+    processLspDiagnostics(payload);
+
+    const diagnostics = useLspDiagnostics.getState().codeSections["section-1"];
+    expect(diagnostics).toEqual([incomingFormatter, baseDiagnostic]);
+  });
+
+  it("clears formatter diagnostics when a section disappears", () => {
+    useLspDiagnostics.setState({
+      codeSections: { "section-1": [formatterDiagnostic] },
+      unmappedGenCode: [],
+    });
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {},
+      unmappedGenCode: [],
+    };
+
+    processLspDiagnostics(payload);
+
+    expect(
+      useLspDiagnostics.getState().codeSections["section-1"],
+    ).toBeUndefined();
+  });
+
+  it("clears formatter diagnostics in unmapped gen-code payloads", () => {
+    useLspDiagnostics.setState({
+      codeSections: {},
+      unmappedGenCode: [formatterDiagnostic],
+    });
+    const payload: SettaLspDiagnosticsPayload = {
+      projectConfigId: "project-1",
+      genCode: {
+        projectConfigId: "project-1",
+        errors: {},
+        isGenCode: true,
+      },
+      codeSections: {},
+      unmappedGenCode: [],
+    };
+
+    processLspDiagnostics(payload);
+
+    expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([]);
+  });
+
+  describe("immediate clears", () => {
+    it("clears diagnostics when a section disappears", () => {
+      useLspDiagnostics.setState({
+        codeSections: { "section-1": [baseDiagnostic] },
+        unmappedGenCode: [],
+      });
+      const payload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {},
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(payload);
+
+      expect(
+        useLspDiagnostics.getState().codeSections["section-1"],
+      ).toBeUndefined();
+    });
+
+    it("clears diagnostics when a section sends an empty list", () => {
+      useLspDiagnostics.setState({
+        codeSections: { "section-1": [baseDiagnostic] },
+        unmappedGenCode: [],
+      });
+      const payload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {
+          "section-1": [],
+        },
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(payload);
+
+      expect(
+        useLspDiagnostics.getState().codeSections["section-1"],
+      ).toBeUndefined();
+    });
+
+    it("clears formatter diagnostics when a section sends an empty list", () => {
+      useLspDiagnostics.setState({
+        codeSections: { "section-1": [formatterDiagnostic] },
+        unmappedGenCode: [],
+      });
+      const payload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {
+          "section-1": [],
+        },
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(payload);
+
+      expect(
+        useLspDiagnostics.getState().codeSections["section-1"],
+      ).toBeUndefined();
+    });
+
+    it("clears unmapped gen-code diagnostics when payload is empty", () => {
+      useLspDiagnostics.setState({
+        codeSections: {},
+        unmappedGenCode: [baseDiagnostic],
+      });
+      const emptyPayload: SettaLspDiagnosticsPayload = {
+        projectConfigId: "project-1",
+        genCode: {
+          projectConfigId: "project-1",
+          errors: {},
+          isGenCode: true,
+        },
+        codeSections: {},
+        unmappedGenCode: [],
+      };
+
+      processLspDiagnostics(emptyPayload);
+
+      expect(useLspDiagnostics.getState().unmappedGenCode).toEqual([]);
+    });
   });
 
   it("ignores diagnostics in share mode", () => {

@@ -15,7 +15,10 @@ from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.project_manager_types import SetCodeRequest
+from setta.project_state.project_manager_types import (
+    FormatCodeRequest,
+    SetCodeRequest,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
@@ -216,6 +219,23 @@ class TestSetCodeAccessMode:
 
         with pytest.raises(PermissionError):
             await self.manager.set_code(request)
+
+        state_after = self.manager.get_single_config_state(self.project_config_id)
+        impl_after = get_curr_effective_section_impl_with_type_guard(
+            state_after,
+            self.section_id,
+            BaseCodeSectionImpl,
+        )
+        assert impl_after.code == self.initial_code
+
+    async def test_format_code_rejects_read_only_binding(self):
+        request = FormatCodeRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=self.section_id,
+        )
+
+        with pytest.raises(PermissionError):
+            await self.manager.format_code(request)
 
         state_after = self.manager.get_single_config_state(self.project_config_id)
         impl_after = get_curr_effective_section_impl_with_type_guard(

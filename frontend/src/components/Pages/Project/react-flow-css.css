@@ -21,3 +21,14 @@ html.dark .react-flow__minimap {
   background-color: hsla(220, 27%, 6%, 0.72) !important;
   border-color: hsla(220, 26%, 14%, 0.55) !important;
 }
+
+.setta-codemirror-tooltips {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  z-index: 300;
+  pointer-events: auto;
+  overflow: visible;
+}

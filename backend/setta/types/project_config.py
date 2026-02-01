@@ -410,6 +410,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     allowJsonSourceKeyEdits: bool = True
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
+    viewportInitialized: bool = False
     viewModes: dict[ID, ViewModeConfig] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
