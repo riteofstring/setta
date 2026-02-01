@@ -160,6 +160,7 @@ class Route(str, Enum):
     SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION = (
         "/setCodeSectionDiagnosticCodeSuppression"
     )
+    SET_CODE_SECTION_ATTACHED_TERMINAL = "/setCodeSectionAttachedTerminal"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"
@@ -176,10 +177,6 @@ class Route(str, Enum):
     DELETE_EDGES = "/deleteEdges"
     RECONNECT_EDGE = "/reconnectEdge"
     SET_EDGES = "/setEdges"
-    CREATE_AGENTIC_EDGE = "/createAgenticEdge"
-    UPDATE_AGENTIC_EDGE = "/updateAgenticEdge"
-    DELETE_AGENTIC_EDGES = "/deleteAgenticEdges"
-    SET_AGENTIC_EDGES = "/setAgenticEdges"
     SET_SECTION_VARIANT = "/setSectionVariant"
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"
     SET_SECTION_VARIANT_NAME = "setSectionVariantName"

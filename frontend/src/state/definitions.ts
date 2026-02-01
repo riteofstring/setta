@@ -1,6 +1,5 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
-import type { AIFollowMode } from "state/types/aiFollow";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -642,7 +641,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
 );
 
 type AIFollowState = {
-  mode: AIFollowMode;
+  enabled: boolean;
   isFollowTransitioning: boolean;
   toolArgumentsIdsByProjectConfigId: Record<
     string,
@@ -652,20 +651,16 @@ type AIFollowState = {
     string,
     Record<string, Record<string, Array<string>>>
   >;
-  selectedChatIdsByProjectConfigId: Record<string, Array<string>>;
-  selectedSectionIdsByProjectConfigId: Record<string, Array<string>>;
 };
 
 export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "off",
+        enabled: false,
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
-        selectedChatIdsByProjectConfigId: {},
-        selectedSectionIdsByProjectConfigId: {},
       })),
     ),
   ),
@@ -716,6 +711,10 @@ type ZustandLocalStorage = {
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
+  codeSectionSplitRatiosByProjectConfigId: Record<
+    string,
+    Record<string, number>
+  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -737,6 +736,7 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
+      codeSectionSplitRatiosByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
