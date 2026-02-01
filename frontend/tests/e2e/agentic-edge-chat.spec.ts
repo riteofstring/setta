@@ -432,7 +432,15 @@ async function createChatSectionViaCommandPalette(page: Page): Promise<void> {
   const searchInput = page.locator("#ProjectPageSearchBar");
   await expect(searchInput).toBeVisible();
   await searchInput.fill("Chat");
-  await page.keyboard.press("Enter");
+  const chatOption = page.getByRole("option", { name: "Chat" }).first();
+  await expect(chatOption).toBeVisible();
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/createTopLevelSection") &&
+      response.request().method() === "POST",
+  );
+  await chatOption.click();
+  await responsePromise;
 }
 
 async function dragHandleToHandle(
