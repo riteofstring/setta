@@ -1,4 +1,3 @@
-import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
@@ -10,7 +9,7 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
@@ -22,27 +21,24 @@ import {
 } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
-import { IoSettingsOutline } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
+import {
+  createAgenticEdgeFromSections,
+  deleteAgenticEdgesById,
+} from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
-import { EngineTypeEnum } from "utils/generatedTypes";
+import { useAIStore, useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
+import {
+  AgenticEdgeKindEnum,
+  EngineTypeEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
-
-type ProjectAISettingsPopoverProps = {
-  engineGroups: ReturnType<typeof buildEngineGroups>;
-  availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
-  selectedEngineId: string | null;
-  selectedLLMConfigId: string | null;
-  engineType: EngineTypeEnum | null;
-  noConfigsAvailable: boolean;
-  onEngineChange: (value: string | null) => void;
-  onLLMConfigChange: (value: string | null) => void;
-};
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -246,8 +242,8 @@ export function ProjectChat() {
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
-        <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800">
-          <div className="mt-2 flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
+        <nav className="-mt-1.5 flex min-h-[50px] flex-col gap-2 border-b border-setta-100 pb-8 pt-2 @[17.5rem]:flex-row @[17.5rem]:items-center @[17.5rem]:pb-2 dark:border-setta-800">
+          <div className="flex gap-2">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               aria-label="New Chat"
@@ -259,7 +255,7 @@ export function ProjectChat() {
               }}
             >
               <MdAdd size={15} />
-              <span className="hidden @[17.5rem]:block">New</span>
+              <span className="@[17.5rem]:hidden @sm:block">New</span>
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
@@ -276,41 +272,56 @@ export function ProjectChat() {
               ) : (
                 <>
                   <RiChatHistoryLine size={15} />
-                  <span className="hidden @[17.5rem]:block">History</span>
+                  <span className="@[17.5rem]:hidden @sm:block">History</span>
                 </>
               )}
             </button>
-            {!viewHistory ? <FollowAIToggleButton /> : null}
-            {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
-            {!viewHistory &&
-            (engineType === EngineTypeEnum.setta_llm ||
-              engineType === EngineTypeEnum.external_agent) ? (
-              <button
-                className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
-                aria-label="Thinking"
-                onClick={() => {
-                  setThinking(!thinking);
-                }}
-              >
-                <BiSolidBrain size={15} />
-                <span className="hidden @[33.5rem]:block">Thinking</span>
-              </button>
-            ) : null}
-            {!viewHistory ? (
-              <div className="ml-auto flex items-center">
-                <ProjectAISettingsPopover
-                  engineGroups={engineGroups}
-                  availableConfigGroups={availableConfigGroups}
-                  selectedEngineId={selectedEngineId}
-                  selectedLLMConfigId={selectedLLMConfigId}
-                  engineType={engineType}
-                  noConfigsAvailable={noConfigsAvailable}
-                  onEngineChange={handleEngineChange}
-                  onLLMConfigChange={handleLLMConfigChange}
-                />
-              </div>
-            ) : null}
           </div>
+
+          {viewHistory ? null : (
+            <div className="ml-auto flex w-full items-center justify-end gap-2">
+              <IdNameCombobox
+                allItems={engineGroups}
+                value={selectedEngineId}
+                small={false}
+                onSelectedItemChange={handleEngineChange}
+                placeholder="Select an engine"
+                outerDivClasses="@[17.5rem]:max-w-64 justify-center"
+              />
+              {showPlanModeBadge ? <PlanModeBadge /> : null}
+
+              {engineType === EngineTypeEnum.setta_llm ||
+              engineType === EngineTypeEnum.external_agent ? (
+                <button
+                  className={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold ${thinking ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500" : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white"} transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300`}
+                  aria-label="Thinking"
+                  onClick={() => {
+                    setThinking(!thinking);
+                  }}
+                >
+                  <BiSolidBrain size={15} />
+                  <span className="hidden @[33.5rem]:block">Thinking</span>
+                </button>
+              ) : null}
+
+              {engineType === EngineTypeEnum.setta_llm ? (
+                <IdNameCombobox
+                  allItems={availableConfigGroups}
+                  value={selectedLLMConfigId}
+                  small={false}
+                  onSelectedItemChange={handleLLMConfigChange}
+                  placeholder={
+                    noConfigsAvailable
+                      ? "Add an LLM config or API key"
+                      : "Select an LLM"
+                  }
+                  // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                  bg={`${!selectedLLMConfigId ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                  outerDivClasses="@[17.5rem]:max-w-64 justify-center"
+                />
+              ) : null}
+            </div>
+          )}
         </nav>
 
         {viewHistory ? (
@@ -324,6 +335,7 @@ export function ProjectChat() {
                 </p>
               </div>
             ) : null}
+            <ProjectChatContextLinks chatId={chatId} />
             <ProjectChatCore
               chatId={chatId}
               placeholderText={placeholderText}
@@ -341,76 +353,150 @@ export function ProjectChat() {
   );
 }
 
-function ProjectAISettingsPopover({
-  engineGroups,
-  availableConfigGroups,
-  selectedEngineId,
-  selectedLLMConfigId,
-  engineType,
-  noConfigsAvailable,
-  onEngineChange,
-  onLLMConfigChange,
-}: ProjectAISettingsPopoverProps) {
-  const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
-  const llmPlaceholder = noConfigsAvailable
-    ? "Add an LLM config or API key"
-    : "Select an LLM";
-  const llmBg = selectedLLMConfigId
-    ? ""
-    : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+function ProjectChatContextLinks({
+  chatId,
+}: {
+  chatId: string | null | undefined;
+}) {
+  const { canEditStructure } = useShareCapabilities();
+  const {
+    sections,
+    sectionVariants,
+    sectionImpls,
+    sectionVariantMap,
+    agenticEdges,
+  } = useProjectState(
+    (state) => ({
+      sections: state.sections,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
+      sectionVariantMap: state.projectConfig.sectionVariantMap,
+      agenticEdges: state.projectConfig.agenticEdges,
+    }),
+    _.isEqual,
+  );
+
+  const sectionOptions = useMemo(() => {
+    const options: Array<{ id: string; name: string }> = [];
+    for (const [id, core] of Object.entries(sections)) {
+      const variantId = sectionVariantMap[id];
+      if (!variantId) {
+        continue;
+      }
+      const variant = sectionVariants[variantId];
+      if (!variant) {
+        continue;
+      }
+      const impl = sectionImpls[variant.impl];
+      if (!impl || impl.type === SectionTypeEnum.Chat) {
+        continue;
+      }
+      const displayName = core.displayName?.trim();
+      const name =
+        displayName && displayName.length > 0 ? displayName : core.name || id;
+      options.push({ id, name });
+    }
+    return _.sortBy(options, (entry) => entry.name.toLowerCase());
+  }, [sectionImpls, sectionVariantMap, sectionVariants, sections]);
+
+  const contextItems = useMemo<AllItemsType<string>>(() => {
+    return [{ group: "Sections", items: sectionOptions }];
+  }, [sectionOptions]);
+
+  const contextEdges = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return [];
+    }
+    return agenticEdges.filter(
+      (edge) =>
+        edge.kind === AgenticEdgeKindEnum.section_chat &&
+        edge.targetSectionId === chatId,
+    );
+  }, [agenticEdges, chatId]);
+
+  const contextOptionCount = contextItems[0]?.items.length ?? 0;
+  const canEditLinks = canEditStructure && typeof chatId === "string";
+
+  const handleAddContextSection = useCallback(
+    (value: string | null) => {
+      if (!value || typeof chatId !== "string" || !canEditLinks) {
+        return;
+      }
+      createAgenticEdgeFromSections({
+        sourceSectionId: value,
+        targetSectionId: chatId,
+        kind: AgenticEdgeKindEnum.section_chat,
+      });
+    },
+    [canEditLinks, chatId],
+  );
+
+  const sectionLabelsById = useMemo(() => {
+    const labels: Record<string, string> = {};
+    for (const [id, core] of Object.entries(sections)) {
+      const display = core.displayName?.trim();
+      labels[id] = display && display.length > 0 ? display : core.name || id;
+    }
+    return labels;
+  }, [sections]);
 
   return (
-    <StandardPopover
-      trigger={
-        <button
-          className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-          aria-label="Project AI Settings"
-          type="button"
-        >
-          <IoSettingsOutline size={15} />
-          <span className="hidden @[33.5rem]:block">Settings</span>
-        </button>
-      }
-      contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
-      arrowClasses="fill-white/95 stroke-[1px] stroke-setta-200/80 dark:fill-setta-900/95 dark:stroke-setta-700/70"
-    >
-      <div className="flex flex-col gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
-          Project AI
+    <div className="mb-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+        Project Chat Context
+      </p>
+      <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+        Attach sections as context for this project chat session.
+      </p>
+      {typeof chatId !== "string" ? (
+        <p className="mt-2 text-[11px] text-setta-500 dark:text-setta-500">
+          Start a chat to add context links.
         </p>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-              Engine
-            </span>
-            <IdNameCombobox
-              allItems={engineGroups}
-              value={selectedEngineId}
-              small={false}
-              onSelectedItemChange={onEngineChange}
-              placeholder="Select an engine"
-              outerDivClasses="w-full"
-            />
-          </div>
-          {showLLMConfig ? (
+      ) : (
+        <div className="mt-3 flex flex-col gap-2">
+          <IdNameCombobox
+            allItems={contextItems}
+            value={null}
+            small={true}
+            onSelectedItemChange={handleAddContextSection}
+            placeholder={
+              contextOptionCount > 0 ? "Add a section" : "No sections available"
+            }
+            outerDivClasses="justify-center"
+            inputOuterClasses="!h-7"
+            isDisabled={!canEditLinks || contextOptionCount === 0}
+            selectedItemCanBeNull
+            clearInputAfterSelection
+          />
+          {contextEdges.length === 0 ? (
+            <p className="text-[11px] text-setta-500 dark:text-setta-500">
+              No context links yet.
+            </p>
+          ) : (
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-                LLM Config
-              </span>
-              <IdNameCombobox
-                allItems={availableConfigGroups}
-                value={selectedLLMConfigId}
-                small={false}
-                onSelectedItemChange={onLLMConfigChange}
-                placeholder={llmPlaceholder}
-                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={llmBg}
-                outerDivClasses="w-full"
-              />
+              {contextEdges.map((edge) => (
+                <div
+                  key={edge.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                >
+                  <span className="truncate">
+                    {sectionLabelsById[edge.sourceSectionId] ??
+                      edge.sourceSectionId}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
+                    onClick={() => deleteAgenticEdgesById([edge.id])}
+                    disabled={!canEditLinks}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
-          ) : null}
+          )}
         </div>
-      </div>
-    </StandardPopover>
+      )}
+    </div>
   );
 }

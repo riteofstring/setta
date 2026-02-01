@@ -1,5 +1,4 @@
 import copy
-import logging
 import math
 import re
 from dataclasses import dataclass
@@ -10,6 +9,7 @@ import rpack
 from setta.database.utils import create_new_id
 from setta.llm.prompt_renderer import PromptRenderResult, render_prompt
 from setta.secrets.password_store import get_password_secret, set_password_secret
+from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
@@ -142,8 +142,6 @@ from setta.utils.name_validation import (
     validate_section_name,
 )
 from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
@@ -489,7 +487,6 @@ def create_section(
         get_user_default_section_from_settings(settings, impl_type),  # type: ignore
         impl_overrides,  # type: ignore
     )
-    impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     default_core_args: CoreArgs = {
         "name": get_default_section_core_name(impl_type),
@@ -601,57 +598,6 @@ def _get_min_section_dimensions(
     return min_width, min_height
 
 
-def _coerce_section_size_value(
-    section_id: ID,
-    dimension: str,
-    value: float | SectionSizeMode,
-) -> float | SectionSizeMode:
-    if value == SectionSizeMode.auto:
-        return value
-    if isinstance(value, bool):
-        raise ValueError(
-            f"Section {section_id} has invalid {dimension} value {value!r}."
-        )
-    numeric = float(value)
-    if not math.isfinite(numeric):
-        raise ValueError(
-            f"Section {section_id} has non-finite {dimension} value {value!r}."
-        )
-    return numeric
-
-
-def _clamp_section_dimension(
-    value: float | SectionSizeMode, min_value: float, max_value: float
-) -> float | SectionSizeMode:
-    if value == SectionSizeMode.auto:
-        return value
-    if max_value < min_value:
-        max_value = min_value
-    return max(min_value, min(max_value, value))
-
-
-def normalize_section_size(
-    settings: SettingsState,
-    section_type: SectionType,
-    section_id: ID,
-    size: SectionSize,
-) -> SectionSize:
-    policy = settings.sectionSizingPolicy.byType
-    entry = getattr(policy, section_type.value)
-    min_width = max(0.0, float(entry.minWidth))
-    min_height = max(0.0, float(entry.minHeight))
-    max_width = float(entry.maxWidth)
-    max_height = float(entry.maxHeight)
-
-    width = _coerce_section_size_value(section_id, "width", size.width)
-    height = _coerce_section_size_value(section_id, "height", size.height)
-
-    width = _clamp_section_dimension(width, min_width, max_width)
-    height = _clamp_section_dimension(height, min_height, max_height)
-
-    return SectionSize(width=width, height=height)
-
-
 def _resolve_layout_dimension_with_fallback(
     settings: SettingsState,
     section_type: SectionType,
@@ -718,18 +664,13 @@ def _resolve_new_section_dimensions(
     if override_data is not None:
         size_data.update(override_data)
     size = SectionSize(**size_data)
-    normalized_size = normalize_section_size(
-        settings, section_type, f"new-{section_type.value}", size
-    )
-    return _resolve_section_dimensions_from_size(
-        settings, section_type, normalized_size
-    )
+    return _resolve_section_dimensions_from_size(settings, section_type, size)
 
 
 def _build_top_level_layout_rects(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
-    layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
+    _layout_snapshot: dict[ID, TopLevelSectionLayout] | None,
 ) -> list[LayoutRect]:
     layout_by_id = p.projectConfig.topLevelSections
     rects: list[LayoutRect] = []
@@ -739,46 +680,14 @@ def _build_top_level_layout_rects(
         parent_id = p.parentSectionMap[section_id]
         if parent_id:
             continue
-        snapshot_layout = None
-        if layout_snapshot is not None and section_id in layout_snapshot:
-            snapshot_layout = layout_snapshot[section_id]
-        impl = get_curr_effective_section_impl(p, section_id)
-        x = layout.x
-        y = layout.y
-        layout_width = layout.w
-        layout_height = layout.h
-        if snapshot_layout is not None:
-            x = snapshot_layout.x
-            y = snapshot_layout.y
-            if snapshot_layout.w is not None:
-                layout_width = snapshot_layout.w
-            if snapshot_layout.h is not None:
-                layout_height = snapshot_layout.h
-        width = _resolve_layout_dimension_with_fallback(
-            settings, impl.type, layout_width, impl.size.width, "width"
-        )
-        height = _resolve_layout_dimension_with_fallback(
-            settings, impl.type, layout_height, impl.size.height, "height"
-        )
-        rects.append(LayoutRect(x, y, width, height))
-    if layout_snapshot is None:
-        return rects
-    for section_id, snapshot_layout in layout_snapshot.items():
-        if section_id in layout_by_id:
-            continue
-        if section_id not in p.sections:
-            continue
-        parent_id = p.parentSectionMap[section_id]
-        if parent_id:
-            continue
         impl = get_curr_effective_section_impl(p, section_id)
         width = _resolve_layout_dimension_with_fallback(
-            settings, impl.type, snapshot_layout.w, impl.size.width, "width"
+            settings, impl.type, layout.w, impl.size.width, "width"
         )
         height = _resolve_layout_dimension_with_fallback(
-            settings, impl.type, snapshot_layout.h, impl.size.height, "height"
+            settings, impl.type, layout.h, impl.size.height, "height"
         )
-        rects.append(LayoutRect(snapshot_layout.x, snapshot_layout.y, width, height))
+        rects.append(LayoutRect(layout.x, layout.y, width, height))
     return rects
 
 
@@ -814,25 +723,6 @@ def _find_position_in_bounds(
             x += step
         y += step
     return None
-
-
-def _bounds_intersect_any(bounds: LayoutRect, rects: list[LayoutRect]) -> bool:
-    return any(_rects_intersect(bounds, rect) for rect in rects)
-
-
-def _resolve_pan_target(
-    settings: SettingsState,
-    section_type: SectionType,
-    position: Position,
-    new_width: float,
-    new_height: float,
-) -> Position:
-    min_width, _ = _get_min_section_dimensions(settings, section_type)
-    pan_x_offset = max(min_width, new_width / 2)
-    return Position(
-        x=position.x + pan_x_offset,
-        y=position.y + new_height / 2,
-    )
 
 
 def _find_position_adjacent_to_bounds(
@@ -946,7 +836,7 @@ def _find_position_after_existing(
         return bottom_position
     if right_score < bottom_score:
         return right_position
-    if bounds.w < bounds.h:
+    if bounds.w <= bounds.h:
         return right_position
     return bottom_position
 
@@ -972,29 +862,21 @@ def compute_smart_top_level_section_position(
             w=viewport_bounds.w,
             h=viewport_bounds.h,
         )
-        use_viewport = not rects or _bounds_intersect_any(bounds_rect, rects)
-        if use_viewport:
-            position = _find_position_in_bounds(
-                bounds_rect, new_width, new_height, rects, padding, step
-            )
-            if position is not None:
-                return position, None
-            position = _find_position_adjacent_to_bounds(
-                bounds_rect, new_width, new_height, rects, padding, step
-            )
-            if position is None:
-                position = _find_position_after_existing(
-                    rects, new_width, new_height, padding, step
-                )
-            pan_to = _resolve_pan_target(
-                settings, impl_type, position, new_width, new_height
-            )
-            return position, pan_to
-        position = _find_position_after_existing(
-            rects, new_width, new_height, padding, step
+        position = _find_position_in_bounds(
+            bounds_rect, new_width, new_height, rects, padding, step
         )
-        pan_to = _resolve_pan_target(
-            settings, impl_type, position, new_width, new_height
+        if position is not None:
+            return position, None
+        position = _find_position_adjacent_to_bounds(
+            bounds_rect, new_width, new_height, rects, padding, step
+        )
+        if position is None:
+            position = _find_position_after_existing(
+                rects, new_width, new_height, padding, step
+            )
+        pan_to = Position(
+            x=position.x + new_width / 2,
+            y=position.y + new_height / 2,
         )
         return position, pan_to
     position = _find_position_after_existing(
@@ -1144,6 +1026,17 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
         for edge in removed_edges:
             if edge.targetSectionId not in to_delete_set:
                 _maybe_clear_edge_target_value(p, edge)
+    if p.projectConfig.agenticEdges:
+        to_delete_set = set(to_delete)
+        remaining_agentic: list[AgenticEdge] = []
+        for edge in p.projectConfig.agenticEdges:
+            if (
+                edge.sourceSectionId in to_delete_set
+                or edge.targetSectionId in to_delete_set
+            ):
+                continue
+            remaining_agentic.append(edge)
+        p.projectConfig.agenticEdges = remaining_agentic
     for id in reversed(to_delete):
         parentId = p.parentSectionMap[id]
         # delete from parent's current children list
@@ -1564,14 +1457,10 @@ def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId:
         p, sectionId, BaseSectionWithParamsImpl
     )
     if isinstance(sectionImpl, CallableSectionImpl):
-        new_param_id = add_kwarg_to_callable_section(
-            settings, p, sectionId, sectionImpl
-        )
+        return add_kwarg_to_callable_section(settings, p, sectionId, sectionImpl)
     elif isinstance(sectionImpl, BaseDictSectionImpl):
-        new_param_id = add_kwarg_to_dict_section(settings, p, sectionId, sectionImpl)
-    else:
-        raise TypeError
-    return new_param_id
+        return add_kwarg_to_dict_section(settings, p, sectionId, sectionImpl)
+    raise TypeError
 
 
 def add_kwarg_to_callable_section(
@@ -2107,6 +1996,31 @@ def _ensure_edge_endpoints_valid(p: "ProjectStateSingleConfig", edge: Edge):
         )
 
 
+def _ensure_agentic_edge_endpoints_valid(
+    p: "ProjectStateSingleConfig", edge: AgenticEdge
+):
+    source_exists = edge.sourceSectionId in p.sections
+    target_exists = edge.targetSectionId in p.sections
+    if not source_exists and not target_exists:
+        raise KeyError(
+            "Agentic edge endpoints missing from project state; expected a section id."
+        )
+    if source_exists:
+        source_impl = get_curr_effective_section_impl(p, edge.sourceSectionId)
+        if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.chat_section}:
+            if source_impl.type != SectionType.Chat:
+                raise TypeError(
+                    f"Agentic edge {edge.id} expects a chat source section."
+                )
+    if target_exists:
+        target_impl = get_curr_effective_section_impl(p, edge.targetSectionId)
+        if edge.kind in {AgenticEdgeKind.chat_chat, AgenticEdgeKind.section_chat}:
+            if target_impl.type != SectionType.Chat:
+                raise TypeError(
+                    f"Agentic edge {edge.id} expects a chat target section."
+                )
+
+
 def _maybe_clear_edge_target_value(p: "ProjectStateSingleConfig", edge: Edge):
     if edge.targetSectionId not in p.sections:
         return
@@ -2319,6 +2233,47 @@ def set_edges(p: "ProjectStateSingleConfig", edges: list[Edge]):
         _maybe_clear_edge_target_value(p, edge)
 
 
+def create_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
+    if any(existing.id == edge.id for existing in p.projectConfig.agenticEdges):
+        raise KeyError(f"Agentic edge {edge.id} already exists.")
+    _ensure_agentic_edge_endpoints_valid(p, edge)
+    p.projectConfig.agenticEdges.append(edge)
+
+
+def update_agentic_edge(p: "ProjectStateSingleConfig", edge: AgenticEdge):
+    for idx, existing in enumerate(p.projectConfig.agenticEdges):
+        if existing.id != edge.id:
+            continue
+        _ensure_agentic_edge_endpoints_valid(p, edge)
+        p.projectConfig.agenticEdges[idx] = edge
+        return
+    raise KeyError(f"Agentic edge {edge.id} not found.")
+
+
+def delete_agentic_edges(p: "ProjectStateSingleConfig", edgeIds: list[ID]):
+    edge_ids = set(edgeIds)
+    existing_ids = {edge.id for edge in p.projectConfig.agenticEdges}
+    missing = edge_ids - existing_ids
+    if missing:
+        raise KeyError(f"Agentic edges not found: {sorted(missing)}")
+    remaining_edges: list[AgenticEdge] = []
+    for edge in p.projectConfig.agenticEdges:
+        if edge.id in edge_ids:
+            continue
+        remaining_edges.append(edge)
+    p.projectConfig.agenticEdges = remaining_edges
+
+
+def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
+    edge_ids: set[ID] = set()
+    for edge in edges:
+        if edge.id in edge_ids:
+            raise KeyError(f"Duplicate agentic edge id {edge.id} in update.")
+        edge_ids.add(edge.id)
+        _ensure_agentic_edge_endpoints_valid(p, edge)
+    p.projectConfig.agenticEdges = edges
+
+
 def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):
     set_curr_effective_section_impl_value(
         p,
@@ -2342,15 +2297,11 @@ def set_section_variant_name(p: "ProjectStateSingleConfig", variantId: ID, name:
 
 
 def set_section_sizes(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    sectionSizes: dict[ID, SectionSize],
+    p: "ProjectStateSingleConfig", sectionSizes: dict[ID, SectionSize]
 ):
     for s, size in sectionSizes.items():
-        impl = get_curr_effective_section_impl(p, s)
-        normalized_size = normalize_section_size(settings, impl.type, s, size)
         set_curr_effective_section_impl_value(
-            p, s, BaseSectionImplArgsWithCallable(size=normalized_size)
+            p, s, BaseSectionImplArgsWithCallable(size=size)
         )
 
 
@@ -2425,6 +2376,21 @@ def set_section_pinned_params(
         p,
         sectionId,
         BaseSectionWithParamsImplArgsWithCallable(pinnedParams=pinnedParams),
+    )
+
+
+def set_section_pinned_area_height(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    pinnedAreaHeight: float | SectionSizeMode,
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(pinnedAreaHeight=pinnedAreaHeight),
     )
 
 
@@ -2693,8 +2659,7 @@ def _get_next_top_level_z_index(p: "ProjectStateSingleConfig") -> int:
 
 
 def _resolve_layout_dimension(
-    settings: SettingsState,
-    section_type: SectionType,
+    sectionId: ID,
     dimension: str,
     layout_value: float | None,
     size_value: float | SectionSizeMode,
@@ -2702,16 +2667,13 @@ def _resolve_layout_dimension(
     if layout_value is not None:
         return layout_value
     if size_value == SectionSizeMode.auto:
-        min_width, min_height = _get_min_section_dimensions(settings, section_type)
-        return min_width if dimension == "width" else min_height
+        raise ValueError(
+            f"Missing {dimension} for section {sectionId} in top-level layout."
+        )
     return float(size_value)
 
 
-def auto_layout_top_level_sections(
-    settings: SettingsState,
-    p: "ProjectStateSingleConfig",
-    margin: int = 50,
-):
+def auto_layout_top_level_sections(p: "ProjectStateSingleConfig", margin: int = 50):
     top_level_sections = p.projectConfig.topLevelSections
     if not top_level_sections:
         return
@@ -2728,10 +2690,10 @@ def auto_layout_top_level_sections(
             raise KeyError(f"Missing section {section_id} in project state.")
         impl = get_curr_effective_section_impl(p, section_id)
         width = _resolve_layout_dimension(
-            settings, impl.type, "width", layout.w, impl.size.width
+            section_id, "width", layout.w, impl.size.width
         )
         height = _resolve_layout_dimension(
-            settings, impl.type, "height", layout.h, impl.size.height
+            section_id, "height", layout.h, impl.size.height
         )
         if width <= 0 or height <= 0:
             raise ValueError(

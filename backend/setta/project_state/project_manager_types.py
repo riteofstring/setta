@@ -5,6 +5,11 @@ from pydantic import BaseModel, Field
 
 from setta.code_gen.dependency_graph import RenameReferenceChangedValue
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
+from setta.types.agentic_edges import (
+    AgenticEdge,
+    AgenticEdgeContextMode,
+    AgenticEdgeKind,
+)
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
@@ -32,6 +37,7 @@ from setta.types.section_impls import (
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
+    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -705,10 +711,6 @@ class SetCodeRequest(ProjectManagerRequestWithSection):
     )
 
 
-class FormatCodeRequest(ProjectManagerRequestWithSection):
-    """Format the code in a section using Ruff."""
-
-
 class CodeFileBindingUpdate(BaseModel):
     canonical_path: str
     access_mode: CodeFileAccessMode
@@ -770,6 +772,28 @@ class ReconnectEdgeRequest(ProjectManagerRequestWithProjectConfig):
 
 class SetEdgesRequest(ProjectManagerRequestWithProjectConfig):
     edges: list[Edge]
+
+
+class CreateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
+    sourceSectionId: ID
+    targetSectionId: ID
+    kind: AgenticEdgeKind
+    contextMode: AgenticEdgeContextMode = AgenticEdgeContextMode.reference_only
+    style: dict[str, str | int | float] | None = None
+    hidden: bool = False
+    zIndex: int = 0
+
+
+class UpdateAgenticEdgeRequest(ProjectManagerRequestWithProjectConfig):
+    edge: AgenticEdge
+
+
+class DeleteAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
+    edgeIds: list[ID]
+
+
+class SetAgenticEdgesRequest(ProjectManagerRequestWithProjectConfig):
+    edges: list[AgenticEdge]
 
 
 class SetSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
@@ -867,6 +891,10 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
+
+
+class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
+    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):
