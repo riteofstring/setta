@@ -11,6 +11,7 @@ import {
 import {
   PendingOperation,
   useAllProjectMetadata,
+  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
@@ -153,7 +154,8 @@ export function getTopLevelSectionIdsForDisplay(
   projectState: ZustandProjectState,
 ): string[] {
   const attachedTerminalIds = getAttachedTerminalSectionIds(projectState);
-  return Object.keys(projectState.projectConfig.topLevelSections).filter(
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  return Object.keys(topLevelSections).filter(
     (sectionId) => !attachedTerminalIds.has(sectionId),
   );
 }
@@ -705,6 +707,7 @@ export function processProjectStateUpdateFromBackend(
     opInfo.apply(x.projectState);
   }
   normalizeAttachedTerminalChildren(x.projectState);
+  const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
@@ -714,6 +717,9 @@ export function processProjectStateUpdateFromBackend(
     useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => x.projectState);
   });
+  if (shouldRequestFitView) {
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }
 
   markRenameBroadcastsReady(completedIds);
   maybeOpenNextRenamePrompt();
@@ -721,6 +727,64 @@ export function processProjectStateUpdateFromBackend(
     projectConfigId,
     useProjectState.getState(),
   );
+}
+
+function applyViewportFromProjectState(
+  projectState: ProjectStateSingleConfig,
+): boolean {
+  const { viewport, viewportInitialized } = projectState.projectConfig;
+  const currentConfig = useProjectState.getState().projectConfig;
+  const viewModeChanged =
+    currentConfig.activeViewModeId !==
+    projectState.projectConfig.activeViewModeId;
+  const viewportChanged =
+    !_.isEqual(currentConfig.viewport, viewport) ||
+    currentConfig.viewportInitialized !== viewportInitialized;
+  if (!viewportChanged && !viewModeChanged) {
+    return false;
+  }
+  if (!viewport || !viewportInitialized) {
+    useReactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
+    });
+    return true;
+  }
+  useReactFlow.setState({
+    fitViewOnInit: false,
+    fitViewOnInitDone: true,
+    fitViewOnInitOptions: undefined,
+    transform: [viewport.x, viewport.y, viewport.zoom],
+  });
+  return false;
+}
+
+function getFitViewOptionsForVisibleSections(
+  projectState: ProjectStateSingleConfig,
+) {
+  const { activeViewModeId, isEditingViewMode, viewModes } =
+    projectState.projectConfig;
+  if (isEditingViewMode) {
+    return undefined;
+  }
+  if (!activeViewModeId) {
+    return undefined;
+  }
+  const viewMode = viewModes[activeViewModeId];
+  if (!viewMode) {
+    return undefined;
+  }
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const visibleNodeIds = Object.keys(topLevelSections).filter(
+    (sectionId) => viewMode.visibilityBySectionId[sectionId],
+  );
+  if (visibleNodeIds.length === 0) {
+    return undefined;
+  }
+  return {
+    nodes: visibleNodeIds.map((id) => ({ id }) as Node),
+  };
 }
 
 function clearToolArgumentPreviewForProjectState(
@@ -834,12 +898,26 @@ export function createNodesMapFromProjectConfigChildren(
   nodes: ZustandNodeInternalsState["x"],
 ) {
   const nodesMap: Map<string, Node> = new Map();
+  const { activeViewModeId, viewModes } = p.projectConfig;
+  const topLevelSections = getActiveViewModeTopLevelSections(p);
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
+  const canFilterByView =
+    Boolean(activeViewModeId) &&
+    Boolean(activeViewModeId && viewModes[activeViewModeId]);
 
   for (const sectionId of topLevelSectionIds) {
-    const layout = p.projectConfig.topLevelSections[sectionId];
+    const layout = topLevelSections[sectionId];
     if (!layout) {
       continue;
+    }
+    if (canFilterByView) {
+      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+        sectionId,
+        p,
+      );
+      if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+        continue;
+      }
     }
     nodesMap.set(sectionId, {
       id: sectionId,
@@ -932,7 +1010,7 @@ export function getSectionShouldRender(
   return isEditingViewMode || visibility;
 }
 
-export function getActiveViewModeConfig(state: ZustandProjectState) {
+export function getActiveViewModeConfig(state: ProjectStateSingleConfig) {
   const { activeViewModeId, viewModes } = state.projectConfig;
   if (!activeViewModeId) {
     throw new Error("Active view mode is not set");
@@ -942,6 +1020,25 @@ export function getActiveViewModeConfig(state: ZustandProjectState) {
     throw new Error(`Active view mode ${activeViewModeId} not found`);
   }
   return viewMode;
+}
+
+export function getActiveViewModeTopLevelSections(
+  projectState: ProjectStateSingleConfig,
+) {
+  const { activeViewModeId, topLevelSections, viewModes } =
+    projectState.projectConfig;
+  if (!activeViewModeId || !(activeViewModeId in viewModes)) {
+    return topLevelSections;
+  }
+  const viewMode = viewModes[activeViewModeId];
+  const viewModeLayout = viewMode.topLevelSections;
+  if (!viewModeLayout || Object.keys(viewModeLayout).length === 0) {
+    return topLevelSections;
+  }
+  if (!topLevelSections || Object.keys(topLevelSections).length === 0) {
+    return viewModeLayout;
+  }
+  return { ...topLevelSections, ...viewModeLayout };
 }
 
 function getSectionVisibilityForActiveViewMode(
@@ -1023,9 +1120,19 @@ export function deleteAllActiveSections() {
 export function createTopLevelSectionLayoutDict(
   sections: ProjectStateSingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
+  existingLayouts:
+    | ProjectStateSingleConfig["projectConfig"]["topLevelSections"]
+    | null = null,
 ) {
   const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
     {};
+  if (existingLayouts) {
+    for (const [sectionId, layout] of Object.entries(existingLayouts)) {
+      if (sectionId in sections) {
+        topLevelSections[sectionId] = { ...layout };
+      }
+    }
+  }
   for (const c of nodeInternals.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
@@ -1049,11 +1156,14 @@ export const debounced_route_set_top_level_section_layout = _.debounce(() => {
   ) {
     return;
   }
+  const projectState = useProjectState.getState();
+  const existingLayouts = getActiveViewModeTopLevelSections(projectState);
   route_set_top_level_section_layout({
     projectConfigId: getCurrProjectConfigId(),
     topLevelSections: createTopLevelSectionLayoutDict(
-      useProjectState.getState().sections,
+      projectState.sections,
       useNodeInternals.getState().x,
+      existingLayouts,
     ),
   });
 }, 500);

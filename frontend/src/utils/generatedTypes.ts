@@ -3571,12 +3571,26 @@ function createViewport(options: Partial<Viewport> = {}): Viewport {
   return ViewportSchema.parse(options);
 }
 
+const TopLevelSectionLayoutSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zIndex: z.int().default(0),
+  w: z.union([z.number(), z.null()]).default(null),
+  h: z.union([z.number(), z.null()]).default(null),
+});
+
+export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
+
 const ViewModeConfigSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
+  sortIndex: z.int().default(0),
   isUserFacing: z.boolean().default(false),
   isTab: z.boolean().default(false),
   visibilityBySectionId: z.record(IDSchema, z.boolean()).default({}),
+  viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
+  viewportInitialized: z.boolean().default(false),
+  topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
 });
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
@@ -3753,16 +3767,6 @@ export function createProjectCodegenPythonTarget(
 ): ProjectCodegenPythonTarget {
   return ProjectCodegenPythonTargetSchema.parse(options);
 }
-
-const TopLevelSectionLayoutSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zIndex: z.int().default(0),
-  w: z.union([z.number(), z.null()]).default(null),
-  h: z.union([z.number(), z.null()]).default(null),
-});
-
-export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
 
 const EdgeSchema = z.object({
   id: IDSchema.default(create_new_id),
