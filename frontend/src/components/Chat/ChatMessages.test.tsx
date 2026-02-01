@@ -134,7 +134,7 @@ describe("ChatMessageList sub-agent rendering", () => {
 
     expect(markup).toContain("Sub-agent");
     expect(markup).toContain("Summarize logs");
-    expect(markup).not.toContain("Starting task");
+    expect(markup).toContain("Starting task");
   });
 
   it("adds nodrag to chat bubbles for text selection", () => {
@@ -157,5 +157,21 @@ describe("ChatMessageList sub-agent rendering", () => {
     expect(markup).toContain("nodrag flex min-h-[25px]");
     expect(markup).toContain("nodrag flex w-fit max-w");
     expect(markup).toContain("select-text");
+  });
+
+  it("hides assistant content when tool calls exist and content is empty", () => {
+    const toolCall = buildToolCall();
+    const assistantMessage: BaseChatMessageUnion = {
+      id: "assistant-tool-only",
+      role: ChatRoleEnum.assistant,
+      content: [],
+      attachments: [],
+      tool_calls: [toolCall],
+    };
+
+    const markup = renderMessages([assistantMessage]);
+
+    expect(markup).toContain("task");
+    expect(markup).not.toContain("prose prose-sm dark:prose-invert");
   });
 });

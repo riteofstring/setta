@@ -117,6 +117,7 @@ test("sub-agent streams incrementally in its own section", async ({ page }) => {
       },
     ];
     const parentMessageId = `msg-parent-${Date.now()}`;
+    const parentMessageText = "Launching sub-agents";
     await emitChatStreamDelta(page, {
       chatId: parentChatId,
       sectionId: parentSectionId,
@@ -125,7 +126,7 @@ test("sub-agent streams incrementally in its own section", async ({ page }) => {
         message: {
           id: parentMessageId,
           role: "assistant",
-          content: [],
+          content: [{ type: "text", text: parentMessageText }],
           attachments: [],
           tool_calls: subAgents.map((agent) => ({
             id: agent.chatId,
@@ -157,6 +158,9 @@ test("sub-agent streams incrementally in its own section", async ({ page }) => {
       `.react-flow__node[data-id="${parentSectionId}"]`,
     );
     await expect(parentNode).toBeVisible({ timeout: 10000 });
+    await expect(
+      parentNode.getByText(parentMessageText, { exact: true }),
+    ).toHaveCount(1);
 
     for (const [index, agent] of subAgents.entries()) {
       const subSectionId = subSectionIds[index];
@@ -235,6 +239,107 @@ test("sub-agent streams incrementally in its own section", async ({ page }) => {
         },
       });
     }
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("sub-agent move persists after backend sync", async ({ page }) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const { sectionId: parentSectionId } = await createChatSection(
+      page,
+      projectContext.projectConfigId,
+      "__pw_parent_chat__",
+    );
+    const parentChatId = `chat-parent-${Date.now()}`;
+    await postBackend(page, "/setChatSectionChatId", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: parentSectionId,
+      chatId: parentChatId,
+    });
+
+    const subAgentChatId = `toolu_sub_move_${Date.now()}`;
+    const parentMessageId = `msg-parent-${Date.now()}`;
+    const parentMessageText = "Launch sub-agent for move test";
+    await emitChatStreamDelta(page, {
+      chatId: parentChatId,
+      sectionId: parentSectionId,
+      chunk: {
+        type: "message_finalized",
+        message: {
+          id: parentMessageId,
+          role: "assistant",
+          content: [{ type: "text", text: parentMessageText }],
+          attachments: [],
+          tool_calls: [
+            {
+              id: subAgentChatId,
+              type: "function",
+              function: {
+                name: "Task",
+                arguments: {
+                  description: "Move me",
+                  prompt: "Provide a short reply.",
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const subSectionId = await waitForChatSectionId(
+      page,
+      projectContext.projectConfigId,
+      subAgentChatId,
+    );
+
+    const fitViewButton = page.getByRole("button", { name: "fit view" });
+    if (await fitViewButton.isVisible()) {
+      await fitViewButton.click();
+    }
+
+    const subNode = page.locator(
+      `.react-flow__node[data-id="${subSectionId}"]`,
+    );
+    await expect(subNode).toBeVisible({ timeout: 10000 });
+
+    const dragTarget = subNode.getByText("Sub-agent - Move me", {
+      exact: true,
+    });
+    const initialBox = await getNodeBoundingBox(subNode);
+    const movedBox = await dragNodeBy(page, dragTarget, subNode, 180, 120);
+
+    expect(Math.abs(movedBox.x - initialBox.x)).toBeGreaterThan(40);
+    expect(Math.abs(movedBox.y - initialBox.y)).toBeGreaterThan(40);
+
+    const rename = `__pw_parent_renamed_${Date.now()}`;
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: parentSectionId,
+      name: rename,
+    });
+
+    const parentNode = page.locator(
+      `.react-flow__node[data-id="${parentSectionId}"]`,
+    );
+    await expect(parentNode.getByText(rename, { exact: true })).toHaveCount(1);
+
+    await expect
+      .poll(async () => {
+        const box = await getNodeBoundingBox(subNode);
+        return {
+          x: Math.round(box.x),
+          y: Math.round(box.y),
+        };
+      })
+      .toEqual({
+        x: Math.round(movedBox.x),
+        y: Math.round(movedBox.y),
+      });
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -956,6 +1061,34 @@ function extractSubagentStreamChatIds(
   return Array.from(ids);
 }
 
+async function getNodeBoundingBox(locator: ReturnType<Page["locator"]>) {
+  const box = await locator.boundingBox();
+  if (!box) {
+    throw new Error("Expected node bounding box.");
+  }
+  return box;
+}
+
+async function dragNodeBy(
+  page: Page,
+  dragTarget: ReturnType<Page["locator"]>,
+  measureTarget: ReturnType<Page["locator"]> | null,
+  deltaX: number,
+  deltaY: number,
+) {
+  const target = measureTarget ?? dragTarget;
+  await expect(dragTarget).toBeVisible({ timeout: 2000 });
+  await page.waitForTimeout(50);
+  const box = await getNodeBoundingBox(dragTarget);
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + deltaX, startY + deltaY, { steps: 12 });
+  await page.mouse.up();
+  return getNodeBoundingBox(target);
+}
+
 async function waitForSubagentTextSamples(
   entries: WebsocketStreamEntry[],
   chatIds: string[],
@@ -1011,10 +1144,22 @@ function formatStreamTextSample(text: string): string | null {
   if (!firstLine) {
     return null;
   }
-  if (firstLine.length > 160) {
-    return firstLine.slice(0, 160);
+  const cleaned = stripMarkdownPrefix(firstLine);
+  if (!cleaned) {
+    return null;
   }
-  return firstLine;
+  if (cleaned.length > 160) {
+    return cleaned.slice(0, 160);
+  }
+  return cleaned;
+}
+
+function stripMarkdownPrefix(line: string): string {
+  return line
+    .replace(/^\s*#{1,6}\s+/, "")
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/^\s*\d+[.)]\s+/, "")
+    .trim();
 }
 
 async function createClaudeExternalAgentConfig(

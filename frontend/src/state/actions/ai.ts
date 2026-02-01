@@ -3170,7 +3170,14 @@ function applyStreamDeltaToChatSectionState(
       };
     }
     case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
-      messages = upsertMessage(messages, chunk.message);
+      const messageToUpsert =
+        chunk.message.role === ChatRoleEnum.assistant
+          ? mergeFinalizedAssistantMessage(
+              messages,
+              chunk.message as AssistantChatMessage,
+            )
+          : chunk.message;
+      messages = upsertMessage(messages, messageToUpsert);
       waitingForResponse = false;
       toolCallArguments = {};
       return {
@@ -3190,6 +3197,27 @@ function applyStreamDeltaToChatSectionState(
       };
     }
   }
+}
+
+function mergeFinalizedAssistantMessage(
+  messages: Array<BaseChatMessageUnion>,
+  message: AssistantChatMessage,
+): AssistantChatMessage {
+  if (message.content.length > 0) {
+    return message;
+  }
+  const existing = messages.find((entry) => entry.id === message.id);
+  if (!existing || existing.role !== ChatRoleEnum.assistant) {
+    return message;
+  }
+  const existingContent = existing.content ?? [];
+  if (existingContent.length === 0) {
+    return message;
+  }
+  return {
+    ...message,
+    content: [...existingContent],
+  };
 }
 
 function applyMessageDeltaToChatMessages(

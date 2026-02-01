@@ -1251,10 +1251,15 @@ const ChatMessage = memo(function ChatMessage({
       : [];
   const isAssistant = message.role === ChatRoleEnum.assistant;
   const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
-  const hideAssistantContent = isAssistant && toolCalls.length > 0;
+  const rawAssistantContent = isAssistant
+    ? message.content ?? EMPTY_ASSISTANT_CONTENT
+    : EMPTY_ASSISTANT_CONTENT;
+  const hasAssistantContent = isAssistant && rawAssistantContent.length > 0;
+  const hideAssistantContent =
+    isAssistant && toolCalls.length > 0 && !hasAssistantContent;
   const assistantContent =
     isAssistant && !hideAssistantContent
-      ? message.content
+      ? rawAssistantContent
       : EMPTY_ASSISTANT_CONTENT;
   const { activityKey, lastTextIndex } = useMemo(
     () => getStreamActivitySummary(assistantContent),

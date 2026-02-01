@@ -30,6 +30,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
+    route_create_top_level_section: vi.fn(),
     route_set_chat_section_state: vi.fn(),
   };
 });
@@ -83,9 +84,17 @@ describe("section chat streaming updates", () => {
     receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     resetProjectStores();
     seedChatSection({ chatId });
+    const route_create_top_level_section = (
+      await import("utils/generatedEndpoints")
+    ).route_create_top_level_section as unknown as vi.Mock;
+    route_create_top_level_section.mockReturnValue({
+      status: 500,
+      hasResponse: true,
+      data: null,
+    });
   });
 
   afterEach(() => {
@@ -236,6 +245,71 @@ describe("section chat streaming updates", () => {
     expect(payload.sectionId).toBe(sectionId);
     expect(payload.projectConfigId).toBe(projectConfigId);
     expect(payload.state.messages).toHaveLength(1);
+  });
+
+  it("preserves assistant text when finalized tool-call message has empty content", () => {
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: {
+          id: "msg-tool-call",
+          role: ChatRoleEnum.assistant,
+          content: [],
+          attachments: [],
+          tool_calls: null,
+        },
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.DELTA,
+        message_id: "msg-tool-call",
+        content: [{ type: "text_delta", index: 0, text: "Launching tasks" }],
+      },
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        message: {
+          id: "msg-tool-call",
+          role: ChatRoleEnum.assistant,
+          content: [],
+          attachments: [],
+          tool_calls: [
+            {
+              id: "tool-call-1",
+              type: "function",
+              function: {
+                name: "Task",
+                arguments: { task: "Do work" },
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    const assistant = impl.messages.find(
+      (message) =>
+        message.role === ChatRoleEnum.assistant && message.id === "msg-tool-call",
+    );
+    expect(assistant).toBeTruthy();
+    expect(
+      assistant?.content?.some(
+        (content) => content.type === "text" && content.text === "Launching tasks",
+      ),
+    ).toBe(true);
   });
 
   it("keeps streaming content when backend updates arrive mid-stream", () => {

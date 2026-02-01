@@ -40,7 +40,19 @@ export function moveSectionsWithBackend({
     : null;
   const stableNewParentId = newParentId;
   const stableNewIndex = newIndex;
-  dispatchOptimisticProjectStateUpdate({
+  console.log(
+    "[moveSectionsWithBackend] start",
+    JSON.stringify({
+      sectionIds: stableSectionIds,
+      newParentId: stableNewParentId,
+      newIndex: stableNewIndex,
+      positionsCount: stablePositionsById
+        ? Object.keys(stablePositionsById).length
+        : 0,
+      movingToPane: stableNewParentId === null,
+    }),
+  );
+  const opId = dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       moveSectionsInState({
         sectionIds: stableSectionIds,
@@ -50,16 +62,41 @@ export function moveSectionsWithBackend({
         state,
       });
     },
-    send: (frontendOpId) =>
-      route_move_sections({
+    send: (frontendOpId) => {
+      console.log(
+        "[moveSectionsWithBackend] send",
+        JSON.stringify({
+          frontendOpId,
+          sectionIds: stableSectionIds,
+          newParentId: stableNewParentId,
+          newIndex: stableNewIndex,
+          positionsCount: stablePositionsById
+            ? Object.keys(stablePositionsById).length
+            : 0,
+        }),
+      );
+      return route_move_sections({
         projectConfigId: getCurrProjectConfigId(),
         sectionIds: stableSectionIds,
         newParentId: stableNewParentId,
         newIndex: stableNewIndex,
         positionsById: stablePositionsById,
         frontendOpId,
-      }),
+      });
+    },
   });
+  console.log(
+    "[moveSectionsWithBackend] pending",
+    JSON.stringify({
+      frontendOpId: opId,
+      sectionIds: stableSectionIds,
+      newParentId: stableNewParentId,
+      newIndex: stableNewIndex,
+      positionsCount: stablePositionsById
+        ? Object.keys(stablePositionsById).length
+        : 0,
+    }),
+  );
 }
 
 function moveSectionsInState({

@@ -962,6 +962,12 @@ export function processProjectStateUpdateFromBackend(
     x.projectState,
     currentState,
   );
+  const currentTopLevelSectionIds = Object.keys(
+    currentState.projectConfig.topLevelSections,
+  );
+  const incomingTopLevelSectionIds = Object.keys(
+    x.projectState.projectConfig.topLevelSections,
+  );
   console.log(
     "[processProjectStateUpdateFromBackend] start",
     JSON.stringify({
@@ -971,18 +977,28 @@ export function processProjectStateUpdateFromBackend(
       currentChatSummary,
       incomingChatSummary,
       mergedStreamingSectionIds,
+      currentTopLevelSectionsCount: currentTopLevelSectionIds.length,
+      incomingTopLevelSectionsCount: incomingTopLevelSectionIds.length,
+      pendingTopLevelLayoutOpId: pendingTopLevelLayoutRef.opId,
+      pendingTopLevelLayoutQueued: pendingTopLevelLayoutRef.hasQueuedSend,
     }),
   );
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
+  const droppedPendingIds: string[] = [];
+  const acknowledgedPendingIds: string[] = [];
   const nextPending = currentPending.reduce<PendingOperation[]>(
     (acc, opInfo) => {
       if (completedIds.has(opInfo.opId)) {
+        droppedPendingIds.push(opInfo.opId);
         return acc;
       }
       const isBackendPending = backendPendingIds.has(opInfo.opId);
       const acknowledged = opInfo.acknowledged || isBackendPending;
+      if (acknowledged && !opInfo.acknowledged) {
+        acknowledgedPendingIds.push(opInfo.opId);
+      }
       acc.push({
         ...opInfo,
         acknowledged,
@@ -991,6 +1007,7 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
+  reconcilePendingTopLevelLayout(nextPending);
   console.log(
     "[processProjectStateUpdateFromBackend] pending",
     JSON.stringify({
@@ -999,6 +1016,9 @@ export function processProjectStateUpdateFromBackend(
       nextPendingIds: nextPending.map((op) => op.opId),
       backendPendingIds: Array.from(backendPendingIds),
       completedIds: Array.from(completedIds),
+      droppedPendingIds,
+      acknowledgedPendingIds,
+      pendingTopLevelLayoutOpId: pendingTopLevelLayoutRef.opId,
     }),
   );
   for (const opInfo of nextPending) {
@@ -1351,7 +1371,104 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-export const debounced_route_set_top_level_section_layout = _.debounce(() => {
+type TopLevelSectionLayoutMap =
+  ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
+
+const pendingTopLevelLayoutRef: {
+  opId: string | null;
+  snapshot: TopLevelSectionLayoutMap | null;
+  hasQueuedSend: boolean;
+} = {
+  opId: null,
+  snapshot: null,
+  hasQueuedSend: false,
+};
+
+function applyPendingTopLevelLayout(state: ZustandProjectState) {
+  if (!pendingTopLevelLayoutRef.snapshot) {
+    return;
+  }
+  const currentLayouts = state.projectConfig.topLevelSections;
+  for (const [sectionId, layout] of Object.entries(
+    pendingTopLevelLayoutRef.snapshot,
+  )) {
+    if (!currentLayouts[sectionId]) {
+      continue;
+    }
+    currentLayouts[sectionId] = layout;
+  }
+}
+
+const sendTopLevelLayoutToBackend = _.debounce(() => {
+  if (!pendingTopLevelLayoutRef.opId || !pendingTopLevelLayoutRef.snapshot) {
+    return;
+  }
+  const opId = pendingTopLevelLayoutRef.opId;
+  const snapshot = pendingTopLevelLayoutRef.snapshot;
+  pendingTopLevelLayoutRef.hasQueuedSend = false;
+  const projectConfigId = getCurrProjectConfigId();
+  console.log(
+    "[route_set_top_level_section_layout] send",
+    JSON.stringify({
+      projectConfigId,
+      opId,
+      topLevelSectionsCount: Object.keys(snapshot).length,
+    }),
+  );
+  const result = route_set_top_level_section_layout({
+    projectConfigId,
+    topLevelSections: snapshot,
+    frontendOpId: opId,
+  });
+  if (result instanceof Promise) {
+    void result.then((res) => {
+      if (isResponseDataAndStatus(res)) {
+        console.log(
+          "[route_set_top_level_section_layout] response",
+          JSON.stringify({
+            opId,
+            status: res.status,
+            hasResponse: res.hasResponse,
+          }),
+        );
+      }
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        acknowledgePendingOp(opId);
+      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
+        removePendingOp(opId);
+        if (pendingTopLevelLayoutRef.opId === opId) {
+          pendingTopLevelLayoutRef.opId = null;
+        }
+      }
+    });
+  }
+}, 500);
+
+function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
+  const currentOpId = pendingTopLevelLayoutRef.opId;
+  if (!currentOpId) {
+    return;
+  }
+  const stillPending = nextPending.some((op) => op.opId === currentOpId);
+  if (stillPending) {
+    return;
+  }
+  if (pendingTopLevelLayoutRef.hasQueuedSend && pendingTopLevelLayoutRef.snapshot) {
+    const opId = createNewId();
+    pendingTopLevelLayoutRef.opId = opId;
+    nextPending.push({
+      opId,
+      apply: applyPendingTopLevelLayout,
+      acknowledged: false,
+    });
+    return;
+  }
+  pendingTopLevelLayoutRef.opId = null;
+  pendingTopLevelLayoutRef.snapshot = null;
+  pendingTopLevelLayoutRef.hasQueuedSend = false;
+}
+
+export function debounced_route_set_top_level_section_layout() {
   const shareSession = useShareSession.getState();
   if (
     shareSession.isShareMode &&
@@ -1359,15 +1476,41 @@ export const debounced_route_set_top_level_section_layout = _.debounce(() => {
   ) {
     return;
   }
-  route_set_top_level_section_layout({
-    projectConfigId: getCurrProjectConfigId(),
-    topLevelSections: createTopLevelSectionLayoutDict(
-      useProjectState.getState().sections,
-      useNodeInternals.getState().x,
-      useProjectState.getState().projectConfig.topLevelSections,
-    ),
+  const topLevelSections = createTopLevelSectionLayoutDict(
+    useProjectState.getState().sections,
+    useNodeInternals.getState().x,
+    useProjectState.getState().projectConfig.topLevelSections,
+  );
+  const topLevelSectionIds = Object.keys(topLevelSections);
+  if (pendingTopLevelLayoutRef.opId) {
+    const pendingOps = usePendingOperations.getState().pending;
+    const stillPending = pendingOps.some(
+      (opInfo) => opInfo.opId === pendingTopLevelLayoutRef.opId,
+    );
+    if (!stillPending) {
+      pendingTopLevelLayoutRef.opId = null;
+    }
+  }
+  pendingTopLevelLayoutRef.snapshot = topLevelSections;
+  pendingTopLevelLayoutRef.hasQueuedSend = true;
+  useProjectState.setState((state) => {
+    state.projectConfig.topLevelSections = topLevelSections;
   });
-}, 500);
+  if (!pendingTopLevelLayoutRef.opId) {
+    pendingTopLevelLayoutRef.opId = addPendingOp(applyPendingTopLevelLayout);
+  }
+  console.log(
+    "[debounced_route_set_top_level_section_layout]",
+    JSON.stringify({
+      projectConfigId: getCurrProjectConfigId(),
+      opId: pendingTopLevelLayoutRef.opId,
+      hasQueuedSend: pendingTopLevelLayoutRef.hasQueuedSend,
+      topLevelSectionsCount: topLevelSectionIds.length,
+      topLevelSectionSample: topLevelSectionIds.slice(0, 5),
+    }),
+  );
+  sendTopLevelLayoutToBackend();
+}
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
