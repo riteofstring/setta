@@ -39,8 +39,6 @@ class TestRenameRefactorBroadcast:
         fixture = await self._exit_stack.enter_async_context(real_settings_manager())
         self.manager = fixture.manager
         self.websocket_manager = fixture.websocket_manager
-        self._autosave_prev = self.manager.settings_file.settings.backend.autosave
-        self.manager.settings_file.settings.backend.autosave = False
         project_config_id = self.manager.project_state_backend.defaultProjectConfigId
         if not project_config_id:
             pytest.fail("Expected default project config id for rename test.")
@@ -93,11 +91,11 @@ class TestRenameRefactorBroadcast:
                 websocket=self._websocket,
             )
         )
+
         yield
 
         self.websocket_manager.sockets.pop(self.websocket_id, None)
         await self._exit_stack.aclose()
-        self.manager.settings_file.settings.backend.autosave = self._autosave_prev
 
     def _find_section_param_with_childless_impl(
         self, state: "ProjectStateSingleConfig"

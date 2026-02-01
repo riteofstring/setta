@@ -17,8 +17,8 @@ export function WatchCodeToggleButton() {
   const label = enabled ? "Enabled" : "Disabled";
   const actionLabel = enabled ? "Disable Watch Code" : "Enable Watch Code";
   const stateClasses = enabled
-    ? "border-blue-300 bg-blue-50 text-blue-700 hover:border-blue-400 hover:bg-blue-100 hover:text-blue-800 dark:border-blue-600/70 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:border-blue-500 dark:hover:bg-blue-900/40 dark:hover:text-blue-100"
-    : "border-setta-200/80 bg-white text-setta-600 hover:border-setta-300 hover:bg-setta-50 hover:text-setta-800 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:border-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-50";
+    ? "border-blue-500/80 bg-blue-50 text-blue-700 hover:bg-blue-100/80 dark:border-blue-500/70 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/60"
+    : "border-setta-200 bg-white text-setta-600 hover:bg-setta-50 hover:text-setta-800 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-50";
   const disabledClasses = disabled ? "cursor-not-allowed opacity-60" : "";
 
   return (
@@ -26,7 +26,7 @@ export function WatchCodeToggleButton() {
       aria-label={actionLabel}
       aria-pressed={enabled}
       title={actionLabel}
-      className={`nodrag inline-flex w-full max-w-full cursor-pointer select-none items-center justify-center gap-2 rounded-md border border-solid px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/40 box-border ${stateClasses} ${disabledClasses}`}
+      className={`nodrag inline-flex w-full select-none items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold transition-colors focus-visible:ring-2 box-border ${stateClasses} ${disabledClasses}`}
       disabled={disabled}
       type="button"
       onClick={() => {

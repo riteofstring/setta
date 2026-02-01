@@ -40,35 +40,10 @@ import {
   SharePolicy,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
-import {
-  createJSONStorage,
-  persist,
-  subscribeWithSelector,
-} from "zustand/middleware";
+import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withProjectState, withResetFn } from "./utils";
-
-const createInMemoryStorage = () => {
-  const storage = new Map<string, string>();
-  return {
-    getItem: (name: string) => storage.get(name) ?? null,
-    setItem: (name: string, value: string) => {
-      storage.set(name, value);
-    },
-    removeItem: (name: string) => {
-      storage.delete(name);
-    },
-  };
-};
-
-const getPersistStorage = <S>() =>
-  createJSONStorage<S>(() => {
-    if (typeof localStorage === "undefined") {
-      return createInMemoryStorage();
-    }
-    return localStorage;
-  });
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -290,6 +265,15 @@ type FileBrowserState = {
 };
 
 export const useFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+  })),
+);
+
+export const useBrowserSectionFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
     selectedPath: null,
@@ -634,7 +618,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         partialize: (state) => ({
           viewHistory: state.viewHistory,
         }),
-        storage: getPersistStorage(),
       },
     ),
   ),
@@ -694,9 +677,12 @@ export const useToolArgumentPreview = withProjectState(
   ),
 );
 
+export type ColorModePreference = "dark" | "light" | "auto";
+
 type ZustandLocalStorage = {
   snapToGrid: boolean;
   darkMode: boolean;
+  colorMode: ColorModePreference;
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   overviewVis: boolean;
@@ -718,6 +704,7 @@ export const useLocalStorage = createWithEqualityFn(
     () => ({
       snapToGrid: true,
       darkMode: true,
+      colorMode: "dark",
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       overviewVis: true,
@@ -735,7 +722,20 @@ export const useLocalStorage = createWithEqualityFn(
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
-      storage: getPersistStorage(),
+      merge: (persistedState, currentState) => {
+        const persisted =
+          (persistedState as Partial<ZustandLocalStorage> | null) ?? {};
+        const merged = {
+          ...currentState,
+          ...persisted,
+        };
+
+        if (persisted.colorMode === undefined) {
+          merged.colorMode = merged.darkMode ? "dark" : "light";
+        }
+
+        return merged;
+      },
     },
   ),
 );

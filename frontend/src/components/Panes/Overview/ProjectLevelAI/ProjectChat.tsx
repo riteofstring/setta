@@ -371,8 +371,8 @@ function ProjectAISettingsPopover({
           <span className="hidden @[33.5rem]:block">Settings</span>
         </button>
       }
-      contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
-      arrowClasses="fill-white/95 stroke-[1px] stroke-setta-200/80 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+      contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
+      arrowClasses="fill-white/95 dark:fill-setta-900/95"
     >
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">

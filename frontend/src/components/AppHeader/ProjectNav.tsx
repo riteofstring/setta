@@ -53,5 +53,5 @@ function ProjectNavSwitch() {
     );
   }
 
-  return <div className="ml-3 flex gap-1">{content}</div>;
+  return <div className="ml-2 flex">{content}</div>;
 }

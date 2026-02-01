@@ -10,36 +10,40 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 
-test("project ai combobox chevron sizing", async ({ page }) => {
-  await setOverviewTab(page, "ProjectAIChat");
+const MIN_EXPECTED_PADDING = 12;
+
+test("watch code pane has right padding and visible toggle button", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "WatchCode");
   await ensureAppReady(page);
 
-  const overviewPane = page.locator("#OverviewPane");
-  await expect(
-    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-  ).toBeVisible();
+  const heading = page.getByRole("heading", { name: "Watch Code" });
+  await expect(heading).toBeVisible();
 
-  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  const paneRoot = heading.locator("xpath=following-sibling::*[1]");
+  await expect(paneRoot).toBeVisible();
 
-  const engineInput = page.getByPlaceholder("Select an engine");
-  await expect(engineInput).toBeVisible();
+  const paddingRight = await paneRoot.evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).paddingRight),
+  );
+  expect(paddingRight).toBeGreaterThanOrEqual(MIN_EXPECTED_PADDING);
 
-  const searchWrapper = engineInput.locator("..");
-  const toggleButton = searchWrapper.locator("button").first();
+  const toggleButton = page.getByRole("button", {
+    name: /Enable Watch Code|Disable Watch Code/,
+  });
   await expect(toggleButton).toBeVisible();
 
-  const inputBox = await engineInput.boundingBox();
-  const buttonBox = await toggleButton.boundingBox();
-  expect(inputBox).not.toBeNull();
-  expect(buttonBox).not.toBeNull();
-  if (!inputBox || !buttonBox) {
-    return;
+  const [paneBox, buttonBox] = await Promise.all([
+    paneRoot.boundingBox(),
+    toggleButton.boundingBox(),
+  ]);
+  if (!paneBox || !buttonBox) {
+    throw new Error("Expected watch code pane and toggle button to be visible.");
   }
-
-  expect(buttonBox.height).toBeLessThan(inputBox.height * 0.9);
-  const inputCenter = inputBox.y + inputBox.height / 2;
-  const buttonCenter = buttonBox.y + buttonBox.height / 2;
-  expect(Math.abs(buttonCenter - inputCenter)).toBeLessThanOrEqual(2);
+  expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(
+    paneBox.x + paneBox.width,
+  );
 });
 
 async function setOverviewTab(page: Page, tabName: string): Promise<void> {
@@ -81,9 +85,7 @@ async function ensureAppReady(page: Page): Promise<void> {
       "Missing SETTA_BOOTSTRAP_TOKEN. Open /__setta__/bootstrap to mint one.",
     );
   }
-  await page.goto(
-    `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-  );
+  await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
   await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
 }
