@@ -5,8 +5,8 @@ export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 
 export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
-export const CLOSED_PANE_WIDTH = 50;
-export const NAVBAR_HEIGHT = 48;
+export const CLOSED_PANE_WIDTH = 40;
+export const NAVBAR_HEIGHT = 36;
 
 export const PaneNameEnum = {
   overview: "overview",
@@ -163,6 +163,9 @@ const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";
 const KWARGS_CONTROLS_HEIGHT_KEY_PREFIX = "kwargs-controls-height";
 const PINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX = "pinned-params-area-height";
 const UNPINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX = "unpinned-params-area-height";
+const PARAMS_FIXED_HEIGHT_KEY_PREFIX = "params-fixed-height";
+const SECTION_HEADER_HEIGHT_KEY_PREFIX = "section-header-height";
+const SECTION_SEARCH_HEIGHT_KEY_PREFIX = "section-search-height";
 
 export function getEdgesStripHeightKey(sectionId: string) {
   return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
@@ -178,6 +181,18 @@ export function getPinnedParamsAreaHeightKey(sectionId: string) {
 
 export function getUnpinnedParamsAreaHeightKey(sectionId: string) {
   return `${UNPINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getParamsFixedHeightKey(sectionId: string) {
+  return `${PARAMS_FIXED_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getSectionHeaderHeightKey(sectionId: string) {
+  return `${SECTION_HEADER_HEIGHT_KEY_PREFIX}-${sectionId}`;
+}
+
+export function getSectionSearchHeightKey(sectionId: string) {
+  return `${SECTION_SEARCH_HEIGHT_KEY_PREFIX}-${sectionId}`;
 }
 
 const MODEL_GROUPS = [

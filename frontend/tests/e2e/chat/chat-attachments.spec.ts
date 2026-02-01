@@ -51,6 +51,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ATTACHMENT_FIXTURES_DIR = path.join(
   __dirname,
+  "..",
   "fixtures",
   "attachments",
 );
@@ -269,24 +270,23 @@ test.describe.serial("chat attachments", () => {
         },
       ]);
 
-      const inputContainer = input.locator("..");
-      await expect(inputContainer.getByText("first.txt")).toBeVisible();
-      await expect(inputContainer.getByText("second.txt")).toBeVisible();
+      await expect(chatSection.getByText("first.txt")).toBeVisible();
+      await expect(chatSection.getByText("second.txt")).toBeVisible();
 
-      await inputContainer.getByRole("button", { name: "Clear all" }).click();
-      await expect(inputContainer.getByText("first.txt")).toHaveCount(0);
-      await expect(inputContainer.getByText("second.txt")).toHaveCount(0);
+      await chatSection.getByRole("button", { name: "Clear all" }).click();
+      await expect(chatSection.getByText("first.txt")).toHaveCount(0);
+      await expect(chatSection.getByText("second.txt")).toHaveCount(0);
 
       await fileInput.setInputFiles({
         name: "third.txt",
         mimeType: "text/plain",
         buffer: Buffer.from("third"),
       });
-      await expect(inputContainer.getByText("third.txt")).toBeVisible();
-      const thirdLabel = inputContainer.getByText("third.txt");
+      await expect(chatSection.getByText("third.txt")).toBeVisible();
+      const thirdLabel = chatSection.getByText("third.txt");
       const thirdPill = thirdLabel.locator("..");
       await thirdPill.locator("button").first().click();
-      await expect(inputContainer.getByText("third.txt")).toHaveCount(0);
+      await expect(chatSection.getByText("third.txt")).toHaveCount(0);
     } finally {
       await cleanupIsolatedProject(request, projectContext);
     }

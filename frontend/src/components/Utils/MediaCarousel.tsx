@@ -8,6 +8,7 @@ import {
 import { FiChevronLeft, FiChevronRight, FiFileText } from "react-icons/fi";
 import { IoImageOutline } from "react-icons/io5";
 import { useIsScrollable } from "state/hooks/sectionSizes";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 
 export type MediaCarouselItem<T = unknown> = {
   id: string;
@@ -25,6 +26,7 @@ type MediaCarouselProps<T = unknown> = {
   renderPreview?: (item: MediaCarouselItem<T>) => ReactNode;
   renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
   renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
+  onThumbnailDoubleClick?: (item: MediaCarouselItem<T>) => void;
   showThumbnailLabels?: boolean;
   thumbnailSize?: number;
   showNavButtons?: boolean;
@@ -45,6 +47,7 @@ export function MediaCarousel<T>({
   renderPreview,
   renderThumbnail,
   renderThumbnailOverlay,
+  onThumbnailDoubleClick,
   showThumbnailLabels = true,
   thumbnailSize = DEFAULT_THUMBNAIL_SIZE,
   showNavButtons = false,
@@ -176,6 +179,7 @@ export function MediaCarousel<T>({
   const previewContainerClasses = [
     "relative flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg",
     "bg-transparent dark:bg-setta-860",
+    NO_WHEEL_CLASS_NAME,
     previewClassName,
   ]
     .filter(Boolean)
@@ -190,6 +194,7 @@ export function MediaCarousel<T>({
 
   const thumbnailRowClasses = [
     "flex gap-2 overflow-x-scroll pb-4 pt-[4px]",
+    NO_PAN_CLASS_NAME,
     isScrollable ? "nowheel" : "",
     thumbnailRowClassName,
   ]
@@ -282,6 +287,7 @@ export function MediaCarousel<T>({
               role="button"
               tabIndex={0}
               onClick={() => handleSelect(item.id)}
+              onDoubleClick={() => onThumbnailDoubleClick?.(item)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();

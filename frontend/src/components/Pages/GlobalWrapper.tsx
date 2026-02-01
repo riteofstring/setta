@@ -3,6 +3,7 @@ import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
 import {
+  useLocalStorage,
   useProjectLoading,
   useSettings,
   useShareSession,
@@ -16,9 +17,13 @@ import {
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
 
+const THEME_COLOR_LIGHT = "#dce1ea";
+const THEME_COLOR_DARK = "#0b0e13";
+
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useSetHTMLTitle();
+  useColorModePreference();
   const settingsLoaded = useLoadSettings();
   const initStatus = useBackendInitStatus();
   const backendReady = initStatus?.isReady ?? false;
@@ -70,6 +75,51 @@ function useSetHTMLTitle() {
       document.title = "setta.dev";
     }
   }, [pathname, projectConfigName, projectIs404]);
+}
+
+function useColorModePreference() {
+  const colorMode = useLocalStorage((x) => x.colorMode);
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    const applyDarkMode = (nextDarkMode: boolean) => {
+      if (nextDarkMode) {
+        root.classList.add("dark");
+      } else {
+        root.classList.remove("dark");
+      }
+
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) {
+        themeMeta.setAttribute(
+          "content",
+          nextDarkMode ? THEME_COLOR_DARK : THEME_COLOR_LIGHT,
+        );
+      }
+
+      if (useLocalStorage.getState().darkMode !== nextDarkMode) {
+        useLocalStorage.setState({ darkMode: nextDarkMode });
+      }
+    };
+
+    if (colorMode === "auto") {
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      applyDarkMode(media.matches);
+
+      const handleChange = () => {
+        applyDarkMode(media.matches);
+      };
+
+      media.addEventListener("change", handleChange);
+      return () => {
+        media.removeEventListener("change", handleChange);
+      };
+    }
+
+    applyDarkMode(colorMode === "dark");
+    return undefined;
+  }, [colorMode]);
 }
 
 function useOpenCloseWebsocket() {

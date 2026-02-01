@@ -222,6 +222,8 @@ class Route(str, Enum):
     PASTE_SECTIONS = "/pasteSections"
     GET_FILE_BROWSER_ROOT = "/getFileBrowserRoot"
     GET_FOLDER_CONTENTS = "/getFolderContents"
+    GET_FILE_BROWSER_DOWNLOAD_URLS = "/getFileBrowserDownloadUrls"
+    FILE_BROWSER_DOWNLOAD = "/fileBrowser/{token}"
     IMPORT_FILES_TO_ARTIFACTS = "/importFilesToArtifacts"
     DELETE_ARTIFACTS = "/deleteArtifacts"
     LOAD_CACHED_IMAGE_ARTIFACTS = "/loadCachedImageArtifacts"

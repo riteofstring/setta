@@ -14,7 +14,7 @@ META_CONTROL_TEXTAREA_MIN_HEIGHT = 80
 META_CONTROL_DROPZONE_MIN_HEIGHT = 120
 META_CONTROL_DEFAULT_MIN_WIDTH = DEFAULT_MIN_WIDTH
 META_CONTROL_DROPZONE_MIN_WIDTH = 240
-UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38
+UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36
 
 
 class RenameRefactorMode(str, Enum):
@@ -292,8 +292,8 @@ class SectionSizingPolicyByType(BaseModel):
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
             maxWidth=INFINITE_MAX_WIDTH,
-            hideSearchMinHeight=78,
-            hideParamsMinHeight=32,
+            hideSearchMinHeight=42,
+            hideParamsMinHeight=90,
         )
     )
     Dict: SectionSizingPolicyTypeEntry = Field(
