@@ -25,6 +25,8 @@
     "@fontsource/source-code-pro": "4.5.14",
     "@fontsource/work-sans": "4.5.7",
     "@lezer/highlight": "1.2.0",
+    "@json-render/core": "^0.3.0",
+    "@json-render/react": "^0.3.0",
     "@radix-ui/react-accordion": "1.1.0",
     "@radix-ui/react-collapsible": "1.0.1",
     "@radix-ui/react-dialog": "1.0.5",

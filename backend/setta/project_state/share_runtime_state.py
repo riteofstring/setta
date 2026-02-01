@@ -23,6 +23,7 @@ from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     load_share_policy_from_dbe,
 )
+from setta.types.chat_messages import JSONValue
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -73,6 +74,7 @@ class ShareRuntimeState:
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
         self.manifest = self.dbe.read_share_manifest()
+        self.deployment_type = self.manifest.deploymentType
         self.deployment_name = self._resolve_deployment_name()
         self.deployment_version = self._resolve_deployment_version()
         self.default_project_config_id = self._resolve_default_project_config_id()
@@ -170,6 +172,19 @@ class ShareRuntimeState:
     ) -> "ProjectStateSingleConfig":
         project_state = self.get_session_state(session_id, project_config_id)
         return self.format_project_state_for_client(project_state)
+
+    def get_app_spec(self, project_config_id: ID) -> JSONValue | None:
+        if project_config_id not in self.project_state_backend.projectConfigs:
+            raise KeyError(f"Unknown project config: {project_config_id}")
+        project_config = self.project_state_backend.projectConfigs[project_config_id]
+        app_config = project_config.appConfig
+        if app_config is None or not app_config.appSpecPath:
+            return None
+        spec_path = self._resolve_deployment_path_to_absolute(app_config.appSpecPath)
+        payload = self.dbe.read_json(spec_path)
+        if not payload:
+            return None
+        return payload
 
     def update_session_state(
         self,
@@ -499,6 +514,15 @@ class ShareRuntimeState:
         project_state: "ProjectStateSingleConfig",
     ) -> "ProjectStateSingleConfig":
         redacted = project_state.model_copy(deep=True)
+        app_config = redacted.projectConfig.appConfig
+        if app_config is not None and app_config.appSpecPath:
+            redacted.projectConfig.appConfig = app_config.model_copy(
+                update={
+                    "appSpecPath": self._format_deployment_relative_path(
+                        app_config.appSpecPath
+                    )
+                }
+            )
         rewrite_project_state_paths(
             redacted,
             resolve_artifact_path=self._format_deployment_relative_path,

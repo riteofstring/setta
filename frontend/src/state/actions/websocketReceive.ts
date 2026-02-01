@@ -11,7 +11,11 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useServerMode,
+  useShareSession,
+} from "state/definitions";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
@@ -19,7 +23,6 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
   route_get_auth_refresh_status,
-  route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
 import {
@@ -77,6 +80,10 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  resetAppSessionState,
+} from "./app";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -167,12 +174,6 @@ export const openWebSocket = _.debounce(
             if (res200(res)) {
               processProjectStateUpdateFromBackend(res.data);
               await requestAIFollowSnapshot(projectConfigId);
-              const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-                projectConfigId,
-              });
-              if (res200(diagnosticsRes)) {
-                processLspDiagnostics(diagnosticsRes.data);
-              }
               runImmediateAuthRefresh = false;
             }
           }
@@ -381,20 +382,39 @@ async function handleShareSessionRecovery() {
   if (shareSessionRecoveryInFlight) {
     return;
   }
+  const shareSession = useShareSession.getState();
+  const serverMode = useServerMode.getState();
+  const isAppMode =
+    shareSession.deploymentMode === "app" || serverMode.mode === "app";
+  const expiredMessage = isAppMode
+    ? "App session expired. Refresh to continue."
+    : "Share session expired. Refresh to continue.";
   if (shareSessionRecoveryAttempts >= SHARE_SESSION_RECOVERY_MAX_ATTEMPTS) {
-    resetShareSessionState();
-    addTemporaryNotification("Share session expired. Refresh to continue.");
+    if (isAppMode) {
+      resetAppSessionState();
+    } else {
+      resetShareSessionState();
+    }
+    addTemporaryNotification(expiredMessage);
     return;
   }
   shareSessionRecoveryInFlight = true;
   shareSessionRecoveryAttempts += 1;
-  const recovered = await initializeShareSessionFromCurrentDeployment({
-    forceNewSession: true,
-  });
+  const recovered = isAppMode
+    ? await initializeAppSessionFromCurrentDeployment({
+        forceNewSession: true,
+      })
+    : await initializeShareSessionFromCurrentDeployment({
+        forceNewSession: true,
+      });
   shareSessionRecoveryInFlight = false;
   if (!recovered) {
-    resetShareSessionState();
-    addTemporaryNotification("Share session expired. Refresh to continue.");
+    if (isAppMode) {
+      resetAppSessionState();
+    } else {
+      resetShareSessionState();
+    }
+    addTemporaryNotification(expiredMessage);
     return;
   }
   shareSessionRecoveryAttempts = 0;

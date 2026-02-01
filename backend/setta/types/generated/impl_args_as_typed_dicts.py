@@ -1,6 +1,7 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
 from setta.types.agentic_edges import AgenticEdge
+from setta.types.app_config import AppConfig
 from setta.types.artifact import (
     DrawAreaBrushShape,
     DrawAreaLayer,
@@ -172,6 +173,7 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
+    appConfig: NotRequired[AppConfig | None]
     codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]

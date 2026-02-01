@@ -10,7 +10,7 @@ from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
 
 
 def _build_share_deployment_root(
@@ -46,6 +46,7 @@ def _write_share_project(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=resolved_deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )

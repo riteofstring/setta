@@ -9,6 +9,9 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
+  static APP_DEPLOYMENT_ROOT = null;
+  static APP_MODE = false;
+  static APP_SPECS_FOLDER = "setta_files/app_specs";
   static ARTIFACTS_FOLDER = "setta_files/artifacts";
   static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
   static AUTH_COOKIE_NAME = "setta_auth";
