@@ -13,8 +13,6 @@ from setta.lsp.managers import (
     LSPReaders,
     LSPServers,
     LSPWriters,
-    start_lsps,
-    stop_file_watcher,
     stop_lsps,
 )
 from setta.project_state.artifacts import Artifacts
@@ -139,7 +137,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             await manager._process_queue_task_started.wait()
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                await lsps.start()
+                await lsp_readers.start()
+                await lsp_writers.start()
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
@@ -232,7 +232,9 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             await manager._process_queue_task_started.wait()
 
             try:
-                await start_lsps(lsps, lsp_readers, lsp_writers)
+                await lsps.start()
+                await lsp_readers.start()
+                await lsp_writers.start()
             except FileNotFoundError as exc:  # pragma: no cover - environment dependent
                 raise RuntimeError(
                     "basedpyright-langserver is required for tests; ensure it is on PATH"
@@ -266,9 +268,8 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
 
 async def _shutdown_manager(manager: BaseProjectManager) -> None:
-    manager.autosave_debouncer.cancel()
+    manager.shutdown()
     manager.autosave_debouncer.cancel_pending()
-    manager.queue_task.cancel()
 
     while True:
         try:
@@ -288,10 +289,7 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
 
 
 async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
-    try:
-        watcher.stop()
-    except RuntimeError:
-        pass
+    watcher.stop()
 
 
 async def _stop_lsps_and_file_watcher(
@@ -299,7 +297,7 @@ async def _stop_lsps_and_file_watcher(
 ) -> None:
     process = getattr(lsps.full, "server", None)
     await stop_lsps(lsps, lsp_readers)
-    stop_file_watcher(lsp_writers)
+    lsp_writers.file_watcher.stop()
     await _close_lsp_process(process)
 
 
@@ -313,8 +311,13 @@ async def _close_lsp_process(process) -> None:
         with suppress(RuntimeError, AttributeError):
             await writer.wait_closed()
 
-    with suppress(ProcessLookupError):
-        await process.wait()
+    try:
+        await asyncio.wait_for(process.wait(), timeout=3)
+    except (asyncio.TimeoutError, ProcessLookupError):
+        with suppress(ProcessLookupError):
+            process.kill()
+        with suppress(asyncio.TimeoutError, ProcessLookupError):
+            await asyncio.wait_for(process.wait(), timeout=3)
 
     for reader in (
         getattr(process, "stdout", None),
@@ -323,7 +326,7 @@ async def _close_lsp_process(process) -> None:
         if reader is None:
             continue
         with suppress(Exception):
-            await reader.read()
+            await asyncio.wait_for(reader.read(), timeout=3)
 
 
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"

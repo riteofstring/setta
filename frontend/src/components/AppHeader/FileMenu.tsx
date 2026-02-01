@@ -31,48 +31,35 @@ export function FileMenu() {
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
   return (
-    <NavbarMenuDropdown trigger="Project">
+    <NavbarMenuDropdown trigger="File">
       <MenuItem
         onClick={createAndGoToProjectConfig}
         shortcut={shortcuts.newProjectConfigShortcut}
-        paddingClassName="px-1.5"
       >
         New Config
       </MenuItem>
       <MenuItem
         onClick={openFileMenuLoadProjectConfigModal}
         shortcut={shortcuts.loadShortcut}
-        paddingClassName="px-1.5"
       >
         Load
       </MenuItem>
-      <MenuItem
-        onClick={saveProject}
-        shortcut={shortcuts.saveShortcut}
-        paddingClassName="px-1.5"
-      >
+      <MenuItem onClick={saveProject} shortcut={shortcuts.saveShortcut}>
         <VscSave />
         Save
       </MenuItem>
       <MenuItem
         onClick={openFileMenuSaveProjectConfigAsModal}
         shortcut={shortcuts.saveAsShortcut}
-        paddingClassName="px-1.5"
       >
         <VscSaveAs />
         Save As
       </MenuItem>
-      <MenuItem
-        onClick={openFileMenuSaveProjectConfigAsWithRefsModal}
-        paddingClassName="px-1.5"
-      >
+      <MenuItem onClick={openFileMenuSaveProjectConfigAsWithRefsModal}>
         <VscSaveAs />
         Save As (With Refs)
       </MenuItem>
-      <MenuItem
-        onClick={openPublishShareDeploymentModal}
-        paddingClassName="px-1.5"
-      >
+      <MenuItem onClick={openPublishShareDeploymentModal}>
         Publish Share Deployment
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />

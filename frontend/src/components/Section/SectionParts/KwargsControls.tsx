@@ -81,17 +81,16 @@ export function KwargsControls({
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
-  const { callableMissing, isCallableSection } = useProjectState((x) => {
+  const callableMissing = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const isCallableSection = impl.type === SectionTypeEnum.Callable;
-    return {
-      callableMissing: isCallableSection && impl.callable == null,
-      isCallableSection,
-    };
+    if (impl.type !== SectionTypeEnum.Callable) {
+      return false;
+    }
+    return impl.callable == null;
   }, _.isEqual);
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
@@ -208,16 +207,10 @@ export function KwargsControls({
   return (
     <>
       <section
-        className={`section-args z-10 ${
-          isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1"
-        } flex min-w-0 flex-wrap rounded-xl border-b border-solid border-white px-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
+        className={`section-args z-10 mt-1 flex min-w-0 flex-wrap rounded-xl border-b border-solid  border-white px-1 pb-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
         ref={controlsRef}
       >
-        <article
-          className={`flex flex-wrap items-center ${
-            isCallableSection ? "py-1" : ""
-          }`}
-        >
+        <article className="flex flex-wrap items-center">
           <section className="ml-1 flex items-center gap-1">
             <h3 className="my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter text-setta-600/70 @[300px]:block dark:text-setta-400/30">
               Args
@@ -290,22 +283,13 @@ export function KwargsControls({
           </section>
         </article>
 
-        <ParamFilter
-          sectionId={sectionId}
-          includeCallablePadding={isCallableSection}
-        />
+        <ParamFilter sectionId={sectionId} />
       </section>
     </>
   );
 }
 
-function ParamFilter({
-  sectionId,
-  includeCallablePadding,
-}: {
-  sectionId: string;
-  includeCallablePadding: boolean;
-}) {
+function ParamFilter({ sectionId }: { sectionId: string }) {
   const { paramFilterValue, sectionIsActive } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -336,11 +320,7 @@ function ParamFilter({
   }
 
   return (
-    <search
-      className={`nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ${
-        includeCallablePadding ? "py-1" : ""
-      }`}
-    >
+    <search className="nodrag relative mx-2 flex min-w-8 flex-1 items-center justify-self-center ">
       <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
       <input
         id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
