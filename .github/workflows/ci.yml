@@ -104,7 +104,7 @@ jobs:
         run: uv sync --all-extras
 
       - name: Backend tests (${{ matrix.suite }})
-        run: ./scripts/run_backend_tests.sh tests/${{ matrix.suite }}
+        run: ./scripts/run_backend_tests.sh "tests/${{ matrix.suite }}" --setup-show
 
   frontend-unit:
     runs-on: ubuntu-latest
