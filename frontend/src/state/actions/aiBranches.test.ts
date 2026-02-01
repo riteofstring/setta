@@ -11,12 +11,14 @@ function buildRun({
   chatId,
   branchParentChatId,
   branchFromMessageId,
+  branchRootChatId,
   branchCreatedAt,
   startedAt,
 }: {
   chatId: string;
   branchParentChatId?: string;
   branchFromMessageId?: string;
+  branchRootChatId?: string;
   branchCreatedAt?: number;
   startedAt?: string;
 }): AgentRun {
@@ -31,6 +33,7 @@ function buildRun({
       chatId,
       branchParentChatId,
       branchFromMessageId,
+      branchRootChatId,
       branchCreatedAt,
     },
     outputs: null,
@@ -108,5 +111,54 @@ describe("aiBranches", () => {
       "child-2",
     ]);
     expect(childInfo["msg-1"]?.activeIndex).toBe(1);
+  });
+
+  it("includes nested branches that share a branch root", () => {
+    const runs = [
+      buildRun({ chatId: "root" }),
+      buildRun({
+        chatId: "branch-1",
+        branchParentChatId: "root",
+        branchFromMessageId: "msg-1",
+        branchRootChatId: "root",
+        branchCreatedAt: 100,
+      }),
+      buildRun({
+        chatId: "branch-2",
+        branchParentChatId: "branch-1",
+        branchFromMessageId: "msg-1",
+        branchRootChatId: "root",
+        branchCreatedAt: 200,
+      }),
+    ];
+    const index = buildChatBranchIndex(runs);
+    const message = {
+      id: "msg-1",
+      role: ChatRoleEnum.user,
+      content: [createMessageTextContent({ text: "Hello" })],
+      attachments: [],
+    };
+
+    const rootInfo = buildMessageBranchInfo({
+      chatId: "root",
+      messages: [message],
+      branchIndex: index,
+    });
+    expect(rootInfo["msg-1"]).toEqual({
+      messageId: "msg-1",
+      branchChatIds: ["root", "branch-1", "branch-2"],
+      activeIndex: 0,
+    });
+
+    const branchInfo = buildMessageBranchInfo({
+      chatId: "branch-2",
+      messages: [message],
+      branchIndex: index,
+    });
+    expect(branchInfo["msg-1"]).toEqual({
+      messageId: "msg-1",
+      branchChatIds: ["root", "branch-1", "branch-2"],
+      activeIndex: 2,
+    });
   });
 });
