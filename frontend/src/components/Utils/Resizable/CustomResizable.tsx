@@ -8,6 +8,7 @@ import {
 import {
   adjustSizeToBeAtLeastMin,
   getResizeStartAutoSizeUpdate,
+  isHeightResizeDirection,
   ResizeHandleDirection,
   setSelfParentSiblingChildrenWidths,
 } from "state/actions/sections/sectionSizes";
@@ -168,9 +169,11 @@ function CustomResizableCore({
   }
 
   function onResizeStart(event, direction, ref) {
-    useResizeEvent.setState((state) => {
-      setSectionResizeEvent(sectionId, "start", state);
-    });
+    if (isHeightResizeDirection(direction)) {
+      useResizeEvent.setState((state) => {
+        setSectionResizeEvent(sectionId, "start", state);
+      });
+    }
     useMisc.setState({ mouseDownDraggingSection: true });
     if (!ref || typeof ref.getBoundingClientRect !== "function") {
       return;

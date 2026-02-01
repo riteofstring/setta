@@ -371,3 +371,118 @@ test("resize start does not jump at zoom", async ({ page }) => {
     });
   }
 });
+
+test("right resize handle mousedown does not expand auto height with overflow", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const sectionId = await createSection(page, projectConfigId, "Dict");
+
+  let startX = 0;
+  let startY = 0;
+
+  try {
+    for (let i = 0; i < 40; i += 1) {
+      await postBackend(page, "/addKwarg", {
+        projectConfigId,
+        sectionId,
+      });
+    }
+
+    await postBackend(page, "/setSectionSizes", {
+      projectConfigId,
+      sectionSizes: {
+        [sectionId]: { height: "auto" },
+      },
+    });
+
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+    await sectionNode.scrollIntoViewIfNeeded();
+    await sectionNode.hover();
+
+    const scrollContainer = sectionNode.locator(
+      "div.section-row-pin-main.overflow-y-auto",
+    );
+    await expect(scrollContainer).toHaveCount(1);
+
+    await expect
+      .poll(async () => {
+        return await scrollContainer.evaluate((node) => {
+          return node.scrollHeight - node.clientHeight;
+        });
+      })
+      .toBeGreaterThan(40);
+
+    const handle = sectionNode.locator(".section-resize-handle-right");
+    await expect(handle).toHaveCount(1);
+    const handleBox = await handle.boundingBox();
+    if (!handleBox) {
+      throw new Error("Missing resize handle bounding box.");
+    }
+
+    const beforeBox = await sectionNode.boundingBox();
+    if (!beforeBox) {
+      throw new Error("Missing section bounding box.");
+    }
+    const beforeHeight = beforeBox.height;
+
+    startX = handleBox.x + handleBox.width / 2;
+    startY = handleBox.y + handleBox.height / 2;
+    await handle.dispatchEvent("mousedown", {
+      button: 0,
+      buttons: 1,
+      clientX: startX,
+      clientY: startY,
+    });
+
+    await page.evaluate(() => {
+      return new Promise<void>((resolve) => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
+    const afterBox = await sectionNode.boundingBox();
+    if (!afterBox) {
+      throw new Error("Missing section bounding box after mousedown.");
+    }
+    const afterHeight = afterBox.height;
+
+    const overflowAfter = await scrollContainer.evaluate((node) => {
+      return node.scrollHeight - node.clientHeight;
+    });
+
+    await page.evaluate(
+      ({ startX, startY }) => {
+        window.dispatchEvent(
+          new MouseEvent("mouseup", {
+            bubbles: true,
+            clientX: startX,
+            clientY: startY,
+            button: 0,
+          }),
+        );
+      },
+      { startX, startY },
+    );
+
+    expect(Math.abs(afterHeight - beforeHeight)).toBeLessThan(6);
+    expect(overflowAfter).toBeGreaterThan(40);
+  } finally {
+    await page.evaluate(() => {
+      window.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          button: 0,
+        }),
+      );
+    });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
+  }
+});

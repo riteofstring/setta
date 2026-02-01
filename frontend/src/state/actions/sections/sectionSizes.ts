@@ -155,6 +155,12 @@ const RESIZE_HEIGHT_DIRECTIONS = new Set<ResizeHandleDirection>([
   "bottomLeft",
 ]);
 
+export function isHeightResizeDirection(
+  direction: ResizeHandleDirection,
+): boolean {
+  return RESIZE_HEIGHT_DIRECTIONS.has(direction);
+}
+
 export function getResizeStartAutoSizeUpdate({
   size,
   direction,
