@@ -2684,9 +2684,9 @@ class BaseProjectManager(ABC):
             coalesce_key=f"viewport:{x.projectConfigId}",
             coalesce_window_s=HISTORY_COALESCE_WINDOW_DRAG_S,
         )
-        project_config = self.project_state_backend.projectConfigs[x.projectConfigId]
-        project_config.viewport = x.viewport
-        project_config.viewportInitialized = x.viewport is not None
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].viewport = x.viewport
 
     @enqueue_method
     async def create_view_mode(self, x: CreateViewModeRequest) -> ID:
