@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAIStore, useAppPreview, useLocalStorage, useProjectState } from "state/definitions";
+import {
+  useAIStore,
+  useAllProjectMetadata,
+  useAppDefinition,
+  useAppPreview,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
-  route_get_app_spec,
-  route_set_app_spec,
+  route_get_app_definition,
+  route_set_app_definition,
 } from "utils/generatedEndpoints";
 
 type AppSpecPayload = Record<string, unknown>;
@@ -69,7 +76,9 @@ function buildDefaultSpec(): AppSpecPayload {
   };
 }
 
-function buildElementIndex(root: AppSpecPayload): Record<string, AppSpecPayload> {
+function buildElementIndex(
+  root: AppSpecPayload,
+): Record<string, AppSpecPayload> {
   const elements: Record<string, AppSpecPayload> = {};
   const stack: AppSpecPayload[] = [root];
   while (stack.length > 0) {
@@ -96,8 +105,10 @@ function buildElementIndex(root: AppSpecPayload): Record<string, AppSpecPayload>
 
 export function AppConfigPane() {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const appSpec = useProjectState((x) => x.appSpec);
+  const appSpec = useAppDefinition((x) => x.appSpec);
   const isPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
+  const previewConfigId = useAppPreview((x) => x.previewConfigId);
+  const { projectMetadata } = useAllProjectMetadata((x) => x);
   const [draftSpec, setDraftSpec] = useState("");
   const [catalogId, setCatalogId] = useState(DEFAULT_CATALOG_ID);
   const [specVersion, setSpecVersion] = useState(DEFAULT_SPEC_VERSION);
@@ -115,7 +126,7 @@ export function AppConfigPane() {
       }
       setLoading(true);
       setErrorMessage(null);
-      const res = await route_get_app_spec({ projectConfigId });
+      const res = await route_get_app_definition({});
       setLoading(false);
       if (!res200(res)) {
         if (isMounted) {
@@ -124,17 +135,17 @@ export function AppConfigPane() {
         return;
       }
       const nextSpec = res.data.appSpec ?? null;
-      useProjectState.setState({ appSpec: nextSpec });
-      useProjectState.setState((state) => {
-        state.projectConfig.appConfig = res.data.appConfig ?? null;
+      useAppDefinition.setState({
+        appSpec: nextSpec,
+        appDefinition: res.data.appDefinition ?? null,
       });
       if (isMounted) {
-        setDraftSpec(
-          nextSpec ? JSON.stringify(nextSpec, null, 2) : "",
+        setDraftSpec(nextSpec ? JSON.stringify(nextSpec, null, 2) : "");
+        setCatalogId(res.data.appDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
+        setSpecVersion(
+          res.data.appDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
         );
-        setCatalogId(res.data.appConfig?.catalogId ?? DEFAULT_CATALOG_ID);
-        setSpecVersion(res.data.appConfig?.appSpecVersion ?? DEFAULT_SPEC_VERSION);
-        setAppSpecPath(res.data.appConfig?.appSpecPath ?? "");
+        setAppSpecPath(res.data.appDefinition?.appSpecPath ?? "");
       }
     }
 
@@ -160,15 +171,11 @@ export function AppConfigPane() {
     const spec = buildDefaultSpec();
     setDraftSpec(JSON.stringify(spec, null, 2));
     if (!appSpecPath) {
-      setAppSpecPath(`app_specs/${projectConfigId}.json`);
+      setAppSpecPath("app_specs/app.json");
     }
   }
 
   async function handleSave() {
-    if (!projectConfigId) {
-      setErrorMessage("No active project config.");
-      return;
-    }
     setErrorMessage(null);
     let parsed: AppSpecPayload | null = null;
     try {
@@ -178,8 +185,7 @@ export function AppConfigPane() {
       return;
     }
     setLoading(true);
-    const res = await route_set_app_spec({
-      projectConfigId,
+    const res = await route_set_app_definition({
       appSpec: parsed,
       appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
       appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
@@ -190,9 +196,9 @@ export function AppConfigPane() {
       setErrorMessage("Failed to save app spec.");
       return;
     }
-    useProjectState.setState({ appSpec: res.data.appSpec ?? null });
-    useProjectState.setState((state) => {
-      state.projectConfig.appConfig = res.data.appConfig ?? null;
+    useAppDefinition.setState({
+      appSpec: res.data.appSpec ?? null,
+      appDefinition: res.data.appDefinition ?? null,
     });
     addTemporaryNotification("App spec saved.");
   }
@@ -259,6 +265,29 @@ export function AppConfigPane() {
             value={appSpecPath}
             onChange={(event) => setAppSpecPath(event.target.value)}
           />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          Preview config
+          <select
+            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+            value={previewConfigId ?? ""}
+            onChange={(event) => {
+              const value = event.target.value;
+              useAppPreview.setState({
+                previewConfigId: value ? value : null,
+              });
+            }}
+          >
+            <option value="">Active config</option>
+            {projectMetadata.map((config) => (
+              <option key={config.id} value={config.id}>
+                {config.name}
+              </option>
+            ))}
+          </select>
+          <span className="text-[11px] text-setta-500 dark:text-setta-400">
+            Select which project config the preview should target.
+          </span>
         </label>
       </div>
 

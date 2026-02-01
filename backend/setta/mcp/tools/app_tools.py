@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
-from setta.app.catalog import APP_CATALOG, list_app_components as list_catalog_components
+from setta.app.catalog import APP_CATALOG
+from setta.app.catalog import list_app_components as list_catalog_components
 from setta.mcp.tool_setup import setta_tool
 from setta.types.chat_messages import JSONValue
 

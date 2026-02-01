@@ -10,7 +10,7 @@ from setta.types.agentic_edges import (
     AgenticEdgeContextMode,
     AgenticEdgeKind,
 )
-from setta.types.app_config import AppConfig
+from setta.types.app_definition import AppDefinition, AppRoute
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
 from setta.types.chat_messages import JSONValue
@@ -549,17 +549,17 @@ class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConf
     )
 
 
-class GetAppSpecRequest(ProjectManagerRequestWithProjectConfig):
-    """Fetch the stored app UI spec and config for a project."""
+class GetAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
+    """Fetch the stored app UI spec and definition."""
 
 
-class AppSpecResponse(BaseModel, extra="forbid"):
+class AppDefinitionResponse(BaseModel, extra="forbid"):
     appSpec: JSONValue | None = None
-    appConfig: AppConfig | None = None
+    appDefinition: AppDefinition | None = None
 
 
-class SetAppSpecRequest(ProjectManagerRequestWithProjectConfig):
-    """Replace the app UI spec and optionally update the app config metadata."""
+class SetAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
+    """Replace the app UI spec and optionally update app definition metadata."""
 
     appSpec: JSONValue = Field(
         description="Full JSON app spec to persist.",
@@ -576,9 +576,29 @@ class SetAppSpecRequest(ProjectManagerRequestWithProjectConfig):
         default=None,
         description="Optional catalog id override for the app spec.",
     )
+    routes: list[AppRoute] | None = Field(
+        default=None,
+        description="Optional route definitions for the app.",
+    )
+    dataBindings: dict[str, JSONValue] | None = Field(
+        default=None,
+        description="Optional data binding overrides for the app.",
+    )
+    actions: dict[str, JSONValue] | None = Field(
+        default=None,
+        description="Optional action map overrides for the app.",
+    )
+    theme: dict[str, JSONValue] | None = Field(
+        default=None,
+        description="Optional theme overrides for the app.",
+    )
+    assets: list[JSONValue] | None = Field(
+        default=None,
+        description="Optional asset list for the app.",
+    )
 
 
-class UpdateAppSpecRequest(ProjectManagerRequestWithProjectConfig):
+class UpdateAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
     """Apply a JSON merge patch to the stored app UI spec."""
 
     patch: JSONValue = Field(

@@ -45,7 +45,7 @@ test("app action buttons respect policy gating", async ({ page }) => {
   await expect(saveButton).toBeEnabled();
   await Promise.all([
     page.waitForResponse((response) => {
-      return response.url().includes("/setAppSpec") && response.ok();
+      return response.url().includes("/setAppDefinition") && response.ok();
     }),
     saveButton.click(),
   ]);

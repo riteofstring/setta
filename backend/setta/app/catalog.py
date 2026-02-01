@@ -42,6 +42,33 @@ APP_CATALOG: JSONValue = {
             "children": True,
         },
         {
+            "type": "ConfigScope",
+            "description": "Scope child components to a project config id.",
+            "props": {
+                "configId": {"type": "string", "required": True},
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
+            "type": "Tabs",
+            "description": "Tabbed container for grouping content.",
+            "props": {
+                "defaultKey": {"type": "string"},
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
+            "type": "Tab",
+            "description": "Single tab panel within a Tabs container.",
+            "props": {
+                "title": {"type": "string", "required": True},
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
             "type": "Heading",
             "description": "Section heading text.",
             "props": {

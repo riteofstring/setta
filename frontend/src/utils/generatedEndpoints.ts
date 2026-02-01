@@ -809,22 +809,22 @@ export async function route_set_project_config_codegen_targets(
   return await post("/setProjectConfigCodegenTargets", x);
 }
 
-export async function route_get_app_spec(
-  x: gt.GetAppSpecRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppSpecResponse>> {
-  return await post("/getAppSpec", x);
+export async function route_get_app_definition(
+  x: gt.GetAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {
+  return await post("/getAppDefinition", x);
 }
 
-export async function route_set_app_spec(
-  x: gt.SetAppSpecRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppSpecResponse>> {
-  return await post("/setAppSpec", x);
+export async function route_set_app_definition(
+  x: gt.SetAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {
+  return await post("/setAppDefinition", x);
 }
 
-export async function route_update_app_spec(
-  x: gt.UpdateAppSpecRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppSpecResponse>> {
-  return await post("/updateAppSpec", x);
+export async function route_update_app_definition(
+  x: gt.UpdateAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {
+  return await post("/updateAppDefinition", x);
 }
 
 export async function route_set_prompt_template(

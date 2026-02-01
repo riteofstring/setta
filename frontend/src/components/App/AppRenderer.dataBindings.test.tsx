@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  resolveActionBinding,
-  resolveParamBinding,
-} from "./appBindings";
+import { resolveActionBinding, resolveParamBinding } from "./appBindings";
 
 describe("AppRenderer data bindings", () => {
   it("uses data bindings to fill param ids", () => {
@@ -14,7 +11,10 @@ describe("AppRenderer data bindings", () => {
         label: "Name",
       },
     };
-    const resolved = resolveParamBinding({ dataPath: "/params/name" }, bindings);
+    const resolved = resolveParamBinding(
+      { dataPath: "/params/name" },
+      bindings,
+    );
 
     expect(resolved.sectionId).toBe("section-1");
     expect(resolved.paramId).toBe("param-1");

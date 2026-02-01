@@ -2,14 +2,13 @@ import { expect, test } from "@playwright/test";
 
 import {
   ensureAppReady,
-  getCurrentProjectConfigId,
   postBackend,
   seedLocalStorage,
 } from "../helpers";
 
-type AppSpecResponse = {
+type AppDefinitionResponse = {
   appSpec: unknown | null;
-  appConfig: unknown | null;
+  appDefinition: unknown | null;
 };
 
 test("app config pane can save a default spec and show preview", async ({
@@ -25,10 +24,11 @@ test("app config pane can save a default spec and show preview", async ({
   await expect(saveButton).toBeEnabled();
   await saveButton.click();
 
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const response = await postBackend<AppSpecResponse>(page, "/getAppSpec", {
-    projectConfigId,
-  });
+  const response = await postBackend<AppDefinitionResponse>(
+    page,
+    "/getAppDefinition",
+    {},
+  );
   expect(response?.appSpec).not.toBeNull();
 
   const showPreviewButton = page.getByRole("button", { name: "Show Preview" });

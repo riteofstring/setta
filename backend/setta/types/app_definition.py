@@ -9,7 +9,7 @@ class AppRoute(BaseModel, extra="forbid"):
     rootKey: str | None = None
 
 
-class AppConfig(BaseModel, extra="forbid"):
+class AppDefinition(BaseModel, extra="forbid"):
     appSpecVersion: str = "v1"
     catalogId: str = "setta.app.default"
     appSpecPath: str | None = None

@@ -1,13 +1,72 @@
 import { AppRenderer } from "components/App/AppRenderer";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useLocation } from "react-router-dom";
+import {
+  useAllProjectMetadata,
+  useAppDefinition,
+  useShareSession,
+} from "state/definitions";
+import type { AppRoute } from "utils/generatedTypes";
+
+function normalizeRoutePath(path: string) {
+  const withSlash = path.startsWith("/") ? path : `/${path}`;
+  if (withSlash.length > 1 && withSlash.endsWith("/")) {
+    return withSlash.slice(0, -1);
+  }
+  return withSlash;
+}
+
+function resolveActiveRoute(
+  routes: AppRoute[] | undefined,
+  pathname: string,
+): AppRoute | null {
+  if (!routes || routes.length === 0) {
+    return null;
+  }
+  const normalizedPath = normalizeRoutePath(pathname);
+  return (
+    routes.find((route) => normalizeRoutePath(route.path) === normalizedPath) ??
+    null
+  );
+}
+
+function hasRootKey(appSpec: unknown | null, rootKey: string) {
+  if (!appSpec || typeof appSpec !== "object") {
+    return false;
+  }
+  const record = appSpec as Record<string, unknown>;
+  const elements = record.elements;
+  if (!elements || typeof elements !== "object") {
+    return false;
+  }
+  return Object.prototype.hasOwnProperty.call(elements, rootKey);
+}
 
 export function AppPage() {
-  const projectConfig = useProjectState((x) => x.projectConfig);
-  const appSpec = useProjectState((x) => x.appSpec);
+  const location = useLocation();
+  const appSpec = useAppDefinition((x) => x.appSpec);
+  const appDefinition = useAppDefinition((x) => x.appDefinition);
   const appPolicy = useShareSession((x) => x.sharePolicy);
-  const appConfig = projectConfig.appConfig;
+  const { defaultProjectConfigId, projectMetadata } = useAllProjectMetadata(
+    (x) => x,
+  );
+  const routes = appDefinition?.routes ?? [];
+  const activeRoute = resolveActiveRoute(routes, location.pathname);
+  const routeRootKey = activeRoute?.rootKey ?? null;
+  const hasRoutes = routes.length > 0;
+  const routeError = hasRoutes && !activeRoute ? "App page not found." : null;
+  const rootError =
+    routeRootKey && !hasRootKey(appSpec, routeRootKey)
+      ? "App route root not found in spec."
+      : null;
+  const defaultConfigName = projectMetadata.find(
+    (config) => config.id === defaultProjectConfigId,
+  )?.name;
   const appTitle =
-    appConfig?.routes?.[0]?.name ?? appConfig?.catalogId ?? projectConfig.name;
+    activeRoute?.name ??
+    appDefinition?.routes?.[0]?.name ??
+    appDefinition?.catalogId ??
+    defaultConfigName ??
+    "App";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -29,11 +88,19 @@ export function AppPage() {
 
       <main className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_45%),linear-gradient(180deg,_rgba(248,250,252,0.9),_rgba(226,232,240,0.6))] px-4 py-8 dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_rgba(15,23,42,0.9),_rgba(2,6,23,0.9))]">
         <div className="w-full max-w-5xl">
-          <AppRenderer
-            appSpec={appSpec}
-            appConfig={appConfig}
-            appPolicy={appPolicy}
-          />
+          {routeError || rootError ? (
+            <div className="rounded-2xl border border-dashed border-setta-200 bg-white/70 px-6 py-10 text-center text-sm text-setta-500 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+              {routeError ?? rootError}
+            </div>
+          ) : (
+            <AppRenderer
+              appSpec={appSpec}
+              appDefinition={appDefinition}
+              appPolicy={appPolicy}
+              defaultConfigId={defaultProjectConfigId}
+              rootKeyOverride={routeRootKey}
+            />
+          )}
         </div>
       </main>
     </div>

@@ -4,11 +4,11 @@ import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMir
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
+import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
   useAIFollowZIndexBoost,
 } from "state/hooks/aiFollow";
-import { useAppPreview } from "state/definitions";
 import { useViewModeUrlSync } from "state/hooks/viewModeUrl";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";

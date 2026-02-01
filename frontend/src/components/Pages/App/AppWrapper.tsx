@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useAllProjectMetadata, useShareSession } from "state/definitions";
 import { useLoadAppDeployment } from "state/hooks/app";
 import { AppShell } from "../AppShell";
 
@@ -58,7 +58,12 @@ function useAppWebsocket() {
 }
 
 function useAppHtmlTitle() {
-  const projectName = useProjectState((x) => x.projectConfig.name);
+  const { defaultProjectConfigId, projectMetadata } = useAllProjectMetadata(
+    (x) => x,
+  );
+  const projectName = projectMetadata.find(
+    (config) => config.id === defaultProjectConfigId,
+  )?.name;
 
   useEffect(() => {
     if (projectName) {

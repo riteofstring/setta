@@ -522,11 +522,11 @@ async def route_get_app_deployment_state(
         share_session_id,
         project_config_id,
     )
-    app_config = project_state.projectConfig.appConfig
-    app_spec = state.share_runtime_state.get_app_spec(project_config_id)
+    app_definition = state.share_runtime_state.project_state_backend.appDefinition
+    app_spec = state.share_runtime_state.get_app_spec()
     return AppDeploymentStateResponse(
         projectState=project_state,
-        appConfig=app_config,
+        appDefinition=app_definition,
         appSpec=app_spec,
         appPolicy=state.share_runtime_state.share_policy,
     )
@@ -556,12 +556,8 @@ async def route_load_app_project_config(
         share_session_id,
         x.projectConfigId,
     )
-    app_config = project_state.projectConfig.appConfig
-    app_spec = state.share_runtime_state.get_app_spec(x.projectConfigId)
     return AppDeploymentStateResponse(
         projectState=project_state,
-        appConfig=app_config,
-        appSpec=app_spec,
         appPolicy=state.share_runtime_state.share_policy,
     )
 
@@ -586,12 +582,13 @@ async def route_publish_app_deployment(
         )
 
     project_config = project_state_backend.projectConfigs[x.projectConfigId]
-    if project_config.appConfig is None:
+    app_definition = project_state_backend.appDefinition
+    if app_definition is None:
         raise HTTPException(
             status_code=400,
-            detail="App config is required to publish an app deployment.",
+            detail="App definition is required to publish an app deployment.",
         )
-    if not project_config.appConfig.appSpecPath:
+    if not app_definition.appSpecPath:
         raise HTTPException(
             status_code=400,
             detail="App spec path is required to publish an app deployment.",
@@ -626,18 +623,15 @@ async def route_publish_app_deployment(
         target_path = _resolve_deployment_relative_path(filename, deployment_root)
         write_json_source_payload(target_path, data, state.dbe)
 
-    app_specs_root = deployment_root / "app_specs"
-    app_spec_path_map: dict[str, str] = {}
-    for config in snapshot.projectConfigs.values():
-        if config.appConfig is None or not config.appConfig.appSpecPath:
-            continue
+    if snapshot.appDefinition is not None and snapshot.appDefinition.appSpecPath:
+        app_specs_root = deployment_root / "app_specs"
         rebased_path = _copy_app_spec_path(
-            config.appConfig.appSpecPath,
+            snapshot.appDefinition.appSpecPath,
             app_specs_root,
             deployment_root,
-            app_spec_path_map,
+            {},
         )
-        config.appConfig = config.appConfig.model_copy(
+        snapshot.appDefinition = snapshot.appDefinition.model_copy(
             update={"appSpecPath": rebased_path}
         )
 

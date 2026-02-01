@@ -152,7 +152,9 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
           ? publishedDeployment.deploymentName
           : "<deployment-name>"
       } --version ${
-        publishedDeployment ? publishedDeployment.deploymentVersion : "<version>"
+        publishedDeployment
+          ? publishedDeployment.deploymentVersion
+          : "<version>"
       }`,
     [publishedDeployment],
   );
@@ -164,7 +166,8 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
           Publish App Deployment
         </Dialog.Title>
         <Dialog.Description className="text-sm text-setta-600 dark:text-setta-300">
-          Create a user-facing snapshot for app mode. Re-publish to ship updates.
+          Create a user-facing snapshot for app mode. Re-publish to ship
+          updates.
         </Dialog.Description>
         <div className="text-xs text-setta-500 dark:text-setta-400">
           Current config:{" "}
@@ -448,13 +451,7 @@ function SelectRow<T extends string>({
   );
 }
 
-function ValueRow({
-  value,
-  onCopy,
-}: {
-  value: string;
-  onCopy: () => void;
-}) {
+function ValueRow({ value, onCopy }: { value: string; onCopy: () => void }) {
   return (
     <div className="flex items-center gap-2">
       <div className="min-w-0 flex-1 truncate rounded-md border border-setta-200 bg-white/80 px-2 py-1 font-mono text-[11px] text-setta-600 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-300">

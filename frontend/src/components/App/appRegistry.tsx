@@ -1,34 +1,79 @@
+import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
+import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
+import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
+import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
+import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
+import { SliderInput } from "components/Params/ParamUIs/SliderInput";
+import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { CodeBlock } from "components/Section/Layouts/TextBlock";
+import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
+import _ from "lodash";
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import { ParamInput } from "components/Params/ParamItems/ParamInput";
-import { getParamDisplayName } from "state/actions/sectionInfos";
-import { decodeExistingRawImages } from "state/hooks/artifacts";
+import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import {
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImpl,
+  getParamDisplayName,
+} from "state/actions/sectionInfos";
+import {
+  sendRealtimeDependencyEvent,
+  sendRealtimeSectionParamLiteral,
+} from "state/actions/websocketReceive";
+import {
+  useAppConfigs,
   useDecodedImages,
   useImages,
-  useProjectState,
+  useServerMode,
 } from "state/definitions";
+import { decodeExistingRawImages } from "state/hooks/artifacts";
+import { useLocalPendingValue } from "state/hooks/utils";
 import { bumpRemoteRevisions } from "state/utils/revisions";
-import { res200 } from "utils/endpointUtils";
-import { route_load_cached_image_artifacts } from "utils/generatedEndpoints";
 import {
+  CODEMIRROR_TOOLTIP_PARENT_ID,
+  NO_PAN_CLASS_NAME,
+  SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
+import type { DropzoneStatelessAttachment } from "utils/dropzone";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_get_password_param_value,
+  route_load_cached_image_artifacts,
+  route_set_param_entered_value,
+} from "utils/generatedEndpoints";
+import {
+  BaseChildlessCodeObjImplUnion,
+  BaseSectionImplUnion,
+  CodeObjTypeEnum,
+  ConfigLanguageEnum,
+  DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
+  DropzoneModeEnum,
+  isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
+  LiteralDependencyValue,
   SectionTypeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
+import { shouldShowPasswordReveal } from "utils/paramValue";
 import {
   resolveActionBinding,
+  resolveActionType,
   resolveImageOutputBinding,
   resolveParamBinding,
   resolveTextOutputBinding,
-  resolveActionType,
 } from "./appBindings";
-import { useAppActionState, useAppRuntime } from "./appContext";
+import {
+  AppConfigScopeContext,
+  useAppActionState,
+  useAppConfigScope,
+  useAppRuntime,
+} from "./appContext";
 
 type RawElementProps = {
   key?: unknown;
@@ -57,14 +102,20 @@ const JUSTIFY_CLASS: Record<string, string> = {
   between: "justify-between",
 };
 
+function resolveConfigId(
+  bindingConfigId: string | null,
+  runtimeConfigId: string | null,
+  scopeConfigId: string | null,
+) {
+  return bindingConfigId ?? scopeConfigId ?? runtimeConfigId ?? null;
+}
+
 function Stack({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const direction = props.direction === "row" ? "flex-row" : "flex-col";
   const gap = typeof props.gap === "number" ? props.gap : 16;
-  const align =
-    typeof props.align === "string" ? props.align : "stretch";
-  const justify =
-    typeof props.justify === "string" ? props.justify : "start";
+  const align = typeof props.align === "string" ? props.align : "stretch";
+  const justify = typeof props.justify === "string" ? props.justify : "start";
   const className = typeof props.className === "string" ? props.className : "";
   const alignClass = ALIGN_CLASS[align] ?? ALIGN_CLASS.stretch;
   const justifyClass = JUSTIFY_CLASS[justify] ?? JUSTIFY_CLASS.start;
@@ -109,13 +160,100 @@ function Card({ element, children }: AppComponentProps) {
   );
 }
 
+function ConfigScope({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const configId = typeof props.configId === "string" ? props.configId : null;
+  const className = typeof props.className === "string" ? props.className : "";
+
+  React.useEffect(() => {
+    if (configId) {
+      void ensureAppProjectConfigLoaded(configId);
+    }
+  }, [configId]);
+
+  const content = className ? (
+    <div className={className}>{children}</div>
+  ) : (
+    <>{children}</>
+  );
+
+  return (
+    <AppConfigScopeContext.Provider value={{ configId }}>
+      {content}
+    </AppConfigScopeContext.Provider>
+  );
+}
+
+function Tabs({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const defaultKey =
+    typeof props.defaultKey === "string" ? props.defaultKey : null;
+  const className = typeof props.className === "string" ? props.className : "";
+  const tabs = React.Children.toArray(children).filter(React.isValidElement);
+  const resolvedTabs = tabs.map((child, index) => {
+    const tabElement = child.props?.element ?? null;
+    const tabKey =
+      (tabElement && typeof tabElement.key === "string" && tabElement.key) ||
+      (typeof child.key === "string" ? child.key : `tab-${index}`);
+    const title =
+      tabElement?.props && typeof tabElement.props.title === "string"
+        ? tabElement.props.title
+        : `Tab ${index + 1}`;
+    return { key: tabKey, title, child };
+  });
+  const [activeKey, setActiveKey] = React.useState(() => {
+    if (defaultKey && resolvedTabs.some((tab) => tab.key === defaultKey)) {
+      return defaultKey;
+    }
+    return resolvedTabs[0]?.key ?? null;
+  });
+
+  React.useEffect(() => {
+    if (!activeKey && resolvedTabs.length > 0) {
+      setActiveKey(resolvedTabs[0]?.key ?? null);
+    }
+  }, [activeKey, resolvedTabs]);
+
+  return (
+    <div className={`flex flex-col gap-4 ${className}`.trim()}>
+      <div className="flex flex-wrap gap-2 border-b border-setta-200 pb-2 dark:border-setta-700">
+        {resolvedTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveKey(tab.key)}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+              tab.key === activeKey
+                ? "bg-blue-600 text-white"
+                : "bg-setta-100 text-setta-600 hover:bg-setta-200 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-800"
+            }`}
+          >
+            {tab.title}
+          </button>
+        ))}
+      </div>
+      <div>
+        {resolvedTabs.map((tab) =>
+          tab.key === activeKey ? <div key={tab.key}>{tab.child}</div> : null,
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Tab({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const className = typeof props.className === "string" ? props.className : "";
+  return <div className={className}>{children}</div>;
+}
+
 function Heading({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const text = typeof props.text === "string" ? props.text : "";
-  const level =
-    typeof props.level === "number" ? props.level : 2;
+  const level = typeof props.level === "number" ? props.level : 2;
   const className = typeof props.className === "string" ? props.className : "";
-  const HeadingTag = (`h${Math.min(Math.max(level, 1), 4)}`) as keyof JSX.IntrinsicElements;
+  const HeadingTag =
+    `h${Math.min(Math.max(level, 1), 4)}` as keyof JSX.IntrinsicElements;
   const sizeClassByLevel: Record<number, string> = {
     1: "text-2xl",
     2: "text-xl",
@@ -139,7 +277,9 @@ function Text({ element }: AppComponentProps) {
   const text = typeof props.text === "string" ? props.text : "";
   const className = typeof props.className === "string" ? props.className : "";
   return (
-    <p className={`text-sm text-setta-600 dark:text-setta-300 ${className}`.trim()}>
+    <p
+      className={`text-sm text-setta-600 dark:text-setta-300 ${className}`.trim()}
+    >
       {text}
     </p>
   );
@@ -148,62 +288,172 @@ function Text({ element }: AppComponentProps) {
 function ParamInputBlock({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
-  const { sectionId, paramId, label, description } = resolveParamBinding(
-    props,
-    runtime?.dataBindings,
+  const scope = useAppConfigScope();
+  const {
+    configId: bindingConfigId,
+    sectionId,
+    paramId,
+    label,
+    description,
+  } = resolveParamBinding(props, runtime?.dataBindings);
+  const resolvedConfigId = resolveConfigId(
+    bindingConfigId,
+    runtime?.defaultConfigId ?? null,
+    scope.configId,
   );
-  const { canRenderParam, displayName } = useProjectState((state) => {
-    if (!sectionId || !paramId) {
-      return { canRenderParam: false, displayName: null };
+  const configState = useAppConfigs((state) =>
+    resolvedConfigId ? state.configs[resolvedConfigId] : null,
+  );
+  const serverMode = useServerMode((x) => x.mode);
+  const modeResolved = useServerMode((x) => x.modeResolved);
+  const canEditParams = runtime?.canEditParams ?? true;
+
+  React.useEffect(() => {
+    if (!resolvedConfigId) {
+      return;
     }
+    if (!modeResolved || serverMode !== "app") {
+      return;
+    }
+    if (!configState) {
+      void ensureAppProjectConfigLoaded(resolvedConfigId);
+    }
+  }, [configState, modeResolved, resolvedConfigId, serverMode]);
+
+  if (!resolvedConfigId) {
+    return (
+      <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
+        Missing config scope.
+      </div>
+    );
+  }
+
+  if (!configState) {
+    return (
+      <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
+        Loading config…
+      </div>
+    );
+  }
+
+  if (!sectionId || !paramId) {
+    return (
+      <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
+        Missing param binding.
+      </div>
+    );
+  }
+
+  const { canRenderParam, displayName, sectionImpl, codeObjImpl } = (() => {
     const variantId =
-      state.previewSectionVariantMap[sectionId] ??
-      state.projectConfig.sectionVariantMap[sectionId];
+      configState.previewSectionVariantMap[sectionId] ??
+      configState.projectConfig.sectionVariantMap[sectionId];
     if (variantId === undefined) {
-      return { canRenderParam: false, displayName: null };
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
-    const variant = state.sectionVariants[variantId];
+    const variant = configState.sectionVariants[variantId];
     if (!variant) {
-      return { canRenderParam: false, displayName: null };
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
-    const sectionImpl = state.sectionImpls[variant.impl];
-    if (!sectionImpl || !state.sections[sectionId]) {
-      return { canRenderParam: false, displayName: null };
+    const sectionImpl = configState.sectionImpls[variant.impl];
+    if (!sectionImpl || !configState.sections[sectionId]) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
 
     let codeObjVariantId: string | null = null;
     if (sectionImpl.type === SectionTypeEnum.MetaControl) {
       const controlParamId = sectionImpl.metaControlParamId;
       if (!controlParamId || controlParamId !== paramId) {
-        return { canRenderParam: false, displayName: null };
+        return {
+          canRenderParam: false,
+          displayName: null,
+          sectionImpl: null,
+          codeObjImpl: null,
+        };
       }
       codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
     } else if (isBaseSectionWithParamsImpl(sectionImpl)) {
       codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
     } else {
-      return { canRenderParam: false, displayName: null };
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
 
     if (!codeObjVariantId) {
-      return { canRenderParam: false, displayName: null };
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
-    const codeObjVariant = state.codeObjVariants[codeObjVariantId];
+    const codeObjVariant = configState.codeObjVariants[codeObjVariantId];
     if (!codeObjVariant) {
-      return { canRenderParam: false, displayName: null };
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
-    if (!state.codeObjImpls[codeObjVariant.impl]) {
-      return { canRenderParam: false, displayName: null };
+    if (!configState.codeObjImpls[codeObjVariant.impl]) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
-    if (!state.codeObjs[paramId]) {
-      return { canRenderParam: false, displayName: null };
+    if (!configState.codeObjs[paramId]) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
     }
+    const previewActive =
+      configState.previewSectionVariantMap[sectionId] !== undefined;
+    const effectiveSectionImpl = getCurrEffectiveSectionImpl(
+      configState,
+      sectionId,
+      previewActive,
+    );
+    const effectiveCodeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+      configState,
+      sectionId,
+      paramId,
+      isBaseChildlessCodeObjImpl,
+      previewActive,
+    );
     return {
       canRenderParam: true,
-      displayName: getParamDisplayName(state, sectionId, paramId),
+      displayName: getParamDisplayName(configState, sectionId, paramId),
+      sectionImpl: effectiveSectionImpl,
+      codeObjImpl: effectiveCodeObjImpl,
     };
-  });
-  const canEditParams = runtime?.canEditParams ?? true;
-  if (!sectionId || !paramId || !canRenderParam) {
+  })();
+
+  if (!canRenderParam || !sectionImpl || !codeObjImpl) {
     return (
       <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
         Missing param binding.
@@ -225,7 +475,15 @@ function ParamInputBlock({ element }: AppComponentProps) {
       </div>
       <div className="rounded-md border border-setta-200 bg-white px-2 py-1 dark:border-setta-700 dark:bg-setta-900">
         <div className={canEditParams ? "" : "pointer-events-none opacity-60"}>
-          <ParamInput sectionId={sectionId} paramInfoId={paramId} />
+          <AppParamInput
+            configId={resolvedConfigId}
+            sectionId={sectionId}
+            paramInfoId={paramId}
+            codeObjImpl={codeObjImpl}
+            sectionImpl={sectionImpl}
+            baseValue={codeObjImpl.value}
+            canEditParams={canEditParams}
+          />
         </div>
         {!canEditParams && (
           <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
@@ -237,20 +495,432 @@ function ParamInputBlock({ element }: AppComponentProps) {
   );
 }
 
+type AppParamInputProps = {
+  configId: string;
+  sectionId: string;
+  paramInfoId: string;
+  baseValue: string | number | boolean | null;
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  sectionImpl: BaseSectionImplUnion;
+  canEditParams: boolean;
+};
+
+function AppParamInput({
+  configId,
+  sectionId,
+  paramInfoId,
+  baseValue,
+  codeObjImpl,
+  sectionImpl,
+  canEditParams,
+}: AppParamInputProps) {
+  const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
+  const [value, setPendingValue] = useLocalPendingValue(baseValue);
+  const [isRevealing, setIsRevealing] = React.useState(false);
+
+  function onChange(nextValue, options?: { skipBackendUpdate?: boolean }) {
+    const nextValueStr = _.toString(nextValue);
+    setPendingValue(nextValueStr);
+    sendRealtimeSectionParamLiteral(
+      sectionId,
+      paramInfoId,
+      nextValueStr,
+      configId,
+    );
+    if (options?.skipBackendUpdate) {
+      return;
+    }
+    if (isPasswordParam) {
+      debouncedSetPasswordParamValue(
+        configId,
+        sectionId,
+        paramInfoId,
+        nextValueStr,
+      );
+      return;
+    }
+    debouncedSetParamEnteredValue(
+      configId,
+      sectionId,
+      paramInfoId,
+      nextValueStr,
+    );
+  }
+
+  function onRevealPassword() {
+    if (!isPasswordParam || isRevealing || value !== "") {
+      return;
+    }
+    setIsRevealing(true);
+    route_get_password_param_value({
+      projectConfigId: configId,
+      sectionId,
+      paramInfoId,
+    })
+      .then((response) => {
+        if (res200(response)) {
+          setPendingValue(response.data.value);
+        }
+      })
+      .finally(() => {
+        setIsRevealing(false);
+      });
+  }
+
+  function onDropzoneStateless(attachments: DropzoneStatelessAttachment[]) {
+    if (attachments.length === 0) {
+      return;
+    }
+    const dependencyKey = {
+      type: DependencyKeyTypeEnum.SectionParam,
+      sectionId,
+      codeObjId: paramInfoId,
+    };
+    const metadataAttachments = attachments.map((attachment) => {
+      if (attachment.kind === "file") {
+        return {
+          kind: attachment.kind,
+          name: attachment.name,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          contentId: attachment.contentId,
+          byteLength: attachment.byteLength,
+        };
+      }
+      return attachment;
+    });
+    const metadataPayload: LiteralDependencyValue = {
+      payload: JSON.stringify({
+        sectionId,
+        paramInfoId,
+        attachments: metadataAttachments,
+      }),
+      type: DependencyValueTypeEnum.Literal,
+    };
+    sendRealtimeDependencyEvent(
+      {
+        dependencyKey,
+        payload: metadataPayload,
+      },
+      configId,
+    );
+    for (const attachment of attachments) {
+      if (attachment.kind !== "file") {
+        continue;
+      }
+      sendRealtimeDependencyEvent(
+        {
+          dependencyKey,
+          payload: {
+            payload: {
+              contentId: attachment.contentId,
+              byteLength: attachment.byteLength,
+              mimeType: attachment.mimeType,
+            },
+            type: DependencyValueTypeEnum.Binary,
+          },
+          binaryPayload: attachment.binaryPayload,
+        },
+        configId,
+      );
+    }
+  }
+
+  return (
+    <AppParamUI
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      value={value}
+      onChange={onChange}
+      onDropzoneStateless={onDropzoneStateless}
+      onRevealPassword={onRevealPassword}
+      isPasswordRevealPending={isRevealing}
+      codeObjImpl={codeObjImpl}
+      sectionImpl={sectionImpl}
+      canEditParams={canEditParams}
+    />
+  );
+}
+
+type AppParamUIProps = {
+  sectionId: string;
+  paramInfoId: string;
+  value: string | number | boolean | null;
+  onChange: (
+    value: string | number | boolean | null,
+    options?: { skipBackendUpdate?: boolean },
+  ) => void;
+  onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
+  onRevealPassword?: () => void;
+  isPasswordRevealPending?: boolean;
+  codeObjImpl: BaseChildlessCodeObjImplUnion;
+  sectionImpl: BaseSectionImplUnion;
+  canEditParams: boolean;
+};
+
+function AppParamUI({
+  sectionId,
+  paramInfoId,
+  value,
+  onChange,
+  onDropzoneStateless,
+  onRevealPassword,
+  isPasswordRevealPending,
+  codeObjImpl,
+  sectionImpl,
+  canEditParams,
+}: AppParamUIProps) {
+  const codeObjType = codeObjImpl.type;
+  const configLanguage = isBaseSectionWithParamsImpl(sectionImpl)
+    ? sectionImpl.configLanguage ?? ConfigLanguageEnum.python
+    : ConfigLanguageEnum.python;
+  const isFrozen = isBaseSectionWithParamsImpl(sectionImpl)
+    ? sectionImpl.isFrozen
+    : false;
+  const defaultVal =
+    "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
+  const isDisabled = !canEditParams || isFrozen;
+  const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
+  const passwordHasSecret =
+    isPasswordParam && "hasSecret" in codeObjImpl
+      ? codeObjImpl.hasSecret
+      : false;
+  const stringValue = _.toString(value ?? "");
+  const showPasswordReveal = shouldShowPasswordReveal({
+    value: stringValue,
+    hasSecret: passwordHasSecret,
+  });
+  const passwordPlaceholder =
+    passwordHasSecret && stringValue === "" ? "Saved" : undefined;
+
+  const onEscape = () => {};
+
+  switch (codeObjType) {
+    case CodeObjTypeEnum.CodeParam:
+    case CodeObjTypeEnum.TextParam:
+    case CodeObjTypeEnum.TextAreaParam: {
+      return (
+        <>
+          <TextInputCodeMirror
+            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            value={stringValue}
+            defaultVal={_.toString(defaultVal ?? "")}
+            onChange={onChange}
+            onEscape={(completionResult) => {
+              if (!completionResult) {
+                onEscape();
+              }
+            }}
+            dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+            language={configLanguage}
+            isDisabled={isDisabled}
+            tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+            autocomplete={false}
+          />
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30`}
+          />
+        </>
+      );
+    }
+    case CodeObjTypeEnum.SliderParam: {
+      const min = "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0;
+      const max = "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100;
+      const step = "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1;
+      return (
+        <SliderInput
+          value={Number.isFinite(_.toNumber(value)) ? _.toNumber(value) : min}
+          onChange={(next) => onChange(next)}
+          onEscape={onEscape}
+          min={min}
+          max={max}
+          step={step}
+          isDisabled={isDisabled}
+          wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
+          sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
+          sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
+          sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
+          sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`}
+          textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:block"
+        />
+      );
+    }
+    case CodeObjTypeEnum.RotaryParam: {
+      const min = "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0;
+      const max = "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100;
+      const step = "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1;
+      return (
+        <RotaryInput
+          value={Number.isFinite(_.toNumber(value)) ? _.toNumber(value) : min}
+          onChange={onChange}
+          onEscape={onEscape}
+          min={min}
+          max={max}
+          step={step}
+          isDisabled={isDisabled}
+        />
+      );
+    }
+    case CodeObjTypeEnum.SwitchParam: {
+      return (
+        <SwitchInput
+          value={value ?? false}
+          defaultVal={defaultVal ?? undefined}
+          onChange={(next) => onChange(next)}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          outerDivClassName="section-value flex justify-self-start self-center"
+        />
+      );
+    }
+    case CodeObjTypeEnum.ColorPickerParam: {
+      const colorChoices =
+        "colorChoices" in codeObjImpl ? codeObjImpl.colorChoices : [];
+      return (
+        <ColorPickerInput
+          colorChoices={colorChoices}
+          value={stringValue}
+          onChange={onChange}
+          onEscape={onEscape}
+          wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
+          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+          isDisabled={isDisabled}
+        />
+      );
+    }
+    case CodeObjTypeEnum.DropdownParam: {
+      const choices = "choices" in codeObjImpl ? codeObjImpl.choices : [];
+      let dropdownValue: string | null = null;
+      if (typeof value === "string") {
+        dropdownValue = value;
+      } else if (value !== null && value !== undefined) {
+        dropdownValue = stringValue;
+      }
+      return (
+        <DropdownInput
+          choices={choices}
+          value={dropdownValue}
+          onChange={onChange}
+          outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+          isDisabled={isDisabled}
+        />
+      );
+    }
+    case CodeObjTypeEnum.PasswordParam: {
+      const revealDisabled =
+        isDisabled || isPasswordRevealPending || !onRevealPassword;
+      const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`;
+      const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300`;
+      const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
+      return (
+        <>
+          <div className={wrapperClassName}>
+            <PasswordInput
+              className={inputClassName}
+              value={stringValue}
+              onChange={onChange}
+              onEscape={onEscape}
+              isDisabled={isDisabled}
+              placeholder={passwordPlaceholder}
+              toggleClassName="flex-none"
+            />
+            {showPasswordReveal ? (
+              <button
+                type="button"
+                className={revealClassName}
+                onClick={onRevealPassword}
+                disabled={revealDisabled}
+                aria-busy={isPasswordRevealPending}
+                title="Reveal saved password"
+              >
+                {isPasswordRevealPending ? "Revealing..." : "Reveal"}
+              </button>
+            ) : null}
+          </div>
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30`}
+          />
+        </>
+      );
+    }
+    case CodeObjTypeEnum.DropzoneParam: {
+      const mode = "mode" in codeObjImpl ? codeObjImpl.mode : null;
+      const maxAttachments =
+        "maxAttachments" in codeObjImpl
+          ? codeObjImpl.maxAttachments ?? null
+          : null;
+      const placeholder =
+        "placeholder" in codeObjImpl ? codeObjImpl.placeholder ?? null : null;
+      return (
+        <DropzoneInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={stringValue}
+          onChange={onChange}
+          onStatelessDrop={onDropzoneStateless}
+          isDisabled={isDisabled}
+          mode={mode ?? DropzoneModeEnum.STATEFUL}
+          maxAttachments={maxAttachments}
+          placeholder={placeholder ?? undefined}
+        />
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+const debouncedSetParamEnteredValue = _.debounce(
+  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
+    route_set_param_entered_value({
+      projectConfigId: configId,
+      sectionId,
+      paramInfoId,
+      value,
+    });
+  },
+  50,
+);
+
+const debouncedSetPasswordParamValue = _.debounce(
+  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
+    route_set_param_entered_value({
+      projectConfigId: configId,
+      sectionId,
+      paramInfoId,
+      value,
+    });
+  },
+  50,
+);
+
 function ActionButton({ element, onAction }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
-  const { action, sectionId, label } = resolveActionBinding(
+  const scope = useAppConfigScope();
+  const { configId, action, sectionId, label } = resolveActionBinding(
     props,
     runtime?.dataBindings,
+  );
+  const resolvedConfigId = resolveConfigId(
+    configId,
+    runtime?.defaultConfigId ?? null,
+    scope.configId,
   );
   const resolvedLabel = label ?? "Run";
   const actionName = action ?? "";
   const actionDefinition = runtime?.actions[actionName] ?? null;
-  const actionType = resolveActionType(actionName, actionDefinition ?? undefined);
+  const actionType = resolveActionType(
+    actionName,
+    actionDefinition ?? undefined,
+  );
   const { canRun, isRunning, runDisabledReason } = useAppActionState();
   const isRunAction = actionName === "run" || actionType === "run";
-  const isDownloadAction = actionType === "downloadArtifact" || actionType === "downloadBinary";
+  const isDownloadAction =
+    actionType === "downloadArtifact" || actionType === "downloadBinary";
   const isExternalLink = actionType === "openExternalLink";
   const allowDownloads = runtime?.allowFileDownloads ?? true;
   const allowLinks = runtime?.allowExternalLinks ?? true;
@@ -285,7 +955,10 @@ function ActionButton({ element, onAction }: AppComponentProps) {
         if (!actionName || !onAction || isDisabled) {
           return;
         }
-        const params = sectionId ? { sectionId } : {};
+        const params = {
+          ...(sectionId ? { sectionId } : {}),
+          ...(resolvedConfigId ? { configId: resolvedConfigId } : {}),
+        };
         onAction(actionName, params);
       }}
       disabled={isDisabled}
@@ -298,32 +971,46 @@ function ActionButton({ element, onAction }: AppComponentProps) {
 function TextOutput({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
-  const { sectionId, label } = resolveTextOutputBinding(
+  const scope = useAppConfigScope();
+  const { configId, sectionId, label } = resolveTextOutputBinding(
     props,
     runtime?.dataBindings,
   );
-  const textBlock = useProjectState((state) => {
-    if (!sectionId) {
+  const resolvedConfigId = resolveConfigId(
+    configId,
+    runtime?.defaultConfigId ?? null,
+    scope.configId,
+  );
+  const configState = useAppConfigs((state) =>
+    resolvedConfigId ? state.configs[resolvedConfigId] : null,
+  );
+  const serverMode = useServerMode((x) => x.mode);
+  const modeResolved = useServerMode((x) => x.modeResolved);
+
+  React.useEffect(() => {
+    if (!resolvedConfigId) {
+      return;
+    }
+    if (!modeResolved || serverMode !== "app") {
+      return;
+    }
+    if (!configState) {
+      void ensureAppProjectConfigLoaded(resolvedConfigId);
+    }
+  }, [configState, modeResolved, resolvedConfigId, serverMode]);
+
+  const textData = React.useMemo(() => {
+    if (!resolvedConfigId || !sectionId || !configState) {
       return null;
     }
-    const impl = state.sectionImpls[sectionId];
-    if (!impl || impl.type !== SectionTypeEnum.TextBlock) {
-      return null;
-    }
-    return impl;
-  });
-  const textData = useProjectState((state) => {
-    if (!sectionId) {
-      return null;
-    }
-    const impl = state.sectionImpls[sectionId];
+    const impl = configState.sectionImpls[sectionId];
     if (!impl || impl.type !== SectionTypeEnum.TextBlock) {
       return null;
     }
     return { text: impl.text, format: impl.format };
-  });
+  }, [configState, resolvedConfigId, sectionId]);
 
-  if (!sectionId || !textBlock || !textData) {
+  if (!resolvedConfigId || !sectionId || !textData) {
     return (
       <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
         Missing text output.
@@ -465,15 +1152,20 @@ function Divider({ element }: AppComponentProps) {
   );
 }
 
-export const appRegistry: Record<string, React.ComponentType<AppComponentProps>> =
-  {
-    Stack,
-    Card,
-    Heading,
-    Text,
-    ParamInput: ParamInputBlock,
-    ActionButton,
-    TextOutput,
-    ImageOutput,
-    Divider,
-  };
+export const appRegistry: Record<
+  string,
+  React.ComponentType<AppComponentProps>
+> = {
+  Stack,
+  Card,
+  ConfigScope,
+  Tabs,
+  Tab,
+  Heading,
+  Text,
+  ParamInput: ParamInputBlock,
+  ActionButton,
+  TextOutput,
+  ImageOutput,
+  Divider,
+};

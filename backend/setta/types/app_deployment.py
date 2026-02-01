@@ -3,7 +3,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from setta.types.app_config import AppConfig
+from setta.types.app_definition import AppDefinition
 from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
@@ -33,6 +33,6 @@ class AppDeploymentSessionResponse(BaseModel, extra="forbid"):
 
 class AppDeploymentStateResponse(BaseModel, extra="forbid"):
     projectState: ProjectStateSingleConfig
-    appConfig: AppConfig | None = None
+    appDefinition: AppDefinition | None = None
     appSpec: JSONValue | None = None
     appPolicy: SharePolicy

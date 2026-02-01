@@ -1,9 +1,10 @@
 export type AppDataBindings = Record<string, unknown>;
 
-export type AppBindingRecord = Record<string, unknown>;
+type AppBindingRecord = Record<string, unknown>;
 
-export type AppActionDefinition = {
+type AppActionDefinition = {
   type?: string;
+  configId?: string;
   sectionId?: string;
   url?: string;
   artifactId?: string;
@@ -11,6 +12,8 @@ export type AppActionDefinition = {
   filename?: string;
   label?: string;
   action?: string;
+  paramOverrides?: Record<string, string>;
+  sectionVariantOverrides?: Record<string, string>;
 };
 
 export type AppActionDefinitions = Record<string, AppActionDefinition>;
@@ -21,7 +24,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function resolveBindingRecord(
+function resolveBindingRecord(
   dataBindings: AppDataBindings | null | undefined,
   dataPath: string | null,
 ): AppBindingRecord | null {
@@ -35,7 +38,7 @@ export function resolveBindingRecord(
   return raw;
 }
 
-export function resolveBindingString(
+function resolveBindingString(
   binding: AppBindingRecord | null,
   key: string,
 ): string | null {
@@ -52,6 +55,9 @@ export function resolveParamBinding(
 ) {
   const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
   const binding = resolveBindingRecord(dataBindings, dataPath);
+  const configId =
+    (typeof props.configId === "string" ? props.configId : null) ??
+    resolveBindingString(binding, "configId");
   const sectionId =
     (typeof props.sectionId === "string" ? props.sectionId : null) ??
     resolveBindingString(binding, "sectionId");
@@ -64,7 +70,7 @@ export function resolveParamBinding(
   const description =
     (typeof props.description === "string" ? props.description : null) ??
     resolveBindingString(binding, "description");
-  return { sectionId, paramId, label, description };
+  return { configId, sectionId, paramId, label, description };
 }
 
 export function resolveTextOutputBinding(
@@ -73,13 +79,16 @@ export function resolveTextOutputBinding(
 ) {
   const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
   const binding = resolveBindingRecord(dataBindings, dataPath);
+  const configId =
+    (typeof props.configId === "string" ? props.configId : null) ??
+    resolveBindingString(binding, "configId");
   const sectionId =
     (typeof props.sectionId === "string" ? props.sectionId : null) ??
     resolveBindingString(binding, "sectionId");
   const label =
     (typeof props.label === "string" ? props.label : null) ??
     resolveBindingString(binding, "label");
-  return { sectionId, label };
+  return { configId, sectionId, label };
 }
 
 export function resolveImageOutputBinding(
@@ -88,13 +97,16 @@ export function resolveImageOutputBinding(
 ) {
   const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
   const binding = resolveBindingRecord(dataBindings, dataPath);
+  const configId =
+    (typeof props.configId === "string" ? props.configId : null) ??
+    resolveBindingString(binding, "configId");
   const artifactId =
     (typeof props.artifactId === "string" ? props.artifactId : null) ??
     resolveBindingString(binding, "artifactId");
   const alt =
     (typeof props.alt === "string" ? props.alt : null) ??
     resolveBindingString(binding, "alt");
-  return { artifactId, alt };
+  return { configId, artifactId, alt };
 }
 
 export function resolveActionBinding(
@@ -103,6 +115,9 @@ export function resolveActionBinding(
 ) {
   const dataPath = typeof props.dataPath === "string" ? props.dataPath : null;
   const binding = resolveBindingRecord(dataBindings, dataPath);
+  const configId =
+    (typeof props.configId === "string" ? props.configId : null) ??
+    resolveBindingString(binding, "configId");
   const action =
     (typeof props.action === "string" ? props.action : null) ??
     resolveBindingString(binding, "action");
@@ -112,7 +127,7 @@ export function resolveActionBinding(
   const label =
     (typeof props.label === "string" ? props.label : null) ??
     resolveBindingString(binding, "label");
-  return { action, sectionId, label };
+  return { configId, action, sectionId, label };
 }
 
 export function normalizeActionDefinitions(

@@ -1,12 +1,12 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "state/definitions";
+import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { DropzoneFilePickerModal } from "./DropzoneFilePickerModal/DropzoneFilePickerModal";
 import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
-import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";
 import { PublishShareDeploymentModal } from "./ShareDeploymentsModal/PublishShareDeploymentModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";

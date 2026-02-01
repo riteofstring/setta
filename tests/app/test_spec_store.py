@@ -9,14 +9,12 @@ from setta.app.spec_store import (
     write_app_spec,
 )
 from setta.database.db_objs import DBE
-from setta.types.id import ID
 
 
 class TestSpecStore:
     def test_default_app_spec_path(self) -> None:
-        project_config_id = ID("project-1")
-        path = default_app_spec_path(project_config_id)
-        assert path == "app_specs/project-1.json"
+        path = default_app_spec_path()
+        assert path == "app_specs/app.json"
 
     def test_write_and_read_app_spec_round_trip(self) -> None:
         with TemporaryDirectory() as tmpdir:

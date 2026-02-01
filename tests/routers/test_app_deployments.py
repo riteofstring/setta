@@ -12,8 +12,7 @@ from setta.routers.app_deployments import (
     PublishAppDeploymentRequest,
     route_publish_app_deployment,
 )
-from setta.types.app_config import AppConfig
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
+from setta.types.app_definition import AppDefinition
 from setta.types.share_deployment import DeploymentType, SharePolicy
 from setta.utils.constants import C
 
@@ -30,7 +29,7 @@ def _override_share_deployments_root(root: Path):
         C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
 
 
-async def _set_app_config(
+async def _set_app_definition(
     project_root: Path,
     project_config_id: str,
     manager,
@@ -38,23 +37,21 @@ async def _set_app_config(
     app_spec_payload: dict,
     app_spec_path: str | None = None,
 ) -> str:
-    resolved_path = app_spec_path or default_app_spec_path(project_config_id)
+    resolved_path = app_spec_path or default_app_spec_path()
     dbe = DBE(project_root)
     write_app_spec(dbe, resolved_path, app_spec_payload)
 
     absolute_path = (project_root / resolved_path).resolve().as_posix()
-    single_state = convert_backend_to_single_config(
-        manager.project_state_backend, project_config_id
+    manager.project_state_backend = manager.project_state_backend.model_copy(
+        update={"appDefinition": AppDefinition(appSpecPath=absolute_path)}
     )
-    single_state.projectConfig.appConfig = AppConfig(appSpecPath=absolute_path)
-    await manager.update(single_state, updateFileWatcher=False)
     return absolute_path
 
 
 class TestAppDeploymentPublish:
     pytestmark = pytest.mark.asyncio
 
-    async def test_requires_app_config(self) -> None:
+    async def test_requires_app_definition(self) -> None:
         async with (
             real_project_manager() as project_fixture,
             real_settings_manager() as settings_fixture,
@@ -97,11 +94,11 @@ class TestAppDeploymentPublish:
             if project_config_id is None:
                 pytest.fail("Expected a default project config id for publishing.")
 
-            single_state = convert_backend_to_single_config(
-                project_fixture.manager.project_state_backend, project_config_id
+            project_fixture.manager.project_state_backend = (
+                project_fixture.manager.project_state_backend.model_copy(
+                    update={"appDefinition": AppDefinition()}
+                )
             )
-            single_state.projectConfig.appConfig = AppConfig()
-            await project_fixture.manager.update(single_state, updateFileWatcher=False)
 
             switcher = ProjectManagerSwitcher(
                 main_manager=project_fixture.manager,
@@ -139,7 +136,7 @@ class TestAppDeploymentPublish:
                 "root": {"key": "root", "type": "Stack"},
                 "elements": {},
             }
-            await _set_app_config(
+            await _set_app_definition(
                 project_fixture.setta_root,
                 project_config_id,
                 project_fixture.manager,
@@ -183,9 +180,8 @@ class TestAppDeploymentPublish:
             assert manifest.deploymentType is DeploymentType.app
 
             snapshot = deployment_dbe.read_project_required()
-            snapshot_config = snapshot.projectConfigs[project_config_id]
-            assert snapshot_config.appConfig is not None
-            app_spec_path = snapshot_config.appConfig.appSpecPath
+            assert snapshot.appDefinition is not None
+            app_spec_path = snapshot.appDefinition.appSpecPath
             assert app_spec_path is not None
             assert not Path(app_spec_path).is_absolute()
             deployed_spec_path = metadata.deploymentRoot / app_spec_path

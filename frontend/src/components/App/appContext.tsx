@@ -3,7 +3,7 @@ import type { SharePolicy } from "utils/generatedTypes";
 
 import type { AppActionDefinitions, AppDataBindings } from "./appBindings";
 
-export type AppActionState = {
+type AppActionState = {
   canRun: boolean;
   canReset: boolean;
   isRunning: boolean;
@@ -17,16 +17,23 @@ const AppActionContext = createContext<AppActionState>({
   runDisabledReason: null,
 });
 
-export type AppRuntimeContextValue = {
+type AppRuntimeContextValue = {
   dataBindings: AppDataBindings;
   actions: AppActionDefinitions;
   policy: SharePolicy;
   canEditParams: boolean;
   allowExternalLinks: boolean;
   allowFileDownloads: boolean;
+  defaultConfigId: string | null;
 };
 
 const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);
+
+type AppConfigScope = {
+  configId: string | null;
+};
+
+const AppConfigScopeContext = createContext<AppConfigScope>({ configId: null });
 
 export function useAppActionState() {
   return useContext(AppActionContext);
@@ -36,4 +43,8 @@ export function useAppRuntime() {
   return useContext(AppRuntimeContext);
 }
 
-export { AppActionContext, AppRuntimeContext };
+export function useAppConfigScope() {
+  return useContext(AppConfigScopeContext);
+}
+
+export { AppActionContext, AppConfigScopeContext, AppRuntimeContext };

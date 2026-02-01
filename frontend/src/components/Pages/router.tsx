@@ -1,11 +1,11 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
+import { AppMainContainer } from "components/Pages/App/AppMainContainer";
+import { AppWrapper } from "components/Pages/App/AppWrapper";
 import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
-import { AppMainContainer } from "components/Pages/App/AppMainContainer";
-import { AppWrapper } from "components/Pages/App/AppWrapper";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
@@ -199,6 +199,30 @@ const shareIndexRouteElement = (
   </ShareWrapper>
 );
 
+const ideNotFoundRouteElement = (
+  <GlobalWrapper>
+    <ModalContainer>
+      <HeaderContainer path={HOME_ROUTER_PATH} />
+      <GridContainer>
+        <NotFound />
+      </GridContainer>
+    </ModalContainer>
+  </GlobalWrapper>
+);
+
+const shareNotFoundRouteElement = (
+  <ShareWrapper mode="home">
+    {({ doneLoading }: { doneLoading: boolean; is404: boolean }) => (
+      <ModalContainer>
+        <HeaderContainer path={HOME_ROUTER_PATH} />
+        <GridContainer>
+          {doneLoading ? <NotFound /> : <LoadingSpinner />}
+        </GridContainer>
+      </ModalContainer>
+    )}
+  </ShareWrapper>
+);
+
 const indexRoute = {
   path: INDEX_ROUTER_PATH,
   element: (
@@ -243,9 +267,21 @@ const viewModeRoute = {
   ),
 };
 
+const catchAllRoute = {
+  path: "*",
+  element: (
+    <ModeWrapper
+      ide={ideNotFoundRouteElement}
+      share={shareNotFoundRouteElement}
+      app={appRouteElement}
+    />
+  ),
+};
+
 export const router = createBrowserRouter([
   indexRoute,
   homeRoute,
   viewModeRoute,
   projectRoute,
+  catchAllRoute,
 ]);

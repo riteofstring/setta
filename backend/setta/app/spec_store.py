@@ -2,12 +2,11 @@ from pathlib import Path
 
 from setta.database.db_objs import DBE
 from setta.types.chat_messages import JSONValue
-from setta.types.id import ID
 from setta.utils.utils import normalize_path
 
 
-def default_app_spec_path(project_config_id: ID) -> str:
-    return (Path("app_specs") / f"{project_config_id}.json").as_posix()
+def default_app_spec_path() -> str:
+    return (Path("app_specs") / "app.json").as_posix()
 
 
 def resolve_app_spec_path(dbe: DBE, app_spec_path: str) -> Path:

@@ -4,22 +4,24 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import {
+  ensureAppProjectConfigLoaded,
+  resetAppDeployment,
+} from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { resetAppDeployment } from "state/actions/app";
-import { useProjectState, useShareSession } from "state/definitions";
+import { useShareSession } from "state/definitions";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_get_attachment_download_url,
   route_run_code,
+  route_set_param_entered_value,
+  route_set_section_variant,
 } from "utils/generatedEndpoints";
-import type { AppConfig, SharePolicy } from "utils/generatedTypes";
-import { C_ADDRESSES } from "utils/c_addresses";
+import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
 import { RouteEnum } from "utils/generatedTypes";
-import {
-  normalizeActionDefinitions,
-  resolveActionType,
-} from "./appBindings";
+import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import { appRegistry } from "./appRegistry";
 
@@ -38,8 +40,10 @@ type UITree = {
 
 type AppRendererProps = {
   appSpec: unknown | null;
-  appConfig: AppConfig | null | undefined;
+  appDefinition: AppDefinition | null | undefined;
   appPolicy?: SharePolicy | null;
+  defaultConfigId?: string | null;
+  rootKeyOverride?: string | null;
 };
 
 function isUIElement(value: unknown): value is UIElement {
@@ -94,16 +98,33 @@ function normalizeElements(
   return output;
 }
 
-function normalizeAppSpec(spec: unknown): UITree | null {
+function normalizeAppSpec(
+  spec: unknown,
+  rootKeyOverride?: string | null,
+): UITree | null {
   if (!spec || typeof spec !== "object") {
     return null;
   }
+  const overrideKey =
+    typeof rootKeyOverride === "string" && rootKeyOverride.trim().length > 0
+      ? rootKeyOverride
+      : null;
   const record = spec as Record<string, unknown>;
   if ("root" in record && "elements" in record) {
     const elementsRaw = record.elements;
     const rootRaw = record.root;
     if (elementsRaw && typeof elementsRaw === "object") {
       const elements = elementsRaw as Record<string, UIElement>;
+      if (overrideKey) {
+        const overrideRoot = elements[overrideKey];
+        if (!overrideRoot) {
+          return null;
+        }
+        return {
+          root: overrideKey,
+          elements: normalizeElements(overrideRoot, elements),
+        };
+      }
       if (typeof rootRaw === "string") {
         const root = elements[rootRaw];
         if (!root) {
@@ -117,6 +138,9 @@ function normalizeAppSpec(spec: unknown): UITree | null {
         return { root: root.key, elements: normalizeElements(root, merged) };
       }
     }
+  }
+  if (overrideKey) {
+    return null;
   }
   if (isUIElement(spec)) {
     const merged = { [spec.key]: spec };
@@ -146,20 +170,24 @@ function resolvePolicyOverrides(
 
 export function AppRenderer({
   appSpec,
-  appConfig,
+  appDefinition,
   appPolicy,
+  defaultConfigId,
+  rootKeyOverride,
 }: AppRendererProps) {
-  const projectConfigId = useProjectState((x) => x.projectConfig.id);
+  const fallbackConfigId = defaultConfigId ?? null;
   const sharePolicy = useShareSession((x) => x.sharePolicy);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
   const resolvedPolicy = resolvePolicyOverrides(appPolicy ?? sharePolicy);
-  const tree = useMemo(() => normalizeAppSpec(appSpec), [appSpec]);
+  const tree = useMemo(
+    () => normalizeAppSpec(appSpec, rootKeyOverride),
+    [appSpec, rootKeyOverride],
+  );
   const [runCount, setRunCount] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const allowMultipleRuns = resolvedPolicy.allowMultipleRuns ?? true;
   const canRun =
-    resolvedPolicy.allowRun &&
-    (allowMultipleRuns || runCount === 0);
+    resolvedPolicy.allowRun && (allowMultipleRuns || runCount === 0);
   const canEditParams = resolvedPolicy.allowParamChanges ?? true;
   const allowExternalLinks = resolvedPolicy.allowExternalLinks ?? false;
   const allowFileDownloads = resolvedPolicy.allowFileDownloads ?? false;
@@ -172,6 +200,14 @@ export function AppRenderer({
 
   const handleRun = useCallback(
     async (params?: Record<string, unknown>) => {
+      const configId =
+        params && typeof params.configId === "string"
+          ? params.configId
+          : fallbackConfigId;
+      if (!configId) {
+        addTemporaryNotification("Missing project config for run.");
+        return;
+      }
       if (!resolvedPolicy.allowRun) {
         addTemporaryNotification("Runs are disabled by policy.");
         return;
@@ -183,11 +219,59 @@ export function AppRenderer({
       if (isRunning) {
         return;
       }
+      const sectionVariantOverrides =
+        params && typeof params.sectionVariantOverrides === "object"
+          ? (params.sectionVariantOverrides as Record<string, string>)
+          : null;
+      const paramOverrides =
+        params && typeof params.paramOverrides === "object"
+          ? (params.paramOverrides as Record<string, string>)
+          : null;
+      if (sectionVariantOverrides && !resolvedPolicy.allowVariantChanges) {
+        addTemporaryNotification("Variant changes are disabled by policy.");
+        return;
+      }
+      if (paramOverrides && !resolvedPolicy.allowParamChanges) {
+        addTemporaryNotification("Param changes are disabled by policy.");
+        return;
+      }
+      const loaded = await ensureAppProjectConfigLoaded(configId);
+      if (!loaded) {
+        addTemporaryNotification("Failed to load project config.");
+        return;
+      }
       setIsRunning(true);
       const sectionId =
-        params && typeof params.sectionId === "string" ? params.sectionId : null;
+        params && typeof params.sectionId === "string"
+          ? params.sectionId
+          : null;
+      if (sectionVariantOverrides) {
+        for (const [sectionOverrideId, variantId] of Object.entries(
+          sectionVariantOverrides,
+        )) {
+          await route_set_section_variant({
+            projectConfigId: configId,
+            sectionId: sectionOverrideId,
+            variantId,
+          });
+        }
+      }
+      if (paramOverrides) {
+        for (const [key, value] of Object.entries(paramOverrides)) {
+          const [overrideSectionId, paramInfoId] = key.split(":");
+          if (!overrideSectionId || !paramInfoId) {
+            continue;
+          }
+          await route_set_param_entered_value({
+            projectConfigId: configId,
+            sectionId: overrideSectionId,
+            paramInfoId,
+            value,
+          });
+        }
+      }
       const res = await route_run_code({
-        projectConfigId,
+        projectConfigId: configId,
         sectionId,
       });
       setIsRunning(false);
@@ -199,10 +283,12 @@ export function AppRenderer({
     },
     [
       allowMultipleRuns,
+      fallbackConfigId,
       isRunning,
-      projectConfigId,
       resolvedPolicy.allowRun,
       runCount,
+      resolvedPolicy.allowParamChanges,
+      resolvedPolicy.allowVariantChanges,
     ],
   );
 
@@ -214,7 +300,11 @@ export function AppRenderer({
   }, [sharePolicy]);
 
   const handleDownloadArtifact = useCallback(
-    async (artifactId?: string | null, filename?: string | null) => {
+    async (
+      artifactId?: string | null,
+      filename?: string | null,
+      configId?: string | null,
+    ) => {
       if (!allowFileDownloads) {
         addTemporaryNotification("File downloads are disabled by policy.");
         return;
@@ -223,9 +313,14 @@ export function AppRenderer({
         addTemporaryNotification("Missing artifact id for download.");
         return;
       }
+      const resolvedConfigId = configId ?? fallbackConfigId;
+      if (!resolvedConfigId) {
+        addTemporaryNotification("Missing project config for download.");
+        return;
+      }
       const res = await route_get_attachment_download_url({
         artifactId,
-        projectConfigId,
+        projectConfigId: resolvedConfigId,
       });
       if (res200(res) && res.data.url) {
         triggerDownload(res.data.url, filename ?? undefined);
@@ -233,7 +328,7 @@ export function AppRenderer({
       }
       addTemporaryNotification("Failed to start download.");
     },
-    [allowFileDownloads, projectConfigId],
+    [allowFileDownloads, fallbackConfigId],
   );
 
   const handleDownloadBinary = useCallback(
@@ -277,97 +372,147 @@ export function AppRenderer({
   );
 
   const actionDefinitions = useMemo(
-    () => normalizeActionDefinitions(appConfig?.actions),
-    [appConfig?.actions],
+    () => normalizeActionDefinitions(appDefinition?.actions),
+    [appDefinition?.actions],
   );
 
-  const actionHandlers = useMemo(
-    () => {
-      const handlers: Record<
-        string,
-        (params?: Record<string, unknown>) => void | Promise<void>
-      > = {
-        run: handleRun,
-        reset: handleReset,
-      };
-      for (const [name, definition] of Object.entries(actionDefinitions)) {
-        const actionType = resolveActionType(name, definition);
-        if (actionType === "run") {
-          handlers[name] = (params) => {
-            const paramSectionId =
-              params && typeof params.sectionId === "string"
-                ? params.sectionId
-                : null;
-            const fallbackSectionId =
-              typeof definition.sectionId === "string" ? definition.sectionId : null;
-            const resolvedSectionId = paramSectionId ?? fallbackSectionId;
-            return handleRun(
-              resolvedSectionId ? { sectionId: resolvedSectionId } : undefined,
-            );
-          };
-          continue;
-        }
-        if (actionType === "reset") {
-          handlers[name] = () => handleReset();
-          continue;
-        }
-        if (actionType === "downloadArtifact") {
-          handlers[name] = (params) => {
-            const paramArtifactId =
-              params && typeof params.artifactId === "string"
-                ? params.artifactId
-                : null;
-            const fallbackArtifactId =
-              typeof definition.artifactId === "string"
-                ? definition.artifactId
-                : null;
-            const filename =
-              typeof definition.filename === "string"
-                ? definition.filename
-                : null;
-            return handleDownloadArtifact(paramArtifactId ?? fallbackArtifactId, filename);
-          };
-          continue;
-        }
-        if (actionType === "downloadBinary") {
-          handlers[name] = (params) => {
-            const paramContentId =
-              params && typeof params.contentId === "string"
-                ? params.contentId
-                : null;
-            const fallbackContentId =
-              typeof definition.contentId === "string"
-                ? definition.contentId
-                : null;
-            const filename =
-              typeof definition.filename === "string"
-                ? definition.filename
-                : null;
-            return handleDownloadBinary(paramContentId ?? fallbackContentId, filename);
-          };
-          continue;
-        }
-        if (actionType === "openExternalLink") {
-          handlers[name] = (params) => {
-            const paramUrl =
-              params && typeof params.url === "string" ? params.url : null;
-            const fallbackUrl =
-              typeof definition.url === "string" ? definition.url : null;
-            return handleOpenExternalLink(paramUrl ?? fallbackUrl);
-          };
-        }
+  const actionHandlers = useMemo(() => {
+    const handlers: Record<
+      string,
+      (params?: Record<string, unknown>) => void | Promise<void>
+    > = {
+      run: handleRun,
+      reset: handleReset,
+    };
+    for (const [name, definition] of Object.entries(actionDefinitions)) {
+      const actionType = resolveActionType(name, definition);
+      if (actionType === "run") {
+        handlers[name] = (params) => {
+          const paramSectionId =
+            params && typeof params.sectionId === "string"
+              ? params.sectionId
+              : null;
+          const fallbackSectionId =
+            typeof definition.sectionId === "string"
+              ? definition.sectionId
+              : null;
+          const resolvedSectionId = paramSectionId ?? fallbackSectionId;
+          const paramConfigId =
+            params && typeof params.configId === "string"
+              ? params.configId
+              : null;
+          const resolvedConfigId =
+            paramConfigId ??
+            (typeof definition.configId === "string"
+              ? definition.configId
+              : null) ??
+            fallbackConfigId;
+          return handleRun(
+            resolvedSectionId
+              ? {
+                  sectionId: resolvedSectionId,
+                  configId: resolvedConfigId ?? undefined,
+                  paramOverrides:
+                    typeof definition.paramOverrides === "object"
+                      ? definition.paramOverrides
+                      : undefined,
+                  sectionVariantOverrides:
+                    typeof definition.sectionVariantOverrides === "object"
+                      ? definition.sectionVariantOverrides
+                      : undefined,
+                }
+              : {
+                  configId: resolvedConfigId ?? undefined,
+                  paramOverrides:
+                    typeof definition.paramOverrides === "object"
+                      ? definition.paramOverrides
+                      : undefined,
+                  sectionVariantOverrides:
+                    typeof definition.sectionVariantOverrides === "object"
+                      ? definition.sectionVariantOverrides
+                      : undefined,
+                },
+          );
+        };
+        continue;
       }
-      return handlers;
-    },
-    [
-      actionDefinitions,
-      handleDownloadArtifact,
-      handleDownloadBinary,
-      handleOpenExternalLink,
-      handleReset,
-      handleRun,
-    ],
-  );
+      if (actionType === "reset") {
+        handlers[name] = () => handleReset();
+        continue;
+      }
+      if (actionType === "downloadArtifact") {
+        handlers[name] = (params) => {
+          const paramArtifactId =
+            params && typeof params.artifactId === "string"
+              ? params.artifactId
+              : null;
+          const fallbackArtifactId =
+            typeof definition.artifactId === "string"
+              ? definition.artifactId
+              : null;
+          const paramConfigId =
+            params && typeof params.configId === "string"
+              ? params.configId
+              : null;
+          const definitionConfigId =
+            typeof definition.configId === "string"
+              ? definition.configId
+              : null;
+          const filename =
+            typeof definition.filename === "string"
+              ? definition.filename
+              : null;
+          const resolvedConfigId =
+            paramConfigId ?? definitionConfigId ?? fallbackConfigId;
+          return handleDownloadArtifact(
+            paramArtifactId ?? fallbackArtifactId,
+            filename,
+            resolvedConfigId,
+          );
+        };
+        continue;
+      }
+      if (actionType === "downloadBinary") {
+        handlers[name] = (params) => {
+          const paramContentId =
+            params && typeof params.contentId === "string"
+              ? params.contentId
+              : null;
+          const fallbackContentId =
+            typeof definition.contentId === "string"
+              ? definition.contentId
+              : null;
+          const filename =
+            typeof definition.filename === "string"
+              ? definition.filename
+              : null;
+          return handleDownloadBinary(
+            paramContentId ?? fallbackContentId,
+            filename,
+          );
+        };
+        continue;
+      }
+      if (actionType === "openExternalLink") {
+        handlers[name] = (params) => {
+          const paramUrl =
+            params && typeof params.url === "string" ? params.url : null;
+          const fallbackUrl =
+            typeof definition.url === "string" ? definition.url : null;
+          return handleOpenExternalLink(paramUrl ?? fallbackUrl);
+        };
+      }
+    }
+    return handlers;
+  }, [
+    actionDefinitions,
+    fallbackConfigId,
+    handleDownloadArtifact,
+    handleDownloadBinary,
+    handleOpenExternalLink,
+    handleReset,
+    handleRun,
+  ]);
 
   if (!tree || !tree.root) {
     return (
@@ -380,12 +525,13 @@ export function AppRenderer({
   return (
     <AppRuntimeContext.Provider
       value={{
-        dataBindings: appConfig?.dataBindings ?? {},
+        dataBindings: appDefinition?.dataBindings ?? {},
         actions: actionDefinitions,
         policy: resolvedPolicy,
         canEditParams,
         allowExternalLinks,
         allowFileDownloads,
+        defaultConfigId: fallbackConfigId ?? null,
       }}
     >
       <AppActionContext.Provider
@@ -396,7 +542,7 @@ export function AppRenderer({
           runDisabledReason,
         }}
       >
-        <DataProvider initialData={appConfig?.dataBindings ?? {}}>
+        <DataProvider initialData={appDefinition?.dataBindings ?? {}}>
           <VisibilityProvider>
             <ActionProvider handlers={actionHandlers}>
               <Renderer tree={tree} registry={appRegistry} />

@@ -173,14 +173,13 @@ class ShareRuntimeState:
         project_state = self.get_session_state(session_id, project_config_id)
         return self.format_project_state_for_client(project_state)
 
-    def get_app_spec(self, project_config_id: ID) -> JSONValue | None:
-        if project_config_id not in self.project_state_backend.projectConfigs:
-            raise KeyError(f"Unknown project config: {project_config_id}")
-        project_config = self.project_state_backend.projectConfigs[project_config_id]
-        app_config = project_config.appConfig
-        if app_config is None or not app_config.appSpecPath:
+    def get_app_spec(self) -> JSONValue | None:
+        app_definition = self.project_state_backend.appDefinition
+        if app_definition is None or not app_definition.appSpecPath:
             return None
-        spec_path = self._resolve_deployment_path_to_absolute(app_config.appSpecPath)
+        spec_path = self._resolve_deployment_path_to_absolute(
+            app_definition.appSpecPath
+        )
         payload = self.dbe.read_json(spec_path)
         if not payload:
             return None
@@ -514,15 +513,6 @@ class ShareRuntimeState:
         project_state: "ProjectStateSingleConfig",
     ) -> "ProjectStateSingleConfig":
         redacted = project_state.model_copy(deep=True)
-        app_config = redacted.projectConfig.appConfig
-        if app_config is not None and app_config.appSpecPath:
-            redacted.projectConfig.appConfig = app_config.model_copy(
-                update={
-                    "appSpecPath": self._format_deployment_relative_path(
-                        app_config.appSpecPath
-                    )
-                }
-            )
         rewrite_project_state_paths(
             redacted,
             resolve_artifact_path=self._format_deployment_relative_path,

@@ -7,8 +7,8 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
+    AppDefinitionResponse,
     AppendDrawAreaLayerItemRequest,
-    AppSpecResponse,
     AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -35,7 +35,7 @@ from setta.project_state.project_manager_types import (
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetAppSpecRequest,
+    GetAppDefinitionRequest,
     GetChatSectionChatIdRequest,
     GetLatestProjectStateRequest,
     GetPasswordParamValueRequest,
@@ -54,7 +54,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetAgenticEdgesRequest,
-    SetAppSpecRequest,
+    SetAppDefinitionRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -126,7 +126,7 @@ from setta.project_state.project_manager_types import (
     UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateAgenticEdgeRequest,
-    UpdateAppSpecRequest,
+    UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -616,31 +616,37 @@ async def route_set_project_config_codegen_targets(
     await manager.set_project_config_codegen_targets(x)
 
 
-@router.post(Route.GET_APP_SPEC)
-async def route_get_app_spec(
-    x: GetAppSpecRequest, ctx: RuntimeContextFromRequest
-) -> AppSpecResponse:
+@router.post(Route.GET_APP_DEFINITION)
+async def route_get_app_definition(
+    x: GetAppDefinitionRequest, ctx: RuntimeContextFromRequest
+) -> AppDefinitionResponse:
     await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.get_app_spec(x)
+    manager = ctx.state.project_manager_switcher.main
+    if manager is None:
+        raise HTTPException(status_code=404, detail="Project manager not available.")
+    return await manager.get_app_definition(x)
 
 
-@router.post(Route.SET_APP_SPEC)
-async def route_set_app_spec(
-    x: SetAppSpecRequest, ctx: RuntimeContextFromRequest
-) -> AppSpecResponse:
+@router.post(Route.SET_APP_DEFINITION)
+async def route_set_app_definition(
+    x: SetAppDefinitionRequest, ctx: RuntimeContextFromRequest
+) -> AppDefinitionResponse:
     await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.set_app_spec(x)
+    manager = ctx.state.project_manager_switcher.main
+    if manager is None:
+        raise HTTPException(status_code=404, detail="Project manager not available.")
+    return await manager.set_app_definition(x)
 
 
-@router.post(Route.UPDATE_APP_SPEC)
-async def route_update_app_spec(
-    x: UpdateAppSpecRequest, ctx: RuntimeContextFromRequest
-) -> AppSpecResponse:
+@router.post(Route.UPDATE_APP_DEFINITION)
+async def route_update_app_definition(
+    x: UpdateAppDefinitionRequest, ctx: RuntimeContextFromRequest
+) -> AppDefinitionResponse:
     await _deny_share_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    return await manager.update_app_spec(x)
+    manager = ctx.state.project_manager_switcher.main
+    if manager is None:
+        raise HTTPException(status_code=404, detail="Project manager not available.")
+    return await manager.update_app_definition(x)
 
 
 @router.post(Route.SET_PROMPT_TEMPLATE)

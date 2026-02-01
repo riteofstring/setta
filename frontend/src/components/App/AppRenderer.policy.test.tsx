@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useProjectState } from "state/definitions";
+import { useAppConfigs } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
@@ -9,51 +9,38 @@ import {
   createCore,
   createProjectConfig,
   createSharePolicy,
+  createSingletonSections,
+  createTextBlockSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
+  createUserDefaultTextBlockSectionImpl,
   createVariant,
-  isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 
-import { AppActionContext, AppRuntimeContext } from "./appContext";
+import {
+  AppActionContext,
+  AppConfigScopeContext,
+  AppRuntimeContext,
+} from "./appContext";
 import { appRegistry } from "./appRegistry";
 
-describe("AppRenderer policy enforcement", () => {
-  let originalInitialState: {
-    projectConfig: ReturnType<typeof useProjectState.getState>["projectConfig"];
-    sections: ReturnType<typeof useProjectState.getState>["sections"];
-    sectionVariants: ReturnType<typeof useProjectState.getState>["sectionVariants"];
-    sectionImpls: ReturnType<typeof useProjectState.getState>["sectionImpls"];
-    codeObjs: ReturnType<typeof useProjectState.getState>["codeObjs"];
-    codeObjVariants: ReturnType<typeof useProjectState.getState>["codeObjVariants"];
-    codeObjImpls: ReturnType<typeof useProjectState.getState>["codeObjImpls"];
-    parentSectionMap: ReturnType<
-      typeof useProjectState.getState
-    >["parentSectionMap"];
-    previewSectionVariantMap: ReturnType<
-      typeof useProjectState.getState
-    >["previewSectionVariantMap"];
-  };
+function syncStoreInitialState(store: {
+  getState: () => Record<string, unknown>;
+  getInitialState?: () => Record<string, unknown>;
+}) {
+  if (!store.getInitialState) {
+    return;
+  }
+  const initial = store.getInitialState();
+  Object.assign(initial, store.getState());
+}
 
+describe("AppRenderer policy enforcement", () => {
   beforeEach(() => {
     resetProjectStores();
-    const initialState = useProjectState.getInitialState();
-    originalInitialState = {
-      projectConfig: initialState.projectConfig,
-      sections: initialState.sections,
-      sectionVariants: initialState.sectionVariants,
-      sectionImpls: initialState.sectionImpls,
-      codeObjs: initialState.codeObjs,
-      codeObjVariants: initialState.codeObjVariants,
-      codeObjImpls: initialState.codeObjImpls,
-      parentSectionMap: initialState.parentSectionMap,
-      previewSectionVariantMap: initialState.previewSectionVariantMap,
-    };
   });
 
   afterEach(() => {
-    const initialState = useProjectState.getInitialState();
-    Object.assign(initialState, originalInitialState);
     resetProjectStores();
   });
 
@@ -109,44 +96,28 @@ describe("AppRenderer policy enforcement", () => {
       },
     );
 
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-      state.sections = { [sectionId]: sectionCore };
-      state.sectionVariants = { [sectionVariantId]: sectionVariant };
-      state.sectionImpls = { [sectionImplId]: sectionImpl };
-      state.codeObjs = { [paramId]: paramCore };
-      state.codeObjVariants = { [paramVariantId]: paramVariant };
-      state.codeObjImpls = { [paramImplId]: paramImpl };
-      state.parentSectionMap = { [sectionId]: null };
-      state.previewSectionVariantMap = {};
+    useAppConfigs.setState({
+      configs: {
+        [projectConfig.id]: {
+          projectConfig,
+          sections: { [sectionId]: sectionCore },
+          sectionVariants: { [sectionVariantId]: sectionVariant },
+          sectionImpls: { [sectionImplId]: sectionImpl },
+          codeObjs: { [paramId]: paramCore },
+          codeObjVariants: { [paramVariantId]: paramVariant },
+          codeObjImpls: { [paramImplId]: paramImpl },
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: { [sectionId]: null },
+          shownParamIds: {},
+          previewSectionVariantMap: {},
+          requiredDecodedImages: [],
+          genCodeBinding: null,
+          appSpec: null,
+        },
+      },
     });
-    const initialState = useProjectState.getInitialState();
-    Object.assign(initialState, {
-      projectConfig,
-      sections: { [sectionId]: sectionCore },
-      sectionVariants: { [sectionVariantId]: sectionVariant },
-      sectionImpls: { [sectionImplId]: sectionImpl },
-      codeObjs: { [paramId]: paramCore },
-      codeObjVariants: { [paramVariantId]: paramVariant },
-      codeObjImpls: { [paramImplId]: paramImpl },
-      parentSectionMap: { [sectionId]: null },
-      previewSectionVariantMap: {},
-    });
-    const snapshot = useProjectState.getState();
-    expect(snapshot.projectConfig.sectionVariantMap[sectionId]).toBe(
-      sectionVariantId,
-    );
-    expect(snapshot.sectionVariants[sectionVariantId]).toBeDefined();
-    expect(snapshot.sectionImpls[sectionImplId]).toBeDefined();
-    expect(isBaseSectionWithParamsImpl(snapshot.sectionImpls[sectionImplId])).toBe(
-      true,
-    );
-    expect(snapshot.sectionImpls[sectionImplId].codeObjVariantMap[paramId]).toBe(
-      paramVariantId,
-    );
-    expect(snapshot.codeObjVariants[paramVariantId]).toBeDefined();
-    expect(snapshot.codeObjImpls[paramImplId]).toBeDefined();
-    expect(snapshot.codeObjs[paramId]).toBeDefined();
+    syncStoreInitialState(useAppConfigs);
 
     const runtimeValue = {
       dataBindings: {},
@@ -165,6 +136,7 @@ describe("AppRenderer policy enforcement", () => {
       canEditParams: false,
       allowExternalLinks: false,
       allowFileDownloads: false,
+      defaultConfigId: projectConfig.id,
     };
     const actionState = {
       canRun: true,
@@ -206,5 +178,108 @@ describe("AppRenderer policy enforcement", () => {
     expect(markup).toContain("Param edits are disabled by policy.");
     expect(markup).toContain("cursor-not-allowed");
     expect(markup).toContain("File downloads are disabled by policy.");
+  });
+
+  it("resolves text output using config scope", () => {
+    const sectionId = "section-1";
+    const variantAId = "variant-a";
+    const variantBId = "variant-b";
+    const implAId = "impl-a";
+    const implBId = "impl-b";
+    const configA = createProjectConfig({
+      id: "config-a",
+      sectionVariantMap: { [sectionId]: variantAId },
+    });
+    const configB = createProjectConfig({
+      id: "config-b",
+      sectionVariantMap: { [sectionId]: variantBId },
+    });
+    const sectionCore = createCore({
+      id: sectionId,
+      name: "Output",
+      variants: [variantAId, variantBId],
+      defaultVariant: variantAId,
+    });
+    const variantA = createVariant({
+      id: variantAId,
+      name: "Alpha Variant",
+      impl: implAId,
+      nonPresetImpls: [],
+    });
+    const variantB = createVariant({
+      id: variantBId,
+      name: "Beta Variant",
+      impl: implBId,
+      nonPresetImpls: [],
+    });
+    const implA = createTextBlockSectionImpl(
+      createUserDefaultTextBlockSectionImpl(),
+      { id: implAId, text: "Alpha" },
+    );
+    const implB = createTextBlockSectionImpl(
+      createUserDefaultTextBlockSectionImpl(),
+      { id: implBId, text: "Beta" },
+    );
+
+    useAppConfigs.setState({
+      configs: {
+        [configA.id]: {
+          projectConfig: configA,
+          sections: { [sectionId]: sectionCore },
+          sectionVariants: { [variantAId]: variantA, [variantBId]: variantB },
+          sectionImpls: { [implAId]: implA, [implBId]: implB },
+          codeObjs: {},
+          codeObjVariants: {},
+          codeObjImpls: {},
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: { [sectionId]: null },
+          shownParamIds: {},
+          previewSectionVariantMap: {},
+          requiredDecodedImages: [],
+          genCodeBinding: null,
+          appSpec: null,
+        },
+        [configB.id]: {
+          projectConfig: configB,
+          sections: { [sectionId]: sectionCore },
+          sectionVariants: { [variantAId]: variantA, [variantBId]: variantB },
+          sectionImpls: { [implAId]: implA, [implBId]: implB },
+          codeObjs: {},
+          codeObjVariants: {},
+          codeObjImpls: {},
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: { [sectionId]: null },
+          shownParamIds: {},
+          previewSectionVariantMap: {},
+          requiredDecodedImages: [],
+          genCodeBinding: null,
+          appSpec: null,
+        },
+      },
+    });
+    syncStoreInitialState(useAppConfigs);
+
+    const runtimeValue = {
+      dataBindings: {},
+      actions: {},
+      policy: createSharePolicy({ allowRun: true }),
+      canEditParams: true,
+      allowExternalLinks: true,
+      allowFileDownloads: true,
+      defaultConfigId: configA.id,
+    };
+
+    const TextOutput = appRegistry.TextOutput;
+    const markup = renderToStaticMarkup(
+      <AppRuntimeContext.Provider value={runtimeValue}>
+        <AppConfigScopeContext.Provider value={{ configId: configB.id }}>
+          <TextOutput element={{ props: { sectionId } }} />
+        </AppConfigScopeContext.Provider>
+      </AppRuntimeContext.Provider>,
+    );
+
+    expect(markup).toContain("Beta");
   });
 });

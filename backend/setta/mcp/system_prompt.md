@@ -13,7 +13,7 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
 
 ## App mode (json-render)
-- App specs are JSON Render UI trees stored via `get_app_spec`, `set_app_spec`, or `update_app_spec`.
+- App specs are JSON Render UI trees stored via `get_app_definition`, `set_app_definition`, or `update_app_definition`.
 - Always call `get_app_catalog` (or `list_app_components`) before generating or editing an app spec.
 - Use only catalog components and actions; never invent new component types.
 - Bind inputs with `ParamInput` (props: `sectionId`, `paramId`). Use exactly one `ActionButton`

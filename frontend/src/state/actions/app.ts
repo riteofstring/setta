@@ -1,6 +1,7 @@
-import { loadProjectState } from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
+  useAppConfigs,
+  useAppDefinition,
   useProjectLoading,
   useServerMode,
   useShareSession,
@@ -12,7 +13,10 @@ import {
   route_get_app_deployment_state,
   route_load_app_project_config,
 } from "utils/generatedEndpoints";
-import type { AppDeploymentSessionResponse } from "utils/generatedTypes";
+import type {
+  AppDeploymentSessionResponse,
+  ProjectStateSingleConfig,
+} from "utils/generatedTypes";
 
 const APP_SESSION_STORAGE_KEY = "settaAppSession";
 
@@ -36,6 +40,8 @@ export function resetAppSessionState() {
   clearAppSessionStorage();
   useShareSession.getState().reset?.();
   useAllProjectMetadata.getState().reset?.();
+  useAppDefinition.getState().reset?.();
+  useAppConfigs.getState().reset?.();
 }
 
 function isAppSessionResponse(
@@ -231,9 +237,13 @@ export async function loadAppDeploymentState({
   if (!res200(res)) {
     return false;
   }
-  await loadProjectState(res.data.projectState, {
-    appSpec: res.data.appSpec ?? null,
-  });
+  if (res.data.appDefinition || res.data.appSpec) {
+    useAppDefinition.setState({
+      appDefinition: res.data.appDefinition ?? null,
+      appSpec: res.data.appSpec ?? null,
+    });
+  }
+  storeAppConfigState(res.data.projectState);
   return true;
 }
 
@@ -259,4 +269,26 @@ export async function resetAppDeployment(): Promise<boolean> {
     projectIs404: !loaded,
   });
   return loaded;
+}
+
+export async function ensureAppProjectConfigLoaded(
+  projectConfigId: string,
+): Promise<boolean> {
+  if (useAppConfigs.getState().configs[projectConfigId]) {
+    return true;
+  }
+  return await loadAppDeploymentState({ projectConfigId });
+}
+
+function storeAppConfigState(projectState: ProjectStateSingleConfig) {
+  useAppConfigs.setState((state) => ({
+    configs: {
+      ...state.configs,
+      [projectState.projectConfig.id]: {
+        ...projectState,
+        previewSectionVariantMap: {},
+        appSpec: null,
+      },
+    },
+  }));
 }

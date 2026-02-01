@@ -17,6 +17,7 @@ import {
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
+  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
@@ -150,6 +151,34 @@ export const useProjectState = withProjectState(
   ),
 );
 
+type AppDefinitionState = {
+  appDefinition: AppDefinition | null;
+  appSpec: unknown | null;
+};
+
+export const useAppDefinition = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppDefinitionState>(() => ({
+      appDefinition: null,
+      appSpec: null,
+    })),
+  ),
+);
+
+type AppConfigState = ZustandProjectState;
+
+type AppConfigsState = {
+  configs: Record<string, AppConfigState>;
+};
+
+export const useAppConfigs = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppConfigsState>(() => ({
+      configs: {},
+    })),
+  ),
+);
+
 type ShareSessionState = {
   isShareMode: boolean;
   shareSessionId: string | null;
@@ -184,12 +213,14 @@ export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
 
 type AppPreviewState = {
   isPreviewEnabled: boolean;
+  previewConfigId: string | null;
 };
 
 export const useAppPreview = withProjectState(
   createWithEqualityFn(
     withResetFn<AppPreviewState>(() => ({
       isPreviewEnabled: false,
+      previewConfigId: null,
     })),
   ),
 );

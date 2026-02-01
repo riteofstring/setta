@@ -136,7 +136,6 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
-from setta.types.app_config import AppConfig
 from setta.types.project_config import ProjectCodegenPythonTarget, ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode, ViewModeConfig, WatchCodeFolder, WatchCodeRegistryEntry
 from setta.types.generated.shared_modifier import SharedModifier
 
