@@ -55,7 +55,6 @@ import {
 } from "./activeSections";
 import { copy, paste } from "./copyPaste";
 import { deleteSelectedEdges } from "./edges";
-import { formatActiveCodeSection } from "./formatCode";
 import { restartLanguageServer } from "./lsp";
 import {
   openFileMenuLoadProjectConfigModal,
@@ -560,7 +559,7 @@ export function attachKeyEventListeners() {
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
     // [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
-    [shortcuts.formatCode, formatActiveCodeSection],
+    // [shortcuts.formatCode, formatCode],
     ...(indentShortcutIsTab
       ? []
       : [

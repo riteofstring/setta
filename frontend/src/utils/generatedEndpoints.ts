@@ -907,12 +907,6 @@ export async function route_set_code(
   return await post("/setCode", x);
 }
 
-export async function route_format_code(
-  x: gt.FormatCodeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/formatCode", x);
-}
-
 export async function route_set_section_param_filter(
   x: gt.SetSectionParamFilterRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

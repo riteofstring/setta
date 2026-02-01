@@ -107,7 +107,6 @@ from setta.project_state.project_manager_types import (
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
     DeleteViewModeRequest,
-    FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetChatSectionChatIdRequest,
@@ -360,7 +359,6 @@ from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
-from setta.utils.format_code import ruff_format_with_error
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.name_validation import (
     collect_param_name_errors,
@@ -1090,6 +1088,8 @@ class BaseProjectManager(ABC):
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
         diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
+        prev_gen_code = self.gen_code.get(projectConfigId)
+        prev_full_code = prev_gen_code.code if prev_gen_code is not None else None
         valid_code_section_ids: set[ID] = set()
         for section_id in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, section_id)
@@ -1119,8 +1119,11 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
-            # Keep existing diagnostics until the LSP publishes for the new code to
-            # avoid flicker from intermediate empty snapshots.
+            if prev_full_code != code_generator.code:
+                await diagnostics_state.reset(
+                    clear_gen_code=True,
+                    clear_unmapped=True,
+                )
             ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
                 projectState
             )
@@ -1931,90 +1934,6 @@ class BaseProjectManager(ABC):
             project_state, x.sectionId, x.code
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        )
-    )
-    async def format_code(self, x: FormatCodeRequest):
-        """Format code for a Python code section using Ruff."""
-        project_state = self.get_single_config_state(x.projectConfigId)
-        section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
-        if isinstance(section_impl, CodeSectionImpl):
-            if section_impl.codeLanguage is not CodeLanguage.python:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Format code only supports Python code sections.",
-                )
-            binding = section_impl.codeFileBinding
-            if (
-                binding is not None
-                and binding.access_mode == CodeFileAccessMode.read_only
-            ):
-                logger.warning(
-                    "Rejecting format_code for read-only binding: section %s (config %s)",
-                    x.sectionId,
-                    x.projectConfigId,
-                )
-                raise PermissionError(
-                    f"Cannot edit read-only code section {x.sectionId}"
-                )
-            formatted_code, error = ruff_format_with_error(
-                section_impl.code,
-                include_lint=False,
-            )
-            if error or formatted_code is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=error or "Formatting failed.",
-                )
-            set_code(project_state, x.sectionId, formatted_code)
-            await self._sync_code_section_lsp_for_watch_code(
-                project_state,
-                x.sectionId,
-                formatted_code,
-            )
-            await self.watch_code_manager.handle_code_section_update(
-                project_state, x.sectionId, formatted_code
-            )
-            await self._update_and_broadcast_project_state_no_name_validation(
-                project_state
-            )
-            return
-        if isinstance(section_impl, GenPythonCodeSectionImpl):
-            python_target = get_python_codegen_target_with_type_guard(
-                project_state.projectConfig
-            )
-            formatted_prefix, error = ruff_format_with_error(
-                python_target.genCodePrefix,
-                include_lint=False,
-            )
-            if error or formatted_prefix is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Gen code prefix: {error or 'formatting failed.'}",
-                )
-            formatted_suffix, error = ruff_format_with_error(
-                python_target.genCodeSuffix,
-                include_lint=False,
-            )
-            if error or formatted_suffix is None:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"Gen code suffix: {error or 'formatting failed.'}",
-                )
-            python_target.genCodePrefix = formatted_prefix
-            python_target.genCodeSuffix = formatted_suffix
-            await self._update_and_broadcast_project_state_no_name_validation(
-                project_state
-            )
-            return
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Format code only supports Python code sections.",
-        )
 
     async def _sync_code_section_lsp_for_watch_code(
         self,

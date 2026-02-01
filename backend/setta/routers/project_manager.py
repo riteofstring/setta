@@ -28,7 +28,6 @@ from setta.project_state.project_manager_types import (
     DeleteSelectedParamsRequest,
     DeleteViewModeRequest,
     ForceRefreshProjectRequest,
-    FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetChatSectionChatIdRequest,
@@ -818,13 +817,6 @@ async def route_set_code(x: SetCodeRequest, ctx: RuntimeContextFromRequest):
     await _deny_share_mode_code_edit(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code(x)
-
-
-@router.post(Route.FORMAT_CODE)
-async def route_format_code(x: FormatCodeRequest, ctx: RuntimeContextFromRequest):
-    await _deny_share_mode_code_edit(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.format_code(x)
 
 
 @router.post(Route.SET_SECTION_PARAM_FILTER)
