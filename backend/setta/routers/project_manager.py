@@ -67,6 +67,7 @@ from setta.project_state.project_manager_types import (
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
+    SetCodeSectionAttachedTerminalRequest,
     SetCodeSectionDiagnosticCodeSuppressionRequest,
     SetCodeSectionDiagnosticsMuteRequest,
     SetDefaultSectionVariantRequest,
@@ -748,6 +749,15 @@ async def route_set_code_section_diagnostic_code_suppression(
     await _deny_share_mode_diagnostics(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_code_section_diagnostic_code_suppression(x)
+
+
+@router.post(Route.SET_CODE_SECTION_ATTACHED_TERMINAL)
+async def route_set_code_section_attached_terminal(
+    x: SetCodeSectionAttachedTerminalRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_code_section_attached_terminal(x)
 
 
 @router.post(Route.SET_CODE_OBJ_NAME)

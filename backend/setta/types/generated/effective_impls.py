@@ -376,20 +376,6 @@ def set_effective_impl_value(
 ) -> BaseDictSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseParentSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseParentSectionImplArgsWithCallable,
-) -> BaseParentSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseParentSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseParentSectionImplArgsWithCallable,
-) -> BaseParentSectionImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseParentCodeObjImplUnion,
     core: Core,
     variant: Variant,
@@ -430,6 +416,20 @@ def set_effective_impl_value(
     variant: Variant,
     args: BaseSectionWithParamsImplArgsWithCallable,
 ) -> BaseSectionWithParamsImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseParentSectionImplUnion,
+    core: Core,
+    variant: Variant,
+    args: BaseParentSectionImplArgsWithCallable,
+) -> BaseParentSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseParentSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseParentSectionImplArgsWithCallable,
+) -> BaseParentSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseChildlessCodeObjImplUnion,

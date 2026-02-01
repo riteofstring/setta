@@ -75,13 +75,18 @@ reparent both sections and params in the project UI.
   - Moving free resolves the new parent/index or per-section canvas positions
     (`positionsById`) and then calls `moveSectionsWithBackend`.
   - Cancelled drags force a reset via `forceDeactivateDnd`.
+- `moveSectionsWithBackend` switches to `route_set_code_section_attached_terminal`
+  when a single Terminal is dropped into a code section.
 
 ## Drop rules
 
-- `getBehaviorDropType` marks a drop as INVALID when:
-  - The target is not a root section.
-  - The target variant is frozen.
-  - The active section is GlobalVariables.
+- `getBehaviorDropType` marks a drop as INVALID when the target is neither a
+  root section nor a code section (Code / GenPythonCode / GenPythonMetadata).
+- It is also INVALID when the target variant is frozen.
+- It is also INVALID when the active section is GlobalVariables.
+- For code section targets, drops are INVALID unless the selection is exactly
+  one Terminal section and the code section has no other child (or the child is
+  the same terminal).
 - `useHighlightDroppable` and `DndSlot` render the INVALID overlay state.
 
 ## Collision detection and sorting

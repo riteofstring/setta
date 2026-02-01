@@ -104,6 +104,10 @@ class RunCodeRequest(BaseModel):
     sectionId: ID | None = Field(
         description="Optional section to run; defaults to the entry code block.",
     )
+    terminalSectionId: ID | None = Field(
+        default=None,
+        description="Optional terminal section to stream run output.",
+    )
     cliId: str | None = Field(
         default=None,
         description="CLI client id to stream run output.",
@@ -643,6 +647,15 @@ class SetCodeSectionDiagnosticCodeSuppressionRequest(ProjectManagerRequestWithSe
     )
     suppress: bool = Field(
         description="Whether to suppress the diagnostic code.",
+    )
+
+
+class SetCodeSectionAttachedTerminalRequest(ProjectManagerRequestWithSection):
+    """Attach or detach a terminal section for a code section."""
+
+    terminalSectionId: ID | None = Field(
+        default=None,
+        description="Terminal section to attach; null detaches.",
     )
 
 

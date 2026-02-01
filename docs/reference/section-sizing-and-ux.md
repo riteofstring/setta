@@ -19,6 +19,10 @@ experience around resizing.
   per-type max height; the cap never goes below the section's min height.
 - Sections that rely on internal scrolling (for example Code, TextBlock, and
   Browser) will scroll within the capped height instead of growing indefinitely.
+- When a Terminal is attached under a code section, the backend promotes the
+  parent Code/GenPython section height to at least
+  `min(Code) + min(Terminal) + 80` via
+  `backend/setta/types/helpers_lvl2.py:ensure_code_section_embedded_terminal_size`.
 - Size modes restrict which dimensions are user-resizable:
   - Terminal and Chart sections are manual-only for both width and height.
   - Callables with hidden params, Twitter embeds, and some MetaControl param

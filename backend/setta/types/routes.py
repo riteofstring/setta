@@ -160,6 +160,7 @@ class Route(str, Enum):
     SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION = (
         "/setCodeSectionDiagnosticCodeSuppression"
     )
+    SET_CODE_SECTION_ATTACHED_TERMINAL = "/setCodeSectionAttachedTerminal"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     SET_CODE_OBJ_DISPLAY_NAME = "/setCodeObjDisplayName"
     SET_CODE_FILE_BINDING = "/setCodeFileBinding"

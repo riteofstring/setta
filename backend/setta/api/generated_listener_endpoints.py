@@ -462,6 +462,7 @@ class ListenerRedoRequestPayload(TypedDict):
 class ListenerRunCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID | None
+    terminalSectionId: NotRequired[ID | None]
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
     drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
@@ -604,6 +605,13 @@ class ListenerSetCodeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     code: str
+
+
+class ListenerSetCodeSectionAttachedTerminalRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    terminalSectionId: NotRequired[ID | None]
 
 
 class ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload(TypedDict):
@@ -1310,6 +1318,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetCodeObjNameRequestPayload
     ) -> None:
         return await self._caller("route_set_code_obj_name", payload)
+
+    async def set_code_section_attached_terminal(
+        self, payload: ListenerSetCodeSectionAttachedTerminalRequestPayload
+    ) -> None:
+        return await self._caller("route_set_code_section_attached_terminal", payload)
 
     async def set_code_section_diagnostic_code_suppression(
         self, payload: ListenerSetCodeSectionDiagnosticCodeSuppressionRequestPayload
