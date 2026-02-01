@@ -4,7 +4,7 @@ import {
   getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   postBackend,
-} from "../helpers";
+} from "./helpers";
 
 test("dict kwargs render after add_kwarg", async ({ page }) => {
   await ensureAppReady(page);

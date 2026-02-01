@@ -443,9 +443,10 @@ function CustomResizableSuperCore({
   snapToGrid,
   children,
 }) {
-  const { isSorting } = useDndMode();
+  const { isSorting, isMovingFree } = useDndMode();
   const disablePointerEvents = useShouldDisablePointerEvents();
-  const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
+  const allowPointerEvents =
+    allowPointerEventsDuringDnd && (isSorting || isMovingFree);
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
@@ -469,9 +470,10 @@ function CustomResizableSuperCore({
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
 
+  // trying always overflow-clip ${isYouTube ? "overflow-clip" : ""}
   const inputClasses = `${
     shouldDisablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border overflow-clip ${
+  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-xl" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border overflow-clip ${
     isActiveSection ? "z-[150]" : "z-10"
   } ${frameClassName}`;
 

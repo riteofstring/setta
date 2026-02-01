@@ -4,7 +4,7 @@ import {
   createCallableSection,
   getCurrentProjectConfigId,
   postBackend,
-} from "../helpers";
+} from "./helpers";
 
 const CALLABLE_NAME = "sorted";
 

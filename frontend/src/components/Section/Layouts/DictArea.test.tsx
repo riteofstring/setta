@@ -158,13 +158,9 @@ describe("DictArea layout", () => {
     const markup = renderToStaticMarkup(
       <DictArea sectionId={sectionId} bgColor="bg-transparent" />,
     );
-    const match = markup.match(
-      /class=\"([^\"]*section-args-nested[^\"]*overflow-y-scroll[^\"]*)\"/,
-    );
+    const match = markup.match(/class=\"([^\"]*overflow-y-auto[^\"]*)\"/);
     expect(match).not.toBeNull();
     const classes = (match?.[1] ?? "").split(" ");
-    expect(classes).toContain("section-args-nested");
-    expect(classes).toContain("overflow-y-scroll");
-    expect(markup).toContain("section-row-pin-main");
+    expect(classes).toContain("section-row-pin-main");
   });
 });

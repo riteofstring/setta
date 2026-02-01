@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady, postBackend } from "../helpers";
+import { ensureAppReady, postBackend } from "./helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
@@ -426,24 +426,18 @@ test("attach then detach round trip", async ({ page }) => {
 
 test("embedded terminal can detach via drag and drop", async ({ page }) => {
   test.setTimeout(90000);
-  await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
   const { projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
-    await resetViewport(page);
     await runCodeBlockInPage(page, sectionId);
     const terminalId = await waitForAttachedTerminalId(
       page,
       projectConfigName,
       sectionId,
     );
-    await waitForTerminalReady(page, terminalId, {
-      required: !process.env.CI,
-      timeoutMs: process.env.CI ? 5000 : 20000,
-    });
 
     const terminalHost = page.locator(
       `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
@@ -452,46 +446,36 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
     const terminalContainer = terminalHost.locator("xpath=ancestor::section[1]");
     await expect(terminalContainer).toBeVisible();
 
+    await focusPaneForDnd(page);
+    await page.keyboard.down("Alt");
+
     const pane = page.locator(".react-flow__pane");
-    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const paneBox = await pane.boundingBox();
+    const terminalBox = await terminalContainer.boundingBox();
+    const codeBox = await page
+      .locator(`.react-flow__node[data-id="${sectionId}"]`)
+      .boundingBox();
 
-    const dragAttempts = 3;
-    for (let attempt = 0; attempt < dragAttempts; attempt += 1) {
-      await focusPaneForDnd(page);
-
-      const paneBox = await pane.boundingBox();
-      const terminalBox = await terminalContainer.boundingBox();
-      const codeBox = await codeNode.boundingBox();
-
-      if (!paneBox || !terminalBox || !codeBox) {
-        throw new Error("Missing bounding boxes for drag.");
-      }
-
-      const { x: startX, y: startY } = getDragStartPoint(terminalBox);
-      const { x: targetX, y: targetY } = getDetachTargetPoint({
-        paneBox,
-        codeBox,
-        attempt,
-      });
-
-      await page.keyboard.down("Alt");
-      await page.mouse.move(startX, startY);
-      await page.mouse.down();
-      await page.waitForTimeout(250);
-      await page.mouse.move(targetX, targetY, { steps: 12 });
-      await page.mouse.up();
-      await page.keyboard.up("Alt");
-
-      await page.waitForTimeout(200);
-      const detachedInDom = await isTerminalDetachedInDom(
-        page,
-        sectionId,
-        terminalId,
-      );
-      if (detachedInDom) {
-        break;
-      }
+    if (!paneBox || !terminalBox || !codeBox) {
+      throw new Error("Missing bounding boxes for drag.");
     }
+
+    const { x: startX, y: startY } = getDragStartPoint(terminalBox);
+    const targetX = Math.min(
+      codeBox.x + codeBox.width + 320,
+      paneBox.x + paneBox.width - 40,
+    );
+    const targetY = Math.min(
+      codeBox.y + 40,
+      paneBox.y + paneBox.height - 40,
+    );
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    await page.mouse.move(targetX, targetY, { steps: 8 });
+    await page.mouse.up();
+    await page.keyboard.up("Alt");
 
     await expect
       .poll(async () => {
@@ -501,7 +485,7 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
         const codeImpl = resolveSectionImpl(state, sectionId);
         const children = codeImpl?.children ?? [];
         return Boolean(terminalLayout) && !children.includes(terminalId);
-      }, { timeout: 20000 })
+      })
       .toBe(true);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
@@ -940,27 +924,21 @@ async function waitForTerminalOutputMarker(
 async function waitForTerminalReady(
   page: Page,
   terminalId: string,
-  options?: { timeoutMs?: number; required?: boolean },
-): Promise<boolean> {
-  const timeoutMs = options?.timeoutMs ?? 20000;
-  const required = options?.required ?? true;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const ready = await page.evaluate((id) => {
-      const readyMap = (window as typeof window & {
-        __terminalReadyBySectionId?: Record<string, boolean>;
-      }).__terminalReadyBySectionId;
-      return readyMap?.[id] ?? false;
-    }, terminalId);
-    if (ready) {
-      return true;
-    }
-    await page.waitForTimeout(250);
-  }
-  if (required) {
-    throw new Error(`Timed out waiting for terminal ${terminalId} readiness.`);
-  }
-  return false;
+  timeoutMs = 20000,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        return await page.evaluate((id) => {
+          const readyMap = (window as typeof window & {
+            __terminalReadyBySectionId?: Record<string, boolean>;
+          }).__terminalReadyBySectionId;
+          return readyMap?.[id] ?? false;
+        }, terminalId);
+      },
+      { timeout: timeoutMs },
+    )
+    .toBe(true);
 }
 
 async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
@@ -1032,73 +1010,6 @@ function getDragStartPoint(box: {
     x: box.x + Math.min(offset, box.width / 2),
     y: box.y + Math.min(offset, box.height / 2),
   };
-}
-
-function getDetachTargetPoint({
-  paneBox,
-  codeBox,
-  attempt,
-}: {
-  paneBox: { x: number; y: number; width: number; height: number };
-  codeBox: { x: number; y: number; width: number; height: number };
-  attempt: number;
-}): { x: number; y: number } {
-  const margin = 40;
-  const centerX = codeBox.x + codeBox.width / 2;
-  const centerY = codeBox.y + codeBox.height / 2;
-  const stepOffset = attempt * 40;
-  const verticalOffset = attempt * 20;
-  const candidates = [
-    { x: codeBox.x + codeBox.width + 320 + stepOffset, y: codeBox.y + 40 },
-    { x: codeBox.x - 320 - stepOffset, y: codeBox.y + 40 },
-    { x: centerX, y: centerY + 240 + verticalOffset },
-    { x: centerX, y: centerY - 240 - verticalOffset },
-  ].map((point) => ({
-    x: clamp(point.x, paneBox.x + margin, paneBox.x + paneBox.width - margin),
-    y: clamp(point.y, paneBox.y + margin, paneBox.y + paneBox.height - margin),
-  }));
-
-  const startIndex = attempt % candidates.length;
-  const ordered = candidates
-    .slice(startIndex)
-    .concat(candidates.slice(0, startIndex));
-  const picked = ordered.find((point) =>
-    isPointOutsideBox(codeBox, point, 20),
-  );
-  return picked ?? candidates[0];
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
-}
-
-function isPointOutsideBox(
-  box: { x: number; y: number; width: number; height: number },
-  point: { x: number; y: number },
-  margin: number,
-): boolean {
-  return (
-    point.x < box.x - margin ||
-    point.x > box.x + box.width + margin ||
-    point.y < box.y - margin ||
-    point.y > box.y + box.height + margin
-  );
-}
-
-async function isTerminalDetachedInDom(
-  page: Page,
-  sectionId: string,
-  terminalId: string,
-): Promise<boolean> {
-  const embeddedCount = await page
-    .locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    )
-    .count();
-  const terminalNodeCount = await page
-    .locator(`.react-flow__node[data-id="${terminalId}"]`)
-    .count();
-  return embeddedCount === 0 && terminalNodeCount > 0;
 }
 
 

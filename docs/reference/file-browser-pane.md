@@ -16,31 +16,18 @@ it opens files into Code sections.
   `__pycache__`, and `setta_files`.
 - The root defaults to the backend CWD and must stay inside the project root. Attempts
   to browse outside the project root fail with a 403.
-- The pane currently does not expose a root-path input; consumers change the root by
-  updating file browser state.
+- Changing the root (enter key or "Go") resets selection and expansion state, then
+  reloads the tree from the new root.
+- Blank root input is rejected locally with a "Root path is required" message.
 - Folder contents are fetched lazily when a folder expands.
 - Each folder request limits results to 5000 entries and returns folders before files,
   sorted by case-insensitive name.
 - Folder entries return normalized paths, so `fullPath` values are relative to the
   project root when possible.
-- The pane requests `mtime` values (`includeMtime=true`) so the Date modified column
-  can render.
-
-## Sorting And Columns
-
-- The header row provides two sortable columns: `Files` and `Date modified`.
-- Default sort is name ascending. Clicking the same header toggles ascending/descending.
-  Sorting by date defaults to newest-first (descending).
-- Sorting is applied per folder level and always keeps folders above files.
-- The file column can be resized by dragging the divider in the header row.
-  - The Overview pane stores the width in `--file-browser-column-width` (not persisted).
-  - When embedded elsewhere (for example Browser section list view), the pane can be
-    supplied a `columnWidthConfig` to drive a persisted width.
 
 ## Filters And Visibility
 
-- The Filter input (when shown) does a case-insensitive substring match on file and
-  folder names.
+- The Filter input does a case-insensitive substring match on file and folder names.
 - Filtering only includes nodes that have already been loaded. Expand folders first if
   you want their children to participate in filtering.
 - Hidden items (dotfiles) and default ignore patterns are filtered out by the backend.
@@ -49,7 +36,7 @@ it opens files into Code sections.
 
 ## Selection And Opening Files
 
-- Single click selects a row.
+- Single click selects a row and updates the breadcrumb strip.
 - Double click (or Enter) on a folder toggles expansion.
 - Use the chevron to expand or collapse a folder without opening it.
 - Double click (or Enter) on a file opens it in a Code section.
@@ -58,7 +45,11 @@ it opens files into Code sections.
 - New Code sections are named after the file and infer the code language from the file
   extension.
 
-## Keyboard Navigation
+## Breadcrumbs And Keyboard Navigation
+
+- The breadcrumb strip reflects the top visible row in the list, not necessarily the
+  selected row.
+- Click a breadcrumb segment to select it and expand it if it is a folder.
 
 Keyboard navigation works when the list has focus.
 
