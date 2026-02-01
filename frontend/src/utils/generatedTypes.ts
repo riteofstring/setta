@@ -4115,7 +4115,7 @@ const SectionSizingPolicyByTypeSchema = z.object({
   ),
   Dict: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
-      minHeight: 0.0,
+      minHeight: 78.0,
       maxHeight: 100000.0,
       minWidth: 200.0,
       maxWidth: 100000.0,
