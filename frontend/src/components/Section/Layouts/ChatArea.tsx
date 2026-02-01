@@ -17,10 +17,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
-  getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  persistChatSectionState,
   submitMessage,
 } from "state/actions/ai";
 import {
@@ -416,15 +416,18 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
-  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
+  const { messages, toolCallArguments, waitingForResponse } = useProjectState(
     (state) => {
-      if (chatId === null) {
-        return state.pendingChatDetails ?? getDefaultChatDetails();
-      }
-      if (typeof chatId !== "string") {
-        return getDefaultChatDetails();
-      }
-      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      return {
+        messages: impl.messages ?? [],
+        toolCallArguments: impl.toolCallArguments ?? {},
+        waitingForResponse: Boolean(impl.waitingForResponse),
+      };
     },
     shallow,
   );
@@ -602,11 +605,11 @@ function ManagedChatArea({
       return;
     }
     if (isExternalEngine) {
-      getExternalAgentChat(chatId, projectConfigId);
+      getExternalAgentChat(chatId, projectConfigId, sectionId);
       return;
     }
-    getLLMChat(chatId);
-  }, [chatId, isExternalEngine, projectConfigId]);
+    getLLMChat(chatId, sectionId);
+  }, [chatId, isExternalEngine, projectConfigId, sectionId]);
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
@@ -729,6 +732,19 @@ function ManagedChatArea({
       }
       const messageId = createNewId();
       const timestampMs = Date.now();
+      const content = [];
+      if (trimmed) {
+        content.push(createMessageTextContent({ text: message }));
+      }
+      const optimisticMessage = {
+        id: messageId,
+        role: ChatRoleEnum.user,
+        content,
+        attachments,
+      };
+      const priorMessages = messages;
+      const priorToolCallArguments = toolCallArguments;
+      const priorWaitingForResponse = waitingForResponse;
       emitChatSendAction({
         sectionId,
         messageId,
@@ -742,6 +758,19 @@ function ManagedChatArea({
       if (isFirstMessage) {
         handleNewChatStart();
       }
+      const baseMessages = isFirstMessage ? [] : priorMessages;
+      const nextMessages = [...baseMessages, optimisticMessage];
+      const nextState: ChatSectionState = {
+        messages: nextMessages,
+        inputText: "",
+        waitingForResponse: true,
+        toolCallArguments: priorToolCallArguments,
+      };
+      persistChatSectionState({
+        sectionId,
+        nextState,
+        reason: "optimistic-user-message",
+      });
 
       let submittedChatId: string | null = null;
       let succeeded = false;
@@ -799,6 +828,33 @@ function ManagedChatArea({
           }),
         );
       } finally {
+        if (!succeeded) {
+          const currentState = useProjectState.getState();
+          let impl: ReturnType<typeof getCurrEffectiveSectionImplOfType> | null =
+            null;
+          try {
+            impl = getCurrEffectiveSectionImplOfType(
+              currentState,
+              sectionId,
+              SectionTypeEnum.Chat,
+            );
+          } catch {
+            impl = null;
+          }
+          if (impl && impl.messages?.some((entry) => entry.id === messageId)) {
+            const rollbackState: ChatSectionState = {
+              messages: priorMessages,
+              inputText: impl.inputText ?? "",
+              waitingForResponse: priorWaitingForResponse,
+              toolCallArguments: priorToolCallArguments,
+            };
+            persistChatSectionState({
+              sectionId,
+              nextState: rollbackState,
+              reason: "submit-rollback",
+            });
+          }
+        }
         if (isFirstMessage) {
           handleNewChatSettled(submittedChatId, succeeded);
         }
@@ -816,6 +872,8 @@ function ManagedChatArea({
       hasLLMConfig,
       agentProfileId,
       messages,
+      toolCallArguments,
+      waitingForResponse,
       sectionId,
       thinking,
     ],

@@ -268,8 +268,14 @@ describe("sub-agent chat section surfacing", () => {
 
     const setChatStateMock = route_set_chat_section_state as unknown as vi.Mock;
     expect(setChatStateMock).toHaveBeenCalled();
-    const setArgs = setChatStateMock.mock.calls[0][0];
-    expect(setArgs.sectionId).toBe(childSectionId);
+    const childCall = setChatStateMock.mock.calls.find(
+      (call) => call[0]?.sectionId === childSectionId,
+    );
+    expect(childCall).toBeDefined();
+    if (!childCall) {
+      throw new Error("Expected setChatSectionState call for child section.");
+    }
+    const setArgs = childCall[0];
     expect(
       setArgs.state.messages.some(
         (message) =>

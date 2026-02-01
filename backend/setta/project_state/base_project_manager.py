@@ -1060,6 +1060,12 @@ class BaseProjectManager(ABC):
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
         section_ids = sorted(x.sectionSizes.keys())
+        logger.debug(
+            "set_section_sizes project_config_id=%s section_ids=%s count=%s",
+            x.projectConfigId,
+            section_ids,
+            len(section_ids),
+        )
         coalesce_key = f"sectionSize:{x.projectConfigId}:{','.join(section_ids)}"
         self.add_new_history_entry(
             coalesce_key=coalesce_key,
@@ -2998,6 +3004,15 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_chat_section_state(self, x: SetChatSectionStateRequest):
+        logger.debug(
+            "set_chat_section_state project_config_id=%s section_id=%s message_count=%s waiting=%s tool_args_count=%s input_text_length=%s",
+            x.projectConfigId,
+            x.sectionId,
+            len(x.state.messages),
+            x.state.waitingForResponse,
+            len(x.state.toolCallArguments),
+            len(x.state.inputText),
+        )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_state(project_state, x.sectionId, x.state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)

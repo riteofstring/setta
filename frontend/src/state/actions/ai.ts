@@ -256,7 +256,23 @@ async function createSubAgentSection({
   agentProfileId: string | null;
   toolCallArguments: Record<string, string>;
 }): Promise<void> {
+  console.log(
+    "[createSubAgentSection] start",
+    JSON.stringify({
+      projectConfigId,
+      parentSectionId,
+      toolCallId: toolCall.id,
+      toolCallName: toolCall.function?.name ?? null,
+      label,
+      agentProfileId,
+      toolCallArgumentsKeys: Object.keys(toolCallArguments ?? {}),
+    }),
+  );
   if (useShareSession.getState().isShareMode) {
+    console.log(
+      "[createSubAgentSection] share-mode-skip",
+      JSON.stringify({ projectConfigId, parentSectionId, toolCallId: toolCall.id }),
+    );
     return;
   }
   const state = useProjectState.getState();
@@ -268,6 +284,10 @@ async function createSubAgentSection({
       SectionTypeEnum.Chat,
     );
   } catch {
+    console.log(
+      "[createSubAgentSection] missing-parent-impl",
+      JSON.stringify({ projectConfigId, parentSectionId, toolCallId: toolCall.id }),
+    );
     return;
   }
   const parentCore = state.sections[parentSectionId];
@@ -275,6 +295,18 @@ async function createSubAgentSection({
     ? parentCore.displayName.trim()
     : parentCore?.name ?? null;
   const messages = buildSubAgentMessages(toolCall, label, parentLabel);
+  console.log(
+    "[createSubAgentSection] create-section",
+    JSON.stringify({
+      projectConfigId,
+      parentSectionId,
+      parentLabel,
+      toolCallId: toolCall.id,
+      messageCount: messages.length,
+      engineConfigId: parentImpl.engineConfigId,
+      managed: parentImpl.managed,
+    }),
+  );
   const response = await route_create_top_level_section({
     projectConfigId,
     implType: SectionTypeEnum.Chat,
@@ -290,6 +322,16 @@ async function createSubAgentSection({
       toolCallArguments,
     },
   });
+  console.log(
+    "[createSubAgentSection] create-section-response",
+    JSON.stringify({
+      projectConfigId,
+      parentSectionId,
+      toolCallId: toolCall.id,
+      ok: res200(response),
+      response,
+    }),
+  );
   if (!res200(response)) {
     const failedKey = buildSubAgentKey(projectConfigId, toolCall.id);
     subAgentSectionsByCallId.delete(failedKey);
@@ -298,16 +340,43 @@ async function createSubAgentSection({
   }
   const childSectionId = response.data.sectionId;
   const displayLabel = truncateLabel(label, 48);
+  console.log(
+    "[createSubAgentSection] created",
+    JSON.stringify({
+      projectConfigId,
+      parentSectionId,
+      childSectionId,
+      toolCallId: toolCall.id,
+      displayLabel,
+    }),
+  );
   void route_set_section_name({
     projectConfigId,
     sectionId: childSectionId,
     name: `Sub-agent: ${displayLabel}`,
   });
+  console.log(
+    "[createSubAgentSection] set-name-dispatch",
+    JSON.stringify({
+      projectConfigId,
+      sectionId: childSectionId,
+      name: `Sub-agent: ${displayLabel}`,
+    }),
+  );
   createAgenticEdgeFromSections({
     sourceSectionId: parentSectionId,
     targetSectionId: childSectionId,
     kind: AgenticEdgeKindEnum.chat_chat,
   });
+  console.log(
+    "[createSubAgentSection] edge-created",
+    JSON.stringify({
+      projectConfigId,
+      parentSectionId,
+      childSectionId,
+      toolCallId: toolCall.id,
+    }),
+  );
   const key = buildSubAgentKey(projectConfigId, toolCall.id);
   const existing = subAgentSectionsByCallId.get(key);
   if (existing) {
@@ -321,6 +390,14 @@ async function createSubAgentSection({
   }
   const pendingResult = pendingSubAgentResultsByCallId.get(key);
   if (pendingResult) {
+    console.log(
+      "[createSubAgentSection] pending-tool-result",
+      JSON.stringify({
+        projectConfigId,
+        childSectionId,
+        toolCallId: toolCall.id,
+      }),
+    );
     pendingSubAgentResultsByCallId.delete(key);
     appendSubAgentToolResult(childSectionId, pendingResult);
     subAgentSectionsByCallId.delete(key);
@@ -331,6 +408,15 @@ function appendSubAgentToolResult(
   sectionId: string,
   toolResult: ToolChatMessage,
 ): void {
+  console.log(
+    "[appendSubAgentToolResult] start",
+    JSON.stringify({
+      sectionId,
+      toolCallId: toolResult.tool_call_id,
+      toolName: toolResult.tool_name ?? null,
+      isError: toolResult.is_error,
+    }),
+  );
   const projectConfigId = getCurrProjectConfigId();
   const state = useProjectState.getState();
   let impl;
@@ -341,6 +427,10 @@ function appendSubAgentToolResult(
       SectionTypeEnum.Chat,
     );
   } catch {
+    console.log(
+      "[appendSubAgentToolResult] missing-impl",
+      JSON.stringify({ sectionId, toolCallId: toolResult.tool_call_id }),
+    );
     return;
   }
   const existingToolResult = impl.messages.find(
@@ -349,6 +439,10 @@ function appendSubAgentToolResult(
       message.tool_call_id === toolResult.tool_call_id,
   );
   if (existingToolResult) {
+    console.log(
+      "[appendSubAgentToolResult] already-present",
+      JSON.stringify({ sectionId, toolCallId: toolResult.tool_call_id }),
+    );
     return;
   }
   const nextMessages = [...impl.messages, toolResult];
@@ -375,6 +469,14 @@ function appendSubAgentToolResult(
         frontendOpId,
       }),
   });
+  console.log(
+    "[appendSubAgentToolResult] dispatched",
+    JSON.stringify({
+      sectionId,
+      toolCallId: toolResult.tool_call_id,
+      messageCount: nextMessages.length,
+    }),
+  );
 }
 
 function handleSubAgentToolCalls(
@@ -382,15 +484,35 @@ function handleSubAgentToolCalls(
   message: MessageFinalizedEvent["message"],
 ): void {
   if (useShareSession.getState().isShareMode) {
+    console.log(
+      "[handleSubAgentToolCalls] share-mode-skip",
+      JSON.stringify({ sectionId }),
+    );
     return;
   }
   if (message.role !== ChatRoleEnum.assistant) {
+    console.log(
+      "[handleSubAgentToolCalls] non-assistant",
+      JSON.stringify({ sectionId, role: message.role }),
+    );
     return;
   }
   const toolCalls = message.tool_calls ?? [];
   if (toolCalls.length === 0) {
+    console.log(
+      "[handleSubAgentToolCalls] no-tool-calls",
+      JSON.stringify({ sectionId }),
+    );
     return;
   }
+  console.log(
+    "[handleSubAgentToolCalls] tool-calls",
+    JSON.stringify({
+      sectionId,
+      toolCallIds: toolCalls.map((toolCall) => toolCall.id),
+      toolCallNames: toolCalls.map((toolCall) => toolCall.function?.name ?? null),
+    }),
+  );
   const projectConfigId = getCurrProjectConfigId();
   const state = useProjectState.getState();
   let parentImpl;
@@ -401,6 +523,10 @@ function handleSubAgentToolCalls(
       SectionTypeEnum.Chat,
     );
   } catch {
+    console.log(
+      "[handleSubAgentToolCalls] missing-parent-impl",
+      JSON.stringify({ sectionId, projectConfigId }),
+    );
     return;
   }
   const toolCallArguments = parentImpl.toolCallArguments ?? {};
@@ -408,15 +534,39 @@ function handleSubAgentToolCalls(
   for (const toolCall of toolCalls) {
     const normalizedName = normalizeSubAgentToolName(toolCall.function?.name);
     if (!normalizedName || !SUB_AGENT_TOOL_NAMES.has(normalizedName)) {
+      console.log(
+        "[handleSubAgentToolCalls] skip-tool",
+        JSON.stringify({
+          sectionId,
+          toolCallId: toolCall.id,
+          toolCallName: toolCall.function?.name ?? null,
+          normalizedName,
+        }),
+      );
       continue;
     }
     const key = buildSubAgentKey(projectConfigId, toolCall.id);
     if (subAgentSectionsByCallId.has(key)) {
+      console.log(
+        "[handleSubAgentToolCalls] already-tracked",
+        JSON.stringify({ sectionId, toolCallId: toolCall.id }),
+      );
       continue;
     }
     const args = resolveToolCallArguments(toolCall, toolCallArguments);
     const label = resolveSubAgentLabel(normalizedName, args, profiles);
     const agentProfileId = resolveSubAgentProfileId(args);
+    console.log(
+      "[handleSubAgentToolCalls] create-sub-agent",
+      JSON.stringify({
+        sectionId,
+        toolCallId: toolCall.id,
+        normalizedName,
+        label,
+        agentProfileId,
+        args,
+      }),
+    );
     const toolCallWithArgs = isRecord(args)
       ? {
           ...toolCall,
@@ -456,12 +606,33 @@ function handleSubAgentToolResult(toolResult: ToolChatMessage): void {
   const key = buildSubAgentKey(projectConfigId, toolResult.tool_call_id);
   const info = subAgentSectionsByCallId.get(key);
   if (!info) {
+    console.log(
+      "[handleSubAgentToolResult] no-section",
+      JSON.stringify({
+        toolCallId: toolResult.tool_call_id,
+        toolName: toolResult.tool_name ?? null,
+      }),
+    );
     return;
   }
   if (!info.sectionId) {
+    console.log(
+      "[handleSubAgentToolResult] pending-section",
+      JSON.stringify({
+        toolCallId: toolResult.tool_call_id,
+        parentSectionId: info.parentSectionId,
+      }),
+    );
     pendingSubAgentResultsByCallId.set(key, toolResult);
     return;
   }
+  console.log(
+    "[handleSubAgentToolResult] append",
+    JSON.stringify({
+      toolCallId: toolResult.tool_call_id,
+      sectionId: info.sectionId,
+    }),
+  );
   appendSubAgentToolResult(info.sectionId, toolResult);
   subAgentSectionsByCallId.delete(key);
 }
@@ -910,11 +1081,70 @@ export function clearPendingChatDetails() {
   useAIStore.setState({ pendingChatDetails: null });
 }
 
-export async function getLLMChat(chatId: string) {
+function applyChatDetailsToSectionState({
+  sectionId,
+  messages,
+  waitingForResponse,
+  toolCallArguments,
+}: {
+  sectionId: string;
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+}): ChatSectionState | null {
+  let nextState: ChatSectionState | null = null;
+  useProjectState.setState((state) => {
+    const currentState = getChatSectionStateFromStore(state, sectionId);
+    if (!currentState) {
+      return;
+    }
+    nextState = mergeChatSectionState(currentState, {
+      messages,
+      waitingForResponse,
+      toolCallArguments,
+    });
+    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+      messages: nextState.messages,
+      waitingForResponse: nextState.waitingForResponse,
+      toolCallArguments: nextState.toolCallArguments,
+      inputText: nextState.inputText,
+    });
+  });
+  return nextState;
+}
+
+function mergeChatSectionState(
+  currentState: ChatSectionState,
+  incoming: {
+    messages: Array<BaseChatMessageUnion>;
+    waitingForResponse: boolean;
+    toolCallArguments: Record<string, string>;
+  },
+): ChatSectionState {
+  const mergedMessages = mergeChatMessages(
+    currentState.messages ?? [],
+    incoming.messages ?? [],
+  );
+  return {
+    messages: mergedMessages,
+    inputText: currentState.inputText ?? "",
+    waitingForResponse:
+      currentState.waitingForResponse || incoming.waitingForResponse,
+    toolCallArguments: {
+      ...(currentState.toolCallArguments ?? {}),
+      ...(incoming.toolCallArguments ?? {}),
+    },
+  };
+}
+
+export async function getLLMChat(
+  chatId: string,
+  sectionId?: string,
+): Promise<void> {
   const projectConfigId = getCurrProjectConfigId();
   console.log(
     "[getLLMChat] request",
-    JSON.stringify({ chatId, projectConfigId }),
+    JSON.stringify({ chatId, projectConfigId, sectionId: sectionId ?? null }),
   );
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   console.log("[getLLMChat] response", JSON.stringify(res));
@@ -951,16 +1181,30 @@ export async function getLLMChat(chatId: string) {
         },
       };
     });
+    if (sectionId) {
+      const nextState = applyChatDetailsToSectionState({
+        sectionId,
+        messages,
+        waitingForResponse,
+        toolCallArguments: {},
+      });
+      persistChatSectionState({
+        sectionId,
+        nextState,
+        reason: "hydrate-llm-chat",
+      });
+    }
   }
 }
 
 export async function getExternalAgentChat(
   chatId: string,
   projectConfigId: string | null,
-) {
+  sectionId?: string,
+): Promise<void> {
   console.log(
     "[getExternalAgentChat] request",
-    JSON.stringify({ chatId, projectConfigId }),
+    JSON.stringify({ chatId, projectConfigId, sectionId: sectionId ?? null }),
   );
   const res = await route_get_external_agent_chat({
     chatId,
@@ -1001,6 +1245,19 @@ export async function getExternalAgentChat(
         },
       };
     });
+    if (sectionId) {
+      const nextState = applyChatDetailsToSectionState({
+        sectionId,
+        messages,
+        waitingForResponse,
+        toolCallArguments,
+      });
+      persistChatSectionState({
+        sectionId,
+        nextState,
+        reason: "hydrate-external-chat",
+      });
+    }
   }
 }
 
@@ -1112,9 +1369,13 @@ export async function submitMessage(
       );
       if (returnedChatId) {
         if (isExternalEngine) {
-          await getExternalAgentChat(returnedChatId, projectConfigId);
+          await getExternalAgentChat(
+            returnedChatId,
+            projectConfigId,
+            sectionId ?? undefined,
+          );
         } else {
-          await getLLMChat(returnedChatId);
+          await getLLMChat(returnedChatId, sectionId ?? undefined);
         }
       }
       return returnedChatId;
@@ -1220,13 +1481,46 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     return;
   }
   if (sectionId) {
-    applyChatSectionStreamDelta(sectionId, chunk);
+    const nextState = applyChatSectionStreamDelta(sectionId, chunk);
+    if (
+      chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED ||
+      chunk.type === StreamingEventTypeEnum.TOOL_RESULT
+    ) {
+      persistChatSectionState({
+        sectionId,
+        nextState,
+        reason: chunk.type,
+      });
+    }
     if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
       handleSubAgentToolResult(chunk.result);
     }
     if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
       handleSubAgentToolCalls(sectionId, chunk.message);
     }
+    if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
+      applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+      return;
+    }
+    if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+      clearToolArgumentPreviewByToolCallId(
+        getCurrProjectConfigId(),
+        chunk.result.tool_call_id,
+      );
+      return;
+    }
+    if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
+      const toolCallIds =
+        chunk.message.role === ChatRoleEnum.assistant
+          ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
+          : [];
+      clearToolArgumentPreviewByToolCallIds(
+        getCurrProjectConfigId(),
+        toolCallIds,
+      );
+      return;
+    }
+    return;
   }
   if (!chatId) {
     return;
@@ -1354,11 +1648,12 @@ function getRunLastUpdatedMs(run: AgentRun): number {
 function applyChatSectionStreamDelta(
   sectionId: string,
   chunk: ChatSectionStreamChunk,
-): void {
+): ChatSectionState | null {
   console.log(
     "[applyChatSectionStreamDelta] incoming",
     JSON.stringify({ sectionId, chunk }),
   );
+  let nextState: ChatSectionState | null = null;
   useProjectState.setState((state) => {
     const currentState = getChatSectionStateFromStore(state, sectionId);
     if (!currentState) {
@@ -1368,13 +1663,60 @@ function applyChatSectionStreamDelta(
       );
       return;
     }
-    const nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
+    nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
     setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
       messages: nextState.messages,
       inputText: nextState.inputText,
       waitingForResponse: nextState.waitingForResponse,
       toolCallArguments: nextState.toolCallArguments,
     });
+  });
+  return nextState;
+}
+
+export function persistChatSectionState({
+  sectionId,
+  nextState,
+  reason,
+}: {
+  sectionId: string;
+  nextState: ChatSectionState | null;
+  reason: string;
+}): void {
+  if (!nextState) {
+    console.log(
+      "[persistChatSectionState] missing-state",
+      JSON.stringify({ sectionId, reason }),
+    );
+    return;
+  }
+  const projectConfigId = getCurrProjectConfigId();
+  console.log(
+    "[persistChatSectionState] send",
+    JSON.stringify({
+      sectionId,
+      reason,
+      messageCount: nextState.messages.length,
+      waitingForResponse: nextState.waitingForResponse,
+      toolCallArgumentsCount: Object.keys(nextState.toolCallArguments).length,
+    }),
+  );
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+        messages: nextState.messages,
+        inputText: nextState.inputText,
+        waitingForResponse: nextState.waitingForResponse,
+        toolCallArguments: nextState.toolCallArguments,
+      });
+    },
+    send: (frontendOpId) =>
+      route_set_chat_section_state({
+        projectConfigId,
+        sectionId,
+        state: nextState,
+        frontendOpId,
+      }),
   });
 }
 

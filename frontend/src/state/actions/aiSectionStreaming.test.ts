@@ -1,3 +1,4 @@
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -9,10 +10,19 @@ import {
   createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("utils/generatedEndpoints", async () => {
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
+  return {
+    ...actual,
+    route_set_chat_section_state: vi.fn(),
+  };
+});
 
 let receiveLLMResponseChunk: typeof import("./ai").receiveLLMResponseChunk;
-let useAIStore: typeof import("state/definitions").useAIStore;
 let useProjectState: typeof import("state/definitions").useProjectState;
 
 const projectConfigId = "project-1";
@@ -59,57 +69,23 @@ function seedChatSection({
 }
 
 describe("section chat streaming updates", () => {
-  let memoryStorage: Storage;
-
   beforeAll(async () => {
-    const storage = new Map<string, string>();
-    memoryStorage = {
-      getItem: (key: string) => storage.get(key) ?? null,
-      setItem: (key: string, value: string) => {
-        storage.set(key, value);
-      },
-      removeItem: (key: string) => {
-        storage.delete(key);
-      },
-      clear: () => {
-        storage.clear();
-      },
-      key: (index: number) => Array.from(storage.keys())[index] ?? null,
-      get length() {
-        return storage.size;
-      },
-    };
-    (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
-
     const definitions = await import("state/definitions");
-    useAIStore = definitions.useAIStore;
     useProjectState = definitions.useProjectState;
     receiveLLMResponseChunk = (await import("./ai")).receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
     resetProjectStores();
-    useAIStore.persist.setOptions({
-      storage: {
-        getItem: memoryStorage.getItem.bind(memoryStorage),
-        setItem: memoryStorage.setItem.bind(memoryStorage),
-        removeItem: memoryStorage.removeItem.bind(memoryStorage),
-      },
-    });
-    useAIStore.setState({ chatDetails: {}, pendingChatDetails: null });
     seedChatSection({ chatId });
   });
 
   afterEach(() => {
     resetProjectStores();
-    memoryStorage.clear();
+    vi.clearAllMocks();
   });
 
-  afterAll(() => {
-    delete (globalThis as { localStorage?: Storage }).localStorage;
-  });
-
-  it("updates chatDetails when streaming includes sectionId", () => {
+  it("updates section state when streaming includes sectionId", () => {
     const assistantMessage = {
       id: "msg-1",
       role: ChatRoleEnum.assistant,
@@ -127,9 +103,12 @@ describe("section chat streaming updates", () => {
       },
     });
 
-    const details = useAIStore.getState().chatDetails[chatId];
-    expect(details).toBeTruthy();
-    expect(details.messages.some((message) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.messages.some((message) => {
       if (message.role !== ChatRoleEnum.assistant) {
         return false;
       }
@@ -137,6 +116,76 @@ describe("section chat streaming updates", () => {
         (content) => content.type === "text" && content.text === "Hello there",
       );
     })).toBe(true);
-    expect(details.waitingForResponse).toBe(false);
+    expect(impl.waitingForResponse).toBe(false);
+  });
+
+  it("persists section state on finalized messages", async () => {
+    const route_set_chat_section_state =
+      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    route_set_chat_section_state.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+    const assistantMessage = {
+      id: "msg-2",
+      role: ChatRoleEnum.assistant,
+      content: [{ type: "text", text: "Persist me" }],
+      attachments: [],
+      tool_calls: null,
+    };
+
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
+        message: assistantMessage,
+      },
+    });
+
+    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
+    const payload = route_set_chat_section_state.mock.calls[0][0];
+    expect(payload.sectionId).toBe(sectionId);
+    expect(payload.projectConfigId).toBe(projectConfigId);
+    expect(payload.state.messages).toHaveLength(1);
+    expect(payload.state.waitingForResponse).toBe(false);
+  });
+
+  it("persists section state on tool results", async () => {
+    const route_set_chat_section_state =
+      (await import("utils/generatedEndpoints")).route_set_chat_section_state as unknown as vi.Mock;
+    route_set_chat_section_state.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+    const toolResult = {
+      id: "tool-msg-1",
+      role: ChatRoleEnum.tool,
+      tool_call_id: "tool-call-stream-test",
+      tool_name: "test_tool",
+      arguments: { ok: true },
+      result: { ok: true },
+      content: [],
+      is_error: false,
+      started_at: "2026-02-01T00:00:00.000Z",
+      completed_at: "2026-02-01T00:00:01.000Z",
+    };
+
+    receiveLLMResponseChunk({
+      chatId,
+      sectionId,
+      chunk: {
+        type: StreamingEventTypeEnum.TOOL_RESULT,
+        result: toolResult,
+      },
+    });
+
+    expect(route_set_chat_section_state).toHaveBeenCalledTimes(1);
+    const payload = route_set_chat_section_state.mock.calls[0][0];
+    expect(payload.sectionId).toBe(sectionId);
+    expect(payload.projectConfigId).toBe(projectConfigId);
+    expect(payload.state.messages).toHaveLength(1);
   });
 });
