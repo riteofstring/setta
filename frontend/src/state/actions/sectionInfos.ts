@@ -80,84 +80,6 @@ function getEffectiveSectionImplIfPresent(
   return getEffectiveImpl(impl, core, variant);
 }
 
-function getAttachedTerminalSectionIds(
-  projectState: ZustandProjectState,
-): Set<string> {
-  const attachedIds = new Set<string>();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const sectionImpl = getEffectiveSectionImplIfPresent(
-      projectState,
-      sectionId,
-    );
-    if (!sectionImpl || sectionImpl.type !== SectionTypeEnum.Code) {
-      continue;
-    }
-    const terminalId = sectionImpl.attachedTerminalSectionId;
-    if (!terminalId) {
-      continue;
-    }
-    const terminalImpl = getEffectiveSectionImplIfPresent(
-      projectState,
-      terminalId,
-    );
-    if (!terminalImpl || terminalImpl.type !== SectionTypeEnum.Terminal) {
-      continue;
-    }
-    attachedIds.add(terminalId);
-  }
-  return attachedIds;
-}
-
-function normalizeAttachedTerminalChildren(projectState: ZustandProjectState) {
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
-    if (variantId === undefined) {
-      continue;
-    }
-    const variant = projectState.sectionVariants[variantId];
-    if (!variant) {
-      continue;
-    }
-    const impl = projectState.sectionImpls[variant.impl];
-    if (!impl || impl.type !== SectionTypeEnum.Code) {
-      continue;
-    }
-    const terminalId = impl.attachedTerminalSectionId;
-    if (!terminalId) {
-      continue;
-    }
-    const terminalVariantId =
-      projectState.projectConfig.sectionVariantMap[terminalId];
-    if (terminalVariantId === undefined) {
-      continue;
-    }
-    const terminalVariant = projectState.sectionVariants[terminalVariantId];
-    if (!terminalVariant) {
-      continue;
-    }
-    const terminalImpl = projectState.sectionImpls[terminalVariant.impl];
-    if (!terminalImpl || terminalImpl.type !== SectionTypeEnum.Terminal) {
-      continue;
-    }
-    if (isBaseParentSectionImpl(impl)) {
-      const currentChildren = impl.children ?? [];
-      if (currentChildren.length !== 1 || currentChildren[0] !== terminalId) {
-        impl.children = [terminalId];
-      }
-    }
-    projectState.parentSectionMap[terminalId] = sectionId;
-  }
-}
-
-export function getTopLevelSectionIdsForDisplay(
-  projectState: ZustandProjectState,
-): string[] {
-  const attachedTerminalIds = getAttachedTerminalSectionIds(projectState);
-  return Object.keys(projectState.projectConfig.topLevelSections).filter(
-    (sectionId) => !attachedTerminalIds.has(sectionId),
-  );
-}
-
 function getEffectiveCodeObjImplIfPresent(
   projectState: ZustandProjectState,
   sectionImpl: BaseSectionImplUnion,
@@ -704,7 +626,6 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  normalizeAttachedTerminalChildren(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
@@ -834,20 +755,15 @@ export function createNodesMapFromProjectConfigChildren(
   nodes: ZustandNodeInternalsState["x"],
 ) {
   const nodesMap: Map<string, Node> = new Map();
-  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
 
-  for (const sectionId of topLevelSectionIds) {
-    const layout = p.projectConfig.topLevelSections[sectionId];
-    if (!layout) {
-      continue;
-    }
-    nodesMap.set(sectionId, {
-      id: sectionId,
-      position: { x: layout.x, y: layout.y },
-      width: nodes.get(sectionId)?.width ?? layout.w,
-      height: nodes.get(sectionId)?.height ?? layout.h,
-      zIndex: layout.zIndex,
-      tempZIndex: layout.zIndex,
+  for (const [k, v] of Object.entries(p.projectConfig.topLevelSections)) {
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      width: nodes.get(k)?.width ?? v.w,
+      height: nodes.get(k)?.height ?? v.h,
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
     });
   }
 
@@ -884,8 +800,7 @@ function getDisplayedSectionIdToChildrenHelper(
 
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
-  const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
-  for (const sectionId of topLevelSectionIds) {
+  for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }

@@ -41,9 +41,9 @@ type SizeMode = {
 };
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_EDGES_AND_PINNED = 48;
 // Keep edge ports visible when sections are resized to their minimum.
 const EDGES_STRIP_MIN_HEIGHT = 72;
-const EMBEDDED_TERMINAL_EXTRA_HEIGHT = 80;
 
 function getMetaControlSizingPolicyEntry({
   projectState,
@@ -284,10 +284,19 @@ export function useSectionMinMaxDims(sectionId: string) {
         )
           ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
           : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+        const resolvedUnpinnedPolicyMinHeight =
+          hasEdges &&
+          hasPinnedParams &&
+          baseUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+            ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_EDGES_AND_PINNED
+            : baseUnpinnedMinHeight;
         const resolvedUnpinnedMinHeight =
           unpinnedParamsMeasuredHeight > 0
-            ? Math.max(unpinnedParamsMeasuredHeight, baseUnpinnedMinHeight)
-            : baseUnpinnedMinHeight;
+            ? Math.max(
+                unpinnedParamsMeasuredHeight,
+                resolvedUnpinnedPolicyMinHeight,
+              )
+            : resolvedUnpinnedPolicyMinHeight;
         if (hasPinnedParams) {
           requiredParamsHeight += resolvedPinnedMinHeight;
         }
@@ -321,23 +330,6 @@ export function useSectionMinMaxDims(sectionId: string) {
         minWidth = Math.max(minWidth, metaControlEntry.minWidth);
       }
       metaControlSizeMode = resolveMetaControlSizeMode(metaControlEntry);
-    }
-
-    if (sectionType === SectionTypeEnum.Code) {
-      const variantId = x.sections[sectionId]?.variantId;
-      const children = variantId ? x.variants[variantId].children : [];
-      const candidateId =
-        children.length > 0 ? children[0] : impl.attachedTerminalSectionId;
-      if (candidateId && children.length < 2) {
-        const childImpl = getCurrEffectiveSectionImpl(x, candidateId);
-        if (childImpl?.type === SectionTypeEnum.Terminal) {
-          const terminalMinHeight = sizingPolicy.byType.Terminal.minHeight;
-          const codeMinHeight = sizingPolicy.byType.Code.minHeight;
-          const embeddedMinHeight =
-            codeMinHeight + terminalMinHeight + EMBEDDED_TERMINAL_EXTRA_HEIGHT;
-          minHeight = Math.max(minHeight, embeddedMinHeight);
-        }
-      }
     }
 
     const cappedAutoMaxHeight = Math.min(policyMaxHeight, autoMaxHeight);

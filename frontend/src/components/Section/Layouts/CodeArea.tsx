@@ -12,8 +12,6 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeMirrorTooltipParent";
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import { DNDSortable } from "forks/dnd-kit/DNDSortable";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
@@ -36,19 +34,13 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useLspDiagnostics,
-  useLocalStorage,
   useMisc,
   useProjectState,
   useResizeEvent,
-  useSettings,
   useShareSession,
   useToolArgumentPreview,
 } from "state/definitions";
-import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
-import {
-  getMinSectionHeight,
-  useSectionMinMaxDims,
-} from "state/hooks/sectionSizes";
+import { useSectionMinMaxDims } from "state/hooks/sectionSizes";
 import { C } from "utils/c";
 import {
   getPythonCodegenTarget,
@@ -67,7 +59,6 @@ import {
   route_gen_code_suffix_completion,
 } from "utils/generatedEndpoints";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { SortableSectionContainer } from "../Container/SortableSectionContainer";
 
 type GenPythonDocParts = {
   isValid: boolean;
@@ -83,23 +74,6 @@ type GenPythonLineStartInfo = {
   lineIndex: number;
 };
 
-const EMBEDDED_TERMINAL_SPLIT_DEFAULT_RATIO = 0.65;
-const EMBEDDED_TERMINAL_SPLIT_HANDLE_HEIGHT = 8;
-const EMBEDDED_TERMINAL_MIN_FRACTION = 0.2;
-
-type EmbeddedTerminalSplitBounds = {
-  minRatio: number;
-  maxRatio: number;
-};
-
-type EmbeddedTerminalSplitState = {
-  containerRef: React.RefObject<HTMLDivElement>;
-  gridTemplateRows: string;
-  handleHeight: number;
-  onHandlePointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
-  onHandleMouseDown: (event: React.MouseEvent<HTMLDivElement>) => void;
-};
-
 const GEN_CODE_SEPARATOR = "\n".repeat(C.GEN_CODE_SEPARATOR_NEWLINES);
 const GEN_CODE_SEPARATOR_LENGTH = GEN_CODE_SEPARATOR.length;
 const GEN_CODE_RADIUS = "6px";
@@ -107,23 +81,6 @@ const GEN_CODE_RADIUS_TOP = `${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS} 0 0`;
 const GEN_CODE_RADIUS_BOTTOM = `0 0 ${GEN_CODE_RADIUS} ${GEN_CODE_RADIUS}`;
 const GEN_CODE_LINE_OVERLAP = "2px";
 const GEN_CODE_LINE_EDGE_OFFSET = `calc(80% - ${GEN_CODE_LINE_OVERLAP})`;
-const EMBEDDED_CODE_EDITOR_THEME = EditorView.baseTheme({
-  "&": {
-    display: "flex",
-    flexDirection: "column",
-    flex: "1 1 auto",
-    height: "100%",
-    maxHeight: "100%",
-    minHeight: "0",
-  },
-  ".cm-scroller": {
-    flex: "1 1 auto",
-    height: "100%",
-    maxHeight: "100%",
-    minHeight: "0",
-    overflow: "auto",
-  },
-});
 const GEN_CODE_READONLY_THEME = EditorView.baseTheme({
   "&": {
     "--gen-code-bg": "rgb(219 234 254)",
@@ -687,93 +644,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
   });
   const value = previewCode ?? baseValue;
 
-  const attachedTerminalId = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Code,
-    );
-    if (!impl.attachedTerminalSectionId) {
-      return null;
-    }
-    const terminalId = impl.attachedTerminalSectionId;
-    if (!(terminalId in state.sections)) {
-      return null;
-    }
-    const terminalImpl = getCurrEffectiveSectionImpl(state, terminalId);
-    if (terminalImpl.type !== SectionTypeEnum.Terminal) {
-      return null;
-    }
-    return terminalId;
-  }, _.isEqual);
-  const dndChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
-  let embeddedChildIds = dndChildIds;
-  if (embeddedChildIds.length === 0 && attachedTerminalId) {
-    embeddedChildIds = [attachedTerminalId];
-  }
-  const hasEmbeddedTerminal = embeddedChildIds.length > 0;
-  const dndChildIdsKey = useMemo(() => dndChildIds.join("|"), [dndChildIds]);
-  const embeddedChildIdsKey = useMemo(
-    () => embeddedChildIds.join("|"),
-    [embeddedChildIds],
-  );
-  const disablePointerEvents = useShouldDisablePointerEvents();
-
-  useEffect(() => {
-    const fallbackChildId =
-      !attachedTerminalId && dndChildIds.length === 1 ? dndChildIds[0] : null;
-    const candidateId = attachedTerminalId ?? fallbackChildId;
-    if (!candidateId) {
-      return;
-    }
-    useProjectState.setState((state) => {
-      if (!(candidateId in state.sections)) {
-        return;
-      }
-      const candidateImpl = getCurrEffectiveSectionImpl(state, candidateId);
-      if (candidateImpl.type !== SectionTypeEnum.Terminal) {
-        return;
-      }
-      const codeImpl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Code,
-      );
-      const hasChild = codeImpl.children.includes(candidateId);
-      const currentParent = state.parentSectionMap[candidateId] ?? null;
-      const attachedId = codeImpl.attachedTerminalSectionId;
-      if (hasChild && currentParent === sectionId && attachedId === candidateId) {
-        return;
-      }
-      if (!hasChild) {
-        codeImpl.children = [candidateId];
-      }
-      if (!attachedId) {
-        codeImpl.attachedTerminalSectionId = candidateId;
-      }
-      state.parentSectionMap[candidateId] = sectionId;
-    });
-  }, [attachedTerminalId, dndChildIdsKey, sectionId]);
-
-  useEffect(() => {
-    console.info(
-      JSON.stringify({
-        event: "code-area-attached-terminal",
-        sectionId,
-        attachedTerminalId,
-        dndChildIds,
-        embeddedChildIds,
-        hasEmbeddedTerminal,
-      }),
-    );
-  }, [
-    attachedTerminalId,
-    dndChildIdsKey,
-    embeddedChildIdsKey,
-    hasEmbeddedTerminal,
-    sectionId,
-  ]);
-
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -828,34 +698,20 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     }
     return buildLspDiagnosticsExtensions(codeSectionDiagnostics);
   }, [codeSectionDiagnostics, isShareMode]);
-  const finalExtensions = extensions.concat(
-    lspLintExtensions,
-    hasEmbeddedTerminal ? [EMBEDDED_CODE_EDITOR_THEME] : [],
-  );
-  const codeAreaMaxHeight = hasEmbeddedTerminal ? "100%" : maxHeight;
-  let codeAreaLayoutClassName = "section-full-no-title";
-  if (hasEmbeddedTerminal) {
-    codeAreaLayoutClassName = "flex h-full min-h-0 flex-1 flex-col";
-  }
-  const embeddedOverflowClassName = hasEmbeddedTerminal ? "overflow-hidden" : "";
-  const embeddedCodeMirrorClassName = hasEmbeddedTerminal
-    ? "[&_.cm-theme]:flex [&_.cm-theme]:flex-col [&_.cm-theme]:h-full [&_.cm-theme]:min-h-0 [&_.cm-editor]:flex [&_.cm-editor]:flex-1 [&_.cm-editor]:flex-col [&_.cm-editor]:!h-full [&_.cm-editor]:!max-h-full [&_.cm-editor]:!min-h-0 [&_.cm-scroller]:!h-full [&_.cm-scroller]:!max-h-full [&_.cm-scroller]:min-h-0 [&_.cm-scroller]:overflow-auto"
-    : "";
-  const codeAreaClassName = `${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag ${codeAreaLayoutClassName} cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${embeddedOverflowClassName} ${embeddedCodeMirrorClassName} ${nowheel} ${disablePointerEvents ? "pointer-events-none select-none" : ""}`;
+  const finalExtensions = extensions.concat(lspLintExtensions);
 
   // TODO: replace the arbitrary inline tailwind styles with something more elegant
 
-  const codeEditor = (
+  return (
     <article
       ref={wrapperRef}
-      className={codeAreaClassName}
+      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
       data-section-main-editor
       tabIndex={0}
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
-        maxHeight={codeAreaMaxHeight}
-        height={hasEmbeddedTerminal ? "100%" : undefined}
+        maxHeight={maxHeight}
         value={value}
         theme={theme}
         extensions={finalExtensions}
@@ -866,423 +722,6 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
       />
     </article>
   );
-
-  const embeddedSplit = useEmbeddedTerminalSplit({
-    enabled: hasEmbeddedTerminal,
-    sectionId,
-    projectConfigId,
-  });
-
-  if (!hasEmbeddedTerminal) {
-    return codeEditor;
-  }
-
-  return (
-    <div
-      ref={embeddedSplit.containerRef}
-      className="section-full-no-title grid h-full w-full min-h-0"
-      style={{ gridTemplateRows: embeddedSplit.gridTemplateRows }}
-      data-embedded-terminal-split
-    >
-      <div
-        className="flex h-full min-h-0 flex-col overflow-hidden"
-        data-embedded-code-pane
-      >
-        {codeEditor}
-      </div>
-      <div
-        className={`nodrag group flex w-full items-center justify-center ${disablePointerEvents ? "pointer-events-none select-none" : "cursor-row-resize"} touch-none`}
-        style={{ height: `${embeddedSplit.handleHeight}px` }}
-        onPointerDown={embeddedSplit.onHandlePointerDown}
-        onMouseDown={embeddedSplit.onHandleMouseDown}
-        data-embedded-terminal-resize-handle
-        role="separator"
-        aria-label="Resize embedded terminal"
-        aria-orientation="horizontal"
-      >
-        <div className="h-[2px] w-full rounded-full bg-slate-200/80 transition-colors group-hover:bg-blue-400 dark:bg-slate-700/80 dark:group-hover:bg-blue-500" />
-      </div>
-      <div className="flex h-full min-h-0 flex-col" data-embedded-terminal-pane>
-        <EmbeddedTerminalStack
-          parentId={sectionId}
-          childIds={embeddedChildIds}
-          className="flex min-h-0 flex-1"
-        />
-      </div>
-    </div>
-  );
-}
-
-type EmbeddedTerminalStackProps = {
-  parentId: string;
-  childIds: string[];
-  className?: string;
-};
-
-function EmbeddedTerminalStack({
-  parentId,
-  childIds,
-  className = "",
-}: EmbeddedTerminalStackProps) {
-  if (childIds.length === 0) {
-    return null;
-  }
-  return (
-    <div className={className}>
-      <DNDSortable sectionId={parentId} items={childIds}>
-        {childIds.map((childId) => (
-          <SortableSectionContainer
-            key={`embedded-terminal-${childId}`}
-            sectionId={childId}
-            renderMode="embedded"
-            className="nodrag min-h-0 flex-1"
-          />
-        ))}
-      </DNDSortable>
-    </div>
-  );
-}
-
-function getEmbeddedTerminalSplitBounds({
-  availableHeight,
-  minCodeHeight,
-  minTerminalHeight,
-}: {
-  availableHeight: number;
-  minCodeHeight: number;
-  minTerminalHeight: number;
-}): EmbeddedTerminalSplitBounds {
-  if (availableHeight <= 0) {
-    return { minRatio: 0.5, maxRatio: 0.5 };
-  }
-
-  const cappedCodeMin = Math.min(
-    minCodeHeight,
-    availableHeight * EMBEDDED_TERMINAL_MIN_FRACTION,
-  );
-  const cappedTerminalMin = Math.min(
-    minTerminalHeight,
-    availableHeight * EMBEDDED_TERMINAL_MIN_FRACTION,
-  );
-  const minRatio = cappedCodeMin / availableHeight;
-  const maxRatio = 1 - cappedTerminalMin / availableHeight;
-  if (minRatio > maxRatio) {
-    const midpoint = _.clamp((minRatio + maxRatio) / 2, 0, 1);
-    return { minRatio: midpoint, maxRatio: midpoint };
-  }
-
-  return {
-    minRatio: _.clamp(minRatio, 0, 1),
-    maxRatio: _.clamp(maxRatio, 0, 1),
-  };
-}
-
-function useEmbeddedTerminalSplit({
-  enabled,
-  sectionId,
-  projectConfigId,
-}: {
-  enabled: boolean;
-  sectionId: string;
-  projectConfigId: string;
-}): EmbeddedTerminalSplitState {
-  const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
-  const storedRatio = useLocalStorage((state) => {
-    const projectRatios =
-      state.codeSectionSplitRatiosByProjectConfigId[projectConfigId];
-    if (!projectRatios) {
-      return null;
-    }
-    const ratio = projectRatios[sectionId];
-    if (typeof ratio !== "number") {
-      return null;
-    }
-    return ratio;
-  });
-  const initialRatio =
-    typeof storedRatio === "number"
-      ? storedRatio
-      : EMBEDDED_TERMINAL_SPLIT_DEFAULT_RATIO;
-  const [splitRatio, setSplitRatio] = useState(initialRatio);
-  const splitRatioRef = useRef(splitRatio);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
-  const dragStateRef = useRef<{
-    startY: number;
-    startRatio: number;
-    availableHeight: number;
-    minRatio: number;
-    maxRatio: number;
-  } | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const pendingRatioRef = useRef<number | null>(null);
-  const bodyStyleRef = useRef<{ userSelect: string; cursor: string } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    splitRatioRef.current = splitRatio;
-  }, [splitRatio]);
-
-  useEffect(() => {
-    if (typeof storedRatio !== "number") {
-      return;
-    }
-    if (storedRatio === splitRatioRef.current) {
-      return;
-    }
-    setSplitRatio(storedRatio);
-  }, [storedRatio]);
-
-  useEffect(() => {
-    if (!enabled) {
-      return;
-    }
-    if (!containerRef.current || typeof ResizeObserver === "undefined") {
-      return;
-    }
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      const nextHeight = Math.floor(entry.contentRect.height);
-      setContainerHeight((prev) => (prev === nextHeight ? prev : nextHeight));
-    });
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
-  }, [enabled]);
-
-  const saveSplitRatio = useCallback(
-    (ratio: number) => {
-      if (!enabled) {
-        return;
-      }
-      if (!Number.isFinite(ratio)) {
-        return;
-      }
-      useLocalStorage.setState((state) => {
-        const projectRatios =
-          state.codeSectionSplitRatiosByProjectConfigId[projectConfigId] ?? {};
-        return {
-          codeSectionSplitRatiosByProjectConfigId: {
-            ...state.codeSectionSplitRatiosByProjectConfigId,
-            [projectConfigId]: {
-              ...projectRatios,
-              [sectionId]: ratio,
-            },
-          },
-        };
-      });
-    },
-    [enabled, projectConfigId, sectionId],
-  );
-
-  const scheduleSplitRatio = useCallback((ratio: number) => {
-    pendingRatioRef.current = ratio;
-    if (rafRef.current !== null) {
-      return;
-    }
-    rafRef.current = window.requestAnimationFrame(() => {
-      rafRef.current = null;
-      const pending = pendingRatioRef.current;
-      if (typeof pending !== "number") {
-        return;
-      }
-      setSplitRatio(pending);
-    });
-  }, []);
-
-  const onWindowDragMove = useCallback(
-    (event: PointerEvent | MouseEvent) => {
-      const dragState = dragStateRef.current;
-      if (!dragState) {
-        return;
-      }
-      const delta = event.clientY - dragState.startY;
-      const nextRatio =
-        (dragState.startRatio * dragState.availableHeight + delta) /
-        dragState.availableHeight;
-      const clamped = _.clamp(nextRatio, dragState.minRatio, dragState.maxRatio);
-      scheduleSplitRatio(clamped);
-    },
-    [scheduleSplitRatio],
-  );
-
-  const endDrag = useCallback(
-    (event: PointerEvent | MouseEvent | null) => {
-      const dragState = dragStateRef.current;
-      if (!dragState) {
-        return;
-      }
-      dragStateRef.current = null;
-      window.removeEventListener("pointermove", onWindowDragMove);
-      window.removeEventListener("pointerup", endDrag);
-      window.removeEventListener("pointercancel", endDrag);
-      window.removeEventListener("mousemove", onWindowDragMove);
-      window.removeEventListener("mouseup", endDrag);
-
-      let nextRatio = splitRatioRef.current;
-      if (event) {
-        const delta = event.clientY - dragState.startY;
-        const rawRatio =
-          (dragState.startRatio * dragState.availableHeight + delta) /
-          dragState.availableHeight;
-        nextRatio = _.clamp(rawRatio, dragState.minRatio, dragState.maxRatio);
-        setSplitRatio(nextRatio);
-      }
-      saveSplitRatio(nextRatio);
-
-      if (bodyStyleRef.current) {
-        document.body.style.userSelect = bodyStyleRef.current.userSelect;
-        document.body.style.cursor = bodyStyleRef.current.cursor;
-        bodyStyleRef.current = null;
-      }
-    },
-    [onWindowDragMove, saveSplitRatio],
-  );
-
-  useEffect(() => {
-    return () => {
-      window.removeEventListener("pointermove", onWindowDragMove);
-      window.removeEventListener("pointerup", endDrag);
-      window.removeEventListener("pointercancel", endDrag);
-      window.removeEventListener("mousemove", onWindowDragMove);
-      window.removeEventListener("mouseup", endDrag);
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      if (bodyStyleRef.current) {
-        document.body.style.userSelect = bodyStyleRef.current.userSelect;
-        document.body.style.cursor = bodyStyleRef.current.cursor;
-        bodyStyleRef.current = null;
-      }
-    };
-  }, [endDrag, onWindowDragMove]);
-
-  const startDrag = useCallback(
-    (clientY: number, target: HTMLDivElement | null, pointerId?: number) => {
-      if (!enabled) {
-        return;
-      }
-      if (dragStateRef.current) {
-        return;
-      }
-      const container = containerRef.current;
-      if (!container) {
-        return;
-      }
-      const rect = container.getBoundingClientRect();
-      const availableHeight = Math.max(
-        0,
-        rect.height - EMBEDDED_TERMINAL_SPLIT_HANDLE_HEIGHT,
-      );
-      if (availableHeight <= 0) {
-        return;
-      }
-      const codeMinHeight = getMinSectionHeight({
-        sectionType: SectionTypeEnum.Code,
-        sizingPolicy,
-      });
-      const terminalMinHeight = getMinSectionHeight({
-        sectionType: SectionTypeEnum.Terminal,
-        sizingPolicy,
-      });
-      const { minRatio, maxRatio } = getEmbeddedTerminalSplitBounds({
-        availableHeight,
-        minCodeHeight: codeMinHeight,
-        minTerminalHeight: terminalMinHeight,
-      });
-      const baseRatio = _.clamp(
-        splitRatioRef.current ?? EMBEDDED_TERMINAL_SPLIT_DEFAULT_RATIO,
-        minRatio,
-        maxRatio,
-      );
-
-      dragStateRef.current = {
-        startY: clientY,
-        startRatio: baseRatio,
-        availableHeight,
-        minRatio,
-        maxRatio,
-      };
-      scheduleSplitRatio(baseRatio);
-
-      if (!bodyStyleRef.current) {
-        bodyStyleRef.current = {
-          userSelect: document.body.style.userSelect,
-          cursor: document.body.style.cursor,
-        };
-      }
-      document.body.style.userSelect = "none";
-      document.body.style.cursor = "row-resize";
-
-      window.addEventListener("pointermove", onWindowDragMove);
-      window.addEventListener("pointerup", endDrag);
-      window.addEventListener("pointercancel", endDrag);
-      window.addEventListener("mousemove", onWindowDragMove);
-      window.addEventListener("mouseup", endDrag);
-      if (target && pointerId !== undefined) {
-        target.setPointerCapture(pointerId);
-      }
-    },
-    [enabled, endDrag, onWindowDragMove, scheduleSplitRatio, sizingPolicy],
-  );
-
-  const onHandlePointerDown = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      startDrag(event.clientY, event.currentTarget, event.pointerId);
-    },
-    [startDrag],
-  );
-
-  const onHandleMouseDown = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (event.button !== 0) {
-        return;
-      }
-      event.preventDefault();
-      event.stopPropagation();
-      startDrag(event.clientY, event.currentTarget);
-    },
-    [startDrag],
-  );
-
-  const codeMinHeight = getMinSectionHeight({
-    sectionType: SectionTypeEnum.Code,
-    sizingPolicy,
-  });
-  const terminalMinHeight = getMinSectionHeight({
-    sectionType: SectionTypeEnum.Terminal,
-    sizingPolicy,
-  });
-  const availableHeight = Math.max(
-    0,
-    containerHeight - EMBEDDED_TERMINAL_SPLIT_HANDLE_HEIGHT,
-  );
-  const { minRatio, maxRatio } = getEmbeddedTerminalSplitBounds({
-    availableHeight,
-    minCodeHeight: codeMinHeight,
-    minTerminalHeight: terminalMinHeight,
-  });
-  const clampedRatio = _.clamp(splitRatio, minRatio, maxRatio);
-  const hasMeasuredHeight = availableHeight > 0;
-  let gridTemplateRows = `minmax(0, 3fr) ${EMBEDDED_TERMINAL_SPLIT_HANDLE_HEIGHT}px minmax(0, 2fr)`;
-  if (hasMeasuredHeight) {
-    const codeHeight = Math.round(availableHeight * clampedRatio);
-    const terminalHeight = Math.max(0, availableHeight - codeHeight);
-    gridTemplateRows = `${codeHeight}px ${EMBEDDED_TERMINAL_SPLIT_HANDLE_HEIGHT}px ${terminalHeight}px`;
-  }
-
-  return {
-    containerRef,
-    gridTemplateRows,
-    handleHeight: EMBEDDED_TERMINAL_SPLIT_HANDLE_HEIGHT,
-    onHandlePointerDown,
-    onHandleMouseDown,
-  };
 }
 
 export function useCodeAreaHeight({ sectionId }) {

@@ -31,7 +31,10 @@ import {
   getPinnedParamsAreaHeightKey,
   getUnpinnedParamsAreaHeightKey,
 } from "utils/constants";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import {
   buildParamAreaMeasureKey,
@@ -40,13 +43,20 @@ import {
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
 
-function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
+function _ParamGroupContainer({
+  sectionId,
+  bgColor,
+  sectionTypeName,
+}: {
+  sectionId: string;
+  bgColor: string;
+  sectionTypeName: SectionTypeEnum;
+}) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const [maxNestedDepth, setMaxNestedDepth] = useState({
     pinned: 1,
     unpinned: 1,
   });
-  const { ref: scrollRef, isScrollable } = useIsScrollable();
 
   const handleColumnResizeStart = useParamColumnWidth({
     sectionId,
@@ -63,39 +73,43 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   return (
     <ParamDndContext>
       <div
-        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col overflow-hidden pt-2"
+        className="section-row-pin-main section-w-full -mt-3 flex min-h-0 flex-col pt-2"
         ref={setOuterRef}
       >
-        <div
-          className={`section-row-pin-main section-w-full flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden ${
-            isScrollable ? "nowheel" : ""
-          }`}
-          ref={scrollRef}
-        >
-          {waitingForResult ? (
-            <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
-          ) : (
-            <>
-              <EdgesStrip sectionId={sectionId} />
-              <GetPinnedParams
-                sectionId={sectionId}
-                handleColumnResizeStart={handleColumnResizeStart}
-                setMaxNestedDepth={setMaxNestedDepth}
-              />
-              <GetUnpinnedParams
-                sectionId={sectionId}
-                handleColumnResizeStart={handleColumnResizeStart}
-                setMaxNestedDepth={setMaxNestedDepth}
-              />
-            </>
-          )}
-        </div>
+        {waitingForResult ? (
+          <i className="section-args gg-spinner mt-3 !scale-100 place-self-center before:!border-t-blue-500 after:!border-blue-500" />
+        ) : (
+          <>
+            <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+            <GetPinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+              sectionTypeName={sectionTypeName}
+            />
+            <GetUnpinnedParams
+              sectionId={sectionId}
+              handleColumnResizeStart={handleColumnResizeStart}
+              setMaxNestedDepth={setMaxNestedDepth}
+            />
+          </>
+        )}
       </div>
     </ParamDndContext>
   );
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
+
+export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
+  if (sectionTypeName === SectionTypeEnum.Callable) {
+    return "bg-white dark:bg-blue-950/30";
+  }
+  if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
+    return "bg-setta-50 dark:bg-blue-950/30";
+  }
+  return "bg-setta-100/50 dark:bg-blue-950/30";
+}
 
 function useMeasuredParamAreaMinHeight({
   sectionId,
@@ -213,7 +227,13 @@ function useMeasuredParamAreaMinHeight({
   }, [heightKey]);
 }
 
-function EdgesStrip({ sectionId }: { sectionId: string }) {
+function EdgesStrip({
+  sectionId,
+  bgColor,
+}: {
+  sectionId: string;
+  bgColor: string;
+}) {
   const { canEditStructure } = useShareCapabilities();
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
@@ -356,7 +376,7 @@ function EdgesStrip({ sectionId }: { sectionId: string }) {
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white bg-setta-50 pt-5 dark:border-setta-700/30 dark:bg-setta-860 ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white pt-5 dark:border-setta-700/30 ${bgColor} ${roundedBottomClassName}`}
       ref={stripRef}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
@@ -428,6 +448,7 @@ type GetPinnedParamsProps = {
   sectionId: string;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
+  sectionTypeName: SectionTypeEnum;
 };
 
 type PinnedParamsAreaProps = {
@@ -437,6 +458,7 @@ type PinnedParamsAreaProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
+  sectionTypeName: SectionTypeEnum;
   contentRef: React.RefObject<HTMLDivElement>;
   headerRef: React.RefObject<HTMLElement>;
   rowsRef: React.RefObject<HTMLDivElement>;
@@ -452,6 +474,7 @@ function GetPinnedParams({
   sectionId,
   handleColumnResizeStart,
   setMaxNestedDepth,
+  sectionTypeName,
 }: GetPinnedParamsProps) {
   const {
     requiredParamIdsToPaths,
@@ -519,6 +542,7 @@ function GetPinnedParams({
         handleColumnResizeStart={handleColumnResizeStart}
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
+        sectionTypeName={sectionTypeName}
         contentRef={contentRef}
         headerRef={headerRef}
         rowsRef={rowsRef}
@@ -534,10 +558,12 @@ function PinnedParamsArea({
   handleColumnResizeStart,
   shouldRoundBottom,
   positionAndSizeLocked,
+  sectionTypeName,
   contentRef,
   headerRef,
   rowsRef,
 }: PinnedParamsAreaProps) {
+  const pinnedBgClassName = getPinnedParamsBgClassName(sectionTypeName);
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
@@ -547,7 +573,7 @@ function PinnedParamsArea({
 
   return (
     <section
-      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b border-white bg-blue-200/50 shadow-sm dark:border-setta-700/30 dark:bg-blue-950/30 ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b border-white shadow-sm dark:border-setta-700/30 ${pinnedBgClassName} ${roundedBottomClassName}`}
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
@@ -616,6 +642,15 @@ function GetUnpinnedParams({
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
+  const { ref: scrollRef, isScrollable } = useIsScrollable();
+
+  const setContainerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      containerRef.current = node;
+      scrollRef.current = node;
+    },
+    [scrollRef],
+  );
 
   useEffect(() => {
     setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
@@ -631,8 +666,10 @@ function GetUnpinnedParams({
 
   return (
     <div
-      className="section-args-nested grid min-h-0 min-w-0 !max-w-full shrink-0 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip py-2 pr-1.5"
-      ref={containerRef}
+      className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-y-auto overflow-x-clip py-2 pr-1.5 ${
+        isScrollable ? "nowheel" : ""
+      }`}
+      ref={setContainerRef}
     >
       {!hideUnpinnedParams && (
         <ParamDndList
