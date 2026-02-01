@@ -116,10 +116,7 @@ function resolveBranchSwitcher({
     return null;
   }
   const branchChatIds = [family.rootChatId, ...family.children];
-  const activeIndex = resolveActiveBranchIndex(
-    branchChatIds,
-    ancestorChain,
-  );
+  const activeIndex = resolveActiveBranchIndex(branchChatIds, ancestorChain);
   if (branchChatIds.length <= 1 || activeIndex === -1) {
     return null;
   }

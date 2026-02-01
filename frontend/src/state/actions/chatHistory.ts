@@ -4,7 +4,7 @@ import {
   BaseChatMessageUnion,
 } from "utils/generatedTypes";
 
-export type ChatHistoryEntry = {
+type ChatHistoryEntry = {
   chatId: string;
   label: string;
   lastUpdatedMs: number;
