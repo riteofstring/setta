@@ -1088,8 +1088,6 @@ class BaseProjectManager(ABC):
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
         diagnostics_state = self._get_lsp_diagnostics_state(projectConfigId)
-        prev_gen_code = self.gen_code.get(projectConfigId)
-        prev_full_code = prev_gen_code.code if prev_gen_code is not None else None
         valid_code_section_ids: set[ID] = set()
         for section_id in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, section_id)
@@ -1119,11 +1117,8 @@ class BaseProjectManager(ABC):
 
             code_generator = build_python_code_generator(projectState, dep_graph)
             code_generator.generate_code()
-            if prev_full_code != code_generator.code:
-                await diagnostics_state.reset(
-                    clear_gen_code=True,
-                    clear_unmapped=True,
-                )
+            # Keep existing diagnostics until the LSP publishes for the new code to
+            # avoid flicker from intermediate empty snapshots.
             ignore_type_errors_by_section = collect_ignore_type_errors_by_section(
                 projectState
             )

@@ -67,29 +67,57 @@ function mergeDiagnosticsBySection(
 ) {
   let changed = false;
   const merged: Record<string, Array<SettaLspDiagnostic>> = {};
+  const seen = new Set<string>();
 
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
+    seen.add(sectionId);
     const prevDiagnostics = previous[sectionId];
+    if (nextDiagnostics.length === 0) {
+      if (prevDiagnostics?.length) {
+        changed = true;
+      }
+      continue;
+    }
+
     if (
       prevDiagnostics &&
       areDiagnosticsListEqual(prevDiagnostics, nextDiagnostics)
     ) {
       merged[sectionId] = prevDiagnostics;
-    } else {
-      merged[sectionId] = nextDiagnostics;
-      if (prevDiagnostics !== nextDiagnostics) {
-        changed = true;
-      }
+      continue;
+    }
+    merged[sectionId] = nextDiagnostics;
+    if (!prevDiagnostics || prevDiagnostics !== nextDiagnostics) {
+      changed = true;
     }
   }
 
   for (const sectionId of Object.keys(previous)) {
-    if (!(sectionId in incoming)) {
+    if (seen.has(sectionId)) {
+      continue;
+    }
+    if (previous[sectionId]?.length) {
       changed = true;
     }
   }
 
   return { codeSections: merged, changed };
+}
+
+function mergeUnmappedGenCode(
+  previous: Array<SettaLspDiagnostic>,
+  incoming: Array<SettaLspDiagnostic>,
+) {
+  if (incoming.length === 0) {
+    if (previous.length > 0) {
+      return { unmappedGenCode: [], changed: true };
+    }
+    return { unmappedGenCode: previous, changed: false };
+  }
+  if (areDiagnosticsListEqual(previous, incoming)) {
+    return { unmappedGenCode: previous, changed: false };
+  }
+  return { unmappedGenCode: incoming, changed: true };
 }
 
 export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
@@ -107,18 +135,16 @@ export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
     prevState.codeSections,
     payload.codeSections,
   );
-  const unmappedChanged = !areDiagnosticsListEqual(
+  const mergedUnmapped = mergeUnmappedGenCode(
     prevState.unmappedGenCode,
     payload.unmappedGenCode,
   );
-  if (!merged.changed && !unmappedChanged) {
+  if (!merged.changed && !mergedUnmapped.changed) {
     return;
   }
   useLspDiagnostics.setState({
     codeSections: merged.codeSections,
-    unmappedGenCode: unmappedChanged
-      ? payload.unmappedGenCode
-      : prevState.unmappedGenCode,
+    unmappedGenCode: mergedUnmapped.unmappedGenCode,
   });
 }
 
