@@ -32,7 +32,6 @@ from setta.types.section_impls import (
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
-    SectionSizeMode,
     SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -419,14 +418,6 @@ class ToggleSectionVisibilityRequest(ProjectManagerRequestWithSectionIds):
 
 class ToggleViewModeUserFacingRequest(ProjectManagerRequestWithProjectConfig):
     """Update whether a view mode is considered user-facing."""
-
-    viewModeId: ID = Field(
-        description="Identifier of the view mode to update.",
-    )
-
-
-class ToggleViewModeTabRequest(ProjectManagerRequestWithProjectConfig):
-    """Update whether a view mode is shown as a tab."""
 
     viewModeId: ID = Field(
         description="Identifier of the view mode to update.",
@@ -864,10 +855,6 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
-
-
-class SetSectionPinnedAreaHeightRequest(ProjectManagerRequestWithSection):
-    pinnedAreaHeight: float | SectionSizeMode
 
 
 class SetSectionColumnWidthRequest(ProjectManagerRequestWithSection):

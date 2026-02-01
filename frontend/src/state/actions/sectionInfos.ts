@@ -451,6 +451,14 @@ export function getCurrShownParamIds(
   const variantId = getCurrSectionVariantId(p, sectionId, preview);
   const shown = p.shownParamIds[variantId];
   if (!shown) {
+    console.log(
+      "[getCurrShownParamIds][missing]",
+      JSON.stringify({
+        sectionId,
+        variantId,
+        shownParamVariantIds: Object.keys(p.shownParamIds),
+      }),
+    );
     throw new Error();
   }
   return isPinned ? shown.pinned : shown.unpinned;
@@ -598,10 +606,18 @@ export function manualDndChildrenReset() {
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
+  console.log(
+    "[processProjectStateUpdateFromBackend][start]",
+    JSON.stringify(x),
+  );
   const projectConfigId = getCurrProjectConfigId();
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
+  console.log(
+    "[processProjectStateUpdateFromBackend][shownParamIds]",
+    JSON.stringify(Object.keys(x.projectState.shownParamIds)),
+  );
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -1180,7 +1196,6 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectConfig.viewport = viewport;
-      state.projectConfig.viewportInitialized = viewport !== null;
     },
     send: (frontendOpId) =>
       route_set_viewport({
