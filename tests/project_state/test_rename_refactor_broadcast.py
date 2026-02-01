@@ -143,6 +143,8 @@ class TestRenameRefactorBroadcast:
         self._log_setup("real_settings_manager entered")
         self.manager = fixture.manager
         self.websocket_manager = fixture.websocket_manager
+        self._autosave_prev = self.manager.settings_file.settings.backend.autosave
+        self.manager.settings_file.settings.backend.autosave = False
         self._log_setup("installing debug wrappers")
         self._install_debug_wrappers()
         self._log_setup("debug wrappers installed")
@@ -218,6 +220,7 @@ class TestRenameRefactorBroadcast:
         self._log_setup("websocket removed")
         await self._exit_stack.aclose()
         self._log_setup("exit stack closed")
+        self.manager.settings_file.settings.backend.autosave = self._autosave_prev
         if self._setup_env_prev is None:
             os.environ.pop("SETTA_TEST_SETUP_LOG", None)
         else:
