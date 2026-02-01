@@ -14,7 +14,6 @@ import {
 } from "state/actions/sections/sectionSizes";
 import {
   useProjectState,
-  useResizeEvent,
   useSettings,
   useTemporaryMiscState,
   ZustandProjectState,
@@ -238,10 +237,7 @@ export function useSectionMinMaxDims(sectionId: string) {
     const height = x[getUnpinnedParamsAreaHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
   });
-  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
-
   return useProjectState((x) => {
-    const isResizing = resizeEvent === "start";
     const isTwitter = getIsTwitterSection(sectionId, x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const sectionType = impl.type;
@@ -264,10 +260,11 @@ export function useSectionMinMaxDims(sectionId: string) {
     });
     const isAutoHeight = impl.size.height === "auto";
     const autoMaxHeight = sizingPolicy.globals.autoMaxHeight;
-    const maxHeight =
-      isAutoHeight && !isResizing
-        ? Math.max(minHeight, Math.min(policyMaxHeight, autoMaxHeight))
-        : policyMaxHeight;
+    const cappedAutoMaxHeight = Math.max(
+      minHeight,
+      Math.min(policyMaxHeight, autoMaxHeight),
+    );
+    const maxHeight = isAutoHeight ? cappedAutoMaxHeight : policyMaxHeight;
 
     let minWidth = getMinSectionWidth({
       sectionType,
