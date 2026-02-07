@@ -18,7 +18,7 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
-from setta.utils.constants import CWD
+from setta.utils.paths import get_setta_paths
 
 _NODE_VERSION_RE = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
 _SIDECAR_ROOT = Path(__file__).resolve().parent / "external_adapters" / "sidecars"
@@ -269,7 +269,7 @@ def _run_cli(
             command,
             capture_output=True,
             text=True,
-            cwd=str(CWD),
+            cwd=str(get_setta_paths().workspace_root),
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -334,7 +334,7 @@ def _resolve_working_dir(
 ) -> tuple[str | None, str | None]:
     strategy = config.workingDirStrategy
     if strategy == ExternalAgentWorkingDirStrategy.project_root:
-        return str(CWD), None
+        return str(get_setta_paths().workspace_root), None
     if strategy == ExternalAgentWorkingDirStrategy.temp_dir:
         return None, None
     if strategy == ExternalAgentWorkingDirStrategy.custom:

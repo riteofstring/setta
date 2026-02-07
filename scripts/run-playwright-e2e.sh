@@ -16,6 +16,14 @@ fi
 
 PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
 
+# Tests rely on the workspace switcher SSH flow without requiring a real SSH
+# server. Prepend a lightweight `ssh` stub (scripts/test/ssh) to PATH so the
+# backend can spawn it when needed.
+if [[ -x "${ROOT_DIR}/scripts/test/ssh" ]]; then
+  export SETTA_SSH_BIN="${ROOT_DIR}/scripts/test/ssh"
+  export PATH="${ROOT_DIR}/scripts/test:${PATH}"
+fi
+
 instance_offset() {
   local instance_name="$1"
   local segment="${instance_name}"
