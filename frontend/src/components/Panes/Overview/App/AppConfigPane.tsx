@@ -23,9 +23,25 @@ import {
 } from "utils/generatedTypes";
 
 type AppSpecPayload = Record<string, unknown>;
+type AppThemeMode = "auto" | "light" | "dark";
 
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
+const DEFAULT_THEME_MODE: AppThemeMode = "auto";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveThemeMode(theme: unknown): AppThemeMode {
+  if (isRecord(theme)) {
+    const mode = theme.mode;
+    if (mode === "light" || mode === "dark" || mode === "auto") {
+      return mode;
+    }
+  }
+  return DEFAULT_THEME_MODE;
+}
 
 function formatCatalogForPrompt(catalog: unknown): string {
   if (!catalog || typeof catalog !== "object") {
@@ -111,6 +127,7 @@ function buildDefaultSpec(): AppSpecPayload {
             props: {
               label: "Run",
               action: "run",
+              sectionId: "SECTION_ID",
             },
           },
         ],
@@ -284,6 +301,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
   const [catalogId, setCatalogId] = useState(DEFAULT_CATALOG_ID);
   const [specVersion, setSpecVersion] = useState(DEFAULT_SPEC_VERSION);
   const [appSpecPath, setAppSpecPath] = useState("");
+  const [themeMode, setThemeMode] = useState<AppThemeMode>(DEFAULT_THEME_MODE);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -317,6 +335,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           res.data.appDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
         );
         setAppSpecPath(res.data.appDefinition?.appSpecPath ?? "");
+        setThemeMode(resolveThemeMode(res.data.appDefinition?.theme ?? null));
       }
     }
 
@@ -339,7 +358,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       addTemporaryNotification("Failed to load app catalog.");
     }
     const sections = formatSectionsForAppPrompt(useProjectState.getState());
-    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run".\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
+    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action \"run\" and set its sectionId.\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
     useAIStore.setState({ pendingProjectChatPrompt: prompt });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAIChat,
@@ -364,12 +383,18 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       setErrorMessage("Invalid JSON in app spec.");
       return;
     }
+    const existingTheme = useAppDefinition.getState().appDefinition?.theme ?? null;
+    const themePayload = {
+      ...(isRecord(existingTheme) ? existingTheme : {}),
+      mode: themeMode,
+    };
     setLoading(true);
     const res = await route_set_app_definition({
       appSpec: parsed,
       appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
       appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
       catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+      theme: themePayload,
     });
     setLoading(false);
     if (!res200(res)) {
@@ -436,6 +461,24 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
             value={specVersion}
             onChange={(event) => setSpecVersion(event.target.value)}
           />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          Theme mode
+          <select
+            className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+            value={themeMode}
+            onChange={(event) =>
+              setThemeMode(event.target.value as AppThemeMode)
+            }
+          >
+            <option value="auto">auto</option>
+            <option value="dark">dark</option>
+            <option value="light">light</option>
+          </select>
+          <span className="text-[11px] text-setta-500 dark:text-setta-400">
+            App deployments default to auto. Force dark or light here, then
+            republish.
+          </span>
         </label>
         <label className="flex flex-col gap-1 text-xs">
           Spec path

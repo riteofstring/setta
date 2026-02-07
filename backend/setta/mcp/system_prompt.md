@@ -17,7 +17,8 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - Always call `get_app_catalog` (or `list_app_components`) before generating or editing an app spec.
 - Use only catalog components and actions; never invent new component types.
 - Bind inputs with `ParamInput` (props: `sectionId`, `paramId`). Use exactly one `ActionButton`
-  with `action: "run"` unless the user explicitly requests more.
+  with `action: "run"` unless the user explicitly requests more. For run buttons, include `sectionId`
+  unless the project config has an `entryCodeBlockId` configured.
 - Output a valid JSON Render UITree (`{ root: UIElement | string, elements: { [key]: UIElement } }`).
 
 ## Listener scripts

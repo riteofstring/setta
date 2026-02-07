@@ -1,10 +1,19 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import {
+  normalizeActionDefinitions,
+  resolveActionBinding,
+  resolveActionType,
+} from "components/App/appBindings";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useAppDefinition,
+  useProjectState,
+} from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_list_app_deployments,
@@ -43,8 +52,36 @@ function createDefaultDeploymentName(): string {
   return `app-${baseName.split("_").join("-")}`;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function listActionButtons(appSpec: unknown): Array<Record<string, unknown>> {
+  if (!isRecord(appSpec)) {
+    return [];
+  }
+  const elements = appSpec.elements;
+  if (!isRecord(elements)) {
+    return [];
+  }
+  const output: Array<Record<string, unknown>> = [];
+  for (const raw of Object.values(elements)) {
+    if (!isRecord(raw)) {
+      continue;
+    }
+    if (raw.type !== "ActionButton") {
+      continue;
+    }
+    const props = raw.props;
+    output.push(isRecord(props) ? props : {});
+  }
+  return output;
+}
+
 export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   const projectConfig = useProjectState((x) => x.projectConfig);
+  const appSpec = useAppDefinition((x) => x.appSpec);
+  const appDefinition = useAppDefinition((x) => x.appDefinition);
   const [policyOverrides, setPolicyOverrides] =
     useState<AppPolicyOverridesInput>(createDefaultPolicyOverrides);
   const [listenerEntrypoint, setListenerEntrypoint] = useState("");
@@ -145,6 +182,56 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   const publishDisabled =
     isPublishing || projectConfig.id === NULL_PROJECT_CONFIG_ID;
 
+  const runBindingWarning = useMemo(() => {
+    if (!policyOverrides.allowRun) {
+      return null;
+    }
+    if (projectConfig.entryCodeBlockId) {
+      return null;
+    }
+    if (!appSpec) {
+      return "No app spec loaded. Save an app spec before publishing (or disable runs in policy).";
+    }
+    const actionButtons = listActionButtons(appSpec);
+    if (actionButtons.length === 0) {
+      return "App spec has no ActionButton. Add a Run button (or disable runs in policy).";
+    }
+    const dataBindings = appDefinition?.dataBindings ?? {};
+    const actions = normalizeActionDefinitions(appDefinition?.actions);
+    let sawRun = false;
+    for (const props of actionButtons) {
+      const { action, sectionId } = resolveActionBinding(props, dataBindings);
+      if (!action) {
+        continue;
+      }
+      const definition = actions[action] ?? null;
+      const actionType = resolveActionType(action, definition);
+      const isRunAction = action === "run" || actionType === "run";
+      if (!isRunAction) {
+        continue;
+      }
+      sawRun = true;
+      const fallbackSectionId =
+        definition && typeof definition.sectionId === "string"
+          ? definition.sectionId
+          : null;
+      const resolvedSectionId = sectionId ?? fallbackSectionId;
+      if (resolvedSectionId) {
+        return null;
+      }
+    }
+    if (!sawRun) {
+      return "App spec has no Run ActionButton.";
+    }
+    return "Run ActionButton is missing sectionId and this config has no entry code block.";
+  }, [
+    appDefinition?.actions,
+    appDefinition?.dataBindings,
+    appSpec,
+    policyOverrides.allowRun,
+    projectConfig.entryCodeBlockId,
+  ]);
+
   const appCommand = useMemo(
     () =>
       `setta --port 8001 app --deployment-name ${
@@ -242,6 +329,11 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
           title="Listener"
           subtitle="Wire a listener entrypoint into the app snapshot."
         >
+          {runBindingWarning && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+              {runBindingWarning}
+            </div>
+          )}
           <label className="flex flex-col gap-2 text-xs text-setta-500 dark:text-setta-400">
             Entrypoint path
             <input
@@ -250,6 +342,10 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
               value={listenerEntrypoint}
               onChange={(event) => setListenerEntrypoint(event.target.value)}
             />
+            <span className="text-[11px] text-setta-500 dark:text-setta-400">
+              Optional. The file must define <code>build_listener</code> or{" "}
+              <code>build_callbacks</code>.
+            </span>
           </label>
           <ToggleRow
             label="Enable listener"

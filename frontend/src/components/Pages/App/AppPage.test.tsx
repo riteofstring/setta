@@ -114,4 +114,31 @@ describe("AppPage", () => {
     expect(markup).toContain("Example Project");
     expect(markup).toContain("No app spec found");
   });
+
+  it("adds a dark-mode class when the app theme mode is forced to dark", () => {
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: "config-1",
+      projectMetadata: [{ id: "config-1", name: "Example Project" }],
+    });
+    syncStoreInitialState(useAllProjectMetadata);
+    useAppDefinition.setState({
+      appDefinition: {
+        appSpecVersion: "v1",
+        catalogId: "setta.app.default",
+        appSpecPath: null,
+        routes: [],
+        dataBindings: {},
+        actions: {},
+        theme: { mode: "dark" },
+        assets: [],
+      },
+      appSpec: null,
+    });
+    syncStoreInitialState(useAppDefinition);
+
+    const markup = renderPage("/");
+
+    // Match the `dark` class token, not Tailwind `dark:*` class names.
+    expect(markup).toMatch(/\sdark(?:\s|")/);
+  });
 });

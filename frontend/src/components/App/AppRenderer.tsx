@@ -11,7 +11,7 @@ import {
   resetAppDeployment,
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useShareSession } from "state/definitions";
+import { useAppConfigs, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -246,11 +246,19 @@ export function AppRenderer({
         addTemporaryNotification("Failed to load project config.");
         return;
       }
-      setIsRunning(true);
+      const configState = useAppConfigs.getState().configs[configId] ?? null;
       const sectionId =
         params && typeof params.sectionId === "string"
           ? params.sectionId
           : null;
+      const entryCodeBlockId = configState?.projectConfig.entryCodeBlockId ?? null;
+      if (!sectionId && !entryCodeBlockId) {
+        addTemporaryNotification(
+          "Missing run target. Set the Run button sectionId (or configure an entry code block).",
+        );
+        return;
+      }
+      setIsRunning(true);
       if (sectionVariantOverrides) {
         for (const [sectionOverrideId, variantId] of Object.entries(
           sectionVariantOverrides,

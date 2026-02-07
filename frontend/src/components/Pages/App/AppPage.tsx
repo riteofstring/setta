@@ -54,6 +54,7 @@ export function AppPage() {
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],
   );
+  const themeModeClassName = resolvedTheme.mode === "dark" ? "dark" : "";
   const { defaultProjectConfigId, projectMetadata } = useAllProjectMetadata(
     (x) => x,
   );
@@ -106,7 +107,7 @@ export function AppPage() {
 
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col ${themeClassName}`.trim()}
+      className={`flex min-h-0 flex-1 flex-col ${themeModeClassName} ${themeClassName}`.trim()}
       style={resolvedTheme.style as CSSProperties}
     >
       <AppAssets assets={appDefinition?.assets ?? null} />
