@@ -184,7 +184,7 @@ def test_resolve_sessions_root_uses_setta_files_root_env(
 
 
 def test_warn_on_legacy_state_logs_warning_when_legacy_exists_and_new_root_empty(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -193,6 +193,7 @@ def test_warn_on_legacy_state_logs_warning_when_legacy_exists_and_new_root_empty
 
     setta_files_root = tmp_path / "central_state"
     logger = logging.getLogger("tests.setta_paths")
+    monkeypatch.setenv("SETTA_WARN_LEGACY_STATE", "1")
 
     with caplog.at_level(logging.WARNING):
         warn_on_legacy_state(
@@ -207,7 +208,7 @@ def test_warn_on_legacy_state_logs_warning_when_legacy_exists_and_new_root_empty
 
 
 def test_warn_on_legacy_state_skips_warning_when_new_root_has_contents(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -218,6 +219,7 @@ def test_warn_on_legacy_state_skips_warning_when_new_root_has_contents(
     setta_files_root.mkdir()
     (setta_files_root / "project.json").write_text("{}", encoding="utf-8")
     logger = logging.getLogger("tests.setta_paths")
+    monkeypatch.setenv("SETTA_WARN_LEGACY_STATE", "1")
 
     with caplog.at_level(logging.WARNING):
         warn_on_legacy_state(
@@ -230,10 +232,32 @@ def test_warn_on_legacy_state_skips_warning_when_new_root_has_contents(
 
 
 def test_warn_on_legacy_state_skips_warning_when_legacy_missing(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_files_root = tmp_path / "central_state"
+    logger = logging.getLogger("tests.setta_paths")
+    monkeypatch.setenv("SETTA_WARN_LEGACY_STATE", "1")
+
+    with caplog.at_level(logging.WARNING):
+        warn_on_legacy_state(
+            workspace_root=workspace,
+            setta_files_root=setta_files_root,
+            logger=logger,
+        )
+
+    assert "Detected existing state" not in caplog.text
+
+
+def test_warn_on_legacy_state_requires_explicit_enable(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    legacy_root = workspace / "setta_files"
+    legacy_root.mkdir()
+
     setta_files_root = tmp_path / "central_state"
     logger = logging.getLogger("tests.setta_paths")
 

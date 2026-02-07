@@ -40,9 +40,9 @@ from setta.utils.network import (
 )
 from setta.utils.paths import (
     clear_setta_paths_cache,
+    get_optional_dir_validation_error,
     get_setta_paths,
     resolve_setta_paths,
-    validate_optional_dir,
     validate_workspace_root,
 )
 
@@ -78,17 +78,15 @@ def _resolve_cli_paths(
         except ValueError as exc:
             # Click should render a clean message without an exception traceback.
             raise click.ClickException(str(exc)) from exc
-        _validate_optional_dir(files_root, label="files root")
-        _validate_optional_dir(files_root_base, label="files root base")
-        _validate_optional_dir(paths.setta_files_root, label="files root")
+        for raw_path, label in (
+            (files_root, "files root"),
+            (files_root_base, "files root base"),
+            (paths.setta_files_root, "files root"),
+        ):
+            message = get_optional_dir_validation_error(raw_path, label=label)
+            if message:
+                raise click.ClickException(message)
     return paths
-
-
-def _validate_optional_dir(raw_path: Path | str | None, *, label: str) -> None:
-    try:
-        validate_optional_dir(raw_path, label=label)
-    except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
 
 
 def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
@@ -97,21 +95,6 @@ def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
     if files_root_base is not None:
         os.environ[_FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
     clear_setta_paths_cache()
-
-
-def _parse_json_payload(output: str) -> dict:
-    try:
-        return ssh_common.parse_json_payload(output)
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
-
-
-def _parse_session_list(payload: dict) -> list[RemoteSessionSummary]:
-    try:
-        return ssh_common.parse_session_list(payload)
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
-
 
 def _parse_ssh_args(raw: str | None) -> list[str]:
     return ssh_common.parse_ssh_args(raw)

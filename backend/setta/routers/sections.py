@@ -7,7 +7,11 @@ from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.generate_new_filename import generate_new_filename
-from setta.utils.paths import get_setta_paths, normalize_workspace_path
+from setta.utils.paths import (
+    ensure_within_workspace_root,
+    get_setta_paths,
+    resolve_workspace_child_path,
+)
 
 router = SettaAPIRouter()
 
@@ -36,22 +40,26 @@ def route_new_json_version_name(
             detail="Missing filename.",
         )
     workspace_root = get_setta_paths().workspace_root
-    resolved_pattern = normalize_workspace_path(
-        raw_pattern, workspace_root=workspace_root
-    )
-    if not resolved_pattern.is_relative_to(workspace_root):
+    try:
+        resolved_pattern = resolve_workspace_child_path(
+            raw_pattern, label="Filename", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Filename must be within the project root.",
-        )
+            detail=str(exc),
+        ) from exc
 
     new_filename = generate_new_filename(str(resolved_pattern))
-    target_path = Path(new_filename).resolve(strict=False)
-    if not target_path.is_relative_to(workspace_root):
+    try:
+        target_path = ensure_within_workspace_root(
+            Path(new_filename), label="Resolved filename", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Resolved filename must be within the project root.",
-        )
+            detail=str(exc),
+        ) from exc
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.touch()
 
@@ -70,12 +78,15 @@ def route_create_file(x: CreateFileRequest, ctx: RuntimeContextFromRequest):
             detail="Missing filepath.",
         )
     workspace_root = get_setta_paths().workspace_root
-    target_path = normalize_workspace_path(raw_path, workspace_root=workspace_root)
-    if not target_path.is_relative_to(workspace_root):
+    try:
+        target_path = resolve_workspace_child_path(
+            raw_path, label="File path", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File path must be within the project root.",
-        )
+            detail=str(exc),
+        ) from exc
     target_path.parent.mkdir(parents=True, exist_ok=True)
     target_path.touch()
 
@@ -92,10 +103,13 @@ def route_get_json_source_path_to_be_deleted(
             detail="Missing variantName.",
         )
     workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(raw_path, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    try:
+        resolved = resolve_workspace_child_path(
+            raw_path, label="JSON source path", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="JSON source path must be within the project root.",
-        )
+            detail=str(exc),
+        ) from exc
     return str(resolved)

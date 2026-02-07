@@ -1,3 +1,5 @@
+from pathlib import PurePosixPath
+
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel
 
@@ -8,9 +10,14 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
-from setta.utils.paths import resolve_path, resolve_setta_paths
+from setta.utils.paths import build_files_root_from_base, resolve_path, resolve_setta_paths
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+
+
+def _strip_posix_trailing_slash(value: str) -> str:
+    stripped = value.rstrip("/")
+    return stripped or "/"
 
 
 class LaunchRequest(BaseModel):
@@ -62,11 +69,23 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 remote_cmd=x.remoteCmd,
                 local_port=x.localPort,
             )
+            resolved_workspace_root = remote.session.workspace_path_canonical
+            resolved_files_root: str | None = None
+            if x.filesRoot is not None and x.filesRoot.strip():
+                resolved_files_root = _strip_posix_trailing_slash(x.filesRoot.strip())
+            elif x.filesRootBase is not None and x.filesRootBase.strip():
+                computed_root = build_files_root_from_base(
+                    PurePosixPath(x.filesRootBase.strip()),
+                    PurePosixPath(resolved_workspace_root),
+                )
+                resolved_files_root = _strip_posix_trailing_slash(
+                    computed_root.as_posix()
+                )
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote.bootstrap_url_fragment,
-                workspaceRoot=x.workspaceRoot,
-                filesRoot=x.filesRoot,
+                workspaceRoot=resolved_workspace_root,
+                filesRoot=resolved_files_root,
                 sessionId=remote.session.id,
                 startedNew=remote.started_new,
                 session=LaunchSessionInfo(

@@ -10,8 +10,8 @@ from pathlib import Path
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.paths import (
     SettaPaths,
+    get_optional_dir_validation_error,
     resolve_setta_paths,
-    validate_optional_dir,
     validate_workspace_root,
 )
 
@@ -53,13 +53,14 @@ def launch_workspace_session(
         validate_workspace_root(paths.workspace_root)
     except ValueError as exc:
         raise LaunchError("InvalidWorkspace", str(exc)) from exc
-    _validate_optional_dir(files_root, label="files root", code="InvalidFilesRoot")
-    _validate_optional_dir(
-        files_root_base, label="files root base", code="InvalidFilesRootBase"
-    )
-    _validate_optional_dir(
-        paths.setta_files_root, label="files root", code="InvalidFilesRoot"
-    )
+    for raw_path, label, code in (
+        (files_root, "files root", "InvalidFilesRoot"),
+        (files_root_base, "files root base", "InvalidFilesRootBase"),
+        (paths.setta_files_root, "files root", "InvalidFilesRoot"),
+    ):
+        message = get_optional_dir_validation_error(raw_path, label=label)
+        if message:
+            raise LaunchError(code, message)
 
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
     sessions = registry.find_sessions_by_workspace(paths.workspace_root)
@@ -191,15 +192,6 @@ def _can_connect_to_session(session: SessionMetadata) -> bool:
             return True
     except OSError:
         return False
-
-
-def _validate_optional_dir(
-    raw_path: Path | str | None, *, label: str, code: str
-) -> None:
-    try:
-        validate_optional_dir(raw_path, label=label)
-    except ValueError as exc:
-        raise LaunchError(code, str(exc)) from exc
 
 
 def _terminate_launch_process(

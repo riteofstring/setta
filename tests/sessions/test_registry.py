@@ -45,7 +45,7 @@ def test_create_and_load_session() -> None:
         assert len(secret_bytes) == C.SESSION_SECRET_BYTES
 
 
-def test_load_sessions_defaults_missing_workspace_path_canonical(
+def test_load_sessions_skips_missing_workspace_path_canonical(
     tmp_path: Path,
 ) -> None:
     sessions_root = tmp_path / "sessions"
@@ -74,8 +74,7 @@ def test_load_sessions_defaults_missing_workspace_path_canonical(
 
     registry = SessionRegistry(sessions_root=sessions_root)
     sessions = registry.load_sessions(prune_stale=False)
-    assert len(sessions) == 1
-    assert sessions[0].workspacePathCanonical == str(workspace)
+    assert len(sessions) == 0
 
 
 def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:

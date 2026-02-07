@@ -832,7 +832,7 @@ class TestSectionNameValidation:
             "custom/manual_binding.py"
         )
 
-    def test_validate_code_file_bindings_promotes_legacy_autobinding(
+    def test_validate_code_file_bindings_does_not_promote_manual_binding(
         self,
         settings_and_project_state,
     ) -> None:
@@ -872,7 +872,7 @@ class TestSectionNameValidation:
             BaseCodeSectionImpl,
         )
         assert impl_after.codeFileBinding is not None
-        assert impl_after.codeFileBinding.autoBinding
+        assert impl_after.codeFileBinding.autoBinding is False
 
 
 class TestParamNameValidation:

@@ -73,4 +73,38 @@ describe("applyBackendOriginOverrideFromUrl", () => {
       "http://127.0.0.1:8000",
     );
   });
+
+  it("rejects non-local hostname overrides by default", () => {
+    window.location.href =
+      "http://127.0.0.1/?__setta_backend_origin=https%3A%2F%2Fevil.example#hash";
+    memoryStorage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
+
+    applyBackendOriginOverrideFromUrl();
+
+    expect(window.location.href).not.toContain("__setta_backend_origin");
+    expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBeNull();
+  });
+
+  it("allows non-local overrides when explicitly enabled", () => {
+    const previous = import.meta.env.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;
+    (import.meta.env as unknown as Record<string, unknown>)[
+      "VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE"
+    ] = "1";
+    try {
+      window.location.href =
+        "http://127.0.0.1/?__setta_backend_origin=https%3A%2F%2Fevil.example#hash";
+      memoryStorage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
+
+      applyBackendOriginOverrideFromUrl();
+
+      expect(window.location.href).not.toContain("__setta_backend_origin");
+      expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBe(
+        "https://evil.example",
+      );
+    } finally {
+      (import.meta.env as unknown as Record<string, unknown>)[
+        "VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE"
+      ] = previous;
+    }
+  });
 });

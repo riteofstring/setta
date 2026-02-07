@@ -39,7 +39,11 @@ from setta.utils.attachment_policy import (
 )
 from setta.utils.attachment_tokens import AttachmentTokenManager
 from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths, normalize_workspace_path
+from setta.utils.paths import (
+    ensure_within_workspace_root,
+    get_setta_paths,
+    normalize_workspace_path,
+)
 
 router = SettaAPIRouter()
 TArtifact = TypeVar("TArtifact")
@@ -209,23 +213,29 @@ def _resolve_folder_path(
         return ensure_share_deployment_path(folder_path, deployment_root)
     workspace_root = get_setta_paths().workspace_root
     resolved = normalize_workspace_path(folder_path, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    try:
+        return ensure_within_workspace_root(
+            resolved, label="Folder path", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Folder path must be within the project root.",
-        )
-    return resolved
+            detail=str(exc),
+        ) from exc
 
 
 def _resolve_file_path(path_str: str) -> Path:
     workspace_root = get_setta_paths().workspace_root
     resolved = normalize_workspace_path(path_str, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    try:
+        return ensure_within_workspace_root(
+            resolved, label="File path", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File path must be within the project root.",
-        )
-    return resolved
+            detail=str(exc),
+        ) from exc
 
 
 def _resolve_file_path_for_download(path_str: str) -> Path | None:
@@ -234,7 +244,11 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
         return None
     workspace_root = get_setta_paths().workspace_root
     resolved = normalize_workspace_path(trimmed, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    try:
+        resolved = ensure_within_workspace_root(
+            resolved, label="File path", workspace_root=workspace_root
+        )
+    except ValueError:
         return None
     if not resolved.exists() or resolved.is_dir():
         return None
@@ -281,11 +295,15 @@ def route_check_if_file_exists(
         return False
     workspace_root = get_setta_paths().workspace_root
     resolved = normalize_workspace_path(raw_path, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    try:
+        resolved = ensure_within_workspace_root(
+            resolved, label="File path", workspace_root=workspace_root
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File path must be within the project root.",
-        )
+            detail=str(exc),
+        ) from exc
     return resolved.exists()
 
 

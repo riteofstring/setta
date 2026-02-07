@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
-import type { LaunchResponse } from "utils/generatedTypes";
 import {
+  appendWorkspaceHistoryToBootstrapUrlFragment,
   loadWorkspaceHistory,
   upsertWorkspaceHistoryEntry,
-  writeWorkspaceHistoryToWindowName,
 } from "utils/workspaceHistory";
 import {
   clearPendingWorkspaceLaunch,
@@ -30,8 +29,7 @@ type LaunchPhase =
       returnPath: string;
       workspaceRoot: string;
       sshTarget: string | null;
-    }
-  | { status: "success"; response: LaunchResponse };
+    };
 
 function formatElapsedMs(ms: number): string {
   const seconds = ms / 1000;
@@ -123,12 +121,30 @@ export function WorkspaceLaunchPage() {
         return;
       }
 
+      const resolvedWorkspaceRoot =
+        res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
+      const requestedFilesRoot = pending.request.filesRoot ?? null;
+      const resolvedFilesRoot = res.data.filesRoot ?? requestedFilesRoot ?? null;
+      const requestedFilesRootBase = pending.request.filesRootBase ?? null;
+      let resolvedLocalPort = pending.request.localPort ?? null;
+      if (pending.request.sshTarget) {
+        try {
+          const url = new URL(res.data.bootstrapUrlFragment);
+          const port = Number(url.port);
+          resolvedLocalPort = Number.isFinite(port) ? port : null;
+        } catch {
+          resolvedLocalPort = pending.request.localPort ?? null;
+        }
+      } else {
+        resolvedLocalPort = null;
+      }
+
       const nextEntry = {
-        workspaceRoot: pending.request.workspaceRoot ?? "",
+        workspaceRoot: resolvedWorkspaceRoot,
         sshTarget: pending.request.sshTarget ?? null,
-        localPort: pending.request.localPort ?? null,
-        filesRoot: res.data.filesRoot ?? pending.request.filesRoot ?? null,
-        filesRootBase: pending.request.filesRootBase ?? null,
+        localPort: resolvedLocalPort,
+        filesRoot: requestedFilesRoot ? resolvedFilesRoot : null,
+        filesRootBase: requestedFilesRoot ? null : requestedFilesRootBase,
         lastUsedAt: Date.now(),
       };
 
@@ -136,25 +152,21 @@ export function WorkspaceLaunchPage() {
         loadWorkspaceHistory(),
         nextEntry,
       );
-      if (!import.meta.env?.DEV) {
-        writeWorkspaceHistoryToWindowName(nextHistory);
-      }
 
       clearPendingWorkspaceLaunch();
-      window.location.href = res.data.bootstrapUrlFragment;
-      setPhase({ status: "success", response: res.data });
+      const bootstrapUrl = import.meta.env?.DEV
+        ? res.data.bootstrapUrlFragment
+        : appendWorkspaceHistoryToBootstrapUrlFragment(
+            res.data.bootstrapUrlFragment,
+            nextHistory,
+          );
+      window.location.href = bootstrapUrl;
     }
 
-    const launchTimeoutId = window.setTimeout(() => {
-      if (!isMounted) {
-        return;
-      }
-      void runLaunch();
-    }, 0);
+    void runLaunch();
 
     return () => {
       isMounted = false;
-      clearTimeout(launchTimeoutId);
     };
   }, []);
 
@@ -164,9 +176,6 @@ export function WorkspaceLaunchPage() {
     }
     if (phase.status === "loading") {
       return `Launching… (${formatElapsedMs(elapsedMs)})`;
-    }
-    if (phase.status === "success") {
-      return "Redirecting…";
     }
     return "Launch failed";
   }, [elapsedMs, phase.status]);

@@ -341,38 +341,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 canonical_binding_path = normalize_state_path(
                     canonical_sections_dir / f"{section_slug}.{extension}"
                 )
-            if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                expected_binding_path = normalize_state_path(gen_code_path)
-            elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
-                expected_binding_path = normalize_state_path(gen_meta_path)
-            else:
-                expected_binding_path = canonical_binding_path
             binding = effective_impl.codeFileBinding
-            if binding is not None and expected_binding_path is not None:
-                normalized_binding_path = normalize_state_path(binding.canonical_path)
-                if (
-                    normalized_binding_path == expected_binding_path
-                    and not binding.autoBinding
-                ):
-                    # Promote legacy bindings that match the canonical auto-binding path
-                    # without forcing relative paths (e.g. share deployments) to become
-                    # absolute under the local state root.
-                    promoted_path = (
-                        normalized_binding_path
-                        if binding.canonical_path.is_absolute()
-                        else binding.canonical_path
-                    )
-                    binding = CodeFileBinding(
-                        canonical_path=promoted_path,
-                        access_mode=binding.access_mode,
-                        autoBinding=True,
-                    )
-                    set_effective_impl_value(
-                        base_impl,
-                        core,
-                        variant,
-                        BaseCodeSectionImplArgsWithCallable(codeFileBinding=binding),
-                    )
             if section_id in conflicting_section_ids and not is_gen_section:
                 if binding is not None and binding.autoBinding:
                     set_effective_impl_value(

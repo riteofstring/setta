@@ -1,6 +1,5 @@
 import hashlib
 import os
-import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -9,8 +8,6 @@ _WORKSPACE_ROOT_ENV = "SETTA_WORKSPACE_ROOT"
 _FILES_ROOT_ENV = "SETTA_FILES_ROOT"
 _FILES_ROOT_BASE_ENV = "SETTA_FILES_ROOT_BASE"
 _RUNTIME_ROOT_ENV = "SETTA_RUNTIME_ROOT"
-
-_LEAF_ALLOWED_RE = re.compile(r"[A-Za-z0-9._-]+")
 
 
 @dataclass(frozen=True)
@@ -117,6 +114,29 @@ def workspace_relative_path(
         return resolved
 
 
+def ensure_within_workspace_root(
+    path: Path, *, label: str, workspace_root: Path | None = None
+) -> Path:
+    root = workspace_root or get_setta_paths().workspace_root
+    resolved = path.resolve(strict=False)
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"{label} must be within the project root.")
+    return resolved
+
+
+def resolve_workspace_child_path(
+    raw_path: str, *, label: str, workspace_root: Path | None = None
+) -> Path:
+    root = workspace_root or get_setta_paths().workspace_root
+    trimmed = raw_path.strip()
+    if not trimmed:
+        raise ValueError(f"Missing {label}.")
+    resolved = normalize_workspace_path(trimmed, workspace_root=root)
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"{label} must be within the project root.")
+    return resolved
+
+
 def validate_workspace_root(path: Path) -> None:
     if not path.exists():
         raise ValueError(f"Workspace root does not exist: {path}")
@@ -133,6 +153,16 @@ def validate_optional_dir(raw_path: Path | str | None, *, label: str) -> Path | 
     return path
 
 
+def get_optional_dir_validation_error(
+    raw_path: Path | str | None, *, label: str
+) -> str | None:
+    try:
+        validate_optional_dir(raw_path, label=label)
+    except ValueError as exc:
+        return str(exc)
+    return None
+
+
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     sanitized_leaf = _sanitize_leaf(workspace_root.name)
     digest = hashlib.sha256(str(workspace_root).encode("utf-8")).hexdigest()[:8]
@@ -145,6 +175,9 @@ def warn_on_legacy_state(
     setta_files_root: Path,
     logger,
 ) -> None:
+    raw_enabled = os.environ.get("SETTA_WARN_LEGACY_STATE")
+    if not raw_enabled or raw_enabled.strip().lower() in {"0", "false", "no"}:
+        return
     legacy_root = (workspace_root / "setta_files").resolve(strict=False)
     if legacy_root == setta_files_root:
         return
@@ -157,9 +190,10 @@ def warn_on_legacy_state(
     if new_root_has_contents:
         return
     logger.warning(
-        "Detected existing state at %s. To reuse it, start Setta with: "
+        "Detected existing state at %s while using files root %s. To reuse it, start Setta with: "
         "setta --workspace %s --files-root %s",
         legacy_root,
+        setta_files_root,
         workspace_root,
         legacy_root,
     )
@@ -243,6 +277,17 @@ def resolve_path(raw: Path | str) -> Path:
 def _sanitize_leaf(value: str) -> str:
     if not value:
         return "workspace"
-    cleaned = "".join(ch if _LEAF_ALLOWED_RE.fullmatch(ch) else "_" for ch in value)
+    allowed_symbols = "._-"
+    cleaned_chars: list[str] = []
+    for ch in value:
+        codepoint = ord(ch)
+        is_ascii_alnum = (48 <= codepoint <= 57) or (65 <= codepoint <= 90) or (
+            97 <= codepoint <= 122
+        )
+        if is_ascii_alnum or ch in allowed_symbols:
+            cleaned_chars.append(ch)
+        else:
+            cleaned_chars.append("_")
+    cleaned = "".join(cleaned_chars)
     cleaned = cleaned.strip("._-")
     return cleaned or "workspace"

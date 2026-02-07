@@ -1,7 +1,9 @@
 import hashlib
 import json
 import math
+import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -344,11 +346,16 @@ def _ensure_ssh_tunnel(
     candidate_ports: list[int] = []
     if requested_local_port is not None:
         candidate_ports.append(requested_local_port)
-    else:
-        candidate_ports.append(_preferred_local_port(key))
+    # Always attempt a stable port and a random free port as fallbacks, even if the
+    # caller requested a specific port (it can be grabbed by another process).
+    candidate_ports.append(_preferred_local_port(key))
+    try:
         candidate_ports.append(select_free_port("127.0.0.1"))
+    except OSError:
+        pass
 
     seen_ports = set()
+    last_failure: str | None = None
     for candidate_port in candidate_ports:
         if candidate_port in seen_ports:
             continue
@@ -362,18 +369,37 @@ def _ensure_ssh_tunnel(
             remote_port,
             ssh_prefix=ssh_prefix,
         )
-        proc = subprocess.Popen(
-            tunnel_args,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        popen_kwargs: dict[str, object] = {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.PIPE,
+            "text": True,
+        }
+        if os.name == "posix":
+            popen_kwargs["start_new_session"] = True
+        elif sys.platform == "win32":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        proc = subprocess.Popen(tunnel_args, **popen_kwargs)
         try:
             ensure_background_process_started(proc)
-        except LaunchError:
+        except LaunchError as exc:
+            stderr = ""
+            if proc.stderr is not None:
+                try:
+                    stderr = proc.stderr.read().strip()
+                except Exception:
+                    stderr = ""
+            last_failure = f"localPort {candidate_port}: {exc}"
+            if stderr:
+                last_failure = f"{last_failure} {stderr}"
             _stop_pid(proc.pid)
             continue
+        finally:
+            if proc.poll() is None and proc.stderr is not None:
+                try:
+                    proc.stderr.close()
+                except OSError:
+                    pass
 
         try:
             pid_create_time = psutil.Process(proc.pid).create_time()
@@ -396,7 +422,7 @@ def _ensure_ssh_tunnel(
         _write_tunnel_metadata(metadata_path, metadata)
         return metadata
 
-    raise LaunchError(
-        "TunnelStartFailed",
-        "Unable to start SSH tunnel (all candidate ports failed). Provide localPort to override.",
-    )
+    message = "Unable to start SSH tunnel (all candidate ports failed). Provide localPort to override."
+    if last_failure:
+        message = f"{message} Last failure: {last_failure}"
+    raise LaunchError("TunnelStartFailed", message)

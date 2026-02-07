@@ -9,7 +9,6 @@ export type WorkspaceHistoryEntry = {
 
 const HISTORY_KEY = "setta.workspaceHistory";
 const HISTORY_LIMIT = 6;
-const WINDOW_NAME_PREFIX = "setta.workspaceHistory:";
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -167,68 +166,51 @@ export function upsertWorkspaceHistoryEntry(
   return merged;
 }
 
-function readWorkspaceHistoryFromWindowName(): WorkspaceHistoryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
+function toBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.slice(offset, offset + chunkSize);
+    binary += String.fromCharCode(...chunk);
   }
-  const rawName = window.name;
-  if (!rawName || !rawName.startsWith(WINDOW_NAME_PREFIX)) {
-    return [];
-  }
-  const raw = rawName.slice(WINDOW_NAME_PREFIX.length);
-  if (!raw) {
-    return [];
-  }
-  try {
-    return parseValidEntries(JSON.parse(raw));
-  } catch (error) {
-    console.warn("Failed to read workspace history from window.name", error);
-    return [];
-  }
+  const base64 = btoa(binary);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-export function writeWorkspaceHistoryToWindowName(
+function encodeWorkspaceHistoryForUrlHash(
   entries: WorkspaceHistoryEntry[],
-) {
+): string | null {
+  try {
+    const json = JSON.stringify(entries.slice(0, HISTORY_LIMIT));
+    const encoder = new TextEncoder();
+    return toBase64Url(encoder.encode(json));
+  } catch (error) {
+    console.warn("Failed to encode workspace history for URL hash", error);
+    return null;
+  }
+}
+
+export function appendWorkspaceHistoryToBootstrapUrlFragment(
+  bootstrapUrlFragment: string,
+  entries: WorkspaceHistoryEntry[],
+): string {
   if (typeof window === "undefined") {
-    return;
+    return bootstrapUrlFragment;
   }
+  const encoded = encodeWorkspaceHistoryForUrlHash(entries);
+  if (!encoded) {
+    return bootstrapUrlFragment;
+  }
+  let url: URL;
   try {
-    window.name = `${WINDOW_NAME_PREFIX}${JSON.stringify(entries)}`;
+    url = new URL(bootstrapUrlFragment, window.location.href);
   } catch (error) {
-    console.warn("Failed to write workspace history to window.name", error);
+    console.warn("Failed to parse bootstrap URL fragment", error);
+    return bootstrapUrlFragment;
   }
-}
-
-function mergeWorkspaceHistory(
-  incoming: WorkspaceHistoryEntry[],
-  existing: WorkspaceHistoryEntry[],
-) {
-  const seen = new Set<string>();
-  const merged: WorkspaceHistoryEntry[] = [];
-  for (const entry of [...incoming, ...existing]) {
-    const key = buildEntryKey(entry);
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(entry);
-  }
-  return merged
-    .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
-    .slice(0, HISTORY_LIMIT);
-}
-
-export function hydrateWorkspaceHistoryFromWindowName() {
-  const windowHistory = readWorkspaceHistoryFromWindowName();
-  if (windowHistory.length === 0) {
-    return;
-  }
-  const merged = mergeWorkspaceHistory(windowHistory, loadWorkspaceHistory());
-  saveWorkspaceHistory(merged);
-  try {
-    window.name = "";
-  } catch (error) {
-    console.warn("Failed to clear workspace history from window.name", error);
-  }
+  const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
+  const params = new URLSearchParams(hash);
+  params.set("wh", encoded);
+  url.hash = params.toString();
+  return url.toString();
 }

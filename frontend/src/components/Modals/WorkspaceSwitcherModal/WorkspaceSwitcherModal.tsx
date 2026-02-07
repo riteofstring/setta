@@ -76,12 +76,15 @@ export function WorkspaceSwitcherModal() {
     setSshArgs("");
     setRemoteCmd("");
     setLocalPort(entry.localPort ? String(entry.localPort) : "");
-    if (entry.filesRoot) {
+    if (entry.filesRootBase) {
+      setFilesRoot("");
+      setFilesRootBase(entry.filesRootBase);
+    } else if (entry.filesRoot) {
       setFilesRoot(entry.filesRoot);
       setFilesRootBase("");
     } else {
       setFilesRoot("");
-      setFilesRootBase(entry.filesRootBase ?? "");
+      setFilesRootBase("");
     }
     setShowAdvanced(
       Boolean(entry.localPort || entry.filesRoot || entry.filesRootBase),
@@ -292,9 +295,9 @@ export function WorkspaceSwitcherModal() {
                     </span>
                     {(entry.filesRoot || entry.filesRootBase) && (
                       <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                        {entry.filesRoot
-                          ? `Files root: ${entry.filesRoot}`
-                          : `Files base: ${entry.filesRootBase}`}
+                        {entry.filesRootBase
+                          ? `Files base: ${entry.filesRootBase}`
+                          : `Files root: ${entry.filesRoot}`}
                       </span>
                     )}
                     {entry.sshTarget && (

@@ -315,6 +315,8 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
       (function () {
         const redirectUrl = "__SETTA_REDIRECT_URL__";
+        const workspaceHistoryKey = "setta.workspaceHistory";
+        const workspaceHistoryLimit = 6;
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");
@@ -326,6 +328,86 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 
         function setError(message) {
           errorEl.textContent = message || "";
+        }
+
+        function decodeBase64Url(value) {
+          let base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+          while (base64.length % 4) {
+            base64 += "=";
+          }
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let idx = 0; idx < binary.length; idx++) {
+            bytes[idx] = binary.charCodeAt(idx);
+          }
+          if (typeof TextDecoder !== "undefined") {
+            return new TextDecoder().decode(bytes);
+          }
+          let output = "";
+          for (let idx = 0; idx < bytes.length; idx++) {
+            output += String.fromCharCode(bytes[idx]);
+          }
+          return output;
+        }
+
+        function mergeWorkspaceHistory(incoming, existing) {
+          const seen = new Set();
+          const merged = [];
+          const combined = [].concat(incoming || [], existing || []);
+          for (let idx = 0; idx < combined.length; idx++) {
+            const entry = combined[idx];
+            try {
+              const key = JSON.stringify(entry);
+              if (seen.has(key)) {
+                continue;
+              }
+              seen.add(key);
+              merged.push(entry);
+            } catch {
+              /* ignore */
+            }
+          }
+          merged.sort(function (a, b) {
+            const left = a && typeof a.lastUsedAt === "number" ? a.lastUsedAt : 0;
+            const right = b && typeof b.lastUsedAt === "number" ? b.lastUsedAt : 0;
+            return right - left;
+          });
+          return merged.slice(0, workspaceHistoryLimit);
+        }
+
+        function hydrateWorkspaceHistoryFromHash() {
+          try {
+            const hash = window.location.hash.slice(1);
+            if (!hash) {
+              return;
+            }
+            const params = new URLSearchParams(hash);
+            const encoded = params.get("wh");
+            if (!encoded) {
+              return;
+            }
+            const decoded = decodeBase64Url(encoded);
+            const incoming = JSON.parse(decoded);
+            if (!Array.isArray(incoming)) {
+              return;
+            }
+            let existing = null;
+            try {
+              const rawExisting = localStorage.getItem(workspaceHistoryKey);
+              if (rawExisting) {
+                const parsed = JSON.parse(rawExisting);
+                if (Array.isArray(parsed)) {
+                  existing = parsed;
+                }
+              }
+            } catch {
+              /* ignore */
+            }
+            const merged = mergeWorkspaceHistory(incoming, existing);
+            localStorage.setItem(workspaceHistoryKey, JSON.stringify(merged));
+          } catch {
+            /* ignore */
+          }
         }
 
         function readTokenFromUrl() {
@@ -364,6 +446,8 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
             setStatus("Paste a bootstrap token to continue.");
           });
         });
+
+        hydrateWorkspaceHistoryFromHash();
 
         const urlToken = readTokenFromUrl();
         if (urlToken) {

@@ -188,15 +188,12 @@ class SessionRegistry:
         except (OSError, json.JSONDecodeError):
             logger.warning("Failed to read session metadata at %s", path, exc_info=True)
             return None
-        if isinstance(raw, dict):
-            # Allow reading sessions missing newly-required fields without taking down
-            # the entire session listing.
-            if (
-                "workspacePathCanonical" not in raw
-                and "workspacePath" in raw
-                and isinstance(raw.get("workspacePath"), str)
-            ):
-                raw["workspacePathCanonical"] = raw["workspacePath"]
+        if isinstance(raw, dict) and "workspacePathCanonical" not in raw:
+            logger.warning(
+                "Session metadata missing workspacePathCanonical at %s. Delete the runtime sessions directory to recreate sessions.",
+                path,
+            )
+            return None
         try:
             return SessionMetadata.model_validate(raw)
         except ValidationError:

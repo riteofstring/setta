@@ -621,16 +621,21 @@ class BaseProjectManager(ABC):
     ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
+        self._raise_queue_task_issue_if_any()
 
-        logger.debug(
-            "Queue task status: cancelled=%s, done=%s, exception=%s",
-            self.queue_task.cancelled(),
-            self.queue_task.done(),
-            self.queue_task.exception() if self.queue_task.done() else None,
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            queue_exception: BaseException | None = None
+            if self.queue_task.done() and not self.queue_task.cancelled():
+                queue_exception = self.queue_task.exception()
+            logger.debug(
+                "Queue task status: cancelled=%s, done=%s, exception=%s",
+                self.queue_task.cancelled(),
+                self.queue_task.done(),
+                queue_exception,
+            )
 
         # Create a future to hold the result
-        future: asyncio.Future[_T] = asyncio.Future()
+        future: asyncio.Future[_T] = asyncio.get_running_loop().create_future()
         logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
@@ -752,7 +757,11 @@ class BaseProjectManager(ABC):
             self._finalize_frontend_op(frontend_op_id, success=True)
         finally:
             if token is not None:
-                self._current_frontend_op_id.reset(token)
+                try:
+                    self._current_frontend_op_id.reset(token)
+                except ValueError:
+                    # See setta.logging.context.reset_logging_context for rationale.
+                    self._current_frontend_op_id.set(None)
 
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id
