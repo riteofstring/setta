@@ -29,6 +29,9 @@ SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
 TERMINAL_ID_SEPARATOR = "::"
 IS_WINDOWS = platform.system() == "Windows"
 IS_MACOS = platform.system() == "Darwin"
+# If the PTY never echoes the clear command marker for some reason, we still
+# need to mark the terminal as ready so websocket clients don't hang forever.
+TERMINAL_PROMPT_READY_FALLBACK_SECONDS = 5.0
 
 
 if IS_WINDOWS:
@@ -110,6 +113,12 @@ class Terminals:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
+                spawn_background_task(
+                    self._terminal_prompt_ready_fallback(sectionId),
+                    label="terminal-prompt-ready-fallback",
+                    context=self._terminal_logging_context(sectionId),
+                    **self._terminal_context_kwargs(sectionId),
+                )
             spawn_background_task(
                 self.start_reading_from_terminal(sectionId),
                 label="terminal-reader",
@@ -118,6 +127,38 @@ class Terminals:
             )
             return True
         return False
+
+    async def _terminal_prompt_ready_fallback(self, section_id: str) -> None:
+        """Fail-safe for prompt readiness.
+
+        When clearTerminalBeforeMarkingAsReady=True, we normally wait until the PTY
+        echoes our clear marker before marking readiness. If the marker never
+        appears (rare, but observed in E2E), waiting clients would hang forever.
+        """
+
+        await asyncio.sleep(TERMINAL_PROMPT_READY_FALLBACK_SECONDS)
+        info = self.PTY_PIDS.get(section_id)
+        if info is None:
+            return
+        prompt_ready = info.get("terminalPromptIsReady")
+        if not isinstance(prompt_ready, asyncio.Event):
+            return
+        if prompt_ready.is_set():
+            return
+
+        # Prevent connect() from sending a duplicate ready message once we set the
+        # event. (Duplicate ready messages would render in xterm after AttachAddon.)
+        for ws_id in list(self.section_to_socket_ids.get(section_id, set())):
+            socket_info = self.sockets.get(ws_id)
+            if socket_info is not None:
+                socket_info["sentReadyMsg"] = True
+
+        prompt_ready.set()
+        await self.send_output_to_sectionId(
+            section_id,
+            C.SETTA_TERMINAL_READY,
+            setSentReadyMsg=True,
+        )
 
     async def connect(self, websocket: WebSocket, sectionId: str, id: str) -> bool:
         try:
@@ -210,8 +251,7 @@ class Terminals:
                             sectionId, C.SETTA_TERMINAL_READY, setSentReadyMsg=True
                         )
                     continue
-                if not pty_info["wasJustResized"]:
-                    history.append(output)
+                history.append(output)
                 pty_info["wasJustResized"] = False
                 await self.send_output_to_sectionId(sectionId, output)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):

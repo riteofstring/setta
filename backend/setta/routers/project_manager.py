@@ -2,12 +2,10 @@ import logging
 
 from fastapi import HTTPException
 
-from setta.app.catalog import APP_CATALOG, list_app_components
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
-    AppDefinitionResponse,
     AppendDrawAreaLayerItemRequest,
     AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
@@ -35,8 +33,8 @@ from setta.project_state.project_manager_types import (
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
-    GetAppDefinitionRequest,
     GetChatSectionChatIdRequest,
+    GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetPasswordParamValueRequest,
     GetPasswordParamValueResponse,
@@ -54,7 +52,6 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetAgenticEdgesRequest,
-    SetAppDefinitionRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -126,7 +123,6 @@ from setta.project_state.project_manager_types import (
     UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateAgenticEdgeRequest,
-    UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
 )
@@ -145,10 +141,10 @@ from setta.share.policy import (
     ensure_share_param_value_allowed,
 )
 from setta.terminals.terminals import build_terminal_id
-from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
+from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.utils.errors import (
@@ -225,16 +221,6 @@ async def _deny_share_mode_diagnostics(ctx) -> None:
         message="Share mode disallows diagnostics settings.",
         share_session_id=ctx.share_session_id,
     )
-
-
-@router.get(Route.GET_APP_CATALOG)
-def route_get_app_catalog() -> JSONValue:
-    return APP_CATALOG
-
-
-@router.get(Route.LIST_APP_COMPONENTS)
-def route_list_app_components() -> list[str]:
-    return list_app_components()
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
@@ -489,6 +475,15 @@ async def route_get_latest_project_state(
     )
 
 
+@router.post(Route.GET_LATEST_LSP_DIAGNOSTICS)
+async def route_get_latest_lsp_diagnostics(
+    x: GetLatestLspDiagnosticsRequest, ctx: RuntimeContextFromRequest
+) -> SettaLspDiagnosticsPayload:
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.get_latest_lsp_diagnostics(x)
+
+
 @router.post(Route.FORCE_REFRESH_LISTENER)
 async def route_force_refresh_listener(
     x: ForceRefreshProjectRequest, ctx: RuntimeContextFromRequest
@@ -614,45 +609,6 @@ async def route_set_project_config_codegen_targets(
     await _deny_share_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_project_config_codegen_targets(x)
-
-
-@router.post(Route.GET_APP_DEFINITION)
-async def route_get_app_definition(
-    x: GetAppDefinitionRequest, ctx: RuntimeContextFromRequest
-) -> AppDefinitionResponse:
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.state.project_manager_switcher.main
-    if manager is None:
-        raise HTTPException(status_code=404, detail="Project manager not available.")
-    return await manager.get_app_definition(x)
-
-
-@router.post(Route.SET_APP_DEFINITION)
-async def route_set_app_definition(
-    x: SetAppDefinitionRequest, ctx: RuntimeContextFromRequest
-) -> AppDefinitionResponse:
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.state.project_manager_switcher.main
-    if manager is None:
-        raise HTTPException(status_code=404, detail="Project manager not available.")
-    try:
-        return await manager.set_app_definition(x)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.UPDATE_APP_DEFINITION)
-async def route_update_app_definition(
-    x: UpdateAppDefinitionRequest, ctx: RuntimeContextFromRequest
-) -> AppDefinitionResponse:
-    await _deny_share_mode_structural(ctx)
-    manager = ctx.state.project_manager_switcher.main
-    if manager is None:
-        raise HTTPException(status_code=404, detail="Project manager not available.")
-    try:
-        return await manager.update_app_definition(x)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_PROMPT_TEMPLATE)
