@@ -45,8 +45,7 @@ function buildRun({
         },
       ],
     },
-    outputs:
-      outputName || nameSource ? { name: outputName, nameSource } : null,
+    outputs: outputName || nameSource ? { name: outputName, nameSource } : null,
     toolCalls: [],
     cost: null,
     events: [],

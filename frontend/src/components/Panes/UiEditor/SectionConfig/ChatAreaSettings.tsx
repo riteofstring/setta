@@ -371,7 +371,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       });
       if (!res200(response)) {
         const detail = getErrorDetail(response.data as unknown);
-        const status = typeof response.status === "number" ? response.status : null;
+        const status =
+          typeof response.status === "number" ? response.status : null;
         setSummaryCacheStatus(null);
         setSummaryCacheStatusError(
           detail ??
@@ -782,15 +783,16 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                   </p>
                 ) : summaryCacheStatusError ? (
                   <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-                    Failed to load summary cache status: {summaryCacheStatusError}
+                    Failed to load summary cache status:{" "}
+                    {summaryCacheStatusError}
                   </p>
                 ) : summaryCacheStatus ? (
                   <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
                     <p>
                       Cached: {summaryCacheStatus.cachedSectionIds.length}/
                       {summaryCacheStatus.summarySectionIds.length}. Missing:{" "}
-                      {summaryCacheStatus.missingSectionIds.length}. Deferred due
-                      to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
+                      {summaryCacheStatus.missingSectionIds.length}. Deferred
+                      due to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
                       {Math.max(
                         summaryCacheStatus.missingSectionIds.length -
                           summaryCacheStatus.consideredSectionIds.length,

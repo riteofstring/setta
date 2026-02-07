@@ -640,7 +640,9 @@ function ManagedChatArea({
   const hasAnyAgenticEdge = useMemo(
     () =>
       agenticEdges.some(
-        (edge) => edge.sourceSectionId === sectionId || edge.targetSectionId === sectionId,
+        (edge) =>
+          edge.sourceSectionId === sectionId ||
+          edge.targetSectionId === sectionId,
       ),
     [agenticEdges, sectionId],
   );
@@ -1071,13 +1073,16 @@ function ManagedChatArea({
       {!hasAnyAgenticEdge ? (
         <div className="px-4 pt-2">
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-            No agentic edges. This chat has no project access. Add context/scope links or use Project Chat for full access.
+            No agentic edges. This chat has no project access. Add context/scope
+            links or use Project Chat for full access.
           </div>
         </div>
       ) : !hasWriteScope ? (
         <div className="px-4 pt-2">
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-            No writable sections in scope. This chat cannot modify sections. Add a Chat → Section edge (Scope sections) or use Project Chat for full access.
+            No writable sections in scope. This chat cannot modify sections. Add
+            a Chat → Section edge (Scope sections) or use Project Chat for full
+            access.
           </div>
         </div>
       ) : null}
