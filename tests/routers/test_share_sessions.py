@@ -25,7 +25,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.id import ID
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import DeploymentManifest, DeploymentType
 
 
 def _write_share_project(
@@ -43,9 +43,10 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = deployment_root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -68,9 +69,10 @@ def _write_share_project_with_configs(
     )
     dbe.write_project(project_state)
     deployment_name = deployment_root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=default_project_config_id,
         deploymentVersion=deployment_version,
     )
@@ -333,5 +335,4 @@ class TestShareSessionRoutes:
             latest = route_get_latest_share_deployment(project_config_name, state)
             assert latest.deploymentName == project_config_name
             assert latest.deploymentRoot == Path("redacted")
-            assert latest.sharePolicyPath == Path("redacted")
-
+            assert latest.policyPath == Path("redacted")

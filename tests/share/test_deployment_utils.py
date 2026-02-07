@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from setta.code_gen.utils import sanitize_slug
-from setta.share.deployment_utils import rewrite_project_state_paths
+from setta.deployments.deployment_utils import rewrite_project_state_paths
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.dropzone import parse_dropzone_value
 from setta.types.helpers_lvl1 import (

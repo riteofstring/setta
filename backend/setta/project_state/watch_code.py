@@ -2,12 +2,15 @@ import ast
 import asyncio
 import logging
 import os
+import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
+from watchdog.observers.polling import PollingObserver
 
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.utils import convert_path_to_module_path
@@ -49,6 +52,47 @@ if TYPE_CHECKING:
     from setta.project_state.base_project_manager import BaseProjectManager
 
 logger = logging.getLogger(__name__)
+
+# watchdog's native macOS observers have been observed to hard-crash (SIGTRAP)
+# when started repeatedly in the same process (common in test runs). In pytest
+# on macOS we default to polling for stability; otherwise we prefer the native
+# observer for responsiveness.
+#
+# Override with:
+# - SETTA_WATCH_CODE_OBSERVER=native  (force Observer)
+# - SETTA_WATCH_CODE_OBSERVER=polling (force PollingObserver)
+_observer_override = os.environ.get("SETTA_WATCH_CODE_OBSERVER", "").strip().lower()
+_force_native = _observer_override == "native"
+_force_polling = _observer_override == "polling"
+_pytest_mode = bool(os.environ.get("PYTEST_CURRENT_TEST")) or (
+    "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
+)
+if _force_polling:
+    _WATCH_CODE_OBSERVER = PollingObserver()
+elif _force_native:
+    _WATCH_CODE_OBSERVER = Observer()
+else:
+    if sys.platform == "darwin" and _pytest_mode:
+        _WATCH_CODE_OBSERVER = PollingObserver()
+    else:
+        _WATCH_CODE_OBSERVER = Observer()
+_WATCH_CODE_OBSERVER.daemon = True
+_WATCH_CODE_OBSERVER_LOCK = threading.Lock()
+_WATCH_CODE_OBSERVER_STARTED = False
+
+
+def _ensure_watch_code_observer_started() -> Observer:
+    # Watchdog's macOS observers can crash when repeatedly started/stopped in the
+    # same process (notably in test runs). Keep a single shared Observer running.
+    global _WATCH_CODE_OBSERVER_STARTED
+    if _WATCH_CODE_OBSERVER_STARTED:
+        return _WATCH_CODE_OBSERVER
+    with _WATCH_CODE_OBSERVER_LOCK:
+        if not _WATCH_CODE_OBSERVER_STARTED:
+            _WATCH_CODE_OBSERVER.start()
+            _WATCH_CODE_OBSERVER_STARTED = True
+    return _WATCH_CODE_OBSERVER
+
 
 DEFAULT_WATCH_CODE_IGNORE_DIRS = {
     "node_modules",
@@ -466,8 +510,7 @@ class WatchCodeManager:
     ) -> None:
         self._project_manager = project_manager
         self._loop = loop
-        self._observer = Observer()
-        self._observer.daemon = True
+        self._observer = _WATCH_CODE_OBSERVER
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
@@ -475,7 +518,6 @@ class WatchCodeManager:
         self._config_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
         self._notified_import_failures: set[tuple[ID, str]] = set()
         self._pending_moves: dict[tuple[ID, Path], Path] = {}
-        self._started = False
         self._handler = WatchCodeEventHandler(
             self._get_loop,
             self._handle_event,
@@ -492,22 +534,19 @@ class WatchCodeManager:
         return self._loop
 
     def start(self) -> None:
-        if self._started:
-            return
-        self._observer.start()
-        self._started = True
+        _ensure_watch_code_observer_started()
 
     def shutdown(self) -> None:
-        if self._started:
-            observer = self._observer
-            if observer.is_alive():
-                observer.stop()
-                observer.join(timeout=1.0)
-                if observer.is_alive():
-                    logger.warning(
-                        "Watch code observer did not shut down within timeout."
-                    )
-            self._started = False
+        # Remove any scheduled directory watches for this manager from the shared
+        # observer. We intentionally do not stop the shared observer.
+        observer = self._observer
+        for watch, _recursive in list(self._watched_dirs.values()):
+            try:
+                observer.unschedule(watch)
+            except KeyError:
+                logger.debug("Watch code watch already unscheduled.")
+        self._watched_dirs.clear()
+        self._pending_dirs.clear()
         for debouncer in self._debouncers.values():
             debouncer.cancel()
         self._debouncers.clear()
@@ -620,6 +659,12 @@ class WatchCodeManager:
                 dest_path, snapshot.files, snapshot.folders
             ):
                 self._pending_moves.pop(key, None)
+
+        # Starting a watchdog Observer is relatively heavy and can be fragile on
+        # macOS when created many times. Only start it once we actually have
+        # enabled watch inputs.
+        if desired_watch_dirs:
+            _ensure_watch_code_observer_started()
 
         self._sync_watch_dirs(desired_watch_dirs)
 

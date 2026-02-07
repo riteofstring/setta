@@ -28,7 +28,11 @@ from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import (
+    DeploymentType,
+    DeploymentManifest,
+    SharePolicy,
+)
 from setta.types.artifact import ArtifactType, FileArtifact
 from setta.types.binary_content import BinaryContentRef
 from setta.utils.constants import C, CWD
@@ -65,13 +69,19 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+
+def _write_share_policy(root: Path, policy: SharePolicy) -> None:
+    dbe = DBE(root)
+    dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
 async def _shutdown_state(state: SettaFastAPIState) -> None:
@@ -97,7 +107,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
         "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
         "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
+        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
     }
     C.SETTA_FILES_FOLDER = root / "setta_files"
     C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
@@ -109,7 +119,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
@@ -121,7 +131,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         C.RUNTIME_MCP_FOLDER,
         C.RUNTIME_SECRETS_FOLDER,
         C.DETACHED_RUNS_FOLDER,
-        C.SHARE_DEPLOYMENTS_FOLDER,
+        C.DEPLOYMENTS_FOLDER,
     ):
         path.mkdir(parents=True, exist_ok=True)
     _seed_minimal_setta_files(C.SETTA_FILES_FOLDER)
@@ -139,7 +149,7 @@ def _restore_constants(previous: dict[str, Path]) -> None:
     C.RUNTIME_MCP_FOLDER = previous["RUNTIME_MCP_FOLDER"]
     C.RUNTIME_SECRETS_FOLDER = previous["RUNTIME_SECRETS_FOLDER"]
     C.DETACHED_RUNS_FOLDER = previous["DETACHED_RUNS_FOLDER"]
-    C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
+    C.DEPLOYMENTS_FOLDER = previous["DEPLOYMENTS_FOLDER"]
 
 
 class TestFileBrowserRoutes:
@@ -196,7 +206,7 @@ class TestFileBrowserRoutes:
             C.RUNTIME_FOLDER = run_folder
             C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
             C.RUNTIME_LOGS_FOLDER = run_logs_folder
-            C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
+            C.DEPLOYMENTS_FOLDER = share_deployments_folder
         if app is None:
             app = FastAPI()
         state = SettaFastAPIState(
@@ -686,11 +696,37 @@ class TestFileBrowserRoutes:
         assert response.status_code == 200
         ref = BinaryContentRef(**response.json())
         with runtime_context(state) as runtime_ctx:
-            response = route_binary_download(ref.contentId, runtime_ctx)
+            response = await route_binary_download(ref.contentId, runtime_ctx)
         binary_store = BinaryStore.from_dbe(state.dbe)
         assert binary_store.read_bytes(ref.contentId) == payload
         assert response.media_type == "application/octet-stream"
         assert Path(response.path).read_bytes() == payload
+
+    async def test_binary_download_blocks_when_policy_disallows(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-binary-download"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowFileDownloads=False))
+            state = await self._build_state(
+                share_mode=True,
+                share_deployment_root=root,
+            )
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+            binary_store = BinaryStore.from_dbe(state.dbe)
+            ref = binary_store.store_bytes(
+                b"binary-payload", mime_type="application/octet-stream"
+            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                with pytest.raises(HTTPException) as ctx:
+                    await route_binary_download(ref.contentId, runtime_ctx)
+            assert ctx.value.status_code == 403
+            await _shutdown_state(state)
 
     async def test_binary_upload_allows_non_durable(self) -> None:
         app = FastAPI()
@@ -715,7 +751,7 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         with runtime_context(state) as runtime_ctx:
             with pytest.raises(HTTPException) as ctx:
-                route_binary_download("..", runtime_ctx)
+                await route_binary_download("..", runtime_ctx)
         assert ctx.value.status_code == 400
 
     async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:

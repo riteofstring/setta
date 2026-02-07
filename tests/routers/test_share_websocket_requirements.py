@@ -20,7 +20,7 @@ from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from setta.types.websocket import WebsocketMsgCurrentAddressUpdate
 from setta.utils.timestamps import get_now_timestamp
 from setta.terminals.terminals import build_terminal_id
@@ -57,9 +57,10 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )

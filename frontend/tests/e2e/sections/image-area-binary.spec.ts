@@ -1,8 +1,14 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const PROJECT_URL =
+  process.env.SETTA_PROJECT_URL ??
+  (process.env.SETTA_PROJECT_PATH
+    ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
+    : BASE_URL);
+
 const TEST_IMAGE_PATH = "pw_image.png";
 const ONE_BY_ONE_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Yp0oL0AAAAASUVORK5CYII=";
@@ -31,13 +37,10 @@ test("image artifacts render from binary store", async ({ page }) => {
     projectConfigId,
     sectionName,
   );
+  await setImagePath(page, projectConfigId, sectionId, TEST_IMAGE_PATH);
 
   const binaryRef = await uploadTestPng(page);
   await updateImageArtifact(page, TEST_IMAGE_PATH, binaryRef);
-  // Set the path after the artifact exists so the first frontend fetch sees the
-  // binary payload (the updateArtifacts endpoint does not broadcast changes in
-  // IDE mode, so ordering matters for reliability).
-  await setImagePath(page, projectConfigId, sectionId, TEST_IMAGE_PATH);
 
   const section = findSectionCandidates(page, sectionName).first();
   await expect(section).toBeVisible();
@@ -51,12 +54,17 @@ test("image artifacts render from binary store", async ({ page }) => {
       return await img.evaluate((el) =>
         el instanceof HTMLImageElement ? el.naturalWidth : 0,
       );
-    }, { timeout: 20000 })
+    })
     .toBeGreaterThan(0);
 
   const src = await img.evaluate((el) => el.getAttribute("src") ?? "");
   expect(src.startsWith("blob:")).toBe(true);
 });
+
+async function ensureAppReady(page: Page): Promise<void> {
+  await page.goto(PROJECT_URL);
+  await page.waitForSelector(".react-flow__pane");
+}
 
 async function createImageSection(
   page: Page,

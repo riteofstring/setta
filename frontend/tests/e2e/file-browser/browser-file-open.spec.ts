@@ -31,16 +31,6 @@ type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
 
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
-
-function normalizePathForComparison(value: string): string {
-  const withoutPrivate = value.startsWith("/private")
-    ? value.slice("/private".length)
-    : value;
-  return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
-}
-
 async function resolveProjectConfigName(
   page: Page,
   projectConfigId: string,
@@ -100,72 +90,6 @@ function findSectionIdByText(
     }
   }
   return null;
-}
-
-async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
-  const value = await page.evaluate((targetId) => {
-    const root = document.getElementById(targetId);
-    if (!root) {
-      return null;
-    }
-    const candidates = [
-      root,
-      root.querySelector(".cm-content"),
-      root.querySelector(".cm-editor"),
-      root.querySelector("[contenteditable='true']"),
-    ].filter(Boolean) as HTMLElement[];
-
-    for (const candidate of candidates) {
-      const maybeView = (candidate as HTMLElement & { cmView?: unknown }).cmView;
-      if (
-        maybeView &&
-        typeof maybeView === "object" &&
-        "state" in maybeView &&
-        typeof (maybeView as { state?: unknown }).state === "object" &&
-        (maybeView as { state?: { doc?: unknown } }).state?.doc &&
-        typeof (maybeView as { state: { doc: { toString: () => string } } }).state.doc
-          .toString === "function"
-      ) {
-        return (maybeView as { state: { doc: { toString: () => string } } }).state.doc.toString();
-      }
-    }
-    const content =
-      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
-    return content?.textContent ?? root.textContent ?? "";
-  }, id);
-  return value ?? "";
-}
-
-async function setBrowserPath(
-  page: Page,
-  sectionNode: ReturnType<Page["locator"]>,
-  sectionId: string,
-  targetPath: string,
-): Promise<string> {
-  const pathInputId = `CodeMirror-${sectionId}-browser-path`;
-  const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
-  await expect(pathInput).toBeVisible();
-  const currentValue = await readCodeMirrorValue(page, pathInputId);
-  const normalizedCurrent = normalizePathForComparison(currentValue);
-  const normalizedTarget = normalizePathForComparison(targetPath);
-  const nextValue =
-    normalizedCurrent === normalizedTarget &&
-    !targetPath.endsWith(path.sep)
-      ? `${targetPath}${path.sep}`
-      : targetPath;
-
-  await pathInput.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.insertText(nextValue);
-  await page.keyboard.press("Enter");
-
-  await expect
-    .poll(async () =>
-      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-    )
-    .toContain(normalizedTarget);
-
-  return pathInputId;
 }
 
 async function waitForTextSection(
@@ -232,18 +156,14 @@ test("browser opens markdown and text files in text sections", async ({
     );
     await expect(sectionNode).toBeVisible();
 
-    await expect(
-      sectionNode.locator('button[aria-label="Go back"]'),
-    ).toBeVisible();
-    await expect(
-      sectionNode.locator('button[aria-label="Go forward"]'),
-    ).toBeVisible();
-
     await sectionNode
       .locator('button[aria-label="Carousel view"]')
       .click();
 
-    await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
+    const pathInput = sectionNode.locator("search input");
+    await expect(pathInput).toBeVisible();
+    await pathInput.fill(workspaceRoot);
+    await pathInput.press("Enter");
 
     const thumbnailRow = sectionNode
       .locator('[class*="overflow-x-scroll"]')
@@ -301,7 +221,6 @@ test("browser history buttons navigate folders", async ({ page }) => {
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
-  const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
   const projectConfigId = await getCurrentProjectConfigId(page);
   const viewportBounds = await getViewportBoundsForPlacement(page);
   if (!viewportBounds) {
@@ -336,12 +255,10 @@ test("browser history buttons navigate folders", async ({ page }) => {
       .locator('button[aria-label="Carousel view"]')
       .click();
 
-    const pathInputId = await setBrowserPath(
-      page,
-      sectionNode,
-      sectionId,
-      workspaceRoot,
-    );
+    const pathInput = sectionNode.locator("search input");
+    await expect(pathInput).toBeVisible();
+    await pathInput.fill(workspaceRoot);
+    await pathInput.press("Enter");
 
     const thumbnailRow = sectionNode
       .locator('[class*="overflow-x-scroll"]')
@@ -353,9 +270,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
     await expect(backendTile).toBeVisible();
     await backendTile.dblclick();
 
-    await expect
-      .poll(() => readCodeMirrorValue(page, pathInputId))
-      .toContain(folderName);
+    await expect(pathInput).toHaveValue(folderName);
 
     const backButton = sectionNode.locator('button[aria-label="Go back"]');
     const forwardButton = sectionNode.locator(
@@ -364,103 +279,16 @@ test("browser history buttons navigate folders", async ({ page }) => {
 
     await expect(backButton).toBeEnabled();
     await backButton.click();
-    await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-      )
-      .toContain(normalizedWorkspaceRoot);
+    await expect(pathInput).toHaveValue(workspaceRoot);
 
     await expect(forwardButton).toBeEnabled();
     await forwardButton.click();
-    await expect
-      .poll(() => readCodeMirrorValue(page, pathInputId))
-      .toContain(folderName);
+    await expect(pathInput).toHaveValue(folderName);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,
       sectionIds: [sectionId],
     });
     await fs.rm(folderPath, { recursive: true, force: true });
-  }
-});
-
-test("browser path commits latest value on blur after fast typing", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    },
-  );
-  const sectionId = browserSection?.sectionId;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating browser section.");
-  }
-
-  const folderName = `browser_blur_commit_${Date.now()}`;
-  const folderPath = path.join(workspaceRoot, folderName);
-  await fs.mkdir(folderPath, { recursive: true });
-
-  try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
-    await expect(sectionNode).toBeVisible();
-    await sectionNode
-      .locator('button[aria-label="Carousel view"]')
-      .click();
-
-    const pathInputId = `CodeMirror-${sectionId}-browser-path`;
-    const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
-    await expect(pathInput).toBeVisible();
-
-    // Establish a known starting value.
-    await pathInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(workspaceRoot);
-    await page.click(".react-flow__pane", {
-      position: { x: 8, y: 8 },
-      force: true,
-    });
-    await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-      )
-      .toContain(normalizePathForComparison(workspaceRoot));
-
-    // Repro: type fast, blur immediately. We should commit the latest value,
-    // not a stale pre-change inputValue.
-    await pathInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(folderPath);
-    await page.click(".react-flow__pane", {
-      position: { x: 8, y: 8 },
-      force: true,
-    });
-
-    await expect
-      .poll(async () => await readCodeMirrorValue(page, pathInputId))
-      .toContain(folderName);
-  } finally {
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: [sectionId],
-    });
-    await fs.rm(folderPath, { force: true, recursive: true });
   }
 });
