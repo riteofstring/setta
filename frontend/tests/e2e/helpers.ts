@@ -11,37 +11,12 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
-const READY_TIMEOUT_MS = 30000;
+const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
   projectMetadata: ProjectMetadataEntry[];
-};
-type EngineConfig = {
-  id: string;
-  name: string;
-  engineType: string;
-  settaLlmConfigId?: string | null;
-};
-type AllLLMConfigs = {
-  configs?: Record<
-    string,
-    { model: string; provider?: string; api_key_env?: string }
-  >;
-  mcpServers?: Record<string, unknown>;
-  default_config_id?: string | null;
-};
-type CreateSectionResponse = { sectionId?: string };
-type IsolatedProjectContext = {
-  projectConfigId: string;
-  defaultProjectConfigId: string | null;
-};
-type AgentRun = {
-  inputs?: Record<string, unknown> | null;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  events?: Array<{ timestamp?: string | null }>;
 };
 type ProjectStateSectionSize = {
   width: number | "auto";
@@ -84,7 +59,11 @@ export async function ensureAppReady(page: Page): Promise<void> {
     }
   }
 
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
+    await navigateToDefaultProject(page);
+  } else {
+    await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  }
   if (await isAppReady(page)) {
     return;
   }
@@ -122,9 +101,7 @@ export async function seedLocalStorage(
                 ? (parsedRecord.state as Record<string, unknown>)
                 : {},
             version:
-              typeof parsedRecord.version === "number"
-                ? parsedRecord.version
-                : 0,
+              typeof parsedRecord.version === "number" ? parsedRecord.version : 0,
           };
         }
       } catch {
@@ -134,193 +111,6 @@ export async function seedLocalStorage(
     payload.state = { ...payload.state, ...nextState };
     localStorage.setItem(key, JSON.stringify(payload));
   }, patch);
-}
-
-export async function setOverviewTab(
-  page: Page,
-  tabName: string,
-): Promise<void> {
-  await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
-}
-
-export async function openIsolatedProject(
-  page: Page,
-): Promise<IsolatedProjectContext> {
-  const metadata = await postBackend<ProjectMetadataResponse>(
-    page,
-    "/loadAllProjectMetadata",
-    {},
-  );
-  if (!metadata) {
-    throw new Error("Missing project metadata response.");
-  }
-  const name = await postBackend<string>(page, "/createProjectConfig", {
-    previewImgColor: "bg-blue-500/60",
-  });
-  if (!name) {
-    throw new Error("Missing project config name.");
-  }
-  const url = new URL(name, BASE_URL).toString();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  return {
-    projectConfigId,
-    defaultProjectConfigId: metadata.defaultProjectConfigId ?? null,
-  };
-}
-
-export async function cleanupIsolatedProject(
-  page: Page,
-  context: IsolatedProjectContext | null,
-): Promise<void> {
-  if (!context) {
-    return;
-  }
-  if (
-    context.defaultProjectConfigId &&
-    context.defaultProjectConfigId !== context.projectConfigId
-  ) {
-    await postBackend(page, "/setAsDefaultProject", {
-      projectConfigId: context.defaultProjectConfigId,
-    });
-  }
-  await postBackend(page, "/deleteProjectConfigs", {
-    ids: [context.projectConfigId],
-  });
-}
-
-export async function ensureManagedChatEngine(
-  page: Page,
-): Promise<() => Promise<void>> {
-  const initialConfig = await getBackend<AllLLMConfigs>(page, "/llm/config");
-  if (!initialConfig) {
-    throw new Error("Missing LLM config payload.");
-  }
-  let createdLlmConfigId: string | null = null;
-  let didUpdateLlmConfig = false;
-  const existingConfigs = initialConfig.configs ?? {};
-
-  const engineConfigs = await getBackend<EngineConfig[]>(
-    page,
-    "/getEngineConfigs",
-  );
-  const existingEngine =
-    engineConfigs?.find((config) => config.engineType === "setta_llm") ?? null;
-
-  let llmConfigId = existingEngine?.settaLlmConfigId ?? null;
-  if (llmConfigId && !existingConfigs[llmConfigId]) {
-    const updated: AllLLMConfigs = {
-      ...initialConfig,
-      configs: {
-        ...existingConfigs,
-        [llmConfigId]: { model: "gpt-4o-mini", provider: "openai" },
-      },
-      default_config_id: initialConfig.default_config_id ?? llmConfigId,
-    };
-    await postBackend(page, "/llm/config", updated as Record<string, unknown>);
-    createdLlmConfigId = llmConfigId;
-    didUpdateLlmConfig = true;
-  }
-
-  if (!llmConfigId) {
-    llmConfigId =
-      Object.entries(existingConfigs).find(
-        ([, config]) => !config.api_key_env,
-      )?.[0] ?? null;
-  }
-
-  if (!llmConfigId) {
-    llmConfigId = "e2e-llm";
-    const updated: AllLLMConfigs = {
-      ...initialConfig,
-      configs: {
-        ...existingConfigs,
-        [llmConfigId]: { model: "gpt-4o-mini", provider: "openai" },
-      },
-      default_config_id: llmConfigId,
-    };
-    await postBackend(page, "/llm/config", updated as Record<string, unknown>);
-    createdLlmConfigId = llmConfigId;
-    didUpdateLlmConfig = true;
-  }
-
-  let createdEngineConfigId: string | null = null;
-  if (!existingEngine) {
-    const created = await postBackend<EngineConfig>(
-      page,
-      "/createEngineConfig",
-      {
-        name: "E2E Engine",
-        engineType: "setta_llm",
-        settaLlmConfigId: llmConfigId,
-        defaults: {},
-      },
-    );
-    if (!created?.id) {
-      throw new Error("Missing engine config id.");
-    }
-    createdEngineConfigId = created.id;
-  }
-
-  return async () => {
-    if (createdEngineConfigId) {
-      await postBackend(page, "/deleteEngineConfig", {
-        configId: createdEngineConfigId,
-      });
-    }
-    if (createdLlmConfigId || didUpdateLlmConfig) {
-      await postBackend(
-        page,
-        "/llm/config",
-        initialConfig as Record<string, unknown>,
-      );
-    }
-  };
-}
-
-export async function createChatSection(
-  page: Page,
-  projectConfigId: string,
-  baseName: string,
-): Promise<{ sectionId: string; sectionName: string }> {
-  const sectionName = `${baseName}-${Date.now()}`;
-  const created = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Chat",
-    },
-  );
-  if (!created?.sectionId) {
-    throw new Error("Missing sectionId when creating chat section.");
-  }
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId: created.sectionId,
-    name: sectionName,
-  });
-  return { sectionId: created.sectionId, sectionName };
-}
-
-export async function setChatSectionState(
-  page: Page,
-  payload: {
-    projectConfigId: string;
-    sectionId: string;
-    state: Record<string, unknown>;
-  },
-): Promise<void> {
-  await postBackend(page, "/setChatSectionState", payload);
-}
-
-export async function stopLatestProjectChat(
-  page: Page,
-  projectConfigId: string,
-): Promise<void> {
-  const chatId = await waitForLatestChatId(page, projectConfigId);
-  await postBackend(page, "/stopLLMChat", { chatId });
 }
 
 export async function getCurrentProjectConfigId(page: Page): Promise<string> {
@@ -415,7 +205,9 @@ export async function createCallableSection(
   return response.sectionId;
 }
 
-export async function getViewportBoundsForPlacement(page: Page): Promise<{
+export async function getViewportBoundsForPlacement(
+  page: Page,
+): Promise<{
   x: number;
   y: number;
   w: number;
@@ -425,10 +217,7 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
     const bounds = await page.evaluate(async () => {
       const pane = document.querySelector(".react-flow__pane");
       const viewport = document.querySelector(".react-flow__viewport");
-      if (
-        !(pane instanceof HTMLElement) ||
-        !(viewport instanceof HTMLElement)
-      ) {
+      if (!(pane instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
         return null;
       }
       const paneRect = pane.getBoundingClientRect();
@@ -440,18 +229,11 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
         ? overviewPane.getBoundingClientRect().width
         : 0;
       const { useLocalStorage } = await import("/src/state/definitions");
-      const localStorageState = useLocalStorage.getState();
-      const storedOverviewWidth = localStorageState.overviewTrueWidth;
-      const overviewWidth =
-        Number.isFinite(storedOverviewWidth) && storedOverviewWidth > 0
-          ? storedOverviewWidth
-          : overviewDomWidth;
-      const storedUiEditorWidth = localStorageState.uiEditorTrueWidth;
-      const uiEditorWidth =
-        Number.isFinite(storedUiEditorWidth) && storedUiEditorWidth > 0
-          ? storedUiEditorWidth
-          : 0;
-      const gutter = 16;
+      const storedOverviewWidth =
+        useLocalStorage.getState().overviewTrueWidth;
+      const overviewWidth = Number.isFinite(storedOverviewWidth)
+        ? storedOverviewWidth
+        : overviewDomWidth;
       const transform = window.getComputedStyle(viewport).transform;
       if (!transform || transform === "none") {
         return null;
@@ -461,17 +243,13 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;
       }
-      const leftInset = overviewWidth + gutter;
-      const rightInset = uiEditorWidth + gutter;
-      const topInset = gutter;
-      const bottomInset = gutter;
-      const x = (-matrix.e + leftInset) / scale;
-      const y = (-matrix.f + topInset) / scale;
+      const x = (-matrix.e + overviewWidth) / scale;
+      const y = -matrix.f / scale;
       return {
         x,
         y,
-        w: Math.max(1, (paneRect.width - leftInset - rightInset) / scale),
-        h: Math.max(1, (paneRect.height - topInset - bottomInset) / scale),
+        w: paneRect.width / scale,
+        h: paneRect.height / scale,
       };
     });
     if (bounds) {
@@ -503,108 +281,45 @@ export async function postBackend<T>(
   return JSON.parse(text) as T;
 }
 
-async function getBackend<T>(page: Page, path: string): Promise<T | null> {
-  const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`);
-  const text = await response.text();
-  if (!response.ok()) {
-    const detail = text ? ` ${text}` : "";
-    throw new Error(
-      `Backend request failed (${response.status()}): ${path}${detail}`,
-    );
-  }
-  if (!text) {
-    return null;
-  }
-  return JSON.parse(text) as T;
-}
-
-async function waitForLatestChatId(
-  page: Page,
-  projectConfigId: string,
-): Promise<string> {
-  const deadline = Date.now() + 15000;
-  while (Date.now() < deadline) {
-    const runs = (await getBackend<AgentRun[]>(page, "/getAgentRuns")) ?? [];
-    const latest = findLatestChatRun(runs, projectConfigId);
-    if (latest) {
-      const chatId = getRunInputString(latest, "chatId");
-      if (chatId) {
-        return chatId;
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error("Timed out waiting for project chat run.");
-}
-
-function findLatestChatRun(
-  runs: AgentRun[],
-  projectConfigId: string,
-): AgentRun | null {
-  const filtered = runs.filter((run) => {
-    const runType = getRunInputString(run, "runType");
-    if (runType !== "llm_chat") {
-      return false;
-    }
-    const runProjectId = getRunInputString(run, "projectConfigId");
-    return runProjectId === projectConfigId;
-  });
-  if (filtered.length === 0) {
-    return null;
-  }
-  return filtered.reduce((latest, run) => {
-    if (!latest) {
-      return run;
-    }
-    return getRunTimestamp(run) > getRunTimestamp(latest) ? run : latest;
-  }, filtered[0] ?? null);
-}
-
-function getRunInputString(run: AgentRun, key: string): string | null {
-  const inputs = run.inputs;
-  if (!inputs || typeof inputs !== "object") {
-    return null;
-  }
-  if (Array.isArray(inputs)) {
-    return null;
-  }
-  const raw = inputs[key];
-  if (typeof raw === "string" && raw.trim()) {
-    return raw;
-  }
-  return null;
-}
-
-function getRunTimestamp(run: AgentRun): number {
-  const eventTimestamps = (run.events ?? [])
-    .map((event) => Date.parse(event.timestamp ?? ""))
-    .filter((value) => !Number.isNaN(value));
-  if (eventTimestamps.length > 0) {
-    return Math.max(...eventTimestamps);
-  }
-  const finishedAt = Date.parse(run.finishedAt ?? "");
-  if (!Number.isNaN(finishedAt)) {
-    return finishedAt;
-  }
-  const startedAt = Date.parse(run.startedAt ?? "");
-  if (!Number.isNaN(startedAt)) {
-    return startedAt;
-  }
-  return 0;
-}
-
 async function isAppReady(page: Page): Promise<boolean> {
   try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
+    await page.waitForSelector(READY_SELECTOR, { timeout: 20000 });
     return true;
   } catch {
     return false;
   }
 }
 
+async function navigateToDefaultProject(page: Page): Promise<void> {
+  try {
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      return;
+    }
+    const defaultId = metadata.defaultProjectConfigId;
+    const defaultEntry = metadata.projectMetadata.find(
+      (entry) => entry.id === defaultId,
+    );
+    if (!defaultEntry?.name) {
+      return;
+    }
+    const targetUrl = new URL(
+      encodeURIComponent(defaultEntry.name),
+      BASE_URL,
+    ).toString();
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  } catch {
+    // Ignore failures; callers will fall back to readiness checks.
+  }
+}
+
 async function waitForProjectUrl(page: Page): Promise<void> {
   await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
-    timeout: READY_TIMEOUT_MS,
+    timeout: 20000,
     waitUntil: "domcontentloaded",
   });
 }
