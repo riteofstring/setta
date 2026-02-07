@@ -14,10 +14,7 @@ import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
-import {
-  terminalCleanup,
-  terminalTheme,
-} from "./utils";
+import { terminalCleanup, terminalTheme } from "./utils";
 
 // Maps from sectionId to a list of websocket connections.
 // There should only be 1 websocket for a given section.

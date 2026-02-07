@@ -633,7 +633,9 @@ function ManagedChatArea({
   useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const agenticEdges = useProjectState((state) => state.projectConfig.agenticEdges);
+  const agenticEdges = useProjectState(
+    (state) => state.projectConfig.agenticEdges,
+  );
   const { hasAnyAgenticEdge, hasWriteScope } = useMemo(() => {
     let hasAny = false;
     let hasWrite = false;

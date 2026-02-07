@@ -1502,7 +1502,9 @@ class BaseProjectManager(ABC):
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
-    @project_state_tool(access_type="write", default_target_singleton_section="GenPythonCode")
+    @project_state_tool(
+        access_type="write", default_target_singleton_section="GenPythonCode"
+    )
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
         self.add_new_history_entry()
@@ -1514,7 +1516,9 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    @project_state_tool(access_type="write", default_target_singleton_section="GenPythonCode")
+    @project_state_tool(
+        access_type="write", default_target_singleton_section="GenPythonCode"
+    )
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
         self.add_new_history_entry()

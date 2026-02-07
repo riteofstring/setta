@@ -69,7 +69,6 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_nam
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
-from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.chat_messages import (
     AssistantChatMessage,
     ToolCall,
@@ -473,7 +472,9 @@ class ExternalAgentRunner:
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
         agentic_context_section_ids: tuple[ID, ...] = ()
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
         map_size_before = len(canonical_to_temporary)
         if section_id is not None:
             project_state_single = convert_backend_to_single_config(
@@ -492,10 +493,10 @@ class ExternalAgentRunner:
 
             summary_text_by_section_id, summary_by_section, _ = (
                 resolve_cached_agentic_summaries_for_chat_section(
-                self.dbe,
-                project_state=project_state_single,
-                project_config_id=project_config_id,
-                chat_section_id=section_id,
+                    self.dbe,
+                    project_state=project_state_single,
+                    project_config_id=project_config_id,
+                    chat_section_id=section_id,
                 )
             )
             payload = build_agentic_context_payload(

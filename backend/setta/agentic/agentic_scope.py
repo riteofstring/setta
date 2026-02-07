@@ -389,7 +389,9 @@ def _map_code_obj_ids_to_sections(
         sections = resolved.get(code_obj_id)
         if sections:
             mapped_sections.update(sections)
-    unmapped = {code_obj_id for code_obj_id in code_obj_ids if code_obj_id not in resolved}
+    unmapped = {
+        code_obj_id for code_obj_id in code_obj_ids if code_obj_id not in resolved
+    }
     return mapped_sections, unmapped
 
 

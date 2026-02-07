@@ -20,7 +20,6 @@ from setta.agentic.agentic_scope import (
     AgenticContext,
     AgenticScope,
     resolve_agentic_scope,
-    resolve_context_edges,
 )
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
@@ -101,7 +100,6 @@ from setta.types.agentic import (
     EngineType,
     RunEvent,
 )
-from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.chat_messages import (
     AssistantChatMessage,
     ContentChatMessage,

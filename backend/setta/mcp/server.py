@@ -902,7 +902,8 @@ class SettaFastMCP(FastMCP):
                     cached_scope = scope_cache.get(cache_key)
                     if (
                         cached_scope is not None
-                        and cached_scope.project_state_revision == project_state_revision
+                        and cached_scope.project_state_revision
+                        == project_state_revision
                     ):
                         project_state = cached_scope.project_state_single
                         scope = cached_scope.scope
@@ -936,8 +937,8 @@ class SettaFastMCP(FastMCP):
                     scope = resolve_agentic_scope(
                         project_state, agentic_context.section_id
                     )
-                    code_obj_id_to_section_ids = (
-                        build_code_obj_id_to_section_ids_index(project_state)
+                    code_obj_id_to_section_ids = build_code_obj_id_to_section_ids_index(
+                        project_state
                     )
                 logger.debug(
                     "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
