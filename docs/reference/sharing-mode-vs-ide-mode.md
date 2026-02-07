@@ -8,7 +8,7 @@ Setta has two runtime modes. IDE mode is the full interactive editor. Share mode
 
 ## IDE mode (default)
 - Started with `setta` (CLI group default).
-- Backend uses `setta_files/` for DBE storage (`project.json`, settings, backups, artifacts, code, notifications).
+- Backend uses `setta_files/` for DBE storage (`project.json`, settings, artifacts, code, notifications).
 - AuthMiddleware + bootstrap token flow; CLI and frontend websockets are enabled.
 - LSP servers, MCP server/client, watchers, and LLM config edits are enabled.
 - Project managers use `SessionPersistenceMode.ide_main` and `SessionPersistenceMode.ide_settings`, persisting to disk.
