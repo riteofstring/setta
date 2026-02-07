@@ -37,10 +37,7 @@ export function ModalContainer({ children }) {
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
-        <Dialog.Content
-          className={contentClassName}
-          data-tab-native
-        >
+        <Dialog.Content className={contentClassName} data-tab-native>
           <ModalContent open={open} />
         </Dialog.Content>
       </Dialog.Portal>

@@ -14,6 +14,7 @@ from setta.utils.paths import build_files_root_from_base
 
 router = SettaAPIRouter()
 
+
 def _resolve_path(raw: str) -> Path:
     expanded = os.path.expandvars(os.path.expanduser(raw))
     return Path(expanded).resolve(strict=False)

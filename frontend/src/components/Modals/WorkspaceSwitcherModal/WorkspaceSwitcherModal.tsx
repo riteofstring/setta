@@ -270,8 +270,9 @@ export function WorkspaceSwitcherModal() {
                 />
               </div>
               <p className="text-xs text-setta-500 dark:text-setta-400">
-                Setta stores state under the files root. When using a base, Setta
-                will create a per-workspace folder under that base named like{" "}
+                Setta stores state under the files root. When using a base,
+                Setta will create a per-workspace folder under that base named
+                like{" "}
                 <span className="font-semibold">workspace-name-1a2b3c4d</span>.
                 Files root overrides the base when both are provided.
               </p>

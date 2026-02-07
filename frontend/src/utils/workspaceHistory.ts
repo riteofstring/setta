@@ -99,7 +99,9 @@ function readWorkspaceHistoryFromWindowName(): WorkspaceHistoryEntry[] {
   }
 }
 
-export function writeWorkspaceHistoryToWindowName(entries: WorkspaceHistoryEntry[]) {
+export function writeWorkspaceHistoryToWindowName(
+  entries: WorkspaceHistoryEntry[],
+) {
   if (typeof window === "undefined") {
     return;
   }

@@ -15,7 +15,7 @@ function resolveStorage(): Storage | undefined {
   return window.sessionStorage;
 }
 
-export function normalizeOrigin(origin: string): string | undefined {
+function normalizeOrigin(origin: string): string | undefined {
   let normalizedOrigin = origin.trim();
   if (!normalizedOrigin) {
     return undefined;
@@ -32,7 +32,7 @@ export function normalizeOrigin(origin: string): string | undefined {
   }
 }
 
-export function readBackendOriginOverrideFromStorage(): string | undefined {
+function readBackendOriginOverrideFromStorage(): string | undefined {
   const storage = resolveStorage();
   if (!storage) {
     return undefined;

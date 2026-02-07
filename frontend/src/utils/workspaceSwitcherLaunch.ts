@@ -1,6 +1,6 @@
 import type { LaunchRequestInput } from "utils/generatedTypes";
 
-export type PendingWorkspaceLaunch = {
+type PendingWorkspaceLaunch = {
   request: LaunchRequestInput;
   returnPath: string;
   requestedAt: number;
