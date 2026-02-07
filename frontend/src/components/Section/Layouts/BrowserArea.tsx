@@ -5,6 +5,8 @@ import {
   FileBrowserPane,
 } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ResizeHandle } from "components/Params/ResizeHandle";
+import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
+import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import {
   MediaCarousel,
   type MediaCarouselItem,
@@ -52,7 +54,9 @@ import { useBrowserColumnWidth } from "state/hooks/useBrowserColumnWidth";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
+import { resolvePathWithinRoot } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_file_browser_download_urls,
@@ -840,6 +844,7 @@ function ItemsColumn({
   const [rootInfo, setRootInfo] = useState<{
     rootPath: string;
     ignorePatterns: string[];
+    pathSeparator: string;
   } | null>(null);
   const [localFolder, setLocalFolder] = useState<string | null>(null);
   const [historyState, setHistoryState] = useState<{
@@ -860,6 +865,16 @@ function ItemsColumn({
     }
     return items.find((item) => item.fullPath === selectedCarouselId) ?? null;
   }, [items, selectedCarouselId]);
+  const folderCompletionSource = useMemo(() => {
+    if (!rootInfo) {
+      return null;
+    }
+    return createFolderPathCompletionSource({
+      rootPath: rootInfo.rootPath,
+      pathSeparator: rootInfo.pathSeparator,
+      ignorePatterns: rootInfo.ignorePatterns,
+    });
+  }, [rootInfo]);
 
   useEffect(() => {
     const trimmed = folder.trim();
@@ -878,9 +893,6 @@ function ItemsColumn({
   }, [historyState]);
 
   useEffect(() => {
-    if (isListView) {
-      return;
-    }
     if (!effectiveFolder) {
       return;
     }
@@ -1095,10 +1107,19 @@ function ItemsColumn({
         setItems([]);
         return;
       }
+      if (!rootInfo?.rootPath) {
+        setItems([]);
+        return;
+      }
+      const safeFolder = resolvePathWithinRoot(trimmed, rootInfo.rootPath);
+      if (!safeFolder) {
+        setItems([]);
+        return;
+      }
       const requestId = folderRequestIdRef.current + 1;
       folderRequestIdRef.current = requestId;
       const res = await route_get_folder_contents({
-        folderPath: trimmed,
+        folderPath: safeFolder,
         ignorePatterns: rootInfo?.ignorePatterns ?? null,
         includeSize: true,
       });
@@ -1111,7 +1132,7 @@ function ItemsColumn({
         setItems([]);
       }
     },
-    [rootInfo?.ignorePatterns],
+    [rootInfo?.ignorePatterns, rootInfo?.rootPath],
   );
 
   function setView(newView: BrowserAreaViewMode) {
@@ -1141,9 +1162,17 @@ function ItemsColumn({
         return;
       }
       setLocalFolder(trimmed);
+      const safeFolder = rootInfo?.rootPath
+        ? resolvePathWithinRoot(trimmed, rootInfo.rootPath)
+        : null;
+      if (isListView && (safeFolder || !rootInfo?.rootPath)) {
+        useBrowserSectionFileBrowserState.setState({
+          rootPath: safeFolder ?? trimmed,
+        });
+      }
       await loadFolderContents(trimmed);
     },
-    [loadFolderContents],
+    [isListView, loadFolderContents, rootInfo?.rootPath],
   );
 
   useEffect(() => {
@@ -1304,7 +1333,7 @@ function ItemsColumn({
   }, [setFolder]);
 
   useEffect(() => {
-    if (isListView || rootInfo) {
+    if (rootInfo) {
       return;
     }
     const requestId = rootRequestIdRef.current + 1;
@@ -1320,10 +1349,11 @@ function ItemsColumn({
       setRootInfo({
         rootPath: res.data.rootPath,
         ignorePatterns: res.data.ignorePatterns,
+        pathSeparator: res.data.pathSeparator,
       });
     };
     void loadRoot();
-  }, [isListView, rootInfo]);
+  }, [rootInfo]);
 
   useEffect(() => {
     if (isListView) {
@@ -1332,14 +1362,54 @@ function ItemsColumn({
     void loadFolderContents(effectiveFolder);
   }, [effectiveFolder, isListView, loadFolderContents]);
 
+  useEffect(() => {
+    if (!isListView) {
+      return;
+    }
+    const trimmed = effectiveFolder.trim();
+    if (!trimmed) {
+      return;
+    }
+    const safeFolder = rootInfo?.rootPath
+      ? resolvePathWithinRoot(trimmed, rootInfo.rootPath)
+      : trimmed;
+    if (rootInfo?.rootPath && !safeFolder) {
+      return;
+    }
+    useBrowserSectionFileBrowserState.setState({
+      rootPath: safeFolder,
+    });
+  }, [effectiveFolder, isListView, rootInfo?.rootPath]);
+
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
-      <div className="-mt-[4.5px] mb-1 flex flex-row items-center gap-2">
+      <div
+        className={`-mt-[4.5px] mb-1 flex flex-row gap-2 ${
+          isListView ? "items-start" : "items-center"
+        }`}
+      >
         <div className="flex w-full min-w-0 items-center gap-2">
           {isListView ? (
-            <FileBrowserFilter
-              useFileBrowserStateHook={useBrowserSectionFileBrowserState}
-            />
+            <div className="flex w-full min-w-0 flex-col gap-2">
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <FolderHistoryControls
+                  canGoBack={canGoBack}
+                  canGoForward={canGoForward}
+                  onBack={handleGoBack}
+                  onForward={handleGoForward}
+                />
+                <FolderPath
+                  sectionId={sectionId}
+                  folder={effectiveFolder}
+                  setFolder={setFolder}
+                  completionSource={folderCompletionSource}
+                />
+              </div>
+              <FileBrowserFilter
+                useFileBrowserStateHook={useBrowserSectionFileBrowserState}
+                tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+              />
+            </div>
           ) : (
             <>
               <FolderHistoryControls
@@ -1348,7 +1418,12 @@ function ItemsColumn({
                 onBack={handleGoBack}
                 onForward={handleGoForward}
               />
-              <FolderPath folder={effectiveFolder} setFolder={setFolder} />
+              <FolderPath
+                sectionId={sectionId}
+                folder={effectiveFolder}
+                setFolder={setFolder}
+                completionSource={folderCompletionSource}
+              />
             </>
           )}
         </div>
@@ -1466,20 +1541,44 @@ function FolderHistoryControls({
 }
 
 function FolderPath({
+  sectionId,
   folder,
   setFolder,
+  completionSource,
 }: {
+  sectionId: string;
   folder: string;
   setFolder: (newFolder: string) => void;
+  completionSource: ReturnType<typeof createFolderPathCompletionSource>;
 }) {
-  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
-    folder,
-    setFolder,
-    () => true,
+  const { inputValue, onChange, onBlur, blurTriggeredByEscapeKey } =
+    useEditableOnSubmit(folder, setFolder, () => true);
+
+  const blurActiveElement = useCallback(() => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) {
+        active.blur();
+      }
+    }
+  }, []);
+
+  const keyComboActions = useMemo(
+    () => ({
+      Escape: () => {
+        blurTriggeredByEscapeKey.current = true;
+        onChange(folder);
+        blurActiveElement();
+        return true;
+      },
+    }),
+    [blurActiveElement, folder, onChange, blurTriggeredByEscapeKey],
   );
 
-  const inputStyles =
-    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
+  const dummyInputStyles =
+    "flex-1 min-w-0 cursor-text truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent pl-4 py-1 text-xs outline-0 focus-visible:border-blue-300 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
+  const realInputStyles =
+    "flex-1 min-w-0 cursor-text truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent outline-0 focus-within:border-blue-300 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-4 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-200 [&_.cm-placeholder]:text-setta-300 dark:[&_.cm-placeholder]:text-setta-700 [&_.cm-content]:font-sans";
 
   return (
     <search
@@ -1487,12 +1586,24 @@ function FolderPath({
         "nodrag relative mx-[2px] flex min-w-0 flex-1 items-center dark:text-setta-200"
       }
     >
-      <input
-        className={inputStyles}
+      <InlineCodeMirrorInput
+        id={`CodeMirror-${sectionId}-browser-path`}
         value={inputValue}
         onChange={onChange}
-        onKeyDown={onKeyDown}
-        onBlur={onBlur}
+        onBlur={() => onBlur(inputValue)}
+        onEnter={(_, completionResult) => {
+          if (!completionResult) {
+            blurActiveElement();
+          }
+        }}
+        className={realInputStyles}
+        dummyClassName={dummyInputStyles}
+        singleLine
+        completionsFn={completionSource ?? undefined}
+        triggerCompletionAfterAccept
+        completionTriggerChars={["/", "\\"]}
+        keyComboActions={keyComboActions}
+        tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
     </search>
   );
