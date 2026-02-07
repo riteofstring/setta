@@ -15,7 +15,8 @@ from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.section_impls import BaseCodeSectionImpl, CodeFileAccessMode
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
-from setta.utils.utils import compute_md5_hex, normalize_path
+from setta.utils.paths import normalize_workspace_path
+from setta.utils.utils import compute_md5_hex
 
 GEN_CODE_SECTION_ID = ID("__setta_gen_code__")
 GEN_CODE_VARIANT_ID = ID("__setta_gen_code__")
@@ -79,7 +80,7 @@ class CodeFiles:
         """
         Store binding metadata so the watcher callback can reload the proper sections.
         """
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         bucket = self._bindings.setdefault(normalized, set())
         to_replace = {
             existing
@@ -129,7 +130,7 @@ class CodeFiles:
                 project_config_id=project_config_id,
                 access_mode=binding.access_mode,
             )
-            normalized = normalize_path(binding.canonical_path)
+            normalized = normalize_workspace_path(binding.canonical_path)
             new_bindings.setdefault(normalized, set()).add(registered_binding)
 
         gen_code_binding = project_state.genCodeBinding
@@ -140,7 +141,7 @@ class CodeFiles:
                 project_config_id=project_config_id,
                 access_mode=gen_code_binding.access_mode,
             )
-            normalized = normalize_path(gen_code_binding.canonical_path)
+            normalized = normalize_workspace_path(gen_code_binding.canonical_path)
             new_bindings.setdefault(normalized, set()).add(registered_gen_binding)
 
         return new_bindings
@@ -209,16 +210,16 @@ class CodeFiles:
 
     def get_bindings(self, path: Path) -> set[RegisteredCodeFileBinding]:
         """Return the registered bindings for `path`."""
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         return set(self._bindings.get(normalized, set()))
 
     def get_metadata(self, path: Path) -> CodeFileMetadata | None:
         """Return metadata for `path` if registered."""
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         return self._metadata.get(normalized)
 
     def get_access_mode(self, path: Path) -> CodeFileAccessMode:
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         self._ensure_registered(normalized)
         return self._resolve_access_mode(normalized)
 
@@ -286,7 +287,7 @@ class CodeFiles:
         """
         Update read metadata after Setta ingests fresh on-disk contents.
         """
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         self._ensure_registered(normalized)
         metadata = self._metadata.setdefault(normalized, CodeFileMetadata())
         metadata.last_read_hash = content_hash
@@ -297,7 +298,7 @@ class CodeFiles:
         Track the hash of writes issued by Setta so incoming watcher events can skip
         redundant reloads.
         """
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         self._ensure_registered(normalized)
         access_mode = self._resolve_access_mode(normalized)
         if access_mode == CodeFileAccessMode.read_only:
@@ -313,7 +314,7 @@ class CodeFiles:
         """
         Decide whether a filesystem event should trigger reloading the section.
         """
-        normalized = normalize_path(path)
+        normalized = normalize_workspace_path(path)
         self._ensure_registered(normalized)
 
         metadata = self._metadata.setdefault(normalized, CodeFileMetadata())
@@ -400,7 +401,7 @@ class CodeFiles:
         reload_code_sections: Callable[[CodeFileReloadPlan], Coroutine[Any, Any, None]],
     ) -> FileWatcherCallback:
         async def _callback(core_update: FileWatcherCoreUpdate) -> None:
-            normalized_path = normalize_path(core_update.fileToRead)
+            normalized_path = normalize_workspace_path(core_update.fileToRead)
             bindings = self._get_category_bindings(callback_category).get(
                 normalized_path, set()
             )

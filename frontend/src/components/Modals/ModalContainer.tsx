@@ -1,6 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { useEffect } from "react";
+import { openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
-import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";
+import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { DropzoneFilePickerModal } from "./DropzoneFilePickerModal/DropzoneFilePickerModal";
@@ -8,11 +10,18 @@ import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModa
 import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
 import { PublishShareDeploymentModal } from "./ShareDeploymentsModal/PublishShareDeploymentModal";
+import { WorkspaceSwitcherModal } from "./WorkspaceSwitcherModal/WorkspaceSwitcherModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
+
+  useEffect(() => {
+    if (consumeOpenWorkspaceSwitcherRequest()) {
+      openWorkspaceSwitcherModal();
+    }
+  }, []);
 
   return (
     <Dialog.Root
@@ -53,10 +62,10 @@ function ModalContent({ open }: { open: boolean }) {
       return <RenameReferencesModal />;
     case ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT:
       return <PublishShareDeploymentModal open={open} />;
-    case ModalTypeEnum.PUBLISH_APP_DEPLOYMENT:
-      return <PublishAppDeploymentModal open={open} />;
     case ModalTypeEnum.DROPZONE_FILE_PICKER:
       return <DropzoneFilePickerModal open={open} />;
+    case ModalTypeEnum.WORKSPACE_SWITCHER:
+      return <WorkspaceSwitcherModal />;
     default:
       return modalInfo satisfies never;
   }

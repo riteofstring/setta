@@ -17,7 +17,8 @@ from setta.types.id import (
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.share_deployment import ShareDeploymentManifest
-from setta.utils.utils import compute_md5_prefix, normalize_path
+from setta.utils.paths import normalize_state_path
+from setta.utils.utils import compute_md5_prefix
 
 
 class DBE:
@@ -28,12 +29,16 @@ class DBE:
         runtime_root: Path | None = None,
         lock_root: Path | None = None,
     ):
-        self.path = normalize_path(path)
+        self.path = normalize_state_path(path)
         self.runtime_root = (
-            normalize_path(runtime_root) if runtime_root is not None else self.path
+            normalize_state_path(runtime_root)
+            if runtime_root is not None
+            else self.path
         )
         self.lock_root = (
-            normalize_path(lock_root) if lock_root is not None else self.runtime_root
+            normalize_state_path(lock_root)
+            if lock_root is not None
+            else self.runtime_root
         )
         self.project = self.path / "project.json"
         self.temporary_id_map = self.runtime_root / "temporary_id_map.json"
