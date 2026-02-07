@@ -32,19 +32,9 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
-from tests.utils.integration_flags import (
-    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    external_agent_integration_tests_enabled,
-)
 
 
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.skipif(
-        not external_agent_integration_tests_enabled(),
-        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    ),
-]
+pytestmark = pytest.mark.asyncio
 
 
 class TestClaudeSdkAdapterIntegration:
@@ -96,7 +86,7 @@ class TestClaudeSdkAdapterIntegration:
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
-        for _ in range(120):
+        for _ in range(240):
             await asyncio.sleep(0.5)
             stored = dbe.read_agent_run(run_id)
             if stored and stored.get("status") in {
@@ -150,7 +140,7 @@ class TestClaudeSdkAdapterIntegration:
     async def _await_pending_question(
         self, runner: ExternalAgentRunner, run_id: ID
     ) -> str:
-        for _ in range(200):
+        for _ in range(600):
             for tool_call_id, state in runner._pending_questions.items():
                 if state.run_id == run_id and state.approval_id:
                     return tool_call_id
@@ -161,7 +151,7 @@ class TestClaudeSdkAdapterIntegration:
     async def _await_pending_approval(
         self, runner: ExternalAgentRunner, run_id: ID
     ) -> str:
-        for _ in range(200):
+        for _ in range(600):
             for approval_id, state in runner._pending_approvals.items():
                 if state.run_id == run_id:
                     return approval_id
