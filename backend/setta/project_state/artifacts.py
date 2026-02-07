@@ -40,7 +40,8 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
-from setta.utils.utils import compute_md5_hex, normalize_path
+from setta.utils.paths import normalize_state_path
+from setta.utils.utils import compute_md5_hex
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -96,7 +97,7 @@ class Artifacts:
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
-        self._path_resolver = path_resolver or normalize_path
+        self._path_resolver = path_resolver or normalize_state_path
         self._artifact_id_resolver = artifact_id_resolver or self._path_resolver
         self._realtime_event_hub = realtime_event_hub
         self._share_session_id = share_session_id
