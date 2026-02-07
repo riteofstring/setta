@@ -25,7 +25,6 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import get_meta_control_param_id, get_top_level_param_ids
 from setta.types.id import ID
-from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
     ProjectConfig,
@@ -37,7 +36,6 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
-    SingletonSections,
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -106,6 +104,7 @@ def merge_single_config_into_backend(
             config.projectConfig.id: config.projectConfig,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
+        appDefinition=x.appDefinition,
     )
 
 
@@ -294,157 +293,6 @@ def build_project_state_summary(
         requiredDecodedImages=list(project_state.requiredDecodedImages),
         genCodeBinding=project_state.genCodeBinding,
     )
-
-
-def filter_project_state_summary(
-    summary: ProjectStateSummary,
-    allowed_section_ids: set[ID],
-) -> ProjectStateSummary:
-    filtered_project_config = _filter_project_config_for_summary(
-        summary.projectConfig, allowed_section_ids
-    )
-    allowed_variant_ids = set(filtered_project_config.sectionVariantMap.values())
-    filtered_parent_map: dict[ID, ID | None] = {}
-    for section_id in allowed_section_ids:
-        parent_id = summary.parentSectionMap.get(section_id)
-        if parent_id is not None and parent_id not in allowed_section_ids:
-            parent_id = None
-        filtered_parent_map[section_id] = parent_id
-
-    filtered_sections: list[ProjectStateSummarySection] = []
-    for entry in summary.sections:
-        if entry.sectionId not in allowed_section_ids:
-            continue
-        child_ids = [cid for cid in entry.childSectionIds if cid in allowed_section_ids]
-        parent_id = filtered_parent_map.get(entry.sectionId)
-        filtered_sections.append(
-            ProjectStateSummarySection(
-                sectionId=entry.sectionId,
-                coreName=entry.coreName,
-                variantId=entry.variantId,
-                variantName=entry.variantName,
-                sectionType=entry.sectionType,
-                parentSectionId=parent_id,
-                childSectionIds=child_ids,
-                isFrozen=entry.isFrozen,
-                isMinimized=entry.isMinimized,
-                isSingletonMember=entry.isSingletonMember,
-                hideParams=entry.hideParams,
-                hideUnpinnedParams=entry.hideUnpinnedParams,
-                topLevelLayout=entry.topLevelLayout,
-                layoutLocked=entry.layoutLocked,
-                parameters=entry.parameters,
-                codeFileBinding=entry.codeFileBinding,
-                imagePath=entry.imagePath,
-                chartDataPath=entry.chartDataPath,
-                drawLayerAssetPaths=entry.drawLayerAssetPaths,
-            )
-        )
-
-    singleton = summary.singletonSections
-    filtered_singleton = SingletonSections(
-        GlobalVariables=singleton.GlobalVariables
-        if singleton.GlobalVariables in allowed_section_ids
-        else None,
-        GenPythonCode=singleton.GenPythonCode
-        if singleton.GenPythonCode in allowed_section_ids
-        else None,
-        GenPythonMetadata=singleton.GenPythonMetadata
-        if singleton.GenPythonMetadata in allowed_section_ids
-        else None,
-    )
-    filtered_shown_variant_ids = [
-        variant_id
-        for variant_id in summary.shownParamVariantIds
-        if variant_id in allowed_variant_ids
-    ]
-    return ProjectStateSummary(
-        projectConfig=filtered_project_config,
-        sections=filtered_sections,
-        singletonSections=filtered_singleton,
-        parentSectionMap=filtered_parent_map,
-        shownParamVariantIds=filtered_shown_variant_ids,
-        requiredDecodedImages=list(summary.requiredDecodedImages),
-        genCodeBinding=summary.genCodeBinding,
-    )
-
-
-def filter_lsp_diagnostics_payload(
-    payload: SettaLspDiagnosticsPayload,
-    allowed_section_ids: set[ID],
-    *,
-    include_unmapped: bool,
-) -> SettaLspDiagnosticsPayload:
-    """Limit LSP diagnostics payload to section IDs within the allowed scope."""
-
-    filtered_gen_errors = {
-        section_id: errors
-        for section_id, errors in payload.genCode.errors.items()
-        if section_id in allowed_section_ids
-    }
-    filtered_gen_code = payload.genCode.model_copy(
-        update={"errors": filtered_gen_errors},
-        deep=True,
-    )
-    filtered_code_sections = {
-        section_id: diagnostics
-        for section_id, diagnostics in payload.codeSections.items()
-        if section_id in allowed_section_ids
-    }
-    return payload.model_copy(
-        update={
-            "genCode": filtered_gen_code,
-            "codeSections": filtered_code_sections,
-            "unmappedGenCode": list(payload.unmappedGenCode)
-            if include_unmapped
-            else [],
-        },
-        deep=True,
-    )
-
-
-def _filter_project_config_for_summary(
-    project_config: ProjectConfig,
-    allowed_section_ids: set[ID],
-) -> ProjectConfig:
-    cloned = project_config.model_copy(deep=True)
-    cloned.sectionVariantMap = {
-        section_id: variant_id
-        for section_id, variant_id in cloned.sectionVariantMap.items()
-        if section_id in allowed_section_ids
-    }
-    cloned.topLevelSections = {
-        section_id: layout
-        for section_id, layout in cloned.topLevelSections.items()
-        if section_id in allowed_section_ids
-    }
-    cloned.activeIds = [sid for sid in cloned.activeIds if sid in allowed_section_ids]
-    cloned.edges = [
-        edge
-        for edge in cloned.edges
-        if edge.sourceSectionId in allowed_section_ids
-        and edge.targetSectionId in allowed_section_ids
-    ]
-    cloned.agenticEdges = [
-        edge
-        for edge in cloned.agenticEdges
-        if edge.sourceSectionId in allowed_section_ids
-        and edge.targetSectionId in allowed_section_ids
-    ]
-    if cloned.entryCodeBlockId not in allowed_section_ids:
-        cloned.entryCodeBlockId = None
-    for view_mode in cloned.viewModes.values():
-        view_mode.topLevelSections = {
-            section_id: layout
-            for section_id, layout in view_mode.topLevelSections.items()
-            if section_id in allowed_section_ids
-        }
-        view_mode.visibilityBySectionId = {
-            section_id: visible
-            for section_id, visible in view_mode.visibilityBySectionId.items()
-            if section_id in allowed_section_ids
-        }
-    return cloned
 
 
 def _build_section_param_summaries(

@@ -27,8 +27,6 @@ export function ComboboxInput({
   const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
-  const chevronScale = small ? 0.5 : 0.65;
-  const chevronStyle = { "--ggs": chevronScale } as React.CSSProperties;
   const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-6 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
     small ? "h-4 my-auto" : "h-7"
   }`;
@@ -37,15 +35,14 @@ export function ComboboxInput({
   }`;
   const toggleIcon = isPaneVariant ? (
     <i
-      className={`gg-chevron-down transition-transform duration-150 ${
+      className={`gg-chevron-down !h-3 !w-3 transition-transform duration-150 ${
         isOpen ? "rotate-180" : ""
       }`}
-      style={chevronStyle}
     />
   ) : isOpen ? (
-    <i className="gg-chevron-up" style={chevronStyle} />
+    <i className="gg-chevron-up !h-3 !w-3" />
   ) : (
-    <i className="gg-chevron-down" style={chevronStyle} />
+    <i className="gg-chevron-down !h-3 !w-3" />
   );
   const rightButtonClassName = isPaneVariant
     ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
