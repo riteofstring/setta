@@ -9,7 +9,11 @@ import { initializeServerMode } from "./serverMode";
 describe("initializeServerMode", () => {
   beforeEach(() => {
     resetProjectStores();
-    useServerMode.setState({ mode: null, modeResolved: false, modeError: null });
+    useServerMode.setState({
+      mode: null,
+      modeResolved: false,
+      modeError: null,
+    });
   });
 
   afterEach(() => {
@@ -18,7 +22,11 @@ describe("initializeServerMode", () => {
   });
 
   it("returns cached mode when already resolved", async () => {
-    useServerMode.setState({ mode: "share", modeResolved: true, modeError: null });
+    useServerMode.setState({
+      mode: "share",
+      modeResolved: true,
+      modeError: null,
+    });
     const spy = vi.spyOn(endpoints, "route_get_server_mode");
 
     const mode = await initializeServerMode();

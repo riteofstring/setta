@@ -200,11 +200,19 @@ export async function initializeAppSessionFromCurrentDeployment(
   }
   const session = await ensureAppSessionFromCurrentDeployment(options);
   if (session) {
-    useServerMode.setState({ mode: "app", modeResolved: true, modeError: null });
+    useServerMode.setState({
+      mode: "app",
+      modeResolved: true,
+      modeError: null,
+    });
     return true;
   }
   if (!serverMode.modeResolved) {
-    useServerMode.setState({ mode: "ide", modeResolved: true, modeError: null });
+    useServerMode.setState({
+      mode: "ide",
+      modeResolved: true,
+      modeError: null,
+    });
   }
   resetAppSessionState();
   return false;

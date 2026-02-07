@@ -62,4 +62,3 @@ describe("appSpecPatchStreaming", () => {
     expect(__getAppSpecPatchStreamCountForTests()).toBe(1);
   });
 });
-

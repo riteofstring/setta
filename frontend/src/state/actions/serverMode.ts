@@ -15,7 +15,11 @@ export async function initializeServerMode(): Promise<
     const message = res.hasResponse
       ? `Failed to check server mode (status ${res.status}).`
       : "Failed to check server mode (network error).";
-    useServerMode.setState({ mode: null, modeResolved: true, modeError: message });
+    useServerMode.setState({
+      mode: null,
+      modeResolved: true,
+      modeError: message,
+    });
     return null;
   }
   const mode = res.data.mode;
