@@ -131,19 +131,30 @@ def api_integration_env(request):
     original_cwd = Path.cwd()
     os.chdir(root)
 
+    handle = None
+    constants_module = None
+    server_module = None
+    backend_launcher_module = None
+    original_is_dev_mode = None
+    original_server_is_dev_mode = None
+    original_backend_launcher_is_dev_mode = None
     try:
         import importlib
         import setta.backend_launcher as backend_launcher
         import setta.server as server
         import setta.utils.constants as constants
 
-        original_is_dev_mode = constants.IS_DEV_MODE
-        original_server_is_dev_mode = server.IS_DEV_MODE
-        original_backend_launcher_is_dev_mode = backend_launcher.IS_DEV_MODE
+        constants_module = constants
+        server_module = server
+        backend_launcher_module = backend_launcher
+
+        original_is_dev_mode = constants_module.IS_DEV_MODE
+        original_server_is_dev_mode = server_module.IS_DEV_MODE
+        original_backend_launcher_is_dev_mode = backend_launcher_module.IS_DEV_MODE
         constants.IS_DEV_MODE = "1"
         server.IS_DEV_MODE = "1"
         backend_launcher.IS_DEV_MODE = "1"
-        importlib.reload(server)
+        importlib.reload(server_module)
 
         port = _select_free_port()
         handle = backend_launcher.start_backend(
@@ -153,37 +164,32 @@ def api_integration_env(request):
             open_browser=False,
             ws_protocol="none",
         )
-    except Exception as exc:  # pragma: no cover - environment dependent
-        os.chdir(original_cwd)
-        _restore_fixture_constants(originals)
-        temp_dir.cleanup()
-        pytest.skip(f"Setta backend unavailable: {exc}")
 
-    env = SimpleNamespace(
-        root=root,
-        setta_root=setta_root,
-        handle=handle,
-        original_cwd=original_cwd,
-        originals=originals,
-        original_is_dev_mode=original_is_dev_mode,
-        original_server_is_dev_mode=original_server_is_dev_mode,
-        original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
-    )
-
-    try:
+        env = SimpleNamespace(
+            root=root,
+            setta_root=setta_root,
+            handle=handle,
+            original_cwd=original_cwd,
+            originals=originals,
+            original_is_dev_mode=original_is_dev_mode,
+            original_server_is_dev_mode=original_server_is_dev_mode,
+            original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
+        )
         yield env
     finally:
         if handle is not None:
             handle.stop(join_timeout=30.0)
         os.chdir(original_cwd)
         _restore_fixture_constants(originals)
-        import setta.utils.constants as constants
-        import setta.server as server
-        import setta.backend_launcher as backend_launcher
-
-        constants.IS_DEV_MODE = original_is_dev_mode
-        server.IS_DEV_MODE = original_server_is_dev_mode
-        backend_launcher.IS_DEV_MODE = original_backend_launcher_is_dev_mode
+        if constants_module is not None and original_is_dev_mode is not None:
+            constants_module.IS_DEV_MODE = original_is_dev_mode
+        if server_module is not None and original_server_is_dev_mode is not None:
+            server_module.IS_DEV_MODE = original_server_is_dev_mode
+        if (
+            backend_launcher_module is not None
+            and original_backend_launcher_is_dev_mode is not None
+        ):
+            backend_launcher_module.IS_DEV_MODE = original_backend_launcher_is_dev_mode
         temp_dir.cleanup()
 
 

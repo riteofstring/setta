@@ -90,7 +90,9 @@ class TestOpenCodeSdkAdapterIntegration:
             node_command if Path(node_command).exists() else None
         )
         if node_path is None:
-            pytest.skip("node executable not found")
+            pytest.fail(
+                "node executable not found; ensure it is installed and on PATH."
+            )
         model = self._resolve_test_model(opencode_path)
         provider = model.split("/", 1)[0].strip().lower()
         if provider == "anthropic":

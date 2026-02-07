@@ -6,6 +6,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+import setta.file_watchers.lsp as lsp_file_watcher
+import setta.file_watchers.specific_file_watcher as specific_file_watcher
+import setta.project_state.watch_code as watch_code
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -35,6 +38,13 @@ from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
+from watchdog.observers.polling import PollingObserver
+
+# The default macOS watchdog observer uses FSEvents, which is flaky/unsupported in
+# some sandboxed test environments. Polling keeps tests deterministic.
+specific_file_watcher.Observer = PollingObserver
+lsp_file_watcher.Observer = PollingObserver
+watch_code.Observer = PollingObserver
 
 __all__ = [
     "ProjectManagerFixture",
