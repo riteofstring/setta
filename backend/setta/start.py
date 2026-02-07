@@ -22,6 +22,11 @@ import yaml
 
 from setta import __version__
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
+from setta.database.backup import (
+    backup_filename_to_datetime,
+    create_restore_stash,
+    get_backup_files,
+)
 from setta.database.db_objs import DBE
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
@@ -41,6 +46,7 @@ from setta.utils.network import (
     format_host_for_ssh_tunnel,
     format_host_for_url,
 )
+from setta.utils.utils import normalize_path
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
@@ -1099,6 +1105,133 @@ def export_db(
     click.echo(f"Wrote readable export to {output_path}")
 
 
+@click.group()
+def backups() -> None:
+    """Manage local backups in setta_files/backups."""
+
+
+@backups.command(name="list")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
+@click.option("--limit", type=int, default=None, help="Limit number of entries")
+def backups_list(json_output: bool, limit: int | None) -> None:
+    backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
+    backups = get_backup_files(backup_dir)
+    if limit is not None:
+        if limit < 1:
+            raise click.ClickException("--limit must be >= 1")
+        backups = backups[:limit]
+
+    payload = [
+        dict(
+            index=idx,
+            path=str(path),
+            timestamp=backup_filename_to_datetime(path).isoformat(),
+        )
+        for idx, path in enumerate(backups, start=1)
+    ]
+
+    if json_output:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    if not payload:
+        click.echo(f"No backups found in {backup_dir}")
+        return
+
+    for entry in payload:
+        click.echo(f"{entry['index']}. {entry['timestamp']}  {entry['path']}")
+
+
+@backups.command(name="restore")
+@click.option("--latest", is_flag=True, help="Restore the most recent backup")
+@click.option("--index", type=int, default=None, help="Restore by list index (1-based)")
+@click.option(
+    "--path",
+    "backup_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Restore a specific backup file path",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Allow restore even if a Setta session appears to be running",
+)
+@click.option("--yes", is_flag=True, help="Skip confirmation prompt")
+def backups_restore(
+    latest: bool,
+    index: int | None,
+    backup_path: Path | None,
+    force: bool,
+    yes: bool,
+) -> None:
+    selector_count = sum(
+        [
+            1 if latest else 0,
+            1 if index is not None else 0,
+            1 if backup_path is not None else 0,
+        ]
+    )
+    if selector_count != 1:
+        raise click.ClickException("Use exactly one of: --latest, --index, --path")
+
+    backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
+    selected: Path | None = None
+    if backup_path is not None:
+        selected = normalize_path(backup_path)
+    else:
+        backups = get_backup_files(backup_dir)
+        if not backups:
+            raise click.ClickException(f"No backups found in {backup_dir}")
+        if latest:
+            selected = backups[0]
+        else:
+            if index is None:
+                raise click.ClickException("Missing --index")
+            if index < 1 or index > len(backups):
+                raise click.ClickException(
+                    f"--index must be between 1 and {len(backups)} (got {index})"
+                )
+            selected = backups[index - 1]
+
+    if selected is None:
+        raise click.ClickException("Failed to resolve a backup to restore.")
+    if not selected.exists():
+        raise click.ClickException(f"Backup file not found: {selected}")
+    if not selected.is_file():
+        raise click.ClickException(f"Backup path is not a file: {selected}")
+
+    sessions_root = resolve_sessions_root(Path.cwd())
+    if sessions_root is not None:
+        registry = SessionRegistry(sessions_root=sessions_root)
+        sessions = registry.find_sessions_by_workspace(Path.cwd())
+        if sessions and not force:
+            session_ids = ", ".join(session.id for session in sessions)
+            raise click.ClickException(
+                "Refusing to restore while a Setta session is running for this workspace "
+                f"({session_ids}). Stop it first or pass --force."
+            )
+
+    dbe = DBE(C.SETTA_FILES_FOLDER)
+    project_path = dbe.project
+    if not yes:
+        prompt = f"This will overwrite {project_path} with {selected}. Continue?"
+        if not click.confirm(prompt, default=False):
+            click.echo("Cancelled.")
+            return
+
+    stash_path: Path | None = None
+    if project_path.exists():
+        stash_path = create_restore_stash(project_path, backup_dir)
+
+    dbe.copy(selected, project_path)
+
+    click.echo(f"Restored {project_path} from {selected}")
+    if stash_path is not None:
+        click.echo(f"Stashed previous project file at {stash_path}")
+    click.echo("Restart any running Setta backend to load the restored project.")
+
+
 @click.command()
 @click.option(
     "--deployment-root",
@@ -1911,6 +2044,7 @@ def cli(
 
 cli.add_command(version)
 cli.add_command(export_db)
+cli.add_command(backups)
 cli.add_command(share)
 cli.add_command(status)
 cli.add_command(auth)
