@@ -5,15 +5,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 from setta.logging.tasks import spawn_background_task
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
 )
-from setta.utils.paths import normalize_workspace_path
-from setta.utils.utils import ensure_str_path
-from setta.utils.watchdog_observer import build_watchdog_observer
+from setta.utils.utils import ensure_str_path, normalize_path
 
 if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
@@ -35,7 +34,7 @@ class MockFileEvent:
 
 class SpecificFileWatcher:
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
-        self.observer = build_watchdog_observer()
+        self.observer = Observer()
         self.observer.daemon = True
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
@@ -256,17 +255,17 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         # Get absolute path
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
-        normalized_path = normalize_workspace_path(abs_path)
+        rel_path = normalize_path(abs_path)
 
         # For moved events, get the content of the destination file
         dest_abs_path = None
-        normalized_dest_path = None
+        dest_rel_path = None
         if event_type == FileEventType.moved and hasattr(event, "dest_path"):
             dest_abs_path = Path(ensure_str_path(event.dest_path)).resolve()
-            normalized_dest_path = normalize_workspace_path(dest_abs_path)
+            dest_rel_path = normalize_path(dest_abs_path)
 
         handlers: list[FileWatcherCallback] = []
-        file_to_read = normalized_dest_path if normalized_dest_path else normalized_path
+        file_to_read = dest_rel_path if dest_rel_path else rel_path
         for callbacks in self.callbacks.values():
             c = callbacks.get(file_to_read)
             if c:
@@ -277,11 +276,11 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         core_update = FileWatcherCoreUpdate(
             absPath=abs_path,
-            relPath=normalized_path,
+            relPath=rel_path,
             eventType=event_type,
             matchingGlobPatterns=list(self.file_to_patterns.get(abs_path, [])),
             destAbsPath=dest_abs_path,
-            destRelPath=normalized_dest_path,
+            destRelPath=dest_rel_path,
             fileToRead=file_to_read,
         )
 

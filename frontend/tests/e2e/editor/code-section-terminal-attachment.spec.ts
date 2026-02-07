@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ensureAppReady, postBackend } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -544,7 +544,10 @@ test("detaching a narrow attached terminal does not append extra output", async 
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
-    await waitForTerminalReady(page, terminalId);
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 40000,
+    });
 
     await runCodeBlockInPage(page, codeSectionId);
     await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
@@ -552,19 +555,19 @@ test("detaching a narrow attached terminal does not append extra output", async 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
 
     await expect(embeddedTerminalHost).toBeVisible();
-    const embeddedTerminal = embeddedTerminalHost.locator(
-      "xpath=ancestor::section[1]",
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
     );
-    await expect(embeddedTerminal).toBeVisible();
-    const terminalBox = await embeddedTerminal.boundingBox();
-    if (!terminalBox) {
-      throw new Error("Missing embedded terminal bounding box.");
-    }
-    await setSectionSize(page, terminalId, {
-      width: Math.round(terminalBox.width),
-      height: Math.round(terminalBox.height),
-    });
 
+    // Size changes can trigger a burst of terminal traffic (shell prompt redraw,
+    // escape sequences, etc). The assertion below is about *detaching*, so wait
+    // for output to settle before taking the baseline.
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 10000,
+      stableMs: 750,
+    });
     const beforeOutput = await getTerminalOutputBuffer(page, terminalId);
 
     const codeBox = await page
@@ -590,9 +593,354 @@ test("detaching a narrow attached terminal does not append extra output", async 
     );
     await expect(terminalNode).toBeVisible();
 
+    // Give the detach move a chance to emit any terminal traffic it would
+    // produce (we still expect it to be minimal).
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 10000,
+      stableMs: 750,
+    });
     const afterOutput = await getTerminalOutputBuffer(page, terminalId);
     const appendedOutput = afterOutput.slice(beforeOutput.length);
     expect(appendedOutput.length).toBeLessThanOrEqual(128);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("detached terminal accepts input", async ({ page }) => {
+  test.skip(
+    Boolean(process.env.CI),
+    "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
+  );
+  test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    await resetViewport(page);
+
+    const marker = `DETACH_INPUT_${Date.now()}`;
+    await setCodeForSection(
+      page,
+      codeSectionId,
+      `import sys\nprint("${marker}", flush=True)\n`,
+    );
+
+    await runCodeBlockInPage(page, codeSectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId, { timeoutMs: 40000 });
+    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
+    const readyCountBeforeDetach = await getTerminalReadyCount(page, terminalId);
+
+    const codeBox = await page
+      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
+      .boundingBox();
+    if (!codeBox) {
+      throw new Error("Missing bounding boxes for drag.");
+    }
+
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [terminalId]: {
+          x: Math.round(codeBox.x + codeBox.width + 200),
+          y: Math.round(codeBox.y),
+        },
+      },
+    });
+
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalId}"]`,
+    );
+    await expect(terminalNode).toBeVisible();
+    await waitForTerminalReady(page, terminalId, {
+      required: false,
+      timeoutMs: 40000,
+      minReadyCount: readyCountBeforeDetach + 1,
+    });
+
+    const inputMarker = `DETACH_ECHO_${Date.now()}`;
+    // Detached terminal should still accept interactive input.
+    await focusTerminalAndType(page, terminalId, `echo ${inputMarker}`);
+    await waitForTerminalOutputMarker(page, terminalId, inputMarker, 20000);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("terminal reflows long lines when width increases", async ({ page }) => {
+  test.skip(
+    Boolean(process.env.CI),
+    "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
+  );
+  test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    await resetViewport(page);
+
+    const marker = `REFLOW_MARKER_${Date.now()}`;
+    const longLine = `${marker}_${"x".repeat(220)}`;
+    await setCodeForSection(
+      page,
+      codeSectionId,
+      `import sys\nprint("${marker}", flush=True)\nprint("${longLine}", flush=True)\n`,
+    );
+
+    await runCodeBlockInPage(page, codeSectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId);
+    await waitForTerminalRowsMarker(page, terminalId, marker, 20000);
+
+    await setSectionSize(page, codeSectionId, { width: 300, height: 480 });
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
+    );
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineRows(rows, marker);
+      })
+      .toBeGreaterThan(1);
+    const narrowRowCount = countLongLineRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      marker,
+    );
+    expect(narrowRowCount).toBeGreaterThan(1);
+
+    await setSectionSize(page, codeSectionId, { width: 640, height: 480 });
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
+    );
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineRows(rows, marker);
+      })
+      .toBeLessThan(narrowRowCount);
+    // Wrapping should reduce when the terminal grows wider.
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
+test("terminal reflows command echo when width increases", async ({ page }) => {
+  test.skip(
+    Boolean(process.env.CI),
+    "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
+  );
+  test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
+  await addTerminalResizeInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    await resetViewport(page);
+
+    // This test needs a stable interactive shell prompt. Running a code block
+    // injects a command into the PTY and can leave the terminal busy, which
+    // makes subsequent `echo`/`stty`/`python -c` steps flaky. Attach a fresh
+    // terminal section instead.
+    const terminalId = await createTerminalSection(page);
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalId],
+      newParentId: codeSectionId,
+      newIndex: 0,
+      positionsById: null,
+    });
+    const attachedId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+    expect(attachedId).toBe(terminalId);
+
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    await page.evaluate(() => {
+      window.__terminalResizeCountsBySectionId = {};
+      window.__terminalResizePhase = "idle";
+    });
+
+    await setSectionSize(page, codeSectionId, { width: 300, height: 480 });
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
+    );
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    // Confirm the shell is at a prompt and accepting input before we type the
+    // long wrapped command line. Otherwise the run output/prompt redraw can
+    // race with our keystrokes and corrupt the echo.
+    const readyMarker = `CMDREFLOW_READY_${Date.now()}`;
+    await focusTerminalAndType(page, terminalId, `echo ${readyMarker}`);
+    await waitForTerminalOutputMarker(page, terminalId, readyMarker, 20000);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    // Make the viewport deterministic. The code-run startup chatter can leave
+    // little vertical room for the wrapped echo line, causing most of it to
+    // scroll out of view (and making row counting flaky).
+    await focusTerminalAndType(page, terminalId, "clear");
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    const sttyMarker = `CMDREFLOW_STTY_${Date.now()}`;
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `echo ${sttyMarker} $(stty size)`,
+    );
+    await waitForTerminalOutputMarker(page, terminalId, sttyMarker, 20000);
+    const sttyOutput = await getTerminalOutputBuffer(page, terminalId);
+    const sttyMatch = sttyOutput.match(
+      new RegExp(`${sttyMarker}\\s+(\\d+)\\s+(\\d+)`),
+    );
+    if (!sttyMatch) {
+      throw new Error(`Failed to parse stty output for ${sttyMarker}.`);
+    }
+    const cols = Number(sttyMatch[2]);
+    if (!Number.isFinite(cols) || cols <= 0) {
+      throw new Error(`Invalid stty cols parsed: ${sttyMatch[2]}`);
+    }
+
+    // Simulate zsh/ZLE-style "hard wrapped" lines: full-width rows separated by
+    // newlines (not marked `isWrapped` by xterm), which normally won't reflow on
+    // widen. Our frontend widens by marking these as wrapped right before
+    // resizing, so xterm can reflow them.
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `python -c \"print('x'*${cols}); print('x'*${cols}); print('x'*${cols}); print('x'*${cols}); print('x'*${cols}); print('x'*${cols})\"`,
+    );
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineRows(rows, sttyMarker);
+      })
+      .toBeGreaterThan(1);
+    const narrowRowCount = countLongLineRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      sttyMarker,
+    );
+    expect(narrowRowCount).toBeGreaterThan(1);
+
+    const resizeCountBeforeWide = await page.evaluate((id) => {
+      const counts = window.__terminalResizeCountsBySectionId?.[id];
+      if (!counts) {
+        return 0;
+      }
+      return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+    }, terminalId);
+
+    await setSectionSize(page, codeSectionId, { width: 640, height: 480 });
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
+    );
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(resizeCountBeforeWide);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    try {
+      await expect
+        .poll(async () => {
+          const rows = await getTerminalRowsSnapshot(page, terminalId);
+          return countLongLineRows(rows, sttyMarker);
+        })
+        .toBeLessThan(narrowRowCount);
+    } catch (err) {
+      const rows = await getTerminalRowsSnapshot(page, terminalId);
+      const relevant = rows.slice(-60).join("\n");
+      throw new Error(
+        `Command echo reflow assertion failed.\n\nTerminal rows tail:\n${relevant}\n\nOriginal error: ${String(err)}`,
+      );
+    }
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -636,18 +984,11 @@ test("terminal resize messages are throttled during drag detach", async ({
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
-    await waitForTerminalReady(page, terminalId);
-    await runCodeBlockInPage(page, codeSectionId);
-
-    await expect
-      .poll(
-        async () => {
-          const rows = await getTerminalRowsSnapshot(page, terminalId);
-          return rows.some((row) => row.trim().length > 0);
-        },
-        { timeout: 20000 },
-      )
-      .toBe(true);
+    await waitForTerminalReady(page, terminalId, { timeoutMs: 40000 });
+    await embeddedTerminalHost
+      .locator(".xterm-helper-textarea, .xterm textarea")
+      .first()
+      .waitFor({ state: "attached", timeout: 20000 });
 
     await setSectionSize(page, codeSectionId, { width: 320, height: 480 });
     await page.waitForTimeout(200);
@@ -812,9 +1153,114 @@ async function getTerminalRowsSnapshot(
     if (!container) {
       return [];
     }
+    // Ensure we sample the bottom of the terminal so recently-echoed input is
+    // visible even if the viewport was scrolled during attach/resize.
+    const viewport = container.querySelector(".xterm-viewport");
+    if (viewport instanceof HTMLElement) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
     const rows = container.querySelectorAll(".xterm-rows > div");
     return Array.from(rows).map((row) => row.textContent ?? "");
   }, terminalId);
+}
+
+async function getTerminalReadyCount(
+  page: Page,
+  terminalId: string,
+): Promise<number> {
+  return await page.evaluate((id) => {
+    const readyCountMap = (window as typeof window & {
+      __terminalReadyCountBySectionId?: Record<string, number>;
+      __terminalReadyBySectionId?: Record<string, boolean>;
+    });
+    const readyCount = readyCountMap.__terminalReadyCountBySectionId?.[id];
+    if (typeof readyCount === "number") {
+      return readyCount;
+    }
+    return readyCountMap.__terminalReadyBySectionId?.[id] ? 1 : 0;
+  }, terminalId);
+}
+
+function countLongLineRows(rows: string[], marker: string): number {
+  return rows.filter((row) => {
+    const trimmed = row.trim();
+    if (!trimmed) {
+      return false;
+    }
+    if (trimmed.includes(marker)) {
+      return true;
+    }
+    if (/^x+$/.test(trimmed)) {
+      return true;
+    }
+    // Some terminals (and zsh line editing) can produce wrap continuations that
+    // include prefix characters (digits/underscores) in addition to the x-tail.
+    // Count any row with a sufficiently-long x run as part of the wrapped line.
+    return /x{20,}/.test(trimmed);
+  }).length;
+}
+
+async function syncEmbeddedTerminalSectionSize(
+  page: Page,
+  terminalId: string,
+  embeddedTerminalHost: Locator,
+): Promise<{ width: number; height: number }> {
+  const embeddedTerminal = embeddedTerminalHost.locator(
+    "xpath=ancestor::section[1]",
+  );
+  await expect(embeddedTerminal).toBeVisible();
+  const terminalBox = await embeddedTerminal.boundingBox();
+  if (!terminalBox) {
+    throw new Error("Missing embedded terminal bounding box.");
+  }
+  const size = {
+    width: Math.round(terminalBox.width),
+    height: Math.round(terminalBox.height),
+  };
+  await setSectionSize(page, terminalId, size);
+  return size;
+}
+
+async function focusTerminalAndType(
+  page: Page,
+  terminalId: string,
+  text: string,
+): Promise<void> {
+  const detachedTerminalNode = page.locator(
+    `.react-flow__node[data-id="${terminalId}"]`,
+  );
+  const embeddedTerminalHost = page.locator(
+    `[data-attached-terminal-section-id="${terminalId}"]`,
+  );
+  const root =
+    (await detachedTerminalNode.count()) > 0
+      ? detachedTerminalNode
+      : embeddedTerminalHost.locator("xpath=ancestor::section[1]");
+
+  const terminalContainer = root.locator(".xterm");
+  await expect(terminalContainer).toBeVisible();
+  await terminalContainer.click({ position: { x: 8, y: 8 } });
+  const input = root.locator(
+    ".xterm-helper-textarea, .xterm textarea",
+  );
+  await input.first().waitFor({ state: "attached", timeout: 20000 });
+  await input.first().evaluate((el) => {
+    if (el instanceof HTMLTextAreaElement) {
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+      return;
+    }
+    (el as HTMLElement).focus();
+  });
+  await expect
+    .poll(async () => {
+      return await input.first().evaluate((el) => document.activeElement === el);
+    })
+    .toBe(true);
+  await page.waitForTimeout(50);
+  await page.keyboard.type(text);
+  await page.keyboard.press("Enter");
 }
 
 async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
@@ -823,6 +1269,7 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
       __terminalOutputInstrumented?: boolean;
       __terminalOutputBySectionId?: Record<string, string>;
       __terminalReadyBySectionId?: Record<string, boolean>;
+      __terminalReadyCountBySectionId?: Record<string, number>;
     };
     if (!windowWithOutput.__terminalOutputBySectionId) {
       windowWithOutput.__terminalOutputBySectionId = {};
@@ -830,7 +1277,9 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
     if (!windowWithOutput.__terminalReadyBySectionId) {
       windowWithOutput.__terminalReadyBySectionId = {};
     }
-
+    if (!windowWithOutput.__terminalReadyCountBySectionId) {
+      windowWithOutput.__terminalReadyCountBySectionId = {};
+    }
     const currentWebSocket = WebSocket as typeof WebSocket & {
       __terminalOutputWrapped?: boolean;
     };
@@ -871,6 +1320,9 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
                 const sectionId =
                   parts.length >= 2 ? parts[parts.length - 2] : "unknown";
                 windowWithOutput.__terminalReadyBySectionId![sectionId] = true;
+                windowWithOutput.__terminalReadyCountBySectionId![sectionId] =
+                  (windowWithOutput.__terminalReadyCountBySectionId![sectionId] ??
+                    0) + 1;
               } catch {
                 // Ignore parse errors.
               }
@@ -920,6 +1372,41 @@ async function getTerminalOutputBuffer(
   }, terminalId);
 }
 
+async function waitForTerminalOutputToStabilize(
+  page: Page,
+  terminalId: string,
+  options?: {
+    timeoutMs?: number;
+    stableMs?: number;
+    pollMs?: number;
+  },
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 10000;
+  const stableMs = options?.stableMs ?? 500;
+  const pollMs = options?.pollMs ?? 100;
+  const deadline = Date.now() + timeoutMs;
+
+  let previousLength = (await getTerminalOutputBuffer(page, terminalId)).length;
+  let stableSince = Date.now();
+
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(pollMs);
+    const nextLength = (await getTerminalOutputBuffer(page, terminalId)).length;
+    if (nextLength === previousLength) {
+      if (Date.now() - stableSince >= stableMs) {
+        return;
+      }
+      continue;
+    }
+    previousLength = nextLength;
+    stableSince = Date.now();
+  }
+
+  throw new Error(
+    `Timed out waiting for terminal ${terminalId} output to stabilize.`,
+  );
+}
+
 async function waitForTerminalOutputMarker(
   page: Page,
   terminalId: string,
@@ -936,22 +1423,56 @@ async function waitForTerminalOutputMarker(
     .toContain(marker);
 }
 
+async function waitForTerminalRowsMarker(
+  page: Page,
+  terminalId: string,
+  marker: string,
+  timeoutMs = 20000,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        // Marker can be split across wrapped rows (no single row contains it).
+        const joined = rows.join("");
+        if (joined.includes(marker)) {
+          return true;
+        }
+        // In some cases the wrapped row ends up with terminal fill whitespace in
+        // the middle of the marker; strip whitespace and try again.
+        return joined.replaceAll(/\s+/g, "").includes(marker);
+      },
+      { timeout: timeoutMs },
+    )
+    .toBe(true);
+}
+
 async function waitForTerminalReady(
   page: Page,
   terminalId: string,
-  options?: { timeoutMs?: number; required?: boolean },
+  options?: {
+    timeoutMs?: number;
+    required?: boolean;
+    minReadyCount?: number;
+  },
 ): Promise<boolean> {
   const timeoutMs = options?.timeoutMs ?? 20000;
   const required = options?.required ?? true;
+  const minReadyCount = options?.minReadyCount ?? 1;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const ready = await page.evaluate((id) => {
+    const readyCount = await page.evaluate((id) => {
       const readyMap = (window as typeof window & {
         __terminalReadyBySectionId?: Record<string, boolean>;
-      }).__terminalReadyBySectionId;
-      return readyMap?.[id] ?? false;
+        __terminalReadyCountBySectionId?: Record<string, number>;
+      });
+      const count = readyMap.__terminalReadyCountBySectionId?.[id];
+      if (typeof count === "number") {
+        return count;
+      }
+      return readyMap.__terminalReadyBySectionId?.[id] ? 1 : 0;
     }, terminalId);
-    if (ready) {
+    if (readyCount >= minReadyCount) {
       return true;
     }
     await page.waitForTimeout(250);

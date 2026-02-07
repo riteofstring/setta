@@ -1227,7 +1227,7 @@ class _ClaudeSdkEventParser:
         return events
 
     def _require_current_message(
-        self, _raw_payload: dict[str, Any]
+        self, raw_payload: dict[str, Any]
     ) -> AssistantChatMessage | None:
         message_id = self._current_message_id or self._last_message_id
         if not message_id:
