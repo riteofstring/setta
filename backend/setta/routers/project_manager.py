@@ -34,6 +34,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetChatSectionChatIdRequest,
+    GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
     GetPasswordParamValueRequest,
     GetPasswordParamValueResponse,
@@ -143,6 +144,7 @@ from setta.terminals.terminals import build_terminal_id
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.code_obj_impls import PasswordParamCodeObjImpl
 from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl_with_type_guard
+from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 from setta.utils.errors import (
@@ -471,6 +473,15 @@ async def route_get_latest_project_state(
         completedOpIds=[],
         pendingOpIds=list(manager.pending_frontend_ops.keys()),
     )
+
+
+@router.post(Route.GET_LATEST_LSP_DIAGNOSTICS)
+async def route_get_latest_lsp_diagnostics(
+    x: GetLatestLspDiagnosticsRequest, ctx: RuntimeContextFromRequest
+) -> SettaLspDiagnosticsPayload:
+    await _deny_share_mode_lsp(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    return await manager.get_latest_lsp_diagnostics(x)
 
 
 @router.post(Route.FORCE_REFRESH_LISTENER)
