@@ -134,11 +134,10 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         pending_approvals: dict[str, _PendingApproval] = {}
         tool_use_names: dict[str, str] = {}
         stderr_lines: list[str] = []
-        close_prompt_event = asyncio.Event()
         options = _build_options(context, pending_approvals, queue, stderr_lines)
         session_id = _extract_session_id(context.inputs) or str(context.run.id)
         task = asyncio.create_task(
-            _run_query(prompt, options, queue, session_id, close_prompt_event)
+            _run_query(prompt, options, queue, session_id)
         )
         handle = ExternalAgentRunHandle(
             run_id=context.run.id,
@@ -148,7 +147,6 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                 "pending_approvals": pending_approvals,
                 "tool_use_names": tool_use_names,
                 "stderr_lines": stderr_lines,
-                "close_prompt_event": close_prompt_event,
             },
         )
         handle.session_id = session_id
@@ -313,12 +311,11 @@ async def _run_query(
     options: ClaudeAgentOptions,
     queue: asyncio.Queue[tuple[str, Any]],
     session_id: str | None,
-    close_prompt_event: asyncio.Event,
 ) -> None:
     message_count = 0
     logger.info("Claude SDK query starting (session_id=%s)", session_id)
     try:
-        prompt_stream = _build_prompt_stream(prompt, session_id, close_prompt_event)
+        prompt_stream = _build_prompt_stream(prompt, session_id)
         async for message in query(prompt=prompt_stream, options=options):
             message_count += 1
             if message_count <= 3:
@@ -327,8 +324,6 @@ async def _run_query(
                     session_id,
                     _describe_sdk_message(message),
                 )
-            if isinstance(message, ResultMessage):
-                close_prompt_event.set()
             await queue.put((_QUEUE_KIND_MESSAGE, message))
     except asyncio.CancelledError:
         raise
@@ -347,7 +342,7 @@ async def _run_query(
 
 
 async def _build_prompt_stream(
-    prompt: str, session_id: str | None, close_prompt_event: asyncio.Event
+    prompt: str, session_id: str | None
 ) -> AsyncIterator[dict[str, Any]]:
     payload: dict[str, Any] = {
         "type": "user",
@@ -357,7 +352,7 @@ async def _build_prompt_stream(
     if session_id:
         payload["session_id"] = session_id
     yield payload
-    await close_prompt_event.wait()
+    return
 
 
 def _describe_sdk_message(message: Any) -> str:
@@ -1227,7 +1222,7 @@ class _ClaudeSdkEventParser:
         return events
 
     def _require_current_message(
-        self, raw_payload: dict[str, Any]
+        self, _raw_payload: dict[str, Any]
     ) -> AssistantChatMessage | None:
         message_id = self._current_message_id or self._last_message_id
         if not message_id:
@@ -1413,10 +1408,26 @@ def _extract_allowed_tools(context: ExternalAgentRunContext) -> list[str] | None
     if isinstance(raw, list):
         tools = [entry for entry in raw if isinstance(entry, str) and entry.strip()]
         if tools:
-            return tools
+            return _normalize_allowed_tools(tools)
     if context.profile and context.profile.toolAllowlist:
-        return list(context.profile.toolAllowlist)
+        return _normalize_allowed_tools(list(context.profile.toolAllowlist))
     return None
+
+
+def _normalize_allowed_tools(tools: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for entry in tools:
+        value = entry.strip()
+        if not value:
+            continue
+        # Setta uses `AskUserQuestion`, but Claude Code exposes the tool as `question`.
+        if value.lower() == "askuserquestion":
+            value = "question"
+        if value not in seen:
+            normalized.append(value)
+            seen.add(value)
+    return normalized
 
 
 def _extract_mcp_config(inputs: dict[str, Any] | None) -> str | None:

@@ -9,6 +9,7 @@ export function StandardPopover({
   closeClasses,
   onOpenChange,
   arrowClasses,
+  portalContainerId,
 }: {
   trigger: React.ReactElement;
   contentClasses?: string;
@@ -16,18 +17,23 @@ export function StandardPopover({
   close?: boolean;
   closeClasses?: string;
   arrowClasses?: string;
+  portalContainerId?: string;
 } & (
   | { open?: undefined; onOpenChange?: undefined }
   | { open: boolean; onOpenChange: (newOpen: boolean) => void }
 )) {
   // TODO: show a close button if closeButton is true
 
+  const portalContainer =
+    portalContainerId && typeof document !== "undefined"
+      ? document.getElementById(portalContainerId)
+      : null;
   const rootProps: Popover.PopoverProps = open ? { open, onOpenChange } : {};
   return (
     <Popover.Root {...rootProps}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
 
-      <Popover.Portal>
+      <Popover.Portal container={portalContainer ?? undefined}>
         <Popover.Content className={contentClasses}>
           {close && (
             <Popover.Close className={closeClasses}>{close}</Popover.Close>

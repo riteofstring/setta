@@ -2,7 +2,6 @@ import asyncio
 import importlib.metadata
 import json
 import os
-import socket
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -71,18 +70,12 @@ class TestClaudeSdkAdapterIntegration:
         return str(path)
 
     def _require_claude_sdk(self) -> str:
-        try:
-            version = importlib.metadata.version("claude-agent-sdk")
-        except importlib.metadata.PackageNotFoundError:
-            pytest.skip("claude-agent-sdk is not installed")
         if not os.environ.get("ANTHROPIC_API_KEY"):
             pytest.skip("ANTHROPIC_API_KEY not set")
         try:
-            socket.getaddrinfo("api.anthropic.com", 443)
-            with socket.create_connection(("api.anthropic.com", 443), timeout=2):
-                pass
-        except OSError as exc:
-            pytest.skip(f"Anthropic API not reachable: {exc}")
+            version = importlib.metadata.version("claude-agent-sdk")
+        except importlib.metadata.PackageNotFoundError:
+            pytest.fail("claude-agent-sdk is not installed")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:

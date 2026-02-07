@@ -47,6 +47,7 @@ class DBE:
         self.agent_profiles = self.path / "agent_profiles.json"
         self.agent_runs = self.path / "agent_runs"
         self.agent_run_index = self.path / "agent_run_index.json"
+        self.agentic_summary_cache = self.path / "agentic_summary_cache.json"
         self.prompts = self.path / "prompts"
         self.prompts_example = self.path / "prompts.example.json"
         self.share_manifest = self.path / "manifest.json"
