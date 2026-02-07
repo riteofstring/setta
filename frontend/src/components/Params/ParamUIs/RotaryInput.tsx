@@ -19,7 +19,6 @@ type RotaryInputProps = {
   max: number;
   step: number;
   isDisabled?: boolean;
-  indicatorThemeClassName?: string;
 };
 
 export function RotaryInput({
@@ -30,13 +29,11 @@ export function RotaryInput({
   max,
   step,
   isDisabled = false,
-  indicatorThemeClassName,
 }: RotaryInputProps) {
   const pointerIdRef = useRef<number | null>(null);
   const clampedValue = parseValue(value, min, max);
   const indicatorAngle = getAngleFromValue(clampedValue, min, max);
   const displayValue = formatValue(clampedValue, step);
-  const indicatorResolvedThemeClassName = indicatorThemeClassName ?? "bg-blue-500";
 
   let knobStateClasses = "cursor-grab active:cursor-grabbing";
   if (isDisabled) {
@@ -172,9 +169,7 @@ export function RotaryInput({
           className="absolute inset-0"
           style={{ transform: `rotate(${indicatorAngle}deg)` }}
         >
-          <div
-            className={`absolute left-1/2 top-[5px] h-3 w-[2px] -translate-x-1/2 rounded-full ${indicatorResolvedThemeClassName}`}
-          />
+          <div className="absolute left-1/2 top-[5px] h-3 w-[2px] -translate-x-1/2 rounded-full bg-blue-500" />
         </div>
         <div className="absolute inset-0 rounded-full border border-dashed border-setta-300/40 dark:border-setta-700/40" />
       </button>
