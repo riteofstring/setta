@@ -89,8 +89,9 @@ async def lifespan(app: FastAPI):
             name="static",
         )
 
-        # {full_path:path} is to catch all paths not explicitly covered here
-        @app.get("/{full_path:path}", response_class=HTMLResponse)
+        # {_full_path:path} is to catch all paths not explicitly covered here.
+        # Keep the leading underscore so Ruff's unused-argument rule doesn't fire.
+        @app.get("/{_full_path:path}", response_class=HTMLResponse)
         async def read_root(_full_path: str):
             with open(dist_path / "index.html") as f:
                 content = f.read()
