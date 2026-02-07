@@ -10,9 +10,9 @@ import {
   clearPendingSectionTextFocus,
   isPendingSectionTextFocus,
 } from "utils/tabbingLogic";
-import { Terminal } from "xterm";
-import { FitAddon } from "xterm-addon-fit";
-import "xterm/css/xterm.css";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import { scrollSensitivityUpdater, terminalTheme } from "./utils";
 
 type TerminalSession = {
@@ -720,28 +720,19 @@ function patchWrappedFlagsForWidenReflow({
   //
   // This intentionally only scans near the cursor to reduce the chance of
   // corrupting scrollback that contains real newlines of exactly `oldCols`.
-  const anyTerminal = terminal as any;
-  const bufferService = anyTerminal?._bufferService;
-  const buffer = bufferService?.buffer;
-  const lines = buffer?.lines;
-  if (
-    !lines ||
-    typeof lines.get !== "function" ||
-    typeof lines.length !== "number"
-  ) {
+  const active = terminal.buffer.active;
+  if (typeof active.length !== "number" || active.length <= 0) {
     return;
   }
-
-  const active = terminal.buffer.active;
   const absCursorY = active.baseY + active.cursorY;
   const scanStart = Math.max(1, absCursorY - 400);
-  const scanEnd = Math.min(lines.length - 1, absCursorY + 8);
+  const scanEnd = Math.min(active.length - 1, absCursorY + 8);
 
   let scanned = 0;
   let patched = 0;
   for (let y = scanStart; y <= scanEnd; y += 1) {
-    const prev = lines.get(y - 1);
-    const line = lines.get(y);
+    const prev = active.getLine(y - 1);
+    const line = active.getLine(y);
     if (!prev || !line) {
       continue;
     }
@@ -779,7 +770,7 @@ function patchWrappedFlagsForWidenReflow({
       continue;
     }
 
-    line.isWrapped = true;
+    (line as any).isWrapped = true;
     patched += 1;
   }
 

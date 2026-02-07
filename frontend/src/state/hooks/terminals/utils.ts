@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useMisc } from "state/definitions";
-import { FitAddon } from "xterm-addon-fit";
+import { FitAddon } from "@xterm/addon-fit";
 
 export const terminalTheme = {
   foreground: "#B8C2D5",
