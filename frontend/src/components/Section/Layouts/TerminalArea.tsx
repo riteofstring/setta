@@ -49,8 +49,6 @@ type TerminalAreaReadWriteProps = {
 };
 
 type TerminalAreaCoreProps = {
-  width: number;
-  height: number;
   hasScrollbar: boolean;
   terminalRef: React.RefObject<HTMLDivElement>;
   dataAttachedTerminalId: string | null;
@@ -73,8 +71,6 @@ function TerminalAreaReadWrite({
 
   return (
     <TerminalAreaCore
-      width={width}
-      height={height}
       hasScrollbar={hasScrollbar}
       terminalRef={terminalRef}
       dataAttachedTerminalId={dataAttachedTerminalId}
@@ -83,8 +79,6 @@ function TerminalAreaReadWrite({
 }
 
 function TerminalAreaCore({
-  width,
-  height,
   hasScrollbar,
   terminalRef,
   dataAttachedTerminalId,
@@ -92,10 +86,9 @@ function TerminalAreaCore({
   return (
     <div
       ref={terminalRef}
-      className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag section-row-search-gutter section-key-value`}
+      className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag section-row-search-gutter section-key-value min-h-0 min-w-0`}
       data-section-main-editor
       data-attached-terminal-section-id={dataAttachedTerminalId ?? undefined}
-      style={{ width: `${width - 24}px`, height: `${height - 32}px` }}
     />
   );
 }
