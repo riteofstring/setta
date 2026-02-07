@@ -90,6 +90,7 @@ class ShareRuntimeState:
             )
         self._session_backends: dict[str, ProjectStateBackend] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
+        self._session_run_counts: dict[str, int] = {}
         self._artifact_watcher = specific_file_watcher or SpecificFileWatcher()
         self._base_backend: ProjectStateBackend | None = None
 
@@ -122,15 +123,18 @@ class ShareRuntimeState:
             raise KeyError(f"Share session already exists: {session_id}")
         project_state = self._build_base_backend()
         self._session_backends[session_id] = project_state
+        self._ensure_session_run_count(session_id)
         return project_state
 
     def get_session_backend(self, session_id: str) -> ProjectStateBackend:
         if session_id not in self._session_backends:
             raise KeyError(f"Unknown share session backend: {session_id}")
+        self._ensure_session_run_count(session_id)
         return self._session_backends[session_id]
 
     def get_or_create_session_backend(self, session_id: str) -> ProjectStateBackend:
         if session_id in self._session_backends:
+            self._ensure_session_run_count(session_id)
             return self._session_backends[session_id]
         return self.create_session_backend(session_id)
 
@@ -207,6 +211,20 @@ class ShareRuntimeState:
         del self._session_backends[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
+        self._session_run_counts.pop(session_id, None)
+
+    def get_session_run_count(self, session_id: str) -> int:
+        self._ensure_session_run_count(session_id)
+        return self._session_run_counts[session_id]
+
+    def increment_session_run_count(self, session_id: str) -> int:
+        self._ensure_session_run_count(session_id)
+        self._session_run_counts[session_id] += 1
+        return self._session_run_counts[session_id]
+
+    def _ensure_session_run_count(self, session_id: str) -> None:
+        if session_id not in self._session_run_counts:
+            self._session_run_counts[session_id] = 0
 
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:

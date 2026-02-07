@@ -7,7 +7,11 @@ import pytest
 from setta.database.db_objs import DBE
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
-from setta.share.policy import deny_in_share_mode
+from setta.share.policy import (
+    deny_in_share_mode,
+    ensure_share_download_allowed,
+    ensure_share_multiple_runs_allowed,
+)
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
@@ -175,6 +179,56 @@ class TestSharePolicyEnforcement:
                     frontend_sender=runtime_ctx.frontend_sender,
                     message="Share mode disallows language server features.",
                     share_session_id=runtime_ctx.share_session_id,
+                )
+
+            assert raised.value.status_code == 403
+
+    async def test_file_downloads_blocked(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowFileDownloads=False))
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            with pytest.raises(HTTPException) as raised:
+                await ensure_share_download_allowed(
+                    state, share_session_id=session.id
+                )
+
+            assert raised.value.status_code == 403
+
+    async def test_multiple_runs_blocked_after_first(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowRun=True, allowMultipleRuns=False),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            await ensure_share_multiple_runs_allowed(
+                state, share_session_id=session.id
+            )
+            state.share_runtime_state.increment_session_run_count(session.id)
+
+            with pytest.raises(HTTPException) as raised:
+                await ensure_share_multiple_runs_allowed(
+                    state, share_session_id=session.id
                 )
 
             assert raised.value.status_code == 403
