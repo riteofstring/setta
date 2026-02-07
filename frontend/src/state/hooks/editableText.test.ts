@@ -12,4 +12,3 @@ describe("resolveEditableOnBlurRawValue", () => {
     ).toBe("latest");
   });
 });
-
