@@ -68,7 +68,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     run_mcp_folder = run_folder / "mcp"
     run_secrets_folder = run_folder / "secrets"
     detached_runs_folder = run_folder / "detached_runs"
-    share_deployments_folder = setta_root / "share_deployments"
+    deployments_folder = setta_root / "deployments"
 
     for path in (
         code_folder,
@@ -79,7 +79,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         run_mcp_folder,
         run_secrets_folder,
         detached_runs_folder,
-        share_deployments_folder,
+        deployments_folder,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -109,7 +109,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     C.RUNTIME_MCP_FOLDER = run_mcp_folder
     C.RUNTIME_SECRETS_FOLDER = run_secrets_folder
     C.DETACHED_RUNS_FOLDER = detached_runs_folder
-    C.DEPLOYMENTS_FOLDER = share_deployments_folder
+    C.DEPLOYMENTS_FOLDER = deployments_folder
 
     try:
         yield setta_root

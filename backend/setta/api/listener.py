@@ -399,16 +399,12 @@ class SettaListener:
         if self._explicit_host or self._explicit_port:
             return
         raw_autoconnect = os.environ.get("SETTA_LISTENER_AUTOCONNECT")
-        if raw_autoconnect is not None:
-            normalized = raw_autoconnect.strip().lower()
-            if normalized in {"0", "false", "no"}:
-                return
-            if normalized not in {"1", "true", "yes"}:
-                raw_autoconnect = None
-        if raw_autoconnect is None and (
-            not _hosts_equivalent(self._host, C.DEFAULT_HOST)
-            or self._port != C.DEFAULT_PORT
-        ):
+        if raw_autoconnect is None:
+            return
+        normalized = raw_autoconnect.strip().lower()
+        if normalized in {"0", "false", "no"}:
+            return
+        if normalized not in {"1", "true", "yes"}:
             return
         # If the caller didn't pass host/port, prefer the latest session recorded in
         # this workspace (dev worktrees use per-worktree ports + cookie names).

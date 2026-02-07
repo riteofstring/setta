@@ -13,42 +13,14 @@ def validate_app_spec(
     action_definitions: dict[str, JSONValue] | None = None,
     data_bindings: dict[str, JSONValue] | None = None,
 ) -> None:
-    if catalog_id != APP_CATALOG_ID:
-        raise ValueError(f"Unknown app catalog id: {catalog_id}")
-
-    component_schemas = _build_component_schema_map()
-    allowed_components = set(component_schemas.keys())
-    allowed_actions = _list_catalog_actions()
-    if action_definitions is not None:
-        allowed_actions.update(action_definitions.keys())
-
-    root_element, elements = _resolve_app_spec(app_spec)
-    run_action_names = _collect_run_action_names(action_definitions)
-    (
-        run_action_count,
-        used_config_ids,
-        unscoped_keys,
-    ) = _validate_elements(
-        root_element,
-        elements,
-        allowed_components,
-        component_schemas,
-        allowed_actions,
-        action_definitions,
-        data_bindings,
+    issues = collect_app_spec_validation_issues(
+        app_spec,
+        catalog_id=catalog_id,
+        action_definitions=action_definitions,
+        data_bindings=data_bindings,
     )
-    if run_action_count > 1 and len(run_action_names) <= 1:
-        raise ValueError(
-            "App spec can only include one run action. "
-            "Define an additional run action to allow multiple run buttons."
-        )
-    if len(used_config_ids) > 1 and unscoped_keys:
-        missing = ", ".join(sorted(unscoped_keys))
-        raise ValueError(
-            "App spec uses multiple configs but some elements are not scoped. "
-            "Wrap them in ConfigScope or set configId explicitly. "
-            f"Missing scope for: {missing}."
-        )
+    if issues:
+        raise ValueError(issues[0].message)
 
 
 def validate_app_action_definitions(
@@ -595,207 +567,11 @@ def _resolve_app_spec(
     return root_element, elements
 
 
-def _validate_elements(
-    root_element: dict[str, JSONValue],
-    elements: dict[str, dict[str, JSONValue]],
-    allowed_components: set[str],
-    component_schemas: dict[str, dict[str, JSONValue]],
-    allowed_actions: set[str],
-    action_definitions: dict[str, JSONValue] | None,
-    data_bindings: dict[str, JSONValue] | None,
-) -> tuple[int, set[str], list[str]]:
-    stack: list[tuple[dict[str, JSONValue], str | None]] = [(root_element, None)]
-    visited: set[str] = set()
-    run_action_count = 0
-    used_config_ids: set[str] = set()
-    unscoped_keys: list[str] = []
-
-    while stack:
-        element, scope_config_id = stack.pop()
-        key = element.get("key")
-        if not isinstance(key, str):
-            raise ValueError("App spec elements require a string key.")
-        if key in visited:
-            continue
-        visited.add(key)
-
-        component_type = element.get("type")
-        if not isinstance(component_type, str):
-            raise ValueError(f"App spec element '{key}' missing component type.")
-        if component_type not in allowed_components:
-            raise ValueError(
-                f"App spec element '{key}' uses unknown component '{component_type}'."
-            )
-
-        component_schema = component_schemas.get(component_type)
-        if component_schema is None:
-            raise ValueError(
-                f"App spec element '{key}' uses unknown component '{component_type}'."
-            )
-
-        props = _resolve_element_props(key, element)
-        binding = _resolve_binding_record(data_bindings, _get_data_path(props))
-
-        _validate_children_against_catalog(
-            key,
-            component_type,
-            component_schema,
-            element,
-        )
-        _validate_props_against_catalog(
-            key,
-            component_type,
-            component_schema,
-            props,
-            binding,
-        )
-
-        if component_type == "ConfigScope":
-            config_id = _get_prop_string(element, "configId")
-            if config_id:
-                used_config_ids.add(config_id)
-            scope_config_id = config_id
-
-        if component_type == "ParamInput":
-            _validate_param_binding(key, element, binding)
-        if component_type == "ActionButton":
-            action_name = _resolve_action_name(element, binding)
-            action_type: str | None = None
-            if action_name:
-                _validate_action_binding(key, action_name, allowed_actions)
-                definition = (
-                    action_definitions.get(action_name)
-                    if action_definitions is not None
-                    else None
-                )
-                action_type = _resolve_action_type(action_name, definition)
-                if action_type == "run":
-                    run_action_count += 1
-            if action_name:
-                _apply_config_scope_guardrail(
-                    key,
-                    scope_config_id,
-                    element,
-                    binding,
-                    used_config_ids,
-                    unscoped_keys,
-                    action_type=action_type,
-                )
-        if component_type in {"ParamInput", "TextOutput", "ImageOutput"}:
-            _apply_config_scope_guardrail(
-                key,
-                scope_config_id,
-                element,
-                binding,
-                used_config_ids,
-                unscoped_keys,
-            )
-
-        children = element.get("children")
-        if children is None:
-            continue
-        if not isinstance(children, list):
-            raise ValueError(f"App spec element '{key}' children must be a list.")
-        for child in children:
-            if isinstance(child, str):
-                child_element = elements.get(child)
-                if child_element is None:
-                    raise ValueError(
-                        f"App spec element '{key}' references missing child '{child}'."
-                    )
-                stack.append((child_element, scope_config_id))
-                continue
-            if _is_ui_element(child):
-                stack.append((child, scope_config_id))
-                continue
-            raise ValueError(
-                f"App spec element '{key}' children must be element keys or objects."
-            )
-    return run_action_count, used_config_ids, unscoped_keys
-
-
-def _resolve_element_props(
-    element_key: str,
-    element: dict[str, JSONValue],
-) -> dict[str, JSONValue]:
-    raw = element.get("props")
-    if raw is None:
-        return {}
-    if not isinstance(raw, dict):
-        raise ValueError(f"App spec element '{element_key}' props must be an object.")
-    return raw
-
-
 def _get_data_path(props: dict[str, JSONValue]) -> str | None:
     value = props.get("dataPath")
     if isinstance(value, str):
         return value
     return None
-
-
-def _validate_children_against_catalog(
-    element_key: str,
-    component_type: str,
-    component_schema: dict[str, JSONValue],
-    element: dict[str, JSONValue],
-) -> None:
-    allows_children = component_schema.get("children")
-    if not isinstance(allows_children, bool) or allows_children:
-        return
-    if element.get("children") is None:
-        return
-    raise ValueError(
-        f"App spec element '{element_key}' cannot have children (component '{component_type}' is childless)."
-    )
-
-
-def _validate_props_against_catalog(
-    element_key: str,
-    component_type: str,
-    component_schema: dict[str, JSONValue],
-    props: dict[str, JSONValue],
-    binding: dict[str, JSONValue] | None,
-) -> None:
-    raw_props_schema = component_schema.get("props")
-    props_schema: dict[str, JSONValue] = (
-        raw_props_schema if isinstance(raw_props_schema, dict) else {}
-    )
-
-    for prop_key, prop_value in props.items():
-        if prop_key not in props_schema:
-            raise ValueError(
-                f"App spec element '{element_key}' has unknown prop '{prop_key}' for component '{component_type}'."
-            )
-        prop_schema = props_schema.get(prop_key)
-        if isinstance(prop_schema, dict):
-            _validate_prop_value(
-                element_key, component_type, prop_key, prop_value, prop_schema
-            )
-
-    for prop_key, prop_schema in props_schema.items():
-        if not isinstance(prop_schema, dict):
-            continue
-        if prop_schema.get("required") is not True:
-            continue
-        if prop_key in props:
-            if _is_missing_required_value(props[prop_key]):
-                raise ValueError(
-                    f"App spec element '{element_key}' missing required prop '{prop_key}' for component '{component_type}'."
-                )
-            continue
-        if binding is not None and prop_key in binding:
-            bound_value = binding[prop_key]
-            _validate_prop_value(
-                element_key, component_type, prop_key, bound_value, prop_schema
-            )
-            if _is_missing_required_value(bound_value):
-                raise ValueError(
-                    f"App spec element '{element_key}' missing required prop '{prop_key}' for component '{component_type}'."
-                )
-            continue
-        raise ValueError(
-            f"App spec element '{element_key}' missing required prop '{prop_key}' for component '{component_type}'."
-        )
 
 
 def _is_missing_required_value(value: JSONValue) -> bool:

@@ -71,7 +71,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
     C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
     C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
     C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
-    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,

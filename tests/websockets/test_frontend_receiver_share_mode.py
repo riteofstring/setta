@@ -72,7 +72,7 @@ def _build_share_runtime_state(
     project_config_id: ID,
     project_config_name: str,
 ) -> ShareRuntimeState:
-    root = Path(tmpdir) / "share_deployments" / project_config_name / "v1"
+    root = Path(tmpdir) / "deployments" / project_config_name / "v1"
     root.mkdir(parents=True, exist_ok=True)
     dbe = DBE(root)
     project_config = ProjectConfig(

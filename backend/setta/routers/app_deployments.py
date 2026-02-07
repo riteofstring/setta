@@ -204,7 +204,7 @@ def _metadata_from_manifest(
         defaultProjectConfigName=default_project_config_name,
         createdAt=manifest.createdAt,
         deploymentRoot=normalize_path(deployment_root),
-        policyPath=normalize_path(deployment_root / "share_policy.json"),
+        policyPath=normalize_path(deployment_root / "policy.json"),
     )
 
 
@@ -542,7 +542,7 @@ async def route_publish_app_deployment(
     )
     state.dbe.write_json(deployment_root / "project.json", snapshot.model_dump())
     state.dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
-    state.dbe.write_json(deployment_root / "share_policy.json", policy.model_dump())
+    state.dbe.write_json(deployment_root / "policy.json", policy.model_dump())
 
     listener_label = (
         f"{listener_config.entrypoint} (enabled={listener_config.enabled})"
@@ -562,7 +562,7 @@ async def route_publish_app_deployment(
         defaultProjectConfigName=project_config.name,
         createdAt=manifest.createdAt,
         deploymentRoot=deployment_root,
-        policyPath=deployment_root / "share_policy.json",
+        policyPath=deployment_root / "policy.json",
     )
 
 

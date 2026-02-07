@@ -149,6 +149,7 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   useServerMode.setState({
     mode: "share",
     modeResolved: true,
+    modeError: null,
   });
   useAllProjectMetadata.setState({
     defaultProjectConfigId: session.defaultProjectConfigId,
@@ -197,6 +198,7 @@ export async function initializeShareSessionFromCurrentDeployment(
     useServerMode.setState({
       mode: "share",
       modeResolved: true,
+      modeError: null,
     });
     return true;
   }
@@ -204,6 +206,7 @@ export async function initializeShareSessionFromCurrentDeployment(
     useServerMode.setState({
       mode: "ide",
       modeResolved: true,
+      modeError: null,
     });
   }
   resetShareSessionState();

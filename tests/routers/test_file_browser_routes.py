@@ -47,7 +47,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -81,7 +81,7 @@ def _write_share_project(
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
-    dbe.write_json(root / "share_policy.json", policy.model_dump())
+    dbe.write_json(root / "policy.json", policy.model_dump())
 
 
 async def _shutdown_state(state: SettaFastAPIState) -> None:
@@ -119,7 +119,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
@@ -189,14 +189,14 @@ class TestFileBrowserRoutes:
             run_folder = setta_root / "runtime"
             run_sessions_folder = run_folder / "sessions"
             run_logs_folder = run_folder / "logs"
-            share_deployments_folder = setta_root / "share_deployments"
+            deployments_folder = setta_root / "deployments"
             for path in (
                 code_folder,
                 artifacts_folder,
                 backup_folder,
                 run_sessions_folder,
                 run_logs_folder,
-                share_deployments_folder,
+                deployments_folder,
             ):
                 path.mkdir(parents=True, exist_ok=True)
             C.SETTA_FILES_FOLDER = setta_root
@@ -206,7 +206,7 @@ class TestFileBrowserRoutes:
             C.RUNTIME_FOLDER = run_folder
             C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
             C.RUNTIME_LOGS_FOLDER = run_logs_folder
-            C.DEPLOYMENTS_FOLDER = share_deployments_folder
+            C.DEPLOYMENTS_FOLDER = deployments_folder
         if app is None:
             app = FastAPI()
         state = SettaFastAPIState(

@@ -63,3 +63,33 @@ class TestSpecPatchStream:
         updated = apply_patch_ops(ops, initial_spec=initial)
         assert updated["elements"]["app-root"]["props"]["title"] == "Updated"
         assert initial["elements"]["app-root"]["props"]["title"] == "Hello"
+
+    def test_list_replace_rejects_index_equal_length(self) -> None:
+        patches = "\n".join(
+            [
+                '{"op":"set","path":"/elements/root","value":{"key":"root","type":"Stack","children":["a"]}}',
+                '{"op":"replace","path":"/elements/root/children/1","value":"b"}',
+            ]
+        )
+        with pytest.raises(IndexError):
+            apply_patch_ops(parse_patch_lines(patches))
+
+    def test_list_set_allows_append_at_index_equal_length(self) -> None:
+        patches = "\n".join(
+            [
+                '{"op":"set","path":"/elements/root","value":{"key":"root","type":"Stack","children":["a"]}}',
+                '{"op":"set","path":"/elements/root/children/1","value":"b"}',
+            ]
+        )
+        spec = apply_patch_ops(parse_patch_lines(patches))
+        assert ["a", "b"] == spec["elements"]["root"]["children"]
+
+    def test_list_add_allows_append_at_index_equal_length(self) -> None:
+        patches = "\n".join(
+            [
+                '{"op":"set","path":"/elements/root","value":{"key":"root","type":"Stack","children":["a"]}}',
+                '{"op":"add","path":"/elements/root/children/1","value":"b"}',
+            ]
+        )
+        spec = apply_patch_ops(parse_patch_lines(patches))
+        assert ["a", "b"] == spec["elements"]["root"]["children"]

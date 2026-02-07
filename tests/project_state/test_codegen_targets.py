@@ -79,7 +79,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
@@ -687,7 +687,7 @@ class TestShareRuntimeStateCodegenTargets:
         with TemporaryDirectory() as tmpdir:
             root = (
                 Path(tmpdir)
-                / "share_deployments"
+                / "deployments"
                 / "no_python"
                 / "v1"
             )
@@ -724,7 +724,7 @@ class TestShareRuntimeStateRunCommand:
         with TemporaryDirectory() as tmpdir:
             root = (
                 Path(tmpdir)
-                / "share_deployments"
+                / "deployments"
                 / "no_run"
                 / "v1"
             )
@@ -793,7 +793,7 @@ class TestShareRuntimeStateRunCommand:
         with TemporaryDirectory() as tmpdir:
             root = (
                 Path(tmpdir)
-                / "share_deployments"
+                / "deployments"
                 / "with_assets"
                 / "v1"
             )

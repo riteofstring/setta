@@ -6,7 +6,6 @@ from typing import Any
 import litellm
 from fastapi import Depends, status
 from fastapi.responses import JSONResponse, StreamingResponse
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ModelResponseStream
 from pydantic import BaseModel, Field
 
@@ -102,8 +101,8 @@ def _build_system_prompt(
 
 
 async def _iterate_stream(stream_result: Any) -> AsyncIterator[ModelResponseStream]:
-    if not isinstance(stream_result, CustomStreamWrapper):
-        raise TypeError("LLM streaming must return a CustomStreamWrapper")
+    if not hasattr(stream_result, "__aiter__"):
+        raise TypeError("LLM streaming must return an async iterator")
 
     async for chunk in stream_result:
         if isinstance(chunk, ModelResponseStream):
@@ -225,35 +224,36 @@ async def route_stream_app_spec(
             status_code=status.HTTP_502_BAD_GATEWAY,
             message=f"LLM request failed: {message}",
         )
-    if not isinstance(stream_result, CustomStreamWrapper):
+    if not hasattr(stream_result, "__aiter__"):
         return _json_error(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            message="LLM streaming must return a CustomStreamWrapper.",
+            message="LLM streaming must return an async iterator.",
         )
 
     async def _stream() -> AsyncIterator[bytes]:
-        buffer = ""
+        remainder = ""
+        patch_count = 0
         async for chunk in _iterate_stream(stream_result):
             text = _extract_text_from_chunk(chunk)
             if not text:
                 continue
-            buffer += text
-            if "\n" not in buffer:
-                continue
-            lines = buffer.split("\n")
-            buffer = lines.pop() or ""
-            for line in lines:
+            remainder += text
+            while True:
+                newline_index = remainder.find("\n")
+                if newline_index == -1:
+                    break
+                line = remainder[:newline_index]
+                remainder = remainder[newline_index + 1 :]
                 patch = parse_patch_line(line)
                 if patch is None:
                     continue
-                encoded = (json.dumps(patch, separators=(",", ":")) + "\n").encode(
-                    "utf-8"
-                )
-                yield encoded
-                await asyncio.sleep(0)
+                yield (json.dumps(patch, separators=(",", ":")) + "\n").encode("utf-8")
+                patch_count += 1
+                if patch_count % 100 == 0:
+                    await asyncio.sleep(0)
 
-        if buffer.strip():
-            patch = parse_patch_line(buffer)
+        if remainder.strip():
+            patch = parse_patch_line(remainder)
             if patch is not None:
                 yield (json.dumps(patch, separators=(",", ":")) + "\n").encode("utf-8")
 

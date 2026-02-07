@@ -25,7 +25,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -60,7 +60,7 @@ def _write_share_project(
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
-    dbe.write_json(root / "share_policy.json", policy.model_dump())
+    dbe.write_json(root / "policy.json", policy.model_dump())
 
 
 

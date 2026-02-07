@@ -45,7 +45,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     run_folder = setta_root / "run"
     run_sessions_folder = run_folder / "sessions"
     run_logs_folder = run_folder / "logs"
-    share_deployments_folder = setta_root / "share_deployments"
+    deployments_folder = setta_root / "deployments"
 
     for path in (
         code_folder,
@@ -53,7 +53,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         backup_folder,
         run_sessions_folder,
         run_logs_folder,
-        share_deployments_folder,
+        deployments_folder,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -77,7 +77,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     C.RUN_FOLDER = run_folder
     C.RUN_SESSIONS_FOLDER = run_sessions_folder
     C.RUN_LOGS_FOLDER = run_logs_folder
-    C.DEPLOYMENTS_FOLDER = share_deployments_folder
+    C.DEPLOYMENTS_FOLDER = deployments_folder
 
     try:
         yield setta_root
@@ -135,7 +135,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -170,7 +170,7 @@ def _write_share_project(
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
-    dbe.write_json(root / "share_policy.json", policy.model_dump())
+    dbe.write_json(root / "policy.json", policy.model_dump())
 
 
 async def _build_state() -> SettaFastAPIState:

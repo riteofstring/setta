@@ -34,7 +34,7 @@ export class C {
   static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
-  static DEPLOYMENTS_FOLDER = "setta_files/share_deployments";
+  static DEPLOYMENTS_FOLDER = "setta_files/deployments";
   static DETACHED_RUNS_FOLDER = "setta_files/runtime/detached_runs";
   static DEV_MODE_FRONTEND_PORT = 3000;
   static DROPZONE_ALLOWED_MIME_PREFIXES = [];

@@ -35,7 +35,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -365,7 +365,7 @@ class TestTerminalWebsocketRequirements:
                 deployment_version=root.name,
             )
             DBE(root).write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(allowRun=True).model_dump(),
             )
             state = await _build_state(root)

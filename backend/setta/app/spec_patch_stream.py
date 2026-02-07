@@ -163,20 +163,19 @@ def _set_at(
         return
     if isinstance(parent, list):
         if key == "-":
+            if op == "replace":
+                raise IndexError("Cannot replace missing array index.")
             parent.append(value)
             return
         index = _parse_array_index(key)
-        if index < 0:
-            # '-' is handled above; negative isn't allowed.
-            raise ValueError("Array index must be non-negative.")
         if index > len(parent):
             # Avoid surprising holes.
             raise IndexError("Array index out of range.")
+        if op == "replace" and index >= len(parent):
+            raise IndexError("Cannot replace missing array index.")
         if index == len(parent):
             parent.append(value)
             return
-        if op == "replace" and index >= len(parent):
-            raise IndexError("Cannot replace missing array index.")
         parent[index] = value
         return
     raise TypeError("Patch set target is not a container.")

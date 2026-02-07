@@ -200,13 +200,15 @@ export const useShareSession = withProjectState(
 );
 
 type ServerModeState = {
-  mode: "ide" | "share" | "app";
+  mode: "ide" | "share" | "app" | null;
   modeResolved: boolean;
+  modeError: string | null;
 };
 
 export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  mode: "ide",
+  mode: null,
   modeResolved: false,
+  modeError: null,
 }));
 
 type AppPreviewState = {

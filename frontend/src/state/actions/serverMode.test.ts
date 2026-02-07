@@ -9,7 +9,7 @@ import { initializeServerMode } from "./serverMode";
 describe("initializeServerMode", () => {
   beforeEach(() => {
     resetProjectStores();
-    useServerMode.setState({ mode: "ide", modeResolved: false });
+    useServerMode.setState({ mode: null, modeResolved: false, modeError: null });
   });
 
   afterEach(() => {
@@ -18,7 +18,7 @@ describe("initializeServerMode", () => {
   });
 
   it("returns cached mode when already resolved", async () => {
-    useServerMode.setState({ mode: "share", modeResolved: true });
+    useServerMode.setState({ mode: "share", modeResolved: true, modeError: null });
     const spy = vi.spyOn(endpoints, "route_get_server_mode");
 
     const mode = await initializeServerMode();
@@ -40,10 +40,11 @@ describe("initializeServerMode", () => {
     expect(useServerMode.getState()).toEqual({
       mode: "app",
       modeResolved: true,
+      modeError: null,
     });
   });
 
-  it("falls back to ide on request failure", async () => {
+  it("stores an error when the request fails", async () => {
     vi.spyOn(endpoints, "route_get_server_mode").mockResolvedValue({
       status: 500,
       hasResponse: true,
@@ -52,10 +53,10 @@ describe("initializeServerMode", () => {
 
     const mode = await initializeServerMode();
 
-    expect(mode).toBe("ide");
-    expect(useServerMode.getState()).toEqual({
-      mode: "ide",
-      modeResolved: true,
-    });
+    expect(mode).toBeNull();
+    const state = useServerMode.getState();
+    expect(state.mode).toBeNull();
+    expect(state.modeResolved).toBe(true);
+    expect(state.modeError).toMatch(/status 500/);
   });
 });

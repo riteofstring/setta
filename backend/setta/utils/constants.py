@@ -52,7 +52,7 @@ class C:
     RUN_FOLDER = SETTA_FILES_FOLDER / "run"
     RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
     RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
-    DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "share_deployments"
+    DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "deployments"
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
     APP_MODE = False

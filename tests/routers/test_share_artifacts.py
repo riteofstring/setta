@@ -30,7 +30,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -207,7 +207,7 @@ class TestShareArtifactRoutes:
             )
             dbe = DBE(root)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(allowParamChanges=False).model_dump(),
             )
             state = await self._build_state(root)

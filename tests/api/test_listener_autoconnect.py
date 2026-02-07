@@ -19,42 +19,7 @@ def _start_sleeping_setta_process(root: Path) -> subprocess.Popen[bytes]:
     )
 
 
-def test_autoconnect_to_latest_local_session(monkeypatch) -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        workspace_root = root / "workspace"
-        workspace_root.mkdir()
-        sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
-
-        process = _start_sleeping_setta_process(root)
-        try:
-            registry = SessionRegistry(sessions_root=sessions_root)
-            session = registry.create_session(
-                workspace_path=workspace_root,
-                host="127.0.0.1",
-                port=61234,
-                pid=process.pid,
-            )
-
-            monkeypatch.delenv("SETTA_LISTENER_AUTOCONNECT", raising=False)
-            monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
-            monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
-            monkeypatch.chdir(workspace_root)
-
-            listener = SettaListener(project_config_id=ID("proj-1"))
-            listener._maybe_autoconnect_to_latest_local_session()
-
-            assert listener._auto_session_metadata is not None
-            assert listener._auto_session_metadata.id == session.id
-            assert listener._host == session.host
-            assert listener._port == session.port
-        finally:
-            if process.poll() is None:
-                process.terminate()
-            process.wait()
-
-
-def test_autoconnect_skips_when_host_port_not_default(monkeypatch) -> None:
+def test_autoconnect_requires_env_opt_in(monkeypatch) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)
         workspace_root = root / "workspace"
@@ -72,16 +37,54 @@ def test_autoconnect_skips_when_host_port_not_default(monkeypatch) -> None:
             )
 
             monkeypatch.delenv("SETTA_LISTENER_AUTOCONNECT", raising=False)
-            monkeypatch.setattr(C, "HOST", "example.com")
-            monkeypatch.setattr(C, "PORT", 9001)
+            monkeypatch.setattr(C, "HOST", C.DEFAULT_HOST)
+            monkeypatch.setattr(C, "PORT", C.DEFAULT_PORT)
             monkeypatch.chdir(workspace_root)
 
             listener = SettaListener(project_config_id=ID("proj-1"))
             listener._maybe_autoconnect_to_latest_local_session()
 
             assert listener._auto_session_metadata is None
-            assert listener._host == "example.com"
-            assert listener._port == 9001
+            assert listener._host == C.DEFAULT_HOST
+            assert listener._port == C.DEFAULT_PORT
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            process.wait()
+
+
+def test_autoconnect_skips_when_explicit_host_port_provided(monkeypatch) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        workspace_root = root / "workspace"
+        workspace_root.mkdir()
+        sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
+
+        process = _start_sleeping_setta_process(root)
+        try:
+            registry = SessionRegistry(sessions_root=sessions_root)
+            registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+            )
+
+            monkeypatch.setenv("SETTA_LISTENER_AUTOCONNECT", "1")
+            monkeypatch.setattr(C, "HOST", "example.com")
+            monkeypatch.setattr(C, "PORT", 9001)
+            monkeypatch.chdir(workspace_root)
+
+            listener = SettaListener(
+                project_config_id=ID("proj-1"),
+                host="example.net",
+                port=9123,
+            )
+            listener._maybe_autoconnect_to_latest_local_session()
+
+            assert listener._auto_session_metadata is None
+            assert listener._host == "example.net"
+            assert listener._port == 9123
         finally:
             if process.poll() is None:
                 process.terminate()

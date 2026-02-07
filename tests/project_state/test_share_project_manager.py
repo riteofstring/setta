@@ -81,7 +81,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -530,8 +530,9 @@ class TestShareRuntimeState:
             assert expected_draw == element.dataPath
             assert expected_transform == element.transformId
 
-    def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
-        with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
+    def test_run_command_ephemeral_writes_share_snapshot(self, monkeypatch) -> None:
+        with TemporaryDirectory() as tmpdir:
+            monkeypatch.chdir(tmpdir)
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -541,7 +542,7 @@ class TestShareRuntimeState:
             )
             dbe = _write_project_with_state(root, project_state)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
@@ -596,7 +597,7 @@ class TestShareRuntimeState:
             )
             dbe = _write_project_with_state(root, project_state)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
@@ -704,7 +705,7 @@ class TestShareRuntimeState:
             assert "123" == code_impl.value
 
     def test_run_snapshot_mode_never_is_rejected(self) -> None:
-        with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -714,7 +715,7 @@ class TestShareRuntimeState:
             )
             dbe = _write_project_with_state(root, project_state)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(runSnapshotMode=RunSnapshotMode.never).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)

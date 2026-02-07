@@ -278,46 +278,74 @@ export function AppRenderer({
         return;
       }
       setIsRunning(true);
-      if (sectionVariantOverrides) {
-        await Promise.all(
-          Object.entries(sectionVariantOverrides).map(
-            ([sectionOverrideId, variantId]) =>
-              route_set_section_variant({
-                projectConfigId: configId,
-                sectionId: sectionOverrideId,
-                variantId,
-              }),
-          ),
-        );
-      }
-      if (paramOverrides) {
-        const overrideCalls: Array<Promise<unknown>> = [];
-        for (const [key, value] of Object.entries(paramOverrides)) {
-          const [overrideSectionId, paramInfoId] = key.split(":");
-          if (!overrideSectionId || !paramInfoId) {
-            continue;
-          }
-          overrideCalls.push(
-            route_set_param_entered_value({
-              projectConfigId: configId,
-              sectionId: overrideSectionId,
-              paramInfoId,
-              value,
-            }),
+      try {
+        if (sectionVariantOverrides) {
+          const results = await Promise.allSettled(
+            Object.entries(sectionVariantOverrides).map(
+              ([sectionOverrideId, variantId]) =>
+                route_set_section_variant({
+                  projectConfigId: configId,
+                  sectionId: sectionOverrideId,
+                  variantId,
+                }),
+            ),
           );
+          const rejectedCount = results.filter(
+            (result) => result.status === "rejected",
+          ).length;
+          const non200Count = results.filter(
+            (result) =>
+              result.status === "fulfilled" &&
+              !res200(result.value as { status: number }),
+          ).length;
+          if (rejectedCount > 0 || non200Count > 0) {
+            addTemporaryNotification("Some variant overrides failed.");
+          }
         }
-        await Promise.all(overrideCalls);
+        if (paramOverrides) {
+          const overrideCalls: Array<Promise<unknown>> = [];
+          for (const [key, value] of Object.entries(paramOverrides)) {
+            const [overrideSectionId, paramInfoId] = key.split(":");
+            if (!overrideSectionId || !paramInfoId) {
+              continue;
+            }
+            overrideCalls.push(
+              route_set_param_entered_value({
+                projectConfigId: configId,
+                sectionId: overrideSectionId,
+                paramInfoId,
+                value,
+              }),
+            );
+          }
+          const results = await Promise.allSettled(overrideCalls);
+          const rejectedCount = results.filter(
+            (result) => result.status === "rejected",
+          ).length;
+          const non200Count = results.filter(
+            (result) =>
+              result.status === "fulfilled" &&
+              !res200(result.value as { status: number }),
+          ).length;
+          if (rejectedCount > 0 || non200Count > 0) {
+            addTemporaryNotification("Some parameter overrides failed.");
+          }
+        }
+
+        const res = await route_run_code({
+          projectConfigId: configId,
+          sectionId,
+        });
+        if (res200(res)) {
+          setRunCount((count) => count + 1);
+          return;
+        }
+        addTemporaryNotification("Run failed.");
+      } catch {
+        addTemporaryNotification("Run failed.");
+      } finally {
+        setIsRunning(false);
       }
-      const res = await route_run_code({
-        projectConfigId: configId,
-        sectionId,
-      });
-      setIsRunning(false);
-      if (res200(res)) {
-        setRunCount((count) => count + 1);
-        return;
-      }
-      addTemporaryNotification("Run failed.");
     },
     [
       allowMultipleRuns,

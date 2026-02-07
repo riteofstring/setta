@@ -577,6 +577,23 @@ def _resolve_port(host: str, port: int | None) -> int:
     return port
 
 
+def _is_loopback_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    return normalized in {"127.0.0.1", "localhost", "::1"}
+
+
+def _warn_if_public_host_no_auth(*, mode: str, host: str) -> None:
+    if _is_loopback_host(host):
+        return
+    click.echo(
+        (
+            f"WARNING: {mode} mode disables auth. "
+            f"Binding to {host!r} may expose your deployment publicly."
+        ),
+        err=True,
+    )
+
+
 def _resolve_deployment_root(
     *,
     deployment_root: Path | None,
@@ -1110,7 +1127,7 @@ def export_db(
 @click.option(
     "--deployment-name",
     default=None,
-    help="Deployment name under setta_files/share_deployments (shared deployments store).",
+    help="Deployment name under setta_files/deployments.",
 )
 @click.option(
     "--version",
@@ -1140,6 +1157,8 @@ def share(
     resolved_port = _resolve_port(resolved_host, port)
     C.HOST = resolved_host
     C.PORT = resolved_port
+
+    _warn_if_public_host_no_auth(mode="share", host=resolved_host)
 
     resolved_deployment_root = _resolve_deployment_root(
         deployment_root=deployment_root,
@@ -1196,7 +1215,7 @@ def share(
 @click.option(
     "--deployment-name",
     default=None,
-    help="Deployment name under setta_files/share_deployments (shared deployments store).",
+    help="Deployment name under setta_files/deployments.",
 )
 @click.option(
     "--version",
@@ -1226,6 +1245,8 @@ def app(
     resolved_port = _resolve_port(resolved_host, port)
     C.HOST = resolved_host
     C.PORT = resolved_port
+
+    _warn_if_public_host_no_auth(mode="app", host=resolved_host)
 
     resolved_deployment_root = _resolve_deployment_root(
         deployment_root=deployment_root,

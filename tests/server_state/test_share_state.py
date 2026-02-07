@@ -20,7 +20,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -56,7 +56,7 @@ def _write_share_project(
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
-    dbe.write_json(root / "share_policy.json", policy.model_dump())
+    dbe.write_json(root / "policy.json", policy.model_dump())
 
 
 @pytest.mark.asyncio
@@ -129,8 +129,7 @@ class TestShareState:
             assert runtime_root != deployment_root
             assert (
                 Path(tmpdir).resolve()
-                / "share_deployments"
-                / "share_runtime"
+                / "deployment_runtime"
                 / manifest_name
                 / manifest_version
                 == runtime_root
@@ -153,7 +152,7 @@ class TestShareState:
             state = await self._build_state(root)
 
             expected = (
-                root.parent / "share_runtime" / manifest_name / manifest_version
+                root.parent / "deployment_runtime" / manifest_name / manifest_version
             ).resolve()
             assert expected == state.dbe.runtime_root
 

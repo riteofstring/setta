@@ -58,7 +58,7 @@ def ensure_share_deployment_path(
 
 
 def load_share_policy_from_dbe(dbe: DBE) -> SharePolicy:
-    policy_path = dbe.path / "share_policy.json"
+    policy_path = dbe.path / "policy.json"
     if not policy_path.exists():
         return SharePolicy()
     payload = dbe.read_json(policy_path)

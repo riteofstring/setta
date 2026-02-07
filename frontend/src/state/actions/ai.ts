@@ -14,6 +14,7 @@ import {
 } from "state/aiStreamingTracker";
 import {
   applyAppSpecPatchPreviewDelta,
+  clearAllAppSpecPatchStreams,
   clearAppSpecPatchStream,
 } from "state/appSpecPatchStreaming";
 import {
@@ -1204,6 +1205,7 @@ function handleMessageStop(chatId: string) {
     ...details,
     waitingForResponse: false,
   }));
+  clearAllAppSpecPatchStreams();
 }
 
 function handleMessageFinalized(chatId: string, chunk: MessageFinalizedEvent) {

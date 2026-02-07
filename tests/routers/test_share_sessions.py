@@ -120,7 +120,7 @@ class TestShareSessionRoutes:
 
     async def test_create_session_and_fetch_state(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-test"
             deployment_version = "v1"
             deployment_root = (
@@ -161,7 +161,7 @@ class TestShareSessionRoutes:
 
     async def test_state_requires_share_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-test"
             deployment_version = "v1"
             deployment_root = (
@@ -186,7 +186,7 @@ class TestShareSessionRoutes:
 
     async def test_session_loads_multiple_project_configs(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             deployment_version = "v1"
             config_a = ProjectConfig(name="Share Config A")
             config_b = ProjectConfig(name="Share Config B")
@@ -219,7 +219,7 @@ class TestShareSessionRoutes:
 
     async def test_current_session_uses_active_deployment(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-current"
             deployment_version = "v1"
             deployment_root = (
@@ -247,7 +247,7 @@ class TestShareSessionRoutes:
 
     async def test_unknown_session_id_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-test"
             deployment_version = "v1"
             deployment_root = (
@@ -272,7 +272,7 @@ class TestShareSessionRoutes:
 
     async def test_deployment_mismatch_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-test"
             deployment_version = "v1"
             deployment_root = (
@@ -296,7 +296,7 @@ class TestShareSessionRoutes:
 
     async def test_share_mode_blocks_deployment_lists(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-test"
             deployment_version = "v1"
             deployment_root = (
@@ -319,7 +319,7 @@ class TestShareSessionRoutes:
 
     async def test_share_mode_latest_redacts_paths(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            share_root = Path(tmpdir) / "share_deployments"
+            share_root = Path(tmpdir) / "deployments"
             project_config_name = "share-session-test"
             deployment_version = "v1"
             deployment_root = (

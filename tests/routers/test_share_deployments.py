@@ -49,7 +49,7 @@ def _write_text(path: Path, content: str = "{}") -> None:
 
 
 @contextmanager
-def _override_share_deployments_root(root: Path):
+def _override_deployments_root(root: Path):
     original_share_root = C.DEPLOYMENTS_FOLDER
     C.DEPLOYMENTS_FOLDER = root
     try:
@@ -89,8 +89,8 @@ class TestShareDeploymentPublish:
             real_project_manager() as project_fixture,
             real_settings_manager() as settings_fixture,
         ):
-            with _override_share_deployments_root(
-                project_fixture.setta_root / "share_deployments"
+            with _override_deployments_root(
+                project_fixture.setta_root / "deployments"
             ):
                 project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -209,8 +209,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     switcher = ProjectManagerSwitcher(
                         main_manager=project_fixture.manager,
@@ -237,7 +237,7 @@ class TestShareDeploymentPublish:
                     metadata = await route_publish_share_deployment(request, state)
 
                     manifest_path = metadata.deploymentRoot / "manifest.json"
-                    policy_path = metadata.deploymentRoot / "share_policy.json"
+                    policy_path = metadata.deploymentRoot / "policy.json"
                     project_path = metadata.deploymentRoot / "project.json"
 
                     assert manifest_path.exists()
@@ -279,8 +279,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     switcher = ProjectManagerSwitcher(
                         main_manager=project_fixture.manager,
@@ -348,8 +348,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -493,8 +493,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -760,8 +760,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     switcher = ProjectManagerSwitcher(
                         main_manager=project_fixture.manager,

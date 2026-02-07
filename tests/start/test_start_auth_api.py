@@ -55,7 +55,7 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.DEPLOYMENTS_FOLDER = setta_root / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = setta_root / "deployments"
     return originals
 
 

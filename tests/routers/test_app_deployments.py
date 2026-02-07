@@ -20,7 +20,7 @@ from tests.utils.manager_fixture import real_project_manager, real_settings_mana
 
 
 @contextmanager
-def _override_share_deployments_root(root: Path):
+def _override_deployments_root(root: Path):
     original_share_root = C.DEPLOYMENTS_FOLDER
     C.DEPLOYMENTS_FOLDER = root
     try:
@@ -169,7 +169,7 @@ class TestAppDeploymentPublish:
                 share_mode=False,
             )
 
-            deployments_root = project_fixture.setta_root / "share_deployments"
+            deployments_root = project_fixture.setta_root / "deployments"
             overrides = {
                 "allowParamChanges": True,
                 "allowVariantChanges": False,
@@ -181,7 +181,7 @@ class TestAppDeploymentPublish:
                 "allowMultipleRuns": True,
             }
 
-            with _override_share_deployments_root(deployments_root):
+            with _override_deployments_root(deployments_root):
                 metadata = await route_publish_app_deployment(
                     PublishAppDeploymentRequest(
                         deploymentName="app-deployment",
@@ -204,7 +204,7 @@ class TestAppDeploymentPublish:
             assert deployed_spec_path.exists()
             assert deployment_dbe.read_json(deployed_spec_path) == app_spec_payload
 
-            share_policy_path = metadata.deploymentRoot / "share_policy.json"
+            share_policy_path = metadata.deploymentRoot / "policy.json"
             share_policy = SharePolicy.model_validate(
                 deployment_dbe.read_json(share_policy_path)
             )
@@ -243,8 +243,8 @@ class TestAppDeploymentPublish:
                 share_mode=False,
             )
 
-            deployments_root = project_fixture.setta_root / "share_deployments"
-            with _override_share_deployments_root(deployments_root):
+            deployments_root = project_fixture.setta_root / "deployments"
+            with _override_deployments_root(deployments_root):
                 metadata = await route_publish_app_deployment(
                     PublishAppDeploymentRequest(
                         deploymentName="app-deployment",
@@ -300,8 +300,8 @@ class TestAppDeploymentPublish:
                 share_mode=False,
             )
 
-            deployments_root = project_fixture.setta_root / "share_deployments"
-            with _override_share_deployments_root(deployments_root):
+            deployments_root = project_fixture.setta_root / "deployments"
+            with _override_deployments_root(deployments_root):
                 metadata = await route_publish_app_deployment(
                     PublishAppDeploymentRequest(
                         deploymentName="app-deployment",

@@ -1,3 +1,9 @@
+"""Example deployment listener entrypoint.
+
+Deployments can ship a listener entrypoint at `listener/app.py`. If enabled in the
+deployment manifest, Setta starts a listener per share/app session.
+"""
+
 import math
 
 from setta.api import SettaListener
@@ -10,3 +16,4 @@ def build_listener(listener: SettaListener) -> None:
         await ctx.emit_to_frontend(
             dependency_values={"app_output": f"The value is {math.sqrt(x)}"}
         )
+
