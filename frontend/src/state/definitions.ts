@@ -295,8 +295,6 @@ type FileBrowserState = {
   selectedPath: string | null;
   expandedPaths: Record<string, boolean>;
   filterText: string;
-  pathSeparator: string;
-  ignorePatterns: string[];
 };
 
 export const useFileBrowserState = createWithEqualityFn(
@@ -305,8 +303,6 @@ export const useFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
   })),
 );
 
@@ -316,8 +312,6 @@ export const useBrowserSectionFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
   })),
 );
 
@@ -327,8 +321,6 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
   })),
 );
 
@@ -576,6 +568,14 @@ export type ChatDetails = {
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
   llmConfig: LLMConfig | null;
+};
+
+export type ChatBranchInfo = {
+  chatId: string;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  branchRootChatId: string | null;
+  branchCreatedAt: number | null;
 };
 
 type ZustandAIStore = {
