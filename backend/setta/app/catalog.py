@@ -32,6 +32,46 @@ APP_CATALOG: JSONValue = {
             "children": True,
         },
         {
+            "type": "Box",
+            "description": "Generic wrapper with optional padding, radius, border, and background role.",
+            "props": {
+                "padding": {"type": "number", "min": 0, "max": 96, "default": 0},
+                "radius": {"type": "number", "min": 0, "max": 48, "default": 0},
+                "background": {
+                    "type": "string",
+                    "enum": ["none", "background", "surface", "surfaceAlt", "card"],
+                    "default": "none",
+                },
+                "border": {
+                    "type": "string",
+                    "enum": ["none", "border", "card"],
+                    "default": "none",
+                },
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
+            "type": "Grid",
+            "description": "Grid container for multi-column layouts.",
+            "props": {
+                "columns": {"type": "number", "min": 1, "max": 12, "default": 2},
+                "gap": {"type": "number", "min": 0, "max": 48, "default": 16},
+                "align": {
+                    "type": "string",
+                    "enum": ["start", "center", "end", "stretch"],
+                    "default": "stretch",
+                },
+                "justify": {
+                    "type": "string",
+                    "enum": ["start", "center", "end", "stretch"],
+                    "default": "stretch",
+                },
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
             "type": "Card",
             "description": "Framed container for grouping related fields.",
             "props": {

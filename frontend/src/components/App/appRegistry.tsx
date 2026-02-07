@@ -138,6 +138,92 @@ function Stack({ element, children }: AppComponentProps) {
   );
 }
 
+function Box({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const className = typeof props.className === "string" ? props.className : "";
+  const padding = typeof props.padding === "number" ? props.padding : null;
+  const radius = typeof props.radius === "number" ? props.radius : null;
+  const background =
+    typeof props.background === "string" ? props.background : "none";
+  const border = typeof props.border === "string" ? props.border : "none";
+
+  const style: React.CSSProperties = {};
+  if (padding !== null) {
+    style.padding = `${padding}px`;
+  }
+  if (radius !== null) {
+    style.borderRadius = `${radius}px`;
+  }
+
+  const backgroundByRole: Record<string, string> = {
+    background: "var(--app-background)",
+    surface: "var(--app-surface)",
+    surfaceAlt: "var(--app-surface-alt)",
+    card: "var(--app-card-bg)",
+  };
+  const resolvedBackground = backgroundByRole[background];
+  if (resolvedBackground) {
+    style.background = resolvedBackground;
+  }
+
+  let borderClassName = "";
+  if (border === "border") {
+    borderClassName = "border border-[color:var(--app-border)]";
+  } else if (border === "card") {
+    borderClassName = "border border-[color:var(--app-card-border)]";
+  }
+
+  return (
+    <div className={`${borderClassName} ${className}`.trim()} style={style}>
+      {children}
+    </div>
+  );
+}
+
+function Grid({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const runtime = useAppRuntime();
+  const className = typeof props.className === "string" ? props.className : "";
+  const themeGap = runtime?.theme?.spacing?.stackGap;
+  const gap =
+    typeof props.gap === "number" || typeof props.gap === "string"
+      ? props.gap
+      : typeof themeGap === "number" || typeof themeGap === "string"
+        ? themeGap
+        : 16;
+
+  const rawColumns = typeof props.columns === "number" ? props.columns : 2;
+  const columns = Math.min(Math.max(rawColumns, 1), 12);
+
+  const align = typeof props.align === "string" ? props.align : "stretch";
+  const justify = typeof props.justify === "string" ? props.justify : "stretch";
+  const itemAlignment: Record<string, React.CSSProperties["alignItems"]> = {
+    start: "start",
+    center: "center",
+    end: "end",
+    stretch: "stretch",
+  };
+  const itemJustify: Record<string, React.CSSProperties["justifyItems"]> = {
+    start: "start",
+    center: "center",
+    end: "end",
+    stretch: "stretch",
+  };
+
+  const style: React.CSSProperties = {
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+    gap,
+    alignItems: itemAlignment[align] ?? "stretch",
+    justifyItems: itemJustify[justify] ?? "stretch",
+  };
+
+  return (
+    <div className={`grid ${className}`.trim()} style={style}>
+      {children}
+    </div>
+  );
+}
+
 function Card({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -1250,6 +1336,8 @@ export const appRegistry: Record<
   React.ComponentType<AppComponentProps>
 > = {
   Stack,
+  Box,
+  Grid,
   Card,
   ConfigScope,
   Tabs,
