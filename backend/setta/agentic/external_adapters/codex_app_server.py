@@ -117,7 +117,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     supported_run_modes = {ExternalAgentRunMode.app_server}
     _process_states: dict[str, _CodexAppServerState] = {}
     _process_state_by_process: dict[int, _CodexAppServerState] = {}
-    _process_state_by_thread_id: dict[str, _CodexAppServerState] = {}
     _process_lock = asyncio.Lock()
 
     async def start_run(
@@ -150,7 +149,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             if thread_id:
                 state.thread_id = thread_id
                 handle.thread_id = thread_id
-                self._process_state_by_thread_id[thread_id] = state
             else:
                 raise RuntimeError("Codex app-server did not return a threadId")
 
@@ -294,15 +292,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     ) -> _CodexAppServerState:
         key = str(context.chat_id)
         async with cls._process_lock:
-            desired_thread_id = _extract_thread_id(context.inputs)
-            if desired_thread_id:
-                state = cls._process_state_by_thread_id.get(desired_thread_id)
-                if state is not None and state.process.returncode is not None:
-                    await cls._cleanup_state(state)
-                    state = None
-                if state is not None and state.config_id == str(context.config.id):
-                    return state
-
             state = cls._process_states.get(key)
             if state is not None and state.process.returncode is not None:
                 await cls._cleanup_state(state)
@@ -405,9 +394,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             with contextlib.suppress(Exception):
                 await state.stderr_task
         cls._process_state_by_process.pop(id(state.process), None)
-        for thread_id, entry in list(cls._process_state_by_thread_id.items()):
-            if entry is state:
-                cls._process_state_by_thread_id.pop(thread_id, None)
 
     @classmethod
     def _state_matches(
@@ -2533,6 +2519,5 @@ def _maybe_set_thread_id(
     if isinstance(thread_id, str) and thread_id:
         handle.thread_id = thread_id
         state.thread_id = thread_id
-        CodexAppServerAdapter._process_state_by_thread_id[thread_id] = state
         return True
     return False

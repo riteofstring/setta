@@ -4,7 +4,7 @@ from contextlib import suppress
 
 from setta.logging.tasks import spawn_background_task
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.utils.constants import CWD
+from setta.utils.paths import get_setta_paths
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 from ..file_watchers.lsp import LSPFileWatcher
@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class LSPServers:
-    def __init__(self, settings):
+    def __init__(self, settings, *, workspace_root=None):
+        resolved_workspace_root = workspace_root or get_setta_paths().workspace_root
         self.full = LanguageServer(
-            workspace_folder=CWD,
+            workspace_folder=resolved_workspace_root,
             settings=settings,
             name="full",
         )

@@ -5,12 +5,9 @@ import {
 } from "utils/generatedTypes";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 
-type ChatTitleSource = "llm" | "deterministic" | "reused";
-
 type ChatHistoryEntry = {
   chatId: string;
   label: string;
-  nameSource: ChatTitleSource | null;
   lastUpdatedMs: number;
   waitingForResponse: boolean;
 };
@@ -83,24 +80,11 @@ export function buildChatHistoryEntries(
     entries.push({
       chatId: runChatId,
       label: deriveChatLabel(summary.latestRun, runChatId),
-      nameSource: deriveChatNameSource(summary.latestRun),
       lastUpdatedMs: summary.lastUpdatedMs,
       waitingForResponse: summary.waitingForResponse,
     });
   }
   return entries;
-}
-
-function deriveChatNameSource(run: AgentRun): ChatTitleSource | null {
-  const nameSource = getRunOutputString(run, "nameSource");
-  if (
-    nameSource === "llm" ||
-    nameSource === "deterministic" ||
-    nameSource === "reused"
-  ) {
-    return nameSource;
-  }
-  return null;
 }
 
 function getRunChatId(run: AgentRun): string | null {
