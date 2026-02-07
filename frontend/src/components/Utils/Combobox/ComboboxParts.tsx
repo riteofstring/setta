@@ -15,8 +15,6 @@ export function ComboboxInput({
   isDisabled,
   inputRef,
   inputOuterClasses = "",
-  inputThemeClassName = "",
-  rightButtonThemeClassName = "",
   variant = "pill",
 }) {
   const isPaneVariant = variant === "pane";
@@ -29,32 +27,29 @@ export function ComboboxInput({
   const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
-  const resolvedInputThemeClassName = inputThemeClassName
-    ? ` ${inputThemeClassName}`
-    : "";
+  const chevronScale = small ? 0.5 : 0.65;
+  const chevronStyle = { "--ggs": chevronScale } as React.CSSProperties;
   const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-6 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
     small ? "h-4 my-auto" : "h-7"
-  }${resolvedInputThemeClassName}`;
+  }`;
   const paneInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-md border border-solid border-setta-200 px-2 pr-8 text-xs text-setta-800 placeholder:text-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-600 min-w-0 ${
     small ? "h-6" : "h-8"
-  }${resolvedInputThemeClassName}`;
+  }`;
   const toggleIcon = isPaneVariant ? (
     <i
-      className={`gg-chevron-down !h-3 !w-3 transition-transform duration-150 ${
+      className={`gg-chevron-down transition-transform duration-150 ${
         isOpen ? "rotate-180" : ""
       }`}
+      style={chevronStyle}
     />
   ) : isOpen ? (
-    <i className="gg-chevron-up !h-3 !w-3" />
+    <i className="gg-chevron-up" style={chevronStyle} />
   ) : (
-    <i className="gg-chevron-down !h-3 !w-3" />
+    <i className="gg-chevron-down" style={chevronStyle} />
   );
   const rightButtonClassName = isPaneVariant
     ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
     : "right-1";
-  const resolvedRightButtonThemeClassName = rightButtonThemeClassName
-    ? ` ${rightButtonThemeClassName}`
-    : "";
   return (
     <StandardSearch
       outerClasses={resolvedOuterClasses}
@@ -76,7 +71,7 @@ export function ComboboxInput({
           })}
           icon={toggleIcon}
           rounded={isPaneVariant ? "rounded-md" : undefined}
-          className={`${rightButtonClassName}${resolvedRightButtonThemeClassName}`}
+          className={rightButtonClassName}
           size={
             isPaneVariant
               ? small
@@ -97,19 +92,14 @@ export function ComboboxList({
   children,
   getMenuProps,
   inputRef,
-  listThemeClassName = "",
 }: {
   isOpen: boolean;
   children: React.ReactNode;
   getMenuProps: () => React.InputHTMLAttributes<HTMLInputElement>;
   inputRef: React.RefObject<HTMLInputElement | null>;
-  listThemeClassName?: string;
 }) {
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
   const display = isOpen ? "flex" : "hidden";
-  const resolvedListThemeClassName = listThemeClassName
-    ? ` ${listThemeClassName}`
-    : "";
 
   useLayoutEffect(() => {
     if (isOpen && inputRef.current) {
@@ -125,7 +115,7 @@ export function ComboboxList({
 
   return createPortal(
     <div
-      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50${resolvedListThemeClassName}`}
+      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
       {...getMenuProps()}
       style={{
         left: `${listDims.x}px`,
@@ -145,12 +135,9 @@ function _ComboboxItem({
   index,
   isHighlighted,
   itemStyle = "",
-  highlightedItemStyle = "",
   itemString,
 }) {
-  const bg = isHighlighted
-    ? highlightedItemStyle || "bg-setta-300/50 dark:bg-setta-900/50"
-    : "";
+  const bg = isHighlighted ? "bg-setta-300/50 dark:bg-setta-900/50" : "";
   return (
     <dd
       className={`mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs ${bg} ${itemStyle}`}
@@ -168,20 +155,12 @@ export function ComboboxItems({
   getItemProps,
   highlightedIndex,
   itemToString,
-  groupHeaderThemeClassName = "",
-  itemThemeClassName = "",
-  itemHighlightedThemeClassName = "",
 }) {
-  const resolvedGroupHeaderThemeClassName = groupHeaderThemeClassName
-    ? ` ${groupHeaderThemeClassName}`
-    : "";
   return filteredItems.reduce(
     (result, group, groupIndex) => {
       result.groups.push(
         <dl key={groupIndex}>
-          <dt
-            className={`mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2${resolvedGroupHeaderThemeClassName}`}
-          >
+          <dt className="mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2">
             {group.group}
           </dt>
           {group.items.map((item, itemIndex) => {
@@ -192,8 +171,6 @@ export function ComboboxItems({
                 item={item}
                 index={globalIndex}
                 isHighlighted={globalIndex === highlightedIndex}
-                itemStyle={itemThemeClassName}
-                highlightedItemStyle={itemHighlightedThemeClassName}
                 itemString={itemToString ? itemToString(item) : item}
                 key={itemIndex}
               />

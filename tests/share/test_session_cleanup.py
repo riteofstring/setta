@@ -19,7 +19,7 @@ from setta.terminals.terminals import build_terminal_id
 from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.types.id import ID
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -59,7 +59,6 @@ def _write_share_project(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
