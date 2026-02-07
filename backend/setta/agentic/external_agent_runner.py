@@ -1317,14 +1317,16 @@ class ExternalAgentRunner:
             logger.warning("Approval request missing approvalId: %s", payload)
             return
         tool_name = self._extract_tool_name(payload)
+        normalized_tool_name = self._normalize_tool_name(tool_name) or tool_name
         logger.info(
-            "Approval request received run_id=%s approval_id=%s tool_name=%s payload=%s",
+            "Approval request received run_id=%s approval_id=%s tool_name=%s normalized_tool_name=%s payload=%s",
             run.id,
             approval_id,
             tool_name,
+            normalized_tool_name,
             payload,
         )
-        is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
+        is_question = normalized_tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
             attached = False
             for tool_call_id, state in list(self._pending_questions.items()):
