@@ -3,9 +3,6 @@ from typing import Any
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
-from setta.agentic.agentic_summary_status import (
-    build_agentic_summary_cache_status_for_chat_section,
-)
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_defaults import (
     build_default_claude_settings_block,
@@ -46,7 +43,6 @@ from setta.types.agentic import (
     EngineType,
     RunChainSpec,
 )
-from setta.types.agentic_observability import AgenticSummaryCacheStatus
 from setta.types.external_agents import (
     ClaudeSettingsSource,
     ExternalAgentConfig,
@@ -57,7 +53,6 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.routes import Route
@@ -107,11 +102,6 @@ class StopRunChainRequest(BaseModel):
 
 class GetAgentRunRequest(BaseModel):
     runId: ID
-
-
-class GetAgenticSummaryCacheStatusRequest(BaseModel):
-    projectConfigId: ID
-    chatSectionId: ID
 
 
 class StopExternalAgentRunRequest(BaseModel):
@@ -441,28 +431,6 @@ async def route_get_agent_runs(
 ) -> list[AgentRun]:
     await ctx.enforce_llm_allowed()
     return list_agent_runs(ctx.state.dbe)
-
-
-@router.post(Route.GET_AGENTIC_SUMMARY_CACHE_STATUS)
-async def route_get_agentic_summary_cache_status(
-    x: GetAgenticSummaryCacheStatusRequest,
-    ctx: RuntimeContextFromRequest,
-) -> AgenticSummaryCacheStatus:
-    await ctx.enforce_llm_allowed()
-    manager = ctx.state.project_manager_switcher.get(
-        x.projectConfigId,
-        share_session_id=ctx.share_session_id,
-    )
-    project_state = convert_backend_to_single_config(
-        manager.project_state_backend,
-        x.projectConfigId,
-    )
-    return build_agentic_summary_cache_status_for_chat_section(
-        ctx.state.dbe,
-        project_state,
-        project_config_id=x.projectConfigId,
-        chat_section_id=x.chatSectionId,
-    )
 
 
 @router.get(Route.GET_PROMPT_TEMPLATES)

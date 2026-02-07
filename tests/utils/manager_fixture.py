@@ -6,12 +6,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from watchdog.observers.polling import PollingObserver
-
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
-import setta.file_watchers.lsp as lsp_file_watcher
-import setta.file_watchers.specific_file_watcher as specific_file_watcher
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import (
     LSPReaders,
@@ -39,10 +35,6 @@ from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
-
-# Avoid watchdog FSEvents crashes during test teardown on macOS.
-specific_file_watcher.Observer = PollingObserver
-lsp_file_watcher.Observer = PollingObserver
 
 __all__ = [
     "ProjectManagerFixture",

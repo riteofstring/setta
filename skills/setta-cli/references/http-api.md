@@ -20,10 +20,6 @@ Bootstrap endpoints:
 MCP tool-call endpoint (CLI uses this):
 - `/__setta__/tools/call`
   - POST body: `{ "tool": "<bare_name>", "arguments": { ... } }`
-  - Optional agentic context headers:
-    - `x-setta-project-config-id` (required for scope enforcement)
-    - `x-setta-chat-id`
-    - `x-setta-section-id` (omit for Project Chat / full access)
 
 Use the OpenAPI schema to confirm legacy REST payloads and response shapes. For
 MCP tool schemas, use `setta tools`.

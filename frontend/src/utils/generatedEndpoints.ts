@@ -467,12 +467,6 @@ export async function route_get_agent_runs(): Promise<
   return await get("/getAgentRuns");
 }
 
-export async function route_get_agentic_summary_cache_status(
-  x: gt.GetAgenticSummaryCacheStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.AgenticSummaryCacheStatus>> {
-  return await post("/getAgenticSummaryCacheStatus", x);
-}
-
 export async function route_get_prompt_templates(): Promise<
   ResponseDataAndStatus<Array<gt.PromptTemplate>>
 > {
