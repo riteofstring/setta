@@ -279,11 +279,14 @@ function updateTopLevelLayout(
   };
   state.projectConfig.topLevelSections[sectionId] = nextLayout;
   const { activeViewModeId, viewModes } = state.projectConfig;
-  if (activeViewModeId && viewModes[activeViewModeId]) {
-    viewModes[activeViewModeId].topLevelSections = {
-      ...(viewModes[activeViewModeId].topLevelSections ?? {}),
-      [sectionId]: nextLayout,
-    };
+  if (activeViewModeId) {
+    const viewMode = viewModes[activeViewModeId];
+    if (viewMode) {
+      if (!viewMode.topLevelSections) {
+        viewMode.topLevelSections = {};
+      }
+      viewMode.topLevelSections[sectionId] = nextLayout;
+    }
   }
 }
 

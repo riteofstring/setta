@@ -2,8 +2,11 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useLayoutEffect, useRef } from "react";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useShareSession } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
@@ -17,7 +20,6 @@ import { scrollSensitivityUpdater, terminalTheme } from "./utils";
 
 type TerminalSession = {
   ws: WebSocket;
-  wsId: string;
   refCount: number;
   closeTimeoutId: number | null;
   isReady: boolean;
@@ -52,6 +54,7 @@ export function useTerminal({
 }) {
   const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
   const terminalReadyRef = useRef(false);
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const isShareMode = useShareSession((x) => x.isShareMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
@@ -65,9 +68,18 @@ export function useTerminal({
       clearPendingSectionTextFocus(sectionId);
       return;
     }
-    const sessionKey = getTerminalSessionKey(sectionId, shareSessionId);
+    if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+      clearPendingSectionTextFocus(sectionId);
+      return;
+    }
+    const sessionKey = getTerminalSessionKey({
+      projectConfigId,
+      sectionId,
+      shareSessionId,
+    });
     const session = acquireTerminalSession({
       sessionKey,
+      projectConfigId,
       sectionId,
       shareSessionId,
       isShareMode,
@@ -165,28 +177,40 @@ export function useTerminal({
       unsub();
       releaseTerminalSession(sessionKey);
     };
-  }, [isShareMode, shareSessionId]);
+  }, [
+    isShareMode,
+    shareSessionId,
+    projectConfigId,
+    sectionId,
+    setHasScrollbar,
+  ]);
 
   return terminalRef;
 }
 
-function getTerminalSessionKey(
-  sectionId: string,
-  shareSessionId: string | null,
-): string {
-  const projectConfigId = getCurrProjectConfigId();
+function getTerminalSessionKey({
+  projectConfigId,
+  sectionId,
+  shareSessionId,
+}: {
+  projectConfigId: string;
+  sectionId: string;
+  shareSessionId: string | null;
+}): string {
   const shareKey = shareSessionId ?? "";
   return `${projectConfigId}::${shareKey}::${sectionId}`;
 }
 
 function acquireTerminalSession({
   sessionKey,
+  projectConfigId,
   sectionId,
   shareSessionId,
   isShareMode,
   container,
 }: {
   sessionKey: string;
+  projectConfigId: string;
   sectionId: string;
   shareSessionId: string | null;
   isShareMode: boolean;
@@ -213,7 +237,6 @@ function acquireTerminalSession({
     }
   }
 
-  const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
   const terminal = new Terminal({
     cursorBlink: true,
@@ -234,7 +257,6 @@ function acquireTerminalSession({
 
   const session: TerminalSession = {
     ws,
-    wsId: id,
     refCount: 1,
     closeTimeoutId: null,
     isReady: false,
@@ -280,6 +302,9 @@ function acquireTerminalSession({
   });
 
   ws.addEventListener("message", (event) => {
+    if (TERMINAL_SESSIONS[sessionKey] !== session) {
+      return;
+    }
     if (
       typeof event.data === "string" &&
       event.data === C.SETTA_TERMINAL_READY

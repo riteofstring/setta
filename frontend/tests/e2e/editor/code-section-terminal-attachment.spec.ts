@@ -108,7 +108,7 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
       throw new Error("Missing bounding boxes for visibility check.");
     }
     const isInsideCodeEditor = await terminalContainer.evaluate((node) => {
-      return Boolean(node.closest('article[data-section-main-editor]'));
+      return Boolean(node.closest("article[data-section-main-editor]"));
     });
     expect(isInsideCodeEditor).toBe(false);
   } finally {
@@ -133,12 +133,8 @@ test("attached terminal renders without header and resizes independently", async
       sectionId,
     );
 
-    const codeNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
-    const codeEditor = codeNode.locator(
-      `article[data-section-main-editor]`,
-    );
+    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeEditor = codeNode.locator(`article[data-section-main-editor]`);
     const terminalHost = codeNode.locator(
       `[data-attached-terminal-section-id="${terminalId}"]`,
     );
@@ -148,11 +144,15 @@ test("attached terminal renders without header and resizes independently", async
 
     const terminalSection = terminalHost.locator("xpath=ancestor::section[1]");
     await expect(terminalSection).toBeVisible();
-    await expect(terminalSection.locator("header.section-title")).toHaveCount(0);
+    await expect(terminalSection.locator("header.section-title")).toHaveCount(
+      0,
+    );
     await expect(
       terminalSection.locator(".section-resize-handle-bottom"),
     ).toHaveCount(1);
-    await expect(terminalSection.locator(".section-resize-handle-right")).toHaveCount(1);
+    await expect(
+      terminalSection.locator(".section-resize-handle-right"),
+    ).toHaveCount(1);
 
     const initialCodeBox = await codeEditor.boundingBox();
     const initialTerminalBox = await terminalHost.boundingBox();
@@ -174,7 +174,9 @@ test("attached terminal renders without header and resizes independently", async
     if (!updatedCodeBox) {
       throw new Error("Missing code editor bounding box.");
     }
-    expect(Math.abs(updatedCodeBox.height - initialCodeBox.height)).toBeLessThanOrEqual(3);
+    expect(
+      Math.abs(updatedCodeBox.height - initialCodeBox.height),
+    ).toBeLessThanOrEqual(3);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -448,7 +450,9 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(terminalHost).toBeVisible();
-    const terminalContainer = terminalHost.locator("xpath=ancestor::section[1]");
+    const terminalContainer = terminalHost.locator(
+      "xpath=ancestor::section[1]",
+    );
     await expect(terminalContainer).toBeVisible();
 
     const pane = page.locator(".react-flow__pane");
@@ -493,14 +497,17 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
     }
 
     await expect
-      .poll(async () => {
-        const state = await loadProjectState(page, projectConfigName);
-        const terminalLayout =
-          state.projectConfig.topLevelSections[terminalId];
-        const codeImpl = resolveSectionImpl(state, sectionId);
-        const children = codeImpl?.children ?? [];
-        return Boolean(terminalLayout) && !children.includes(terminalId);
-      }, { timeout: 20000 })
+      .poll(
+        async () => {
+          const state = await loadProjectState(page, projectConfigName);
+          const terminalLayout =
+            state.projectConfig.topLevelSections[terminalId];
+          const codeImpl = resolveSectionImpl(state, sectionId);
+          const children = codeImpl?.children ?? [];
+          return Boolean(terminalLayout) && !children.includes(terminalId);
+        },
+        { timeout: 20000 },
+      )
       .toBe(true);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
@@ -584,7 +591,10 @@ test("detaching a narrow attached terminal does not append extra output", async 
       newParentId: null,
       newIndex: null,
       positionsById: {
-        [terminalId]: { x: Math.round(codeBox.x + codeBox.width + 200), y: Math.round(codeBox.y) },
+        [terminalId]: {
+          x: Math.round(codeBox.x + codeBox.width + 200),
+          y: Math.round(codeBox.y),
+        },
       },
     });
 
@@ -643,7 +653,10 @@ test("detached terminal accepts input", async ({ page }) => {
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, { timeoutMs: 40000 });
     await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
-    const readyCountBeforeDetach = await getTerminalReadyCount(page, terminalId);
+    const readyCountBeforeDetach = await getTerminalReadyCount(
+      page,
+      terminalId,
+    );
 
     const codeBox = await page
       .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
@@ -760,11 +773,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
 });
 
 test("terminal reflows command echo when width increases", async ({ page }) => {
-  test.skip(
-    Boolean(process.env.CI),
-    "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
-  );
-  test.setTimeout(90000);
+  test.setTimeout(process.env.CI ? 120000 : 90000);
   await addTerminalOutputInstrumentation(page);
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
@@ -799,7 +808,9 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(embeddedTerminalHost).toBeVisible();
-    await waitForTerminalReady(page, terminalId);
+    await waitForTerminalReady(page, terminalId, {
+      timeoutMs: process.env.CI ? 60000 : 40000,
+    });
     await waitForTerminalOutputToStabilize(page, terminalId, {
       timeoutMs: 20000,
       stableMs: 750,
@@ -1027,10 +1038,7 @@ test("terminal resize messages are throttled during drag detach", async ({
       codeBox.x + codeBox.width + 320,
       paneBox.x + paneBox.width - 40,
     );
-    const targetY = Math.min(
-      codeBox.y + 40,
-      paneBox.y + paneBox.height - 40,
-    );
+    const targetY = Math.min(codeBox.y + 40, paneBox.y + paneBox.height - 40);
 
     await page.evaluate(() => {
       window.__terminalResizePhase = "drag";
@@ -1071,7 +1079,10 @@ test("terminal resize messages are throttled during drag detach", async ({
   }
 });
 
-async function runCodeBlockInPage(page: Page, sectionId: string): Promise<void> {
+async function runCodeBlockInPage(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
   await page.evaluate(async (id) => {
     const { runCodeBlock } = await import("/src/state/actions/runOrImportCode");
     await runCodeBlock(id);
@@ -1148,8 +1159,7 @@ async function getTerminalRowsSnapshot(
       `[data-attached-terminal-section-id="${id}"]`,
     );
     const container =
-      embedded ??
-      document.querySelector(`.react-flow__node[data-id="${id}"]`);
+      embedded ?? document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!container) {
       return [];
     }
@@ -1169,10 +1179,10 @@ async function getTerminalReadyCount(
   terminalId: string,
 ): Promise<number> {
   return await page.evaluate((id) => {
-    const readyCountMap = (window as typeof window & {
+    const readyCountMap = window as typeof window & {
       __terminalReadyCountBySectionId?: Record<string, number>;
       __terminalReadyBySectionId?: Record<string, boolean>;
-    });
+    };
     const readyCount = readyCountMap.__terminalReadyCountBySectionId?.[id];
     if (typeof readyCount === "number") {
       return readyCount;
@@ -1240,9 +1250,7 @@ async function focusTerminalAndType(
   const terminalContainer = root.locator(".xterm");
   await expect(terminalContainer).toBeVisible();
   await terminalContainer.click({ position: { x: 8, y: 8 } });
-  const input = root.locator(
-    ".xterm-helper-textarea, .xterm textarea",
-  );
+  const input = root.locator(".xterm-helper-textarea, .xterm textarea");
   await input.first().waitFor({ state: "attached", timeout: 20000 });
   await input.first().evaluate((el) => {
     if (el instanceof HTMLTextAreaElement) {
@@ -1255,7 +1263,9 @@ async function focusTerminalAndType(
   });
   await expect
     .poll(async () => {
-      return await input.first().evaluate((el) => document.activeElement === el);
+      return await input
+        .first()
+        .evaluate((el) => document.activeElement === el);
     })
     .toBe(true);
   await page.waitForTimeout(50);
@@ -1321,8 +1331,9 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
                   parts.length >= 2 ? parts[parts.length - 2] : "unknown";
                 windowWithOutput.__terminalReadyBySectionId![sectionId] = true;
                 windowWithOutput.__terminalReadyCountBySectionId![sectionId] =
-                  (windowWithOutput.__terminalReadyCountBySectionId![sectionId] ??
-                    0) + 1;
+                  (windowWithOutput.__terminalReadyCountBySectionId![
+                    sectionId
+                  ] ?? 0) + 1;
               } catch {
                 // Ignore parse errors.
               }
@@ -1350,9 +1361,11 @@ async function addTerminalOutputInstrumentation(page: Page): Promise<void> {
       } as typeof WebSocket;
       WrappedWebSocket.prototype = OriginalWebSocket.prototype;
       Object.assign(WrappedWebSocket, OriginalWebSocket);
-      (WrappedWebSocket as typeof WebSocket & {
-        __terminalOutputWrapped?: boolean;
-      }).__terminalOutputWrapped = true;
+      (
+        WrappedWebSocket as typeof WebSocket & {
+          __terminalOutputWrapped?: boolean;
+        }
+      ).__terminalOutputWrapped = true;
       window.WebSocket = WrappedWebSocket;
     }
     windowWithOutput.__terminalOutputInstrumented = true;
@@ -1365,9 +1378,11 @@ async function getTerminalOutputBuffer(
 ): Promise<string> {
   return await page.evaluate((id) => {
     return (
-      (window as typeof window & {
-        __terminalOutputBySectionId?: Record<string, string>;
-      }).__terminalOutputBySectionId?.[id] ?? ""
+      (
+        window as typeof window & {
+          __terminalOutputBySectionId?: Record<string, string>;
+        }
+      ).__terminalOutputBySectionId?.[id] ?? ""
     );
   }, terminalId);
 }
@@ -1462,10 +1477,10 @@ async function waitForTerminalReady(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const readyCount = await page.evaluate((id) => {
-      const readyMap = (window as typeof window & {
+      const readyMap = window as typeof window & {
         __terminalReadyBySectionId?: Record<string, boolean>;
         __terminalReadyCountBySectionId?: Record<string, number>;
-      });
+      };
       const count = readyMap.__terminalReadyCountBySectionId?.[id];
       if (typeof count === "number") {
         return count;
@@ -1509,8 +1524,7 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
                 idle: 0,
               };
             }
-            const counts =
-              window.__terminalResizeCountsBySectionId[sectionId];
+            const counts = window.__terminalResizeCountsBySectionId[sectionId];
             counts[phase] = (counts[phase] ?? 0) + 1;
           }
         }
@@ -1582,9 +1596,7 @@ function getDetachTargetPoint({
   const ordered = candidates
     .slice(startIndex)
     .concat(candidates.slice(0, startIndex));
-  const picked = ordered.find((point) =>
-    isPointOutsideBox(codeBox, point, 20),
-  );
+  const picked = ordered.find((point) => isPointOutsideBox(codeBox, point, 20));
   return picked ?? candidates[0];
 }
 
@@ -1620,7 +1632,6 @@ async function isTerminalDetachedInDom(
     .count();
   return embeddedCount === 0 && terminalNodeCount > 0;
 }
-
 
 async function waitForAttachedTerminalId(
   page: Page,
@@ -1702,10 +1713,7 @@ async function createNewProjectConfig(
   if (!projectConfigName) {
     throw new Error("Unable to resolve new project config name.");
   }
-  const projectConfigId = await resolveProjectConfigId(
-    page,
-    projectConfigName,
-  );
+  const projectConfigId = await resolveProjectConfigId(page, projectConfigName);
   return { projectConfigId, projectConfigName };
 }
 
@@ -1725,7 +1733,9 @@ async function resolveProjectConfigId(
     (entry) => entry.name === projectConfigName,
   );
   if (!match) {
-    throw new Error(`Unable to resolve project config id for ${projectConfigName}.`);
+    throw new Error(
+      `Unable to resolve project config id for ${projectConfigName}.`,
+    );
   }
   return match.id;
 }
@@ -1759,7 +1769,6 @@ async function createTopLevelSectionOfType(
   }
   return sectionId;
 }
-
 
 function getProjectConfigName(pageUrl: string, baseUrl: string): string {
   const pagePath = new URL(pageUrl).pathname;

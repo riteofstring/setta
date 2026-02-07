@@ -77,8 +77,14 @@ def test_terminal_resize_message_updates_winsize_and_cached_rows_cols() -> None:
                             }
                         )
                     )
-                    # Give the server loop a moment to process the resize.
-                    time.sleep(0.05)
+                    # Wait for the server loop to process the resize.
+                    deadline = time.time() + 2.0
+                    while time.time() < deadline:
+                        rows = terminals.PTY_PIDS[section_id].get("rows")
+                        cols = terminals.PTY_PIDS[section_id].get("cols")
+                        if rows == 24 and cols == 80:
+                            break
+                        time.sleep(0.01)
                     websocket.close()
 
                 # write_to_terminal() should have recorded the requested dims.
@@ -86,7 +92,13 @@ def test_terminal_resize_message_updates_winsize_and_cached_rows_cols() -> None:
                 assert terminals.PTY_PIDS[section_id]["cols"] == 80
 
                 # Best-effort: confirm the underlying fd reflects the new size.
+                deadline = time.time() + 2.0
                 size = os.get_terminal_size(pty_process.fd)
+                while time.time() < deadline and (
+                    size.lines != 24 or size.columns != 80
+                ):
+                    time.sleep(0.01)
+                    size = os.get_terminal_size(pty_process.fd)
                 assert size.lines == 24
                 assert size.columns == 80
             finally:
