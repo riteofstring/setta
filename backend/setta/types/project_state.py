@@ -8,7 +8,6 @@ from pydantic import (
 )
 
 from setta.code_gen.utils import sanitize_slug
-from setta.types.app_definition import AppDefinition
 from setta.types.artifact import ArtifactType
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.core import Core, Variant
@@ -112,7 +111,6 @@ class ProjectStateBackend(
 ):
     projectConfigs: dict[ID, ProjectConfig] = Field(default_factory=dict)
     defaultProjectConfigId: ID | None = None
-    appDefinition: AppDefinition | None = None
 
     @model_validator(mode="after")
     def _validate_default_project_id(self):

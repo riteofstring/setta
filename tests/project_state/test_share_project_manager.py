@@ -51,7 +51,7 @@ from setta.types.section_impls import (
 )
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.utils.utils import GEN_CODE_META_FILENAME, normalize_path
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.listener_registry import ListenerRegistry
@@ -253,10 +253,9 @@ def _write_project_with_state(
     dbe = DBE(root)
     dbe.write_project(backend)
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
@@ -283,10 +282,9 @@ def _write_project_with_states(
     dbe.write_project(backend)
     default_config = backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
@@ -310,10 +308,9 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config_b.name)
             dbe = _write_project(root, [config_a, config_b], config_a.id)
             deployment_name = root.parent.name
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config_b.id,
                 deploymentVersion=root.name,
             )
@@ -333,10 +330,9 @@ class TestShareRuntimeState:
             root = Path(tmpdir) / "relocated" / "deployment_root"
             root.mkdir(parents=True, exist_ok=True)
             dbe = _write_project(root, [config], config.id)
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=config.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion="v42",
             )
@@ -356,10 +352,9 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             deployment_name = root.parent.name
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -374,10 +369,9 @@ class TestShareRuntimeState:
             dbe = DBE(root)
             dbe.write_project(ProjectStateBackend())
             deployment_name = root.parent.name
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -391,10 +385,9 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, "missing-project-json")
             dbe = DBE(root)
             deployment_name = root.parent.name
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -727,10 +720,9 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             deployment_name = root.parent.name
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
@@ -807,10 +799,9 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             deployment_name = root.parent.name
-            manifest = DeploymentManifest(
+            manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )

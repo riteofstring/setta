@@ -1316,8 +1316,8 @@ class TestWatchCodeLspOrdering:
         await self.manager._process_queue_task_started.wait()
         try:
             if shutil.which("basedpyright-langserver") is None:
-                pytest.skip(
-                    "basedpyright-langserver is required for LSP ordering tests"
+                pytest.fail(
+                    "basedpyright-langserver is required for tests; ensure it is installed and on PATH."
                 )
             await start_lsps(self.lsp_servers, self.lsp_readers, self.lsp_writers)
             self._lsps_started = True

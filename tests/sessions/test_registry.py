@@ -294,13 +294,17 @@ def test_load_sessions_prunes_current_pid_without_in_process_flag(
             port=61234,
             pid=os.getpid(),
         )
-        if registry.is_session_process_setta(session):
-            pytest.skip("Current process is detected as Setta.")
+        is_setta_process = registry.is_session_process_setta(session)
 
         sessions = registry.load_sessions(prune_stale=True)
 
-        assert sessions == []
-        assert not (sessions_root / session.id).exists()
+        if is_setta_process:
+            assert len(sessions) == 1
+            assert sessions[0].id == session.id
+            assert (sessions_root / session.id).exists()
+        else:
+            assert sessions == []
+            assert not (sessions_root / session.id).exists()
 
 
 def test_load_sessions_keeps_current_pid_with_in_process_flag(
@@ -321,8 +325,6 @@ def test_load_sessions_keeps_current_pid_with_in_process_flag(
             port=61234,
             pid=os.getpid(),
         )
-        if registry.is_session_process_setta(session):
-            pytest.skip("Current process is detected as Setta.")
 
         sessions = registry.load_sessions(prune_stale=True)
 

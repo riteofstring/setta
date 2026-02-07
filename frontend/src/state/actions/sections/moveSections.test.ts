@@ -154,6 +154,7 @@ describe("moveSectionsWithBackend", () => {
   const terminalVariantId = "terminal-variant";
   const codeImplId = "code-impl";
   const terminalImplId = "terminal-impl";
+  const viewModeId = "view-mode-1";
 
   beforeEach(() => {
     resetProjectStores();
@@ -172,6 +173,83 @@ describe("moveSectionsWithBackend", () => {
   afterEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
+  });
+
+  it("updates active view mode top-level layouts when moving in the pane", () => {
+    const sectionCore: Core = {
+      id: codeSectionId,
+      name: "Code Section",
+      displayName: "",
+      variants: [codeVariantId],
+      defaultVariant: codeVariantId,
+      sharedModifier: {},
+      unsharedKeys: [],
+    };
+    const sectionVariant: Variant = {
+      id: codeVariantId,
+      name: "Code Variant",
+      impl: codeImplId,
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    };
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [codeSectionId]: codeVariantId,
+        },
+        activeViewModeId: viewModeId,
+        viewModes: {
+          [viewModeId]: {
+            id: viewModeId,
+            topLevelSections: {
+              [codeSectionId]: { x: 10, y: 20, zIndex: 1 },
+            },
+          },
+        },
+        topLevelSections: {
+          [codeSectionId]: { x: 10, y: 20, zIndex: 1 },
+        },
+      }),
+      sections: {
+        [codeSectionId]: sectionCore,
+      },
+      sectionVariants: {
+        [codeVariantId]: sectionVariant,
+      },
+      sectionImpls: {
+        [codeImplId]: createCodeSectionImpl({
+          id: codeImplId,
+          type: SectionTypeEnum.Code,
+        }),
+      },
+      parentSectionMap: {
+        [codeSectionId]: null,
+      },
+    });
+    useNodeInternals.setState({ x: new Map() });
+
+    moveSectionsWithBackend({
+      sectionIds: [codeSectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [codeSectionId]: { x: 60, y: 80 },
+      },
+    });
+
+    const state = useProjectState.getState();
+    expect(state.projectConfig.topLevelSections[codeSectionId]).toMatchObject({
+      x: 60,
+      y: 80,
+    });
+    expect(
+      state.projectConfig.viewModes[viewModeId]?.topLevelSections?.[
+        codeSectionId
+      ],
+    ).toMatchObject({ x: 60, y: 80 });
   });
 
   it("does not move attached terminals as top-level nodes", () => {
@@ -335,6 +413,16 @@ describe("moveSectionsWithBackend", () => {
           [genSectionId]: genVariantId,
           [terminalId]: terminalVariantId,
         },
+        activeViewModeId: viewModeId,
+        viewModes: {
+          [viewModeId]: {
+            id: viewModeId,
+            topLevelSections: {
+              [genSectionId]: { x: 10, y: 20, zIndex: 1 },
+              [terminalId]: { x: 30, y: 40, zIndex: 2 },
+            },
+          },
+        },
         topLevelSections: {
           [genSectionId]: { x: 10, y: 20, zIndex: 1 },
           [terminalId]: { x: 30, y: 40, zIndex: 2 },
@@ -374,6 +462,9 @@ describe("moveSectionsWithBackend", () => {
     expect(genEffective.attachedTerminalSectionId).toBe(terminalId);
     expect(state.parentSectionMap[terminalId]).toBe(genSectionId);
     expect(state.projectConfig.topLevelSections[terminalId]).toBeUndefined();
+    expect(
+      state.projectConfig.viewModes[viewModeId]?.topLevelSections?.[terminalId],
+    ).toBeUndefined();
     expect(mockedRouteMoveSections).not.toHaveBeenCalled();
     expect(mockedRouteSetAttachedTerminal).toHaveBeenCalledTimes(1);
     const call = mockedRouteSetAttachedTerminal.mock.calls[0]?.[0];

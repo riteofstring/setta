@@ -23,10 +23,6 @@ import yaml
 from setta import __version__
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
-from setta.deployments.deployment_utils import (
-    iter_deployment_versions,
-    parse_deployment_version,
-)
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads
@@ -34,8 +30,11 @@ from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
+from setta.share.deployment_utils import (
+    iter_share_deployment_versions,
+    parse_share_deployment_version,
+)
 from setta.types.routes import Route
-from setta.types.share_deployment import DeploymentType
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import (
     build_bootstrap_urls,
@@ -577,7 +576,7 @@ def _resolve_port(host: str, port: int | None) -> int:
     return port
 
 
-def _resolve_deployment_root(
+def _resolve_share_deployment_root(
     *,
     deployment_root: Path | None,
     deployment_name: str | None,
@@ -591,7 +590,7 @@ def _resolve_deployment_root(
             )
         resolved = deployment_root.expanduser().resolve()
         if not resolved.exists():
-            raise click.ClickException(f"Deployment root not found: {resolved}")
+            raise click.ClickException(f"Share deployment root not found: {resolved}")
         return resolved
     if not deployment_name:
         raise click.ClickException(
@@ -601,23 +600,23 @@ def _resolve_deployment_root(
         raise click.ClickException("Use either --version or --latest, not both.")
     if not deployment_version and not latest:
         raise click.ClickException("Missing --version or --latest.")
-    project_root = (C.DEPLOYMENTS_FOLDER / deployment_name).resolve()
+    project_root = (C.SHARE_DEPLOYMENTS_FOLDER / deployment_name).resolve()
     if not project_root.exists():
-        raise click.ClickException(f"Deployment not found: {deployment_name}")
+        raise click.ClickException(f"Share deployment not found: {deployment_name}")
     if latest:
-        versions = iter_deployment_versions(project_root)
+        versions = iter_share_deployment_versions(project_root)
         if not versions:
-            raise click.ClickException(f"Deployment not found: {deployment_name}")
+            raise click.ClickException(f"Share deployment not found: {deployment_name}")
         _, latest_root = max(versions, key=lambda item: item[0])
         return latest_root.resolve()
-    if parse_deployment_version(deployment_version) is None:
+    if parse_share_deployment_version(deployment_version) is None:
         raise click.ClickException(
             "Invalid --version value. Expected vN (for example v3)."
         )
     resolved = (project_root / deployment_version).resolve()
     if not resolved.exists():
         raise click.ClickException(
-            f"Deployment not found: {deployment_name}/{deployment_version}"
+            f"Share deployment not found: {deployment_name}/{deployment_version}"
         )
     return resolved
 
@@ -1110,7 +1109,7 @@ def export_db(
 @click.option(
     "--deployment-name",
     default=None,
-    help="Deployment name under setta_files/share_deployments (shared deployments store).",
+    help="Deployment name under setta_files/share_deployments.",
 )
 @click.option(
     "--version",
@@ -1141,20 +1140,16 @@ def share(
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    resolved_deployment_root = _resolve_deployment_root(
+    resolved_deployment_root = _resolve_share_deployment_root(
         deployment_root=deployment_root,
         deployment_name=deployment_name,
         deployment_version=deployment_version,
         latest=latest,
     )
-    manifest = DBE(resolved_deployment_root).read_deployment_manifest_optional()
+    manifest = DBE(resolved_deployment_root).read_share_manifest_optional()
     if manifest is None:
         raise click.ClickException(
             f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
-        )
-    if manifest.deploymentType is not DeploymentType.share:
-        raise click.ClickException(
-            f"Deployment is not a share deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
         )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
@@ -1170,92 +1165,6 @@ def share(
         f"Starting share backend for {resolved_deployment_label}/{resolved_version}"
     )
     click.echo(f"Share URL: {share_url}")
-
-    import uvicorn
-
-    config = uvicorn.Config(
-        "setta.server:app",
-        host=resolved_host,
-        port=resolved_port,
-        log_level=uvicorn_log_level,
-        log_config=None,
-        reload=False,
-        timeout_graceful_shutdown=1,
-    )
-    server = uvicorn.Server(config)
-    server.run()
-
-
-@click.command()
-@click.option(
-    "--deployment-root",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Path to an app deployment root (contains manifest.json/project.json).",
-)
-@click.option(
-    "--deployment-name",
-    default=None,
-    help="Deployment name under setta_files/share_deployments (shared deployments store).",
-)
-@click.option(
-    "--version",
-    "deployment_version",
-    default=None,
-    help="Deployment version (vN).",
-)
-@click.option("--latest", is_flag=True, help="Use the latest deployment version.")
-@click.pass_context
-def app(
-    ctx: click.Context,
-    deployment_root: Path | None,
-    deployment_name: str | None,
-    deployment_version: str | None,
-    latest: bool,
-) -> None:
-    params = ctx.obj or {}
-    reload = params.get("reload", False)
-    host = params.get("host", C.DEFAULT_HOST)
-    port = params.get("port", None)
-    log_level = params.get("log_level", None)
-    no_open = params.get("no_open", False)
-    if reload:
-        raise click.ClickException("App mode does not support --reload.")
-
-    resolved_host = host
-    resolved_port = _resolve_port(resolved_host, port)
-    C.HOST = resolved_host
-    C.PORT = resolved_port
-
-    resolved_deployment_root = _resolve_deployment_root(
-        deployment_root=deployment_root,
-        deployment_name=deployment_name,
-        deployment_version=deployment_version,
-        latest=latest,
-    )
-    manifest = DBE(resolved_deployment_root).read_deployment_manifest_optional()
-    if manifest is None:
-        raise click.ClickException(
-            f"App deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
-        )
-    if manifest.deploymentType is not DeploymentType.app:
-        raise click.ClickException(
-            f"Deployment is not an app deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
-        )
-    C.APP_MODE = True
-    C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
-
-    resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    resolved_version = manifest.deploymentVersion
-    resolved_deployment_label = deployment_name or manifest.deploymentName
-    app_url = C.BACKEND
-    auto_open = _should_auto_open(no_open)
-    C.OPEN_BROWSER_ON_START = app_url if auto_open else None
-    click.echo(
-        f"Starting app backend for {resolved_deployment_label}/{resolved_version}"
-    )
-    click.echo(f"App URL: {app_url}")
 
     import uvicorn
 
@@ -2003,7 +1912,6 @@ def cli(
 cli.add_command(version)
 cli.add_command(export_db)
 cli.add_command(share)
-cli.add_command(app)
 cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)

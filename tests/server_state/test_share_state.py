@@ -10,7 +10,7 @@ from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
 
 def _build_share_deployment_root(
@@ -43,10 +43,9 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     resolved_deployment_name = deployment_name or root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=resolved_deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )

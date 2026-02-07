@@ -1,5 +1,4 @@
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -10,24 +9,18 @@ from setta.types.settings_state import RunSnapshotMode
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
-class DeploymentListenerConfig(BaseModel, extra="forbid"):
+class ShareDeploymentListenerConfig(BaseModel, extra="forbid"):
     entrypoint: str
     enabled: bool = True
 
 
-class DeploymentType(str, Enum):
-    share = "share"
-    app = "app"
-
-
-class DeploymentManifest(BaseModel, extra="forbid"):
+class ShareDeploymentManifest(BaseModel, extra="forbid"):
     version: int
     deploymentName: str
-    deploymentType: DeploymentType
     defaultProjectConfigId: ID
     deploymentVersion: str
     createdAt: datetime = Field(default_factory=get_now_timestamp)
-    listener: DeploymentListenerConfig | None = None
+    listener: ShareDeploymentListenerConfig | None = None
 
     @field_validator("createdAt", mode="before")
     @classmethod
@@ -47,9 +40,6 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowLayoutChanges: bool = True
     allowRun: bool = False
     allowLLM: bool = False
-    allowExternalLinks: bool = False
-    allowFileDownloads: bool = False
-    allowMultipleRuns: bool = True
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
 
 
@@ -60,7 +50,7 @@ class ShareDeploymentMetadata(BaseModel, extra="forbid"):
     defaultProjectConfigName: str
     createdAt: datetime
     deploymentRoot: Path
-    policyPath: Path
+    sharePolicyPath: Path
 
 
 class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
@@ -70,4 +60,4 @@ class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
     defaultProjectConfigId: ID
     projectMetadata: list[ProjectConfig]
     sharePolicy: SharePolicy
-    manifest: DeploymentManifest | None = None
+    manifest: ShareDeploymentManifest | None = None
