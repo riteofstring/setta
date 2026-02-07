@@ -6,6 +6,10 @@ import { route_launch } from "utils/generatedEndpoints";
 
 type WorkspaceHistoryEntry = {
   workspaceRoot: string;
+  sshTarget: string | null;
+  sshArgs: string | null;
+  remoteCmd: string | null;
+  localPort: number | null;
   filesRoot: string | null;
   filesRootBase: string | null;
   lastUsedAt: number;
@@ -93,10 +97,14 @@ function saveHistory(entries: WorkspaceHistoryEntry[]) {
 
 function buildEntryKey(entry: {
   workspaceRoot: string;
+  sshTarget: string | null;
+  sshArgs: string | null;
+  remoteCmd: string | null;
+  localPort: number | null;
   filesRoot: string | null;
   filesRootBase: string | null;
 }) {
-  return `${entry.workspaceRoot}::${entry.filesRoot ?? ""}::${entry.filesRootBase ?? ""}`;
+  return `${entry.workspaceRoot}::${entry.sshTarget ?? ""}::${entry.sshArgs ?? ""}::${entry.remoteCmd ?? ""}::${entry.localPort ?? ""}::${entry.filesRoot ?? ""}::${entry.filesRootBase ?? ""}`;
 }
 
 function mergeHistory(
@@ -136,6 +144,10 @@ hydrateHistoryFromWindowName();
 
 export function WorkspaceSwitcherModal() {
   const [workspaceRoot, setWorkspaceRoot] = useState("");
+  const [sshTarget, setSshTarget] = useState("");
+  const [sshArgs, setSshArgs] = useState("");
+  const [remoteCmd, setRemoteCmd] = useState("");
+  const [localPort, setLocalPort] = useState("");
   const [filesRoot, setFilesRoot] = useState("");
   const [filesRootBase, setFilesRootBase] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -151,6 +163,10 @@ export function WorkspaceSwitcherModal() {
     "w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100";
 
   const trimmedWorkspace = workspaceRoot.trim();
+  const trimmedSshTarget = sshTarget.trim();
+  const trimmedSshArgs = sshArgs.trim();
+  const trimmedRemoteCmd = remoteCmd.trim();
+  const trimmedLocalPort = localPort.trim();
   const trimmedFilesRoot = filesRoot.trim();
   const trimmedFilesRootBase = filesRootBase.trim();
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
@@ -161,9 +177,21 @@ export function WorkspaceSwitcherModal() {
 
   function onSelectHistory(entry: WorkspaceHistoryEntry) {
     setWorkspaceRoot(entry.workspaceRoot);
+    setSshTarget(entry.sshTarget ?? "");
+    setSshArgs(entry.sshArgs ?? "");
+    setRemoteCmd(entry.remoteCmd ?? "");
+    setLocalPort(entry.localPort ? String(entry.localPort) : "");
     setFilesRoot(entry.filesRoot ?? "");
     setFilesRootBase(entry.filesRootBase ?? "");
-    setShowAdvanced(Boolean(entry.filesRoot || entry.filesRootBase));
+    setShowAdvanced(
+      Boolean(
+        entry.sshArgs ||
+          entry.remoteCmd ||
+          entry.localPort ||
+          entry.filesRoot ||
+          entry.filesRootBase,
+      ),
+    );
     setError(null);
   }
 
@@ -187,10 +215,27 @@ export function WorkspaceSwitcherModal() {
       setError("Enter a workspace path to continue.");
       return;
     }
+    let parsedLocalPort: number | undefined = undefined;
+    if (trimmedLocalPort) {
+      const asNumber = Number(trimmedLocalPort);
+      if (!Number.isFinite(asNumber) || !Number.isInteger(asNumber)) {
+        setError("Local port must be a whole number.");
+        return;
+      }
+      if (asNumber < 1 || asNumber > 65535) {
+        setError("Local port must be between 1 and 65535.");
+        return;
+      }
+      parsedLocalPort = asNumber;
+    }
     setIsLaunching(true);
     try {
       const res = await route_launch({
         workspaceRoot: trimmedWorkspace,
+        sshTarget: trimmedSshTarget || undefined,
+        sshArgs: trimmedSshArgs || undefined,
+        remoteCmd: trimmedRemoteCmd || undefined,
+        localPort: parsedLocalPort,
         filesRoot: trimmedFilesRoot || undefined,
         filesRootBase: trimmedFilesRootBase || undefined,
       });
@@ -208,6 +253,10 @@ export function WorkspaceSwitcherModal() {
       }
       const nextHistory = updateHistory({
         workspaceRoot: trimmedWorkspace,
+        sshTarget: trimmedSshTarget || null,
+        sshArgs: trimmedSshArgs || null,
+        remoteCmd: trimmedRemoteCmd || null,
+        localPort: parsedLocalPort ?? null,
         filesRoot: trimmedFilesRoot || null,
         filesRootBase: trimmedFilesRootBase || null,
         lastUsedAt: Date.now(),
@@ -244,6 +293,23 @@ export function WorkspaceSwitcherModal() {
         />
       </div>
 
+      <div className="flex flex-col gap-3">
+        <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+          SSH Target (Optional)
+        </label>
+        <input
+          className={inputClassName}
+          placeholder="user@host"
+          value={sshTarget}
+          onChange={(event) => setSshTarget(event.target.value)}
+          spellCheck={false}
+        />
+        <p className="text-xs text-setta-500 dark:text-setta-400">
+          Leave blank for local workspaces. When set, Setta will start (or reuse)
+          a remote session and open a local tunnel.
+        </p>
+      </div>
+
       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
         <span>Advanced Paths</span>
         <button
@@ -256,6 +322,47 @@ export function WorkspaceSwitcherModal() {
 
       {showAdvanced && (
         <div className="grid gap-3">
+          {trimmedSshTarget.length > 0 && (
+            <>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  SSH Args (Optional)
+                </label>
+                <input
+                  className={inputClassName}
+                  placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
+                  value={sshArgs}
+                  onChange={(event) => setSshArgs(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Remote Cmd (Optional)
+                </label>
+                <input
+                  className={inputClassName}
+                  placeholder="source .venv/bin/activate && setta"
+                  value={remoteCmd}
+                  onChange={(event) => setRemoteCmd(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Local Tunnel Port (Optional)
+                </label>
+                <input
+                  className={inputClassName}
+                  placeholder="61000"
+                  value={localPort}
+                  onChange={(event) => setLocalPort(event.target.value)}
+                  spellCheck={false}
+                  inputMode="numeric"
+                />
+              </div>
+            </>
+          )}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
               Files Root (Optional)
@@ -314,6 +421,11 @@ export function WorkspaceSwitcherModal() {
                     {entry.filesRoot
                       ? `Files root: ${entry.filesRoot}`
                       : `Files base: ${entry.filesRootBase}`}
+                  </span>
+                )}
+                {entry.sshTarget && (
+                  <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                    SSH: {entry.sshTarget}
                   </span>
                 )}
               </button>
