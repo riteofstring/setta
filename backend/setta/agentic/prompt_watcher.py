@@ -8,7 +8,7 @@ from setta.agentic.store import list_prompt_templates
 from setta.database.db_objs import DBE
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
-from setta.utils.paths import normalize_state_path
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -50,7 +50,7 @@ class PromptTemplateWatcher:
             await self._reload_prompts()
 
         paths = self._list_prompt_paths()
-        callbacks: CallbacksDict = {normalize_state_path(path): fn for path in paths}
+        callbacks: CallbacksDict = {normalize_path(path): fn for path in paths}
         fire_paths = set(callbacks.keys()) if fire_immediately else set()
         self.specific_file_watcher.update_callbacks(
             callbacks,

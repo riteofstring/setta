@@ -60,9 +60,9 @@ export function ProjectChatHistory({
             }}
           >
             <div className="flex w-full flex-col gap-1">
-              <header className="flex gap-1">
+              <header className="flex items-center justify-between gap-2">
                 <h4
-                  className={`truncate font-semibold text-setta-500 dark:text-setta-100 ${
+                  className={`min-w-0 flex-1 truncate font-semibold text-setta-500 dark:text-setta-100 ${
                     entry.chatId === chatId
                       ? "text-white group-hover/historyitem:text-setta-500 dark:text-white dark:group-hover/historyitem:text-white"
                       : ""
@@ -70,15 +70,29 @@ export function ProjectChatHistory({
                 >
                   {entry.label}
                 </h4>
-                {entry.waitingForResponse ? (
-                  <i
-                    className={`gg-spinner single-cell-child !scale-75 self-center justify-self-end text-setta-500/70 ${
-                      entry.chatId === chatId
-                        ? "text-white group-hover/historyitem:text-setta-800 dark:text-setta-100 dark:group-hover/historyitem:text-setta-100"
-                        : ""
-                    }`}
-                  />
-                ) : null}
+                <div className="flex items-center gap-2">
+                  {entry.nameSource ? (
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${
+                        entry.chatId === chatId
+                          ? "border-white/40 bg-white/10 text-white"
+                          : "border-setta-200 bg-white/80 text-setta-600 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-200"
+                      }`}
+                      title={`Title source: ${formatTitleSource(entry.nameSource)}`}
+                    >
+                      {formatTitleSource(entry.nameSource)}
+                    </span>
+                  ) : null}
+                  {entry.waitingForResponse ? (
+                    <i
+                      className={`gg-spinner single-cell-child !scale-75 self-center justify-self-end text-setta-500/70 ${
+                        entry.chatId === chatId
+                          ? "text-white group-hover/historyitem:text-setta-800 dark:text-setta-100 dark:group-hover/historyitem:text-setta-100"
+                          : ""
+                      }`}
+                    />
+                  ) : null}
+                </div>
               </header>
 
               <p
@@ -120,4 +134,14 @@ function formatChatTimestamp(timestampMs: number): string {
     return "No timestamp";
   }
   return new Date(timestampMs).toLocaleString();
+}
+
+function formatTitleSource(source: "llm" | "deterministic" | "reused"): string {
+  if (source === "llm") {
+    return "LLM";
+  }
+  if (source === "reused") {
+    return "Reused";
+  }
+  return "Deterministic";
 }

@@ -18,7 +18,6 @@ from setta.server_state import SettaFastAPIState
 from setta.types.artifact import BrushStroke, BrushStrokeArtifact, DrawAreaBrushShape
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.utils.paths import get_setta_paths
 from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketConnectionType
 from tests.utils.runtime_context import runtime_context
@@ -149,9 +148,7 @@ class TestShareArtifactRoutes:
             assert cached is not None
 
     async def test_share_normalizes_artifact_ids_to_deployment_relative(self) -> None:
-        with TemporaryDirectory(
-            dir=str(get_setta_paths().workspace_root)
-        ) as tmpdir:
+        with TemporaryDirectory(dir=str(Path.cwd())) as tmpdir:
             project_config_name = "share-artifacts-cwd-test"
             root = _build_share_deployment_root(tmpdir, project_config_name)
             _write_share_project(
