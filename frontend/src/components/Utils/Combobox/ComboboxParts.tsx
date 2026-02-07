@@ -16,6 +16,7 @@ export function ComboboxInput({
   inputRef,
   inputOuterClasses = "",
   inputThemeClassName = "",
+  rightButtonThemeClassName = "",
   variant = "pill",
 }) {
   const isPaneVariant = variant === "pane";
@@ -51,6 +52,9 @@ export function ComboboxInput({
   const rightButtonClassName = isPaneVariant
     ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
     : "right-1";
+  const resolvedRightButtonThemeClassName = rightButtonThemeClassName
+    ? ` ${rightButtonThemeClassName}`
+    : "";
   return (
     <StandardSearch
       outerClasses={resolvedOuterClasses}
@@ -72,7 +76,7 @@ export function ComboboxInput({
           })}
           icon={toggleIcon}
           rounded={isPaneVariant ? "rounded-md" : undefined}
-          className={rightButtonClassName}
+          className={`${rightButtonClassName}${resolvedRightButtonThemeClassName}`}
           size={
             isPaneVariant
               ? small

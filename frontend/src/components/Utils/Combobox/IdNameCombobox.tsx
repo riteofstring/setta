@@ -15,6 +15,7 @@ export function IdNameCombobox<T>({
   outerDivClasses = "",
   inputOuterClasses,
   inputThemeClassName,
+  rightButtonThemeClassName,
   listThemeClassName,
   placeholder,
   bg,
@@ -31,6 +32,7 @@ export function IdNameCombobox<T>({
   outerDivClasses?: string;
   inputOuterClasses?: string;
   inputThemeClassName?: string;
+  rightButtonThemeClassName?: string;
   listThemeClassName?: string;
   placeholder?: string;
   bg?: string;
@@ -79,6 +81,7 @@ export function IdNameCombobox<T>({
         inputRef={inputRef}
         inputOuterClasses={inputOuterClasses}
         inputThemeClassName={inputThemeClassName}
+        rightButtonThemeClassName={rightButtonThemeClassName}
         variant={variant}
       />
 

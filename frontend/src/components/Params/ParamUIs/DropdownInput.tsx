@@ -136,6 +136,7 @@ export function DropdownInput({
   outerDivClasses,
   inputOuterClasses,
   comboboxInputThemeClassName,
+  comboboxRightButtonThemeClassName,
   comboboxListThemeClassName,
   isDisabled,
   placeholder,
@@ -147,6 +148,7 @@ export function DropdownInput({
   outerDivClasses?: string;
   inputOuterClasses?: string;
   comboboxInputThemeClassName?: string;
+  comboboxRightButtonThemeClassName?: string;
   comboboxListThemeClassName?: string;
   isDisabled?: boolean;
   placeholder?: string;
@@ -170,6 +172,7 @@ export function DropdownInput({
       placeholder={placeholder}
       inputOuterClasses={inputOuterClasses}
       inputThemeClassName={comboboxInputThemeClassName}
+      rightButtonThemeClassName={comboboxRightButtonThemeClassName}
       listThemeClassName={comboboxListThemeClassName}
     />
   );

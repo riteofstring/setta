@@ -141,18 +141,24 @@ function Stack({ element, children }: AppComponentProps) {
 function Box({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const className = typeof props.className === "string" ? props.className : "";
-  const padding = typeof props.padding === "number" ? props.padding : null;
-  const radius = typeof props.radius === "number" ? props.radius : null;
+  const padding =
+    typeof props.padding === "number" || typeof props.padding === "string"
+      ? props.padding
+      : null;
+  const radius =
+    typeof props.radius === "number" || typeof props.radius === "string"
+      ? props.radius
+      : null;
   const background =
     typeof props.background === "string" ? props.background : "none";
   const border = typeof props.border === "string" ? props.border : "none";
 
   const style: React.CSSProperties = {};
   if (padding !== null) {
-    style.padding = `${padding}px`;
+    style.padding = typeof padding === "number" ? `${padding}px` : padding;
   }
   if (radius !== null) {
-    style.borderRadius = `${radius}px`;
+    style.borderRadius = typeof radius === "number" ? `${radius}px` : radius;
   }
 
   const backgroundByRole: Record<string, string> = {
@@ -227,10 +233,13 @@ function Grid({ element, children }: AppComponentProps) {
 function Container({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const className = typeof props.className === "string" ? props.className : "";
-  const maxWidth = typeof props.maxWidth === "number" ? props.maxWidth : null;
+  const maxWidth =
+    typeof props.maxWidth === "number" || typeof props.maxWidth === "string"
+      ? props.maxWidth
+      : null;
   const style: React.CSSProperties = {};
   if (maxWidth !== null) {
-    style.maxWidth = `${maxWidth}px`;
+    style.maxWidth = typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth;
   }
   return (
     <div className={`mx-auto w-full ${className}`.trim()} style={style}>
@@ -242,13 +251,16 @@ function Container({ element, children }: AppComponentProps) {
 function Spacer({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const className = typeof props.className === "string" ? props.className : "";
-  const size = typeof props.size === "number" ? props.size : 16;
+  const size =
+    typeof props.size === "number" || typeof props.size === "string"
+      ? props.size
+      : 16;
   const axis = props.axis === "x" ? "x" : "y";
   const style: React.CSSProperties = { flexShrink: 0 };
   if (axis === "x") {
-    style.width = `${size}px`;
+    style.width = typeof size === "number" ? `${size}px` : size;
   } else {
-    style.height = `${size}px`;
+    style.height = typeof size === "number" ? `${size}px` : size;
   }
   return <div className={className} style={style} aria-hidden="true" />;
 }
@@ -620,7 +632,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
           </span>
         )}
       </div>
-      <div className="rounded-md border border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-2 py-1">
+      <div className="rounded-md border border-[color:var(--app-input-border,_var(--app-border))] bg-[color:var(--app-input-bg,_var(--app-surface))] px-2 py-1">
         <div
           className={effectiveCanEditParams ? "" : "pointer-events-none opacity-60"}
         >
@@ -869,7 +881,7 @@ function AppParamUI({
               }
             }}
             dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language={configLanguage}
             isDisabled={isDisabled}
             tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
@@ -963,8 +975,9 @@ function AppParamUI({
           value={dropdownValue}
           onChange={onChange}
           outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
-          comboboxInputThemeClassName="!bg-[color:var(--app-surface)] hover:!bg-[color:var(--app-surface-alt)] !border-[color:var(--app-border)] !text-[color:var(--app-text)] !placeholder:text-[color:var(--app-muted)] focus:!border-[color:var(--app-accent)] focus-visible:!ring-[color:var(--app-accent)]"
-          comboboxListThemeClassName="!border-[color:var(--app-border)] !bg-[color:var(--app-surface)] !text-[color:var(--app-text)]"
+          comboboxInputThemeClassName="!bg-[color:var(--app-input-bg)] hover:!bg-[color:var(--app-input-bg-hover)] !border-[color:var(--app-input-border)] !text-[color:var(--app-input-text)] !placeholder:text-[color:var(--app-input-placeholder)] focus:!border-[color:var(--app-input-focus-border)] focus-visible:!ring-[color:var(--app-input-ring)]"
+          comboboxRightButtonThemeClassName="!text-[color:var(--app-dropdown-muted)] hover:!bg-[color:var(--app-input-bg-hover)] hover:!text-[color:var(--app-dropdown-text)] dark:!text-[color:var(--app-dropdown-muted)] dark:hover:!bg-[color:var(--app-input-bg-hover)] dark:hover:!text-[color:var(--app-dropdown-text)]"
+          comboboxListThemeClassName="!border-[color:var(--app-dropdown-border)] !bg-[color:var(--app-dropdown-bg)] !text-[color:var(--app-dropdown-text)]"
           isDisabled={isDisabled}
         />
       );
@@ -985,7 +998,7 @@ function AppParamUI({
               onEscape={onEscape}
               isDisabled={isDisabled}
               placeholder={passwordPlaceholder}
-              toggleClassName="flex-none"
+              toggleClassName="flex-none !text-[color:var(--app-muted)] hover:!text-[color:var(--app-text)] dark:!text-[color:var(--app-muted)] dark:hover:!text-[color:var(--app-text)]"
             />
             {showPasswordReveal ? (
               <button
@@ -1131,10 +1144,10 @@ function ActionButton({ element, onAction }: AppComponentProps) {
   return (
     <button
       type="button"
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
+      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-button-ring,_var(--app-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
         isDisabled
-          ? "cursor-not-allowed bg-[color:var(--app-surface-alt)] text-[color:var(--app-muted)]"
-          : "bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)] hover:bg-[color:var(--app-accent-hover)]"
+          ? "cursor-not-allowed bg-[color:var(--app-button-disabled-bg,_var(--app-surface-alt))] text-[color:var(--app-button-disabled-text,_var(--app-muted))]"
+          : "bg-[color:var(--app-button-bg,_var(--app-accent))] text-[color:var(--app-button-text,_var(--app-accent-text))] hover:bg-[color:var(--app-button-bg-hover,_var(--app-accent-hover))]"
       }`}
       title={isDisabled ? disabledReason ?? undefined : undefined}
       onClick={() => {

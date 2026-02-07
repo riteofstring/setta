@@ -37,6 +37,7 @@ type AppThemeConfig = {
   colors?: AppThemeColors | { light?: AppThemeColors; dark?: AppThemeColors };
   fonts?: AppThemeFonts;
   spacing?: AppThemeSpacing;
+  vars?: Record<string, string | number>;
 };
 
 export type ResolvedAppTheme = {
@@ -213,6 +214,27 @@ function applyVars(
   }
 }
 
+function applyAppVars(
+  style: Record<string, string | number>,
+  vars: Record<string, string | number> | undefined,
+): void {
+  if (!vars) {
+    return;
+  }
+  for (const [key, value] of Object.entries(vars)) {
+    if (!key.startsWith("--app-")) {
+      continue;
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+      style[key] = value;
+      continue;
+    }
+    if (typeof value === "number") {
+      style[key] = `${value}px`;
+    }
+  }
+}
+
 export function resolveAppTheme(
   theme: unknown,
   options: { prefersDark?: boolean } = {},
@@ -235,8 +257,32 @@ export function resolveAppTheme(
   applyVars(style, COLOR_VAR_MAP, colors);
   applyVars(style, FONT_VAR_MAP, fonts);
   applyVars(style, SPACING_VAR_MAP, spacing);
-  if (fonts.body) {
-    style.fontFamily = fonts.body;
+
+  // Component-role tokens: stable override points beyond semantic colors.
+  style["--app-button-bg"] = colors.accent ?? "";
+  style["--app-button-bg-hover"] = colors.accentHover ?? colors.accent ?? "";
+  style["--app-button-text"] = colors.accentText ?? colors.text ?? "";
+  style["--app-button-disabled-bg"] = colors.surfaceAlt ?? colors.surface ?? "";
+  style["--app-button-disabled-text"] = colors.muted ?? colors.text ?? "";
+
+  style["--app-input-bg"] = colors.surface ?? "";
+  style["--app-input-bg-hover"] = colors.surfaceAlt ?? colors.surface ?? "";
+  style["--app-input-border"] = colors.border ?? "";
+  style["--app-input-text"] = colors.text ?? "";
+  style["--app-input-placeholder"] = colors.muted ?? "";
+  style["--app-input-focus-border"] = colors.accent ?? "";
+  style["--app-input-ring"] = colors.accent ?? "";
+
+  style["--app-dropdown-bg"] = colors.surface ?? "";
+  style["--app-dropdown-border"] = colors.border ?? "";
+  style["--app-dropdown-text"] = colors.text ?? "";
+  style["--app-dropdown-muted"] = colors.muted ?? "";
+
+  applyAppVars(style, themeConfig?.vars);
+
+  const resolvedBodyFontVar = style["--app-font-body"];
+  if (typeof resolvedBodyFontVar === "string" && resolvedBodyFontVar.trim()) {
+    style.fontFamily = resolvedBodyFontVar;
   }
 
   return {
