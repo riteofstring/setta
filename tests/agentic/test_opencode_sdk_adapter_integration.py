@@ -49,8 +49,6 @@ pytestmark = pytest.mark.asyncio
 
 class TestOpenCodeSdkAdapterIntegration:
     def _require_opencode_sdk(self) -> str:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            pytest.skip("ANTHROPIC_API_KEY not set")
         sdk_package = (
             Path(__file__).resolve().parents[2]
             / "backend"
@@ -64,10 +62,10 @@ class TestOpenCodeSdkAdapterIntegration:
             / "package.json"
         )
         if not sdk_package.exists():
-            pytest.fail("@opencode-ai/sdk is not installed in sidecars")
+            pytest.skip("@opencode-ai/sdk is not installed in sidecars")
         opencode_path = shutil.which("opencode")
         if opencode_path is None:
-            pytest.fail("opencode CLI not installed")
+            pytest.skip("opencode CLI not installed")
         try:
             subprocess.run(
                 [opencode_path, "--version"],
@@ -76,19 +74,21 @@ class TestOpenCodeSdkAdapterIntegration:
                 text=True,
             )
         except (OSError, subprocess.CalledProcessError):
-            pytest.fail("opencode CLI not available")
+            pytest.skip("opencode CLI not available")
         node_command = resolve_node_command(None)
         node_path = shutil.which(node_command) or (
             node_command if Path(node_command).exists() else None
         )
         if node_path is None:
-            pytest.fail("node executable not found")
+            pytest.skip("node executable not found")
         model = self._resolve_test_model(opencode_path)
         provider = model.split("/", 1)[0].strip().lower()
         if provider == "anthropic":
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                pytest.skip("ANTHROPIC_API_KEY not set")
             self._require_network("api.anthropic.com", 443)
         else:
-            pytest.fail(
+            pytest.skip(
                 "OpenCode tests require Anthropic Claude Sonnet 4.5; "
                 "set OPENCODE_TEST_MODEL to anthropic/claude-sonnet-4-5-20250929 "
                 "or anthropic/claude-sonnet-4-5."
@@ -103,20 +103,24 @@ class TestOpenCodeSdkAdapterIntegration:
         env_model = os.environ.get("OPENCODE_TEST_MODEL")
         if env_model:
             if "claude-sonnet-4-5" not in env_model:
-                pytest.fail(
+                pytest.skip(
                     "OPENCODE_TEST_MODEL must be Claude Sonnet 4.5 "
                     "(anthropic/claude-sonnet-4-5-20250929)."
                 )
             return env_model
         if _DEFAULT_OPENCODE_TEST_MODEL:
             if "claude-sonnet-4-5" not in _DEFAULT_OPENCODE_TEST_MODEL:
-                pytest.fail("Default OpenCode test model must be Claude Sonnet 4.5.")
+                pytest.skip(
+                    "Default OpenCode test model must be Claude Sonnet 4.5."
+                )
             return _DEFAULT_OPENCODE_TEST_MODEL
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            pytest.skip("ANTHROPIC_API_KEY not set for OpenCode Claude Sonnet 4.5")
         models = self._list_models(opencode_path, "anthropic")
         selected = self._pick_model(models, "anthropic")
         if selected:
             return selected
-        pytest.fail(
+        pytest.skip(
             "Claude Sonnet 4.5 not available via `opencode models`. "
             "Set OPENCODE_TEST_MODEL to anthropic/claude-sonnet-4-5-20250929."
         )
@@ -175,8 +179,8 @@ class TestOpenCodeSdkAdapterIntegration:
             socket.getaddrinfo(host, port)
             with socket.create_connection((host, port), timeout=3):
                 pass
-        except OSError as exc:
-            pytest.fail(f"Cannot connect to {host}:{port} ({exc})")
+        except OSError:
+            pytest.skip(f"Cannot connect to {host}:{port}")
 
     async def _await_completed_run(
         self,
@@ -229,7 +233,7 @@ class TestOpenCodeSdkAdapterIntegration:
                         cli_stderr = payload.get("cliStderr")
                         break
             if self._should_skip_for_server_failure(cli_stderr):
-                pytest.fail(
+                pytest.skip(
                     "OpenCode server failed to start; "
                     f"stderr={cli_stderr!r}"
                 )

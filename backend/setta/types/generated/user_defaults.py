@@ -20,7 +20,6 @@ from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
@@ -195,8 +194,6 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     inputText: str = ""
     waitingForResponse: bool = False
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
-    activeBranchId: ID | None = None
-    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
 class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
