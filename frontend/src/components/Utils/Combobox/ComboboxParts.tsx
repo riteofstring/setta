@@ -15,6 +15,7 @@ export function ComboboxInput({
   isDisabled,
   inputRef,
   inputOuterClasses = "",
+  inputThemeClassName = "",
   variant = "pill",
 }) {
   const isPaneVariant = variant === "pane";
@@ -27,12 +28,15 @@ export function ComboboxInput({
   const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
+  const resolvedInputThemeClassName = inputThemeClassName
+    ? ` ${inputThemeClassName}`
+    : "";
   const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-6 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
     small ? "h-4 my-auto" : "h-7"
-  }`;
+  }${resolvedInputThemeClassName}`;
   const paneInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-md border border-solid border-setta-200 px-2 pr-8 text-xs text-setta-800 placeholder:text-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-600 min-w-0 ${
     small ? "h-6" : "h-8"
-  }`;
+  }${resolvedInputThemeClassName}`;
   const toggleIcon = isPaneVariant ? (
     <i
       className={`gg-chevron-down !h-3 !w-3 transition-transform duration-150 ${
@@ -89,14 +93,19 @@ export function ComboboxList({
   children,
   getMenuProps,
   inputRef,
+  listThemeClassName = "",
 }: {
   isOpen: boolean;
   children: React.ReactNode;
   getMenuProps: () => React.InputHTMLAttributes<HTMLInputElement>;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  listThemeClassName?: string;
 }) {
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
   const display = isOpen ? "flex" : "hidden";
+  const resolvedListThemeClassName = listThemeClassName
+    ? ` ${listThemeClassName}`
+    : "";
 
   useLayoutEffect(() => {
     if (isOpen && inputRef.current) {
@@ -112,7 +121,7 @@ export function ComboboxList({
 
   return createPortal(
     <div
-      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50`}
+      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50${resolvedListThemeClassName}`}
       {...getMenuProps()}
       style={{
         left: `${listDims.x}px`,

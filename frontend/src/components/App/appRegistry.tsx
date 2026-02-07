@@ -848,6 +848,8 @@ function AppParamUI({
           value={dropdownValue}
           onChange={onChange}
           outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
+          comboboxInputThemeClassName="!bg-[color:var(--app-surface)] hover:!bg-[color:var(--app-surface-alt)] !border-[color:var(--app-border)] !text-[color:var(--app-text)] !placeholder:text-[color:var(--app-muted)] focus:!border-[color:var(--app-accent)] focus-visible:!ring-[color:var(--app-accent)]"
+          comboboxListThemeClassName="!border-[color:var(--app-border)] !bg-[color:var(--app-surface)] !text-[color:var(--app-text)]"
           isDisabled={isDisabled}
         />
       );
