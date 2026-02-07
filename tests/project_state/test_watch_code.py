@@ -203,7 +203,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_workspace_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -243,7 +243,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_workspace_path(new_file))],
+                watchCodeFiles=[str(workspace_relative_path(new_file))],
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
@@ -262,14 +262,17 @@ class TestWatchCode:
                 )
             )
         inside_file = self.watch_file_path.resolve()
-        with pytest.raises(ValueError):
-            await self.manager.set_watch_code_inputs(
-                SetWatchCodeInputsRequest(
-                    projectConfigId=self.project_config_id,
-                    watchCodeFolders=[],
-                    watchCodeFiles=[str(inside_file)],
-                )
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(inside_file)],
             )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        assert state.projectConfig.watchCodeFiles == [
+            str(workspace_relative_path(inside_file))
+        ]
         outside_folder = self.workspace_root.parent / "outside_watch_dir"
         with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
@@ -282,16 +285,22 @@ class TestWatchCode:
                 )
             )
         inside_folder = self.watch_file_path.parent.resolve()
-        with pytest.raises(ValueError):
-            await self.manager.set_watch_code_inputs(
-                SetWatchCodeInputsRequest(
-                    projectConfigId=self.project_config_id,
-                    watchCodeFolders=[
-                        WatchCodeFolder(path=str(inside_folder), recursive=False)
-                    ],
-                    watchCodeFiles=[],
-                )
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(inside_folder), recursive=False)
+                ],
+                watchCodeFiles=[],
             )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        assert [folder.path for folder in state.projectConfig.watchCodeFolders] == [
+            str(workspace_relative_path(inside_folder))
+        ]
+        assert [folder.recursive for folder in state.projectConfig.watchCodeFolders] == [
+            False
+        ]
 
     async def test_auto_creates_callable_section_for_new_def(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -359,7 +368,7 @@ class TestWatchCode:
         await self.manager.reload_code_sections(plan)
         state = self.manager.get_single_config_state(self.project_config_id)
         module_path = convert_path_to_module_path(
-            normalize_workspace_path(self.code_section_path)
+            workspace_relative_path(self.code_section_path)
         )
         callable_name = f"{module_path}.external_added"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
@@ -370,7 +379,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_workspace_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -403,7 +412,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_workspace_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -440,7 +449,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(watch_root)), recursive=False
+                        path=str(workspace_relative_path(watch_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -456,7 +465,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(watch_root)), recursive=True
+                        path=str(workspace_relative_path(watch_root)), recursive=True
                     )
                 ],
                 watchCodeFiles=[],
@@ -483,7 +492,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(missing_dir)), recursive=False
+                        path=str(workspace_relative_path(missing_dir)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -541,7 +550,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(self.setta_root.parent)),
+                        path=str(workspace_relative_path(self.setta_root.parent)),
                         recursive=True,
                     )
                 ],
@@ -585,7 +594,7 @@ class TestWatchCode:
 
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         moved_module_path = convert_path_to_module_path(
-            normalize_workspace_path(moved_path)
+            workspace_relative_path(moved_path)
         )
         moved_identity = build_callable_identity(
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
@@ -612,7 +621,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(watch_root)), recursive=False
+                        path=str(workspace_relative_path(watch_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -655,7 +664,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(watch_root)), recursive=False
+                        path=str(workspace_relative_path(watch_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -718,7 +727,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(source_root)), recursive=False
+                        path=str(workspace_relative_path(source_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -729,7 +738,7 @@ class TestWatchCode:
                 projectConfigId=secondary_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_workspace_path(dest_root)), recursive=False
+                        path=str(workspace_relative_path(dest_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -1152,7 +1161,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_workspace_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(

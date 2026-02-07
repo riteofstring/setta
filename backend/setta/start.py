@@ -466,9 +466,7 @@ def _start_remote_setta(
     remote_logs_dir = "setta_files/runtime/logs"
     remote_log_file = f"{remote_logs_dir}/nohup.out"
     root_prefix = f"{files_root_args} " if files_root_args else ""
-    start_cmd = (
-        f"cd {shlex.quote(workspace)} && {setta_command} {root_prefix}--no-open"
-    )
+    start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} {root_prefix}--no-open"
     quoted_start = shlex.quote(start_cmd)
     if runner == "nohup":
         launch = (

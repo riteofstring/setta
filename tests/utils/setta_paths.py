@@ -20,6 +20,8 @@ def temporary_setta_paths(
         env_updates["SETTA_WORKSPACE_ROOT"] = str(workspace_root)
     if setta_files_root is not None:
         env_updates["SETTA_FILES_ROOT"] = str(setta_files_root)
+        if runtime_root is None:
+            env_updates["SETTA_RUNTIME_ROOT"] = str(setta_files_root / "runtime")
     if runtime_root is not None:
         env_updates["SETTA_RUNTIME_ROOT"] = str(runtime_root)
     if files_root_base is not None:

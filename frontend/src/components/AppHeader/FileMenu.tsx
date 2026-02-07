@@ -76,10 +76,7 @@ export function FileMenu() {
       >
         Publish Share Deployment
       </MenuItem>
-      <MenuItem
-        onClick={openWorkspaceSwitcherModal}
-        paddingClassName="px-1.5"
-      >
+      <MenuItem onClick={openWorkspaceSwitcherModal} paddingClassName="px-1.5">
         Switch Workspace
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />

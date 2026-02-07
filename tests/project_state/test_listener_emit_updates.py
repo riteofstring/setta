@@ -164,7 +164,7 @@ class TestApplyListenerEmitUpdates:
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
         with suppress(asyncio.CancelledError):
-        await self.manager.queue_task
+            await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
         self._stack.close()

@@ -69,6 +69,7 @@ def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     sessions_root = setta_files_root / "runtime" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
 
+    monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
     monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
 
     registry = SessionRegistry(sessions_root=sessions_root)

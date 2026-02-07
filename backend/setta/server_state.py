@@ -43,7 +43,7 @@ from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.init_status import BackendInitializationStatus
-from setta.utils.paths import get_setta_paths, warn_on_legacy_state
+from setta.utils.paths import clear_setta_paths_cache, get_setta_paths, warn_on_legacy_state
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -209,7 +209,13 @@ class SettaFastAPIState:
             if self.share_runtime_root is not None
             else self.paths.runtime_root,
         )
-        os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self.dbe.runtime_root))
+        if self.share_runtime_root is not None:
+            # Ensure runtime-root consumers (password store, binary lookups, etc) point at
+            # the active share deployment runtime root even when multiple share states
+            # are constructed in-process (tests).
+            os.environ["SETTA_RUNTIME_ROOT"] = str(self.dbe.runtime_root)
+            clear_setta_paths_cache()
+            self.paths = get_setta_paths()
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 from setta.logging.tasks import spawn_background_task
 from setta.types.specific_file_watcher import (
@@ -14,6 +13,7 @@ from setta.types.specific_file_watcher import (
 )
 from setta.utils.paths import normalize_workspace_path
 from setta.utils.utils import ensure_str_path
+from setta.utils.watchdog_observer import build_watchdog_observer
 
 if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
@@ -35,7 +35,7 @@ class MockFileEvent:
 
 class SpecificFileWatcher:
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
-        self.observer = Observer()
+        self.observer = build_watchdog_observer()
         self.observer.daemon = True
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)

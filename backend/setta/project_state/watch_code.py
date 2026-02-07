@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.utils import convert_path_to_module_path
@@ -47,6 +46,7 @@ from setta.utils.paths import (
     workspace_relative_path,
 )
 from setta.utils.utils import compute_md5_hex
+from setta.utils.watchdog_observer import build_watchdog_observer
 
 if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
@@ -157,13 +157,14 @@ def _should_ignore_path(path: Path) -> bool:
 
 def _normalize_watch_code_path(raw: str, label: str) -> Path:
     candidate = Path(raw)
-    if candidate.is_absolute():
-        raise ValueError(f"Watch code {label} paths must be repo-relative: {raw!r}")
-    normalized = normalize_workspace_path(raw)
     workspace_root = get_setta_paths().workspace_root
+    if candidate.is_absolute():
+        normalized = candidate.expanduser().resolve(strict=False)
+    else:
+        normalized = normalize_workspace_path(raw)
     if not normalized.is_relative_to(workspace_root):
         raise ValueError(f"Watch code {label} paths must be inside the repo: {raw!r}")
-    return normalized
+    return normalized.relative_to(workspace_root)
 
 
 def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
@@ -472,7 +473,7 @@ class WatchCodeManager:
     ) -> None:
         self._project_manager = project_manager
         self._loop = loop
-        self._observer = Observer()
+        self._observer = build_watchdog_observer()
         self._observer.daemon = True
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()

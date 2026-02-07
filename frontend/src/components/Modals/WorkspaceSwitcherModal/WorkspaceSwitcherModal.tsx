@@ -113,7 +113,9 @@ function mergeHistory(
     seen.add(key);
     merged.push(entry);
   }
-  return merged.sort((a, b) => b.lastUsedAt - a.lastUsedAt).slice(0, HISTORY_LIMIT);
+  return merged
+    .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
+    .slice(0, HISTORY_LIMIT);
 }
 
 function hydrateHistoryFromWindowName() {
@@ -224,7 +226,8 @@ export function WorkspaceSwitcherModal() {
           Switch Workspace
         </Dialog.Title>
         <Dialog.Description className="text-sm text-setta-600 dark:text-setta-300">
-          Start or reuse a session for a different workspace, then reload into it.
+          Start or reuse a session for a different workspace, then reload into
+          it.
         </Dialog.Description>
       </header>
 

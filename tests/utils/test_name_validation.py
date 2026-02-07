@@ -68,7 +68,7 @@ from setta.utils.name_validation import (
     validate_param_name,
     validate_view_mode_name,
 )
-from setta.utils.paths import normalize_state_path
+from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
 
 
@@ -828,7 +828,7 @@ class TestSectionNameValidation:
         )
         assert impl_a_after.codeFileBinding is None
         assert impl_b_after.codeFileBinding is not None
-        assert impl_b_after.codeFileBinding.canonical_path == Path(
+        assert impl_b_after.codeFileBinding.canonical_path == normalize_workspace_path(
             "custom/manual_binding.py"
         )
 

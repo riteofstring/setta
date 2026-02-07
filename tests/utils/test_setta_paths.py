@@ -11,6 +11,11 @@ from setta.utils.paths import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _clear_runtime_root_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
+
+
 def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
