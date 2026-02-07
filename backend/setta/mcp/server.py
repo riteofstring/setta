@@ -877,6 +877,7 @@ class SettaFastMCP(FastMCP):
                 tool = self._tool_manager.get_tool(tool_name)
                 annotations = tool.annotations if tool else None
                 scope_check = check_agentic_scope_for_tool(
+                    tool_name=tool_name,
                     tool_args=kwargs,
                     annotations=annotations,
                     project_state=project_state,

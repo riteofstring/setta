@@ -176,6 +176,7 @@ class ManagedActionExecutor:
                 )
                 temporary_to_canonical, _ = self._dbe.read_temporary_id_map()
                 scope_check = check_agentic_scope_for_tool(
+                    tool_name=tool_name,
                     tool_args=arguments,
                     annotations=self._mcp_client.tool_annotations_by_name.get(
                         tool_name

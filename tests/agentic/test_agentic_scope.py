@@ -204,6 +204,81 @@ class TestAgenticScope:
         )
         assert not denied.allowed
 
+    def test_check_agentic_scope_for_tool_infers_singleton_section_targets(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="singleton-scope-test")
+        )
+        chat_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        gen_code_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.GenPythonCode,
+            Position(),
+        )
+        other_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Dict,
+            Position(),
+        )
+        chat_without_access_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        create_agentic_edge(
+            project_state,
+            AgenticEdge(
+                id=create_new_id(),
+                sourceSectionId=chat_id,
+                targetSectionId=gen_code_section_id,
+                kind=AgenticEdgeKind.chat_section,
+            ),
+        )
+        create_agentic_edge(
+            project_state,
+            AgenticEdge(
+                id=create_new_id(),
+                sourceSectionId=chat_without_access_id,
+                targetSectionId=other_section_id,
+                kind=AgenticEdgeKind.chat_section,
+            ),
+        )
+        project_state.validate_singleton_sections()
+
+        annotations = SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            accessType="write",
+            idPathsByType={},
+        )
+        allowed = check_agentic_scope_for_tool(
+            tool_name="mcp__setta__set_gen_code_prefix",
+            tool_args={"projectConfigId": "project-1", "genCodePrefix": "import math"},
+            annotations=annotations,
+            project_state=project_state,
+            scope=resolve_agentic_scope(project_state, chat_id),
+        )
+        assert allowed.allowed
+        assert allowed.target_section_ids == {ID(gen_code_section_id)}
+
+        denied = check_agentic_scope_for_tool(
+            tool_name="set_gen_code_prefix",
+            tool_args={"projectConfigId": "project-1", "genCodePrefix": "import math"},
+            annotations=annotations,
+            project_state=project_state,
+            scope=resolve_agentic_scope(project_state, chat_without_access_id),
+        )
+        assert not denied.allowed
+        assert denied.target_section_ids == {ID(gen_code_section_id)}
+        assert denied.blocked_section_ids == {ID(gen_code_section_id)}
+
     def test_check_agentic_scope_for_tool_maps_code_obj_ids_to_sections(self) -> None:
         section_id = ID("callable-section")
         section_impl_id = ID("callable-section-impl")

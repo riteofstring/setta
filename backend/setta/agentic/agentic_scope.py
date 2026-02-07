@@ -5,6 +5,7 @@ from typing import Any
 from mcp.types import CallToolResult, TextContent
 
 from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
+from setta.mcp.namespacing import split_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, ToolAccessType
 from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -116,6 +117,7 @@ def resolve_context_edges(
 
 def check_agentic_scope_for_tool(
     *,
+    tool_name: str | None = None,
     tool_args: dict[str, Any],
     annotations: SettaToolAnnotations | None,
     project_state: ProjectStateSingleConfig,
@@ -145,6 +147,12 @@ def check_agentic_scope_for_tool(
         code_obj_ids,
     )
     target_section_ids = section_ids | mapped_sections
+    if not target_section_ids and access_type == "write":
+        tool_basename = _normalize_tool_name_for_scope_check(tool_name)
+        if tool_basename in {"set_gen_code_prefix", "set_gen_code_suffix"}:
+            gen_section_id = project_state.singletonSections.GenPythonCode
+            if gen_section_id is not None:
+                target_section_ids = {gen_section_id}
 
     if access_type == "structural":
         allowed = scope.structural_allowed
@@ -204,6 +212,18 @@ def check_agentic_scope_for_tool(
         unmapped_code_obj_ids=unmapped_code_objs,
         reason="allowed" if allowed else "out_of_scope",
     )
+
+
+def _normalize_tool_name_for_scope_check(tool_name: str | None) -> str | None:
+    if tool_name is None:
+        return None
+    normalized = tool_name.strip()
+    if not normalized:
+        return None
+    if normalized.startswith("mcp__"):
+        normalized = normalized[len("mcp__") :]
+    _, base_name = split_namespaced_tool_name(normalized)
+    return base_name
 
 
 def build_missing_edge_hints(
