@@ -4,6 +4,7 @@ import contextvars
 import dataclasses
 import logging
 import re
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from types import MappingProxyType
@@ -86,7 +87,17 @@ def logging_context(
     try:
         yield
     finally:
-        reset_logging_context(token)
+        exc_type = sys.exc_info()[0]
+        try:
+            reset_logging_context(token)
+        except ValueError:
+            # If an async task is garbage-collected during interpreter/event-loop
+            # shutdown, its coroutine may be finalized in a different contextvars
+            # Context than the one that created this token. Avoid raising an
+            # unraisable exception in that case.
+            if exc_type is GeneratorExit:
+                return
+            raise
 
 
 class LoggingContextFilter(logging.Filter):
