@@ -24,7 +24,7 @@ from setta.types.section_impls import (
     CodeFileBinding,
     CodeSectionImpl,
 )
-from setta.utils.paths import normalize_workspace_path
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -160,7 +160,7 @@ class TestCodeFiles:
         self.manager.watch_code_files(category, lambda: backend, _reload)
         self._loop.run_until_complete(asyncio.sleep(0))
 
-        normalized = normalize_workspace_path(self.path)
+        normalized = normalize_path(self.path)
         callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
         assert normalized in callbacks
         tracked_bindings = self.manager._category_to_bindings.get(category, {})
@@ -182,7 +182,7 @@ class TestCodeFiles:
 
         self.manager.watch_code_files(category, _getter, _reload)
         self._loop.run_until_complete(asyncio.sleep(0))
-        normalized = normalize_workspace_path(self.path)
+        normalized = normalize_path(self.path)
         callbacks = self.manager.specific_file_watcher.callbacks.get(category, {})
         assert normalized in callbacks
 
@@ -205,7 +205,7 @@ class TestCodeFiles:
             return None
 
         # Pre-populate bindings with unrelated data to ensure the watcher refresh clears it.
-        stale_path = normalize_workspace_path(self.path.parent / "stale.py")
+        stale_path = normalize_path(self.path.parent / "stale.py")
         stale_binding = RegisteredCodeFileBinding(
             section_id=ID("old"),
             variant_id=ID("old"),
@@ -309,7 +309,7 @@ class TestCodeWriteToDisk:
     def _register_binding(
         self, filename: str, access_mode: CodeFileAccessMode
     ) -> CodeFileBinding:
-        path = normalize_workspace_path(Path(self._tmpdir.name) / filename)
+        path = normalize_path(Path(self._tmpdir.name) / filename)
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             path.touch()
