@@ -765,7 +765,15 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
   );
   test.setTimeout(90000);
+  const terminalDebugEvents: string[] = [];
+  page.on("console", (msg) => {
+    const text = msg.text();
+    if (text.includes('"tag":"SETTA_TERMINAL_DEBUG"')) {
+      terminalDebugEvents.push(text);
+    }
+  });
   await addTerminalOutputInstrumentation(page);
+  await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
 
   const { projectConfigName } = await createNewProjectConfig(page);
@@ -786,6 +794,15 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     );
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    await page.evaluate(() => {
+      window.__terminalResizeCountsBySectionId = {};
+      window.__terminalResizePhase = "idle";
+    });
 
     await setSectionSize(page, codeSectionId, { width: 300, height: 480 });
     await syncEmbeddedTerminalSectionSize(
@@ -793,21 +810,94 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
       terminalId,
       embeddedTerminalHost,
     );
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
 
-    // Use a marker + long x-tail in a comment so marker appears in the echoed
-    // command line, but NOT in the command output.
-    const marker = `CMDREFLOW_${Date.now()}`;
-    // Put the marker at the end so it remains visible even if the start of the
-    // wrapped input line scrolls out of the viewport.
-    const longComment = `${"x".repeat(220)}_${marker}`;
-    await focusTerminalAndType(page, terminalId, `# ${longComment}`);
+    // Confirm the shell is at a prompt and accepting input before we type the
+    // long wrapped command line. Otherwise the run output/prompt redraw can
+    // race with our keystrokes and corrupt the echo.
+    const readyMarker = `CMDREFLOW_READY_${Date.now()}`;
+    await focusTerminalAndType(page, terminalId, `echo ${readyMarker}`);
+    await waitForTerminalOutputMarker(page, terminalId, readyMarker, 20000);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
 
-    await waitForTerminalRowsMarker(page, terminalId, marker, 20000);
+    // Make the viewport deterministic. The code-run startup chatter can leave
+    // little vertical room for the wrapped echo line, causing most of it to
+    // scroll out of view (and making row counting flaky).
+    await focusTerminalAndType(page, terminalId, "clear");
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    const sttyMarker = `CMDREFLOW_STTY_${Date.now()}`;
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `echo ${sttyMarker} $(stty size)`,
+    );
+    await waitForTerminalOutputMarker(page, terminalId, sttyMarker, 20000);
+    const sttyOutput = await getTerminalOutputBuffer(page, terminalId);
+    const sttyMatch = sttyOutput.match(
+      new RegExp(`${sttyMarker}\\s+(\\d+)\\s+(\\d+)`),
+    );
+    if (!sttyMatch) {
+      throw new Error(`Failed to parse stty output for ${sttyMarker}.`);
+    }
+    const cols = Number(sttyMatch[2]);
+    if (!Number.isFinite(cols) || cols <= 0) {
+      throw new Error(`Invalid stty cols parsed: ${sttyMatch[2]}`);
+    }
+
+    // Simulate zsh/ZLE-style "hard wrapped" lines: full-width rows separated by
+    // newlines (not marked `isWrapped` by xterm), which normally won't reflow on
+    // widen. Our frontend widens by marking these as wrapped right before
+    // resizing, so xterm can reflow them.
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `python -c \"print('x'*${cols}); print('x'*${cols}); print('x'*${cols}); print('x'*${cols}); print('x'*${cols}); print('x'*${cols})\"`,
+    );
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineRows(rows, sttyMarker);
+      })
+      .toBeGreaterThan(1);
     const narrowRowCount = countLongLineRows(
       await getTerminalRowsSnapshot(page, terminalId),
-      marker,
+      sttyMarker,
     );
     expect(narrowRowCount).toBeGreaterThan(1);
+
+    const resizeCountBeforeWide = await page.evaluate((id) => {
+      const counts = window.__terminalResizeCountsBySectionId?.[id];
+      if (!counts) {
+        return 0;
+      }
+      return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+    }, terminalId);
 
     await setSectionSize(page, codeSectionId, { width: 640, height: 480 });
     await syncEmbeddedTerminalSectionSize(
@@ -815,13 +905,44 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
       terminalId,
       embeddedTerminalHost,
     );
-
     await expect
       .poll(async () => {
-        const rows = await getTerminalRowsSnapshot(page, terminalId);
-        return countLongLineRows(rows, marker);
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
       })
-      .toBeLessThan(narrowRowCount);
+      .toBeGreaterThan(resizeCountBeforeWide);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    try {
+      await expect
+        .poll(async () => {
+          const rows = await getTerminalRowsSnapshot(page, terminalId);
+          return countLongLineRows(rows, sttyMarker);
+        })
+        .toBeLessThan(narrowRowCount);
+    } catch (err) {
+      const relevant = terminalDebugEvents
+        .filter((entry) => {
+          return (
+            entry.includes('"event":"terminal_fit_') ||
+            entry.includes('"event":"terminal_reflow_patch_wrapped_flags"') ||
+            entry.includes('"event":"terminal_on_resize"')
+          );
+        })
+        .slice(-60)
+        .join("\n");
+      throw new Error(
+        `Command echo reflow assertion failed.\n\nTerminal debug tail:\n${relevant}\n\nOriginal error: ${String(err)}`,
+      );
+    }
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -1034,6 +1155,12 @@ async function getTerminalRowsSnapshot(
     if (!container) {
       return [];
     }
+    // Ensure we sample the bottom of the terminal so recently-echoed input is
+    // visible even if the viewport was scrolled during attach/resize.
+    const viewport = container.querySelector(".xterm-viewport");
+    if (viewport instanceof HTMLElement) {
+      viewport.scrollTop = viewport.scrollHeight;
+    }
     const rows = container.querySelectorAll(".xterm-rows > div");
     return Array.from(rows).map((row) => row.textContent ?? "");
   }, terminalId);
@@ -1130,10 +1257,7 @@ async function focusTerminalAndType(
   });
   await expect
     .poll(async () => {
-      return await root.evaluate((node) => {
-        const active = document.activeElement;
-        return Boolean(active instanceof HTMLElement && node.contains(active));
-      });
+      return await input.first().evaluate((el) => document.activeElement === el);
     })
     .toBe(true);
   await page.waitForTimeout(50);

@@ -726,7 +726,22 @@ function patchWrappedFlagsForWidenReflow({
   }
   const absCursorY = active.baseY + active.cursorY;
   const scanStart = Math.max(1, absCursorY - 400);
-  const scanEnd = Math.min(active.length - 1, absCursorY + 8);
+  // Do not patch the wrapped group containing the cursor. xterm will skip
+  // reflowing wrapped groups that contain the cursor when `reflowCursorLine`
+  // is disabled (the default), so marking the prompt/current input as wrapped
+  // can prevent the very reflow we're trying to enable for *previous* lines.
+  //
+  // Use xterm's current wrap flags to find the first line in the cursor's
+  // wrapped group (usually the shell prompt + current input).
+  let cursorGroupStart = absCursorY;
+  while (cursorGroupStart > 0) {
+    const line = active.getLine(cursorGroupStart);
+    if (!line || !line.isWrapped) {
+      break;
+    }
+    cursorGroupStart -= 1;
+  }
+  const scanEnd = Math.min(active.length - 1, cursorGroupStart - 1);
 
   const anyTerminal = terminal as any;
   const bufferService = anyTerminal?._core?._bufferService;
