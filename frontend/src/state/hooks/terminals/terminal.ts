@@ -27,6 +27,8 @@ type TerminalSession = {
   resizeDisposable: { dispose: () => void };
   pendingResizeMessage: string | null;
   pendingResizeTimeoutId: number | null;
+  lastSentResizeMessage: string | null;
+  lastSentResizeTs: number | null;
 };
 
 const TERMINAL_DEBUG_TAG = "SETTA_TERMINAL_DEBUG";
@@ -73,7 +75,10 @@ function getContainerDebugInfo(container: HTMLDivElement | null) {
 const TERMINAL_SESSIONS: Record<string, TerminalSession> = {};
 
 const TERMINAL_SESSION_CLOSE_DELAY_MS = 1200;
-const TERMINAL_RESIZE_DEBOUNCE_MS = 120;
+// Leading-edge send + coalesced trailing send. Avoids long lag on widen (which
+// can cause shells/programs to hard-wrap at the old cols, making "unwrapping"
+// impossible later), while still keeping resize traffic bounded.
+const TERMINAL_RESIZE_THROTTLE_MS = 200;
 
 export function useTerminal({
   sectionId,
@@ -333,6 +338,8 @@ function acquireTerminalSession({
     resizeDisposable: terminal.onResize(() => {}),
     pendingResizeMessage: null,
     pendingResizeTimeoutId: null,
+    lastSentResizeMessage: null,
+    lastSentResizeTs: null,
   };
   TERMINAL_SESSIONS[sessionKey] = session;
 
@@ -463,21 +470,58 @@ function queueTerminalResize(sessionKey: string, message: string) {
   if (!session) {
     return;
   }
+  if (session.lastSentResizeMessage === message && !session.pendingResizeMessage) {
+    terminalDebugLog({
+      event: "terminal_resize_queue_skip_duplicate",
+      sessionKey,
+      wsId: session.wsId,
+      readyState: session.ws.readyState,
+      message,
+    });
+    return;
+  }
   terminalDebugLog({
     event: "terminal_resize_queue",
     sessionKey,
     wsId: session.wsId,
     readyState: session.ws.readyState,
+    lastSentResizeTs: session.lastSentResizeTs,
     message,
   });
+
   session.pendingResizeMessage = message;
-  if (session.pendingResizeTimeoutId !== null) {
-    window.clearTimeout(session.pendingResizeTimeoutId);
-  }
-  session.pendingResizeTimeoutId = window.setTimeout(() => {
-    session.pendingResizeTimeoutId = null;
+
+  const now = Date.now();
+  const lastSent = session.lastSentResizeTs;
+  const canSendNow =
+    session.ws.readyState === 1 &&
+    (lastSent === null || now - lastSent >= TERMINAL_RESIZE_THROTTLE_MS);
+
+  if (canSendNow) {
+    if (session.pendingResizeTimeoutId !== null) {
+      window.clearTimeout(session.pendingResizeTimeoutId);
+      session.pendingResizeTimeoutId = null;
+    }
     flushTerminalResize(sessionKey);
-  }, TERMINAL_RESIZE_DEBOUNCE_MS);
+    return;
+  }
+
+  if (session.pendingResizeTimeoutId !== null) {
+    return;
+  }
+
+  const delay =
+    lastSent === null
+      ? TERMINAL_RESIZE_THROTTLE_MS
+      : Math.max(TERMINAL_RESIZE_THROTTLE_MS - (now - lastSent), 0);
+  session.pendingResizeTimeoutId = window.setTimeout(() => {
+    const latest = TERMINAL_SESSIONS[sessionKey];
+    if (!latest) {
+      return;
+    }
+    latest.pendingResizeTimeoutId = null;
+    flushTerminalResize(sessionKey);
+  }, delay);
 }
 
 function flushTerminalResize(sessionKey: string) {
@@ -497,6 +541,8 @@ function flushTerminalResize(sessionKey: string) {
       message,
     });
     session.ws.send(message);
+    session.lastSentResizeMessage = message;
+    session.lastSentResizeTs = Date.now();
     session.pendingResizeMessage = null;
     return;
   }
@@ -536,6 +582,8 @@ function releaseTerminalSession(sessionKey: string) {
         latest.pendingResizeTimeoutId = null;
       }
       latest.pendingResizeMessage = null;
+      latest.lastSentResizeMessage = null;
+      latest.lastSentResizeTs = null;
       if (latest.ws.readyState === 1) {
         latest.ws.close();
       } else {
