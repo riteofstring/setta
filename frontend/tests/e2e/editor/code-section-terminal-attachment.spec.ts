@@ -1719,37 +1719,46 @@ async function dragSelectTerminalMarkerRangeAndCopy({
   startOffset: number;
   endOffset: number;
 }): Promise<string> {
-  const start = await getTerminalMarkerCharCenter({
-    page,
-    terminalId,
-    marker,
-    markerOffset: startOffset,
-  });
-  const end = await getTerminalMarkerCharCenter({
-    page,
-    terminalId,
-    marker,
-    markerOffset: endOffset,
-  });
+  let lastSelection = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const start = await getTerminalMarkerCharCenter({
+      page,
+      terminalId,
+      marker,
+      markerOffset: startOffset,
+    });
+    const end = await getTerminalMarkerCharCenter({
+      page,
+      terminalId,
+      marker,
+      markerOffset: endOffset,
+    });
 
-  const offsetSpan = Math.abs(endOffset - startOffset);
-  const deltaX = end.x - start.x;
-  const estimatedCellWidth =
-    offsetSpan > 0 ? Math.abs(deltaX) / offsetSpan : 10;
-  // Drag from just inside the start cell to just inside the end cell so
-  // integer mouse coordinate rounding at different zoom levels doesn't drop
-  // boundary characters.
-  const pad = Math.min(Math.max(estimatedCellWidth * 0.45, 2), 14);
-  const startX = start.x - pad;
-  const endX = end.x + pad;
+    const offsetSpan = Math.abs(endOffset - startOffset);
+    const deltaX = end.x - start.x;
+    const estimatedCellWidth =
+      offsetSpan > 0 ? Math.abs(deltaX) / offsetSpan : 10;
+    // Drag from just inside the start cell to just inside the end cell so
+    // integer mouse coordinate rounding at different zoom levels doesn't drop
+    // boundary characters.
+    const pad = Math.min(Math.max(estimatedCellWidth * 0.45, 2), 14);
+    const startX = start.x - pad;
+    const endX = end.x + pad;
 
-  await page.mouse.move(startX, start.y);
-  await page.mouse.down();
-  await page.mouse.move(endX, end.y, { steps: 14 });
-  await page.mouse.up();
-  await page.waitForTimeout(50);
+    await page.mouse.move(startX, start.y);
+    await page.mouse.down();
+    await page.mouse.move(endX, end.y, { steps: 14 });
+    await page.mouse.up();
+    await page.waitForTimeout(100);
 
-  return await copyTerminalSelection(page, terminalId);
+    lastSelection = await copyTerminalSelection(page, terminalId);
+    if (lastSelection.replace(/\r/g, "").trim().length > 0) {
+      return lastSelection;
+    }
+    await page.waitForTimeout(100);
+  }
+
+  return lastSelection;
 }
 
 async function getTerminalMarkerCharCenter({
@@ -2049,11 +2058,29 @@ async function deleteProjectConfigById(
   page: Page,
   projectConfigId: string,
 ): Promise<void> {
+  if (page.isClosed()) {
+    return;
+  }
   // Clean up via the same surface area as users (home page), otherwise the
   // still-mounted project page can keep sending layout updates for the deleted
   // config and starve the delete request.
-  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
-  await postBackend(page, "/deleteProjectConfigs", { ids: [projectConfigId] });
+  try {
+    await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  } catch (error) {
+    if (page.isClosed()) {
+      return;
+    }
+    throw error;
+  }
+
+  try {
+    await postBackend(page, "/deleteProjectConfigs", { ids: [projectConfigId] });
+  } catch (error) {
+    if (page.isClosed()) {
+      return;
+    }
+    throw error;
+  }
 }
 
 function resolveProjectUrl(): string {

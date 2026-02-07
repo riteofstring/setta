@@ -45,10 +45,24 @@ if IS_WINDOWS:
 
     from .utils import windows_has_child_processes as has_child_processes
 
+    TERMINAL_TERMINATE_EXCEPTIONS: tuple[type[Exception], ...] = (
+        ChildProcessError,
+        ProcessLookupError,
+        OSError,
+    )
+
 else:
     from ptyprocess import PtyProcessUnicode as PtyProcess
+    from ptyprocess.util import PtyProcessError
 
     from .utils import linux_has_child_processes as has_child_processes
+
+    TERMINAL_TERMINATE_EXCEPTIONS: tuple[type[Exception], ...] = (
+        PtyProcessError,
+        ChildProcessError,
+        ProcessLookupError,
+        OSError,
+    )
 
 
 def get_terminal_shell(defaultTerminalShell: str | None):
@@ -208,14 +222,20 @@ class Terminals:
 
     async def delete_terminal(self, sectionId):
         logger.debug("delete terminal %s", sectionId)
-        if sectionId in self.PTY_PIDS:
-            try:
-                await asyncio.to_thread(
-                    self.PTY_PIDS[sectionId]["process"].terminate, force=True
-                )
-                del self.PTY_PIDS[sectionId]
-            except KeyError:
-                pass
+        pty_info = self.PTY_PIDS.pop(sectionId, None)
+        if pty_info is not None:
+            process = pty_info.get("process")
+            if process is not None:
+                try:
+                    await asyncio.to_thread(process.terminate, force=True)
+                except TERMINAL_TERMINATE_EXCEPTIONS as e:
+                    logger.debug(
+                        "terminal %s terminate failed (likely already gone): %s",
+                        sectionId,
+                        e,
+                    )
+                except Exception:
+                    logger.exception("terminal %s terminate failed", sectionId)
 
         # make copy to avoid set size changing while iterating
         to_disconnect = set(self.section_to_socket_ids[sectionId])
