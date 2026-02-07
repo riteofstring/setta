@@ -4,6 +4,7 @@ import signal
 from contextlib import suppress
 from pathlib import Path
 import socket
+import urllib.request
 
 import psutil
 import pytest
@@ -12,6 +13,7 @@ from click.testing import CliRunner
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.start import launch
+from setta.utils.network import format_host_for_url
 
 
 def _can_bind_localhost() -> bool:
@@ -138,8 +140,15 @@ def test_launch_starts_new_session(tmp_path: Path, monkeypatch) -> None:
 
     session_id = payload["sessionId"]
     pid = int(payload["session"]["pid"])
+    host = format_host_for_url(str(payload["session"]["host"]))
+    port = int(payload["session"]["port"])
     session_root = files_root / "runtime" / "sessions"
     registry = SessionRegistry(sessions_root=session_root)
+
+    with urllib.request.urlopen(
+        f"http://{host}:{port}/__setta__/bootstrap", timeout=5
+    ) as resp:
+        assert resp.status == 200
 
     process = psutil.Process(pid)
     children = process.children(recursive=True)

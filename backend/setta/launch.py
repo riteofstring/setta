@@ -1,3 +1,4 @@
+import socket
 import subprocess
 import sys
 import time
@@ -121,7 +122,11 @@ def _wait_for_session(
     while True:
         sessions = registry.find_sessions_by_workspace(workspace_root)
         if sessions:
-            return max(sessions, key=lambda entry: entry.startedAt)
+            # A Setta session registers itself before uvicorn starts listening, so
+            # ensure the backend port is reachable before returning a bootstrap URL.
+            latest = max(sessions, key=lambda entry: entry.startedAt)
+            if _can_connect_to_session(latest):
+                return latest
         if process.poll() is not None:
             details = _read_log_tail(log_path)
             message = details or "Setta exited before session startup completed."
@@ -132,6 +137,19 @@ def _wait_for_session(
                 f"Timed out waiting for Setta to launch. Check logs at: {log_path}",
             )
         time.sleep(poll_interval_seconds)
+
+
+def _can_connect_to_session(session: SessionMetadata) -> bool:
+    host = session.host
+    if host == "0.0.0.0":
+        host = "127.0.0.1"
+    elif host == "::":
+        host = "::1"
+    try:
+        with socket.create_connection((host, session.port), timeout=0.25):
+            return True
+    except OSError:
+        return False
 
 
 def _validate_optional_dir(
