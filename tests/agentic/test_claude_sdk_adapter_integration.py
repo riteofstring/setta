@@ -32,19 +32,9 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
-from tests.utils.integration_flags import (
-    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    external_agent_integration_tests_enabled,
-)
 
 
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.skipif(
-        not external_agent_integration_tests_enabled(),
-        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    ),
-]
+pytestmark = pytest.mark.asyncio
 
 
 class TestClaudeSdkAdapterIntegration:
@@ -89,10 +79,10 @@ class TestClaudeSdkAdapterIntegration:
             pytest.skip("ANTHROPIC_API_KEY not set")
         try:
             socket.getaddrinfo("api.anthropic.com", 443)
-            with socket.create_connection(("api.anthropic.com", 443), timeout=3):
+            with socket.create_connection(("api.anthropic.com", 443), timeout=2):
                 pass
-        except OSError:
-            pytest.skip("Cannot connect to api.anthropic.com:443")
+        except OSError as exc:
+            pytest.skip(f"Anthropic API not reachable: {exc}")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
