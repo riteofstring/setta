@@ -811,6 +811,7 @@ class TestExternalAgentRunner:
             assert isinstance(allowed_tools, list)
             assert "mcp__setta__getProjectState" in allowed_tools
             assert "mcp__setta__runTool" in allowed_tools
+            assert "mcp__setta__set_agentic_context" in allowed_tools
 
             runner._cleanup_context(context)
             assert not path.exists()
@@ -981,7 +982,11 @@ class TestExternalAgentRunner:
                 enabled_tools = server_entry.get("enabled_tools")
             else:
                 enabled_tools = None
-            assert enabled_tools == ["getProjectState", "runTool"]
+            assert enabled_tools == [
+                "getProjectState",
+                "runTool",
+                "set_agentic_context",
+            ]
 
             runner._cleanup_context(context)
             assert config_path.exists()
@@ -1041,6 +1046,7 @@ class TestExternalAgentRunner:
             assert isinstance(permissions, dict)
             assert permissions.get("setta_*") == "deny"
             assert permissions.get("setta_getProjectState") == "allow"
+            assert permissions.get("setta_set_agentic_context") == "allow"
 
             runner._cleanup_context(context)
 
