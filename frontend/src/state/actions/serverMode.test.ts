@@ -37,7 +37,10 @@ describe("initializeServerMode", () => {
     const mode = await initializeServerMode();
 
     expect(mode).toBe("app");
-    expect(useServerMode.getState()).toEqual({ mode: "app", modeResolved: true });
+    expect(useServerMode.getState()).toEqual({
+      mode: "app",
+      modeResolved: true,
+    });
   });
 
   it("falls back to ide on request failure", async () => {
@@ -50,7 +53,9 @@ describe("initializeServerMode", () => {
     const mode = await initializeServerMode();
 
     expect(mode).toBe("ide");
-    expect(useServerMode.getState()).toEqual({ mode: "ide", modeResolved: true });
+    expect(useServerMode.getState()).toEqual({
+      mode: "ide",
+      modeResolved: true,
+    });
   });
 });
-

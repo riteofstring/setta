@@ -37,9 +37,7 @@ export async function loadProjectConfig({ projectConfigName }) {
   }
 }
 
-export async function loadProjectState(
-  p: ProjectStateSingleConfig,
-) {
+export async function loadProjectState(p: ProjectStateSingleConfig) {
   const { viewport, viewportInitialized } = p.projectConfig;
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
