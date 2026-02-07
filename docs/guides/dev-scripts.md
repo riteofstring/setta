@@ -25,6 +25,7 @@ Use these first for day-to-day work.
   - Runs tests (backend pytest + frontend Vitest + Playwright).
   - Flags: `--b` (backend-only), `--f` (frontend + Playwright only).
   - Logs to `tests.log` at the repo root.
+  - External agent integration tests (Claude/Codex/OpenCode) are opt-in; set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` to enable.
 - `./gcf.sh`
   - Runs `pnpm gcf` (generate + cleanup + format) with env activation.
   - Logs to `gcf.log` at the repo root.
