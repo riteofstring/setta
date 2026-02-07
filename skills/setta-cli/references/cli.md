@@ -62,6 +62,9 @@ Auth options (priority order):
 
 Other options:
 - `--base-url` override backend base URL
+- `--agentic-project-config-id` set `x-setta-project-config-id` (required for agentic scope enforcement; temporary or canonical id).
+- `--agentic-chat-id` set `x-setta-chat-id` (optional; temporary or canonical id).
+- `--agentic-section-id` set `x-setta-section-id` (optional; omit for Project Chat / full access; temporary or canonical id).
 - `--json-output` emit strict JSON only
 
 Output:

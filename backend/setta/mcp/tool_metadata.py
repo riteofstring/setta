@@ -13,6 +13,7 @@ class SettaToolType(str, Enum):
 
 FollowIdType = Literal["section", "codeObj"]
 ToolArgumentPreviewIdType = Literal["section", "codeObj"]
+ToolAccessType = Literal["read", "write", "structural"]
 
 
 class ToolArgumentPreviewKind(str, Enum):
@@ -30,6 +31,7 @@ AI_FOLLOW_TOOL_ARGUMENTS_ATTR = "_setta_ai_follow_tool_arguments"
 TOOL_ARGUMENT_PREVIEW_ATTR = "_setta_tool_argument_preview"
 TOOL_SEARCH_TAGS_ATTR = "_setta_tool_search_tags"
 TOOL_SEARCH_CATEGORY_ATTR = "_setta_tool_search_category"
+TOOL_ACCESS_ATTR = "_setta_tool_access"
 
 
 def attach_ai_follow_tool_result(
@@ -115,8 +117,28 @@ def get_tool_search_category(fn: Callable[..., Any]) -> str | None:
 
 class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
+    accessType: ToolAccessType = "structural"
+    idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     aiFollowToolResult: AIFollowToolResultMetadata | None = None
     aiFollowToolArguments: AIFollowToolArgumentsMetadata | None = None
     toolArgumentPreview: ToolArgumentPreviewMetadata | None = None
     searchTags: list[str] = Field(default_factory=list)
     searchCategory: str | None = None
+
+
+class ToolAccessMetadata(BaseModel):
+    accessType: ToolAccessType
+    idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
+
+
+def attach_tool_access(
+    fn: Callable[..., Any],
+    metadata: ToolAccessMetadata | None,
+) -> None:
+    if metadata is None:
+        return
+    setattr(fn, TOOL_ACCESS_ATTR, metadata)
+
+
+def get_tool_access(fn: Callable[..., Any]) -> ToolAccessMetadata | None:
+    return getattr(fn, TOOL_ACCESS_ATTR, None)

@@ -10,6 +10,11 @@ from typing import Any
 
 from mcp.types import TextContent
 
+from setta.agentic.agentic_context import build_agentic_context_payload
+from setta.agentic.agentic_summary_cache import (
+    load_cached_agentic_summary_texts_for_chat_section,
+)
+from setta.agentic.chat_titles import build_deterministic_chat_title
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     build_chat_state_from_run,
@@ -55,9 +60,11 @@ from setta.llm.chat_toolkit.managed.ai_follow import (
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
+from setta.mcp.agentic_context_headers import build_agentic_context_headers
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
+from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -76,6 +83,7 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -313,6 +321,12 @@ class ExternalAgentRunner:
                 context.config.toolType,
                 context.config.runMode,
             ).adapter
+            if context.agentic_context_section_ids:
+                await self._broadcast_ai_follow_update(
+                    context.project_config_id,
+                    context.chat_id,
+                    {"section": list(context.agentic_context_section_ids)},
+                )
             handle = await adapter.start_run(context)
             self._run_state[run.id] = ExternalAgentRunState(
                 handle=handle, adapter=adapter
@@ -446,7 +460,57 @@ class ExternalAgentRunner:
             profile=profile,
             payload_inputs=payload_inputs,
         )
+        agentic_headers = build_agentic_context_headers(
+            project_config_id=project_config_id,
+            chat_id=chat_id,
+            section_id=section_id,
+        )
         system_prompt = self._build_system_prompt(profile, project_config_id)
+        agentic_context_section_ids: tuple[ID, ...] = ()
+        if section_id is not None:
+            project_state_single = convert_backend_to_single_config(
+                project_state,
+                project_config_id,
+            )
+            temporary_to_canonical, canonical_to_temporary = (
+                self.dbe.read_temporary_id_map()
+            )
+            map_size_before = len(canonical_to_temporary)
+
+            def _format_section_id(entry: ID) -> str:
+                return str(
+                    convert_canonical_ids_to_temporary(
+                        entry,
+                        canonical_to_temporary,
+                        temporary_to_canonical,
+                    )
+                )
+
+            summary_text_by_section_id = (
+                load_cached_agentic_summary_texts_for_chat_section(
+                    self.dbe,
+                    project_state=project_state_single,
+                    project_config_id=project_config_id,
+                    chat_section_id=section_id,
+                )
+            )
+            payload = build_agentic_context_payload(
+                project_state_single,
+                section_id,
+                format_section_id=_format_section_id,
+                summary_text_by_section_id=summary_text_by_section_id,
+            )
+            if len(canonical_to_temporary) != map_size_before:
+                self.dbe.write_temporary_id_map(canonical_to_temporary)
+            if payload.text.strip():
+                system_prompt = f"{system_prompt}\n\n{payload.text.strip()}".strip()
+                agentic_context_section_ids = tuple(payload.section_ids)
+        system_prompt = self._build_external_agentic_prompt(
+            system_prompt,
+            chat_id=chat_id,
+            section_id=section_id,
+            project_config_id=project_config_id,
+        )
         working_dir = self._resolve_working_dir(config)
         env = self._build_env(config)
         cleanup_paths: list[Path] = []
@@ -456,6 +520,7 @@ class ExternalAgentRunner:
             payload_inputs=payload_inputs,
             env=env,
             cleanup_paths=cleanup_paths,
+            agentic_headers=agentic_headers,
             system_prompt=system_prompt,
             working_dir=working_dir,
         )
@@ -472,6 +537,7 @@ class ExternalAgentRunner:
             system_prompt=system_prompt,
             working_dir=working_dir,
             env=env,
+            agentic_context_section_ids=agentic_context_section_ids,
             cleanup_paths=tuple(cleanup_paths),
         ), is_new
 
@@ -761,18 +827,65 @@ class ExternalAgentRunner:
                 metadata["settingsPaths"] = resolved_paths
         if metadata:
             outputs["metadata"] = metadata
+        title_result = build_deterministic_chat_title(state.messages)
+        if "nameInputHash" not in outputs:
+            outputs["nameInputHash"] = title_result.input_hash
+        raw_name = outputs.get("name")
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            outputs["name"] = title_result.title
+            outputs["nameSource"] = "deterministic"
+        elif "nameSource" not in outputs:
+            outputs["nameSource"] = "reused"
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 
     def _build_system_prompt(
         self, profile: AgentProfile | None, project_config_id: ID
     ) -> str:
-        return build_agent_system_prompt(
+        base_prompt = build_agent_system_prompt(
             base_prompt=self._system_prompt,
             profile=profile,
             project_config_id=project_config_id,
             dbe=self.dbe,
         )
+        return base_prompt
+
+    def _build_external_agentic_prompt(
+        self,
+        base_prompt: str,
+        *,
+        chat_id: ID | None,
+        section_id: ID | None,
+        project_config_id: ID,
+    ) -> str:
+        temporary_chat_id = self._ensure_temporary_id(chat_id)
+        temporary_section_id = self._ensure_temporary_id(section_id)
+        temporary_project_id = self._ensure_temporary_id(project_config_id)
+        lines = [
+            "## Agentic Scope Setup",
+            "MCP tool calls are scoped to this chat automatically.",
+            "If tool calls fail with a missing-context error, call `set_agentic_context` with:",
+            f"- projectConfigId: {temporary_project_id}",
+            f"- chatId: {temporary_chat_id or 'null'}",
+            f"- sectionId: {temporary_section_id or 'null'}",
+        ]
+        return f"{base_prompt}\n\n" + "\n".join(lines)
+
+    def _ensure_temporary_id(self, value: ID | None) -> ID | None:
+        if value is None:
+            return None
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
+        map_size_before = len(canonical_to_temporary)
+        temporary_value = convert_canonical_ids_to_temporary(
+            value,
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+        if len(canonical_to_temporary) != map_size_before:
+            self.dbe.write_temporary_id_map(canonical_to_temporary)
+        return temporary_value
 
     @staticmethod
     def _resolve_external_tool_allowlist(
@@ -796,19 +909,33 @@ class ExternalAgentRunner:
         payload_inputs: dict[str, Any],
         env: dict[str, str],
         cleanup_paths: list[Path],
+        agentic_headers: dict[str, str] | None = None,
         system_prompt: str,
         working_dir: Path | None = None,
     ) -> None:
         allowlist = self._resolve_external_tool_allowlist(profile)
+        chat_id = None
+        raw_chat_id = payload_inputs.get("chatId")
+        if isinstance(raw_chat_id, str) and raw_chat_id.strip():
+            chat_id = ID(raw_chat_id.strip())
         if config.toolType == ExternalAgentToolType.claude_code:
             mcp_url = self._build_setta_mcp_url()
+            auth_headers = self._build_mcp_auth_headers()
+            merged_headers: dict[str, str] = {}
+            if auth_headers:
+                merged_headers.update(auth_headers)
+            if agentic_headers:
+                merged_headers.update(agentic_headers)
             logger.info(
                 "Configuring Claude MCP url=%s allowlist=%s",
                 mcp_url,
                 allowlist.tool_names if allowlist is not None else None,
             )
             if "mcpConfig" not in payload_inputs:
-                config_path = self._write_claude_mcp_config(mcp_url)
+                config_path = self._write_claude_mcp_config(
+                    mcp_url,
+                    headers=merged_headers or None,
+                )
                 payload_inputs["mcpConfig"] = str(config_path)
                 cleanup_paths.append(config_path.parent)
             write_claude_settings_file(config, project_root=self.dbe.path.parent)
@@ -824,13 +951,30 @@ class ExternalAgentRunner:
                 mcp_url,
                 allowlist.tool_names if allowlist is not None else None,
             )
-            config_path = build_opencode_settings_file(
+            base_config_path = build_opencode_settings_file(
                 self.dbe,
                 config,
                 allowlist=allowlist,
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
             )
+            config_path = base_config_path
+            if agentic_headers and chat_id is not None:
+                runtime_config_path = (
+                    base_config_path.parent
+                    / "sessions"
+                    / str(chat_id)
+                    / base_config_path.name
+                )
+                config_path = build_opencode_settings_file(
+                    self.dbe,
+                    config,
+                    allowlist=allowlist,
+                    mcp_url=mcp_url,
+                    auth_headers=auth_headers,
+                    agentic_headers=agentic_headers,
+                    output_path=runtime_config_path,
+                )
             env["OPENCODE_CONFIG"] = str(config_path)
             return
         if config.toolType == ExternalAgentToolType.codex:
@@ -844,15 +988,33 @@ class ExternalAgentRunner:
             codex_prompt = self._resolve_codex_developer_instructions(
                 system_prompt, payload_inputs
             )
-            codex_home = build_codex_settings_file(
+            base_home = build_codex_settings_file(
                 self.dbe,
                 config,
                 allowlist=allowlist,
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
-                system_prompt=codex_prompt,
+                system_prompt=None,
                 project_root=working_dir or CWD,
             )
+            codex_home = base_home
+            if agentic_headers and chat_id is not None:
+                runtime_home = base_home / "sessions" / str(chat_id)
+                codex_home = build_codex_settings_file(
+                    self.dbe,
+                    config,
+                    allowlist=allowlist,
+                    mcp_url=mcp_url,
+                    auth_headers=auth_headers,
+                    agentic_headers=agentic_headers,
+                    system_prompt=codex_prompt,
+                    project_root=working_dir or CWD,
+                    output_dir=runtime_home,
+                )
+                base_auth_path = base_home / "auth.json"
+                runtime_auth_path = runtime_home / "auth.json"
+                if base_auth_path.exists() and not runtime_auth_path.exists():
+                    runtime_auth_path.write_bytes(base_auth_path.read_bytes())
             env["CODEX_HOME"] = str(codex_home)
 
     @staticmethod
@@ -884,13 +1046,23 @@ class ExternalAgentRunner:
     def _create_temp_dir(self, prefix: str) -> Path:
         return Path(tempfile.mkdtemp(prefix=prefix))
 
-    def _write_claude_mcp_config(self, mcp_url: str) -> Path:
+    def _write_claude_mcp_config(
+        self,
+        mcp_url: str,
+        *,
+        headers: dict[str, str] | None = None,
+    ) -> Path:
         config_dir = self._create_temp_dir("setta-claude-mcp-")
         path = config_dir / _CLAUDE_MCP_CONFIG_NAME
         server_entry: dict[str, Any] = {"type": "sse", "url": mcp_url}
+        resolved_headers: dict[str, str] = {}
         auth_headers = self._build_mcp_auth_headers()
         if auth_headers:
-            server_entry["headers"] = auth_headers
+            resolved_headers.update(auth_headers)
+        if headers:
+            resolved_headers.update(headers)
+        if resolved_headers:
+            server_entry["headers"] = resolved_headers
         payload = {"mcpServers": {_MCP_SERVER_NAME: server_entry}}
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
@@ -924,6 +1096,9 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
+        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
+        if required_tool not in tools:
+            tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
@@ -1164,14 +1339,16 @@ class ExternalAgentRunner:
             logger.warning("Approval request missing approvalId: %s", payload)
             return
         tool_name = self._extract_tool_name(payload)
+        normalized_tool_name = self._normalize_tool_name(tool_name) or tool_name
         logger.info(
-            "Approval request received run_id=%s approval_id=%s tool_name=%s payload=%s",
+            "Approval request received run_id=%s approval_id=%s tool_name=%s normalized_tool_name=%s payload=%s",
             run.id,
             approval_id,
             tool_name,
+            normalized_tool_name,
             payload,
         )
-        is_question = tool_name == _ASK_USER_QUESTION_TOOL_NAME
+        is_question = normalized_tool_name == _ASK_USER_QUESTION_TOOL_NAME
         if is_question:
             attached = False
             for tool_call_id, state in list(self._pending_questions.items()):

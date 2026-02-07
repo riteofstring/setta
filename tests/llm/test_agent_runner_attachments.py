@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from setta.agentic.agentic_scope import AgenticScope
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
@@ -58,6 +59,7 @@ def test_build_llm_request_payload_inlines_attachments() -> None:
                 thinking=False,
                 system_prompt="System prompt",
                 allowlist=None,
+                agentic_scope=AgenticScope(),
             )
 
             messages = payload["messages"]
@@ -105,6 +107,7 @@ def test_build_llm_request_payload_blocks_external_attachments() -> None:
                 thinking=False,
                 system_prompt="System prompt",
                 allowlist=None,
+                agentic_scope=AgenticScope(),
             )
 
             messages = payload["messages"]
