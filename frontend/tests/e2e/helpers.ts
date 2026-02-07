@@ -440,10 +440,18 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
         ? overviewPane.getBoundingClientRect().width
         : 0;
       const { useLocalStorage } = await import("/src/state/definitions");
-      const storedOverviewWidth = useLocalStorage.getState().overviewTrueWidth;
-      const overviewWidth = Number.isFinite(storedOverviewWidth)
-        ? storedOverviewWidth
-        : overviewDomWidth;
+      const localStorageState = useLocalStorage.getState();
+      const storedOverviewWidth = localStorageState.overviewTrueWidth;
+      const overviewWidth =
+        Number.isFinite(storedOverviewWidth) && storedOverviewWidth > 0
+          ? storedOverviewWidth
+          : overviewDomWidth;
+      const storedUiEditorWidth = localStorageState.uiEditorTrueWidth;
+      const uiEditorWidth =
+        Number.isFinite(storedUiEditorWidth) && storedUiEditorWidth > 0
+          ? storedUiEditorWidth
+          : 0;
+      const gutter = 16;
       const transform = window.getComputedStyle(viewport).transform;
       if (!transform || transform === "none") {
         return null;
@@ -453,13 +461,17 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;
       }
-      const x = (-matrix.e + overviewWidth) / scale;
-      const y = -matrix.f / scale;
+      const leftInset = overviewWidth + gutter;
+      const rightInset = uiEditorWidth + gutter;
+      const topInset = gutter;
+      const bottomInset = gutter;
+      const x = (-matrix.e + leftInset) / scale;
+      const y = (-matrix.f + topInset) / scale;
       return {
         x,
         y,
-        w: paneRect.width / scale,
-        h: paneRect.height / scale,
+        w: Math.max(1, (paneRect.width - leftInset - rightInset) / scale),
+        h: Math.max(1, (paneRect.height - topInset - bottomInset) / scale),
       };
     });
     if (bounds) {

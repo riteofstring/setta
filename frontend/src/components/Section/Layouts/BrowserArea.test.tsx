@@ -120,7 +120,8 @@ describe("BrowserArea list view", () => {
     const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
 
     expect(markup).not.toContain("Files");
-    expect(markup).not.toContain("Filter");
+    expect(markup).toContain("Filter");
+    expect(markup).toContain("CodeMirror-FileBrowserFilter");
   });
 
   it("renders history controls in non-list views", () => {

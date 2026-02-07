@@ -31,9 +31,6 @@ type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
 
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
-
 function normalizePathForComparison(value: string): string {
   const withoutPrivate = value.startsWith("/private")
     ? value.slice("/private".length)
@@ -133,9 +130,10 @@ async function setBrowserPath(
       ? `${targetPath}${path.sep}`
       : targetPath;
 
-  await pathInput.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type(nextValue);
+  const cmContent = pathInput.locator(".cm-content");
+  await expect(cmContent).toBeVisible();
+  await cmContent.click();
+  await cmContent.fill(nextValue);
   await page.keyboard.press("Enter");
 
   await expect
@@ -203,8 +201,6 @@ test("browser opens markdown and text files in text sections", async ({
   await fs.writeFile(markdownPath, "# Browser Test\n\nHello.");
   await fs.writeFile(textPath, "Plaintext browser test.");
 
-  const createdSectionIds: string[] = [sectionId];
-
   try {
     const sectionNode = page.locator(
       `.react-flow__node[data-id="${sectionId}"]`,
@@ -228,13 +224,13 @@ test("browser opens markdown and text files in text sections", async ({
       .locator('[class*="overflow-x-scroll"]')
       .first();
     const readmeTile = thumbnailRow
-      .locator('div[role="button"]')
+      .locator("button")
       .filter({ hasText: markdownName })
       .first();
     await expect(readmeTile).toBeVisible();
     await readmeTile.dblclick();
 
-    const markdownSectionId = await waitForTextSection(
+    await waitForTextSection(
       page,
       projectConfigName,
       markdownName,
@@ -244,16 +240,15 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Browser Test",
       },
     );
-    createdSectionIds.push(markdownSectionId);
 
     const textTile = thumbnailRow
-      .locator('div[role="button"]')
+      .locator("button")
       .filter({ hasText: textName })
       .first();
     await expect(textTile).toBeVisible();
     await textTile.dblclick();
 
-    const textSectionId = await waitForTextSection(
+    await waitForTextSection(
       page,
       projectConfigName,
       textName,
@@ -263,12 +258,7 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Plaintext browser test.",
       },
     );
-    createdSectionIds.push(textSectionId);
   } finally {
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: createdSectionIds,
-    });
     await fs.rm(markdownPath, { force: true });
     await fs.rm(textPath, { force: true });
   }
@@ -326,7 +316,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
       .locator('[class*="overflow-x-scroll"]')
       .first();
     const backendTile = thumbnailRow
-      .locator('div[role="button"]')
+      .locator("button")
       .filter({ hasText: folderName })
       .first();
     await expect(backendTile).toBeVisible();
@@ -355,10 +345,94 @@ test("browser history buttons navigate folders", async ({ page }) => {
       .poll(() => readCodeMirrorValue(page, pathInputId))
       .toContain(folderName);
   } finally {
-    await postBackend(page, "/deleteSections", {
+    await fs.rm(folderPath, { recursive: true, force: true });
+  }
+});
+
+test("browser list view opens folders on double click", async ({ page }) => {
+  await ensureAppReady(page);
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
+  const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for section placement.");
+  }
+
+  const browserSection = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
       projectConfigId,
-      sectionIds: [sectionId],
-    });
+      implType: "Browser",
+      viewportBounds,
+    },
+  );
+  const sectionId = browserSection?.sectionId;
+  if (!sectionId) {
+    throw new Error("Missing sectionId when creating browser section.");
+  }
+
+  const folderName = "browser_list_folder";
+  const folderPath = path.join(workspaceRoot, folderName);
+  await fs.mkdir(folderPath, { recursive: true });
+
+  try {
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+
+    // List view is the default; ensure we're rooted at the workspace.
+    const pathInputId = await setBrowserPath(
+      page,
+      sectionNode,
+      sectionId,
+      workspaceRoot,
+    );
+
+    const folderRow = sectionNode
+      .locator('section[aria-label="File explorer"] [title]')
+      .filter({ hasText: folderName })
+      .first();
+    await expect(folderRow).toBeVisible();
+
+    const backButton = sectionNode.locator('button[aria-label="Go back"]');
+    const forwardButton = sectionNode.locator('button[aria-label="Go forward"]');
+
+    // Double-click on the folder label itself (not the expand/collapse caret).
+    const folderLabel = folderRow.locator("span").filter({ hasText: folderName });
+    await folderRow.scrollIntoViewIfNeeded();
+    await folderLabel.first().click({ clickCount: 2 });
+    // Ensure the row click handler ran (selection is a good proxy for events
+    // reaching the virtualized list row).
+    await expect(folderRow).toHaveClass(/bg-blue-50/);
+
+    await expect
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(folderName);
+    await expect(backButton).toBeEnabled();
+
+    await backButton.click();
+    await expect
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(normalizedWorkspaceRoot);
+
+    await expect(forwardButton).toBeEnabled();
+    await forwardButton.click();
+    await expect
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(folderName);
+  } finally {
     await fs.rm(folderPath, { recursive: true, force: true });
   }
 });
