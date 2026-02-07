@@ -25,7 +25,9 @@ import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import { appRegistry } from "./appRegistry";
+import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
+import "./appMotion.css";
 
 type UIElement = {
   key: string;
@@ -565,7 +567,9 @@ export function AppRenderer({
                 className={themeClassName}
                 style={resolvedTheme.style as CSSProperties}
               >
-                <Renderer tree={tree} registry={appRegistry} />
+                <AppBreakpointProvider>
+                  <Renderer tree={tree} registry={appRegistry} />
+                </AppBreakpointProvider>
               </div>
             </ActionProvider>
           </VisibilityProvider>

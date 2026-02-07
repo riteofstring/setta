@@ -293,3 +293,105 @@ class TestAppSpecValidation:
         }
 
         validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_allows_responsive_dimension_props(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "root",
+                "type": "Stack",
+                "props": {"gap": {"base": 8, "md": 18}},
+                "children": [
+                    {
+                        "key": "box",
+                        "type": "Box",
+                        "props": {
+                            "padding": {"base": 12, "lg": 24},
+                            "radius": {"base": "10px", "lg": "16px"},
+                        },
+                        "children": [
+                            {
+                                "key": "grid",
+                                "type": "Grid",
+                                "props": {"columns": {"base": 1, "md": 2}},
+                                "children": [
+                                    {
+                                        "key": "card-a",
+                                        "type": "Card",
+                                        "props": {"title": "A"},
+                                        "children": [],
+                                    },
+                                    {
+                                        "key": "card-b",
+                                        "type": "Card",
+                                        "props": {"title": "B"},
+                                        "children": [],
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "elements": {},
+        }
+
+        validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_rejects_responsive_unknown_breakpoint(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "root",
+                "type": "Stack",
+                "props": {"gap": {"tablet": 12}},
+                "children": [],
+            },
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="unknown breakpoint"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_rejects_responsive_value_type_mismatch(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "grid",
+                "type": "Grid",
+                "props": {"columns": {"base": "two"}},
+                "children": [],
+            },
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="must be a number"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_allows_motion_primitives(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "motion",
+                "type": "Motion",
+                "props": {"preset": "fadeIn", "durationMs": 120},
+                "children": [
+                    {
+                        "key": "stagger",
+                        "type": "Stagger",
+                        "props": {"preset": "slideUp", "staggerMs": 50},
+                        "children": [
+                            {
+                                "key": "t1",
+                                "type": "Text",
+                                "props": {"text": "One"},
+                            },
+                            {
+                                "key": "t2",
+                                "type": "Text",
+                                "props": {"text": "Two"},
+                            },
+                        ],
+                    }
+                ],
+            },
+            "elements": {},
+        }
+
+        validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)

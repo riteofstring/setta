@@ -75,6 +75,7 @@ import {
   useAppConfigScope,
   useAppRuntime,
 } from "./appContext";
+import { resolveResponsiveValue, useAppBreakpoint } from "./appResponsive";
 
 type RawElementProps = {
   key?: unknown;
@@ -114,11 +115,13 @@ function resolveConfigId(
 function Stack({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
+  const breakpoint = useAppBreakpoint();
   const direction = props.direction === "row" ? "flex-row" : "flex-col";
   const themeGap = runtime?.theme?.spacing?.stackGap;
+  const resolvedGap = resolveResponsiveValue(props.gap, breakpoint);
   const gap =
-    typeof props.gap === "number" || typeof props.gap === "string"
-      ? props.gap
+    typeof resolvedGap === "number" || typeof resolvedGap === "string"
+      ? resolvedGap
       : typeof themeGap === "number" || typeof themeGap === "string"
         ? themeGap
         : 16;
@@ -140,14 +143,17 @@ function Stack({ element, children }: AppComponentProps) {
 
 function Box({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
+  const breakpoint = useAppBreakpoint();
   const className = typeof props.className === "string" ? props.className : "";
+  const resolvedPadding = resolveResponsiveValue(props.padding, breakpoint);
   const padding =
-    typeof props.padding === "number" || typeof props.padding === "string"
-      ? props.padding
+    typeof resolvedPadding === "number" || typeof resolvedPadding === "string"
+      ? resolvedPadding
       : null;
+  const resolvedRadius = resolveResponsiveValue(props.radius, breakpoint);
   const radius =
-    typeof props.radius === "number" || typeof props.radius === "string"
-      ? props.radius
+    typeof resolvedRadius === "number" || typeof resolvedRadius === "string"
+      ? resolvedRadius
       : null;
   const background =
     typeof props.background === "string" ? props.background : "none";
@@ -189,16 +195,19 @@ function Box({ element, children }: AppComponentProps) {
 function Grid({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
+  const breakpoint = useAppBreakpoint();
   const className = typeof props.className === "string" ? props.className : "";
   const themeGap = runtime?.theme?.spacing?.stackGap;
+  const resolvedGap = resolveResponsiveValue(props.gap, breakpoint);
   const gap =
-    typeof props.gap === "number" || typeof props.gap === "string"
-      ? props.gap
+    typeof resolvedGap === "number" || typeof resolvedGap === "string"
+      ? resolvedGap
       : typeof themeGap === "number" || typeof themeGap === "string"
         ? themeGap
         : 16;
 
-  const rawColumns = typeof props.columns === "number" ? props.columns : 2;
+  const resolvedColumns = resolveResponsiveValue(props.columns, breakpoint);
+  const rawColumns = typeof resolvedColumns === "number" ? resolvedColumns : 2;
   const columns = Math.min(Math.max(rawColumns, 1), 12);
 
   const align = typeof props.align === "string" ? props.align : "stretch";
@@ -232,10 +241,12 @@ function Grid({ element, children }: AppComponentProps) {
 
 function Container({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
+  const breakpoint = useAppBreakpoint();
   const className = typeof props.className === "string" ? props.className : "";
+  const resolvedMaxWidth = resolveResponsiveValue(props.maxWidth, breakpoint);
   const maxWidth =
-    typeof props.maxWidth === "number" || typeof props.maxWidth === "string"
-      ? props.maxWidth
+    typeof resolvedMaxWidth === "number" || typeof resolvedMaxWidth === "string"
+      ? resolvedMaxWidth
       : null;
   const style: React.CSSProperties = {};
   if (maxWidth !== null) {
@@ -250,10 +261,12 @@ function Container({ element, children }: AppComponentProps) {
 
 function Spacer({ element }: AppComponentProps) {
   const props = element.props ?? {};
+  const breakpoint = useAppBreakpoint();
   const className = typeof props.className === "string" ? props.className : "";
+  const resolvedSize = resolveResponsiveValue(props.size, breakpoint);
   const size =
-    typeof props.size === "number" || typeof props.size === "string"
-      ? props.size
+    typeof resolvedSize === "number" || typeof resolvedSize === "string"
+      ? resolvedSize
       : 16;
   const axis = props.axis === "x" ? "x" : "y";
   const style: React.CSSProperties = { flexShrink: 0 };
@@ -1404,6 +1417,90 @@ function Divider({ element }: AppComponentProps) {
   );
 }
 
+const MOTION_PRESETS = new Set([
+  "none",
+  "fadeIn",
+  "slideUp",
+  "slideDown",
+  "slideLeft",
+  "slideRight",
+  "scaleIn",
+]);
+
+function resolveMotionPreset(raw: unknown): string {
+  if (typeof raw === "string" && MOTION_PRESETS.has(raw)) {
+    return raw;
+  }
+  return "fadeIn";
+}
+
+function resolveNumber(raw: unknown, fallback: number): number {
+  if (typeof raw !== "number" || Number.isNaN(raw) || !Number.isFinite(raw)) {
+    return fallback;
+  }
+  return raw;
+}
+
+function resolveEasing(raw: unknown): string {
+  if (typeof raw === "string" && raw.trim()) {
+    return raw;
+  }
+  return "cubic-bezier(0.16, 1, 0.3, 1)";
+}
+
+function Motion({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const className = typeof props.className === "string" ? props.className : "";
+  const preset = resolveMotionPreset(props.preset);
+  const durationMs = resolveNumber(props.durationMs, 220);
+  const delayMs = resolveNumber(props.delayMs, 0);
+  const easing = resolveEasing(props.easing);
+
+  const presetClass = `setta-app-motion--${preset}`;
+  return (
+    <div
+      className={`setta-app-motion ${presetClass} ${className}`.trim()}
+      style={{
+        animationDuration: `${Math.max(durationMs, 0)}ms`,
+        animationDelay: `${Math.max(delayMs, 0)}ms`,
+        animationTimingFunction: easing,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Stagger({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const className = typeof props.className === "string" ? props.className : "";
+  const preset = resolveMotionPreset(props.preset);
+  const durationMs = resolveNumber(props.durationMs, 220);
+  const delayMs = resolveNumber(props.delayMs, 0);
+  const staggerMs = resolveNumber(props.staggerMs, 70);
+  const easing = resolveEasing(props.easing);
+  const items = React.Children.toArray(children);
+  const presetClass = `setta-app-motion--${preset}`;
+
+  return (
+    <div className={`setta-app-stagger ${className}`.trim()}>
+      {items.map((child, idx) => (
+        <div
+          key={`stagger-${idx}`}
+          className={`setta-app-motion ${presetClass}`.trim()}
+          style={{
+            animationDuration: `${Math.max(durationMs, 0)}ms`,
+            animationDelay: `${Math.max(delayMs + idx * staggerMs, 0)}ms`,
+            animationTimingFunction: easing,
+          }}
+        >
+          {child}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export const appRegistry: Record<
   string,
   React.ComponentType<AppComponentProps>
@@ -1413,6 +1510,8 @@ export const appRegistry: Record<
   Grid,
   Container,
   Spacer,
+  Motion,
+  Stagger,
   Card,
   ConfigScope,
   Tabs,

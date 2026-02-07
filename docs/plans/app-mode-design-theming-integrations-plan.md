@@ -21,7 +21,7 @@ External design tools (Pencil/Figma/etc.) should compile/export into this contra
 Versioning here is for clarity and tooling, not legacy support: Setta can support a single “latest”
 contract and hard-migrate old specs/themes when the contract changes.
 
-## Implementation Status (As Of 2026-02-06)
+## Implementation Status (As Of 2026-02-07)
 
 Implemented (or mostly implemented):
 
@@ -32,14 +32,16 @@ Implemented (or mostly implemented):
     `DropzoneParam`, `ColorPickerParam`.
 - Portal theming in App mode (combobox/dropdowns inherit theme variables + dark class).
 - Layout primitives (`Box`, `Grid`, `Container`, `Spacer`) and catalog support for CSS dimension strings on key layout props (e.g. `"1rem"`, `"clamp(...)"`).
+- Responsive schema: breakpoint maps for selected layout props (breakpoints `base|sm|md|lg|xl|2xl`, resolved at runtime).
+- Motion primitives: catalog-defined `Motion` and `Stagger` components for preset-based animations.
 - App Config error UX: surface backend validation detail on save/load failures (instead of generic errors).
 - App validation endpoint + UI: `validateAppDefinition` returns `{errors[], warnings[], capabilities}` and App Config exposes a `Validate` action.
+- Richer validator output: `validateAppDefinition` accumulates multiple errors (no fast-fail) and advertises feature support via capabilities flags.
 
 Not implemented yet (future work, integrations deferred):
 
-- Richer validator output: multi-error accumulation (avoid fast-fail), more warning categories, and schema/capability negotiation for future theme/spec versions.
-- Responsive schema (breakpoint-based `responsive` props or container-query variants in the catalog).
-- Motion primitives (catalog-defined animations and motion tokens).
+- External design tool compilers/importers/exporters (Pencil/Figma/etc.).
+- Theme schema expansion + validator hardening (beyond `theme.vars` warnings).
 
 ## Goals
 

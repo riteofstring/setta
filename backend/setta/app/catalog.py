@@ -16,7 +16,13 @@ APP_CATALOG: JSONValue = {
                     "enum": ["column", "row"],
                     "default": "column",
                 },
-                "gap": {"type": "dimension", "min": 0, "max": 48, "default": 16},
+                "gap": {
+                    "type": "dimension",
+                    "responsive": True,
+                    "min": 0,
+                    "max": 48,
+                    "default": 16,
+                },
                 "align": {
                     "type": "string",
                     "enum": ["start", "center", "end", "stretch"],
@@ -35,8 +41,20 @@ APP_CATALOG: JSONValue = {
             "type": "Box",
             "description": "Generic wrapper with optional padding, radius, border, and background role.",
             "props": {
-                "padding": {"type": "dimension", "min": 0, "max": 96, "default": 0},
-                "radius": {"type": "dimension", "min": 0, "max": 48, "default": 0},
+                "padding": {
+                    "type": "dimension",
+                    "responsive": True,
+                    "min": 0,
+                    "max": 96,
+                    "default": 0,
+                },
+                "radius": {
+                    "type": "dimension",
+                    "responsive": True,
+                    "min": 0,
+                    "max": 48,
+                    "default": 0,
+                },
                 "background": {
                     "type": "string",
                     "enum": ["none", "background", "surface", "surfaceAlt", "card"],
@@ -55,8 +73,20 @@ APP_CATALOG: JSONValue = {
             "type": "Grid",
             "description": "Grid container for multi-column layouts.",
             "props": {
-                "columns": {"type": "number", "min": 1, "max": 12, "default": 2},
-                "gap": {"type": "dimension", "min": 0, "max": 48, "default": 16},
+                "columns": {
+                    "type": "number",
+                    "responsive": True,
+                    "min": 1,
+                    "max": 12,
+                    "default": 2,
+                },
+                "gap": {
+                    "type": "dimension",
+                    "responsive": True,
+                    "min": 0,
+                    "max": 48,
+                    "default": 16,
+                },
                 "align": {
                     "type": "string",
                     "enum": ["start", "center", "end", "stretch"],
@@ -77,6 +107,7 @@ APP_CATALOG: JSONValue = {
             "props": {
                 "maxWidth": {
                     "type": "dimension",
+                    "responsive": True,
                     "min": 320,
                     "max": 1600,
                     "default": 1024,
@@ -89,11 +120,66 @@ APP_CATALOG: JSONValue = {
             "type": "Spacer",
             "description": "Fixed-size spacer for layout.",
             "props": {
-                "size": {"type": "dimension", "min": 0, "max": 200, "default": 16},
+                "size": {
+                    "type": "dimension",
+                    "responsive": True,
+                    "min": 0,
+                    "max": 200,
+                    "default": 16,
+                },
                 "axis": {"type": "string", "enum": ["x", "y"], "default": "y"},
                 "className": {"type": "string"},
             },
             "children": False,
+        },
+        {
+            "type": "Motion",
+            "description": "Animate children on mount using built-in motion presets.",
+            "props": {
+                "preset": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "fadeIn",
+                        "slideUp",
+                        "slideDown",
+                        "slideLeft",
+                        "slideRight",
+                        "scaleIn",
+                    ],
+                    "default": "fadeIn",
+                },
+                "durationMs": {"type": "number", "min": 0, "max": 5000, "default": 220},
+                "delayMs": {"type": "number", "min": 0, "max": 5000, "default": 0},
+                "easing": {"type": "string"},
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
+            "type": "Stagger",
+            "description": "Animate direct children with incremental delays.",
+            "props": {
+                "preset": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "fadeIn",
+                        "slideUp",
+                        "slideDown",
+                        "slideLeft",
+                        "slideRight",
+                        "scaleIn",
+                    ],
+                    "default": "fadeIn",
+                },
+                "durationMs": {"type": "number", "min": 0, "max": 5000, "default": 220},
+                "delayMs": {"type": "number", "min": 0, "max": 5000, "default": 0},
+                "staggerMs": {"type": "number", "min": 0, "max": 2000, "default": 70},
+                "easing": {"type": "string"},
+                "className": {"type": "string"},
+            },
+            "children": True,
         },
         {
             "type": "Card",

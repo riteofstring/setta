@@ -134,6 +134,8 @@ class TestAppDefinitionProjectManager:
         assert response.capabilities.catalogVersion == "v1"
         assert response.capabilities.appSpecVersion
         assert response.capabilities.themeSchemaVersion
+        assert response.capabilities.features.get("responsive") is True
+        assert response.capabilities.features.get("motion") is True
 
     async def test_validate_app_definition_reports_unknown_component(self) -> None:
         async with real_project_manager() as fixture:
@@ -198,3 +200,32 @@ class TestAppDefinitionProjectManager:
 
         assert response.errors == []
         assert any("external urls" in w.message.lower() for w in response.warnings)
+
+    async def test_validate_app_definition_accumulates_multiple_errors(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {
+                    "key": "root",
+                    "type": "Stack",
+                    "props": {"unknown": "nope"},
+                    "children": [
+                        # Child reference is missing.
+                        "missing-child",
+                        # Missing required configId.
+                        {"key": "scope", "type": "ConfigScope", "children": []},
+                        # Childless component has children.
+                        {
+                            "key": "heading",
+                            "type": "Heading",
+                            "props": {"text": "Hello"},
+                            "children": [],
+                        },
+                    ],
+                },
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(appSpec=payload)
+            )
+
+        assert len(response.errors) >= 3

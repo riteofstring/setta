@@ -2,8 +2,8 @@ import re
 
 from setta.app.catalog import APP_CATALOG_ID, APP_CATALOG_VERSION
 from setta.app.spec_validation import (
-    validate_app_action_definitions,
-    validate_app_spec,
+    collect_app_action_definition_issues,
+    collect_app_spec_validation_issues,
 )
 from setta.types.app_definition import AppDefinition
 from setta.types.app_validation import AppCapabilities, AppValidationIssue
@@ -22,8 +22,8 @@ def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
         "assets": True,
         "dimensionStrings": True,
         "dataBindingsJsonPointer": True,
-        "responsive": False,
-        "motion": False,
+        "responsive": True,
+        "motion": True,
         "customComponents": False,
     }
     return AppCapabilities(
@@ -43,16 +43,15 @@ def validate_app_definition_payload(
     errors: list[AppValidationIssue] = []
     warnings: list[AppValidationIssue] = []
 
-    try:
-        validate_app_action_definitions(definition.actions)
-        validate_app_spec(
+    errors.extend(collect_app_action_definition_issues(definition.actions))
+    errors.extend(
+        collect_app_spec_validation_issues(
             app_spec,
             catalog_id=definition.catalogId,
             action_definitions=definition.actions,
             data_bindings=definition.dataBindings,
         )
-    except ValueError as exc:
-        errors.append(AppValidationIssue(message=str(exc)))
+    )
 
     warnings.extend(_validate_theme(definition.theme))
     warnings.extend(_validate_assets(definition.assets))
