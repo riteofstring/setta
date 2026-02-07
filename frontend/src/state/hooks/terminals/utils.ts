@@ -37,7 +37,7 @@ export function useFitAddon() {
 }
 
 export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
-  terminal.onRender(() => {
+  const renderDisposable = terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
   });
 
@@ -55,7 +55,10 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
     },
   );
 
-  return unsub;
+  return () => {
+    renderDisposable.dispose();
+    unsub();
+  };
 }
 
 export function terminalCleanup(ws, terminal) {
