@@ -43,9 +43,14 @@ from setta.types.share_deployment import (
     ShareDeploymentSessionResponse,
     SharePolicy,
 )
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import (
+    get_setta_paths,
+    normalize_state_path,
+    workspace_relative_path,
+)
 from setta.utils.structured_data import write_json_source_payload
-from setta.utils.utils import compute_md5_prefix, normalize_path
+from setta.utils.utils import compute_md5_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -93,14 +98,16 @@ def _normalize_deployment_name(deployment_name: str) -> str:
 
 def _create_deployment_root(deployment_name: str) -> tuple[str, Path]:
     normalized_name = _normalize_deployment_name(deployment_name)
-    deployment_parent = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / normalized_name)
+    deployment_parent = normalize_state_path(
+        C.SHARE_DEPLOYMENTS_FOLDER / normalized_name
+    )
     deployment_parent.mkdir(parents=True, exist_ok=True)
     version_numbers = [
         number for number, _ in iter_share_deployment_versions(deployment_parent)
     ]
     next_number = max(version_numbers, default=0) + 1
     deployment_version = f"v{next_number}"
-    deployment_root = normalize_path(deployment_parent / deployment_version)
+    deployment_root = normalize_state_path(deployment_parent / deployment_version)
     deployment_root.mkdir(parents=True, exist_ok=False)
     return deployment_version, deployment_root
 
@@ -109,7 +116,7 @@ def _resolve_source_path(path_str: str) -> Path:
     source_path = Path(path_str)
     if source_path.is_absolute():
         return source_path
-    return (CWD / source_path).resolve()
+    return (get_setta_paths().workspace_root / source_path).resolve()
 
 
 def _external_filename(source_path: Path) -> Path:
@@ -119,7 +126,7 @@ def _external_filename(source_path: Path) -> Path:
 
 
 def _artifact_target_path(source_path: Path, artifacts_root: Path) -> Path:
-    artifacts_folder = (CWD / C.ARTIFACTS_FOLDER).resolve()
+    artifacts_folder = C.ARTIFACTS_FOLDER.resolve()
     if source_path.is_relative_to(artifacts_folder):
         return artifacts_root / source_path.relative_to(artifacts_folder)
     return artifacts_root / _external_filename(source_path)
@@ -151,14 +158,14 @@ def _ensure_snapshot_view_modes(
 
 
 def _code_target_path(source_path: Path, code_root: Path) -> Path:
-    code_folder = (CWD / C.CODE_FOLDER).resolve()
+    code_folder = C.CODE_FOLDER.resolve()
     if source_path.is_relative_to(code_folder):
         return code_root / source_path.relative_to(code_folder)
     return code_root / _external_filename(source_path)
 
 
 def _json_source_target_path(source_path: Path, json_root: Path) -> Path:
-    normalized = normalize_path(source_path)
+    normalized = workspace_relative_path(source_path)
     if not normalized.is_absolute():
         return json_root / normalized
     return json_root / _external_filename(source_path)
@@ -375,8 +382,8 @@ def _metadata_from_manifest(
         defaultProjectConfigId=manifest.defaultProjectConfigId,
         defaultProjectConfigName=default_project_config_name,
         createdAt=manifest.createdAt,
-        deploymentRoot=normalize_path(deployment_root),
-        sharePolicyPath=normalize_path(deployment_root / "share_policy.json"),
+        deploymentRoot=normalize_state_path(deployment_root),
+        sharePolicyPath=normalize_state_path(deployment_root / "share_policy.json"),
     )
 
 
@@ -426,7 +433,7 @@ def route_list_share_deployment_versions(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Share mode does not allow listing deployment versions.",
         )
-    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
+    deployment_root = normalize_state_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
     if not deployment_root.exists():
         return []
     versions = sorted(
@@ -483,7 +490,7 @@ def route_get_latest_share_deployment(
             state.share_runtime_state.default_project_config_name,
             redact_paths=True,
         )
-    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
+    deployment_root = normalize_state_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
     if not deployment_root.exists():
         raise HTTPException(
             status_code=404,
