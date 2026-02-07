@@ -1,6 +1,19 @@
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY = "setta.backendOriginOverride";
 export const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 
+function resolveStorage(): Storage | undefined {
+  if (typeof sessionStorage !== "undefined") {
+    return sessionStorage;
+  }
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  if (typeof window.sessionStorage === "undefined") {
+    return undefined;
+  }
+  return window.sessionStorage;
+}
+
 export function normalizeOrigin(origin: string): string | undefined {
   let normalizedOrigin = origin.trim();
   if (!normalizedOrigin) {
@@ -19,33 +32,35 @@ export function normalizeOrigin(origin: string): string | undefined {
 }
 
 export function readBackendOriginOverrideFromStorage(): string | undefined {
-  if (typeof localStorage === "undefined") {
+  const storage = resolveStorage();
+  if (!storage) {
     return undefined;
   }
   try {
-    const raw = localStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
+    const raw = storage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
     if (!raw) {
       return undefined;
     }
     return normalizeOrigin(raw);
   } catch (error) {
-    console.warn("Failed to read backend origin override from localStorage", error);
+    console.warn("Failed to read backend origin override from sessionStorage", error);
     return undefined;
   }
 }
 
 function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
-  if (typeof localStorage === "undefined") {
+  const storage = resolveStorage();
+  if (!storage) {
     return;
   }
   try {
     if (!origin) {
-      localStorage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
+      storage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
       return;
     }
-    localStorage.setItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY, origin);
+    storage.setItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY, origin);
   } catch (error) {
-    console.warn("Failed to store backend origin override in localStorage", error);
+    console.warn("Failed to store backend origin override in sessionStorage", error);
   }
 }
 
@@ -82,4 +97,3 @@ export function applyBackendOriginOverrideFromUrl(): void {
     console.warn("Failed to clean backend origin override from URL", error);
   }
 }
-

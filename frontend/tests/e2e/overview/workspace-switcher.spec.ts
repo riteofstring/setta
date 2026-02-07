@@ -45,7 +45,7 @@ test("workspace switcher launches a session and persists history", async ({
       localStorage.removeItem("setta.workspaceHistory"),
     );
     await page.evaluate(() =>
-      localStorage.removeItem("setta.backendOriginOverride"),
+      sessionStorage.removeItem("setta.backendOriginOverride"),
     );
     await page.getByRole("menuitem", { name: "Project" }).click();
     await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
@@ -69,7 +69,7 @@ test("workspace switcher launches a session and persists history", async ({
     await page.waitForLoadState("domcontentloaded");
     await page.waitForSelector(".react-flow__pane");
     await page.waitForFunction(
-      (origin) => localStorage.getItem("setta.backendOriginOverride") === origin,
+      (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
       expectedBackendOrigin,
     );
     const backendOrigin = await page.evaluate(async () => {
@@ -122,7 +122,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await page.waitForLoadState("domcontentloaded");
   await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
-    (origin) => localStorage.getItem("setta.backendOriginOverride") === origin,
+    (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
     `http://127.0.0.1:${localPort}`,
   );
   const backendOrigin = await page.evaluate(async () => {

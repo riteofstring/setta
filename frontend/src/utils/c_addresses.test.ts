@@ -23,7 +23,7 @@ describe("C_ADDRESSES", () => {
         return storage.size;
       },
     };
-    (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
+    (globalThis as { sessionStorage?: Storage }).sessionStorage = memoryStorage;
   });
 
   beforeEach(() => {
@@ -31,10 +31,10 @@ describe("C_ADDRESSES", () => {
   });
 
   afterAll(() => {
-    delete (globalThis as { localStorage?: Storage }).localStorage;
+    delete (globalThis as { sessionStorage?: Storage }).sessionStorage;
   });
 
-  it("uses a localStorage backend origin override in dev mode", () => {
+  it("uses a sessionStorage backend origin override in dev mode", () => {
     C_ADDRESSES.DEV_MODE = true;
     memoryStorage.setItem(
       BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
