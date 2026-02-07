@@ -16,8 +16,7 @@ from setta.types.id import ID
 from setta.types.routes import Route
 from setta.utils.attachment_paths import resolve_attachment_path
 from setta.utils.attachment_tokens import AttachmentTokenManager
-from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
+from setta.utils.constants import CWD, C
 
 router = SettaAPIRouter()
 _TOKEN_MANAGER = AttachmentTokenManager(C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS)
@@ -82,7 +81,7 @@ def _resolve_artifacts_root(ctx: RuntimeContextFromRequest) -> Path:
                 detail="Share deployment root is not available.",
             )
         return (ctx.deployment_root / "artifacts").resolve()
-    return C.ARTIFACTS_FOLDER.resolve()
+    return (CWD / C.ARTIFACTS_FOLDER).resolve()
 
 
 def _resolve_attachment_path(
@@ -143,9 +142,7 @@ def _build_attachment_download_entry(
     project_config_id: ID | None,
 ) -> AttachmentDownloadUrlEntry:
     artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = (
-        ctx.deployment_root if ctx.share_mode else get_setta_paths().workspace_root
-    )
+    base_root = ctx.deployment_root if ctx.share_mode else CWD
     resolved_path = _resolve_attachment_path(
         artifact_id,
         base_root=base_root,
@@ -271,9 +268,7 @@ async def route_download_attachment(
     if payload.projectConfigId is not None:
         _validate_project_config(ctx, ID(payload.projectConfigId))
     artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = (
-        ctx.deployment_root if ctx.share_mode else get_setta_paths().workspace_root
-    )
+    base_root = ctx.deployment_root if ctx.share_mode else CWD
     resolved_path = _resolve_attachment_path(
         payload.artifactId,
         base_root=base_root,

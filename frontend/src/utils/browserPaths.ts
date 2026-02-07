@@ -1,6 +1,6 @@
 const ABSOLUTE_WINDOWS_PATH_REGEX = /^[A-Za-z]:[\\/]/;
 
-function normalizeBrowserPath(path: string): string {
+export function normalizeBrowserPath(path: string): string {
   return path.replaceAll("\\", "/");
 }
 

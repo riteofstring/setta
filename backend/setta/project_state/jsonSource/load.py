@@ -45,7 +45,7 @@ from setta.types.project_state import (
     ProjectStateCore,
 )
 from setta.types.section_impls import BaseDictSectionImpl
-from setta.utils.paths import normalize_workspace_path
+from setta.utils.utils import normalize_path
 
 
 @dataclass
@@ -86,7 +86,7 @@ def load_json_sources_into_data_structures(
         variant, _, impl = get_variant_base_and_effective_section_impl_with_type_guard(
             p, p.sections[s], v, BaseDictSectionImpl
         )
-        filename = normalize_workspace_path(variant.name)
+        filename = normalize_path(variant.name)
         jsonSourceAndKeysToLoad.add((filename, tuple(impl.jsonSourceKeys)))
 
     sectionVariantsToUpdate: dict[tuple[ID, ID], SectionVariantToUpdate] = {}
@@ -107,7 +107,7 @@ def load_json_sources_into_data_structures(
                 or not impl.isJsonSource
             ):
                 continue
-            filename = normalize_workspace_path(variant.name)
+            filename = normalize_path(variant.name)
             jsonSourceKeys = tuple(impl.jsonSourceKeys)
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue

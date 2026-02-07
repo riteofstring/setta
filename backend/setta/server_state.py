@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import shutil
 import time
@@ -43,7 +42,6 @@ from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.init_status import BackendInitializationStatus
-from setta.utils.paths import clear_setta_paths_cache, get_setta_paths, warn_on_legacy_state
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -53,7 +51,6 @@ from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
 _T = TypeVar("_T")
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
@@ -182,40 +179,23 @@ class SettaFastAPIState:
         self.share_mode = share_mode
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
-        self.paths = get_setta_paths()
         self.share_deployment_root = self._resolve_share_deployment_root(
             share_mode, share_deployment_root
         )
         self.share_runtime_root = self._resolve_share_runtime_root(
             self.share_deployment_root
         )
-        if not self.share_mode:
-            warn_on_legacy_state(
-                workspace_root=self.paths.workspace_root,
-                setta_files_root=self.paths.setta_files_root,
-                logger=logger,
-            )
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.dbe = DBE(
             self.share_deployment_root
             if self.share_deployment_root is not None
-            else self.paths.setta_files_root,
-            runtime_root=self.share_runtime_root
-            if self.share_runtime_root is not None
-            else self.paths.runtime_root,
-            lock_root=self.share_runtime_root
-            if self.share_runtime_root is not None
-            else self.paths.runtime_root,
+            else C.SETTA_FILES_FOLDER,
+            runtime_root=self.share_runtime_root,
+            lock_root=self.share_runtime_root,
         )
-        if self.share_runtime_root is not None:
-            # Ensure runtime-root consumers (password store, binary lookups, etc) point at
-            # the active share deployment runtime root even when multiple share states
-            # are constructed in-process (tests).
-            os.environ["SETTA_RUNTIME_ROOT"] = str(self.dbe.runtime_root)
-            clear_setta_paths_cache()
-            self.paths = get_setta_paths()
+        os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self.dbe.runtime_root))
         if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
@@ -352,10 +332,7 @@ class SettaFastAPIState:
             await self._maybe_delay()
             lsp_writers = None
             if self._enable_language_server:
-                self.lsps = LSPServers(
-                    self.settings_file.settings.languageServer,
-                    workspace_root=self.paths.workspace_root,
-                )
+                self.lsps = LSPServers(self.settings_file.settings.languageServer)
                 self.lsp_writers = LSPWriters(self.lsps)
                 lsp_writers = self.lsp_writers
             else:
