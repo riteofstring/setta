@@ -1681,7 +1681,8 @@ class BaseProjectManager(ABC):
         validate_app_spec(
             x.appSpec,
             catalog_id=updated_definition.catalogId,
-            action_names=updated_definition.actions.keys(),
+            action_definitions=updated_definition.actions,
+            data_bindings=updated_definition.dataBindings,
         )
         self.project_state_backend = self.project_state_backend.model_copy(
             update={"appDefinition": updated_definition}
@@ -1712,7 +1713,8 @@ class BaseProjectManager(ABC):
         validate_app_spec(
             merged,
             catalog_id=app_definition.catalogId,
-            action_names=app_definition.actions.keys(),
+            action_definitions=app_definition.actions,
+            data_bindings=app_definition.dataBindings,
         )
         write_app_spec(self.dbe, app_definition.appSpecPath, merged)
         return AppDefinitionResponse(
