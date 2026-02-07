@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 
+_REQUIRED_EXTERNAL_TOOLS: tuple[str, ...] = ("set_agentic_context",)
+
 
 @dataclass(frozen=True)
 class ExternalToolAllowlist:
@@ -45,6 +47,8 @@ def build_external_tool_allowlist(
         return ExternalToolAllowlist(allow_all=True, tool_names=()), None
     if not tool_names:
         return None, None
+    for tool_name in _REQUIRED_EXTERNAL_TOOLS:
+        tool_names.add(tool_name)
     return (
         ExternalToolAllowlist(
             allow_all=False,

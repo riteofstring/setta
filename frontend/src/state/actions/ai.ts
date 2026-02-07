@@ -1,3 +1,5 @@
+import { receiveAgenticScopeViolationEdges } from "state/actions/aiFollow";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -12,6 +14,7 @@ import {
   shouldPersistOnMessageStop,
 } from "state/aiStreamingTracker";
 import {
+  type AgenticScopeViolationEdge,
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
@@ -49,6 +52,7 @@ import {
   route_update_prompt_template,
 } from "utils/generatedEndpoints";
 import {
+  AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
   AgentRunStatusEnum,
@@ -80,6 +84,7 @@ import {
   MessageThinkingContent,
   PromptTemplate,
   SectionTypeEnum,
+  SettaNotificationTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -1222,6 +1227,9 @@ function applyChatSectionStreamDelta(
       branches: nextState.branches,
     });
   });
+  if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+    handleAgenticScopeViolation(chunk.result);
+  }
   return nextState;
 }
 
@@ -1284,6 +1292,84 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
 }
 
+const scopeViolationEdgeKinds = new Set(Object.values(AgenticEdgeKindEnum));
+
+function extractAgenticScopeViolation(
+  toolResult: ToolResultEvent["result"],
+): { edges: Array<AgenticScopeViolationEdge>; message: string } | null {
+  const payload = toolResult.result;
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const structured =
+    "structuredContent" in payload
+      ? (payload as { structuredContent?: unknown }).structuredContent
+      : "structured_content" in payload
+        ? (payload as { structured_content?: unknown }).structured_content
+        : null;
+  if (!structured || typeof structured !== "object") {
+    return null;
+  }
+  const structuredPayload = structured as {
+    error?: unknown;
+    message?: unknown;
+    missingEdges?: unknown;
+  };
+  if (structuredPayload.error !== "ScopeViolation") {
+    return null;
+  }
+  const message =
+    typeof structuredPayload.message === "string"
+      ? structuredPayload.message
+      : "Tool blocked by agentic scope.";
+  const edgesRaw = Array.isArray(structuredPayload.missingEdges)
+    ? structuredPayload.missingEdges
+    : [];
+  const edges = edgesRaw
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return null;
+      }
+      const edge = entry as {
+        sourceSectionId?: unknown;
+        targetSectionId?: unknown;
+        kind?: unknown;
+      };
+      if (
+        typeof edge.sourceSectionId !== "string" ||
+        typeof edge.targetSectionId !== "string" ||
+        typeof edge.kind !== "string"
+      ) {
+        return null;
+      }
+      if (!scopeViolationEdgeKinds.has(edge.kind)) {
+        return null;
+      }
+      return {
+        sourceSectionId: edge.sourceSectionId,
+        targetSectionId: edge.targetSectionId,
+        kind: edge.kind as AgenticEdgeKindEnum,
+      };
+    })
+    .filter((entry): entry is AgenticScopeViolationEdge => Boolean(entry));
+  return { edges, message };
+}
+
+function handleAgenticScopeViolation(
+  toolResult: ToolResultEvent["result"],
+): void {
+  const violation = extractAgenticScopeViolation(toolResult);
+  if (!violation) {
+    return;
+  }
+  receiveAgenticScopeViolationEdges({
+    projectConfigId: getCurrProjectConfigId(),
+    edges: violation.edges,
+  });
+  const notice = `${violation.message} Use Project Chat for full access.`;
+  addTemporaryNotification(notice, SettaNotificationTypeEnum.warning);
+}
+
 function handleToolResult(chatId: string, chunk: ToolResultEvent) {
   updateChatDetails(chatId, (details) => {
     return {
@@ -1295,6 +1381,7 @@ function handleToolResult(chatId: string, chunk: ToolResultEvent) {
     getCurrProjectConfigId(),
     chunk.result.tool_call_id,
   );
+  handleAgenticScopeViolation(chunk.result);
 }
 
 function handleMessageStop(chatId: string) {
