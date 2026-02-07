@@ -4,7 +4,7 @@ import {
   getCurrEffectiveSectionImpl,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
@@ -61,6 +61,22 @@ function _SectionContainerCore({
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
     : "";
+  const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
+    (state) => ({
+      scopeReadMap:
+        state.readSectionIdsByProjectConfigId[projectConfigId] ?? null,
+      scopeWriteMap:
+        state.writeSectionIdsByProjectConfigId[projectConfigId] ?? null,
+    }),
+    _.isEqual,
+  );
+  const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
+  const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
+  const scopeHighlightClassName = isWriteScope
+    ? "ring-2 ring-amber-400/70 ring-inset"
+    : isReadScope
+      ? "ring-2 ring-emerald-400/70 ring-inset"
+      : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
@@ -97,7 +113,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
     >
