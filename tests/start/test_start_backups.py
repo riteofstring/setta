@@ -48,6 +48,24 @@ def test_backups_list_json_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert [entry["index"] for entry in payload] == [1, 2, 3]
 
 
+def test_backups_list_json_skips_invalid_filenames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, backup_dir = _patch_paths(monkeypatch, tmp_path)
+    valid = backup_dir / "backup_20260101_000000_000000.json"
+    invalid = backup_dir / "backup_latest.json"
+    valid.write_text("VALID", encoding="utf-8")
+    invalid.write_text("INVALID", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(backups, ["list", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert [entry["path"] for entry in payload] == [str(valid)]
+    assert [entry["index"] for entry in payload] == [1]
+
+
 def test_backups_restore_latest_overwrites_project_and_stashes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -1222,7 +1222,7 @@ def backups_restore(
 
     stash_path: Path | None = None
     if project_path.exists():
-        stash_path = create_restore_stash(project_path, backup_dir)
+        stash_path = create_restore_stash(dbe, project_path, backup_dir)
 
     dbe.copy(selected, project_path)
 
