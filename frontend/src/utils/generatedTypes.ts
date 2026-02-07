@@ -4196,7 +4196,7 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
 const SettingsBackendSchema = z.object({
   showDefaultConfigOnLoad: z.boolean().default(true),
   autosave: z.boolean().default(true),
-  autobackup: z.boolean().default(true),
+  autobackup: z.boolean().default(false),
   autobackupFreq: z.int().default(300),
   autobackupKeepLastN: z.int().default(10),
   clearTerminalBeforeMarkingAsReady: z.boolean().default(true),

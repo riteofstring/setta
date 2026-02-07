@@ -35,6 +35,10 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
+from tests.utils.integration_flags import (
+    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
+    external_agent_integration_tests_enabled,
+)
 
 
 _DEFAULT_OPENCODE_TEST_MODEL = "anthropic/claude-sonnet-4-5-20250929"
@@ -44,7 +48,13 @@ _DEFAULT_MODEL_PREFERENCE = {
     ],
 }
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [
+    pytest.mark.asyncio,
+    pytest.mark.skipif(
+        not external_agent_integration_tests_enabled(),
+        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
+    ),
+]
 
 
 class TestOpenCodeSdkAdapterIntegration:
