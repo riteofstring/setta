@@ -60,6 +60,8 @@ be server-side, with UI affordances that make the boundaries obvious.
 - Tool metadata additions in `SettaToolAnnotations`:
   - `accessType`: `read` | `write` | `structural`.
   - `idPathsByType`: reuse AIFollow-style paths for `section` and `codeObj` ids.
+  - Annotate every MCP tool with `accessType` + `idPathsByType`; default to
+    `structural` if unset.
 
 ## Scope resolution
 Add `resolve_agentic_scope(project_state, chat_section_id)`:
@@ -92,7 +94,8 @@ Add `resolve_agentic_scope(project_state, chat_section_id)`:
   - If blocked, raise a clear error or return an error result.
 - Add an init tool `set_agentic_context` that external agents call once per MCP
   session to register `{projectConfigId, chatId, sectionId}`.
-- Store per-session agentic context in MCP server state for enforcement.
+- Store per-session agentic context in MCP server state keyed by MCP session id.
+  If context is missing, default to strict mode with no access.
 - Note: the Setta CLI (`setta api`) calls `/__setta__/tools/call`, which is the
   MCP tool-call endpoint; scope enforcement here automatically applies to CLI
   workflows.
@@ -109,12 +112,11 @@ Add `resolve_agentic_scope(project_state, chat_section_id)`:
 - Add `build_agentic_context_blocks(scope, project_state)`:
   - For each `contextSectionId`, build a content block based on section type.
   - `inline_text`: include raw text/code (truncate by tokens/lines).
-  - `summary`: include cached summary; if missing, compute and cache.
+  - `summary`: include a summary generated at chat start and reused for that chat.
   - `reference_only`: include a brief reference line (name + id) only.
 - Insert context blocks as a system or user message right before the user
   message that triggers the run (managed + external). Keep it deterministic.
-- Store context summaries in `setta_files/agentic_context_cache/` keyed by
-  projectConfigId + sectionId + hash (section content hash).
+- Defer summary caching until we have performance profiling data.
 
 ## External agent specifics
 - Update external adapters to call `set_agentic_context` during startup or before
