@@ -16,7 +16,8 @@ from setta.types.id import ID
 from setta.types.routes import Route
 from setta.utils.attachment_paths import resolve_attachment_path
 from setta.utils.attachment_tokens import AttachmentTokenManager
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 
 router = SettaAPIRouter()
 _TOKEN_MANAGER = AttachmentTokenManager(C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS)
@@ -81,7 +82,7 @@ def _resolve_artifacts_root(ctx: RuntimeContextFromRequest) -> Path:
                 detail="Share deployment root is not available.",
             )
         return (ctx.deployment_root / "artifacts").resolve()
-    return (CWD / C.ARTIFACTS_FOLDER).resolve()
+    return C.ARTIFACTS_FOLDER.resolve()
 
 
 def _resolve_attachment_path(
@@ -142,7 +143,9 @@ def _build_attachment_download_entry(
     project_config_id: ID | None,
 ) -> AttachmentDownloadUrlEntry:
     artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = ctx.deployment_root if ctx.share_mode else CWD
+    base_root = (
+        ctx.deployment_root if ctx.share_mode else get_setta_paths().workspace_root
+    )
     resolved_path = _resolve_attachment_path(
         artifact_id,
         base_root=base_root,
@@ -192,7 +195,6 @@ async def route_get_attachment_download_url(
     x: GetAttachmentDownloadUrlRequest,
     ctx: RuntimeContextFromRequest,
 ) -> GetAttachmentDownloadUrlResponse:
-    await ctx.enforce_download_allowed()
     if x.projectConfigId is not None:
         _validate_project_config(ctx, x.projectConfigId)
     artifacts = _resolve_artifacts(ctx)
@@ -216,7 +218,6 @@ async def route_get_attachment_download_urls(
     x: GetAttachmentDownloadUrlsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[AttachmentDownloadUrlEntry]:
-    await ctx.enforce_download_allowed()
     if not x.artifactIds:
         return []
     if x.projectConfigId is not None:
@@ -248,7 +249,6 @@ async def route_download_attachment(
     token: str,
     ctx: RuntimeContextFromRequest,
 ) -> Response:
-    await ctx.enforce_download_allowed()
     secret = _require_session_secret()
     try:
         payload = _TOKEN_MANAGER.validate(token, secret=secret)
@@ -271,7 +271,9 @@ async def route_download_attachment(
     if payload.projectConfigId is not None:
         _validate_project_config(ctx, ID(payload.projectConfigId))
     artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = ctx.deployment_root if ctx.share_mode else CWD
+    base_root = (
+        ctx.deployment_root if ctx.share_mode else get_setta_paths().workspace_root
+    )
     resolved_path = _resolve_attachment_path(
         payload.artifactId,
         base_root=base_root,
