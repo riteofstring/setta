@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from setta.agentic.agentic_scope import resolve_context_edges
@@ -27,6 +28,8 @@ class AgenticContextPayload:
 def build_agentic_context_payload(
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
+    *,
+    format_section_id: Callable[[ID], str] | None = None,
 ) -> AgenticContextPayload:
     context_edges = resolve_context_edges(project_state, chat_section_id)
     if not context_edges:
@@ -45,6 +48,7 @@ def build_agentic_context_payload(
             summary_by_section,
             section_id,
             context_mode,
+            format_section_id=format_section_id,
         )
         if not block:
             continue
@@ -63,6 +67,8 @@ def _build_context_block(
     summary_by_section: dict[ID, object],
     section_id: ID,
     context_mode: AgenticEdgeContextMode,
+    *,
+    format_section_id: Callable[[ID], str] | None,
 ) -> str:
     section = project_state.sections[section_id]
     display_name = (section.displayName or "").strip()
@@ -70,8 +76,9 @@ def _build_context_block(
     section_impl = get_curr_effective_section_impl(project_state, section_id)
     section_type = section_impl.type.value
 
+    rendered_id = format_section_id(section_id) if format_section_id else str(section_id)
     if context_mode == AgenticEdgeContextMode.reference_only:
-        return f"- {label} ({section_type}) [id: {section_id}]"
+        return f"- {label} ({section_type}) [id: {rendered_id}]"
 
     raw_text = _extract_section_text(
         project_state,
@@ -79,7 +86,7 @@ def _build_context_block(
         section_id,
     )
     if not raw_text:
-        return f"- {label} ({section_type}) [id: {section_id}]"
+        return f"- {label} ({section_type}) [id: {rendered_id}]"
 
     max_lines = (
         MAX_SUMMARY_LINES
@@ -89,7 +96,7 @@ def _build_context_block(
     truncated = _truncate_lines(raw_text, max_lines)
     mode_label = "summary" if context_mode == AgenticEdgeContextMode.summary else "inline"
     return (
-        f"### {label} ({section_type}) [id: {section_id} | {mode_label}]\n"
+        f"### {label} ({section_type}) [id: {rendered_id} | {mode_label}]\n"
         f"{truncated}".strip()
     )
 

@@ -25,6 +25,7 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import get_meta_control_param_id, get_top_level_param_ids
 from setta.types.id import ID
+from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
     ProjectConfig,
@@ -365,6 +366,40 @@ def filter_project_state_summary(
         shownParamVariantIds=filtered_shown_variant_ids,
         requiredDecodedImages=list(summary.requiredDecodedImages),
         genCodeBinding=summary.genCodeBinding,
+    )
+
+
+def filter_lsp_diagnostics_payload(
+    payload: SettaLspDiagnosticsPayload,
+    allowed_section_ids: set[ID],
+    *,
+    include_unmapped: bool,
+) -> SettaLspDiagnosticsPayload:
+    """Limit LSP diagnostics payload to section IDs within the allowed scope."""
+
+    filtered_gen_errors = {
+        section_id: errors
+        for section_id, errors in payload.genCode.errors.items()
+        if section_id in allowed_section_ids
+    }
+    filtered_gen_code = payload.genCode.model_copy(
+        update={"errors": filtered_gen_errors},
+        deep=True,
+    )
+    filtered_code_sections = {
+        section_id: diagnostics
+        for section_id, diagnostics in payload.codeSections.items()
+        if section_id in allowed_section_ids
+    }
+    return payload.model_copy(
+        update={
+            "genCode": filtered_gen_code,
+            "codeSections": filtered_code_sections,
+            "unmappedGenCode": list(payload.unmappedGenCode)
+            if include_unmapped
+            else [],
+        },
+        deep=True,
     )
 
 

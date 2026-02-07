@@ -66,6 +66,7 @@ from setta.mcp.namespacing import (
     build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
+from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import (
     AgentProfile,
@@ -753,7 +754,27 @@ class AgentRunner:
         )
         context_payload = None
         if section_id is not None:
-            payload = build_agentic_context_payload(project_state, section_id)
+            temporary_to_canonical, canonical_to_temporary = (
+                self.dbe.read_temporary_id_map()
+            )
+            map_size_before = len(canonical_to_temporary)
+
+            def _format_section_id(entry: ID) -> str:
+                return str(
+                    convert_canonical_ids_to_temporary(
+                        entry,
+                        canonical_to_temporary,
+                        temporary_to_canonical,
+                    )
+                )
+
+            payload = build_agentic_context_payload(
+                project_state,
+                section_id,
+                format_section_id=_format_section_id,
+            )
+            if len(canonical_to_temporary) != map_size_before:
+                self.dbe.write_temporary_id_map(canonical_to_temporary)
             if payload.text.strip():
                 context_payload = payload
         return AgentRunContext(

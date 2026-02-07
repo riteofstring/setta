@@ -55,6 +55,11 @@ from setta.agentic.agentic_scope import (
 )
 from setta.database.db_objs import DBE
 from setta.logging.tasks import spawn_background_task
+from setta.mcp.agentic_context_headers import (
+    AGENTIC_CONTEXT_CHAT_ID_HEADER,
+    AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+    AGENTIC_CONTEXT_SECTION_ID_HEADER,
+)
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_registry import register_setta_tool
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
@@ -65,6 +70,7 @@ from setta.mcp.utils import (
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     filter_project_state_summary,
+    filter_lsp_diagnostics_payload,
 )
 from setta.types.id import ID
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -737,6 +743,22 @@ class SettaFastMCP(FastMCP):
                     chat_id=chat_id,
                     section_id=section_id,
                 )
+        request = ctx.request_context.request
+        if request is not None and hasattr(request, "headers"):
+            headers = request.headers
+            project_config_id = _parse_meta_id(
+                headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER)
+            )
+            if project_config_id is not None:
+                chat_id = _parse_meta_id(headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER))
+                section_id = _parse_meta_id(
+                    headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER)
+                )
+                return AgenticContext(
+                    project_config_id=project_config_id,
+                    chat_id=chat_id,
+                    section_id=section_id,
+                )
         session_key = self._resolve_agentic_session_key(ctx)
         if session_key is None:
             return None
@@ -774,9 +796,22 @@ class SettaFastMCP(FastMCP):
             ctx = next(iter(context_kwargs.values()), None)
             tool_name = func.__name__
             agentic_context = None
+            has_request_context = False
             if ctx is not None:
-                agentic_context = self._resolve_agentic_context(ctx)
-            if tool_name != "set_agentic_context" and ctx is not None:
+                try:
+                    _ = ctx.request_context
+                    has_request_context = True
+                except ValueError:
+                    # Internal calls (tests, local helpers) may construct a Context
+                    # without a request context. Treat those as unscoped.
+                    has_request_context = False
+                if has_request_context:
+                    agentic_context = self._resolve_agentic_context(ctx)
+            if (
+                tool_name != "set_agentic_context"
+                and ctx is not None
+                and has_request_context
+            ):
                 if agentic_context is None:
                     logger.warning(
                         "Blocked MCP tool %s due to missing agentic context.",
@@ -809,7 +844,11 @@ class SettaFastMCP(FastMCP):
             scope = None
             project_state = None
             if tool_name != "set_agentic_context" and agentic_context is not None:
-                share_session_id = self._resolve_share_session_id(ctx)
+                share_session_id = (
+                    self._resolve_share_session_id(ctx)
+                    if ctx is not None and has_request_context
+                    else None
+                )
                 manager = self.state.project_manager_switcher.get(
                     agentic_context.project_config_id,
                     share_session_id=share_session_id,
@@ -879,6 +918,17 @@ class SettaFastMCP(FastMCP):
             ):
                 allowed_ids = scope.effective_read_section_ids()
                 result = filter_project_state_summary(result, allowed_ids)
+            if (
+                tool_name == "get_latest_lsp_diagnostics"
+                and scope is not None
+                and project_state is not None
+            ):
+                allowed_ids = scope.effective_read_section_ids()
+                result = filter_lsp_diagnostics_payload(
+                    result,
+                    allowed_ids,
+                    include_unmapped=scope.structural_allowed,
+                )
             result = convert_canonical_ids_to_temporary(
                 result,
                 self.canonical_to_temporary,
