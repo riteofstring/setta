@@ -1,5 +1,3 @@
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
 from fastapi import Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -16,8 +14,6 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
-
-BACKEND_ORIGIN_QUERY_PARAM = "__setta_backend_origin"
 
 BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -315,34 +311,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
       (function () {
         const redirectUrl = "__SETTA_REDIRECT_URL__";
-        const windowNamePrefix = "setta.workspaceHistory:";
-        const historyStorageKey = "setta.workspaceHistory";
-
-        (function hydrateWorkspaceHistoryFromWindowName() {
-          // Only hydrate into localStorage when the redirect stays on this origin.
-          // In dev we redirect to the Vite origin, so we must not clear the payload here.
-          if (!redirectUrl || !redirectUrl.startsWith("/")) {
-            return;
-          }
-          const rawName = window.name;
-          if (!rawName || !rawName.startsWith(windowNamePrefix)) {
-            return;
-          }
-          const raw = rawName.slice(windowNamePrefix.length);
-          if (!raw) {
-            return;
-          }
-          try {
-            localStorage.setItem(historyStorageKey, raw);
-          } catch (error) {
-            console.warn("Failed to store workspace history from window.name", error);
-          }
-          try {
-            window.name = "";
-          } catch (error) {
-            console.warn("Failed to clear workspace history from window.name", error);
-          }
-        })();
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");
@@ -418,45 +386,22 @@ def _bearer_token_from_header(
     return extract_bearer_token_value(authorization)
 
 
-def _request_origin(request: Request) -> str:
-    return f"{request.url.scheme}://{request.url.netloc}"
-
-
-def _append_query_param(url: str, *, key: str, value: str) -> str:
-    parts = urlsplit(url)
-    query = parse_qsl(parts.query, keep_blank_values=True)
-    query.append((key, value))
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            parts.path,
-            urlencode(query),
-            parts.fragment,
-        )
-    )
-
-
-def _bootstrap_redirect_url(request: Request) -> str:
+def _bootstrap_redirect_url() -> str:
     if not IS_DEV_MODE:
         return "/"
-    hostname = request.url.hostname or C.HOST
-    host = format_host_for_url(hostname)
-    redirect_url = f"{request.url.scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
-    return _append_query_param(
-        redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
-    )
+    host = format_host_for_url(C.HOST)
+    return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
 
 
-def _render_bootstrap_html(request: Request) -> str:
+def _render_bootstrap_html() -> str:
     return BOOTSTRAP_HTML_TEMPLATE.replace(
-        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url()
     )
 
 
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)
-async def route_bootstrap_page(request: Request) -> str:
-    return _render_bootstrap_html(request)
+async def route_bootstrap_page() -> str:
+    return _render_bootstrap_html()
 
 
 @router.post(Route.BOOTSTRAP_CONSUME)
