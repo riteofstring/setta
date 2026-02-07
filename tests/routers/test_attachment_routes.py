@@ -9,7 +9,6 @@ import pytest
 
 from setta.auth.session import load_current_session_secret
 from setta.binary import BinaryStore
-from setta.database.db_objs import DBE
 from setta.routers.attachments import (
     GetAttachmentDownloadUrlRequest,
     GetAttachmentDownloadUrlsRequest,
@@ -23,14 +22,6 @@ from setta.server_state import SettaFastAPIState
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.artifact import FileArtifact
-from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import (
-    DeploymentType,
-    DeploymentManifest,
-    SharePolicy,
-)
 from setta.utils.constants import C, CWD
 from tests.utils.manager_fixture import _populate_project_fixture_files
 from tests.utils.runtime_context import runtime_context
@@ -67,7 +58,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         "RUN_FOLDER": C.RUN_FOLDER,
         "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
         "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
-        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
+        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
 
     C.SETTA_FILES_FOLDER = setta_root
@@ -77,7 +68,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     C.RUN_FOLDER = run_folder
     C.RUN_SESSIONS_FOLDER = run_sessions_folder
     C.RUN_LOGS_FOLDER = run_logs_folder
-    C.DEPLOYMENTS_FOLDER = share_deployments_folder
+    C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
 
     try:
         yield setta_root
@@ -89,7 +80,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         C.RUN_FOLDER = previous_values["RUN_FOLDER"]
         C.RUN_SESSIONS_FOLDER = previous_values["RUN_SESSIONS_FOLDER"]
         C.RUN_LOGS_FOLDER = previous_values["RUN_LOGS_FOLDER"]
-        C.DEPLOYMENTS_FOLDER = previous_values["DEPLOYMENTS_FOLDER"]
+        C.SHARE_DEPLOYMENTS_FOLDER = previous_values["SHARE_DEPLOYMENTS_FOLDER"]
 
 
 @contextmanager
@@ -126,51 +117,6 @@ def _create_session(root: Path) -> tuple[str, Path]:
         pid=os.getpid(),
     )
     return session.id, sessions_root
-
-
-def _build_share_deployment_root(
-    tmpdir: str,
-    project_config_name: str,
-    deployment_version: str = "v1",
-) -> Path:
-    root = (
-        Path(tmpdir)
-        / "share_deployments"
-        / project_config_name
-        / deployment_version
-    )
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _write_share_project(
-    root: Path,
-    *,
-    project_config_name: str,
-    deployment_version: str,
-) -> ID:
-    dbe = DBE(root)
-    project_config = ProjectConfig(name=project_config_name)
-    project_state = ProjectStateBackend(
-        projectConfigs={project_config.id: project_config},
-        defaultProjectConfigId=project_config.id,
-    )
-    dbe.write_project(project_state)
-    deployment_name = root.parent.name
-    manifest = DeploymentManifest(
-        version=1,
-        deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
-        defaultProjectConfigId=project_config.id,
-        deploymentVersion=deployment_version,
-    )
-    dbe.write_json(root / "manifest.json", manifest.model_dump())
-    return project_config.id
-
-
-def _write_share_policy(root: Path, policy: SharePolicy) -> None:
-    dbe = DBE(root)
-    dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
 async def _build_state() -> SettaFastAPIState:
@@ -273,43 +219,6 @@ class TestAttachmentRoutes:
                         assert ctx.value.status_code == 404
                     finally:
                         await _shutdown_state(state)
-
-    async def test_download_urls_blocked_when_policy_disallows(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-attachments-policy"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            _write_share_policy(root, SharePolicy(allowFileDownloads=False))
-            artifacts_root = root / "artifacts"
-            artifacts_root.mkdir(parents=True, exist_ok=True)
-            artifact_path = artifacts_root / "file.txt"
-            artifact_path.write_text("hello", encoding="utf-8")
-            state = SettaFastAPIState(
-                FastAPI(),
-                share_mode=True,
-                share_deployment_root=root,
-                enable_mcp_connections=False,
-                enable_language_server=False,
-            )
-            await state.wait_until_ready()
-            session = state.share_session_store.create_session()
-            state.share_runtime_state.create_session_backend(session.id)
-            try:
-                request = GetAttachmentDownloadUrlRequest(
-                    artifactId=artifact_path.relative_to(root).as_posix()
-                )
-                with runtime_context(state, session.id) as runtime_ctx:
-                    with pytest.raises(HTTPException) as ctx:
-                        await route_get_attachment_download_url(
-                            request, runtime_ctx
-                        )
-                assert ctx.value.status_code == 403
-            finally:
-                await _shutdown_state(state)
 
     async def test_download_attachment_returns_403_when_token_expired(self) -> None:
         with TemporaryDirectory() as tmpdir:

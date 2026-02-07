@@ -31,7 +31,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.utils.constants import C
 from setta.utils.structured_data import read_json_source_payload
 
@@ -50,12 +50,12 @@ def _write_text(path: Path, content: str = "{}") -> None:
 
 @contextmanager
 def _override_share_deployments_root(root: Path):
-    original_share_root = C.DEPLOYMENTS_FOLDER
-    C.DEPLOYMENTS_FOLDER = root
+    original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
+    C.SHARE_DEPLOYMENTS_FOLDER = root
     try:
         yield
     finally:
-        C.DEPLOYMENTS_FOLDER = original_share_root
+        C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
 
 
 
@@ -244,7 +244,7 @@ class TestShareDeploymentPublish:
                     assert policy_path.exists()
                     assert project_path.exists()
 
-                    manifest = DeploymentManifest.model_validate(
+                    manifest = ShareDeploymentManifest.model_validate(
                         project_fixture.dbe.read_json(manifest_path)
                     )
                     policy = SharePolicy.model_validate(
@@ -269,7 +269,7 @@ class TestShareDeploymentPublish:
                     assert manifest.listener is None
                     assert not policy.allowRun
                     assert not policy.allowLLM
-                    assert metadata.policyPath == policy_path
+                    assert metadata.sharePolicyPath == policy_path
         except RuntimeError as exc:
             pytest.skip(str(exc))
 

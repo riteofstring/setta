@@ -10,9 +10,9 @@ from setta.start import (
     _build_ssh_tunnel_command,
     _ensure_background_process_started,
     _format_remote_path,
-    _resolve_deployment_root,
+    _resolve_share_deployment_root,
 )
-from setta.deployments.deployment_utils import parse_deployment_version
+from setta.share.deployment_utils import parse_share_deployment_version
 from setta.types.routes import Route
 from setta.utils.constants import C
 from setta.utils.network import (
@@ -24,13 +24,13 @@ from setta.utils.network import (
 
 @pytest.fixture
 def share_root(tmp_path):
-    original_share_deployments_folder = C.DEPLOYMENTS_FOLDER
+    original_share_deployments_folder = C.SHARE_DEPLOYMENTS_FOLDER
     root = tmp_path / "setta_files" / "share_deployments"
-    C.DEPLOYMENTS_FOLDER = root
+    C.SHARE_DEPLOYMENTS_FOLDER = root
     try:
         yield root
     finally:
-        C.DEPLOYMENTS_FOLDER = original_share_deployments_folder
+        C.SHARE_DEPLOYMENTS_FOLDER = original_share_deployments_folder
 
 
 def test_format_host_for_url_rewrites_wildcards() -> None:
@@ -96,12 +96,12 @@ def test_ensure_background_process_started_accepts_running() -> None:
         proc.wait()
 
 
-def test_parse_deployment_version() -> None:
-    assert parse_deployment_version("v3") == 3
-    assert parse_deployment_version("v0") == 0
-    assert parse_deployment_version("3") is None
-    assert parse_deployment_version("v") is None
-    assert parse_deployment_version("v3x") is None
+def test_parse_share_deployment_version() -> None:
+    assert parse_share_deployment_version("v3") == 3
+    assert parse_share_deployment_version("v0") == 0
+    assert parse_share_deployment_version("3") is None
+    assert parse_share_deployment_version("v") is None
+    assert parse_share_deployment_version("v3x") is None
 
 
 def _create_deployment(share_root: Path, deployment_name: str, version: str) -> Path:
@@ -112,7 +112,7 @@ def _create_deployment(share_root: Path, deployment_name: str, version: str) -> 
 
 def test_resolve_share_deployment_root_uses_explicit_root(share_root) -> None:
     root = _create_deployment(share_root, "alpha", "v1")
-    resolved = _resolve_deployment_root(
+    resolved = _resolve_share_deployment_root(
         deployment_root=root,
         deployment_name=None,
         deployment_version=None,
@@ -124,7 +124,7 @@ def test_resolve_share_deployment_root_uses_explicit_root(share_root) -> None:
 def test_resolve_share_deployment_root_rejects_mixed_args(share_root) -> None:
     root = _create_deployment(share_root, "alpha", "v1")
     with pytest.raises(click.ClickException):
-        _resolve_deployment_root(
+        _resolve_share_deployment_root(
             deployment_root=root,
             deployment_name="alpha",
             deployment_version=None,
@@ -134,7 +134,7 @@ def test_resolve_share_deployment_root_rejects_mixed_args(share_root) -> None:
 
 def test_resolve_share_deployment_root_requires_project_name(share_root) -> None:
     with pytest.raises(click.ClickException):
-        _resolve_deployment_root(
+        _resolve_share_deployment_root(
             deployment_root=None,
             deployment_name=None,
             deployment_version=None,
@@ -144,7 +144,7 @@ def test_resolve_share_deployment_root_requires_project_name(share_root) -> None
 
 def test_resolve_share_deployment_root_requires_version_or_latest(share_root) -> None:
     with pytest.raises(click.ClickException):
-        _resolve_deployment_root(
+        _resolve_share_deployment_root(
             deployment_root=None,
             deployment_name="alpha",
             deployment_version=None,
@@ -156,7 +156,7 @@ def test_resolve_share_deployment_root_latest_selects_highest(share_root) -> Non
     _create_deployment(share_root, "alpha", "v1")
     expected = _create_deployment(share_root, "alpha", "v3")
     _create_deployment(share_root, "alpha", "v2")
-    resolved = _resolve_deployment_root(
+    resolved = _resolve_share_deployment_root(
         deployment_root=None,
         deployment_name="alpha",
         deployment_version=None,
@@ -167,7 +167,7 @@ def test_resolve_share_deployment_root_latest_selects_highest(share_root) -> Non
 
 def test_resolve_share_deployment_root_version_selects_path(share_root) -> None:
     expected = _create_deployment(share_root, "alpha", "v2")
-    resolved = _resolve_deployment_root(
+    resolved = _resolve_share_deployment_root(
         deployment_root=None,
         deployment_name="alpha",
         deployment_version="v2",
@@ -179,7 +179,7 @@ def test_resolve_share_deployment_root_version_selects_path(share_root) -> None:
 def test_resolve_share_deployment_root_rejects_invalid_version(share_root) -> None:
     _create_deployment(share_root, "alpha", "v1")
     with pytest.raises(click.ClickException):
-        _resolve_deployment_root(
+        _resolve_share_deployment_root(
             deployment_root=None,
             deployment_name="alpha",
             deployment_version="1",

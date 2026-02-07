@@ -42,7 +42,7 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
         "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
         "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
         "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
+        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
     setta_root = root / "setta_files"
     C.SETTA_FILES_FOLDER = setta_root
@@ -55,7 +55,7 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.DEPLOYMENTS_FOLDER = setta_root / "share_deployments"
+    C.SHARE_DEPLOYMENTS_FOLDER = setta_root / "share_deployments"
     return originals
 
 
@@ -70,7 +70,7 @@ def _restore_fixture_constants(originals: dict[str, Path]) -> None:
     C.RUNTIME_MCP_FOLDER = originals["RUNTIME_MCP_FOLDER"]
     C.RUNTIME_SECRETS_FOLDER = originals["RUNTIME_SECRETS_FOLDER"]
     C.DETACHED_RUNS_FOLDER = originals["DETACHED_RUNS_FOLDER"]
-    C.DEPLOYMENTS_FOLDER = originals["DEPLOYMENTS_FOLDER"]
+    C.SHARE_DEPLOYMENTS_FOLDER = originals["SHARE_DEPLOYMENTS_FOLDER"]
 
 
 def _write_auth_json(root: Path) -> Path:

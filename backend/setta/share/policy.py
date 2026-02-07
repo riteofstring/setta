@@ -233,45 +233,6 @@ async def ensure_share_run_allowed(
         )
 
 
-async def ensure_share_download_allowed(
-    state: "SettaFastAPIState",
-    *,
-    share_session_id: str | None = None,
-) -> None:
-    await enforce_share_policy(
-        share_mode=state.share_mode,
-        policy=_policy_from_state(state),
-        frontend_sender=state.wmh_frontend_sender,
-        policy_flag="allowFileDownloads",
-        denied_message="Share policy disallows file downloads.",
-        share_session_id=share_session_id,
-    )
-
-
-async def ensure_share_multiple_runs_allowed(
-    state: "SettaFastAPIState",
-    *,
-    share_session_id: str | None = None,
-) -> None:
-    if not state.share_mode:
-        return
-    policy = _policy_from_state(state)
-    if policy.allowMultipleRuns:
-        return
-    if share_session_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing share session id.",
-        )
-    run_count = state.share_runtime_state.get_session_run_count(share_session_id)
-    if run_count > 0:
-        await _notify_and_raise(
-            state.wmh_frontend_sender,
-            message="Share policy allows only one run per session.",
-            share_session_id=share_session_id,
-        )
-
-
 async def ensure_share_run_allowed_ws(
     state: "SettaFastAPIState",
     websocket: WebSocket,
