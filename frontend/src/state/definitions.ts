@@ -214,6 +214,11 @@ export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
 type AppPreviewState = {
   isPreviewEnabled: boolean;
   previewConfigId: string | null;
+  // Draft-only overrides used for live preview while editing App Config.
+  // `undefined` means "no override"; `null` means "explicitly cleared".
+  previewSpecOverride?: unknown | null;
+  previewThemeOverride?: unknown | null;
+  previewAssetsOverride?: unknown[] | null;
 };
 
 export const useAppPreview = withProjectState(
@@ -221,6 +226,9 @@ export const useAppPreview = withProjectState(
     withResetFn<AppPreviewState>(() => ({
       isPreviewEnabled: false,
       previewConfigId: null,
+      previewSpecOverride: undefined,
+      previewThemeOverride: undefined,
+      previewAssetsOverride: undefined,
     })),
   ),
 );

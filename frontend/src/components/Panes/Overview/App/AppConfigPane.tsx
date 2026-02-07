@@ -22,9 +22,14 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import {
+  parseDraftAppAssets,
+  parseDraftAppSpec,
+  parseDraftAppTheme,
+  type AppThemeMode,
+} from "./appDraftPreview";
 
 type AppSpecPayload = Record<string, unknown>;
-type AppThemeMode = "auto" | "light" | "dark";
 
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
@@ -305,7 +310,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
     .join("\n");
 }
 
-  export function AppConfigPane() {
+export function AppConfigPane() {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const appSpec = useAppDefinition((x) => x.appSpec);
   const isPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
@@ -314,6 +319,9 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
   const [draftSpec, setDraftSpec] = useState("");
   const [draftTheme, setDraftTheme] = useState("");
   const [draftAssets, setDraftAssets] = useState("");
+  const [draftSpecError, setDraftSpecError] = useState<string | null>(null);
+  const [draftThemeError, setDraftThemeError] = useState<string | null>(null);
+  const [draftAssetsError, setDraftAssetsError] = useState<string | null>(null);
   const [catalogId, setCatalogId] = useState(DEFAULT_CATALOG_ID);
   const [specVersion, setSpecVersion] = useState(DEFAULT_SPEC_VERSION);
   const [appSpecPath, setAppSpecPath] = useState("");
@@ -341,6 +349,14 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       if (!projectConfigId) {
         return;
       }
+      useAppPreview.setState({
+        previewSpecOverride: undefined,
+        previewThemeOverride: undefined,
+        previewAssetsOverride: undefined,
+      });
+      setDraftSpecError(null);
+      setDraftThemeError(null);
+      setDraftAssetsError(null);
       setLoading(true);
       setErrorMessage(null);
       const res = await route_get_app_definition({});
@@ -378,6 +394,60 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       isMounted = false;
     };
   }, [projectConfigId]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const parsed = parseDraftAppSpec(draftSpec);
+      if (parsed.ok) {
+        setDraftSpecError(null);
+        useAppPreview.setState({ previewSpecOverride: parsed.value });
+        return;
+      }
+      setDraftSpecError(parsed.error);
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [draftSpec]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const parsed = parseDraftAppTheme(draftTheme, themeMode);
+      if (parsed.ok) {
+        setDraftThemeError(null);
+        useAppPreview.setState({ previewThemeOverride: parsed.value });
+        return;
+      }
+      setDraftThemeError(parsed.error);
+      const previousTheme = useAppPreview.getState().previewThemeOverride;
+      useAppPreview.setState({
+        previewThemeOverride: isRecord(previousTheme)
+          ? { ...previousTheme, mode: themeMode }
+          : { mode: themeMode },
+      });
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [draftTheme, themeMode]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      const parsed = parseDraftAppAssets(draftAssets);
+      if (parsed.ok) {
+        setDraftAssetsError(null);
+        useAppPreview.setState({ previewAssetsOverride: parsed.value });
+        return;
+      }
+      setDraftAssetsError(parsed.error);
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [draftAssets]);
 
   async function handleGeneratePrompt() {
     let catalogSummary = `Catalog: ${catalogId}`;
@@ -470,6 +540,25 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       appSpec: res.data.appSpec ?? null,
       appDefinition: res.data.appDefinition ?? null,
     });
+    const savedSpec = res.data.appSpec ?? null;
+    const savedDefinition = res.data.appDefinition ?? null;
+    const savedTheme = savedDefinition?.theme ?? null;
+    const savedAssets = savedDefinition?.assets ?? [];
+    setDraftSpec(savedSpec ? JSON.stringify(savedSpec, null, 2) : "");
+    setCatalogId(savedDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
+    setSpecVersion(savedDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION);
+    setAppSpecPath(savedDefinition?.appSpecPath ?? "");
+    setDraftTheme(savedTheme ? JSON.stringify(savedTheme, null, 2) : "");
+    setDraftAssets(JSON.stringify(savedAssets, null, 2));
+    setThemeMode(resolveThemeMode(savedTheme));
+    useAppPreview.setState({
+      previewSpecOverride: savedSpec,
+      previewThemeOverride: savedTheme,
+      previewAssetsOverride: savedAssets,
+    });
+    setDraftSpecError(null);
+    setDraftThemeError(null);
+    setDraftAssetsError(null);
     addTemporaryNotification("App spec saved.");
   }
 
@@ -717,6 +806,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           </div>
         </div>
         <textarea
+          aria-label="App Spec JSON"
           className="min-h-[280px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
           placeholder={
             appSpec
@@ -729,6 +819,14 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
             setValidationResult(null);
           }}
         />
+        {draftSpecError && (
+          <div
+            role="alert"
+            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+          >
+            {draftSpecError}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -740,6 +838,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           </span>
         </div>
         <textarea
+          aria-label="Theme JSON"
           className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
           placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
           value={draftTheme}
@@ -748,6 +847,14 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
             setValidationResult(null);
           }}
         />
+        {draftThemeError && (
+          <div
+            role="alert"
+            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+          >
+            {draftThemeError}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -759,6 +866,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           </span>
         </div>
         <textarea
+          aria-label="Assets JSON"
           className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
           placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
           value={draftAssets}
@@ -767,6 +875,14 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
             setValidationResult(null);
           }}
         />
+        {draftAssetsError && (
+          <div
+            role="alert"
+            className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200"
+          >
+            {draftAssetsError}
+          </div>
+        )}
       </div>
     </section>
   );

@@ -1,5 +1,5 @@
 import { AppRenderer } from "components/App/AppRenderer";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
@@ -10,11 +10,15 @@ import {
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_load_project_config } from "utils/generatedEndpoints";
+import { createAppDefinition } from "utils/generatedTypes";
 
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const previewConfigId = useAppPreview((x) => x.previewConfigId);
+  const previewSpecOverride = useAppPreview((x) => x.previewSpecOverride);
+  const previewThemeOverride = useAppPreview((x) => x.previewThemeOverride);
+  const previewAssetsOverride = useAppPreview((x) => x.previewAssetsOverride);
   const appConfigs = useAppConfigs((x) => x.configs);
   const { projectMetadata } = useAllProjectMetadata((x) => x);
   const activeConfigId = useProjectState((x) => x.projectConfig.id);
@@ -22,6 +26,27 @@ export function AppPreview() {
   const resolvedConfigId =
     previewConfigId ??
     (activeConfigId !== NULL_PROJECT_CONFIG_ID ? activeConfigId : null);
+
+  const previewSpec =
+    previewSpecOverride !== undefined ? previewSpecOverride : appSpec;
+
+  const previewDefinition = useMemo(() => {
+    const hasOverrides =
+      previewThemeOverride !== undefined || previewAssetsOverride !== undefined;
+    if (!hasOverrides) {
+      return appDefinition;
+    }
+    const base = appDefinition ?? createAppDefinition();
+    return {
+      ...base,
+      theme:
+        previewThemeOverride !== undefined ? previewThemeOverride : base.theme,
+      assets:
+        previewAssetsOverride !== undefined
+          ? (previewAssetsOverride ?? [])
+          : base.assets,
+    };
+  }, [appDefinition, previewAssetsOverride, previewThemeOverride]);
 
   useEffect(() => {
     if (!activeConfigId || activeConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -91,8 +116,8 @@ export function AppPreview() {
           </div>
         </div>
         <AppRenderer
-          appSpec={appSpec}
-          appDefinition={appDefinition}
+          appSpec={previewSpec}
+          appDefinition={previewDefinition}
           defaultConfigId={resolvedConfigId}
         />
       </div>
