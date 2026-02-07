@@ -1,7 +1,7 @@
 import { AppRenderer } from "components/App/AppRenderer";
 import { resolveAppTheme } from "components/App/appTheme";
 import type { CSSProperties } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import {
   useAllProjectMetadata,
@@ -54,6 +54,68 @@ export function AppPage() {
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],
   );
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const root = document.documentElement;
+    const themeMode = resolvedTheme.mode;
+    const themeClassName = resolvedTheme.className ?? "";
+    const themeClasses = themeClassName.split(/\s+/).filter(Boolean);
+
+    const previousDark = root.classList.contains("dark");
+    const previousFontFamily = root.style.fontFamily;
+    const previousVars: Record<string, string> = {};
+
+    // Ensure portal-based UI (combobox menus, dropdowns, etc.) can inherit the
+    // same app theme variables and dark mode.
+    for (const [key, value] of Object.entries(resolvedTheme.style)) {
+      if (key === "fontFamily" && typeof value === "string") {
+        root.style.fontFamily = value;
+        continue;
+      }
+      if (!key.startsWith("--")) {
+        continue;
+      }
+      previousVars[key] = root.style.getPropertyValue(key);
+      root.style.setProperty(key, String(value));
+    }
+
+    if (themeMode === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+    for (const cls of themeClasses) {
+      root.classList.add(cls);
+    }
+
+    return () => {
+      if (previousDark) {
+        root.classList.add("dark");
+      } else {
+        root.classList.remove("dark");
+      }
+      for (const cls of themeClasses) {
+        root.classList.remove(cls);
+      }
+      if (previousFontFamily) {
+        root.style.fontFamily = previousFontFamily;
+      } else {
+        root.style.removeProperty("font-family");
+      }
+      for (const [key, previous] of Object.entries(previousVars)) {
+        if (previous) {
+          root.style.setProperty(key, previous);
+        } else {
+          root.style.removeProperty(key);
+        }
+      }
+    };
+  }, [resolvedTheme.className, resolvedTheme.mode, resolvedTheme.style]);
+
   const themeModeClassName = resolvedTheme.mode === "dark" ? "dark" : "";
   const { defaultProjectConfigId, projectMetadata } = useAllProjectMetadata(
     (x) => x,
