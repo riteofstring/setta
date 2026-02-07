@@ -13,6 +13,10 @@ import {
   shouldPersistOnMessageStop,
 } from "state/aiStreamingTracker";
 import {
+  applyAppSpecPatchPreviewDelta,
+  clearAppSpecPatchStream,
+} from "state/appSpecPatchStreaming";
+import {
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
@@ -24,10 +28,6 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  applyAppSpecPatchPreviewDelta,
-  clearAppSpecPatchStream,
-} from "state/appSpecPatchStreaming";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -745,7 +745,8 @@ export async function submitMessage(
       chatId,
       engineConfigId,
       agentProfileId: agentProfileId ?? null,
-      appSpecStreamingEnabled: useLocalStorage.getState().appSpecStreamingEnabled,
+      appSpecStreamingEnabled:
+        useLocalStorage.getState().appSpecStreamingEnabled,
       projectConfigId,
       sectionId: sectionId ?? null,
     });

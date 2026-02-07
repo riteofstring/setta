@@ -1,6 +1,6 @@
 import type { Spec } from "@json-render/core";
 
-export type AppSpecPatchOp = {
+type AppSpecPatchOp = {
   op: "set" | "add" | "replace" | "remove";
   path: string;
   value?: unknown;
@@ -43,7 +43,10 @@ export function parsePatchLine(line: string): AppSpecPatchOp | null {
   if (path !== "/root" && !path.startsWith("/elements/")) {
     return null;
   }
-  if (op !== "remove" && !Object.prototype.hasOwnProperty.call(record, "value")) {
+  if (
+    op !== "remove" &&
+    !Object.prototype.hasOwnProperty.call(record, "value")
+  ) {
     return null;
   }
   return record as AppSpecPatchOp;
@@ -116,7 +119,10 @@ function resolvePointerParent(
     }
     if (current && typeof current === "object") {
       const record = current as Record<string, unknown>;
-      if (!Object.prototype.hasOwnProperty.call(record, token) || record[token] == null) {
+      if (
+        !Object.prototype.hasOwnProperty.call(record, token) ||
+        record[token] == null
+      ) {
         if (!create) {
           return null;
         }
@@ -134,7 +140,9 @@ function resolvePointerParent(
   return { parent: current, key };
 }
 
-function inferContainer(nextToken: string): Record<string, unknown> | Array<unknown> {
+function inferContainer(
+  nextToken: string,
+): Record<string, unknown> | Array<unknown> {
   if (nextToken === "-" || /^\d+$/.test(nextToken)) {
     return [];
   }
@@ -149,7 +157,12 @@ function parseArrayIndex(token: string): number | null {
   return Number.isSafeInteger(value) ? value : null;
 }
 
-function setAt(parent: unknown, key: string, value: unknown, op: AppSpecPatchOp["op"]) {
+function setAt(
+  parent: unknown,
+  key: string,
+  value: unknown,
+  op: AppSpecPatchOp["op"],
+) {
   if (Array.isArray(parent)) {
     if (key === "-") {
       parent.push(value);
@@ -174,7 +187,10 @@ function setAt(parent: unknown, key: string, value: unknown, op: AppSpecPatchOp[
   }
   if (parent && typeof parent === "object") {
     const record = parent as Record<string, unknown>;
-    if (op === "replace" && !Object.prototype.hasOwnProperty.call(record, key)) {
+    if (
+      op === "replace" &&
+      !Object.prototype.hasOwnProperty.call(record, key)
+    ) {
       return;
     }
     record[key] = value;
@@ -198,4 +214,3 @@ function removeAt(parent: unknown, key: string) {
     delete record[key];
   }
 }
-

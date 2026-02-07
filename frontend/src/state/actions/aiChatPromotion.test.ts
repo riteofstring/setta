@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { useAIStore, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { StreamingEventTypeEnum, createProjectConfig } from "utils/generatedTypes";
+import {
+  StreamingEventTypeEnum,
+  createProjectConfig,
+} from "utils/generatedTypes";
 
 import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
@@ -80,4 +83,3 @@ describe("ai pending chat promotion", () => {
     });
   });
 });
-

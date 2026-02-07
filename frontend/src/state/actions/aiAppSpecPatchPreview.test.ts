@@ -1,18 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  useAppPreview,
-  useAIStore,
-  useProjectState,
-} from "state/definitions";
 import { __resetAppSpecPatchStreamsForTests } from "state/appSpecPatchStreaming";
+import { useAIStore, useAppPreview, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 import {
   StreamingEventTypeEnum,
   createAssistantChatMessage,
   createProjectConfig,
 } from "utils/generatedTypes";
+import { getDefaultChatDetails, receiveLLMResponseChunk } from "./ai";
 
 describe("ai app spec patch preview streaming", () => {
   beforeEach(() => {
@@ -112,7 +108,7 @@ describe("ai app spec patch preview streaming", () => {
         message_id: "msg-1",
         tool_call_id: "tool-call-1",
         tool_name: "setta__stream_app_definition",
-        arguments_delta: "{\"patches\":\"",
+        arguments_delta: '{"patches":"',
         preview_kind: "appSpecPatch",
         target_ids_by_type: {},
         preview_value_delta: '{"op":"set","path":"/root","value":"app-root"}\n',
