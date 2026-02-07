@@ -138,6 +138,9 @@ export function DropdownInput({
   comboboxInputThemeClassName,
   comboboxRightButtonThemeClassName,
   comboboxListThemeClassName,
+  comboboxGroupHeaderThemeClassName,
+  comboboxItemThemeClassName,
+  comboboxItemHighlightedThemeClassName,
   isDisabled,
   placeholder,
   small = true,
@@ -150,6 +153,9 @@ export function DropdownInput({
   comboboxInputThemeClassName?: string;
   comboboxRightButtonThemeClassName?: string;
   comboboxListThemeClassName?: string;
+  comboboxGroupHeaderThemeClassName?: string;
+  comboboxItemThemeClassName?: string;
+  comboboxItemHighlightedThemeClassName?: string;
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
@@ -174,6 +180,9 @@ export function DropdownInput({
       inputThemeClassName={comboboxInputThemeClassName}
       rightButtonThemeClassName={comboboxRightButtonThemeClassName}
       listThemeClassName={comboboxListThemeClassName}
+      groupHeaderThemeClassName={comboboxGroupHeaderThemeClassName}
+      itemThemeClassName={comboboxItemThemeClassName}
+      itemHighlightedThemeClassName={comboboxItemHighlightedThemeClassName}
     />
   );
 }

@@ -145,9 +145,12 @@ function _ComboboxItem({
   index,
   isHighlighted,
   itemStyle = "",
+  highlightedItemStyle = "",
   itemString,
 }) {
-  const bg = isHighlighted ? "bg-setta-300/50 dark:bg-setta-900/50" : "";
+  const bg = isHighlighted
+    ? highlightedItemStyle || "bg-setta-300/50 dark:bg-setta-900/50"
+    : "";
   return (
     <dd
       className={`mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs ${bg} ${itemStyle}`}
@@ -165,12 +168,20 @@ export function ComboboxItems({
   getItemProps,
   highlightedIndex,
   itemToString,
+  groupHeaderThemeClassName = "",
+  itemThemeClassName = "",
+  itemHighlightedThemeClassName = "",
 }) {
+  const resolvedGroupHeaderThemeClassName = groupHeaderThemeClassName
+    ? ` ${groupHeaderThemeClassName}`
+    : "";
   return filteredItems.reduce(
     (result, group, groupIndex) => {
       result.groups.push(
         <dl key={groupIndex}>
-          <dt className="mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2">
+          <dt
+            className={`mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2${resolvedGroupHeaderThemeClassName}`}
+          >
             {group.group}
           </dt>
           {group.items.map((item, itemIndex) => {
@@ -181,6 +192,8 @@ export function ComboboxItems({
                 item={item}
                 index={globalIndex}
                 isHighlighted={globalIndex === highlightedIndex}
+                itemStyle={itemThemeClassName}
+                highlightedItemStyle={itemHighlightedThemeClassName}
                 itemString={itemToString ? itemToString(item) : item}
                 key={itemIndex}
               />

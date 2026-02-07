@@ -978,6 +978,9 @@ function AppParamUI({
           comboboxInputThemeClassName="!bg-[color:var(--app-input-bg)] hover:!bg-[color:var(--app-input-bg-hover)] !border-[color:var(--app-input-border)] !text-[color:var(--app-input-text)] !placeholder:text-[color:var(--app-input-placeholder)] focus:!border-[color:var(--app-input-focus-border)] focus-visible:!ring-[color:var(--app-input-ring)]"
           comboboxRightButtonThemeClassName="!text-[color:var(--app-dropdown-muted)] hover:!bg-[color:var(--app-input-bg-hover)] hover:!text-[color:var(--app-dropdown-text)] dark:!text-[color:var(--app-dropdown-muted)] dark:hover:!bg-[color:var(--app-input-bg-hover)] dark:hover:!text-[color:var(--app-dropdown-text)]"
           comboboxListThemeClassName="!border-[color:var(--app-dropdown-border)] !bg-[color:var(--app-dropdown-bg)] !text-[color:var(--app-dropdown-text)]"
+          comboboxGroupHeaderThemeClassName="!border-[color:var(--app-dropdown-border)] !text-[color:var(--app-dropdown-muted)]"
+          comboboxItemThemeClassName="!text-[color:var(--app-dropdown-text)]"
+          comboboxItemHighlightedThemeClassName="bg-[color:var(--app-input-bg-hover)]"
           isDisabled={isDisabled}
         />
       );
