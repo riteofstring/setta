@@ -8,6 +8,7 @@ import {
   openFileMenuSaveProjectConfigAsModal,
   openFileMenuSaveProjectConfigAsWithRefsModal,
   openPublishShareDeploymentModal,
+  openWorkspaceSwitcherModal,
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
@@ -74,6 +75,12 @@ export function FileMenu() {
         paddingClassName="px-1.5"
       >
         Publish Share Deployment
+      </MenuItem>
+      <MenuItem
+        onClick={openWorkspaceSwitcherModal}
+        paddingClassName="px-1.5"
+      >
+        Switch Workspace
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
     </NavbarMenuDropdown>

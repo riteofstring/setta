@@ -7,7 +7,7 @@ from setta.agentic.store import load_external_agent_configs
 from setta.database.db_objs import DBE
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_state_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -36,7 +36,7 @@ class ExternalAgentConfigWatcher:
         async def fn(_core_update: FileWatcherCoreUpdate):
             await self._reload_configs()
 
-        normalized_path = normalize_path(self.dbe.external_agents)
+        normalized_path = normalize_state_path(self.dbe.external_agents)
         callbacks: CallbacksDict = {normalized_path: fn}
         self.specific_file_watcher.update_callbacks(
             callbacks,
