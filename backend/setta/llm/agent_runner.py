@@ -97,8 +97,7 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.chat_attachments import build_attachment_content_blocks
-from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
+from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -891,9 +890,8 @@ class AgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            paths = get_setta_paths()
-            base_root = paths.workspace_root
-            artifacts_root = paths.artifacts_root
+            base_root = CWD
+            artifacts_root = CWD / C.ARTIFACTS_FOLDER
         extra_blocks = build_attachment_content_blocks(
             dbe=self.dbe,
             attachments=message.attachments,

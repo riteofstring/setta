@@ -12,8 +12,6 @@ Chat sections store the following fields on the section impl:
 - `inputText`: current input text for scriptable mode.
 - `waitingForResponse`: whether the UI shows an inflight response.
 - `toolCallArguments`: map of tool call ids to argument JSON text (streaming UI support).
-- `activeBranchId`: active branch id for scriptable mode; `messages` mirrors this branch.
-- `branches`: map of branch id -> branch metadata (`messages`, `createdAt`, `parentBranchId`, `branchFromMessageId`) for scriptable mode edits.
 
 ## Managed mode
 Managed mode uses the central LLM chat manager:
@@ -29,12 +27,6 @@ Scriptable mode keeps chat state inside the section:
 - Use listener code plus the chat toolkit to stream assistant content, append tool results, and sync the section state.
 - `ChatSectionSyncClient.update_from_chat` can rebuild the section state from chat history when you want a full refresh.
 - Listener chat history accepts an `engineConfigId` for internal engines, or `None` for scriptable-only chats.
-
-## Editing and branching
-- Editing a user message creates a new branch instead of mutating existing history.
-- Managed mode edits start a new chat id. The backend truncates history at `branchFromMessageId`, replaces that message, and stores branch metadata on the new run (`branchParentChatId`, `branchFromMessageId`, `branchRootChatId`, `branchCreatedAt`).
-- Scriptable mode edits create a new entry in `branches` with `parentBranchId` and `branchFromMessageId`. The UI switches `activeBranchId` to the new branch and mirrors its `messages`.
-- The branch switcher UI uses these branch fields and metadata to navigate sibling branches.
 
 ## Attachments
 - Chat inputs support file attachments (drag/drop, Attach button, and the Project picker in IDE mode).

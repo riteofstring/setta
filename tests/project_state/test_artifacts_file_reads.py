@@ -6,8 +6,7 @@ from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.project_state.artifacts import Artifacts
 from setta.types.artifact import FileArtifact
-from setta.utils.paths import normalize_state_path
-from setta.utils.utils import compute_md5_hex
+from setta.utils.utils import compute_md5_hex, normalize_path
 
 if TYPE_CHECKING:
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -46,7 +45,7 @@ class TestArtifactFileRead:
             assert artifact.value.byteLength == 0
             binary_store = BinaryStore.from_dbe(dbe)
             assert binary_store.read_bytes(artifact.value.contentId) == b""
-            normalized_path = normalize_state_path(file_path)
+            normalized_path = normalize_path(file_path)
             assert normalized_path in artifacts.files
             metadata = artifacts.file_metadata[normalized_path]
             assert compute_md5_hex(b"") == metadata.last_read_hash
