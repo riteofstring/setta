@@ -475,7 +475,7 @@ function DropdownControl({
         paramInfoId={controlParamId}
         value={value}
         onChange={onValueChange}
-        outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-center`}
+        outerDivClasses={`${NO_DRAG_CLASS_NAME} section-value flex w-full justify-self-start self-start`}
         inputOuterClasses="!mx-0"
         placeholder="Choose"
       />
