@@ -1,7 +1,6 @@
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { C } from "utils/c";
 import { RouteEnum } from "utils/generatedTypes";
-import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
 
 export class C_ADDRESSES {
@@ -55,23 +54,8 @@ export class C_ADDRESSES {
     return location.origin;
   }
 
-  static get LAUNCHER_ORIGIN() {
-    if (this.DEV_MODE) {
-      const fallback =
-        this.DEV_BACKEND_ORIGIN_OVERRIDE ??
-        this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE ??
-        `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-      return getOrInitLauncherOrigin(fallback);
-    }
-    return getOrInitLauncherOrigin(location.origin);
-  }
-
   static get BACKEND() {
     return `${this.BACKEND_ORIGIN}${RouteEnum.PREFIX}`;
-  }
-
-  static get LAUNCHER() {
-    return `${this.LAUNCHER_ORIGIN}${RouteEnum.PREFIX}`;
   }
 
   static get WEBSOCKET() {

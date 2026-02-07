@@ -1,7 +1,7 @@
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
-export const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";
+const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";
 
 function safeLocalStorage(): Storage | undefined {
   if (typeof window === "undefined") {
@@ -18,7 +18,7 @@ function launcherOriginStorage(): Storage | undefined {
   return import.meta.env?.DEV ? safeSessionStorage() : safeLocalStorage();
 }
 
-export function readLauncherOrigin(): string | undefined {
+function readLauncherOrigin(): string | undefined {
   const storage = launcherOriginStorage();
   if (!storage) {
     return undefined;
@@ -34,7 +34,7 @@ export function readLauncherOrigin(): string | undefined {
   }
 }
 
-export function writeLauncherOrigin(origin: string): void {
+function writeLauncherOrigin(origin: string): void {
   const storage = launcherOriginStorage();
   if (!storage) {
     return;
@@ -50,7 +50,7 @@ export function writeLauncherOrigin(origin: string): void {
   }
 }
 
-export function getOrInitLauncherOrigin(fallbackOrigin: string): string {
+function getOrInitLauncherOrigin(fallbackOrigin: string): string {
   const existing = readLauncherOrigin();
   if (existing) {
     return existing;

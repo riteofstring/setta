@@ -26,7 +26,7 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
-export function useFitAddon() {
+function useFitAddon() {
   const fitAddon = useRef(null);
 
   if (!fitAddon.current) {

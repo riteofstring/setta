@@ -16,8 +16,8 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import {
   scrollSensitivityUpdater,
-  terminalTheme,
   terminalCleanup,
+  terminalTheme,
 } from "./utils";
 
 type TerminalSessionKey = string;
