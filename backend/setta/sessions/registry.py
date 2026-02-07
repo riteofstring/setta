@@ -19,6 +19,7 @@ SESSION_SECRET_FILENAME = "secret"
 class SessionMetadata(BaseModel):
     id: str
     workspacePath: str
+    workspacePathCanonical: str
     host: str
     port: int
     pid: int
@@ -56,8 +57,10 @@ class SessionRegistry:
         port: int,
         pid: int,
         started_at: datetime | None = None,
+        workspace_display_path: str | None = None,
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
+        display_workspace = workspace_display_path or str(workspace_path)
         session_id = self._create_session_id()
         session_dir = self._session_dir(session_id)
         while session_dir.exists():
@@ -72,7 +75,8 @@ class SessionRegistry:
 
         metadata = SessionMetadata(
             id=session_id,
-            workspacePath=str(canonical_workspace),
+            workspacePath=display_workspace,
+            workspacePathCanonical=str(canonical_workspace),
             host=host,
             port=port,
             pid=pid,
@@ -117,7 +121,7 @@ class SessionRegistry:
         return [
             session
             for session in sessions
-            if Path(session.workspacePath).resolve() == canonical_workspace
+            if Path(session.workspacePathCanonical).resolve() == canonical_workspace
         ]
 
     def delete_session(self, session_id: str) -> None:
@@ -133,7 +137,9 @@ class SessionRegistry:
         secret_path = Path(metadata.secretPath)
         if secret_path.is_absolute():
             return secret_path
-        workspace_root = self._canonicalize_workspace_path(metadata.workspacePath)
+        workspace_root = self._canonicalize_workspace_path(
+            metadata.workspacePathCanonical
+        )
         return workspace_root / secret_path
 
     def load_secret(self, metadata: SessionMetadata) -> bytes:

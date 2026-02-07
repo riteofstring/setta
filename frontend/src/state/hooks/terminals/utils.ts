@@ -1,6 +1,6 @@
-import { FitAddon } from "@xterm/addon-fit";
 import { useRef } from "react";
 import { useMisc } from "state/definitions";
+import { FitAddon } from "xterm-addon-fit";
 
 export const terminalTheme = {
   foreground: "#B8C2D5",
@@ -26,7 +26,7 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
-function useFitAddon() {
+export function useFitAddon() {
   const fitAddon = useRef(null);
 
   if (!fitAddon.current) {
@@ -37,7 +37,7 @@ function useFitAddon() {
 }
 
 export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
-  const renderDisposable = terminal.onRender(() => {
+  terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
   });
 
@@ -55,13 +55,10 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
     },
   );
 
-  return () => {
-    renderDisposable.dispose();
-    unsub();
-  };
+  return unsub;
 }
 
-function terminalCleanup(ws, terminal) {
+export function terminalCleanup(ws, terminal) {
   if (ws.readyState === 1) {
     ws.close();
     terminal.dispose();

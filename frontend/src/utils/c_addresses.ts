@@ -1,8 +1,30 @@
 import { C } from "utils/c";
+import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { RouteEnum } from "utils/generatedTypes";
 
 export class C_ADDRESSES {
   static DEV_MODE = import.meta.env?.DEV;
+
+  static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
+    if (typeof sessionStorage === "undefined") {
+      return undefined;
+    }
+    try {
+      const rawOverride = sessionStorage.getItem(
+        BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      );
+      if (!rawOverride) {
+        return undefined;
+      }
+      return this.normalizeOrigin(rawOverride);
+    } catch (error) {
+      console.warn(
+        "Failed to read backend origin override from sessionStorage",
+        error,
+      );
+      return undefined;
+    }
+  }
 
   static get DEV_BACKEND_ORIGIN_OVERRIDE() {
     const override = import.meta.env?.VITE_BACKEND_ORIGIN as string | undefined;
@@ -35,6 +57,10 @@ export class C_ADDRESSES {
   // Computed properties that mirror the Python class
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
+      const sessionOverride = this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE;
+      if (sessionOverride) {
+        return sessionOverride;
+      }
       const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
       if (override) {
         return override;
