@@ -7,9 +7,6 @@ Create worktrees (from the main repo root):
 This creates `../setta.feature-auth-1` and `../setta.fix-realtime-2` on branches
 `feature-auth-1` and `fix-realtime-2`,
 copies any `.env*` files that exist in the root, then runs `./dev_install.sh` inside each new worktree.
-If you create a single worktree, `./worktree.sh` will enter it by starting a new shell there (exit to return).
-If you create multiple worktrees, `./worktree.sh` will stay in the current folder (equivalent to `--stay`).
-Use `--stay` to skip entering even for single-worktree runs.
 
 Run a dev instance (from each worktree root):
 ```sh

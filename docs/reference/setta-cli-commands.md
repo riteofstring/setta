@@ -15,6 +15,7 @@ another host.
 | `setta` | yes | no | Start the server in the current workspace. |
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Placeholder export command. |
+| `setta backups` | yes | no | List and restore local project backups. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
@@ -58,6 +59,52 @@ Options:
 - `--readable` exports in a human-readable format.
 - `--readable-with-variants` includes variants in the readable export.
 - `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
+
+## `setta backups`
+
+Manage local backups stored in `setta_files/backups/`.
+
+### `setta backups list`
+
+Lists backups in descending timestamp order (most recent first).
+
+Options:
+- `--json` emits machine-readable JSON:
+```json
+[
+  { "index": 1, "path": "...", "timestamp": "..." }
+]
+```
+- `--limit N` limits output entries (must be `>= 1`).
+
+Examples:
+```sh
+setta backups list
+setta backups list --json
+setta backups list --limit 20
+```
+
+### `setta backups restore`
+
+Restores a backup by overwriting `setta_files/project.json`.
+
+Exactly one selector is required:
+- `--latest` restores the most recent backup.
+- `--index N` restores the Nth item from `setta backups list` (1-based).
+- `--path PATH` restores a specific backup file.
+
+Safety:
+- Refuses to restore if a Setta session appears to be running for the current workspace.
+- Use `--force` to bypass the active-session check.
+- Creates a `restore_stash_*.json` copy of the existing `project.json` before overwriting it (when the file exists).
+- Use `--yes` to skip the confirmation prompt.
+
+Examples:
+```sh
+setta backups restore --latest
+setta backups restore --index 3 --yes
+setta backups restore --path /abs/path/to/backup_20260101_120000_123456.json --force --yes
+```
 
 ## `setta status`
 

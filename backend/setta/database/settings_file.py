@@ -1,4 +1,3 @@
-import copy
 import logging
 import os
 from pathlib import Path
@@ -6,7 +5,6 @@ from pathlib import Path
 from setta.database.db_objs import DBE
 from setta.project_state.settings_project import (
     create_settings_project_state,
-    ensure_settings_code_objs,
     ensure_settings_view_modes,
 )
 from setta.types.generated.settings_state import SettingsState
@@ -21,33 +19,6 @@ from setta.types.section_impls import DictSectionImpl
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
-
-
-def _merge_missing_defaults(
-    existing: object, defaults: object
-) -> tuple[object, bool]:
-    """Return (merged, changed), where merged includes any missing default keys.
-
-    Only merges nested dict shapes; existing values are never overwritten.
-    """
-
-    if not isinstance(existing, dict) or not isinstance(defaults, dict):
-        return existing, False
-
-    changed = False
-    merged: dict = dict(existing)
-    for key, default_value in defaults.items():
-        if key not in merged:
-            merged[key] = copy.deepcopy(default_value)
-            changed = True
-            continue
-        next_value, child_changed = _merge_missing_defaults(
-            merged[key], default_value
-        )
-        if child_changed:
-            merged[key] = next_value
-            changed = True
-    return merged, changed
 
 
 class SettingsFile:
@@ -84,53 +55,19 @@ class SettingsFile:
         paths = self.get_settings_paths()
         path_set = set(paths.values())
         default_settings = SettingsState().model_dump(mode="json")
-        path_to_slices: dict[Path, list[str]] = {}
-        for settings_slice, path in paths.items():
-            path_to_slices.setdefault(path, []).append(settings_slice)
-
-        contents: dict[Path, object] = {}
+        contents = {}
         for p in path_set:
             payload = self.dbe.read_json(p)
             if payload is None:
                 payload = {}
-            if not isinstance(payload, dict):
-                raise TypeError(
-                    f"Settings file {p} must contain a JSON object at the root."
-                )
-            changed = False
-            for settings_slice in path_to_slices.get(p, []):
-                if settings_slice not in default_settings:
-                    raise KeyError(
-                        f"Missing default settings for {settings_slice}."
-                    )
-                defaults_slice = default_settings[settings_slice]
-                if settings_slice not in payload:
-                    payload[settings_slice] = copy.deepcopy(defaults_slice)
-                    changed = True
-                    continue
-                merged_slice, slice_changed = _merge_missing_defaults(
-                    payload[settings_slice], defaults_slice
-                )
-                if slice_changed:
-                    payload[settings_slice] = merged_slice
-                    changed = True
-            if changed and self._allow_write:
-                logger.debug(
-                    "Migrating settings file %s to include new default keys.",
-                    p,
-                )
-                self.dbe.write_json(p, payload)
             contents[p] = payload
         output = {}
         for settings_slice, path in paths.items():
             payload = contents[path]
-            if not isinstance(payload, dict):
-                raise TypeError(
-                    f"Settings file {path} must contain a JSON object at the root."
-                )
-            output[settings_slice] = payload.get(
-                settings_slice, default_settings[settings_slice]
-            )
+            if settings_slice in payload:
+                output[settings_slice] = payload[settings_slice]
+            else:
+                output[settings_slice] = default_settings[settings_slice]
 
         self.settings = SettingsState.model_validate(output)
         return self.settings
@@ -167,11 +104,5 @@ class SettingsFile:
                 self.dbe.write_settings_project(project_state)
             return project_state
         project_state = self.dbe.read_settings_project()
-        needs_write = False
-        if ensure_settings_view_modes(project_state):
-            needs_write = True
-        if ensure_settings_code_objs(project_state):
-            needs_write = True
-        if needs_write and self._allow_write:
-            self.dbe.write_settings_project(project_state)
+        ensure_settings_view_modes(project_state)
         return project_state
