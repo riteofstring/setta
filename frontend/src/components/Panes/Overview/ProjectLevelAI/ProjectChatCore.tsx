@@ -1,5 +1,6 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
+import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   Dispatch,
   SetStateAction,
@@ -18,9 +19,12 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
+import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { useAIStore } from "state/definitions";
+import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   route_stop_external_agent_run,
@@ -47,6 +51,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
+  noLLMConfigsAvailable,
   setChatId,
 }: {
   chatId: string | null | undefined;
@@ -56,6 +61,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
+  noLLMConfigsAvailable: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
@@ -70,8 +76,26 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     shallow,
   );
+  const branchIndex = useChatBranchIndex(typeof chatId === "string");
+  const branchInfoByMessage = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return {};
+    }
+    return buildMessageBranchInfo({
+      chatId,
+      messages,
+      branchIndex,
+    });
+  }, [branchIndex, chatId, messages]);
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const lastFetchedChatIdRef = useRef<string | null>(null);
+  const lastChatIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof chatId === "string") {
+      lastChatIdRef.current = chatId;
+    }
+  }, [chatId]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -187,10 +211,75 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     await route_stop_llm_chat({ chatId });
   }, [chatId, isExternalEngine]);
 
+  const handleEditMessage = useCallback(
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const nextChatId = await submitEditedMessage({
+        parentChatId: resolvedChatId,
+        messages,
+        messageId,
+        message: text,
+        attachments,
+        thinking,
+        engineConfigId,
+        isExternalEngine,
+        agentProfileId: null,
+        sectionId: null,
+      });
+      return Boolean(nextChatId);
+    },
+    [
+      chatId,
+      engineConfigId,
+      externalEngineAvailable,
+      isExternalEngine,
+      messages,
+      thinking,
+    ],
+  );
+
+  const handleBranchSwitch = useCallback(
+    (nextChatId: string) => {
+      if (!nextChatId || nextChatId === chatId) {
+        return;
+      }
+      setChatId(nextChatId);
+    },
+    [chatId, setChatId],
+  );
+
   const isDisabled =
     !engineConfigId ||
     (!isExternalEngine && !hasLLMConfig) ||
     (isExternalEngine && !externalEngineAvailable);
+  const editDisabledReason = useMemo(
+    () =>
+      getChatEditDisabledReason({
+        hasEngineConfig: Boolean(engineConfigId),
+        hasLLMConfig,
+        isExternalEngine,
+        externalEngineAvailable,
+        noLLMConfigsAvailable,
+      }),
+    [
+      engineConfigId,
+      externalEngineAvailable,
+      hasLLMConfig,
+      isExternalEngine,
+      noLLMConfigsAvailable,
+    ],
+  );
   const showEmptyState = typeof chatId === "undefined";
   const submitDisabled = useMemo(
     () => !waitingForResponse && hasPendingToolInteraction(messages),
@@ -206,6 +295,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
+          editDisabledReason={editDisabledReason}
+          onEditMessage={handleEditMessage}
+          onBranchSwitch={handleBranchSwitch}
+          branchInfoByMessage={branchInfoByMessage}
         />
       )}
       <ChatInput

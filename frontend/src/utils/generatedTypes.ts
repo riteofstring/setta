@@ -1303,6 +1303,24 @@ export function createBaseChartSettingsUnionWithDiscriminator(
   return BaseChartSettingsUnionWithDiscriminatorSchema.parse(options);
 }
 
+const ChatSectionBranchSchema = z.object({
+  messages: z
+    .array(
+      z.union([
+        SystemChatMessageSchema,
+        AssistantChatMessageSchema,
+        UserChatMessageSchema,
+        ToolChatMessageSchema,
+      ]),
+    )
+    .default([]),
+  createdAt: z.int().default(0),
+  parentBranchId: z.union([IDSchema, z.null()]).default(null),
+  branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type ChatSectionBranch = z.infer<typeof ChatSectionBranchSchema>;
+
 const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
@@ -1397,12 +1415,14 @@ export function createSectionSize(
 
 const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
+  activeBranchId: z.union([IDSchema, z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).optional(),
   brushColor: z.string().optional(),
   brushOpacity: z.number().optional(),
   brushShape: z.enum(DrawAreaBrushShapeEnum).optional(),
@@ -1526,12 +1546,14 @@ const CoreSchema = z.object({
     .array(
       z.literal([
         "actionMode",
+        "activeBranchId",
         "activeLayerIdx",
         "agentProfileId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "attachedTerminalSectionId",
+        "branches",
         "brushColor",
         "brushOpacity",
         "brushShape",
@@ -2099,6 +2121,8 @@ const ChatSectionImplSchema = z.object({
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  activeBranchId: z.union([IDSchema, z.null()]).default(null),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).default({}),
 });
 
 type ChatSectionImpl = z.infer<typeof ChatSectionImplSchema>;
@@ -3287,6 +3311,8 @@ const ChatSectionImplArgsSchema = z.object({
   inputText: z.string().optional(),
   waitingForResponse: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
+  activeBranchId: z.union([IDSchema, z.null()]).optional(),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).optional(),
 });
 
 type ChatSectionImplArgs = z.infer<typeof ChatSectionImplArgsSchema>;
@@ -4649,6 +4675,8 @@ const UserDefaultChatSectionImplSchema = z.object({
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  activeBranchId: z.union([IDSchema, z.null()]).default(null),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).default({}),
 });
 
 type UserDefaultChatSectionImpl = z.infer<
@@ -6316,6 +6344,8 @@ const ChatSectionStateSchema = z.object({
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  activeBranchId: z.union([IDSchema, z.null()]).default(null),
+  branches: z.record(IDSchema, ChatSectionBranchSchema).default({}),
 });
 
 export type ChatSectionState = z.infer<typeof ChatSectionStateSchema>;
@@ -6712,6 +6742,8 @@ const GetLLMResponseRequestSchema = z.object({
   thinking: z.boolean(),
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  branchParentChatId: z.union([IDSchema, z.null()]).default(null),
+  branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type GetLLMResponseRequestInput = z.input<
