@@ -34,6 +34,10 @@ IS_MACOS = platform.system() == "Darwin"
 # If the PTY never echoes the clear command marker for some reason, we still
 # need to mark the terminal as ready so websocket clients don't hang forever.
 TERMINAL_PROMPT_READY_FALLBACK_SECONDS = 5.0
+# Helps keep echoed commands reflowable in xterm when the attached terminal is narrow.
+# zsh's line editor can emit hard newlines during redisplay at small widths, which
+# xterm cannot "un-wrap" on widen because those lines are not marked as wrapped.
+RUN_COMMAND_ECHO_COLS = 512
 
 TERMINAL_DEBUG_TAG = "SETTA_TERMINAL_DEBUG"
 
@@ -122,6 +126,8 @@ class Terminals:
                 "process": pty_process,
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
+                "rows": None,
+                "cols": None,
                 "terminalPromptIsReady": asyncio.Event(),
             }
             pty_info = self.PTY_PIDS[sectionId]
@@ -310,6 +316,8 @@ class Terminals:
                     if doResize:
                         requested_rows = json_val["rows"]
                         requested_cols = json_val["cols"]
+                        pty_info["rows"] = requested_rows
+                        pty_info["cols"] = requested_cols
                         terminal_debug_log(
                             {
                                 "event": "backend_terminal_resize",
@@ -418,7 +426,102 @@ class Terminals:
     async def run_command_in_terminal(self, terminal_id, command):
         info = self.PTY_PIDS[terminal_id]
         await info["terminalPromptIsReady"].wait()
-        info["process"].write(f"\x15{command}\n")
+        pty_process = info["process"]
+
+        base_rows: int | None = info.get("rows") if isinstance(info.get("rows"), int) else None
+        base_cols: int | None = info.get("cols") if isinstance(info.get("cols"), int) else None
+        override_cols: int | None = None
+        sigwinch_pgid: int | None = None
+        sigwinch_error: str | None = None
+        if not IS_WINDOWS:
+            if base_rows is None or base_cols is None:
+                try:
+                    winsize = os.get_terminal_size(pty_process.fd)
+                except OSError:
+                    winsize = None
+                if winsize is not None:
+                    base_rows = winsize.lines
+                    base_cols = winsize.columns
+            if (
+                base_rows is not None
+                and base_cols is not None
+                and base_cols > 0
+                and base_cols < RUN_COMMAND_ECHO_COLS
+                and len(command) >= base_cols
+            ):
+                override_cols = RUN_COMMAND_ECHO_COLS
+
+        if override_cols is not None and base_rows is not None:
+            pty_process.setwinsize(base_rows, override_cols)
+            if not IS_WINDOWS:
+                try:
+                    sigwinch_pgid = os.tcgetpgrp(pty_process.fd)
+                except OSError:
+                    sigwinch_pgid = None
+                try:
+                    if sigwinch_pgid is not None and sigwinch_pgid > 0:
+                        os.killpg(sigwinch_pgid, signal.SIGWINCH)
+                    else:
+                        os.kill(pty_process.pid, signal.SIGWINCH)
+                except OSError as exc:
+                    sigwinch_error = str(exc)
+            terminal_debug_log(
+                {
+                    "event": "backend_terminal_run_command_winsize_override",
+                    "terminalId": terminal_id,
+                    "projectConfigId": info.get("projectConfigId"),
+                    "shareSessionId": info.get("shareSessionId"),
+                    "ptyPid": info.get("pid"),
+                    "commandLen": len(command),
+                    "restoreRows": base_rows,
+                    "restoreCols": base_cols,
+                    "overrideCols": override_cols,
+                    "sigwinchPgid": sigwinch_pgid,
+                    "sigwinchError": sigwinch_error,
+                }
+            )
+
+        try:
+            pty_process.write(f"\x15{command}\n")
+        finally:
+            if override_cols is not None:
+                desired_rows = (
+                    info.get("rows") if isinstance(info.get("rows"), int) else base_rows
+                )
+                desired_cols = (
+                    info.get("cols") if isinstance(info.get("cols"), int) else base_cols
+                )
+                if desired_rows is None or desired_cols is None:
+                    return
+
+                pty_process.setwinsize(desired_rows, desired_cols)
+                sigwinch_restore_pgid: int | None = None
+                sigwinch_restore_error: str | None = None
+                if not IS_WINDOWS:
+                    try:
+                        sigwinch_restore_pgid = os.tcgetpgrp(pty_process.fd)
+                    except OSError:
+                        sigwinch_restore_pgid = None
+                    try:
+                        if sigwinch_restore_pgid is not None and sigwinch_restore_pgid > 0:
+                            os.killpg(sigwinch_restore_pgid, signal.SIGWINCH)
+                        else:
+                            os.kill(pty_process.pid, signal.SIGWINCH)
+                    except OSError as exc:
+                        sigwinch_restore_error = str(exc)
+                terminal_debug_log(
+                    {
+                        "event": "backend_terminal_run_command_winsize_restore",
+                        "terminalId": terminal_id,
+                        "projectConfigId": info.get("projectConfigId"),
+                        "shareSessionId": info.get("shareSessionId"),
+                        "ptyPid": info.get("pid"),
+                        "restoreRows": desired_rows,
+                        "restoreCols": desired_cols,
+                        "sigwinchPgid": sigwinch_restore_pgid,
+                        "sigwinchError": sigwinch_restore_error,
+                    }
+                )
         self.set_terminal_start_time(terminal_id)
 
     def kill_processes(self, ids):
