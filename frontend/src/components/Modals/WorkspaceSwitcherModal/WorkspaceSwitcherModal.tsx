@@ -155,7 +155,7 @@ export function WorkspaceSwitcherModal() {
         </Dialog.Description>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-2">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
