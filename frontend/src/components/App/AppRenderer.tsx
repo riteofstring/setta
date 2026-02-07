@@ -4,6 +4,7 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
+import type { Spec } from "@json-render/core";
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -29,17 +30,13 @@ import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
 import "./appMotion.css";
 
-type UIElement = {
+type RawUIElement = {
   key: string;
   type: string;
-  props?: Record<string, unknown>;
-  children?: Array<UIElement | string>;
-  parentKey?: string | null;
-};
-
-type UITree = {
-  root: string;
-  elements: Record<string, UIElement>;
+  props?: unknown;
+  children?: unknown;
+  parentKey?: unknown;
+  visible?: unknown;
 };
 
 type AppRendererProps = {
@@ -50,7 +47,11 @@ type AppRendererProps = {
   rootKeyOverride?: string | null;
 };
 
-function isUIElement(value: unknown): value is UIElement {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isUIElement(value: unknown): value is RawUIElement {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -59,11 +60,11 @@ function isUIElement(value: unknown): value is UIElement {
 }
 
 function normalizeElements(
-  root: UIElement,
-  elements: Record<string, UIElement>,
-): Record<string, UIElement> {
-  const output: Record<string, UIElement> = {};
-  const stack: Array<{ element: UIElement; parentKey: string | null }> = [
+  root: RawUIElement,
+  elements: Record<string, RawUIElement>,
+): Spec["elements"] {
+  const output: Spec["elements"] = {};
+  const stack: Array<{ element: RawUIElement; parentKey: string | null }> = [
     { element: root, parentKey: null },
   ];
   const visited = new Set<string>();
@@ -93,9 +94,14 @@ function normalizeElements(
         stack.push({ element: child, parentKey: element.key });
       }
     }
+    const props = isRecord(element.props) ? element.props : {};
+    const visible = element.visible;
     output[element.key] = {
-      ...element,
+      key: element.key,
+      type: element.type,
+      props,
       parentKey,
+      ...(visible !== undefined ? { visible } : {}),
       children: childKeys.length > 0 ? childKeys : undefined,
     };
   }
@@ -105,7 +111,7 @@ function normalizeElements(
 function normalizeAppSpec(
   spec: unknown,
   rootKeyOverride?: string | null,
-): UITree | null {
+): Spec | null {
   if (!spec || typeof spec !== "object") {
     return null;
   }
@@ -118,27 +124,37 @@ function normalizeAppSpec(
     const elementsRaw = record.elements;
     const rootRaw = record.root;
     if (elementsRaw && typeof elementsRaw === "object") {
-      const elements = elementsRaw as Record<string, UIElement>;
+      const rawElements: Record<string, RawUIElement> = {};
+      for (const [key, value] of Object.entries(
+        elementsRaw as Record<string, unknown>,
+      )) {
+        if (isUIElement(value)) {
+          rawElements[key] = value;
+        }
+      }
       if (overrideKey) {
-        const overrideRoot = elements[overrideKey];
+        const overrideRoot = rawElements[overrideKey];
         if (!overrideRoot) {
           return null;
         }
         return {
           root: overrideKey,
-          elements: normalizeElements(overrideRoot, elements),
+          elements: normalizeElements(overrideRoot, rawElements),
         };
       }
       if (typeof rootRaw === "string") {
-        const root = elements[rootRaw];
+        const root = rawElements[rootRaw];
         if (!root) {
           return null;
         }
-        return { root: rootRaw, elements: normalizeElements(root, elements) };
+        return {
+          root: rootRaw,
+          elements: normalizeElements(root, rawElements),
+        };
       }
       if (isUIElement(rootRaw)) {
         const root = rootRaw;
-        const merged = { ...elements, [root.key]: root };
+        const merged = { ...rawElements, [root.key]: root };
         return { root: root.key, elements: normalizeElements(root, merged) };
       }
     }
@@ -187,7 +203,7 @@ export function AppRenderer({
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],
   );
-  const tree = useMemo(
+  const spec = useMemo(
     () => normalizeAppSpec(appSpec, rootKeyOverride),
     [appSpec, rootKeyOverride],
   );
@@ -531,7 +547,7 @@ export function AppRenderer({
     handleRun,
   ]);
 
-  if (!tree || !tree.root) {
+  if (!spec || !spec.elements[spec.root]) {
     return (
       <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center [font-size:var(--app-text-sm)] text-[color:var(--app-muted)]">
         No app spec found. Generate or save an app spec to preview.
@@ -568,7 +584,7 @@ export function AppRenderer({
                 style={resolvedTheme.style as CSSProperties}
               >
                 <AppBreakpointProvider>
-                  <Renderer tree={tree} registry={appRegistry} />
+                  <Renderer spec={spec} registry={appRegistry} />
                 </AppBreakpointProvider>
               </div>
             </ActionProvider>
