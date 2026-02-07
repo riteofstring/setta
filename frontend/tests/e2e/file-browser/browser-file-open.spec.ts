@@ -135,8 +135,7 @@ async function setBrowserPath(
 
   await pathInput.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.press("Backspace");
-  await page.keyboard.insertText(nextValue);
+  await page.keyboard.type(nextValue);
   await page.keyboard.press("Enter");
 
   await expect

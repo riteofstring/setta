@@ -15,34 +15,14 @@ from setta.database.db_objs import DBE
 import setta.mcp.tools  # noqa: F401
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_metadata import SettaToolType
-from setta.types.id import ID
-from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 
 class _StubProjectManager:
-    def __init__(self, project_state_backend: ProjectStateBackend) -> None:
-        self.project_state_backend = project_state_backend
-
     def get_all_project_metadata(self) -> tuple[list[object], list[object]]:
         return [], []
-
-
-class _StubProjectManagerSwitcher:
-    def __init__(self) -> None:
-        # Some tools call `project_manager_switcher.main` directly.
-        self.main = _StubProjectManager(ProjectStateBackend())
-
-    def get(self, project_config_id: ID, *, share_session_id: str | None = None) -> _StubProjectManager:  # noqa: ARG002
-        project_config = ProjectConfig(id=project_config_id)
-        project_state_backend = ProjectStateBackend(
-            projectConfigs={project_config.id: project_config},
-            defaultProjectConfigId=project_config.id,
-        )
-        return _StubProjectManager(project_state_backend)
 
 
 class _StubTerminals:
@@ -84,7 +64,7 @@ async def run_test_mcp_server() -> AsyncIterator[MCPTestServer]:
             state = SimpleNamespace(
                 dbe=dbe,
                 agent_runner=SimpleNamespace(disabled=True),
-                project_manager_switcher=_StubProjectManagerSwitcher(),
+                project_manager_switcher=SimpleNamespace(main=_StubProjectManager()),
                 terminals=_StubTerminals(),
             )
             app = FastAPI()

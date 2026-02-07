@@ -26,7 +26,7 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
-function useFitAddon() {
+export function useFitAddon() {
   const fitAddon = useRef(null);
 
   if (!fitAddon.current) {
@@ -36,7 +36,7 @@ function useFitAddon() {
   return fitAddon.current;
 }
 
-function scrollSensitivityUpdater(terminal, setHasScrollbar) {
+export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
   terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
   });

@@ -1,16 +1,18 @@
 import sys
 
-from watchdog.observers.polling import PollingObserver
-
-import setta.file_watchers.lsp as lsp_file_watcher
-import setta.file_watchers.specific_file_watcher as specific_file_watcher
-import setta.project_state.watch_code as watch_code
+import pytest
 
 
-if sys.platform == "darwin":
-    # Avoid watchdog FSEvents crashes during test teardown on macOS by using a
-    # polling observer for all filesystem watchers.
-    specific_file_watcher.Observer = PollingObserver
-    lsp_file_watcher.Observer = PollingObserver
-    watch_code.Observer = PollingObserver
+@pytest.fixture(autouse=True)
+def _force_polling_watchdog_observer_on_darwin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid FSEvents flakiness in restricted macOS environments.
+
+    The production default remains watchdog's platform selection. Tests force the
+    polling observer on macOS so repeated observer startup/shutdown doesn't
+    trigger hard failures in sandboxed runners.
+    """
+
+    if sys.platform != "darwin":
+        return
+    monkeypatch.setenv("SETTA_WATCHDOG_FORCE_POLLING", "1")
 

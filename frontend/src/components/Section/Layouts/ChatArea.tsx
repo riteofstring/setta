@@ -50,7 +50,6 @@ import {
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
-  AgenticEdgeKindEnum,
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
@@ -633,30 +632,6 @@ function ManagedChatArea({
   useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const agenticEdges = useProjectState(
-    (state) => state.projectConfig.agenticEdges,
-  );
-  const { hasAnyAgenticEdge, hasWriteScope } = useMemo(() => {
-    let hasAny = false;
-    let hasWrite = false;
-    for (const edge of agenticEdges) {
-      if (
-        edge.kind === AgenticEdgeKindEnum.chat_section &&
-        edge.sourceSectionId === sectionId
-      ) {
-        hasAny = true;
-        hasWrite = true;
-        break;
-      }
-      if (
-        edge.sourceSectionId === sectionId ||
-        edge.targetSectionId === sectionId
-      ) {
-        hasAny = true;
-      }
-    }
-    return { hasAnyAgenticEdge: hasAny, hasWriteScope: hasWrite };
-  }, [agenticEdges, sectionId]);
   const chatId = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,
@@ -1074,22 +1049,6 @@ function ManagedChatArea({
             <span />
           )}
           {showPlanModeBadge ? <PlanModeBadge /> : null}
-        </div>
-      ) : null}
-      {!hasAnyAgenticEdge ? (
-        <div className="px-4 pt-2">
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-            No agentic edges. This chat has no project access. Add context/scope
-            links or use Project Chat for full access.
-          </div>
-        </div>
-      ) : !hasWriteScope ? (
-        <div className="px-4 pt-2">
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
-            No writable sections in scope. This chat cannot modify sections. Add
-            a Chat → Section edge (Scope sections) or use Project Chat for full
-            access.
-          </div>
         </div>
       ) : null}
       <ChatMessageList
