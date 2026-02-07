@@ -10,7 +10,7 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_catalog,
   route_get_app_definition,
@@ -334,7 +334,8 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       setLoading(false);
       if (!res200(res)) {
         if (isMounted) {
-          setErrorMessage("Failed to load app spec.");
+          const detail = getErrorDetail(res.data);
+          setErrorMessage(detail ?? "Failed to load app spec.");
         }
         return;
       }
@@ -375,7 +376,8 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
         setCatalogId(catalog.id);
       }
     } else {
-      addTemporaryNotification("Failed to load app catalog.");
+      const detail = getErrorDetail(catalogRes.data);
+      addTemporaryNotification(detail ?? "Failed to load app catalog.");
     }
     const sections = formatSectionsForAppPrompt(useProjectState.getState());
     const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- Do not bind ParamInput to CodeParam params; CodeParam edits are blocked in app deployments.\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action \"run\" and set its sectionId.\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
@@ -447,7 +449,8 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
     });
     setLoading(false);
     if (!res200(res)) {
-      setErrorMessage("Failed to save app spec.");
+      const detail = getErrorDetail(res.data);
+      setErrorMessage(detail ?? "Failed to save app spec.");
       return;
     }
     useAppDefinition.setState({
