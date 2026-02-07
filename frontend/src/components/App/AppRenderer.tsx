@@ -5,6 +5,7 @@ import {
   VisibilityProvider,
 } from "@json-render/react";
 import { useCallback, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import {
   ensureAppProjectConfigLoaded,
   resetAppDeployment,
@@ -24,6 +25,7 @@ import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import { appRegistry } from "./appRegistry";
+import { resolveAppTheme } from "./appTheme";
 
 type UIElement = {
   key: string;
@@ -179,6 +181,10 @@ export function AppRenderer({
   const sharePolicy = useShareSession((x) => x.sharePolicy);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
   const resolvedPolicy = resolvePolicyOverrides(appPolicy ?? sharePolicy);
+  const resolvedTheme = useMemo(
+    () => resolveAppTheme(appDefinition?.theme),
+    [appDefinition?.theme],
+  );
   const tree = useMemo(
     () => normalizeAppSpec(appSpec, rootKeyOverride),
     [appSpec, rootKeyOverride],
@@ -375,6 +381,7 @@ export function AppRenderer({
     () => normalizeActionDefinitions(appDefinition?.actions),
     [appDefinition?.actions],
   );
+  const themeClassName = resolvedTheme.className ?? "";
 
   const actionHandlers = useMemo(() => {
     const handlers: Record<
@@ -523,17 +530,18 @@ export function AppRenderer({
   }
 
   return (
-    <AppRuntimeContext.Provider
-      value={{
-        dataBindings: appDefinition?.dataBindings ?? {},
-        actions: actionDefinitions,
-        policy: resolvedPolicy,
-        canEditParams,
-        allowExternalLinks,
-        allowFileDownloads,
-        defaultConfigId: fallbackConfigId ?? null,
-      }}
-    >
+      <AppRuntimeContext.Provider
+        value={{
+          dataBindings: appDefinition?.dataBindings ?? {},
+          actions: actionDefinitions,
+          policy: resolvedPolicy,
+          canEditParams,
+          allowExternalLinks,
+          allowFileDownloads,
+          defaultConfigId: fallbackConfigId ?? null,
+          theme: resolvedTheme,
+        }}
+      >
       <AppActionContext.Provider
         value={{
           canRun,
@@ -545,7 +553,12 @@ export function AppRenderer({
         <DataProvider initialData={appDefinition?.dataBindings ?? {}}>
           <VisibilityProvider>
             <ActionProvider handlers={actionHandlers}>
-              <Renderer tree={tree} registry={appRegistry} />
+              <div
+                className={themeClassName}
+                style={resolvedTheme.style as CSSProperties}
+              >
+                <Renderer tree={tree} registry={appRegistry} />
+              </div>
             </ActionProvider>
           </VisibilityProvider>
         </DataProvider>

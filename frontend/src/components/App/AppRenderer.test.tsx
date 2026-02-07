@@ -152,6 +152,11 @@ describe("AppRenderer", () => {
         },
       },
     });
+    const policy = createSharePolicy({
+      allowParamChanges: true,
+      allowVariantChanges: true,
+      allowRun: true,
+    });
 
     useAppConfigs.setState({
       configs: {
@@ -187,6 +192,7 @@ describe("AppRenderer", () => {
 
     renderApp(appSpec, {
       appDefinition,
+      appPolicy: policy,
       defaultConfigId: "fallback-config",
     });
 

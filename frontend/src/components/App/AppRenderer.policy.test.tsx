@@ -137,6 +137,7 @@ describe("AppRenderer policy enforcement", () => {
       allowExternalLinks: false,
       allowFileDownloads: false,
       defaultConfigId: projectConfig.id,
+      theme: null,
     };
     const actionState = {
       canRun: true,
@@ -269,6 +270,7 @@ describe("AppRenderer policy enforcement", () => {
       allowExternalLinks: true,
       allowFileDownloads: true,
       defaultConfigId: configA.id,
+      theme: null,
     };
 
     const TextOutput = appRegistry.TextOutput;

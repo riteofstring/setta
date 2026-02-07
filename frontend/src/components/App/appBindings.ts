@@ -24,6 +24,42 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function decodePointerSegment(segment: string): string {
+  return segment.replace(/~1/g, "/").replace(/~0/g, "~");
+}
+
+function resolvePointer(value: unknown, pointer: string): unknown {
+  if (pointer === "") {
+    return value;
+  }
+  if (!pointer.startsWith("/")) {
+    return undefined;
+  }
+  let current: unknown = value;
+  const segments = pointer
+    .split("/")
+    .slice(1)
+    .map((segment) => decodePointerSegment(segment));
+  for (const segment of segments) {
+    if (Array.isArray(current)) {
+      const index = Number(segment);
+      if (!Number.isInteger(index) || String(index) !== segment) {
+        return undefined;
+      }
+      current = current[index];
+      continue;
+    }
+    if (!isRecord(current)) {
+      return undefined;
+    }
+    if (!(segment in current)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+  return current;
+}
+
 function resolveBindingRecord(
   dataBindings: AppDataBindings | null | undefined,
   dataPath: string | null,
@@ -31,7 +67,10 @@ function resolveBindingRecord(
   if (!dataBindings || !dataPath) {
     return null;
   }
-  const raw = dataBindings[dataPath];
+  const raw =
+    dataPath.startsWith("/") || dataPath === ""
+      ? resolvePointer(dataBindings, dataPath)
+      : dataBindings[dataPath];
   if (!isRecord(raw)) {
     return null;
   }

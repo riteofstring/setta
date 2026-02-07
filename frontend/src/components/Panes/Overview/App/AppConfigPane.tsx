@@ -11,6 +11,7 @@ import {
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_get_app_catalog,
   route_get_app_definition,
   route_set_app_definition,
 } from "utils/generatedEndpoints";
@@ -19,6 +20,64 @@ type AppSpecPayload = Record<string, unknown>;
 
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
+
+function formatCatalogForPrompt(catalog: unknown): string {
+  if (!catalog || typeof catalog !== "object") {
+    return "Catalog unavailable.";
+  }
+  const record = catalog as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id : "unknown";
+  const version = typeof record.version === "string" ? record.version : "unknown";
+  const components = Array.isArray(record.components) ? record.components : [];
+  const actions = Array.isArray(record.actions) ? record.actions : [];
+  const componentLines = components
+    .map((component) => {
+      if (!component || typeof component !== "object") {
+        return null;
+      }
+      const componentRecord = component as Record<string, unknown>;
+      const type = componentRecord.type;
+      if (typeof type !== "string") {
+        return null;
+      }
+      const props = componentRecord.props;
+      const propNames =
+        props && typeof props === "object"
+          ? Object.keys(props).join(", ")
+          : "";
+      return propNames
+        ? `- ${type} (props: ${propNames})`
+        : `- ${type}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+  const actionLines = actions
+    .map((action) => {
+      if (!action || typeof action !== "object") {
+        return null;
+      }
+      const actionRecord = action as Record<string, unknown>;
+      const name = actionRecord.name;
+      if (typeof name !== "string") {
+        return null;
+      }
+      const params = actionRecord.params;
+      const paramNames =
+        params && typeof params === "object"
+          ? Object.keys(params).join(", ")
+          : "";
+      return paramNames ? `- ${name} (params: ${paramNames})` : `- ${name}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+  return [
+    `Catalog: ${id} (version ${version})`,
+    "Components:",
+    componentLines || "- (none)",
+    "Actions:",
+    actionLines || "- (none)",
+  ].join("\n");
+}
 
 function buildDefaultSpec(): AppSpecPayload {
   const root: AppSpecPayload = {
@@ -155,11 +214,22 @@ export function AppConfigPane() {
     };
   }, [projectConfigId]);
 
-  function handleGeneratePrompt() {
+  async function handleGeneratePrompt() {
+    let catalogSummary = `Catalog: ${catalogId}`;
+    const catalogRes = await route_get_app_catalog();
+    if (res200(catalogRes)) {
+      const catalog = catalogRes.data;
+      catalogSummary = formatCatalogForPrompt(catalog);
+      if (typeof catalog.id === "string") {
+        setCatalogId(catalog.id);
+      }
+    } else {
+      addTemporaryNotification("Failed to load app catalog.");
+    }
     const sections = Object.values(useProjectState.getState().sectionImpls)
       .map((section) => `${section.name} (${section.id})`)
       .join("\n");
-    const prompt = `Generate a JSON Render app spec using catalog "${catalogId}".\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId.\n- Include one ActionButton with action "run".\n- Return JSON only (no prose).\n\nAvailable sections:\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
+    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run".\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections:\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
     useAIStore.setState({ pendingProjectChatPrompt: prompt });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAIChat,

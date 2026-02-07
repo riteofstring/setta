@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { SharePolicy } from "utils/generatedTypes";
 
 import type { AppActionDefinitions, AppDataBindings } from "./appBindings";
+import type { ResolvedAppTheme } from "./appTheme";
 
 type AppActionState = {
   canRun: boolean;
@@ -25,6 +26,7 @@ type AppRuntimeContextValue = {
   allowExternalLinks: boolean;
   allowFileDownloads: boolean;
   defaultConfigId: string | null;
+  theme: ResolvedAppTheme | null;
 };
 
 const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);

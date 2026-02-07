@@ -635,7 +635,10 @@ async def route_set_app_definition(
     manager = ctx.state.project_manager_switcher.main
     if manager is None:
         raise HTTPException(status_code=404, detail="Project manager not available.")
-    return await manager.set_app_definition(x)
+    try:
+        return await manager.set_app_definition(x)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.UPDATE_APP_DEFINITION)
@@ -646,7 +649,10 @@ async def route_update_app_definition(
     manager = ctx.state.project_manager_switcher.main
     if manager is None:
         raise HTTPException(status_code=404, detail="Project manager not available.")
-    return await manager.update_app_definition(x)
+    try:
+        return await manager.update_app_definition(x)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.SET_PROMPT_TEMPLATE)

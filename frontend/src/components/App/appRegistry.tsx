@@ -112,8 +112,15 @@ function resolveConfigId(
 
 function Stack({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const direction = props.direction === "row" ? "flex-row" : "flex-col";
-  const gap = typeof props.gap === "number" ? props.gap : 16;
+  const themeGap = runtime?.theme?.spacing?.stackGap;
+  const gap =
+    typeof props.gap === "number" || typeof props.gap === "string"
+      ? props.gap
+      : typeof themeGap === "number" || typeof themeGap === "string"
+        ? themeGap
+        : 16;
   const align = typeof props.align === "string" ? props.align : "stretch";
   const justify = typeof props.justify === "string" ? props.justify : "start";
   const className = typeof props.className === "string" ? props.className : "";
@@ -132,24 +139,39 @@ function Stack({ element, children }: AppComponentProps) {
 
 function Card({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const title = typeof props.title === "string" ? props.title : null;
   const description =
     typeof props.description === "string" ? props.description : null;
   const className = typeof props.className === "string" ? props.className : "";
+  const cardPadding = runtime?.theme?.spacing?.cardPadding;
+  const cardRadius = runtime?.theme?.spacing?.cardRadius;
+  const cardStyle: React.CSSProperties = {};
+  if (typeof cardPadding === "number") {
+    cardStyle.padding = `${cardPadding}px`;
+  } else if (typeof cardPadding === "string") {
+    cardStyle.padding = cardPadding;
+  }
+  if (typeof cardRadius === "number") {
+    cardStyle.borderRadius = `${cardRadius}px`;
+  } else if (typeof cardRadius === "string") {
+    cardStyle.borderRadius = cardRadius;
+  }
 
   return (
     <section
-      className={`flex flex-col gap-3 rounded-xl border border-setta-200/80 bg-white/80 p-4 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/60 ${className}`}
+      className={`flex flex-col gap-3 rounded-xl border border-setta-200/80 bg-white/80 p-4 text-[color:var(--app-text)] shadow-sm dark:border-setta-800/80 dark:bg-setta-900/60 border-[color:var(--app-card-border)] bg-[color:var(--app-card-bg)] ${className}`.trim()}
+      style={cardStyle}
     >
       {(title || description) && (
         <header className="flex flex-col gap-1">
           {title && (
-            <h3 className="text-sm font-semibold text-setta-800 dark:text-setta-100">
+            <h3 className="text-sm font-semibold text-setta-800 text-[color:var(--app-text)] dark:text-setta-100">
               {title}
             </h3>
           )}
           {description && (
-            <p className="text-xs text-setta-500 dark:text-setta-400">
+            <p className="text-xs text-setta-500 text-[color:var(--app-muted)] dark:text-setta-400">
               {description}
             </p>
           )}
@@ -216,7 +238,7 @@ function Tabs({ element, children }: AppComponentProps) {
 
   return (
     <div className={`flex flex-col gap-4 ${className}`.trim()}>
-      <div className="flex flex-wrap gap-2 border-b border-setta-200 pb-2 dark:border-setta-700">
+      <div className="flex flex-wrap gap-2 border-b border-setta-200 pb-2 dark:border-setta-700 border-[color:var(--app-border)]">
         {resolvedTabs.map((tab) => (
           <button
             key={tab.key}
@@ -224,8 +246,8 @@ function Tabs({ element, children }: AppComponentProps) {
             onClick={() => setActiveKey(tab.key)}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
               tab.key === activeKey
-                ? "bg-blue-600 text-white"
-                : "bg-setta-100 text-setta-600 hover:bg-setta-200 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-800"
+                ? "bg-blue-600 text-white bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)]"
+                : "bg-setta-100 text-setta-600 hover:bg-setta-200 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-800 bg-[color:var(--app-surface)] text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)]"
             }`}
           >
             {tab.title}
@@ -249,9 +271,11 @@ function Tab({ element, children }: AppComponentProps) {
 
 function Heading({ element }: AppComponentProps) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const text = typeof props.text === "string" ? props.text : "";
   const level = typeof props.level === "number" ? props.level : 2;
   const className = typeof props.className === "string" ? props.className : "";
+  const headingFont = runtime?.theme?.fonts?.heading;
   const HeadingTag =
     `h${Math.min(Math.max(level, 1), 4)}` as keyof JSX.IntrinsicElements;
   const sizeClassByLevel: Record<number, string> = {
@@ -265,7 +289,8 @@ function Heading({ element }: AppComponentProps) {
 
   return (
     <HeadingTag
-      className={`font-semibold tracking-tight text-setta-900 dark:text-setta-100 ${sizeClass} ${className}`.trim()}
+      className={`font-semibold tracking-tight text-setta-900 dark:text-setta-100 text-[color:var(--app-text)] ${sizeClass} ${className}`.trim()}
+      style={headingFont ? { fontFamily: headingFont } : undefined}
     >
       {text}
     </HeadingTag>
@@ -278,7 +303,7 @@ function Text({ element }: AppComponentProps) {
   const className = typeof props.className === "string" ? props.className : "";
   return (
     <p
-      className={`text-sm text-setta-600 dark:text-setta-300 ${className}`.trim()}
+      className={`text-sm text-setta-600 dark:text-setta-300 text-[color:var(--app-muted)] ${className}`.trim()}
     >
       {text}
     </p>
@@ -947,8 +972,8 @@ function ActionButton({ element, onAction }: AppComponentProps) {
       type="button"
       className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
         isDisabled
-          ? "cursor-not-allowed bg-setta-200 text-setta-400 dark:bg-setta-800 dark:text-setta-500"
-          : "bg-blue-600 text-white hover:bg-blue-700"
+          ? "cursor-not-allowed bg-setta-200 text-setta-400 dark:bg-setta-800 dark:text-setta-500 bg-[color:var(--app-surface-alt)] text-[color:var(--app-muted)]"
+          : "bg-blue-600 text-white hover:bg-blue-700 bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)]"
       }`}
       title={isDisabled ? disabledReason ?? undefined : undefined}
       onClick={() => {
@@ -1003,7 +1028,17 @@ function TextOutput({ element }: AppComponentProps) {
     if (!resolvedConfigId || !sectionId || !configState) {
       return null;
     }
-    const impl = configState.sectionImpls[sectionId];
+    const variantId =
+      configState.previewSectionVariantMap[sectionId] ??
+      configState.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      return null;
+    }
+    const variant = configState.sectionVariants[variantId];
+    if (!variant) {
+      return null;
+    }
+    const impl = configState.sectionImpls[variant.impl];
     if (!impl || impl.type !== SectionTypeEnum.TextBlock) {
       return null;
     }
@@ -1012,7 +1047,7 @@ function TextOutput({ element }: AppComponentProps) {
 
   if (!resolvedConfigId || !sectionId || !textData) {
     return (
-      <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
+      <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400 border-[color:var(--app-border)] bg-[color:var(--app-surface)] text-[color:var(--app-muted)]">
         Missing text output.
       </div>
     );
@@ -1021,9 +1056,9 @@ function TextOutput({ element }: AppComponentProps) {
   const { text, format } = textData;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-setta-200 bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60">
+    <div className="flex flex-col gap-2 rounded-lg border border-setta-200 bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60 border-[color:var(--app-border)] bg-[color:var(--app-surface)]">
       {label && (
-        <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+        <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400 text-[color:var(--app-muted)]">
           {label}
         </div>
       )}
@@ -1031,13 +1066,13 @@ function TextOutput({ element }: AppComponentProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
-          className="prose prose-sm max-w-none text-setta-700 dark:prose-invert dark:text-setta-200"
+          className="prose prose-sm max-w-none text-setta-700 dark:prose-invert dark:text-setta-200 text-[color:var(--app-text)]"
           components={{ code: CodeBlock }}
         >
           {text}
         </ReactMarkdown>
       ) : (
-        <pre className="whitespace-pre-wrap text-xs text-setta-700 dark:text-setta-200">
+        <pre className="whitespace-pre-wrap text-xs text-setta-700 dark:text-setta-200 text-[color:var(--app-text)]">
           {text}
         </pre>
       )}
@@ -1126,7 +1161,7 @@ function ImageOutput({ element }: AppComponentProps) {
   }
 
   return (
-    <figure className="flex min-h-[120px] items-center justify-center rounded-lg border border-setta-200 bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60">
+    <figure className="flex min-h-[120px] items-center justify-center rounded-lg border border-setta-200 bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60 border-[color:var(--app-border)] bg-[color:var(--app-surface)]">
       {decodedImage ? (
         <img
           src={decodedImage.src}
@@ -1134,7 +1169,7 @@ function ImageOutput({ element }: AppComponentProps) {
           className="h-auto max-h-[320px] w-full object-contain"
         />
       ) : (
-        <div className="text-xs text-setta-400 dark:text-setta-500">
+        <div className="text-xs text-setta-400 dark:text-setta-500 text-[color:var(--app-muted)]">
           Waiting for image output…
         </div>
       )}
@@ -1147,7 +1182,7 @@ function Divider({ element }: AppComponentProps) {
   const className = typeof props.className === "string" ? props.className : "";
   return (
     <hr
-      className={`border-setta-200/70 dark:border-setta-700/70 ${className}`.trim()}
+      className={`border-setta-200/70 dark:border-setta-700/70 border-[color:var(--app-border)] ${className}`.trim()}
     />
   );
 }

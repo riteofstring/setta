@@ -33,6 +33,10 @@ from setta.app.spec_store import (
     read_app_spec,
     write_app_spec,
 )
+from setta.app.spec_validation import (
+    validate_app_action_definitions,
+    validate_app_spec,
+)
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -1673,6 +1677,12 @@ class BaseProjectManager(ABC):
         if x.assets is not None:
             updates["assets"] = x.assets
         updated_definition = app_definition.model_copy(update=updates)
+        validate_app_action_definitions(updated_definition.actions)
+        validate_app_spec(
+            x.appSpec,
+            catalog_id=updated_definition.catalogId,
+            action_names=updated_definition.actions.keys(),
+        )
         self.project_state_backend = self.project_state_backend.model_copy(
             update={"appDefinition": updated_definition}
         )
@@ -1698,6 +1708,12 @@ class BaseProjectManager(ABC):
         if existing is None:
             raise KeyError("App spec not found for this project.")
         merged = _apply_json_merge_patch(existing, x.patch)
+        validate_app_action_definitions(app_definition.actions)
+        validate_app_spec(
+            merged,
+            catalog_id=app_definition.catalogId,
+            action_names=app_definition.actions.keys(),
+        )
         write_app_spec(self.dbe, app_definition.appSpecPath, merged)
         return AppDefinitionResponse(
             appSpec=merged,

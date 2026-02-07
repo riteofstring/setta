@@ -150,6 +150,11 @@ APP_CATALOG: JSONValue = {
             "params": {"artifactId": {"type": "string"}},
         },
         {
+            "name": "downloadBinary",
+            "description": "Download a binary content payload by id.",
+            "params": {"contentId": {"type": "string"}},
+        },
+        {
             "name": "openExternalLink",
             "description": "Open an external link.",
             "params": {"url": {"type": "string"}},

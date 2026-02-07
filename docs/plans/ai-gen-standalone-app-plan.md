@@ -46,6 +46,7 @@ Setta currently has IDE mode (full editor) and Share mode (snapshot + policy gat
 - Field: `theme` (colors, fonts, spacing, light/dark defaults)
 - Field: `assets` (static file references)
 - Store the json-render UI tree in a separate JSON file under `setta_files/app_specs/`, referenced by `appSpecPath`.
+- Priority note: UI surfaces for editing `routes`, `dataBindings`, `actions`, `theme`, and `assets` are **not important**. Assume AI- or JSON-based edits instead.
 
 ## Config Scoping
 - Canonical v1: a `ConfigScope` wrapper component sets the `configId` for its subtree.
@@ -131,6 +132,7 @@ Use `json-render` to define a catalog of allowed components and let AI generate 
 - Any non-catalog code path is opt-in and clearly marked as unsupported by default policies.
 
 ## Pencil.dev Integration (Optional)
+Priority: **not important** (defer unless explicitly requested).
 - Pencil uses `.pen` design files that are JSON-based, version-control friendly, and portable.
 - Pencil exposes an MCP server so AI can read or modify `.pen` files.
 - Pencil supports design-to-code workflows where AI generates React or Next.js components from designs.

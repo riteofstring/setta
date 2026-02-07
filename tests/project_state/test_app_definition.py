@@ -48,6 +48,31 @@ class TestAppDefinitionProjectManager:
 
         assert stored == payload
 
+    async def test_set_app_definition_rejects_unknown_component(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "UnknownComponent"},
+                "elements": {},
+            }
+            with pytest.raises(ValueError, match="unknown component"):
+                await fixture.manager.set_app_definition(
+                    SetAppDefinitionRequest(appSpec=payload)
+                )
+
+    async def test_set_app_definition_rejects_unknown_action_type(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            with pytest.raises(ValueError, match="unknown type"):
+                await fixture.manager.set_app_definition(
+                    SetAppDefinitionRequest(
+                        appSpec=payload,
+                        actions={"custom": {"type": "not-supported"}},
+                    )
+                )
+
     async def test_update_app_definition_merges_patch(self) -> None:
         async with real_project_manager() as fixture:
             initial = {
@@ -77,3 +102,18 @@ class TestAppDefinitionProjectManager:
             stored = read_app_spec(fixture.dbe, app_definition.appSpecPath)
 
         assert stored["root"]["props"]["gap"] == 12
+
+    async def test_update_app_definition_rejects_unknown_component(self) -> None:
+        async with real_project_manager() as fixture:
+            initial = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            await fixture.manager.set_app_definition(
+                SetAppDefinitionRequest(appSpec=initial)
+            )
+
+            with pytest.raises(ValueError, match="unknown component"):
+                await fixture.manager.update_app_definition(
+                    UpdateAppDefinitionRequest(patch={"root": {"type": "Nope"}})
+                )
