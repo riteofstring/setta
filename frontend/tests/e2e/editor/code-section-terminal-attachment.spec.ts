@@ -1732,9 +1732,20 @@ async function dragSelectTerminalMarkerRangeAndCopy({
     markerOffset: endOffset,
   });
 
-  await page.mouse.move(start.x, start.y);
+  const offsetSpan = Math.abs(endOffset - startOffset);
+  const deltaX = end.x - start.x;
+  const estimatedCellWidth =
+    offsetSpan > 0 ? Math.abs(deltaX) / offsetSpan : 10;
+  // Drag from just inside the start cell to just inside the end cell so
+  // integer mouse coordinate rounding at different zoom levels doesn't drop
+  // boundary characters.
+  const pad = Math.min(Math.max(estimatedCellWidth * 0.45, 2), 14);
+  const startX = start.x - pad;
+  const endX = end.x + pad;
+
+  await page.mouse.move(startX, start.y);
   await page.mouse.down();
-  await page.mouse.move(end.x, end.y, { steps: 14 });
+  await page.mouse.move(endX, end.y, { steps: 14 });
   await page.mouse.up();
   await page.waitForTimeout(50);
 
