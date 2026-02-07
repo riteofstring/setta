@@ -12,6 +12,7 @@ type AppThemeColors = {
   cardBackground?: string;
   cardBorder?: string;
   accent?: string;
+  accentHover?: string;
   accentText?: string;
 };
 
@@ -59,7 +60,41 @@ const COLOR_VAR_MAP: Record<keyof AppThemeColors, string> = {
   cardBackground: "--app-card-bg",
   cardBorder: "--app-card-border",
   accent: "--app-accent",
+  accentHover: "--app-accent-hover",
   accentText: "--app-accent-text",
+};
+
+const DEFAULT_COLORS_BY_MODE: Record<"light" | "dark", AppThemeColors> = {
+  light: {
+    background: "#f8fafc",
+    surface: "#ffffff",
+    surfaceAlt: "#f1f5f9",
+    headerBackground: "rgba(255, 255, 255, 0.9)",
+    headerText: "#0f172a",
+    text: "#0f172a",
+    muted: "#64748b",
+    border: "#e2e8f0",
+    cardBackground: "rgba(255, 255, 255, 0.8)",
+    cardBorder: "rgba(226, 232, 240, 0.8)",
+    accent: "#2563eb",
+    accentHover: "#1d4ed8",
+    accentText: "#ffffff",
+  },
+  dark: {
+    background: "#020617",
+    surface: "rgba(15, 23, 42, 0.85)",
+    surfaceAlt: "rgba(30, 41, 59, 0.9)",
+    headerBackground: "rgba(2, 6, 23, 0.8)",
+    headerText: "#f8fafc",
+    text: "#e2e8f0",
+    muted: "#94a3b8",
+    border: "rgba(148, 163, 184, 0.25)",
+    cardBackground: "rgba(15, 23, 42, 0.65)",
+    cardBorder: "rgba(51, 65, 85, 0.7)",
+    accent: "#3b82f6",
+    accentHover: "#60a5fa",
+    accentText: "#ffffff",
+  },
 };
 
 const FONT_VAR_MAP: Record<keyof AppThemeFonts, string> = {
@@ -184,7 +219,11 @@ export function resolveAppTheme(
 ): ResolvedAppTheme {
   const themeConfig = isRecord(theme) ? (theme as AppThemeConfig) : null;
   const mode = resolveThemeMode(themeConfig, options.prefersDark);
-  const colors = resolveThemeColors(themeConfig?.colors, mode);
+  const overrideColors = resolveThemeColors(themeConfig?.colors, mode);
+  const colors: AppThemeColors = {
+    ...DEFAULT_COLORS_BY_MODE[mode],
+    ...overrideColors,
+  };
   const fonts = resolveThemeFonts(themeConfig?.fonts);
   const spacing = resolveThemeSpacing(themeConfig?.spacing);
   const className =

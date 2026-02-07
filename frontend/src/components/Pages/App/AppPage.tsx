@@ -173,17 +173,17 @@ export function AppPage() {
       style={resolvedTheme.style as CSSProperties}
     >
       <AppAssets assets={appDefinition?.assets ?? null} />
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--app-border)] border-setta-200 bg-[color:var(--app-header-bg)] bg-white/90 px-6 py-4 dark:border-setta-800 dark:bg-setta-950/80">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--app-border)] bg-[color:var(--app-header-bg)] px-6 py-4">
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--app-muted)] text-setta-400 dark:text-setta-500">
+          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--app-muted)]">
             App Mode
           </span>
-          <h1 className="text-lg font-semibold text-[color:var(--app-header-text)] text-setta-800 dark:text-setta-100">
+          <h1 className="text-lg font-semibold text-[color:var(--app-header-text)]">
             {appTitle}
           </h1>
         </div>
         {appPolicy && (
-          <div className="text-xs text-[color:var(--app-muted)] text-setta-500 dark:text-setta-400">
+          <div className="text-xs text-[color:var(--app-muted)]">
             {appPolicy.allowRun ? "Runs enabled" : "Runs disabled"}
           </div>
         )}
@@ -195,7 +195,7 @@ export function AppPage() {
       >
         <div className="w-full max-w-5xl" style={contentStyle}>
           {routeError || rootError ? (
-            <div className="rounded-2xl border border-dashed border-setta-200 bg-white/70 px-6 py-10 text-center text-sm text-setta-500 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+            <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center text-sm text-[color:var(--app-muted)]">
               {routeError ?? rootError}
             </div>
           ) : (
