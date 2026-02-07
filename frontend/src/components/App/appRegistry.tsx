@@ -15,6 +15,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImpl,
@@ -486,6 +487,12 @@ function ParamInputBlock({ element }: AppComponentProps) {
     );
   }
 
+  const codeParamBlocked =
+    modeResolved &&
+    serverMode === "app" &&
+    codeObjImpl.type === CodeObjTypeEnum.CodeParam;
+  const effectiveCanEditParams = canEditParams && !codeParamBlocked;
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-col gap-0.5">
@@ -499,7 +506,9 @@ function ParamInputBlock({ element }: AppComponentProps) {
         )}
       </div>
       <div className="rounded-md border border-setta-200 bg-white px-2 py-1 dark:border-setta-700 dark:bg-setta-900">
-        <div className={canEditParams ? "" : "pointer-events-none opacity-60"}>
+        <div
+          className={effectiveCanEditParams ? "" : "pointer-events-none opacity-60"}
+        >
           <AppParamInput
             configId={resolvedConfigId}
             sectionId={sectionId}
@@ -507,12 +516,18 @@ function ParamInputBlock({ element }: AppComponentProps) {
             codeObjImpl={codeObjImpl}
             sectionImpl={sectionImpl}
             baseValue={codeObjImpl.value}
-            canEditParams={canEditParams}
+            canEditParams={effectiveCanEditParams}
           />
         </div>
         {!canEditParams && (
           <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
             Param edits are disabled by policy.
+          </div>
+        )}
+        {codeParamBlocked && canEditParams && (
+          <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
+            Code params cannot be edited in app deployments. Bind a MetaControl
+            param instead.
           </div>
         )}
       </div>
@@ -898,6 +913,14 @@ function AppParamUI({
   }
 }
 
+const notifyParamUpdateError = _.throttle(
+  (message: string) => {
+    addTemporaryNotification(message);
+  },
+  2500,
+  { trailing: false },
+);
+
 const debouncedSetParamEnteredValue = _.debounce(
   (configId: string, sectionId: string, paramInfoId: string, value: string) => {
     route_set_param_entered_value({
@@ -905,6 +928,15 @@ const debouncedSetParamEnteredValue = _.debounce(
       sectionId,
       paramInfoId,
       value,
+    }).then((response) => {
+      if (res200(response)) {
+        return;
+      }
+      notifyParamUpdateError(
+        response.status === 403
+          ? "This parameter cannot be edited in app deployments."
+          : "Failed to update parameter.",
+      );
     });
   },
   50,
@@ -917,6 +949,15 @@ const debouncedSetPasswordParamValue = _.debounce(
       sectionId,
       paramInfoId,
       value,
+    }).then((response) => {
+      if (res200(response)) {
+        return;
+      }
+      notifyParamUpdateError(
+        response.status === 403
+          ? "This parameter cannot be edited in app deployments."
+          : "Failed to update parameter.",
+      );
     });
   },
   50,

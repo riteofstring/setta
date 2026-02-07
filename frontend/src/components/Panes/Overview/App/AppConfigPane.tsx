@@ -204,7 +204,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
     sectionId: string;
     label: string;
     sectionType: string | null;
-    params: Array<{ id: string; name: string }>;
+    params: Array<{ id: string; name: string; type: string | null }>;
   }> = [];
 
   for (const [sectionId, core] of Object.entries(state.sections)) {
@@ -221,19 +221,28 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       continue;
     }
 
-    const params: Array<{ id: string; name: string }> = [];
+    const params: Array<{ id: string; name: string; type: string | null }> = [];
     if (impl && impl.type === SectionTypeEnum.MetaControl) {
       const metaControlParamId =
         typeof impl.metaControlParamId === "string"
           ? impl.metaControlParamId
           : null;
       if (metaControlParamId) {
+        const metaControlVariantId =
+          impl.codeObjVariantMap?.[metaControlParamId] ?? null;
+        const metaControlVariant = metaControlVariantId
+          ? state.codeObjVariants[metaControlVariantId]
+          : null;
+        const metaControlImpl = metaControlVariant
+          ? state.codeObjImpls[metaControlVariant.impl]
+          : null;
         params.push({
           id: metaControlParamId,
           name: resolvePromptDisplayName(
             state.codeObjs[metaControlParamId],
             metaControlParamId,
           ),
+          type: metaControlImpl?.type ?? null,
         });
       }
     } else if (impl && isBaseSectionWithParamsImpl(impl)) {
@@ -254,6 +263,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
         params.push({
           id: codeObjId,
           name: resolvePromptDisplayName(state.codeObjs[codeObjId], codeObjId),
+          type: codeObjImpl.type ?? null,
         });
       }
     }
@@ -283,7 +293,10 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
         entry.params.length > 0
           ? ` params: ${entry.params
               .slice(0, MAX_PARAMS)
-              .map((param) => `${param.name} (${param.id})`)
+              .map((param) => {
+                const typeSuffix = param.type ? `, type=${param.type}` : "";
+                return `${param.name} (${param.id}${typeSuffix})`;
+              })
               .join(", ")}${entry.params.length > MAX_PARAMS ? ` (+${entry.params.length - MAX_PARAMS} more)` : ""}`
           : "";
       return `- ${entry.label} (${entry.sectionId})${typeSuffix}${params}`;
@@ -358,7 +371,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       addTemporaryNotification("Failed to load app catalog.");
     }
     const sections = formatSectionsForAppPrompt(useProjectState.getState());
-    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action \"run\" and set its sectionId.\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
+    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- Do not bind ParamInput to CodeParam params; CodeParam edits are blocked in app deployments.\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action \"run\" and set its sectionId.\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
     useAIStore.setState({ pendingProjectChatPrompt: prompt });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAIChat,

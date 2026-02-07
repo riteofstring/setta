@@ -104,9 +104,8 @@ describe("formatSectionsForAppPrompt", () => {
     const prompt = formatSectionsForAppPrompt(useProjectState.getState());
 
     expect(prompt).toContain(`dull_ocean (${sectionId})`);
-    expect(prompt).toContain(`x (${paramCodeObjId})`);
+    expect(prompt).toContain(`x (${paramCodeObjId}, type=CodeParam)`);
     expect(prompt).not.toContain(`quick_quiet (${sectionImplId})`);
     expect(prompt).not.toContain(`math.sqrt (${callableCodeObjId})`);
   });
 });
-
