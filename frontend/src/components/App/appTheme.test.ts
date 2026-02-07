@@ -60,6 +60,13 @@ describe("resolveAppTheme vars", () => {
     expect(typeof resolved.style["--app-card-shadow"]).toBe("string");
   });
 
+  it("sets a themeable background image for app pages", () => {
+    const resolved = resolveAppTheme(null);
+    const value = resolved.style["--app-page-bg-image"];
+    expect(typeof value).toBe("string");
+    expect(value).toContain("radial-gradient");
+  });
+
   it("ignores vars outside the --app- namespace", () => {
     const resolved = resolveAppTheme({
       vars: {

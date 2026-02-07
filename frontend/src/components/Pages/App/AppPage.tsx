@@ -140,9 +140,7 @@ export function AppPage() {
     "App";
   const themeClassName = resolvedTheme.className ?? "";
   const mainStyle: CSSProperties = {};
-  if (resolvedTheme.colors.background) {
-    mainStyle.background = resolvedTheme.colors.background;
-  }
+  mainStyle.backgroundImage = "var(--app-page-bg-image)";
   if (
     resolvedTheme.spacing.pagePaddingX !== undefined ||
     resolvedTheme.spacing.pagePaddingY !== undefined
@@ -193,7 +191,7 @@ export function AppPage() {
       </header>
 
       <main
-        className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-[color:var(--app-background)] bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_45%),linear-gradient(180deg,_rgba(248,250,252,0.9),_rgba(226,232,240,0.6))] px-4 py-8 dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_rgba(15,23,42,0.9),_rgba(2,6,23,0.9))]"
+        className="flex min-h-0 flex-1 justify-center overflow-y-auto bg-[color:var(--app-background)] px-4 py-8"
         style={mainStyle}
       >
         <div className="w-full max-w-5xl" style={contentStyle}>

@@ -118,6 +118,12 @@ test("app mode ActionButton triggers json-render actions", async ({ page }) => {
     useServerMode.setState({ mode: "app", modeResolved: true });
   });
 
+  const mainBackground = await page.locator("main").evaluate((node) => ({
+    backgroundColor: getComputedStyle(node).backgroundColor,
+    backgroundImage: getComputedStyle(node).backgroundImage,
+  }));
+  expect(mainBackground.backgroundImage).not.toBe("none");
+
   await page.route("**/runCode", (route) =>
     route.fulfill({
       status: 200,

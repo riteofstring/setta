@@ -411,6 +411,8 @@ export function resolveAppTheme(
     "var(--app-shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))";
   style["--app-dropdown-shadow"] =
     "var(--app-shadow-lg, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))";
+  style["--app-page-bg-image"] =
+    "radial-gradient(circle at top, color-mix(in srgb, var(--app-accent) 10%, transparent), transparent 45%), linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 70%, transparent), color-mix(in srgb, var(--app-surface-alt) 60%, transparent))";
 
   applyAppVars(style, themeConfig?.vars);
 
