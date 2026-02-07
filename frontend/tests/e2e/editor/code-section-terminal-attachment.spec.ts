@@ -797,8 +797,10 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     // Use a marker + long x-tail in a comment so marker appears in the echoed
     // command line, but NOT in the command output.
     const marker = `CMDREFLOW_${Date.now()}`;
-    const longComment = `${marker}_${"x".repeat(220)}`;
-    await focusTerminalAndType(page, terminalId, `echo ok # ${longComment}`);
+    // Put the marker at the end so it remains visible even if the start of the
+    // wrapped input line scrolls out of the viewport.
+    const longComment = `${"x".repeat(220)}_${marker}`;
+    await focusTerminalAndType(page, terminalId, `# ${longComment}`);
 
     await waitForTerminalRowsMarker(page, terminalId, marker, 20000);
     const narrowRowCount = countLongLineRows(
