@@ -70,12 +70,12 @@ class TestClaudeSdkAdapterIntegration:
         return str(path)
 
     def _require_claude_sdk(self) -> str:
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            pytest.skip("ANTHROPIC_API_KEY not set")
         try:
             version = importlib.metadata.version("claude-agent-sdk")
         except importlib.metadata.PackageNotFoundError:
-            pytest.skip("claude-agent-sdk is not installed")
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            pytest.skip("ANTHROPIC_API_KEY not set")
+            pytest.fail("claude-agent-sdk is not installed")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:

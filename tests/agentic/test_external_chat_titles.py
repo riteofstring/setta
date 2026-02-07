@@ -74,4 +74,3 @@ def test_external_title_persists_in_agent_run(tmp_path) -> None:
     assert reloaded.outputs is not None
     assert reloaded.outputs.get("name") == "External title"
     assert reloaded.outputs.get("nameSource") == "external"
-

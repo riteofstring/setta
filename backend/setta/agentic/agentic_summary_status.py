@@ -10,6 +10,7 @@ from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_P
 from setta.database.db_objs import DBE
 from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.agentic_observability import AgenticSummaryCacheStatus
+from setta.types.helpers_lvl3 import build_project_state_summary
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
@@ -47,11 +48,18 @@ def build_agentic_summary_cache_status_for_chat_section(
     missing_section_ids: list[ID] = []
     empty_source_section_ids: list[ID] = []
 
+    summary = build_project_state_summary(project_state)
+    summary_by_section = {entry.sectionId: entry for entry in summary.sections}
+
     for section_id in summary_section_ids:
         if section_id not in project_state.projectConfig.sectionVariantMap:
             raise KeyError(f"Section {section_id} missing variant mapping.")
         variant_id = project_state.projectConfig.sectionVariantMap[section_id]
-        source = build_agentic_section_summary_source(project_state, section_id)
+        source = build_agentic_section_summary_source(
+            project_state,
+            section_id,
+            summary_by_section=summary_by_section,
+        )
         is_empty_source = not source.raw_text.strip()
         empty_by_section_id[section_id] = is_empty_source
         if is_empty_source:

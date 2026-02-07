@@ -69,4 +69,3 @@ test("project chat history shows external title source badge", async ({ page }) 
     await cleanupIsolatedProject(page, projectContext);
   }
 });
-

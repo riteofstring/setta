@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import {
@@ -20,6 +19,7 @@ import {
 import { getBezierPath } from "../components/Edges/BezierEdge";
 import { useReactFlow } from "../store";
 import { HandlePosition, type Node } from "../types";
+import { shallow } from "zustand/shallow";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
@@ -77,9 +77,9 @@ const AgenticEdgeRenderer = () => {
       sectionImpls: state.sectionImpls,
       projectConfigId: state.projectConfig.id,
     }),
-    _.isEqual,
+    shallow,
   );
-  const nodes = useNodeInternals((state) => state.x, _.isEqual);
+  const nodes = useNodeInternals((state) => state.x);
   const { canEditStructure } = useShareCapabilities();
   const {
     toolArgumentsIdsByProjectConfigId,
@@ -100,14 +100,18 @@ const AgenticEdgeRenderer = () => {
       scopeViolationEdgesByProjectConfigId:
         state.scopeViolationEdgesByProjectConfigId,
     }),
-    _.isEqual,
+    shallow,
   );
 
   useUpdateAgenticScopeHighlights();
 
   const runningChatSectionIds = useMemo(() => {
     const running = new Set<string>();
-    for (const [sectionId, variantId] of Object.entries(sectionVariantMap)) {
+    for (const sectionId of Object.keys(topLevelSections)) {
+      const variantId = sectionVariantMap[sectionId];
+      if (!variantId) {
+        continue;
+      }
       const variant = sectionVariants[variantId];
       if (!variant) {
         continue;

@@ -62,4 +62,3 @@ def test_filter_lsp_diagnostics_payload_limits_sections_and_unmapped() -> None:
         include_unmapped=True,
     )
     assert filtered_with_unmapped.unmappedGenCode
-

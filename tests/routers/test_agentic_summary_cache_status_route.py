@@ -127,4 +127,3 @@ async def test_route_get_agentic_summary_cache_status() -> None:
                 assert cached_status.missingSectionIds == []
     except RuntimeError as exc:
         pytest.skip(str(exc))
-

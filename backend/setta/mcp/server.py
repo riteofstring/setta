@@ -5,6 +5,7 @@ import contextlib
 import inspect
 import json
 import logging
+import weakref
 from functools import wraps
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable
@@ -592,7 +593,9 @@ class SettaFastMCP(FastMCP):
         self.canonical_to_temporary = {}
         self._streamable_stop_event: asyncio.Event | None = None
         self._streamable_manager_task: asyncio.Task[None] | None = None
-        self._agentic_context_by_session: dict[str, AgenticContext] = {}
+        self._agentic_context_by_session: weakref.WeakKeyDictionary[
+            Any, AgenticContext
+        ] = weakref.WeakKeyDictionary()
         self._refresh_temporary_id_map_if_needed()
         msg_path = f"{mount_path}/messages/"
         sse_transport = _SettaSseServerTransport(msg_path)
@@ -722,10 +725,10 @@ class SettaFastMCP(FastMCP):
         ctx: Context,
         context: AgenticContext,
     ) -> None:
-        session_key = self._resolve_agentic_session_key(ctx)
-        if session_key is None:
+        session = self._resolve_agentic_session(ctx)
+        if session is None:
             raise ValueError("Unable to resolve MCP session for agentic context.")
-        self._agentic_context_by_session[session_key] = context
+        self._agentic_context_by_session[session] = context
 
     def _resolve_agentic_context(self, ctx: Context) -> AgenticContext | None:
         def _canonicalize(value: ID | None) -> ID | None:
@@ -765,18 +768,18 @@ class SettaFastMCP(FastMCP):
                     chat_id=chat_id,
                     section_id=section_id,
                 )
-        session_key = self._resolve_agentic_session_key(ctx)
-        if session_key is None:
+        session = self._resolve_agentic_session(ctx)
+        if session is None:
             return None
-        return self._agentic_context_by_session.get(session_key)
+        return self._agentic_context_by_session.get(session)
 
-    def _resolve_agentic_session_key(self, ctx: Context) -> str | None:
-        request = ctx.request_context.request
-        if request is not None and hasattr(request, "headers"):
-            session_id = request.headers.get(MCP_SESSION_ID_HEADER)
-            if session_id:
-                return session_id
-        return str(id(ctx.request_context.session))
+    @staticmethod
+    def _resolve_agentic_session(ctx: Context) -> object | None:
+        try:
+            request_context = ctx.request_context
+        except ValueError:
+            return None
+        return getattr(request_context, "session", None)
 
     def _resolve_share_session_id(self, ctx: Context) -> str | None:
         meta = ctx.request_context.meta

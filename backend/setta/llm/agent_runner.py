@@ -25,7 +25,7 @@ from setta.agentic.agentic_scope import (
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
     load_cached_agentic_summary_texts_for_chat_section,
-    write_cached_agentic_summary,
+    write_cached_agentic_summaries,
 )
 from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN
 from setta.agentic.chat_titles import (
@@ -125,6 +125,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
 )
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
+from setta.types.helpers_lvl3 import build_project_state_summary
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -378,11 +379,18 @@ class AgentRunner:
         run = context.run
         context = await self._with_agentic_context_payload(context)
         messages = self._build_initial_messages(context.run.inputs)
-        messages, context_actions = self._maybe_inject_agentic_context(
-            context, messages
-        )
-        if context_actions:
-            await self._apply_actions(context_actions, context)
+        payload = context.context_payload
+        if context.emit_ai_follow and payload is not None and payload.section_ids:
+            await self._apply_actions(
+                [
+                    UpdateAIFollowAction(
+                        project_config_id=context.project_config_id,
+                        chat_id=context.chat_id,
+                        ids_by_type={"section": payload.section_ids},
+                    )
+                ],
+                context,
+            )
         usage_summary: dict[str, int] | None = None
         cost_value: float | None = None
         try:
@@ -930,7 +938,18 @@ class AgentRunner:
         payload = await self._build_agentic_context_payload(context)
         if payload is None or not payload.text.strip():
             return context
-        return replace(context, context_payload=payload)
+        base_prompt = context.system_prompt.strip()
+        payload_text = payload.text.strip()
+        combined = (
+            f"{base_prompt}\n\n{payload_text}".strip()
+            if base_prompt
+            else payload_text
+        )
+        return replace(
+            context,
+            context_payload=payload,
+            system_prompt=combined,
+        )
 
     async def _build_agentic_context_payload(
         self,
@@ -1013,6 +1032,12 @@ class AgentRunner:
         if not missing_section_ids:
             return cached
 
+        project_summary = build_project_state_summary(project_state)
+        summary_by_section = {
+            entry.sectionId: entry for entry in project_summary.sections
+        }
+        cache_updates: dict[str, dict[str, Any]] = {}
+
         deferred_due_to_cap = max(
             len(missing_section_ids) - MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN, 0
         )
@@ -1034,7 +1059,11 @@ class AgentRunner:
             if section_id not in project_state.projectConfig.sectionVariantMap:
                 raise KeyError(f"Section {section_id} missing variant mapping.")
             variant_id = project_state.projectConfig.sectionVariantMap[section_id]
-            source = build_agentic_section_summary_source(project_state, section_id)
+            source = build_agentic_section_summary_source(
+                project_state,
+                section_id,
+                summary_by_section=summary_by_section,
+            )
             if not source.raw_text.strip():
                 skipped_empty_count += 1
                 continue
@@ -1045,23 +1074,27 @@ class AgentRunner:
                 variant_id=variant_id,
                 content_hash=source.content_hash,
             )
-            summary = await self._generate_agentic_section_summary(
+            generated_summary = await self._generate_agentic_section_summary(
                 llm_config,
                 source=source,
             )
-            if not summary:
+            if not generated_summary:
                 continue
-            write_cached_agentic_summary(
-                self.dbe,
-                cache_key=cache_key,
-                summary=summary,
-                metadata={
+            normalized = generated_summary.strip()
+            if not normalized:
+                continue
+            cache_updates[cache_key] = {
+                "summary": normalized,
+                "createdAtMs": int(get_now_timestamp().timestamp() * 1000),
+                "metadata": {
                     "llmConfigId": llm_config.id,
                     "model": llm_config.model,
                 },
-            )
-            cached[section_id] = summary
+            }
+            cached[section_id] = normalized
             generated_count += 1
+        if cache_updates:
+            write_cached_agentic_summaries(self.dbe, updates=cache_updates)
         logger.info(
             "Agentic summary generation complete (project=%s, chatSection=%s, attempted=%s generated=%s skippedEmpty=%s).",
             project_config_id,
@@ -1320,38 +1353,6 @@ class AgentRunner:
             seen.add(bullet)
             unique.append(bullet)
         return "\n".join(unique).strip()
-
-    def _maybe_inject_agentic_context(
-        self,
-        context: AgentRunContext,
-        messages: list[BaseChatMessageUnion],
-    ) -> tuple[list[BaseChatMessageUnion], list[ManagedAction]]:
-        payload = context.context_payload
-        if payload is None or not payload.text.strip():
-            return messages, []
-        context_message = SystemChatMessage(
-            content=[MessageTextContent(text=payload.text)]
-        )
-        insert_at: int | None = None
-        for idx in range(len(messages) - 1, -1, -1):
-            if isinstance(messages[idx], UserChatMessage):
-                insert_at = idx
-                break
-        if insert_at is None:
-            updated_messages = list(messages) + [context_message]
-        else:
-            updated_messages = list(messages)
-            updated_messages.insert(insert_at, context_message)
-        actions: list[ManagedAction] = []
-        if context.emit_ai_follow and payload.section_ids:
-            actions.append(
-                UpdateAIFollowAction(
-                    project_config_id=context.project_config_id,
-                    chat_id=context.chat_id,
-                    ids_by_type={"section": payload.section_ids},
-                )
-            )
-        return updated_messages, actions
 
     def _build_llm_request_payload(
         self,

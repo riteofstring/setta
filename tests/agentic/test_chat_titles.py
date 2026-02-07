@@ -41,4 +41,3 @@ def test_sanitize_llm_title_strips_quotes_punctuation_and_truncates() -> None:
     assert sanitize_llm_title("Title!\n") == "Title"
     assert sanitize_llm_title("Hello world", max_chars=5) == "Hello"
     assert sanitize_llm_title("   ") == ""
-

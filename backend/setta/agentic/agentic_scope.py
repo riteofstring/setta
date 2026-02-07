@@ -279,21 +279,69 @@ def build_scope_blocked_tool_result(
     agentic_context: AgenticContext | None,
     missing_edges: list[dict[str, str]],
 ) -> CallToolResult:
-    blocked = ", ".join(str(entry) for entry in scope_check.blocked_section_ids)
-    message = (
-        f"Tool '{tool_name}' blocked by agentic scope "
-        f"(access={scope_check.access_type}, blocked=[{blocked}])."
+    blocked_sorted = sorted(
+        scope_check.blocked_section_ids, key=lambda entry: str(entry)
     )
+    target_sorted = sorted(scope_check.target_section_ids, key=lambda entry: str(entry))
+    unmapped_sorted = sorted(
+        scope_check.unmapped_code_obj_ids, key=lambda entry: str(entry)
+    )
+
+    def _render_missing_edges_canonical() -> list[dict[str, str]]:
+        canonical: list[dict[str, str]] = []
+        for edge in missing_edges:
+            if not isinstance(edge, dict):
+                continue
+            source = edge.get("sourceSectionId")
+            target = edge.get("targetSectionId")
+            kind = edge.get("kind")
+            if (
+                not isinstance(source, str)
+                or not isinstance(target, str)
+                or not isinstance(kind, str)
+            ):
+                continue
+            canonical.append(
+                {
+                    # Keep canonical IDs for UI; these should not be rewritten by
+                    # convert_canonical_ids_to_temporary().
+                    "sourceSectionId": str(source),
+                    "targetSectionId": str(target),
+                    "kind": kind,
+                }
+            )
+        return canonical
+
+    if scope_check.reason == "missing_context":
+        message = (
+            f"Tool '{tool_name}' blocked: missing agentic context. "
+            "Provide agentic context via MCP meta (projectConfigId/chatId/sectionId), "
+            "request headers (x-setta-project-config-id/x-setta-chat-id/x-setta-section-id), "
+            "or call 'set_agentic_context' first."
+        )
+    elif scope_check.reason == "write_without_targets":
+        message = (
+            f"Tool '{tool_name}' blocked by agentic scope "
+            "(access=write, reason=write_without_targets). "
+            "Include target section/code-object ids in the tool arguments."
+        )
+    else:
+        blocked = ", ".join(str(entry) for entry in blocked_sorted)
+        message = (
+            f"Tool '{tool_name}' blocked by agentic scope "
+            f"(access={scope_check.access_type}, blocked=[{blocked}])."
+        )
     structured = {
         "error": "ScopeViolation",
         "message": message,
         "toolName": tool_name,
         "accessType": scope_check.access_type,
-        "blockedSectionIds": list(scope_check.blocked_section_ids),
-        "targetSectionIds": list(scope_check.target_section_ids),
-        "unmappedCodeObjIds": list(scope_check.unmapped_code_obj_ids),
+        "blockedSectionIds": blocked_sorted,
+        "targetSectionIds": target_sorted,
+        "unmappedCodeObjIds": unmapped_sorted,
         "reason": scope_check.reason,
         "missingEdges": missing_edges,
+        "missingEdgesCanonical": _render_missing_edges_canonical(),
     }
     if agentic_context is not None:
         structured["projectConfigId"] = agentic_context.project_config_id

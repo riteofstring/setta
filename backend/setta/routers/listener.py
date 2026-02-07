@@ -142,11 +142,17 @@ async def route_run_mcp_tools(
     chat = history.get(x.chatId)
     if chat is None:
         raise KeyError(f"Chat {x.chatId} not found")
+    project_config_id = chat.projectConfigId
+    if project_config_id is None:
+        raise KeyError(f"Chat {x.chatId} missing project config id")
     server_ids = ctx.state.agent_runner.config.resolve_mcp_server_ids(chat.llmConfig)
     runner = ToolRunner(
         ctx.state.mcp_client,
         allowed_server_ids=set(server_ids),
         share_session_id=ctx.share_session_id,
+        project_config_id=project_config_id,
+        chat_id=x.chatId,
+        section_id=None,
     )
     return await runner.run(x.toolCalls)
 

@@ -17,6 +17,13 @@ from setta.types.routes import Route
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 
+class _MCPToolsCallSession:
+    """Synthetic MCP session for /__setta__/tools/call.
+
+    Must be weakrefable because SettaFastMCP stores agentic context by session.
+    """
+
+
 class MCPToolCallRequest(BaseModel):
     tool: str
     arguments: Any | None = None
@@ -58,7 +65,7 @@ async def route_call_mcp_tool(
         request_context = RequestContext(
             request_id=str(uuid4()),
             meta=None,
-            session=object(),
+            session=_MCPToolsCallSession(),
             lifespan_context=object(),
             request=request,
         )

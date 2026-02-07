@@ -413,7 +413,7 @@ async def test_mcp_blocks_tool_calls_when_agentic_context_missing(tmp_path) -> N
         dbe,
     )
 
-    session = object()
+    session = type("_Session", (), {})()
     ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
@@ -469,7 +469,7 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
         dbe,
     )
 
-    session = object()
+    session = type("_Session", (), {})()
     ctx = _build_context_without_agentic_metadata(mcp_server=mcp_server, session=session)
 
     init_tool = mcp_server.get_tool("set_agentic_context")

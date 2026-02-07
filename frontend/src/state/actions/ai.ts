@@ -14,7 +14,6 @@ import {
   shouldPersistOnMessageStop,
 } from "state/aiStreamingTracker";
 import {
-  type AgenticScopeViolationEdge,
   ChatDetails,
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
@@ -52,7 +51,6 @@ import {
   route_update_prompt_template,
 } from "utils/generatedEndpoints";
 import {
-  AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
   AgentRunStatusEnum,
@@ -97,6 +95,7 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
+import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
 import { mergeChatMessages } from "./chatMergeUtils";
 
@@ -753,37 +752,10 @@ export async function submitMessage(
   };
   const userMessageId = userMessage.id;
 
-  console.log(
-    JSON.stringify({
-      tag: "submitMessage",
-      phase: "optimistic-user-message",
-      chatId,
-      sectionId: sectionId ?? null,
-      engineConfigId,
-      isExternalEngine,
-      thinking,
-      agentProfileId: agentProfileId ?? null,
-      userMessage,
-    }),
-  );
   applyOptimisticUserMessage(chatId, userMessage);
 
   try {
     const projectConfigId = getCurrProjectConfigId();
-    console.log(
-      JSON.stringify({
-        tag: "submitMessage",
-        phase: "route_get_llm_response:request",
-        chatId,
-        sectionId: sectionId ?? null,
-        engineConfigId,
-        isExternalEngine,
-        thinking,
-        agentProfileId: agentProfileId ?? null,
-        projectConfigId,
-        userMessage,
-      }),
-    );
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
@@ -793,17 +765,6 @@ export async function submitMessage(
       projectConfigId,
       sectionId: sectionId ?? null,
     });
-    console.log(
-      JSON.stringify({
-        tag: "submitMessage",
-        phase: "route_get_llm_response:response",
-        chatId,
-        sectionId: sectionId ?? null,
-        status: res.status,
-        hasResponse: res.hasResponse,
-        data: res.data,
-      }),
-    );
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
@@ -822,16 +783,6 @@ export async function submitMessage(
     rollbackOptimisticUserMessage(chatId, userMessageId);
     return null;
   } catch (err) {
-    console.log(
-      JSON.stringify({
-        tag: "submitMessage",
-        phase: "route_get_llm_response:error",
-        chatId,
-        sectionId: sectionId ?? null,
-        userMessageId,
-        error: String(err),
-      }),
-    );
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
   }
@@ -1115,15 +1066,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const projectConfigId = getCurrProjectConfigId();
   let sectionId = msg.sectionId;
   if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
-    console.log(
-      JSON.stringify({
-        tag: "receiveLLMResponseChunk",
-        phase: "ignore-placeholder",
-        chatId,
-        sectionId: sectionId ?? null,
-        chunk,
-      }),
-    );
     return;
   }
   if (!sectionId && chatId) {
@@ -1134,17 +1076,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     : false;
   const shouldUpdateChatDetails = !sectionId || isManagedSection;
 
-  console.log(
-    JSON.stringify({
-      tag: "receiveLLMResponseChunk",
-      chatId,
-      msgSectionId: msg.sectionId ?? null,
-      resolvedSectionId: sectionId ?? null,
-      isManagedSection,
-      shouldUpdateChatDetails,
-      chunk,
-    }),
-  );
   const shouldMarkActive =
     chunk.type === StreamingEventTypeEnum.MESSAGE_START ||
     chunk.type === StreamingEventTypeEnum.DELTA ||
@@ -1419,69 +1350,6 @@ function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
 
 function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
-}
-
-const scopeViolationEdgeKinds = new Set(Object.values(AgenticEdgeKindEnum));
-
-function extractAgenticScopeViolation(
-  toolResult: ToolResultEvent["result"],
-): { edges: Array<AgenticScopeViolationEdge>; message: string } | null {
-  const payload = toolResult.result;
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-  const structured =
-    "structuredContent" in payload
-      ? (payload as { structuredContent?: unknown }).structuredContent
-      : "structured_content" in payload
-        ? (payload as { structured_content?: unknown }).structured_content
-        : null;
-  if (!structured || typeof structured !== "object") {
-    return null;
-  }
-  const structuredPayload = structured as {
-    error?: unknown;
-    message?: unknown;
-    missingEdges?: unknown;
-  };
-  if (structuredPayload.error !== "ScopeViolation") {
-    return null;
-  }
-  const message =
-    typeof structuredPayload.message === "string"
-      ? structuredPayload.message
-      : "Tool blocked by agentic scope.";
-  const edgesRaw = Array.isArray(structuredPayload.missingEdges)
-    ? structuredPayload.missingEdges
-    : [];
-  const edges = edgesRaw
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") {
-        return null;
-      }
-      const edge = entry as {
-        sourceSectionId?: unknown;
-        targetSectionId?: unknown;
-        kind?: unknown;
-      };
-      if (
-        typeof edge.sourceSectionId !== "string" ||
-        typeof edge.targetSectionId !== "string" ||
-        typeof edge.kind !== "string"
-      ) {
-        return null;
-      }
-      if (!scopeViolationEdgeKinds.has(edge.kind)) {
-        return null;
-      }
-      return {
-        sourceSectionId: edge.sourceSectionId,
-        targetSectionId: edge.targetSectionId,
-        kind: edge.kind as AgenticEdgeKindEnum,
-      };
-    })
-    .filter((entry): entry is AgenticScopeViolationEdge => Boolean(entry));
-  return { edges, message };
 }
 
 function handleAgenticScopeViolation(

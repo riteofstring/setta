@@ -74,6 +74,13 @@ test.describe.serial("agentic scope", () => {
             reason: "out_of_scope",
             missingEdges: [
               {
+                sourceSectionId: `tmp-${chatSectionId}`,
+                targetSectionId: `tmp-${targetSectionId}`,
+                kind: "chat_section",
+              },
+            ],
+            missingEdgesCanonical: [
+              {
                 sourceSectionId: chatSectionId,
                 targetSectionId,
                 kind: "chat_section",

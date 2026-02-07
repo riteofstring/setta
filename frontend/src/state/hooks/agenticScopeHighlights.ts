@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect, useMemo } from "react";
 import {
   buildSectionIdLookup,
@@ -6,12 +5,14 @@ import {
 } from "state/agenticScopeUtils";
 import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 
 export function useUpdateAgenticScopeHighlights(): void {
   const {
     projectConfigId,
     agenticEdges,
     activeIds,
+    topLevelSections,
     sectionVariantMap,
     sectionVariants,
     sectionImpls,
@@ -20,11 +21,12 @@ export function useUpdateAgenticScopeHighlights(): void {
       projectConfigId: state.projectConfig.id,
       agenticEdges: state.projectConfig.agenticEdges,
       activeIds: state.projectConfig.activeIds,
+      topLevelSections: state.projectConfig.topLevelSections,
       sectionVariantMap: state.projectConfig.sectionVariantMap,
       sectionVariants: state.sectionVariants,
       sectionImpls: state.sectionImpls,
     }),
-    _.isEqual,
+    shallow,
   );
 
   const activeChatSectionIds = useMemo(() => {
@@ -46,7 +48,11 @@ export function useUpdateAgenticScopeHighlights(): void {
         chatSectionIds.add(sectionId);
       }
     }
-    for (const [sectionId, variantId] of Object.entries(sectionVariantMap)) {
+    for (const sectionId of Object.keys(topLevelSections)) {
+      const variantId = sectionVariantMap[sectionId];
+      if (!variantId) {
+        continue;
+      }
       const variant = sectionVariants[variantId];
       if (!variant) {
         continue;
@@ -60,7 +66,13 @@ export function useUpdateAgenticScopeHighlights(): void {
       }
     }
     return Array.from(chatSectionIds);
-  }, [activeIds, sectionImpls, sectionVariantMap, sectionVariants]);
+  }, [
+    activeIds,
+    sectionImpls,
+    sectionVariantMap,
+    sectionVariants,
+    topLevelSections,
+  ]);
 
   const highlightMaps = useMemo(() => {
     if (activeChatSectionIds.length === 0) {

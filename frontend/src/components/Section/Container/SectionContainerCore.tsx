@@ -1,4 +1,3 @@
-import _ from "lodash";
 import React from "react";
 import {
   getCurrEffectiveSectionImpl,
@@ -7,6 +6,7 @@ import {
 import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -56,7 +56,7 @@ function _SectionContainerCore({
       projectConfigId: x.projectConfig.id,
       isAttachedTerminalChild,
     };
-  }, _.isEqual);
+  }, shallow);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
@@ -68,7 +68,7 @@ function _SectionContainerCore({
       scopeWriteMap:
         state.writeSectionIdsByProjectConfigId[projectConfigId] ?? null,
     }),
-    _.isEqual,
+    shallow,
   );
   const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
   const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);

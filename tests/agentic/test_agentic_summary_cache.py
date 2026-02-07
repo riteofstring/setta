@@ -1,12 +1,14 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import setta.agentic.agentic_summary_cache as summary_cache
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
     get_cached_agentic_summary,
     load_cached_agentic_summary_texts_for_chat_section,
     read_agentic_summary_cache,
+    write_cached_agentic_summaries,
     write_cached_agentic_summary,
 )
 from setta.database.db_objs import DBE
@@ -108,3 +110,122 @@ def test_load_cached_agentic_summary_texts_for_chat_section_returns_summary_entr
         )
         assert summaries == {context_section_id: "- cached"}
 
+
+def test_write_cached_agentic_summaries_prunes_by_project_config_limit() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        original_total = summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL
+        original_per_project = (
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG
+        )
+        try:
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL = 10
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG = 3
+
+            updates: dict[str, dict[str, object]] = {}
+            for idx in range(5):
+                cache_key = build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id=f"section-{idx}",
+                    variant_id="variant-1",
+                    content_hash=f"hash-{idx}",
+                )
+                updates[cache_key] = {"summary": f"- summary {idx}", "createdAtMs": idx}
+            write_cached_agentic_summaries(dbe, updates=updates)
+
+            payload = read_agentic_summary_cache(dbe)
+            entries = payload["entries"]
+            assert isinstance(entries, dict)
+            assert len(entries) == 3
+            expected = {
+                build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id="section-2",
+                    variant_id="variant-1",
+                    content_hash="hash-2",
+                ),
+                build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id="section-3",
+                    variant_id="variant-1",
+                    content_hash="hash-3",
+                ),
+                build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id="section-4",
+                    variant_id="variant-1",
+                    content_hash="hash-4",
+                ),
+            }
+            assert set(entries.keys()) == expected
+        finally:
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL = original_total
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG = (
+                original_per_project
+            )
+
+
+def test_write_cached_agentic_summaries_prunes_by_total_limit() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        original_total = summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL
+        original_per_project = (
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG
+        )
+        try:
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL = 4
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG = 10
+
+            updates: dict[str, dict[str, object]] = {}
+            timestamp = 100
+            for project_idx in range(2):
+                for section_idx in range(3):
+                    cache_key = build_agentic_summary_cache_key(
+                        project_config_id=f"project-{project_idx}",
+                        section_id=f"section-{section_idx}",
+                        variant_id="variant-1",
+                        content_hash=f"hash-{project_idx}-{section_idx}",
+                    )
+                    updates[cache_key] = {
+                        "summary": f"- {project_idx}:{section_idx}",
+                        "createdAtMs": timestamp,
+                    }
+                    timestamp += 1
+            write_cached_agentic_summaries(dbe, updates=updates)
+
+            payload = read_agentic_summary_cache(dbe)
+            entries = payload["entries"]
+            assert isinstance(entries, dict)
+            assert len(entries) == 4
+            expected = {
+                build_agentic_summary_cache_key(
+                    project_config_id="project-0",
+                    section_id="section-2",
+                    variant_id="variant-1",
+                    content_hash="hash-0-2",
+                ),
+                build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id="section-0",
+                    variant_id="variant-1",
+                    content_hash="hash-1-0",
+                ),
+                build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id="section-1",
+                    variant_id="variant-1",
+                    content_hash="hash-1-1",
+                ),
+                build_agentic_summary_cache_key(
+                    project_config_id="project-1",
+                    section_id="section-2",
+                    variant_id="variant-1",
+                    content_hash="hash-1-2",
+                ),
+            }
+            assert set(entries.keys()) == expected
+        finally:
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL = original_total
+            summary_cache.AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG = (
+                original_per_project
+            )

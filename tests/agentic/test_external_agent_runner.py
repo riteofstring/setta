@@ -2076,7 +2076,12 @@ class TestExternalAgentRunnerMcpAuth:
             session_id, sessions_root = self._create_session(root)
             with self._set_session_env(session_id, sessions_root):
                 runner = _build_runner(_build_dbe(tmpdir))
-                config_path = runner._write_claude_mcp_config(f"{C.BACKEND}/mcp")
+                auth_headers = runner._build_mcp_auth_headers()
+                assert auth_headers is not None
+                config_path = runner._write_claude_mcp_config(
+                    f"{C.BACKEND}/mcp",
+                    headers=auth_headers,
+                )
                 payload = json.loads(config_path.read_text(encoding="utf-8"))
                 server = payload.get("mcpServers", {}).get(SETTA_MCP_SERVER_ID)
                 assert isinstance(server, dict)

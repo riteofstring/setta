@@ -1069,14 +1069,8 @@ class ExternalAgentRunner:
         config_dir = self._create_temp_dir("setta-claude-mcp-")
         path = config_dir / _CLAUDE_MCP_CONFIG_NAME
         server_entry: dict[str, Any] = {"type": "sse", "url": mcp_url}
-        resolved_headers: dict[str, str] = {}
-        auth_headers = self._build_mcp_auth_headers()
-        if auth_headers:
-            resolved_headers.update(auth_headers)
         if headers:
-            resolved_headers.update(headers)
-        if resolved_headers:
-            server_entry["headers"] = resolved_headers
+            server_entry["headers"] = dict(headers)
         payload = {"mcpServers": {_MCP_SERVER_NAME: server_entry}}
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return path
