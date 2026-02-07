@@ -1,148 +1,27 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { res200 } from "utils/endpointUtils";
-import { route_launch } from "utils/generatedEndpoints";
+import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
+import type { LaunchRequestInput } from "utils/generatedTypes";
+import {
+  hydrateWorkspaceHistoryFromWindowName,
+  loadWorkspaceHistory,
+  saveWorkspaceHistory,
+  workspaceHistoryEntryKey,
+  type WorkspaceHistoryEntry,
+} from "utils/workspaceHistory";
+import {
+  readWorkspaceSwitcherDraft,
+  writePendingWorkspaceLaunch,
+  writeWorkspaceSwitcherDraft,
+} from "utils/workspaceSwitcherLaunch";
 
-type WorkspaceHistoryEntry = {
-  workspaceRoot: string;
-  sshTarget: string | null;
-  sshArgs: string | null;
-  remoteCmd: string | null;
-  localPort: number | null;
-  filesRoot: string | null;
-  filesRootBase: string | null;
-  lastUsedAt: number;
-};
-
-const HISTORY_KEY = "setta.workspaceHistory";
-const HISTORY_LIMIT = 6;
-const WINDOW_NAME_PREFIX = "setta.workspaceHistory:";
-
-function loadHistory(): WorkspaceHistoryEntry[] {
-  if (typeof localStorage === "undefined") {
-    return [];
-  }
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(
-      (entry) =>
-        entry &&
-        typeof entry.workspaceRoot === "string" &&
-        typeof entry.lastUsedAt === "number",
-    );
-  } catch (error) {
-    console.warn("Failed to read workspace history", error);
-    return [];
-  }
-}
-
-function readWindowHistory(): WorkspaceHistoryEntry[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  const rawName = window.name;
-  if (!rawName || !rawName.startsWith(WINDOW_NAME_PREFIX)) {
-    return [];
-  }
-  const raw = rawName.slice(WINDOW_NAME_PREFIX.length);
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed.filter(
-      (entry) =>
-        entry &&
-        typeof entry.workspaceRoot === "string" &&
-        typeof entry.lastUsedAt === "number",
-    );
-  } catch (error) {
-    console.warn("Failed to read workspace history from window.name", error);
-    return [];
-  }
-}
-
-function writeWindowHistory(entries: WorkspaceHistoryEntry[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.name = `${WINDOW_NAME_PREFIX}${JSON.stringify(entries)}`;
-  } catch (error) {
-    console.warn("Failed to write workspace history to window.name", error);
-  }
-}
-
-function saveHistory(entries: WorkspaceHistoryEntry[]) {
-  if (typeof localStorage === "undefined") {
-    return;
-  }
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
-  } catch (error) {
-    console.warn("Failed to save workspace history", error);
-  }
-}
-
-function buildEntryKey(entry: {
-  workspaceRoot: string;
-  sshTarget: string | null;
-  sshArgs: string | null;
-  remoteCmd: string | null;
-  localPort: number | null;
-  filesRoot: string | null;
-  filesRootBase: string | null;
-}) {
-  return `${entry.workspaceRoot}::${entry.sshTarget ?? ""}::${entry.sshArgs ?? ""}::${entry.remoteCmd ?? ""}::${entry.localPort ?? ""}::${entry.filesRoot ?? ""}::${entry.filesRootBase ?? ""}`;
-}
-
-function mergeHistory(
-  incoming: WorkspaceHistoryEntry[],
-  existing: WorkspaceHistoryEntry[],
-) {
-  const seen = new Set<string>();
-  const merged: WorkspaceHistoryEntry[] = [];
-  for (const entry of [...incoming, ...existing]) {
-    const key = buildEntryKey(entry);
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(entry);
-  }
-  return merged
-    .sort((a, b) => b.lastUsedAt - a.lastUsedAt)
-    .slice(0, HISTORY_LIMIT);
-}
-
-function hydrateHistoryFromWindowName() {
-  const windowHistory = readWindowHistory();
-  if (windowHistory.length === 0) {
-    return;
-  }
-  const merged = mergeHistory(windowHistory, loadHistory());
-  saveHistory(merged);
-  try {
-    window.name = "";
-  } catch (error) {
-    console.warn("Failed to clear workspace history from window.name", error);
-  }
-}
-
-hydrateHistoryFromWindowName();
+hydrateWorkspaceHistoryFromWindowName();
 
 export function WorkspaceSwitcherModal() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
   const [sshArgs, setSshArgs] = useState("");
@@ -156,7 +35,29 @@ export function WorkspaceSwitcherModal() {
   const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
-    setHistory(loadHistory());
+    setHistory(loadWorkspaceHistory());
+
+    const draft = readWorkspaceSwitcherDraft();
+    if (draft) {
+      setWorkspaceRoot(draft.workspaceRoot ?? "");
+      setSshTarget(draft.sshTarget ?? "");
+      setSshArgs(draft.sshArgs ?? "");
+      setRemoteCmd(draft.remoteCmd ?? "");
+      setLocalPort(
+        typeof draft.localPort === "number" ? String(draft.localPort) : "",
+      );
+      setFilesRoot(draft.filesRoot ?? "");
+      setFilesRootBase(draft.filesRootBase ?? "");
+      setShowAdvanced(
+        Boolean(
+          draft.sshArgs ||
+            draft.remoteCmd ||
+            draft.localPort ||
+            draft.filesRoot ||
+            draft.filesRootBase,
+        ),
+      );
+    }
   }, []);
 
   const inputClassName =
@@ -195,18 +96,9 @@ export function WorkspaceSwitcherModal() {
     setError(null);
   }
 
-  function updateHistory(nextEntry: WorkspaceHistoryEntry) {
-    const nextKey = buildEntryKey(nextEntry);
-    const deduped = history.filter((entry) => buildEntryKey(entry) !== nextKey);
-    const nextHistory = [nextEntry, ...deduped].slice(0, HISTORY_LIMIT);
-    setHistory(nextHistory);
-    saveHistory(nextHistory);
-    return nextHistory;
-  }
-
   function clearHistory() {
     setHistory([]);
-    saveHistory([]);
+    saveWorkspaceHistory([]);
   }
 
   async function handleLaunch() {
@@ -229,43 +121,26 @@ export function WorkspaceSwitcherModal() {
       parsedLocalPort = asNumber;
     }
     setIsLaunching(true);
-    try {
-      const res = await route_launch({
-        workspaceRoot: trimmedWorkspace,
-        sshTarget: trimmedSshTarget || undefined,
-        sshArgs: trimmedSshArgs || undefined,
-        remoteCmd: trimmedRemoteCmd || undefined,
-        localPort: parsedLocalPort,
-        filesRoot: trimmedFilesRoot || undefined,
-        filesRootBase: trimmedFilesRootBase || undefined,
-      });
-      if (!res200(res) || !res.data) {
-        setError("Launch failed. Please try again.");
-        return;
-      }
-      if (!res.data.ok) {
-        setError(res.data.error?.message ?? "Launch failed.");
-        return;
-      }
-      if (!res.data.bootstrapUrlFragment) {
-        setError("Launch succeeded but no bootstrap URL was returned.");
-        return;
-      }
-      const nextHistory = updateHistory({
-        workspaceRoot: trimmedWorkspace,
-        sshTarget: trimmedSshTarget || null,
-        sshArgs: trimmedSshArgs || null,
-        remoteCmd: trimmedRemoteCmd || null,
-        localPort: parsedLocalPort ?? null,
-        filesRoot: trimmedFilesRoot || null,
-        filesRootBase: trimmedFilesRootBase || null,
-        lastUsedAt: Date.now(),
-      });
-      writeWindowHistory(nextHistory);
-      window.location.href = res.data.bootstrapUrlFragment;
-    } finally {
-      setIsLaunching(false);
-    }
+
+    const request: LaunchRequestInput = {
+      workspaceRoot: trimmedWorkspace,
+      sshTarget: trimmedSshTarget || null,
+      sshArgs: trimmedSshArgs || null,
+      remoteCmd: trimmedRemoteCmd || null,
+      localPort: parsedLocalPort ?? null,
+      filesRoot: trimmedFilesRoot || null,
+      filesRootBase: trimmedFilesRootBase || null,
+    };
+
+    writeWorkspaceSwitcherDraft(request);
+    writePendingWorkspaceLaunch({
+      request,
+      returnPath: `${location.pathname}${location.search}${location.hash}`,
+      requestedAt: Date.now(),
+    });
+
+    closeModal();
+    navigate(WORKSPACE_LAUNCH_ROUTER_PATH);
   }
 
   return (
@@ -409,7 +284,7 @@ export function WorkspaceSwitcherModal() {
           <div className="grid gap-2">
             {orderedHistory.map((entry) => (
               <button
-                key={buildEntryKey(entry)}
+                key={workspaceHistoryEntryKey(entry)}
                 className="flex flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left text-sm text-setta-700 transition hover:border-setta-200 hover:bg-white dark:text-setta-200 dark:hover:border-setta-700 dark:hover:bg-setta-800"
                 onClick={() => onSelectHistory(entry)}
               >

@@ -47,6 +47,15 @@ test("workspace switcher launches a session and persists history", async ({
     await page.evaluate(() =>
       sessionStorage.removeItem("setta.backendOriginOverride"),
     );
+    await page.evaluate(() =>
+      sessionStorage.removeItem("setta.pendingWorkspaceLaunch"),
+    );
+    await page.evaluate(() =>
+      sessionStorage.removeItem("setta.workspaceSwitcherDraft"),
+    );
+    await page.evaluate(() =>
+      sessionStorage.removeItem("setta.openWorkspaceSwitcherOnLoad"),
+    );
     await page.getByRole("menuitem", { name: "Project" }).click();
     await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
 
@@ -57,16 +66,21 @@ test("workspace switcher launches a session and persists history", async ({
       .getByPlaceholder("/path/to/workspace")
       .fill("/path/does/not/exist");
     await modal.getByRole("button", { name: "Launch" }).click();
+    await page.waitForURL("**/launching");
+    await expect(page.getByText("Workspace root does not exist")).toBeVisible();
+    await page.getByRole("button", { name: "Back to Switcher" }).click();
+
+    const modalAfterError = page.getByRole("dialog");
     await expect(
-      modal.getByText("Workspace root does not exist"),
+      modalAfterError.getByText("Switch Workspace"),
     ).toBeVisible();
 
-    await modal
+    await modalAfterError
       .getByPlaceholder("/path/to/workspace")
       .fill(initialWorkspaceRoot);
-    await modal.getByRole("button", { name: "Launch" }).click();
+    await modalAfterError.getByRole("button", { name: "Launch" }).click();
 
-    await page.waitForLoadState("domcontentloaded");
+    await page.waitForURL("**/launching");
     await page.waitForSelector(".react-flow__pane");
     await page.waitForFunction(
       (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
@@ -99,6 +113,15 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
 
   await ensureAppReady(page);
   await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
+  await page.evaluate(() =>
+    sessionStorage.removeItem("setta.pendingWorkspaceLaunch"),
+  );
+  await page.evaluate(() =>
+    sessionStorage.removeItem("setta.workspaceSwitcherDraft"),
+  );
+  await page.evaluate(() =>
+    sessionStorage.removeItem("setta.openWorkspaceSwitcherOnLoad"),
+  );
   await page.getByRole("menuitem", { name: "Project" }).click();
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
 
@@ -117,6 +140,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     );
   });
   await modal.getByRole("button", { name: "Launch" }).click();
+  await page.waitForURL("**/launching");
 
   await bootstrapRequest;
   await page.waitForLoadState("domcontentloaded");

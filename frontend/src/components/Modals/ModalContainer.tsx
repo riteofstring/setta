@@ -1,5 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { useEffect } from "react";
+import { openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
+import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { DropzoneFilePickerModal } from "./DropzoneFilePickerModal/DropzoneFilePickerModal";
@@ -13,6 +16,12 @@ import { ModalTypeEnum } from "./types";
 
 export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
+
+  useEffect(() => {
+    if (consumeOpenWorkspaceSwitcherRequest()) {
+      openWorkspaceSwitcherModal();
+    }
+  }, []);
 
   return (
     <Dialog.Root
