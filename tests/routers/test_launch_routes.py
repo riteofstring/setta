@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.routers.launch import LaunchRequest, route_launch
 from setta.sessions.registry import SessionRegistry
-from setta.utils.paths import resolve_setta_paths
+from setta.utils.paths import build_files_root_from_base, resolve_setta_paths
 
 
 class TestLaunchRoutes:
@@ -130,6 +130,74 @@ class TestLaunchRoutes:
 
             response = route_launch(
                 LaunchRequest(workspaceRoot=str(workspace_root))
+            )
+            assert response.ok is True
+            assert response.filesRoot == str(expected_files_root)
+            assert response.sessionId == expected_session.id
+
+    def test_launch_local_files_root_base_overrides_server_files_root_env(
+        self, monkeypatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+
+            server_workspace_root = tmp_path / "server_workspace"
+            server_workspace_root.mkdir(parents=True, exist_ok=True)
+            server_files_root = tmp_path / "server_setta_files"
+            server_files_root.mkdir(parents=True, exist_ok=True)
+
+            files_root_base = tmp_path / "files_root_base"
+            files_root_base.mkdir(parents=True, exist_ok=True)
+
+            # The launch implementation prunes sessions whose pid isn't a Setta
+            # process, so mark the current pid as "in process backend".
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
+            # Simulate the dev backend's own roots living elsewhere.
+            monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(server_workspace_root))
+            monkeypatch.setenv("SETTA_FILES_ROOT", str(server_files_root))
+            monkeypatch.delenv("SETTA_FILES_ROOT_BASE", raising=False)
+            monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
+
+            # If route_launch incorrectly inherits SETTA_FILES_ROOT, it will look for
+            # sessions here.
+            server_paths = resolve_setta_paths(
+                workspace_root=workspace_root, files_root=server_files_root
+            )
+            server_registry = SessionRegistry(
+                sessions_root=server_paths.runtime_sessions_root
+            )
+            server_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=61234,
+                pid=os.getpid(),
+            )
+
+            expected_files_root = build_files_root_from_base(
+                files_root_base.resolve(strict=False),
+                workspace_root.resolve(strict=False),
+            ).resolve(strict=False)
+            expected_paths = resolve_setta_paths(
+                workspace_root=workspace_root, files_root=expected_files_root
+            )
+            expected_registry = SessionRegistry(
+                sessions_root=expected_paths.runtime_sessions_root
+            )
+            expected_session = expected_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=61235,
+                pid=os.getpid(),
+            )
+
+            response = route_launch(
+                LaunchRequest(
+                    workspaceRoot=str(workspace_root),
+                    filesRootBase=str(files_root_base),
+                )
             )
             assert response.ok is True
             assert response.filesRoot == str(expected_files_root)

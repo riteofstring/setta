@@ -119,7 +119,7 @@ export function WorkspaceLaunchPage() {
         sshArgs: pending.request.sshArgs ?? null,
         remoteCmd: pending.request.remoteCmd ?? null,
         localPort: pending.request.localPort ?? null,
-        filesRoot: pending.request.filesRoot ?? null,
+        filesRoot: res.data.filesRoot ?? pending.request.filesRoot ?? null,
         filesRootBase: pending.request.filesRootBase ?? null,
         lastUsedAt: Date.now(),
       };
