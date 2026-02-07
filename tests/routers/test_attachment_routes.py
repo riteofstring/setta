@@ -145,6 +145,36 @@ class TestAttachmentRoutes:
                     finally:
                         await _shutdown_state(state)
 
+    async def test_get_attachment_download_url_supports_state_relative_ids(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        artifact_rel = Path("artifacts") / "notes.txt"
+                        artifact_path = (
+                            Path(C.ARTIFACTS_FOLDER) / artifact_rel.name
+                        ).resolve()
+                        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+                        artifact_path.write_text("hello", encoding="utf-8")
+                        request = GetAttachmentDownloadUrlRequest(
+                            artifactId=artifact_rel.as_posix()
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            response = await route_get_attachment_download_url(
+                                request, runtime_ctx
+                            )
+                        token = _extract_token(response.url)
+                        with runtime_context(state) as runtime_ctx:
+                            downloaded = await route_download_attachment(
+                                token, runtime_ctx
+                            )
+                        assert downloaded.body == b"hello"
+                    finally:
+                        await _shutdown_state(state)
+
     async def test_get_attachment_download_url_blocks_outside_artifacts(self) -> None:
         with TemporaryDirectory() as tmpdir:
             with _patched_setta_paths(tmpdir):

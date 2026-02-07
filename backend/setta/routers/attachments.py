@@ -143,9 +143,17 @@ def _build_attachment_download_entry(
     project_config_id: ID | None,
 ) -> AttachmentDownloadUrlEntry:
     artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = (
-        ctx.deployment_root if ctx.share_mode else get_setta_paths().workspace_root
-    )
+    if ctx.share_mode:
+        if ctx.deployment_root is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Share deployment root is not available.",
+            )
+        base_root = ctx.deployment_root
+    else:
+        # Attachment ids are state-relative (e.g. artifacts/<id>), so resolve them
+        # under the centralized setta_files root rather than the workspace root.
+        base_root = get_setta_paths().setta_files_root
     resolved_path = _resolve_attachment_path(
         artifact_id,
         base_root=base_root,
@@ -271,9 +279,15 @@ async def route_download_attachment(
     if payload.projectConfigId is not None:
         _validate_project_config(ctx, ID(payload.projectConfigId))
     artifacts_root = _resolve_artifacts_root(ctx)
-    base_root = (
-        ctx.deployment_root if ctx.share_mode else get_setta_paths().workspace_root
-    )
+    if ctx.share_mode:
+        if ctx.deployment_root is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Share deployment root is not available.",
+            )
+        base_root = ctx.deployment_root
+    else:
+        base_root = get_setta_paths().setta_files_root
     resolved_path = _resolve_attachment_path(
         payload.artifactId,
         base_root=base_root,

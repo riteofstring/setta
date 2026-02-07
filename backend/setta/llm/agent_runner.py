@@ -892,7 +892,7 @@ class AgentRunner:
             artifacts_root = self.dbe.path / "artifacts"
         else:
             paths = get_setta_paths()
-            base_root = paths.workspace_root
+            base_root = paths.setta_files_root
             artifacts_root = paths.artifacts_root
         extra_blocks = build_attachment_content_blocks(
             dbe=self.dbe,

@@ -506,7 +506,7 @@ class ExternalAgentRunner:
             artifacts_root = self.dbe.path / "artifacts"
         else:
             paths = get_setta_paths()
-            base_root = paths.workspace_root
+            base_root = paths.setta_files_root
             artifacts_root = paths.artifacts_root
         attachment_text = ""
         attachment_text_no_images = ""
