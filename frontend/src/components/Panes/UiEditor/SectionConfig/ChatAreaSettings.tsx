@@ -17,6 +17,7 @@ import { useCallback, useMemo } from "react";
 import {
   createAgenticEdgeFromSections,
   deleteAgenticEdgesById,
+  updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
 import {
@@ -25,6 +26,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { resolveAgenticScopeFromEdges } from "state/agenticScopeUtils";
 import {
   useAIStore,
   useProjectState,
@@ -36,6 +38,7 @@ import {
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
 import {
+  AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
   EngineTypeEnum,
   SectionTypeEnum,
@@ -263,6 +266,18 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     return [{ group: "Chat Sections", items }];
   }, [sectionOptions]);
 
+  const contextModeOptions = useMemo(
+    () => [
+      {
+        id: AgenticEdgeContextModeEnum.reference_only,
+        label: "Reference only",
+      },
+      { id: AgenticEdgeContextModeEnum.inline_text, label: "Inline text" },
+      { id: AgenticEdgeContextModeEnum.summary, label: "Summary" },
+    ],
+    [],
+  );
+
   const contextEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -290,6 +305,38 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             edge.targetSectionId === sectionId),
       ),
     [agenticEdges, sectionId],
+  );
+
+  const agenticScope = useMemo(
+    () => resolveAgenticScopeFromEdges(agenticEdges, sectionId),
+    [agenticEdges, sectionId],
+  );
+
+  const buildScopeEntries = useCallback(
+    (ids: Iterable<string>) => {
+      const entries = Array.from(ids).map((id) => ({
+        id,
+        label: sectionLabelsById[id] ?? id,
+      }));
+      return _.sortBy(entries, (entry) => entry.label.toLowerCase());
+    },
+    [sectionLabelsById],
+  );
+
+  const scopeReadEntries = useMemo(() => {
+    const ids = new Set<string>(agenticScope.readSectionIds);
+    agenticScope.peerChatSectionIds.forEach((id) => ids.add(id));
+    return buildScopeEntries(ids);
+  }, [agenticScope, buildScopeEntries]);
+
+  const scopeWriteEntries = useMemo(
+    () => buildScopeEntries(agenticScope.writeSectionIds),
+    [agenticScope, buildScopeEntries],
+  );
+
+  const scopeContextEntries = useMemo(
+    () => buildScopeEntries(agenticScope.contextSectionIds),
+    [agenticScope, buildScopeEntries],
   );
 
   const updateSettings = useCallback(
@@ -473,6 +520,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
   const agentOptionCount = agentItems[0]?.items.length ?? 0;
+  const hasAgenticEdges =
+    contextEdges.length + scopeEdges.length + linkedAgentEdges.length > 0;
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -618,12 +667,32 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 {contextEdges.map((edge) => (
                   <div
                     key={edge.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                    className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
                   >
-                    <span className="truncate">
+                    <span className="min-w-0 flex-1 truncate">
                       {sectionLabelsById[edge.sourceSectionId] ??
                         edge.sourceSectionId}
                     </span>
+                    <select
+                      value={
+                        edge.contextMode ??
+                        AgenticEdgeContextModeEnum.reference_only
+                      }
+                      onChange={(event) =>
+                        updateAgenticEdgeContextMode(
+                          edge.id,
+                          event.target.value as AgenticEdgeContextModeEnum,
+                        )
+                      }
+                      disabled={!canEditLinks}
+                      className="h-6 rounded border border-setta-200 bg-white px-1 text-[10px] text-setta-600 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+                    >
+                      {contextModeOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
@@ -736,6 +805,80 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+            Agentic Scope
+          </p>
+          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+            Edges define what this chat can read, write, and use as context.
+          </p>
+        </div>
+
+        <div className="mt-2 flex flex-col gap-1">
+          {!hasAgenticEdges ? (
+            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+              No edges = no access.
+            </p>
+          ) : null}
+          <p className="text-[11px] text-setta-500 dark:text-setta-400">
+            Use Project Chat for full access.
+          </p>
+        </div>
+
+        <div className="mt-3 grid gap-3">
+          {[
+            {
+              label: "Read",
+              entries: scopeReadEntries,
+              labelClassName: "text-emerald-600 dark:text-emerald-300",
+              emptyText: "No readable sections.",
+            },
+            {
+              label: "Write",
+              entries: scopeWriteEntries,
+              labelClassName: "text-amber-600 dark:text-amber-300",
+              emptyText: "No writable sections.",
+            },
+            {
+              label: "Context",
+              entries: scopeContextEntries,
+              labelClassName: "text-sky-600 dark:text-sky-300",
+              emptyText: "No context sections.",
+            },
+          ].map((block) => (
+            <div key={block.label} className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={`text-[11px] font-semibold ${block.labelClassName}`}
+                >
+                  {block.label}
+                </span>
+                <span className="text-[10px] text-setta-500 dark:text-setta-400">
+                  {block.entries.length}
+                </span>
+              </div>
+              {block.entries.length === 0 ? (
+                <p className="text-[11px] text-setta-500 dark:text-setta-500">
+                  {block.emptyText}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {block.entries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                    >
+                      <span className="truncate">{entry.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
