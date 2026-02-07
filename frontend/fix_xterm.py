@@ -24,12 +24,22 @@ def main() -> int:
         # Already patched.
         return 0
 
-    # The bundle is minified, but the mouse coord helper still returns a 2-tuple
-    # based on `clientX`/`clientY`.
-    pattern = re.compile(
-        r"return\\[(?P<x>[^\\]]*?clientX[^\\],]*?),(?P<y>[^\\]]*?clientY[^\\]]*?)\\]"
-    )
+    # Fast path: stable minified snippet used by xterm's mouse coord helper.
+    # This is what we patched historically; keep it as the most reliable option.
+    needle = "[t.clientX-s.left-n,t.clientY-s.top-o]"
     zoom = "(globalThis.reactFlowZoom||1)"
+    replacement = f"[(t.clientX-s.left-n)/{zoom},(t.clientY-s.top-o)/{zoom}]"
+    if needle in filedata:
+        patched = filedata.replace(needle, replacement, 1)
+        path.write_text(patched, encoding="utf-8")
+        print(f"patched xterm mouse coords for react flow zoom: {path}")
+        return 0
+
+    # Fallback: best-effort regex patch if the minified variable names change.
+    # Match a `return[<exprX>,<exprY>]` where exprX/exprY reference clientX/Y.
+    pattern = re.compile(
+        r"return\[(?P<x>[^\]]*?clientX[^\],]*?),(?P<y>[^\]]*?clientY[^\]]*?)\]"
+    )
 
     def repl(match: re.Match[str]) -> str:
         x = match.group("x")
@@ -47,5 +57,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == \"__main__\":
+if __name__ == "__main__":
     sys.exit(main())
