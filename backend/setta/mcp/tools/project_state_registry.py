@@ -11,12 +11,9 @@ from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
     SettaToolType,
-    ToolAccessMetadata,
-    ToolAccessType,
     ToolArgumentPreviewMetadata,
     attach_ai_follow_tool_arguments,
     attach_ai_follow_tool_result,
-    attach_tool_access,
     attach_tool_argument_preview,
     attach_tool_search_category,
     attach_tool_search_tags,
@@ -35,8 +32,6 @@ def project_state_tool(
     ai_follow_tool_result: AIFollowToolResultMetadata | None = None,
     ai_follow_tool_arguments: AIFollowToolArgumentsMetadata | None = None,
     tool_argument_preview: ToolArgumentPreviewMetadata | None = None,
-    access_type: ToolAccessType | None = None,
-    id_paths_by_type: dict[str, list[str]] | None = None,
     search_tags: list[str] | None = None,
     search_category: str | None = None,
 ):
@@ -55,14 +50,6 @@ def project_state_tool(
         attach_ai_follow_tool_result(tool_fn, ai_follow_tool_result)
         attach_ai_follow_tool_arguments(tool_fn, ai_follow_tool_arguments)
         attach_tool_argument_preview(tool_fn, tool_argument_preview)
-        if access_type is not None:
-            attach_tool_access(
-                tool_fn,
-                ToolAccessMetadata(
-                    accessType=access_type,
-                    idPathsByType=id_paths_by_type or {},
-                ),
-            )
         attach_tool_search_tags(tool_fn, search_tags)
         attach_tool_search_category(tool_fn, search_category)
         register = setta_init_tool if tool_type == SettaToolType.init else setta_tool
@@ -82,9 +69,13 @@ def _build_tool_callable(
     async def tool_callable(**raw_kwargs: Any):
         ctx: Context = raw_kwargs.pop("ctx")
         request = request_model(**raw_kwargs)
-        manager = ctx.fastmcp.state.project_manager_switcher.get(
-            request.projectConfigId
-        )
+        project_config_id = getattr(request, "projectConfigId", None)
+        if project_config_id is None:
+            manager = ctx.fastmcp.state.project_manager_switcher.main
+            if manager is None:
+                raise KeyError("Missing main project manager.")
+        else:
+            manager = ctx.fastmcp.state.project_manager_switcher.get(project_config_id)
         manager_method = getattr(manager, manager_method_name)
         result = manager_method(request)
         if inspect.isawaitable(result):
