@@ -23,7 +23,6 @@ import yaml
 from setta import __version__
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
-from setta.launch import LaunchError, launch_workspace_session
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads
@@ -36,17 +35,12 @@ from setta.share.deployment_utils import (
     parse_share_deployment_version,
 )
 from setta.types.routes import Route
+from setta.types.share_deployment import DeploymentType
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import (
     build_bootstrap_urls,
     format_host_for_ssh_tunnel,
     format_host_for_url,
-)
-from setta.utils.paths import (
-    clear_setta_paths_cache,
-    get_setta_paths,
-    resolve_setta_paths,
-    validate_workspace_root,
 )
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
@@ -58,8 +52,6 @@ _MISSING_AUTH_MESSAGE = (
     "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
     "workspace)."
 )
-_WORKSPACE_ROOT_ENV = "SETTA_WORKSPACE_ROOT"
-_FILES_ROOT_ENV = "SETTA_FILES_ROOT"
 
 
 @dataclass
@@ -70,29 +62,6 @@ class RemoteSessionSummary:
     port: int
     pid: int
     started_at: datetime
-
-
-def _resolve_cli_paths(
-    *,
-    workspace: str | Path | None,
-    files_root: str | Path | None,
-    files_root_base: str | Path | None,
-    validate: bool,
-):
-    paths = resolve_setta_paths(
-        workspace_root=workspace,
-        files_root=files_root,
-        files_root_base=files_root_base,
-    )
-    if validate:
-        validate_workspace_root(paths.workspace_root)
-    return paths
-
-
-def _apply_paths_to_env(paths) -> None:
-    os.environ[_WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-    os.environ[_FILES_ROOT_ENV] = str(paths.setta_files_root)
-    clear_setta_paths_cache()
 
 
 def _parse_json_payload(output: str) -> dict:
@@ -881,7 +850,6 @@ def _format_session_payload(session: SessionMetadata) -> dict[str, Any]:
     return {
         "id": session.id,
         "workspacePath": session.workspacePath,
-        "workspacePathCanonical": session.workspacePathCanonical,
         "host": session.host,
         "port": session.port,
         "pid": session.pid,
@@ -1184,6 +1152,10 @@ def share(
         raise click.ClickException(
             f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
         )
+    if manifest.deploymentType is not DeploymentType.share:
+        raise click.ClickException(
+            f"Deployment is not a share deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
+        )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
 
@@ -1215,55 +1187,89 @@ def share(
 
 
 @click.command()
-@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
-@click.option("-w", "--workspace", type=click.Path(path_type=Path))
-@click.option("--files-root", type=click.Path(path_type=Path))
-@click.option("--files-root-base", type=click.Path(path_type=Path))
 @click.option(
-    "--timeout",
-    type=float,
+    "--deployment-root",
+    type=click.Path(path_type=Path),
     default=None,
-    help="Seconds to wait for session startup (defaults to 30s).",
+    help="Path to an app deployment root (contains manifest.json/project.json).",
 )
-def launch(
-    json_output: bool,
-    workspace: Path | None,
-    files_root: Path | None,
-    files_root_base: Path | None,
-    timeout: float | None,
+@click.option(
+    "--deployment-name",
+    default=None,
+    help="Deployment name under setta_files/share_deployments.",
+)
+@click.option(
+    "--version",
+    "deployment_version",
+    default=None,
+    help="Deployment version (vN).",
+)
+@click.option("--latest", is_flag=True, help="Use the latest deployment version.")
+@click.pass_context
+def app(
+    ctx: click.Context,
+    deployment_root: Path | None,
+    deployment_name: str | None,
+    deployment_version: str | None,
+    latest: bool,
 ) -> None:
-    if not json_output:
-        raise click.ClickException("Use --json with launch.")
+    params = ctx.obj or {}
+    reload = params.get("reload", False)
+    host = params.get("host", C.DEFAULT_HOST)
+    port = params.get("port", None)
+    log_level = params.get("log_level", None)
+    no_open = params.get("no_open", False)
+    if reload:
+        raise click.ClickException("App mode does not support --reload.")
 
-    try:
-        timeout_seconds = timeout if timeout is not None else 30.0
-        result = launch_workspace_session(
-            workspace_root=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
-            timeout_seconds=timeout_seconds,
-        )
-    except LaunchError as exc:
-        _emit_json_output(
-            {"ok": False, "error": {"code": exc.code, "message": str(exc)}}
-        )
-        raise SystemExit(1) from exc
+    resolved_host = host
+    resolved_port = _resolve_port(resolved_host, port)
+    C.HOST = resolved_host
+    C.PORT = resolved_port
 
-    secret = result.registry.load_secret(result.session)
-    token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
-    bootstrap_url_fragment, _ = build_bootstrap_urls(
-        result.session.host, result.session.port, token
+    resolved_deployment_root = _resolve_share_deployment_root(
+        deployment_root=deployment_root,
+        deployment_name=deployment_name,
+        deployment_version=deployment_version,
+        latest=latest,
     )
-    payload = {
-        "ok": True,
-        "bootstrapUrlFragment": bootstrap_url_fragment,
-        "workspaceRoot": str(result.paths.workspace_root),
-        "filesRoot": str(result.paths.setta_files_root),
-        "sessionId": result.session.id,
-        "startedNew": result.started_new,
-        "session": _format_session_payload(result.session),
-    }
-    _emit_json_output(payload)
+    manifest = DBE(resolved_deployment_root).read_share_manifest_optional()
+    if manifest is None:
+        raise click.ClickException(
+            f"App deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
+        )
+    if manifest.deploymentType is not DeploymentType.app:
+        raise click.ClickException(
+            f"Deployment is not an app deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
+        )
+    C.APP_MODE = True
+    C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
+
+    resolved_log_level = configure_logging(level_override=log_level)
+    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
+    resolved_version = manifest.deploymentVersion
+    resolved_deployment_label = deployment_name or manifest.deploymentName
+    app_url = C.BACKEND
+    auto_open = _should_auto_open(no_open)
+    C.OPEN_BROWSER_ON_START = app_url if auto_open else None
+    click.echo(
+        f"Starting app backend for {resolved_deployment_label}/{resolved_version}"
+    )
+    click.echo(f"App URL: {app_url}")
+
+    import uvicorn
+
+    config = uvicorn.Config(
+        "setta.server:app",
+        host=resolved_host,
+        port=resolved_port,
+        log_level=uvicorn_log_level,
+        log_config=None,
+        reload=False,
+        timeout_graceful_shutdown=1,
+    )
+    server = uvicorn.Server(config)
+    server.run()
 
 
 @click.command()
@@ -1320,7 +1326,6 @@ def status(
                 {
                     "id": session.id,
                     "workspacePath": session.workspacePath,
-                    "workspacePathCanonical": session.workspacePathCanonical,
                     "host": session.host,
                     "port": session.port,
                     "pid": session.pid,
@@ -1369,7 +1374,6 @@ def status(
             "session": {
                 "id": session.id,
                 "workspacePath": session.workspacePath,
-                "workspacePathCanonical": session.workspacePathCanonical,
                 "host": session.host,
                 "port": session.port,
                 "pid": session.pid,
@@ -1562,22 +1566,18 @@ def api(
                 if "=" not in cookie_value:
                     cookie_value = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
             if resolved_base_url is None:
-                session, _ = _resolve_latest_session_for_workspace(
-                    get_setta_paths().workspace_root
-                )
+                session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
                 resolved_base_url = _base_url_from_session(session)
         elif auth_payload is not None:
             cookie_value = _cookie_header_from_auth_payload(auth_payload)
             if resolved_base_url is None:
                 resolved_base_url = _base_url_from_auth_payload(auth_payload)
             if resolved_base_url is None:
-                session, _ = _resolve_latest_session_for_workspace(
-                    get_setta_paths().workspace_root
-                )
+                session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
                 resolved_base_url = _base_url_from_session(session)
         else:
             session, secret = _resolve_latest_session_for_workspace(
-                get_setta_paths().workspace_root
+                Path.cwd().resolve()
             )
             resolved_base_url = (
                 _normalize_base_url(base_url)
@@ -1920,25 +1920,6 @@ def connect(
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", type=int, default=None, help="backend port (random if omitted)")
 @click.option(
-    "-w",
-    "--workspace",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Workspace root for code operations (defaults to CWD).",
-)
-@click.option(
-    "--files-root",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Root directory for setta_files (overrides --files-root-base).",
-)
-@click.option(
-    "--files-root-base",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Base directory for hashed setta_files roots.",
-)
-@click.option(
     "--log-level",
     type=click.Choice(
         ["critical", "error", "warning", "info", "debug"], case_sensitive=False
@@ -1953,9 +1934,6 @@ def cli(
     reload: bool,
     host: str,
     port: int | None,
-    workspace: Path | None,
-    files_root: Path | None,
-    files_root_base: Path | None,
     log_level: str | None,
     no_open: bool,
 ) -> None:
@@ -1963,48 +1941,22 @@ def cli(
     ctx.obj["reload"] = reload
     ctx.obj["host"] = host
     ctx.obj["port"] = port
-    ctx.obj["workspace"] = workspace
-    ctx.obj["files_root"] = files_root
-    ctx.obj["files_root_base"] = files_root_base
     ctx.obj["log_level"] = log_level
     ctx.obj["no_open"] = no_open
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    paths_override = None
-    if workspace is not None or files_root is not None or files_root_base is not None:
-        paths_override = _resolve_cli_paths(
-            workspace=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
-            validate=True,
-        )
-        _apply_paths_to_env(paths_override)
     if ctx.invoked_subcommand is None:
         logging.getLogger(__name__).info("Starting Setta")
-
-        paths = paths_override or _resolve_cli_paths(
-            workspace=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
-            validate=True,
-        )
-        if paths_override is None:
-            _apply_paths_to_env(paths)
 
         resolved_host = host
         resolved_port = _resolve_port(resolved_host, port)
         C.HOST = resolved_host
         C.PORT = resolved_port
 
-        sessions_root = paths.runtime_sessions_root
+        sessions_root = resolve_sessions_root(Path.cwd())
         registry = SessionRegistry(sessions_root=sessions_root)
-        display_workspace = workspace or paths.workspace_root
         session = registry.create_session(
-            paths.workspace_root,
-            resolved_host,
-            resolved_port,
-            os.getpid(),
-            workspace_display_path=str(display_workspace),
+            Path.cwd(), resolved_host, resolved_port, os.getpid()
         )
         os.environ[SESSION_ID_ENV_VAR] = session.id
         os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
@@ -2023,7 +1975,7 @@ def cli(
                 session.id,
                 resolved_host,
                 resolved_port,
-                Path(str(display_workspace)),
+                Path.cwd().resolve(),
                 bootstrap_url_fragment,
                 bootstrap_url_plain,
                 token,
@@ -2051,7 +2003,7 @@ def cli(
 cli.add_command(version)
 cli.add_command(export_db)
 cli.add_command(share)
-cli.add_command(launch)
+cli.add_command(app)
 cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)

@@ -8,6 +8,7 @@ from pydantic import (
 )
 
 from setta.code_gen.utils import sanitize_slug
+from setta.types.app_definition import AppDefinition
 from setta.types.artifact import ArtifactType
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.core import Core, Variant
@@ -57,11 +58,11 @@ from setta.utils.name_validation import (
     validate_project_name_format,
     validate_section_name_format,
 )
-from setta.utils.paths import normalize_workspace_path
 from setta.utils.utils import (
     GEN_CODE_META_FILENAME,
     build_gen_code_path,
     build_project_sections_dir,
+    normalize_path,
 )
 
 SINGLETON_SECTION_TYPES = set(
@@ -111,6 +112,7 @@ class ProjectStateBackend(
 ):
     projectConfigs: dict[ID, ProjectConfig] = Field(default_factory=dict)
     defaultProjectConfigId: ID | None = None
+    appDefinition: AppDefinition | None = None
 
     @model_validator(mode="after")
     def _validate_default_project_id(self):
@@ -302,7 +304,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
     def validate_code_file_bindings(self):
-        code_root = normalize_workspace_path(C.CODE_FOLDER)
+        code_root = normalize_path(C.CODE_FOLDER)
         canonical_sections_dir = build_project_sections_dir(
             code_root, self.projectConfig.name
         )
@@ -338,20 +340,18 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 section_slug = sanitize_slug(section_full_name)
                 language = effective_impl.codeLanguage
                 extension = CODE_LANGUAGE_EXTENSIONS[language]
-                canonical_binding_path = normalize_workspace_path(
+                canonical_binding_path = normalize_path(
                     canonical_sections_dir / f"{section_slug}.{extension}"
                 )
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
-                expected_binding_path = normalize_workspace_path(gen_code_path)
+                expected_binding_path = normalize_path(gen_code_path)
             elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
-                expected_binding_path = normalize_workspace_path(gen_meta_path)
+                expected_binding_path = normalize_path(gen_meta_path)
             else:
                 expected_binding_path = canonical_binding_path
             binding = effective_impl.codeFileBinding
             if binding is not None and expected_binding_path is not None:
-                normalized_binding_path = normalize_workspace_path(
-                    binding.canonical_path
-                )
+                normalized_binding_path = normalize_path(binding.canonical_path)
                 if (
                     normalized_binding_path == expected_binding_path
                     and not binding.autoBinding
@@ -400,12 +400,12 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(effective_impl, GenPythonCodeSectionImpl):
                 if not python_codegen_enabled:
                     continue
-                canonical_path = normalize_workspace_path(gen_code_path)
+                canonical_path = normalize_path(gen_code_path)
                 access_mode = CodeFileAccessMode.write_only
             elif isinstance(effective_impl, GenPythonMetadataSectionImpl):
                 if not (python_codegen_enabled and metadata_enabled):
                     continue
-                canonical_path = normalize_workspace_path(gen_meta_path)
+                canonical_path = normalize_path(gen_meta_path)
                 access_mode = CodeFileAccessMode.write_only
             else:
                 canonical_path = canonical_binding_path
@@ -426,7 +426,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 gen_code_binding = binding
         if gen_code_binding is None and python_codegen_enabled:
             gen_code_binding = CodeFileBinding(
-                canonical_path=normalize_workspace_path(gen_code_path),
+                canonical_path=normalize_path(gen_code_path),
                 access_mode=CodeFileAccessMode.write_only,
                 autoBinding=True,
             )

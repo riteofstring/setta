@@ -317,12 +317,6 @@ export async function route_emit_chat_stream_delta(
   return await post("/emitChatStreamDelta", x);
 }
 
-export async function route_launch(
-  x: gt.LaunchRequestInput,
-): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
-  return await post("/launch", x);
-}
-
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
@@ -571,6 +565,20 @@ export async function route_delete_engine_config(
   return await post("/deleteEngineConfig", x);
 }
 
+export async function route_get_app_catalog(): Promise<
+  ResponseDataAndStatus<
+    Record<string, any> | Array<any> | string | number | number | boolean | null
+  >
+> {
+  return await get("/getAppCatalog");
+}
+
+export async function route_list_app_components(): Promise<
+  ResponseDataAndStatus<Array<string>>
+> {
+  return await get("/listAppComponents");
+}
+
 export async function route_clear_text_field_completion(
   x: gt.ClearTextFieldCompletionRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -729,12 +737,6 @@ export async function route_get_latest_project_state(
   return await post("/getLatestProjectState", x);
 }
 
-export async function route_get_latest_lsp_diagnostics(
-  x: gt.GetLatestLspDiagnosticsRequestInput,
-): Promise<ResponseDataAndStatus<gt.SettaLspDiagnosticsPayload>> {
-  return await post("/getLatestLspDiagnostics", x);
-}
-
 export async function route_force_refresh_listener(
   x: gt.ForceRefreshProjectRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -805,6 +807,24 @@ export async function route_set_project_config_codegen_targets(
   x: gt.SetProjectConfigCodegenTargetsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setProjectConfigCodegenTargets", x);
+}
+
+export async function route_get_app_definition(
+  x: gt.GetAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {
+  return await post("/getAppDefinition", x);
+}
+
+export async function route_set_app_definition(
+  x: gt.SetAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {
+  return await post("/setAppDefinition", x);
+}
+
+export async function route_update_app_definition(
+  x: gt.UpdateAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {
+  return await post("/updateAppDefinition", x);
 }
 
 export async function route_set_prompt_template(
@@ -1356,4 +1376,71 @@ export async function route_publish_share_deployment(
   x: gt.PublishShareDeploymentRequestInput,
 ): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
   return await post("/share/deployments", x);
+}
+
+export async function route_list_app_deployments(): Promise<
+  ResponseDataAndStatus<Array<gt.AppDeploymentMetadata>>
+> {
+  return await get("/app/deployments");
+}
+
+export async function route_list_app_deployment_versions(
+  deploymentName: string,
+): Promise<ResponseDataAndStatus<Array<gt.AppDeploymentMetadata>>> {
+  return await get("/app/deployments/{deploymentName}/versions", {
+    deploymentName,
+  });
+}
+
+export async function route_get_latest_app_deployment(
+  deploymentName: string,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadata>> {
+  return await get("/app/deployments/{deploymentName}/latest", {
+    deploymentName,
+  });
+}
+
+export async function route_create_app_session_current(): Promise<
+  ResponseDataAndStatus<gt.AppDeploymentSessionResponse>
+> {
+  return await post("/app/deployments/current/session", null);
+}
+
+export async function route_create_app_session(
+  deploymentName: string,
+  version: string,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentSessionResponse>> {
+  return await post(
+    "/app/deployments/{deploymentName}/{version}/session",
+    null,
+    { deploymentName, version },
+  );
+}
+
+export async function route_get_app_deployment_state(
+  deploymentName: string,
+  version: string,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
+  return await get("/app/deployments/{deploymentName}/{version}/state", {
+    deploymentName,
+    version,
+  });
+}
+
+export async function route_load_app_project_config(
+  deploymentName: string,
+  version: string,
+  x: gt.LoadAppProjectConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
+  return await post(
+    "/app/deployments/{deploymentName}/{version}/project_config",
+    x,
+    { deploymentName, version },
+  );
+}
+
+export async function route_publish_app_deployment(
+  x: gt.PublishAppDeploymentRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadata>> {
+  return await post("/app/deployments", x);
 }

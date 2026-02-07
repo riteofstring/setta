@@ -19,6 +19,7 @@ export const StandardSearchRightBtn = React.forwardRef<
     rounded || "rounded-full",
     "p-0",
     size || "h-10 w-10",
+    "absolute right-0",
     "hover:bg-blue-500 hover:text-white dark:text-setta-500 dark:hover:bg-blue-700 dark:hover:text-setta-100",
     className,
   ]
