@@ -38,8 +38,8 @@ from setta.utils.attachment_policy import (
     resolve_attachment_policy_scope,
 )
 from setta.utils.attachment_tokens import AttachmentTokenManager
-from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths, normalize_workspace_path
+from setta.utils.constants import CWD, C
+from setta.utils.utils import normalize_path
 
 router = SettaAPIRouter()
 TArtifact = TypeVar("TArtifact")
@@ -207,9 +207,13 @@ def _resolve_folder_path(
 ) -> Path:
     if share_mode:
         return ensure_share_deployment_path(folder_path, deployment_root)
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(folder_path, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    root = CWD.resolve()
+    path = Path(folder_path)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Folder path must be within the project root.",
@@ -218,9 +222,13 @@ def _resolve_folder_path(
 
 
 def _resolve_file_path(path_str: str) -> Path:
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(path_str, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    root = CWD.resolve()
+    path = Path(path_str)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="File path must be within the project root.",
@@ -232,9 +240,13 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
     trimmed = path_str.strip()
     if not trimmed:
         return None
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(trimmed, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
+    root = CWD.resolve()
+    path = Path(trimmed)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
         return None
     if not resolved.exists() or resolved.is_dir():
         return None
@@ -244,7 +256,7 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
-    return str(normalize_workspace_path(path))
+    return str(normalize_path(path))
 
 
 def _should_ignore(name: str, ignore_patterns: list[str]) -> bool:
@@ -276,17 +288,7 @@ def route_check_if_file_exists(
     if ctx.share_mode:
         target_path = ensure_share_deployment_path(x.filepath, ctx.deployment_root)
         return target_path.exists()
-    raw_path = x.filepath.strip()
-    if not raw_path:
-        return False
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(raw_path, workspace_root=workspace_root)
-    if not resolved.is_relative_to(workspace_root):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File path must be within the project root.",
-        )
-    return resolved.exists()
+    return os.path.exists(x.filepath)
 
 
 @router.post(Route.GET_FILE_BROWSER_ROOT)
@@ -299,7 +301,7 @@ def route_get_file_browser_root(
             detail="File browsing is disabled in share mode.",
         )
     return GetFileBrowserRootResponse(
-        rootPath=str(get_setta_paths().workspace_root),
+        rootPath=str(CWD.resolve()),
         pathSeparator=os.sep,
         ignorePatterns=list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS),
     )
@@ -677,7 +679,7 @@ async def route_delete_artifacts(
         artifacts_root = (ctx.deployment_root / "artifacts").resolve()
         artifacts = ctx.state.share_runtime_state.get_session_artifacts(ctx.session_id)
     else:
-        artifacts_root = C.ARTIFACTS_FOLDER.resolve()
+        artifacts_root = (CWD / C.ARTIFACTS_FOLDER).resolve()
         artifacts = _get_artifacts(ctx)
     try:
         deleted_ids = artifacts.delete_file_artifacts(

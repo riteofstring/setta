@@ -125,7 +125,6 @@ export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const VIEW_MODE_ROUTER_PATH = "/:projectConfigName/view/:viewModeName";
-export const WORKSPACE_LAUNCH_ROUTER_PATH = "/launching";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
 export function buildSharePath(
