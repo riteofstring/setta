@@ -578,6 +578,14 @@ export type ChatDetails = {
   llmConfig: LLMConfig | null;
 };
 
+export type ChatBranchInfo = {
+  chatId: string;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  branchRootChatId: string | null;
+  branchCreatedAt: number | null;
+};
+
 type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
