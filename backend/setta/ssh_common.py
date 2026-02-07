@@ -434,7 +434,11 @@ def _resolve_remote_logs_dir(
     files_root: str | None,
     files_root_base: str | None,
 ) -> str:
-    if files_root is not None and files_root.strip() and _is_safe_remote_path(files_root):
+    if (
+        files_root is not None
+        and files_root.strip()
+        and _is_safe_remote_path(files_root)
+    ):
         root = files_root.strip().rstrip("/")
         return f"{root}/runtime/logs"
     if (

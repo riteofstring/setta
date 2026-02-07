@@ -1,8 +1,7 @@
 import os
 from pathlib import Path
 
-from fastapi import Depends
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER

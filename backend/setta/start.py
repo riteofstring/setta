@@ -2,16 +2,12 @@ import base64
 import json
 import logging
 import os
-import re
 import shlex
 import signal
-import socket
 import subprocess
 import sys
 import time
 import webbrowser
-from dataclasses import dataclass
-from datetime import datetime
 from functools import lru_cache
 from pathlib import Path, PurePath
 from typing import Any
@@ -20,7 +16,7 @@ import click
 import requests
 import yaml
 
-from setta import __version__
+from setta import __version__, ssh_common
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
 from setta.launch import LaunchError, launch_workspace_session
@@ -31,7 +27,6 @@ from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
-from setta import ssh_common
 from setta.share.deployment_utils import (
     iter_share_deployment_versions,
     parse_share_deployment_version,
@@ -393,9 +388,7 @@ def _ensure_background_process_started(
     try:
         ssh_common.ensure_background_process_started(proc, wait_seconds=wait_seconds)
     except LaunchError as exc:
-        raise click.ClickException(
-            f"{exc} Try --print-only or --verbose."
-        ) from exc
+        raise click.ClickException(f"{exc} Try --print-only or --verbose.") from exc
 
 
 def _extract_token_from_bootstrap_url(url: str) -> str:
