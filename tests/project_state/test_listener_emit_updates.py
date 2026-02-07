@@ -1,9 +1,8 @@
 import asyncio
 import types
-from contextlib import suppress
+from contextlib import ExitStack, suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -38,14 +37,14 @@ from setta.types.listener import ListenerFrontendEmitKeyAndValue
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
-from setta.utils.constants import C
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_state_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 from watchdog.observers.polling import PollingObserver
 
+from tests.utils.setta_paths import temporary_setta_paths
 specific_file_watcher.Observer = PollingObserver
 lsp_file_watcher.Observer = PollingObserver
 
@@ -93,6 +92,7 @@ class TestApplyListenerEmitUpdates:
     async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
+        self.workspace_root = root
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
@@ -100,14 +100,13 @@ class TestApplyListenerEmitUpdates:
         for path in (self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
+        self._stack = ExitStack()
+        self._stack.enter_context(
+            temporary_setta_paths(
+                workspace_root=self.workspace_root,
+                setta_files_root=self.setta_root,
+            )
+        )
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
@@ -165,11 +164,10 @@ class TestApplyListenerEmitUpdates:
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
         with suppress(asyncio.CancelledError):
-            await self.manager.queue_task
+        await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
-        for patcher in self._patchers:
-            patcher.stop()
+        self._stack.close()
         self._tmpdir.cleanup()
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
@@ -346,7 +344,7 @@ class TestApplyListenerEmitUpdates:
         assert "update" == update_type
         assert 1 == len(artifacts_payload)
         artifact = artifacts_payload[0]
-        assert normalize_path("listener/new-image.png") == normalize_path(artifact.id)
+        assert normalize_state_path("listener/new-image.png") == normalize_state_path(artifact.id)
         assert (
             BinaryContentRef(
                 contentId="listener-image",
