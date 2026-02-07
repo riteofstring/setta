@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
@@ -77,10 +80,27 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                     startedAt=remote.session.started_at.isoformat(),
                 ),
             )
+        workspace_root = x.workspaceRoot
+        files_root = x.filesRoot
+        files_root_base = x.filesRootBase
+        if (
+            workspace_root is not None
+            and workspace_root.strip()
+            and (files_root is None or not files_root.strip())
+            and (files_root_base is None or not files_root_base.strip())
+        ):
+            env_files_root_base = os.environ.get("SETTA_FILES_ROOT_BASE")
+            if env_files_root_base is not None and env_files_root_base.strip():
+                files_root_base = env_files_root_base.strip()
+            else:
+                # The server sets SETTA_FILES_ROOT for itself; avoid inheriting that
+                # value when launching a new workspace unless explicitly requested.
+                files_root = str(Path(workspace_root) / "setta_files")
+
         result = launch_workspace_session(
-            workspace_root=x.workspaceRoot,
-            files_root=x.filesRoot,
-            files_root_base=x.filesRootBase,
+            workspace_root=workspace_root,
+            files_root=files_root,
+            files_root_base=files_root_base,
         )
     except LaunchError as exc:
         return LaunchResponse(
