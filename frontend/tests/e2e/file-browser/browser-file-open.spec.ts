@@ -8,9 +8,6 @@ import {
   postBackend,
 } from "../helpers";
 
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
-
 type ProjectStateResponse = {
   projectConfig: {
     sectionVariantMap: Record<string, string>;
@@ -33,6 +30,9 @@ type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
+
+const SELECT_ALL_SHORTCUT =
+  process.platform === "darwin" ? "Meta+A" : "Control+A";
 
 function normalizePathForComparison(value: string): string {
   const withoutPrivate = value.startsWith("/private")
@@ -133,9 +133,7 @@ async function setBrowserPath(
       ? `${targetPath}${path.sep}`
       : targetPath;
 
-  const cmContent = pathInput.locator(".cm-content");
-  await expect(cmContent).toBeVisible();
-  await cmContent.click();
+  await pathInput.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type(nextValue);
   await page.keyboard.press("Enter");
@@ -190,10 +188,6 @@ test("browser opens markdown and text files in text sections", async ({
     {
       projectConfigId,
       implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
-      },
       viewportBounds,
     },
   );
@@ -208,6 +202,8 @@ test("browser opens markdown and text files in text sections", async ({
   const textPath = path.join(workspaceRoot, textName);
   await fs.writeFile(markdownPath, "# Browser Test\n\nHello.");
   await fs.writeFile(textPath, "Plaintext browser test.");
+
+  const createdSectionIds: string[] = [sectionId];
 
   try {
     const sectionNode = page.locator(
@@ -228,14 +224,17 @@ test("browser opens markdown and text files in text sections", async ({
 
     await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
-    const readmeTile = sectionNode
-      .locator("button")
+    const thumbnailRow = sectionNode
+      .locator('[class*="overflow-x-scroll"]')
+      .first();
+    const readmeTile = thumbnailRow
+      .locator('div[role="button"]')
       .filter({ hasText: markdownName })
       .first();
     await expect(readmeTile).toBeVisible();
     await readmeTile.dblclick();
 
-    await waitForTextSection(
+    const markdownSectionId = await waitForTextSection(
       page,
       projectConfigName,
       markdownName,
@@ -245,15 +244,16 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Browser Test",
       },
     );
+    createdSectionIds.push(markdownSectionId);
 
-    const textTile = sectionNode
-      .locator("button")
+    const textTile = thumbnailRow
+      .locator('div[role="button"]')
       .filter({ hasText: textName })
       .first();
     await expect(textTile).toBeVisible();
     await textTile.dblclick();
 
-    await waitForTextSection(
+    const textSectionId = await waitForTextSection(
       page,
       projectConfigName,
       textName,
@@ -263,13 +263,14 @@ test("browser opens markdown and text files in text sections", async ({
         textIncludes: "Plaintext browser test.",
       },
     );
+    createdSectionIds.push(textSectionId);
   } finally {
-    await fs.rm(markdownPath, { force: true });
-    await fs.rm(textPath, { force: true });
     await postBackend(page, "/deleteSections", {
       projectConfigId,
-      sectionIds: [sectionId],
+      sectionIds: createdSectionIds,
     });
+    await fs.rm(markdownPath, { force: true });
+    await fs.rm(textPath, { force: true });
   }
 });
 
@@ -292,10 +293,6 @@ test("browser history buttons navigate folders", async ({ page }) => {
     {
       projectConfigId,
       implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
-      },
       viewportBounds,
     },
   );
@@ -325,8 +322,11 @@ test("browser history buttons navigate folders", async ({ page }) => {
       workspaceRoot,
     );
 
-    const backendTile = sectionNode
-      .locator("button")
+    const thumbnailRow = sectionNode
+      .locator('[class*="overflow-x-scroll"]')
+      .first();
+    const backendTile = thumbnailRow
+      .locator('div[role="button"]')
       .filter({ hasText: folderName })
       .first();
     await expect(backendTile).toBeVisible();
@@ -355,104 +355,10 @@ test("browser history buttons navigate folders", async ({ page }) => {
       .poll(() => readCodeMirrorValue(page, pathInputId))
       .toContain(folderName);
   } finally {
-    await fs.rm(folderPath, { recursive: true, force: true });
     await postBackend(page, "/deleteSections", {
       projectConfigId,
       sectionIds: [sectionId],
     });
-  }
-});
-
-test("browser list view opens folders on double click", async ({ page }) => {
-  await ensureAppReady(page);
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-  const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      position: {
-        x: viewportBounds.x + viewportBounds.w * 0.55,
-        y: viewportBounds.y + viewportBounds.h * 0.25,
-      },
-      viewportBounds,
-    },
-  );
-  const sectionId = browserSection?.sectionId;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating browser section.");
-  }
-
-  const folderName = "browser_list_folder";
-  const folderPath = path.join(workspaceRoot, folderName);
-  await fs.mkdir(folderPath, { recursive: true });
-
-  try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
-    await expect(sectionNode).toBeVisible();
-
-    await sectionNode.locator('button[aria-label="List view"]').click();
-
-    // List view is the default; ensure we're rooted at the workspace.
-    const pathInputId = await setBrowserPath(
-      page,
-      sectionNode,
-      sectionId,
-      workspaceRoot,
-    );
-
-    const explorer = sectionNode.locator('section[aria-label="File explorer"]');
-    await expect(explorer).toBeVisible();
-
-    const backButton = sectionNode.locator('button[aria-label="Go back"]');
-    const forwardButton = sectionNode.locator('button[aria-label="Go forward"]');
-
-    const folderButton = explorer
-      .getByRole("button", { name: folderName })
-      .first();
-    await expect(folderButton).toBeVisible();
-    await folderButton.scrollIntoViewIfNeeded();
-    await folderButton.dblclick();
-
-    await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-      )
-      .toContain(folderName);
-    await expect(backButton).toBeEnabled();
-
-    await backButton.click();
-    await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-      )
-      .toContain(normalizedWorkspaceRoot);
-
-    await expect(forwardButton).toBeEnabled();
-    await forwardButton.click();
-    await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-      )
-      .toContain(folderName);
-  } finally {
     await fs.rm(folderPath, { recursive: true, force: true });
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: [sectionId],
-    });
   }
 });

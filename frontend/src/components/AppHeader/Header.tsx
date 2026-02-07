@@ -7,6 +7,7 @@ import { ProjectNav } from "./ProjectNav";
 import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
 import { ProjectPageSearchBar } from "./SearchBar/ProjectPageSearch";
 import { SiteLogo } from "./SiteLogo";
+import { WorktreeHint } from "./WorktreeHint";
 
 export function HeaderContainer({ path }: { path: string }) {
   const { projectIsLoading, projectIs404 } = useProjectLoading((x) => ({
@@ -41,7 +42,7 @@ export function HeaderContainer({ path }: { path: string }) {
       )}
       <div className="relative flex flex-1 items-center justify-end">
         <Notification />
-        {/* <HelpText /> */}
+        <WorktreeHint />
       </div>
     </header>
   );

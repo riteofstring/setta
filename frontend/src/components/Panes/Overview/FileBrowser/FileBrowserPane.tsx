@@ -1,4 +1,3 @@
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import type { CSSProperties } from "react";
@@ -21,16 +20,6 @@ import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  matchesFileBrowserNameFilter,
-  matchesFileBrowserPathFilter,
-  normalizeFileBrowserPathForFilter,
-  parseFileBrowserFilterText,
-} from "utils/fileBrowserFilter";
-import {
-  filterFileBrowserItemsByTypeFilters,
-  type FileBrowserSearchScope,
-} from "utils/fileBrowserTypes";
-import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
@@ -48,8 +37,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 const FILTER_DEBOUNCE_MS = 150;
 const MAX_ENTRIES = 5000;
-const FILTER_RECURSIVE_MIN_CHARS = 2;
-const FILTER_RECURSIVE_MAX_FOLDERS = 600;
 
 type NodeKind = "folder" | "file";
 
@@ -67,157 +54,6 @@ export type FileNode = {
 type FlattenedNode = FileNode & {
   depth: number;
 };
-
-export type FlattenedFileNode = FlattenedNode;
-
-export function flattenFileBrowserTree({
-  rootPath,
-  nodesByPath,
-  expandedPaths,
-  filterText,
-  searchScope = "recursive",
-  getChildPaths,
-}: {
-  rootPath: string | null;
-  nodesByPath: Record<string, FileNode>;
-  expandedPaths: Record<string, boolean>;
-  filterText: string;
-  searchScope?: FileBrowserSearchScope;
-  getChildPaths: (path: string) => string[];
-}): FlattenedFileNode[] {
-  if (!rootPath) {
-    return [];
-  }
-  const rootNode = nodesByPath[rootPath];
-  if (!rootNode) {
-    return [];
-  }
-
-  const query = parseFileBrowserFilterText(filterText);
-  if (query.kind === "none") {
-    const result: FlattenedFileNode[] = [];
-    const walk = (path: string, depth: number) => {
-      const node = nodesByPath[path];
-      if (!node) {
-        return;
-      }
-      result.push({ ...node, depth });
-      const isExpanded = expandedPaths[path] === true;
-      if (node.type === "folder" && isExpanded) {
-        const children = getChildPaths(path);
-        for (const childPath of children) {
-          walk(childPath, depth + 1);
-        }
-      }
-    };
-    walk(rootPath, 0);
-    return result;
-  }
-
-  const normalizedRootPath = normalizeFileBrowserPathForFilter(rootPath);
-  if (searchScope === "local") {
-    const root = nodesByPath[rootPath];
-    if (!root) {
-      return [];
-    }
-    const result: FlattenedFileNode[] = [{ ...root, depth: 0 }];
-    const children = getChildPaths(rootPath);
-    for (const childPath of children) {
-      const node = nodesByPath[childPath];
-      if (!node) {
-        continue;
-      }
-      let matched = false;
-      if (query.kind === "path") {
-        const normalizedFullPath = normalizeFileBrowserPathForFilter(
-          node.fullPath,
-        );
-        let normalizedRelativePath: string | null = null;
-        if (normalizedFullPath.startsWith(normalizedRootPath)) {
-          normalizedRelativePath = normalizedFullPath.slice(
-            normalizedRootPath.length,
-          );
-          if (normalizedRelativePath.startsWith("/")) {
-            normalizedRelativePath = normalizedRelativePath.slice(1);
-          }
-        }
-        matched = matchesFileBrowserPathFilter(
-          query,
-          normalizedFullPath,
-          normalizedRelativePath,
-        );
-      } else {
-        matched = matchesFileBrowserNameFilter(
-          query,
-          node.name.toLowerCase(),
-          node.type,
-        );
-      }
-      if (matched) {
-        result.push({ ...node, depth: 1 });
-      }
-    }
-    return result;
-  }
-
-  const collectFiltered = (path: string, depth: number) => {
-    const node = nodesByPath[path];
-    if (!node) {
-      return { matched: false, items: [] as FlattenedFileNode[] };
-    }
-
-    let matched = false;
-    if (query.kind === "path") {
-      const normalizedFullPath = normalizeFileBrowserPathForFilter(
-        node.fullPath,
-      );
-      let normalizedRelativePath: string | null = null;
-      if (normalizedFullPath.startsWith(normalizedRootPath)) {
-        normalizedRelativePath = normalizedFullPath.slice(
-          normalizedRootPath.length,
-        );
-        if (normalizedRelativePath.startsWith("/")) {
-          normalizedRelativePath = normalizedRelativePath.slice(1);
-        }
-      }
-      matched = matchesFileBrowserPathFilter(
-        query,
-        normalizedFullPath,
-        normalizedRelativePath,
-      );
-    } else {
-      matched = matchesFileBrowserNameFilter(
-        query,
-        node.name.toLowerCase(),
-        node.type,
-      );
-    }
-
-    const children = getChildPaths(path);
-    if (children.length === 0) {
-      return matched
-        ? { matched: true, items: [{ ...node, depth }] }
-        : { matched: false, items: [] as FlattenedFileNode[] };
-    }
-
-    const childItems: FlattenedFileNode[] = [];
-    for (const childPath of children) {
-      const childResult = collectFiltered(childPath, depth + 1);
-      if (childResult.matched) {
-        matched = true;
-        childItems.push(...childResult.items);
-      }
-    }
-    if (!matched) {
-      return { matched: false, items: [] as FlattenedFileNode[] };
-    }
-    return {
-      matched: true,
-      items: [{ ...node, depth }, ...childItems],
-    };
-  };
-  return collectFiltered(rootPath, 0).items;
-}
 
 type RowData = {
   items: FlattenedNode[];
@@ -239,7 +75,6 @@ type FileBrowserRowProps = RowData & {
 
 type FileBrowserPaneProps = {
   onFileOpen?: (node: FileNode) => void;
-  onFolderOpen?: (node: FileNode) => void;
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
@@ -253,7 +88,6 @@ type FileBrowserPaneProps = {
 
 export function FileBrowserPane({
   onFileOpen,
-  onFolderOpen,
   onSelectionChange,
   useFileBrowserStateHook,
   showFilter = true,
@@ -262,27 +96,17 @@ export function FileBrowserPane({
   columnWidthConfig,
 }: FileBrowserPaneProps = {}) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
-  const { rootPath, expandedPaths, selectedPath, filterText, typeFilters, searchScope } =
+  const { rootPath, expandedPaths, selectedPath, filterText } =
     fileBrowserState((state) => ({
       rootPath: state.rootPath,
       expandedPaths: state.expandedPaths,
       selectedPath: state.selectedPath,
       filterText: state.filterText,
-      typeFilters: state.typeFilters,
-      searchScope: state.searchScope,
     }));
   const [nodesByPath, setNodesByPath] = useState<Record<string, FileNode>>({});
-  const nodesByPathRef = useRef(nodesByPath);
-  useEffect(() => {
-    nodesByPathRef.current = nodesByPath;
-  }, [nodesByPath]);
   const [childrenByPath, setChildrenByPath] = useState<
     Record<string, string[]>
   >({});
-  const childrenByPathRef = useRef(childrenByPath);
-  useEffect(() => {
-    childrenByPathRef.current = childrenByPath;
-  }, [childrenByPath]);
   const [loadingPaths, setLoadingPaths] = useState<Record<string, boolean>>({});
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
   const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
@@ -296,7 +120,6 @@ export function FileBrowserPane({
   const didLoadRootRef = useRef(false);
   const rootRequestIdRef = useRef(0);
   const folderRequestIdRef = useRef<Record<string, number>>({});
-  const filterRequestIdRef = useRef(0);
   const appliedRootRef = useRef<string | null>(null);
   const applyRootPathRef =
     useRef<
@@ -332,7 +155,7 @@ export function FileBrowserPane({
       folderPath: string,
       ignoreOverride?: string[],
       rootRequestId?: number,
-    ): Promise<FileNode[] | null> => {
+    ) => {
       const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
       const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
       const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
@@ -345,26 +168,24 @@ export function FileBrowserPane({
         includeMtime: true,
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
-        return null;
+        return;
       }
       if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
-        return null;
+        return;
       }
-      let loadedNodes: FileNode[] | null = null;
       if (res200(res)) {
         const items = res.data;
-        loadedNodes = items.map((item) => ({
-          name: item.name,
-          fullPath: item.fullPath,
-          type: item.type,
-          parentPath: folderPath,
-          mtime: item.mtime ?? null,
-        }));
-        const childPaths = loadedNodes.map((node) => node.fullPath);
+        const childPaths = items.map((item) => item.fullPath);
         setNodesByPath((prev) => {
           const next = { ...prev };
-          for (const node of loadedNodes ?? []) {
-            next[node.fullPath] = node;
+          for (const item of items) {
+            next[item.fullPath] = {
+              name: item.name,
+              fullPath: item.fullPath,
+              type: item.type,
+              parentPath: folderPath,
+              mtime: item.mtime ?? null,
+            };
           }
           return next;
         });
@@ -398,7 +219,6 @@ export function FileBrowserPane({
         delete next[folderPath];
         return next;
       });
-      return loadedNodes;
     },
     [ignorePatterns],
   );
@@ -519,110 +339,78 @@ export function FileBrowserPane({
     void loadRoot();
   }, []);
 
-  useEffect(() => {
-    if (searchScope !== "recursive") {
-      filterRequestIdRef.current += 1;
-      return;
-    }
-    const query = parseFileBrowserFilterText(filterText);
-    if (query.kind === "none") {
-      filterRequestIdRef.current += 1;
-      return;
-    }
-    if (
-      query.kind === "name" &&
-      query.needle.length < FILTER_RECURSIVE_MIN_CHARS
-    ) {
-      filterRequestIdRef.current += 1;
-      return;
-    }
+  const flattenedItems = useMemo(() => {
     if (!rootPath) {
-      return;
+      return [];
     }
-
-    const requestId = filterRequestIdRef.current + 1;
-    filterRequestIdRef.current = requestId;
-    const rootRequestId = rootRequestIdRef.current;
-
-    const queue: string[] = [rootPath];
-    const visited = new Set<string>();
-    const crawl = async () => {
-      while (
-        queue.length > 0 &&
-        visited.size < FILTER_RECURSIVE_MAX_FOLDERS &&
-        filterRequestIdRef.current === requestId
-      ) {
-        const folder = queue.shift();
-        if (!folder) {
-          continue;
-        }
-        if (visited.has(folder)) {
-          continue;
-        }
-        visited.add(folder);
-
-        const cachedChildren = childrenByPathRef.current[folder];
-        if (cachedChildren !== undefined) {
-          for (const childPath of cachedChildren) {
-            const childNode = nodesByPathRef.current[childPath];
-            if (childNode?.type === "folder") {
-              queue.push(childPath);
-            }
-          }
-          continue;
-        }
-
-        const loaded = await fetchFolderContents(
-          folder,
-          undefined,
-          rootRequestId,
-        );
-        if (filterRequestIdRef.current !== requestId) {
+    const rootNode = nodesByPath[rootPath];
+    if (!rootNode) {
+      return [];
+    }
+    const normalizedFilter = filterText.trim().toLowerCase();
+    const hasFilter = normalizedFilter.length > 0;
+    const isPathFilter = hasFilter && hasPathSeparator(normalizedFilter);
+    const normalizedPathFilter = isPathFilter
+      ? normalizeFilterPath(normalizedFilter)
+      : "";
+    if (!hasFilter) {
+      const result: FlattenedNode[] = [];
+      const walk = (path: string, depth: number) => {
+        const node = nodesByPath[path];
+        if (!node) {
           return;
         }
-        if (!loaded) {
-          continue;
-        }
-        for (const node of loaded) {
-          if (node.type === "folder") {
-            queue.push(node.fullPath);
+        result.push({ ...node, depth });
+        const isExpanded = expandedPaths[path] === true;
+        if (node.type === "folder" && isExpanded) {
+          const children = getSortedChildPaths(path);
+          for (const childPath of children) {
+            walk(childPath, depth + 1);
           }
         }
+      };
+      walk(rootPath, 0);
+      return result;
+    }
+    const collectFiltered = (path: string, depth: number) => {
+      const node = nodesByPath[path];
+      if (!node) {
+        return { matched: false, items: [] as FlattenedNode[] };
       }
+      const nameMatches = node.name.toLowerCase().includes(normalizedFilter);
+      const relativePath = getRelativePathForFilter(node.fullPath, rootPath);
+      const fullPath = normalizeFilterPath(node.fullPath);
+      const pathMatches = isPathFilter
+        ? relativePath.includes(normalizedPathFilter) ||
+          fullPath.includes(normalizedPathFilter)
+        : false;
+      const children = getSortedChildPaths(path);
+      let matched = nameMatches || pathMatches;
+      const childItems: FlattenedNode[] = [];
+      for (const childPath of children) {
+        const childResult = collectFiltered(childPath, depth + 1);
+        if (childResult.matched) {
+          matched = true;
+          childItems.push(...childResult.items);
+        }
+      }
+      if (!matched) {
+        return { matched: false, items: [] as FlattenedNode[] };
+      }
+      return {
+        matched: true,
+        items: [{ ...node, depth }, ...childItems],
+      };
     };
-
-    void crawl();
-  }, [fetchFolderContents, filterText, rootPath, searchScope]);
-
-  const flattenedItems = useMemo(() => {
-    return flattenFileBrowserTree({
-      rootPath,
-      nodesByPath,
-      expandedPaths,
-      filterText,
-      searchScope,
-      getChildPaths: getSortedChildPaths,
-    });
-  }, [
-    expandedPaths,
-    filterText,
-    getSortedChildPaths,
-    nodesByPath,
-    rootPath,
-    searchScope,
-  ]);
-
-  const displayedItems = useMemo(
-    () => filterFileBrowserItemsByTypeFilters(flattenedItems, typeFilters),
-    [flattenedItems, typeFilters],
-  );
+    return collectFiltered(rootPath, 0).items;
+  }, [rootPath, nodesByPath, expandedPaths, filterText, getSortedChildPaths]);
 
   const selectedIndex = useMemo(() => {
     if (!selectedPath) {
       return -1;
     }
-    return displayedItems.findIndex((item) => item.fullPath === selectedPath);
-  }, [displayedItems, selectedPath]);
+    return flattenedItems.findIndex((item) => item.fullPath === selectedPath);
+  }, [flattenedItems, selectedPath]);
 
   const handleToggle = useCallback(
     (path: string) => {
@@ -675,10 +463,6 @@ export function FileBrowserPane({
         return;
       }
       if (node.type === "folder") {
-        if (onFolderOpen) {
-          onFolderOpen(node);
-          return;
-        }
         handleToggle(path);
         return;
       }
@@ -694,27 +478,27 @@ export function FileBrowserPane({
         codeLanguage,
       });
     },
-    [handleToggle, nodesByPath, onFileOpen, onFolderOpen],
+    [handleToggle, nodesByPath, onFileOpen],
   );
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (displayedItems.length === 0) {
+      if (flattenedItems.length === 0) {
         return;
       }
       if (selectedIndex < 0) {
         if (event.key === "ArrowDown") {
           event.preventDefault();
           const nextIndex = 0;
-          const nextItem = displayedItems[nextIndex];
+          const nextItem = flattenedItems[nextIndex];
           if (nextItem) {
             handleSelect(nextItem.fullPath);
             listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
           }
         } else if (event.key === "ArrowUp") {
           event.preventDefault();
-          const nextIndex = displayedItems.length - 1;
-          const nextItem = displayedItems[nextIndex];
+          const nextIndex = flattenedItems.length - 1;
+          const nextItem = flattenedItems[nextIndex];
           if (nextItem) {
             handleSelect(nextItem.fullPath);
             listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
@@ -722,7 +506,7 @@ export function FileBrowserPane({
         }
         return;
       }
-      const currentItem = displayedItems[selectedIndex];
+      const currentItem = flattenedItems[selectedIndex];
       if (!currentItem) {
         return;
       }
@@ -730,9 +514,9 @@ export function FileBrowserPane({
         event.preventDefault();
         const nextIndex = Math.min(
           selectedIndex + 1,
-          displayedItems.length - 1,
+          flattenedItems.length - 1,
         );
-        const nextItem = displayedItems[nextIndex];
+        const nextItem = flattenedItems[nextIndex];
         if (nextItem) {
           handleSelect(nextItem.fullPath);
           listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
@@ -742,7 +526,7 @@ export function FileBrowserPane({
       if (event.key === "ArrowUp") {
         event.preventDefault();
         const nextIndex = Math.max(selectedIndex - 1, 0);
-        const nextItem = displayedItems[nextIndex];
+        const nextItem = flattenedItems[nextIndex];
         if (nextItem) {
           handleSelect(nextItem.fullPath);
           listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
@@ -786,8 +570,8 @@ export function FileBrowserPane({
     },
     [
       childrenByPath,
-      displayedItems,
       expandedPaths,
+      flattenedItems,
       handleOpen,
       handleSelect,
       handleToggle,
@@ -863,7 +647,7 @@ export function FileBrowserPane({
       )}
       <div
         ref={listWrapperRef}
-        className="nodrag relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white/80 dark:bg-setta-950/60"
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white/80 dark:bg-setta-950/60"
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
@@ -874,7 +658,7 @@ export function FileBrowserPane({
           }}
         >
           <div
-            className="relative flex items-center border-r border-transparent pr-6 transition-colors group-hover:border-setta-100/80 dark:group-hover:border-setta-800/80"
+            className="relative flex items-center border-r border-transparent pr-3 transition-colors group-hover:border-setta-100/80 dark:group-hover:border-setta-800/80"
             style={listInsetLeft ? { paddingLeft: listInsetLeft } : undefined}
           >
             <button
@@ -903,13 +687,13 @@ export function FileBrowserPane({
               )}
             </button>
             <div
-              className="group/resize nopan nodrag pointer-events-none absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
+              className="group/resize nopan nodrag absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center"
               onMouseDown={handleResizeStart}
             >
               <div className="h-4 w-1.5 rounded-full bg-setta-400/90 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-500 dark:group-hover/resize:bg-blue-400" />
             </div>
           </div>
-          <div className="flex items-center justify-end pl-3">
+          <div className="flex items-center justify-end">
             <button
               type="button"
               className="flex w-full min-w-0 items-center justify-end gap-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
@@ -941,11 +725,11 @@ export function FileBrowserPane({
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
-            rowCount={displayedItems.length}
+            rowCount={flattenedItems.length}
             rowHeight={ROW_HEIGHT}
-            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
             rowProps={{
-              items: displayedItems,
+              items: flattenedItems,
               expandedPaths,
               selectedPath,
               loadingPaths,
@@ -993,59 +777,25 @@ function FileBrowserRow({
     ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
     : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-900";
 
-  function handleRowDoubleClick(event: React.MouseEvent<HTMLElement>) {
-    event.stopPropagation();
-    const target = event.target;
-    if (
-      target instanceof HTMLElement &&
-      target.closest('[data-filebrowser-toggle="true"]')
-    ) {
-      return;
-    }
-    onSelect(item.fullPath);
-    onOpen(item.fullPath);
-  }
-
   return (
-    <button
-      type="button"
+    <div
       style={{
         ...style,
         display: "grid",
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
-      className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
+      className={`cursor-pointer items-center gap-2 pr-2 text-xs ${rowClasses}`}
       title={item.fullPath}
-      onMouseDown={(event) => {
-        event.stopPropagation();
-        // Clicking a row should behave like a real file explorer: it should
-        // take focus away from the address bar/filter so completion tooltips
-        // don't keep intercepting clicks.
-        if (typeof document !== "undefined") {
-          const active = document.activeElement;
-          if (active instanceof HTMLElement) {
-            active.blur();
-          }
-        }
-      }}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(item.fullPath);
-      }}
+      onClick={() => onSelect(item.fullPath)}
+      onDoubleClick={() => onOpen(item.fullPath)}
     >
       <div
         className="flex min-w-0 items-center gap-1 pr-2"
         style={{ paddingLeft }}
-        onDoubleClick={handleRowDoubleClick}
       >
         {isFolder ? (
-          <div
-            role="button"
-            tabIndex={-1}
-            aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
-            data-filebrowser-toggle="true"
+          <button
             className="flex h-4 w-4 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-            onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               onToggle(item.fullPath);
@@ -1056,7 +806,7 @@ function FileBrowserRow({
             ) : (
               <HiChevronRight size={12} />
             )}
-          </div>
+          </button>
         ) : (
           <span className="h-4 w-4" />
         )}
@@ -1065,12 +815,7 @@ function FileBrowserRow({
         ) : (
           <TbFile className="text-setta-400" size={14} />
         )}
-        <span
-          className="min-w-0 flex-1 truncate"
-          onDoubleClick={handleRowDoubleClick}
-        >
-          {item.name}
-        </span>
+        <span className="min-w-0 flex-1 truncate">{item.name}</span>
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}
@@ -1078,13 +823,10 @@ function FileBrowserRow({
           <span className="truncate text-[10px] text-red-400">!</span>
         )}
       </div>
-      <div
-        className="pr-1 text-right text-[11px] text-setta-400 dark:text-setta-500"
-        onDoubleClick={handleRowDoubleClick}
-      >
+      <div className="pr-1 text-right text-[11px] text-setta-400 dark:text-setta-500">
         {modifiedLabel}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -1110,6 +852,33 @@ function getBaseNameFromPath(path: string): string {
   return path;
 }
 
+function normalizeFilterPath(path: string): string {
+  return path.replaceAll("\\", "/").toLowerCase();
+}
+
+function hasPathSeparator(value: string): boolean {
+  return value.includes("/") || value.includes("\\");
+}
+
+function getRelativePathForFilter(
+  fullPath: string,
+  rootPath: string | null,
+): string {
+  const normalizedFull = normalizeFilterPath(fullPath);
+  if (!rootPath) {
+    return normalizedFull;
+  }
+  const normalizedRoot = normalizeFilterPath(rootPath);
+  if (normalizedFull.startsWith(normalizedRoot)) {
+    let relative = normalizedFull.slice(normalizedRoot.length);
+    if (relative.startsWith("/")) {
+      relative = relative.slice(1);
+    }
+    return relative;
+  }
+  return normalizedFull;
+}
+
 function formatModifiedAt(mtime?: number | null): string {
   if (!mtime) {
     return "";
@@ -1131,16 +900,14 @@ export function FileBrowserFilter({
   tooltipParentDivId?: string | null;
 }) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
-  const { filterText, rootPath, pathSeparator, ignorePatterns, searchScope } =
+  const { filterText, rootPath, pathSeparator, ignorePatterns } =
     fileBrowserState((state) => ({
       filterText: state.filterText,
       rootPath: state.rootPath,
       pathSeparator: state.pathSeparator,
       ignorePatterns: state.ignorePatterns,
-      searchScope: state.searchScope,
     }));
   const [filterInput, setFilterInput] = useState(filterText);
-  const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const inputId = useId();
   const completionSource = useMemo(
     () =>
@@ -1202,74 +969,6 @@ export function FileBrowserFilter({
         keyComboActions={keyComboActions}
         tooltipParentDivId={tooltipParentDivId}
       />
-      <StandardPopover
-        open={searchMenuOpen}
-        onOpenChange={setSearchMenuOpen}
-        arrowClasses="fill-white dark:fill-setta-800"
-        contentClasses="z-40 rounded-md border border-solid border-setta-200 bg-white px-2 py-2 shadow-lg dark:border-setta-700 dark:bg-setta-800"
-        trigger={
-          <button
-            type="button"
-            aria-label="Search scope options"
-            className="nodrag ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-setta-400 hover:bg-setta-50 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-500 dark:hover:bg-setta-850 dark:hover:text-setta-200"
-          >
-            <HiChevronDown size={16} />
-          </button>
-        }
-      >
-        <div className="flex w-[220px] flex-col gap-1 text-xs text-setta-700 dark:text-setta-200">
-          <button
-            type="button"
-            aria-pressed={searchScope === "recursive"}
-            className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-setta-50 dark:hover:bg-setta-850 ${
-              searchScope === "recursive"
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
-                : ""
-            }`}
-            onClick={() => {
-              fileBrowserState.setState({ searchScope: "recursive" });
-              setSearchMenuOpen(false);
-            }}
-          >
-            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
-              {searchScope === "recursive" ? (
-                <div className="h-full w-full rounded-full bg-blue-500" />
-              ) : null}
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold">Recursive search</div>
-              <div className="text-[11px] text-setta-400 dark:text-setta-500">
-                Search the current folder and nested folders.
-              </div>
-            </div>
-          </button>
-          <button
-            type="button"
-            aria-pressed={searchScope === "local"}
-            className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-setta-50 dark:hover:bg-setta-850 ${
-              searchScope === "local"
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
-                : ""
-            }`}
-            onClick={() => {
-              fileBrowserState.setState({ searchScope: "local" });
-              setSearchMenuOpen(false);
-            }}
-          >
-            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
-              {searchScope === "local" ? (
-                <div className="h-full w-full rounded-full bg-blue-500" />
-              ) : null}
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold">Local search</div>
-              <div className="text-[11px] text-setta-400 dark:text-setta-500">
-                Search only the current folder.
-              </div>
-            </div>
-          </button>
-        </div>
-      </StandardPopover>
     </search>
   );
 }

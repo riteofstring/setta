@@ -39,10 +39,6 @@ function normalizeSegments(path: string): string {
   return isAbsolute ? `/${joined}` : joined;
 }
 
-function startsWithPathPrefix(value: string, prefix: string): boolean {
-  return value === prefix || value.startsWith(`${prefix}/`);
-}
-
 export function resolvePathWithinRoot(
   input: string,
   rootPath: string,
@@ -53,24 +49,13 @@ export function resolvePathWithinRoot(
   }
   let normalizedInput = normalizeBrowserPath(input);
   if (
-    startsWithPathPrefix(normalizedRoot, "/private/var") ||
-    startsWithPathPrefix(normalizedInput, "/private/var")
+    normalizedRoot.startsWith("/private/var/") ||
+    normalizedInput.startsWith("/private/var/")
   ) {
-    if (startsWithPathPrefix(normalizedRoot, "/var")) {
+    if (normalizedRoot.startsWith("/var/")) {
       normalizedRoot = `/private${normalizedRoot}`;
     }
-    if (startsWithPathPrefix(normalizedInput, "/var")) {
-      normalizedInput = `/private${normalizedInput}`;
-    }
-  }
-  if (
-    startsWithPathPrefix(normalizedRoot, "/private/tmp") ||
-    startsWithPathPrefix(normalizedInput, "/private/tmp")
-  ) {
-    if (startsWithPathPrefix(normalizedRoot, "/tmp")) {
-      normalizedRoot = `/private${normalizedRoot}`;
-    }
-    if (startsWithPathPrefix(normalizedInput, "/tmp")) {
+    if (normalizedInput.startsWith("/var/")) {
       normalizedInput = `/private${normalizedInput}`;
     }
   }

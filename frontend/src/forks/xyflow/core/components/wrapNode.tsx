@@ -17,6 +17,11 @@ export const arrowKeyDiffs: Record<string, Position> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
+const AGENTIC_HANDLES_EXIT_CLASS = "agentic-handles--exit";
+// If the user is just skimming across a node, we skip the linger animation so
+// the handles fade out immediately.
+const AGENTIC_HANDLES_MIN_HOVER_FOR_EXIT_ANIMATION_MS = 200;
+
 const _NodeWrapper = ({
   id,
   isDraggable: _isDraggable,
@@ -29,6 +34,7 @@ const _NodeWrapper = ({
 }) => {
   const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
+  const agenticHandlesHoverStartMsRef = useRef<number | null>(null);
   const positionAndSizeLocked = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, id);
     return impl.positionAndSizeLocked;
@@ -52,6 +58,24 @@ const _NodeWrapper = ({
 
   return (
     <div
+      onPointerEnter={() => {
+        agenticHandlesHoverStartMsRef.current = performance.now();
+        nodeRef.current?.classList.remove(AGENTIC_HANDLES_EXIT_CLASS);
+      }}
+      onPointerLeave={() => {
+        const startMs = agenticHandlesHoverStartMsRef.current;
+        const nodeEl = nodeRef.current;
+        agenticHandlesHoverStartMsRef.current = null;
+        if (startMs === null || !nodeEl) {
+          return;
+        }
+        const hoveredMs = performance.now() - startMs;
+        if (hoveredMs < AGENTIC_HANDLES_MIN_HOVER_FOR_EXIT_ANIMATION_MS) {
+          nodeEl.classList.remove(AGENTIC_HANDLES_EXIT_CLASS);
+          return;
+        }
+        nodeEl.classList.add(AGENTIC_HANDLES_EXIT_CLASS);
+      }}
       className={cc([
         "react-flow__node",
         {

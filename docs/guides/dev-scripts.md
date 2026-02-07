@@ -21,6 +21,8 @@ Use these first for day-to-day work.
   - Wrapper over `scripts/kill-setta.sh`.
 - `./worktree.sh`
   - Worktree creation + setup.
+  - If you create a single worktree, enters it (starts a new shell there).
+  - If you create multiple worktrees, stays in the current folder (equivalent to `--stay`).
 - `./t.sh`
   - Runs tests (backend pytest + frontend Vitest + Playwright).
   - Flags: `--b` (backend-only), `--f` (frontend + Playwright only).

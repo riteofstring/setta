@@ -155,13 +155,12 @@ export function SectionContainerCoreResizable({
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      {!isMinimized && (
-        <AreaSwitch
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={bgColor}
-        />
-      )}
+      <AreaSwitch
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+      />
     </CustomResizable>
   );
 }
@@ -170,14 +169,25 @@ function AreaSwitch({
   sectionId,
   sectionTypeName,
   bgColor,
+  isMinimized,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
+  isMinimized: boolean;
 }) {
+  if (isMinimized && sectionTypeName !== SectionTypeEnum.Callable) {
+    return null;
+  }
   switch (sectionTypeName) {
     case SectionTypeEnum.Callable:
-      return <CallableArea sectionId={sectionId} bgColor={bgColor} />;
+      return (
+        <CallableArea
+          sectionId={sectionId}
+          bgColor={bgColor}
+          isMinimized={isMinimized}
+        />
+      );
     case SectionTypeEnum.Dict:
       return <DictArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Image:

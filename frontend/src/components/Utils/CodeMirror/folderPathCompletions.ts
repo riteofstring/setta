@@ -73,7 +73,7 @@ export function createFolderPathCompletionSource(
   const cache = new Map<string, FolderContentItem[]>();
   const inflight = new Map<string, Promise<FolderContentItem[]>>();
 
-  const getEntries = (folderPath: string) => {
+  const getEntries = async (folderPath: string) => {
     const cached = cache.get(folderPath);
     if (cached) {
       return cached;
@@ -95,7 +95,7 @@ export function createFolderPathCompletionSource(
     return request;
   };
 
-  return (context) => {
+  return async (context) => {
     const textBefore = context.state.doc.sliceString(0, context.pos);
     if (!context.explicit && textBefore.length === 0) {
       return null;
@@ -115,31 +115,22 @@ export function createFolderPathCompletionSource(
     if (!targetFolder) {
       return null;
     }
-
-    const to = context.pos;
-    const makeResult = (entries: FolderContentItem[]) => {
-      const optionsList: Completion[] = entries
-        .filter((entry) => entry.type === "folder")
-        .map((entry) => ({
-          label: entry.name,
-          type: "folder",
-          apply: `${entry.name}${separator}`,
-        }));
-      if (optionsList.length === 0) {
-        return null;
-      }
-      return {
-        from,
-        to,
-        options: optionsList,
-        filter: true,
-      };
-    };
-
-    const entries = getEntries(targetFolder);
-    if (Array.isArray(entries)) {
-      return makeResult(entries);
+    const entries = await getEntries(targetFolder);
+    const optionsList: Completion[] = entries
+      .filter((entry) => entry.type === "folder")
+      .map((entry) => ({
+        label: entry.name,
+        type: "folder",
+        apply: `${entry.name}${separator}`,
+      }));
+    if (optionsList.length === 0) {
+      return null;
     }
-    return entries.then(makeResult);
+    return {
+      from,
+      to: context.pos,
+      options: optionsList,
+      filter: true,
+    };
   };
 }

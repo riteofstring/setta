@@ -341,9 +341,6 @@ class ChatSectionImpl(BaseSectionImpl):
 
 class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=720.0, height=460.0)
-    )
     folder: str = ""
     hideColumn: bool = False
     columnWidth: float | None = None
