@@ -136,9 +136,14 @@ function formatChatTimestamp(timestampMs: number): string {
   return new Date(timestampMs).toLocaleString();
 }
 
-function formatTitleSource(source: "llm" | "deterministic" | "reused"): string {
+function formatTitleSource(
+  source: "llm" | "deterministic" | "reused" | "external",
+): string {
   if (source === "llm") {
     return "LLM";
+  }
+  if (source === "external") {
+    return "External";
   }
   if (source === "reused") {
     return "Reused";

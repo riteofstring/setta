@@ -1,11 +1,13 @@
 import hashlib
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.generated.chat_messages import BaseChatMessageUnion
 
 DEFAULT_TITLE_MAX_CHARS = 60
+EXTERNAL_TITLE_SOURCE = "external"
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,28 @@ def sanitize_llm_title(title: str, *, max_chars: int = DEFAULT_TITLE_MAX_CHARS) 
     if max_chars > 0 and len(normalized) > max_chars:
         normalized = normalized[:max_chars].rstrip()
     return normalized
+
+
+def maybe_set_external_chat_title(
+    outputs: dict[str, Any],
+    *,
+    title: str,
+    max_chars: int = DEFAULT_TITLE_MAX_CHARS,
+) -> bool:
+    """Set chat title from an external agent engine if allowed.
+
+    This intentionally never overwrites an LLM-generated title (source=llm),
+    but will replace deterministic/reused titles.
+    """
+    sanitized = sanitize_llm_title(title, max_chars=max_chars)
+    if not sanitized:
+        return False
+    raw_source = outputs.get("nameSource")
+    if isinstance(raw_source, str) and raw_source == "llm":
+        return False
+    outputs["name"] = sanitized
+    outputs["nameSource"] = EXTERNAL_TITLE_SOURCE
+    return True
 
 
 def _collapse_whitespace(text: str) -> str:

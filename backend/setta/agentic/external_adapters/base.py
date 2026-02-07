@@ -40,6 +40,8 @@ class ExternalAgentRunHandle:
     process: Any | None = None
     session_id: str | None = None
     thread_id: str | None = None
+    external_title: str | None = None
+    external_title_kind: str | None = None
     return_code: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 

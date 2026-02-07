@@ -250,6 +250,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
                         if isinstance(status, str) and status == "failed":
                             handle.return_code = 1
                     break
+            await self._maybe_set_thread_preview(state, handle)
         finally:
             state.lock.release()
 
@@ -597,6 +598,29 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             payload["params"] = params
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
+
+    async def _maybe_set_thread_preview(
+        self,
+        state: _CodexAppServerState,
+        handle: ExternalAgentRunHandle,
+    ) -> None:
+        thread_id = handle.thread_id or state.thread_id
+        if not thread_id:
+            return
+        try:
+            payload = await self._send_request(state, "thread/list", {})
+        except Exception as exc:
+            logger.debug(
+                "Codex app-server thread preview request failed (run_id=%s): %s",
+                handle.run_id,
+                exc,
+            )
+            return
+        preview = _extract_codex_thread_preview(payload, thread_id)
+        if not preview:
+            return
+        handle.external_title = preview
+        handle.external_title_kind = "codex_thread_preview"
 
 
 class _CodexAppServerEventParser:
@@ -1768,6 +1792,55 @@ def _extract_thread_id_from_result(result: dict[str, Any] | None) -> str | None:
         raw = nested.get("id") or nested.get("threadId")
         if isinstance(raw, str) and raw:
             return raw
+    return None
+
+
+def _extract_codex_thread_preview(
+    payload: dict[str, Any] | None, thread_id: str
+) -> str | None:
+    if not payload or not thread_id:
+        return None
+    raw_result: Any = payload
+    if isinstance(payload.get("result"), (dict, list)):
+        raw_result = payload.get("result")
+
+    candidates: list[Any] = []
+    if isinstance(raw_result, list):
+        candidates = raw_result
+    elif isinstance(raw_result, dict):
+        for key in ("threads", "items", "data", "results"):
+            value = raw_result.get(key)
+            if isinstance(value, list):
+                candidates = value
+                break
+        if not candidates:
+            maybe_threads = raw_result.get("threads")
+            if isinstance(maybe_threads, dict):
+                nested_items = maybe_threads.get("items")
+                if isinstance(nested_items, list):
+                    candidates = nested_items
+
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        raw_id = candidate.get("id") or candidate.get("threadId") or candidate.get(
+            "thread_id"
+        )
+        if not raw_id and isinstance(candidate.get("thread"), dict):
+            raw_id = candidate["thread"].get("id") or candidate["thread"].get("threadId")
+        if raw_id != thread_id:
+            continue
+        raw_preview = candidate.get("preview") or candidate.get("title") or candidate.get("name")
+        if raw_preview is None and isinstance(candidate.get("thread"), dict):
+            raw_preview = (
+                candidate["thread"].get("preview")
+                or candidate["thread"].get("title")
+                or candidate["thread"].get("name")
+            )
+        if isinstance(raw_preview, str):
+            normalized = raw_preview.strip()
+            if normalized:
+                return normalized
     return None
 
 

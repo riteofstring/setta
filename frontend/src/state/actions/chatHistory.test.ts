@@ -88,4 +88,20 @@ describe("chatHistory", () => {
     expect(entries[0].label).toBe("Example title");
     expect(entries[0].nameSource).toBe("llm");
   });
+
+  it("accepts external title nameSource when present", () => {
+    const runs = [
+      buildRun({
+        chatId: "root",
+        messageText: "Root message",
+        outputName: "External title",
+        nameSource: "external",
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].label).toBe("External title");
+    expect(entries[0].nameSource).toBe("external");
+  });
 });

@@ -14,7 +14,10 @@ from setta.agentic.agentic_context import build_agentic_context_payload
 from setta.agentic.agentic_summary_cache import (
     load_cached_agentic_summary_texts_for_chat_section,
 )
-from setta.agentic.chat_titles import build_deterministic_chat_title
+from setta.agentic.chat_titles import (
+    build_deterministic_chat_title,
+    maybe_set_external_chat_title,
+)
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     build_chat_state_from_run,
@@ -836,6 +839,17 @@ class ExternalAgentRunner:
             outputs["nameSource"] = "deterministic"
         elif "nameSource" not in outputs:
             outputs["nameSource"] = "reused"
+        run_state = self._run_state.get(run.id)
+        if run_state is not None:
+            handle = run_state.handle
+            if handle.external_title:
+                applied = maybe_set_external_chat_title(
+                    outputs,
+                    title=handle.external_title,
+                )
+                if applied and handle.external_title_kind:
+                    metadata.setdefault("externalTitleKind", handle.external_title_kind)
+                    outputs["metadata"] = metadata
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 

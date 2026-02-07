@@ -5,7 +5,7 @@ import {
 } from "utils/generatedTypes";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 
-type ChatTitleSource = "llm" | "deterministic" | "reused";
+type ChatTitleSource = "llm" | "deterministic" | "reused" | "external";
 
 type ChatHistoryEntry = {
   chatId: string;
@@ -96,7 +96,8 @@ function deriveChatNameSource(run: AgentRun): ChatTitleSource | null {
   if (
     nameSource === "llm" ||
     nameSource === "deterministic" ||
-    nameSource === "reused"
+    nameSource === "reused" ||
+    nameSource === "external"
   ) {
     return nameSource;
   }
