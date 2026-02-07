@@ -192,6 +192,7 @@ async def route_get_attachment_download_url(
     x: GetAttachmentDownloadUrlRequest,
     ctx: RuntimeContextFromRequest,
 ) -> GetAttachmentDownloadUrlResponse:
+    await ctx.enforce_download_allowed()
     if x.projectConfigId is not None:
         _validate_project_config(ctx, x.projectConfigId)
     artifacts = _resolve_artifacts(ctx)
@@ -215,6 +216,7 @@ async def route_get_attachment_download_urls(
     x: GetAttachmentDownloadUrlsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[AttachmentDownloadUrlEntry]:
+    await ctx.enforce_download_allowed()
     if not x.artifactIds:
         return []
     if x.projectConfigId is not None:
@@ -246,6 +248,7 @@ async def route_download_attachment(
     token: str,
     ctx: RuntimeContextFromRequest,
 ) -> Response:
+    await ctx.enforce_download_allowed()
     secret = _require_session_secret()
     try:
         payload = _TOKEN_MANAGER.validate(token, secret=secret)

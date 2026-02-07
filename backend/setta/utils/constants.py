@@ -55,6 +55,9 @@ class C:
     SHARE_DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "share_deployments"
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
+    APP_SPECS_FOLDER = SETTA_FILES_FOLDER / "app_specs"
+    APP_MODE = False
+    APP_DEPLOYMENT_ROOT: Path | None = None
 
     AUTH_COOKIE_NAME = os.environ.get("SETTA_AUTH_COOKIE_NAME", "setta_auth")
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12
