@@ -108,6 +108,27 @@ async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
     if (!root) {
       return null;
     }
+    const candidates = [
+      root,
+      root.querySelector(".cm-content"),
+      root.querySelector(".cm-editor"),
+      root.querySelector("[contenteditable='true']"),
+    ].filter(Boolean) as HTMLElement[];
+
+    for (const candidate of candidates) {
+      const maybeView = (candidate as HTMLElement & { cmView?: unknown }).cmView;
+      if (
+        maybeView &&
+        typeof maybeView === "object" &&
+        "state" in maybeView &&
+        typeof (maybeView as { state?: unknown }).state === "object" &&
+        (maybeView as { state?: { doc?: unknown } }).state?.doc &&
+        typeof (maybeView as { state: { doc: { toString: () => string } } }).state.doc
+          .toString === "function"
+      ) {
+        return (maybeView as { state: { doc: { toString: () => string } } }).state.doc.toString();
+      }
+    }
     const content =
       root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
     return content?.textContent ?? root.textContent ?? "";
