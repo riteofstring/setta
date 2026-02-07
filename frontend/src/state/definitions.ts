@@ -12,9 +12,9 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
-  AgenticEdgeKindEnum,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,

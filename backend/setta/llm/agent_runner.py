@@ -11,12 +11,16 @@ from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from pydantic import BaseModel
 
-from setta.agentic.chat_view import build_chat_state_from_run
 from setta.agentic.agentic_context import (
     AgenticContextPayload,
     build_agentic_context_payload,
 )
-from setta.agentic.agentic_scope import AgenticContext, AgenticScope, resolve_agentic_scope
+from setta.agentic.agentic_scope import (
+    AgenticContext,
+    AgenticScope,
+    resolve_agentic_scope,
+)
+from setta.agentic.chat_view import build_chat_state_from_run
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
@@ -66,8 +70,8 @@ from setta.mcp.namespacing import (
     build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
-from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.mcp.tool_metadata import FollowIdType
+from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -97,12 +101,12 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
 )
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.utils.chat_attachments import build_attachment_content_blocks
 from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
@@ -1081,7 +1085,9 @@ class AgentRunner:
                 filtered.append(name)
                 continue
             annotations = self.mcp_client.tool_annotations_by_name.get(name)
-            access_type = "structural" if annotations is None else annotations.accessType
+            access_type = (
+                "structural" if annotations is None else annotations.accessType
+            )
             if access_type == "structural" and not agentic_scope.structural_allowed:
                 continue
             if access_type == "read" and not agentic_scope.effective_read_section_ids():

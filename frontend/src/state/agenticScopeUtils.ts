@@ -1,6 +1,6 @@
 import { AgenticEdgeKindEnum, type AgenticEdge } from "utils/generatedTypes";
 
-export type AgenticScope = {
+type AgenticScope = {
   readSectionIds: Set<string>;
   writeSectionIds: Set<string>;
   contextSectionIds: Set<string>;

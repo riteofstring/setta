@@ -1,3 +1,5 @@
+import { receiveAgenticScopeViolationEdges } from "state/actions/aiFollow";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -11,7 +13,6 @@ import {
   recordFinalizedMessage,
   shouldPersistOnMessageStop,
 } from "state/aiStreamingTracker";
-import { receiveAgenticScopeViolationEdges } from "state/actions/aiFollow";
 import {
   type AgenticScopeViolationEdge,
   ChatDetails,
@@ -22,7 +23,6 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -52,10 +52,10 @@ import {
   route_update_prompt_template,
 } from "utils/generatedEndpoints";
 import {
+  AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
   AgentRunStatusEnum,
-  AgenticEdgeKindEnum,
   AllLLMConfigs,
   APIKeys,
   AssistantChatMessage,
@@ -1292,9 +1292,7 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
 }
 
-const scopeViolationEdgeKinds = new Set(
-  Object.values(AgenticEdgeKindEnum),
-);
+const scopeViolationEdgeKinds = new Set(Object.values(AgenticEdgeKindEnum));
 
 function extractAgenticScopeViolation(
   toolResult: ToolResultEvent["result"],

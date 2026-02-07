@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from mcp.types import CallToolResult, TextContent
+
 from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
 from setta.mcp.tool_metadata import SettaToolAnnotations, ToolAccessType
 from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
@@ -135,9 +136,7 @@ def check_agentic_scope_for_tool(
     )
     if temporary_to_canonical:
         ids_by_type = {
-            id_type: {
-                temporary_to_canonical.get(entry, entry) for entry in ids
-            }
+            id_type: {temporary_to_canonical.get(entry, entry) for entry in ids}
             for id_type, ids in ids_by_type.items()
         }
     section_ids = set(ids_by_type.get("section", set()))
@@ -336,10 +335,15 @@ def _map_code_obj_ids_to_sections(
                 if code_obj_id in code_obj_ids:
                     mapping.setdefault(code_obj_id, set()).add(section_id)
         if isinstance(section_impl, CallableSectionImpl):
-            if section_impl.callable is not None and section_impl.callable in code_obj_ids:
+            if (
+                section_impl.callable is not None
+                and section_impl.callable in code_obj_ids
+            ):
                 mapping.setdefault(section_impl.callable, set()).add(section_id)
     mapped_sections: set[ID] = set()
     for sections in mapping.values():
         mapped_sections.update(sections)
-    unmapped = {code_obj_id for code_obj_id in code_obj_ids if code_obj_id not in mapping}
+    unmapped = {
+        code_obj_id for code_obj_id in code_obj_ids if code_obj_id not in mapping
+    }
     return mapped_sections, unmapped

@@ -12,10 +12,11 @@ from setta.agentic.agentic_scope import (
 from setta.database.db_objs import DBE
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.mcp.client import MultiMCPClient
+from setta.mcp.namespacing import split_namespaced_tool_name
 from setta.types.chat_messages import ToolCall, ToolChatMessage
 from setta.types.chat_stream_events import ToolResultEvent
-from setta.types.id import ID
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
+from setta.types.id import ID
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -33,7 +34,6 @@ from .sanitization import sanitize_tool_arguments
 from .tool_runner import build_disallowed_tool_result, build_missing_tool_result
 from .tool_search import build_search_tool_chat_message, run_local_search_tool
 from .utils import is_setta_tool_name
-from setta.mcp.namespacing import split_namespaced_tool_name
 
 if TYPE_CHECKING:
     from setta.mcp.tool_metadata import SettaToolAnnotations
@@ -166,10 +166,7 @@ class ManagedActionExecutor:
             _, base_name = split_namespaced_tool_name(tool_name)
             if base_name != "set_agentic_context":
                 project_state_backend = self._dbe.read_project_required()
-                if (
-                    action.project_config_id
-                    not in project_state_backend.projectConfigs
-                ):
+                if action.project_config_id not in project_state_backend.projectConfigs:
                     raise KeyError(
                         f"Unknown project config: {action.project_config_id}"
                     )

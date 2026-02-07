@@ -174,7 +174,8 @@ const AgenticEdgeRenderer = () => {
 
   const sortedEdges = [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex);
   const missingEdges = useMemo(() => {
-    const violations = scopeViolationEdgesByProjectConfigId[projectConfigId] ?? [];
+    const violations =
+      scopeViolationEdgesByProjectConfigId[projectConfigId] ?? [];
     if (violations.length === 0) {
       return [];
     }

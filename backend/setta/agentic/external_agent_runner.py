@@ -10,13 +10,13 @@ from typing import Any
 
 from mcp.types import TextContent
 
+from setta.agentic.agentic_context import build_agentic_context_payload
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     build_chat_state_from_run,
     get_run_project_config_id,
     is_external_agent_run,
 )
-from setta.agentic.agentic_context import build_agentic_context_payload
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -56,11 +56,11 @@ from setta.llm.chat_toolkit.managed.ai_follow import (
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
-from setta.mcp.client import MultiMCPClient
 from setta.mcp.agentic_context_headers import build_agentic_context_headers
+from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
-from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.mcp.tool_metadata import FollowIdType
+from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -852,7 +852,9 @@ class ExternalAgentRunner:
     def _ensure_temporary_id(self, value: ID | None) -> ID | None:
         if value is None:
             return None
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
         map_size_before = len(canonical_to_temporary)
         temporary_value = convert_canonical_ids_to_temporary(
             value,

@@ -19,7 +19,6 @@ import {
   deleteAgenticEdgesById,
   updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
-import { resolveAgenticScopeFromEdges } from "state/agenticScopeUtils";
 import { updateEngineConfig } from "state/actions/ai";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -27,6 +26,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { resolveAgenticScopeFromEdges } from "state/agenticScopeUtils";
 import {
   useAIStore,
   useProjectState,

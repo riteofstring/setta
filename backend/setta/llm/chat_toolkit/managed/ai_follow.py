@@ -254,4 +254,3 @@ def ids_by_type_to_sets(
     ids_by_type: dict[FollowIdType, list[ID]],
 ) -> dict[FollowIdType, set[ID]]:
     return {id_type: set(ids) for id_type, ids in ids_by_type.items() if ids}
-

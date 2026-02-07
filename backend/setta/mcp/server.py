@@ -46,7 +46,6 @@ from starlette.types import Receive, Scope, Send
 
 from setta.agentic.agentic_scope import (
     AgenticContext,
-    AgenticScope,
     AgenticScopeCheck,
     build_missing_edge_hints,
     build_scope_blocked_tool_result,
@@ -69,8 +68,8 @@ from setta.mcp.utils import (
 )
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
-    filter_project_state_summary,
     filter_lsp_diagnostics_payload,
+    filter_project_state_summary,
 )
 from setta.types.id import ID
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -857,9 +856,7 @@ class SettaFastMCP(FastMCP):
                     manager.project_state_backend,
                     agentic_context.project_config_id,
                 )
-                scope = resolve_agentic_scope(
-                    project_state, agentic_context.section_id
-                )
+                scope = resolve_agentic_scope(project_state, agentic_context.section_id)
                 logger.info(
                     "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
                     agentic_context.project_config_id,

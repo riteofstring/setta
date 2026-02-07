@@ -19,4 +19,3 @@ def build_agentic_context_headers(
     if section_id is not None:
         headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = str(section_id)
     return headers
-

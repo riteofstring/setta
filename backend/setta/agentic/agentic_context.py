@@ -59,7 +59,9 @@ def build_agentic_context_payload(
     if not combined:
         return AgenticContextPayload(text="", section_ids=section_ids)
     header = "## Agentic Context\nThese sections are in scope via agentic edges.\n"
-    return AgenticContextPayload(text=f"{header}\n{combined}".strip(), section_ids=section_ids)
+    return AgenticContextPayload(
+        text=f"{header}\n{combined}".strip(), section_ids=section_ids
+    )
 
 
 def _build_context_block(
@@ -76,7 +78,9 @@ def _build_context_block(
     section_impl = get_curr_effective_section_impl(project_state, section_id)
     section_type = section_impl.type.value
 
-    rendered_id = format_section_id(section_id) if format_section_id else str(section_id)
+    rendered_id = (
+        format_section_id(section_id) if format_section_id else str(section_id)
+    )
     if context_mode == AgenticEdgeContextMode.reference_only:
         return f"- {label} ({section_type}) [id: {rendered_id}]"
 
@@ -94,7 +98,9 @@ def _build_context_block(
         else MAX_INLINE_LINES
     )
     truncated = _truncate_lines(raw_text, max_lines)
-    mode_label = "summary" if context_mode == AgenticEdgeContextMode.summary else "inline"
+    mode_label = (
+        "summary" if context_mode == AgenticEdgeContextMode.summary else "inline"
+    )
     return (
         f"### {label} ({section_type}) [id: {rendered_id} | {mode_label}]\n"
         f"{truncated}".strip()
