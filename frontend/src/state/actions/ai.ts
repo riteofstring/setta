@@ -539,9 +539,10 @@ function mergeChatSectionState(
   },
   preserveWaitingForResponse: boolean,
 ): ChatSectionState {
+  // Treat backend order as canonical, but keep any more-complete local copies.
   const mergedMessages = mergeChatMessages(
-    currentState.messages ?? [],
     incoming.messages ?? [],
+    currentState.messages ?? [],
   );
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
@@ -637,9 +638,10 @@ export async function getLLMChat(
       const nextWaitingForResponse = preserveWaitingForResponse
         ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
         : Boolean(waitingForResponse);
+      // Treat backend order as canonical, but keep any more-complete local copies.
       const nextMessages = mergeChatMessages(
-        existingDetails?.messages ?? [],
         messages,
+        existingDetails?.messages ?? [],
       );
       return {
         chatDetails: {
@@ -687,9 +689,10 @@ export async function getExternalAgentChat(
       const nextWaitingForResponse = preserveWaitingForResponse
         ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
         : Boolean(waitingForResponse);
+      // Treat backend order as canonical, but keep any more-complete local copies.
       const nextMessages = mergeChatMessages(
-        existingDetails?.messages ?? [],
         messages,
+        existingDetails?.messages ?? [],
       );
       return {
         chatDetails: {
@@ -750,10 +753,37 @@ export async function submitMessage(
   };
   const userMessageId = userMessage.id;
 
+  console.log(
+    JSON.stringify({
+      tag: "submitMessage",
+      phase: "optimistic-user-message",
+      chatId,
+      sectionId: sectionId ?? null,
+      engineConfigId,
+      isExternalEngine,
+      thinking,
+      agentProfileId: agentProfileId ?? null,
+      userMessage,
+    }),
+  );
   applyOptimisticUserMessage(chatId, userMessage);
 
   try {
     const projectConfigId = getCurrProjectConfigId();
+    console.log(
+      JSON.stringify({
+        tag: "submitMessage",
+        phase: "route_get_llm_response:request",
+        chatId,
+        sectionId: sectionId ?? null,
+        engineConfigId,
+        isExternalEngine,
+        thinking,
+        agentProfileId: agentProfileId ?? null,
+        projectConfigId,
+        userMessage,
+      }),
+    );
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
@@ -763,6 +793,17 @@ export async function submitMessage(
       projectConfigId,
       sectionId: sectionId ?? null,
     });
+    console.log(
+      JSON.stringify({
+        tag: "submitMessage",
+        phase: "route_get_llm_response:response",
+        chatId,
+        sectionId: sectionId ?? null,
+        status: res.status,
+        hasResponse: res.hasResponse,
+        data: res.data,
+      }),
+    );
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
       if (returnedChatId) {
@@ -781,6 +822,16 @@ export async function submitMessage(
     rollbackOptimisticUserMessage(chatId, userMessageId);
     return null;
   } catch (err) {
+    console.log(
+      JSON.stringify({
+        tag: "submitMessage",
+        phase: "route_get_llm_response:error",
+        chatId,
+        sectionId: sectionId ?? null,
+        userMessageId,
+        error: String(err),
+      }),
+    );
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
   }
@@ -1028,16 +1079,72 @@ function applyStreamingChunkToSection(
   }
 }
 
+function isManagedChatSection(
+  state: ZustandProjectState,
+  sectionId: string,
+): boolean {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return false;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return false;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return false;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return false;
+  }
+  const effective = {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  } as { type?: unknown; managed?: unknown };
+  if (effective.type !== SectionTypeEnum.Chat) {
+    return false;
+  }
+  return Boolean(effective.managed);
+}
+
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   const projectConfigId = getCurrProjectConfigId();
   let sectionId = msg.sectionId;
   if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
+    console.log(
+      JSON.stringify({
+        tag: "receiveLLMResponseChunk",
+        phase: "ignore-placeholder",
+        chatId,
+        sectionId: sectionId ?? null,
+        chunk,
+      }),
+    );
     return;
   }
   if (!sectionId && chatId) {
     sectionId = resolveSectionIdForChatId(chatId);
   }
+  const isManagedSection = sectionId
+    ? isManagedChatSection(useProjectState.getState(), sectionId)
+    : false;
+  const shouldUpdateChatDetails = !sectionId || isManagedSection;
+
+  console.log(
+    JSON.stringify({
+      tag: "receiveLLMResponseChunk",
+      chatId,
+      msgSectionId: msg.sectionId ?? null,
+      resolvedSectionId: sectionId ?? null,
+      isManagedSection,
+      shouldUpdateChatDetails,
+      chunk,
+    }),
+  );
   const shouldMarkActive =
     chunk.type === StreamingEventTypeEnum.MESSAGE_START ||
     chunk.type === StreamingEventTypeEnum.DELTA ||
@@ -1054,33 +1161,55 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
   if (sectionId) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
-    return;
   }
-  promotePendingChatDetailsIfNeeded(chatId);
-  switch (chunk.type) {
-    case StreamingEventTypeEnum.MESSAGE_START:
-      handleMessageStart(chatId, chunk);
-      return;
-    case StreamingEventTypeEnum.DELTA:
-      handleMessageDelta(chatId, chunk);
-      return;
-    case StreamingEventTypeEnum.TOOL_CALL_DELTA:
-      handleToolCallDelta(chatId, chunk);
-      return;
-    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
-      handleToolArgumentPreviewDelta(chatId, chunk);
-      return;
-    case StreamingEventTypeEnum.TOOL_RESULT:
-      handleToolResult(chatId, chunk);
-      return;
-    case StreamingEventTypeEnum.MESSAGE_STOP:
-      handleMessageStop(chatId);
-      return;
-    case StreamingEventTypeEnum.MESSAGE_FINALIZED:
-      handleMessageFinalized(chatId, chunk);
-      return;
-    default:
-      return chunk satisfies never;
+  if (shouldUpdateChatDetails) {
+    if (!sectionId) {
+      promotePendingChatDetailsIfNeeded(chatId);
+    }
+    switch (chunk.type) {
+      case StreamingEventTypeEnum.MESSAGE_START:
+        handleMessageStart(chatId, chunk);
+        return;
+      case StreamingEventTypeEnum.DELTA:
+        handleMessageDelta(chatId, chunk);
+        return;
+      case StreamingEventTypeEnum.TOOL_CALL_DELTA:
+        handleToolCallDelta(chatId, chunk);
+        return;
+      case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
+        if (sectionId) {
+          updateChatDetails(chatId, (details) =>
+            applyToolCallDelta(details, chunk),
+          );
+          return;
+        }
+        handleToolArgumentPreviewDelta(chatId, chunk);
+        return;
+      case StreamingEventTypeEnum.TOOL_RESULT:
+        if (sectionId) {
+          updateChatDetails(chatId, (details) => {
+            return {
+              ...details,
+              messages: upsertMessage(details.messages, chunk.result),
+            };
+          });
+          clearToolArgumentPreviewByToolCallId(
+            projectConfigId,
+            chunk.result.tool_call_id,
+          );
+          return;
+        }
+        handleToolResult(chatId, chunk);
+        return;
+      case StreamingEventTypeEnum.MESSAGE_STOP:
+        handleMessageStop(chatId);
+        return;
+      case StreamingEventTypeEnum.MESSAGE_FINALIZED:
+        handleMessageFinalized(chatId, chunk);
+        return;
+      default:
+        return chunk satisfies never;
+    }
   }
 }
 
