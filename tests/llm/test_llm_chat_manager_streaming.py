@@ -6,7 +6,6 @@ from tempfile import TemporaryDirectory
 from litellm.types.utils import Delta
 from litellm.utils import supports_prompt_caching
 
-from setta.agentic.agentic_scope import AgenticScope
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.chat_toolkit.managed.stream_assembler import StreamContentEntry
@@ -147,7 +146,6 @@ class TestSystemPromptInjection:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
-                agentic_scope=AgenticScope(),
             )
 
             assert payload["messages"][0]["role"] == "system"
@@ -184,7 +182,6 @@ class TestCachePrompting:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
-                agentic_scope=AgenticScope(),
             )
 
             if supports_cache:
@@ -209,7 +206,6 @@ class TestCachePrompting:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
-                agentic_scope=AgenticScope(),
             )
 
             assert payload["cache_control_injection_points"] == [
@@ -242,7 +238,6 @@ class TestCachePrompting:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
-                agentic_scope=AgenticScope(),
             )
 
             if supports_cache:
@@ -284,7 +279,6 @@ class TestAnthropicThinkingSummary:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
-                agentic_scope=AgenticScope(),
             )
 
             assistant_payload = payload["messages"][2]

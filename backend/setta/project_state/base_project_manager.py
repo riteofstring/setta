@@ -27,6 +27,21 @@ from setta.agentic.chat_view import (
     SCRIPTABLE_CHAT_RUN_TYPE,
 )
 from setta.agentic.store import list_agent_run_ids_by_metadata
+from setta.app.definition_diagnostics import (
+    build_app_capabilities,
+    validate_app_definition_payload,
+    validate_app_theme_or_raise,
+)
+from setta.app.spec_store import (
+    default_app_spec_path,
+    normalize_app_spec_path,
+    read_app_spec,
+    write_app_spec,
+)
+from setta.app.spec_validation import (
+    validate_app_action_definitions,
+    validate_app_spec,
+)
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -86,6 +101,7 @@ from setta.project_state.project_code import (
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
+    AppDefinitionResponse,
     AppendDrawAreaLayerItemRequest,
     AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
@@ -112,6 +128,7 @@ from setta.project_state.project_manager_types import (
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    GetAppDefinitionRequest,
     GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
@@ -133,6 +150,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetAgenticEdgesRequest,
+    SetAppDefinitionRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -205,8 +223,11 @@ from setta.project_state.project_manager_types import (
     UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateAgenticEdgeRequest,
+    UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    ValidateAppDefinitionRequest,
+    ValidateAppDefinitionResponse,
 )
 from setta.project_state.watch_code import (
     WatchCodeManager,
@@ -215,6 +236,8 @@ from setta.project_state.watch_code import (
     normalize_watch_code_folders,
 )
 from setta.types.agentic_edges import AgenticEdge
+from setta.types.app_definition import AppDefinition
+from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -473,6 +496,23 @@ def _apply_run_overrides(
                 dep_key.codeObjId,
                 value,
             )
+
+
+def _apply_json_merge_patch(
+    base: JSONValue | None,
+    patch: JSONValue,
+) -> JSONValue:
+    if not isinstance(patch, dict):
+        return patch
+    base_obj: dict[str, JSONValue] = {}
+    if isinstance(base, dict):
+        base_obj = dict(base)
+    for key, value in patch.items():
+        if value is None:
+            base_obj.pop(key, None)
+            continue
+        base_obj[key] = _apply_json_merge_patch(base_obj.get(key), value)
+    return base_obj
 
 
 class BaseProjectManager(ABC):
@@ -1062,8 +1102,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["topLevelSections"]}
-        ),
-        access_type="structural",
+        )
     )
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
         """Persist the provided top-level section layout ordering for a project."""
@@ -1080,7 +1119,7 @@ class BaseProjectManager(ABC):
         view_mode.topLevelSections = merged_layouts
 
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
     async def auto_layout_top_level_sections(
         self, x: AutoLayoutTopLevelSectionsRequest
     ):
@@ -1095,8 +1134,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionSizes"]}
-        ),
-        access_type="structural",
+        )
     )
     async def set_section_sizes(self, x: SetSectionSizesRequest):
         """Update section size settings for the requested sections and broadcast the refreshed project state."""
@@ -1461,7 +1499,6 @@ class BaseProjectManager(ABC):
             previewValuePath="callableName",
             previewKind=ToolArgumentPreviewKind.callableName,
         ),
-        access_type="write",
     )
     async def set_callable(self, x: SetCallableRequest) -> SetCallableResponse:
         """Update a section's callable binding and refresh the surrounding project."""
@@ -1502,7 +1539,7 @@ class BaseProjectManager(ABC):
         return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
 
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
     async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         """Persist the prefix template used when generating runtime code."""
         self.add_new_history_entry()
@@ -1514,7 +1551,7 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
     async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
         """Persist the suffix template used when generating runtime code."""
         self.add_new_history_entry()
@@ -1526,7 +1563,7 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
     async def set_project_config_codegen_targets(
         self, x: SetProjectConfigCodegenTargetsRequest
     ):
@@ -1605,8 +1642,131 @@ class BaseProjectManager(ABC):
             validate_name_rules=False,
         )
 
+    @enqueue_method(require_serialization=False)
+    @project_state_tool()
+    async def get_app_definition(
+        self, _x: GetAppDefinitionRequest
+    ) -> AppDefinitionResponse:
+        """Fetch the stored app UI spec and definition."""
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition
+        app_spec = None
+        if app_definition and app_definition.appSpecPath:
+            app_spec = read_app_spec(self.dbe, app_definition.appSpecPath)
+        return AppDefinitionResponse(appSpec=app_spec, appDefinition=app_definition)
+
+    @enqueue_method(require_serialization=False)
+    @project_state_tool()
+    async def validate_app_definition(
+        self, x: ValidateAppDefinitionRequest
+    ) -> ValidateAppDefinitionResponse:
+        """Validate an app spec + definition overrides without persisting them."""
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        updates: dict[str, JSONValue | str | None] = {}
+        if x.appSpecVersion is not None:
+            updates["appSpecVersion"] = x.appSpecVersion
+        if x.catalogId is not None:
+            updates["catalogId"] = x.catalogId
+        if x.routes is not None:
+            updates["routes"] = x.routes
+        if x.dataBindings is not None:
+            updates["dataBindings"] = x.dataBindings
+        if x.actions is not None:
+            updates["actions"] = x.actions
+        if x.theme is not None:
+            updates["theme"] = x.theme
+        if x.assets is not None:
+            updates["assets"] = x.assets
+
+        updated_definition = app_definition.model_copy(update=updates)
+        errors, warnings = validate_app_definition_payload(
+            x.appSpec, definition=updated_definition
+        )
+        capabilities = build_app_capabilities(updated_definition)
+        return ValidateAppDefinitionResponse(
+            errors=errors,
+            warnings=warnings,
+            capabilities=capabilities,
+        )
+
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
+    async def set_app_definition(
+        self, x: SetAppDefinitionRequest
+    ) -> AppDefinitionResponse:
+        """Replace the stored app UI spec and update app definition metadata."""
+        self.add_new_history_entry()
+        project_state = self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        target_path = (
+            x.appSpecPath or app_definition.appSpecPath or default_app_spec_path()
+        )
+        normalized_path = normalize_app_spec_path(self.dbe, target_path)
+        updates: dict[str, JSONValue | str | None] = {"appSpecPath": normalized_path}
+        if x.appSpecVersion is not None:
+            updates["appSpecVersion"] = x.appSpecVersion
+        if x.catalogId is not None:
+            updates["catalogId"] = x.catalogId
+        if x.routes is not None:
+            updates["routes"] = x.routes
+        if x.dataBindings is not None:
+            updates["dataBindings"] = x.dataBindings
+        if x.actions is not None:
+            updates["actions"] = x.actions
+        if x.theme is not None:
+            updates["theme"] = x.theme
+        if x.assets is not None:
+            updates["assets"] = x.assets
+        updated_definition = app_definition.model_copy(update=updates)
+        validate_app_theme_or_raise(updated_definition.theme)
+        validate_app_action_definitions(updated_definition.actions)
+        validate_app_spec(
+            x.appSpec,
+            catalog_id=updated_definition.catalogId,
+            action_definitions=updated_definition.actions,
+            data_bindings=updated_definition.dataBindings,
+        )
+        self.project_state_backend = self.project_state_backend.model_copy(
+            update={"appDefinition": updated_definition}
+        )
+        write_app_spec(self.dbe, normalized_path, x.appSpec)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return AppDefinitionResponse(
+            appSpec=x.appSpec,
+            appDefinition=updated_definition,
+        )
+
+    @enqueue_method
+    @project_state_tool()
+    async def update_app_definition(
+        self, x: UpdateAppDefinitionRequest
+    ) -> AppDefinitionResponse:
+        """Apply a JSON merge patch to the stored app UI spec."""
+        self.add_new_history_entry()
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition
+        if app_definition is None or not app_definition.appSpecPath:
+            raise KeyError("App spec path is not configured for this project.")
+        existing = read_app_spec(self.dbe, app_definition.appSpecPath)
+        if existing is None:
+            raise KeyError("App spec not found for this project.")
+        merged = _apply_json_merge_patch(existing, x.patch)
+        validate_app_action_definitions(app_definition.actions)
+        validate_app_spec(
+            merged,
+            catalog_id=app_definition.catalogId,
+            action_definitions=app_definition.actions,
+            data_bindings=app_definition.dataBindings,
+        )
+        write_app_spec(self.dbe, app_definition.appSpecPath, merged)
+        return AppDefinitionResponse(
+            appSpec=merged,
+            appDefinition=app_definition,
+        )
+
+    @enqueue_method
+    @project_state_tool()
     async def set_show_param_display_names(self, x: SetShowParamDisplayNamesRequest):
         """Toggle whether parameter display names are shown in the UI."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -1614,7 +1774,7 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
     async def set_watch_code_enabled(self, x: SetWatchCodeEnabledRequest):
         """Enable or disable watch code mode for the project."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -1625,7 +1785,7 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    @project_state_tool(access_type="structural")
+    @project_state_tool()
     async def set_watch_code_inputs(self, x: SetWatchCodeInputsRequest):
         """Update watched folders and files for watch code mode."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -1709,7 +1869,6 @@ class BaseProjectManager(ABC):
             previewValuePath="value",
             previewKind=ToolArgumentPreviewKind.paramValue,
         ),
-        access_type="write",
     )
     async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
         """Write a new manual value for the targeted section parameter."""
@@ -1734,8 +1893,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_type_error_ignore(self, x: SetTypeErrorIgnoreRequest):
         """Toggle ignoring type errors for the targeted section entry."""
@@ -1775,8 +1933,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_code_section_diagnostics_mute(
         self, x: SetCodeSectionDiagnosticsMuteRequest
@@ -1794,8 +1951,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_code_section_diagnostic_code_suppression(
         self, x: SetCodeSectionDiagnosticCodeSuppressionRequest
@@ -1818,8 +1974,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId", "terminalSectionId"]}
-        ),
-        access_type="structural",
+        )
     )
     async def set_code_section_attached_terminal(
         self, x: SetCodeSectionAttachedTerminalRequest
@@ -1922,7 +2077,6 @@ class BaseProjectManager(ABC):
             previewValuePath="value",
             previewKind=ToolArgumentPreviewKind.paramValue,
         ),
-        access_type="write",
     )
     async def set_param_name_and_value(self, x: SetParamNameAndValueRequest):
         """Set a parameter's name and value in one step."""
@@ -1950,8 +2104,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"codeObj": ["codeObjId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
         """Rename the requested code object within the active project state."""
@@ -1984,8 +2137,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"codeObj": ["codeObjId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_code_obj_display_name(self, x: SetCodeObjDisplayNameRequest):
         """Update the user-facing display name for the requested code object."""
@@ -2010,8 +2162,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionIds"]}
-        ),
-        access_type="structural",
+        )
     )
     async def toggle_position_locks(self, x: TogglePositionLocksRequest):
         """Flip whether multiple sections' layouts are locked in place."""
@@ -2023,8 +2174,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="structural",
+        )
     )
     async def toggle_minimized(self, x: ToggleMinimizedRequest):
         """Expand or collapse a section panel within the project workspace."""
@@ -2036,8 +2186,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="structural",
+        )
     )
     async def toggle_group_orientation(self, x: ToggleGroupOrientationRequest):
         """Flip whether a group section lays out children horizontally."""
@@ -2049,8 +2198,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="structural",
+        )
     )
     async def set_group_overflow_mode(self, x: SetGroupOverflowModeRequest):
         """Set whether a group section constrains its children in a scrollable area."""
@@ -2068,7 +2216,6 @@ class BaseProjectManager(ABC):
             previewValuePath="code",
             previewKind=ToolArgumentPreviewKind.code,
         ),
-        access_type="write",
     )
     async def set_code(self, x: SetCodeRequest):
         """Persist inline code edits for the requested section if edits are allowed."""
@@ -2101,8 +2248,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def format_code(self, x: FormatCodeRequest):
         """Format code for a Python code section using Ruff."""
@@ -2225,8 +2371,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
         """Update the value filter applied to a section's parameter list."""
@@ -2391,8 +2536,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_section_variant(self, x: SetSectionVariantRequest):
         """Switch a section to an explicit variant and propagate its state."""
@@ -2404,8 +2548,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_default_section_variant(self, x: SetDefaultSectionVariantRequest):
         """Change the default variant automatically used for a section."""
@@ -2417,8 +2560,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
-        ),
-        access_type="write",
+        )
     )
     async def change_param_impl(self, x: ChangeParamImplRequest):
         """Swap the selected implementation backing a section parameter."""
@@ -2439,8 +2581,7 @@ class BaseProjectManager(ABC):
             pathsByIdType={
                 "section": ["sectionId"],
             },
-        ),
-        access_type="structural",
+        )
     )
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
         """Create a root-level section for the requested implementation.
@@ -2479,8 +2620,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["parentId"]}
-        ),
-        access_type="structural",
+        )
     )
     async def create_child_sections(self, x: CreateChildSectionsRequest):
         """Create one or more child sections beneath a parent section."""
@@ -2500,8 +2640,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["calledBy"]}
-        ),
-        access_type="structural",
+        )
     )
     async def create_child_sections_via_incrementer(
         self, x: CreateChildSectionsViaIncrementerRequest
@@ -2535,8 +2674,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionIds"]}
-        ),
-        access_type="structural",
+        )
     )
     async def delete_sections(self, x: DeleteSectionsRequest):
         """Remove the specified sections and broadcast the updated project."""
@@ -2549,8 +2687,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["calledBy"]}
-        ),
-        access_type="structural",
+        )
     )
     async def delete_child_sections_via_decrementer(
         self, x: DeleteChildSectionsViaDecrementerRequest
@@ -2565,8 +2702,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"], "codeObj": ["paramInfoId"]}
-        ),
-        access_type="write",
+        )
     )
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
         """Overwrite the configuration dict for a parameter implementation."""
@@ -2579,8 +2715,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="structural",
+        )
     )
     async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
         """Duplicate the current section state into an additional variant."""
@@ -2593,8 +2728,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def add_kwarg(self, x: AddKwargRequest):
         """Append a blank keyword argument entry to the section."""
@@ -2607,8 +2741,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def delete_kwarg(self, x: DeleteKwargRequest):
         """Remove the last keyword argument entry from the section."""
@@ -2621,8 +2754,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def delete_selected_params(self, x: DeleteSelectedParamsRequest):
         """Remove selected parameters from the section."""
@@ -3172,8 +3304,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_section_name(self, x: SetSectionNameRequest):
         """Rename a section and broadcast the updated project state."""
@@ -3188,8 +3319,7 @@ class BaseProjectManager(ABC):
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
+        )
     )
     async def set_meta_control_show_section_title(
         self, x: SetMetaControlShowSectionTitleRequest
@@ -3580,6 +3710,12 @@ class BaseProjectManager(ABC):
             return self.project_state_backend.projectConfigs[defaultId].name
         return None
 
+    def _get_default_project_state(self) -> ProjectStateSingleConfig:
+        default_id = self.project_state_backend.defaultProjectConfigId
+        if default_id is None:
+            raise KeyError("Missing default project config.")
+        return self.get_single_config_state(default_id)
+
     def get_single_config_state(self, projectConfigId: ID):
         return convert_backend_to_single_config(
             self.project_state_backend, projectConfigId
@@ -3744,7 +3880,7 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
-    @project_state_tool(tool_type=SettaToolType.init, access_type="read")
+    @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_project_state_summary(
         self, x: GetLatestProjectStateSummaryRequest
     ):
@@ -3755,7 +3891,7 @@ class BaseProjectManager(ABC):
         return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)
-    @project_state_tool(tool_type=SettaToolType.init, access_type="read")
+    @project_state_tool(tool_type=SettaToolType.init)
     async def get_latest_lsp_diagnostics(
         self, x: GetLatestLspDiagnosticsRequest
     ) -> SettaLspDiagnosticsPayload:
