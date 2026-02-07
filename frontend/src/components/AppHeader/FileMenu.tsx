@@ -7,7 +7,6 @@ import {
   openFileMenuLoadProjectConfigModal,
   openFileMenuSaveProjectConfigAsModal,
   openFileMenuSaveProjectConfigAsWithRefsModal,
-  openPublishAppDeploymentModal,
   openPublishShareDeploymentModal,
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
@@ -75,12 +74,6 @@ export function FileMenu() {
         paddingClassName="px-1.5"
       >
         Publish Share Deployment
-      </MenuItem>
-      <MenuItem
-        onClick={openPublishAppDeploymentModal}
-        paddingClassName="px-1.5"
-      >
-        Publish App Deployment
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
     </NavbarMenuDropdown>

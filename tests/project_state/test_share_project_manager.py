@@ -51,7 +51,7 @@ from setta.types.section_impls import (
 )
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.utils.utils import GEN_CODE_META_FILENAME, normalize_path
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.listener_registry import ListenerRegistry
@@ -256,7 +256,6 @@ def _write_project_with_state(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
@@ -286,7 +285,6 @@ def _write_project_with_states(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
@@ -313,7 +311,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config_b.id,
                 deploymentVersion=root.name,
             )
@@ -336,7 +333,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=config.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion="v42",
             )
@@ -359,7 +355,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -377,7 +372,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -394,7 +388,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -730,7 +723,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
@@ -810,7 +802,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
