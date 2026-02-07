@@ -29,7 +29,7 @@ def test_create_and_load_session() -> None:
         assert len(sessions) == 1
         loaded = sessions[0]
         assert loaded.id == created.id
-        assert Path(loaded.workspacePath) == workspace.resolve()
+        assert Path(loaded.workspacePathCanonical) == workspace.resolve()
         assert loaded.host == "127.0.0.1"
         assert loaded.port == 61234
         assert loaded.pid == 12345
@@ -62,7 +62,7 @@ def test_find_sessions_by_workspace_resolves_paths() -> None:
         alt_path = workspace / "." / Path("..") / workspace.name
         matches = registry.find_sessions_by_workspace(alt_path, prune_stale=False)
         assert len(matches) == 1
-        assert Path(matches[0].workspacePath) == workspace.resolve()
+        assert Path(matches[0].workspacePathCanonical) == workspace.resolve()
 
 
 def test_delete_session_removes_metadata() -> None:

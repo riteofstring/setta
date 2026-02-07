@@ -38,6 +38,7 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     get_python_codegen_target_with_type_guard,
 )
+from setta.utils.paths import get_setta_paths
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
     CodeFileAccessMode,
@@ -51,8 +52,9 @@ from setta.types.section_impls import (
 )
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
-from setta.utils.utils import GEN_CODE_META_FILENAME, normalize_path
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.utils.paths import normalize_state_path
+from setta.utils.utils import GEN_CODE_META_FILENAME
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -256,7 +258,6 @@ def _write_project_with_state(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
@@ -286,7 +287,6 @@ def _write_project_with_states(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
@@ -313,7 +313,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config_b.id,
                 deploymentVersion=root.name,
             )
@@ -336,7 +335,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=config.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion="v42",
             )
@@ -359,7 +357,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -377,7 +374,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -394,7 +390,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -520,9 +515,9 @@ class TestShareRuntimeState:
                 DrawSectionImpl,
             )
 
-            expected_chart = str(normalize_path(root / chart_rel_path))
-            expected_draw = str(normalize_path(root / draw_rel_path))
-            expected_transform = str(normalize_path(root / transform_rel_path))
+            expected_chart = str(normalize_state_path(root / chart_rel_path))
+            expected_draw = str(normalize_state_path(root / draw_rel_path))
+            expected_transform = str(normalize_state_path(root / transform_rel_path))
             assert expected_chart == chart_session_impl.dataPath
             assert 1 == len(draw_session_impl.layers)
             assert 1 == len(draw_session_impl.layers[0].elements)
@@ -531,7 +526,9 @@ class TestShareRuntimeState:
             assert expected_transform == element.transformId
 
     def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
-        with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
+        with TemporaryDirectory(
+            dir=str(get_setta_paths().workspace_root)
+        ) as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -704,7 +701,9 @@ class TestShareRuntimeState:
             assert "123" == code_impl.value
 
     def test_run_snapshot_mode_never_is_rejected(self) -> None:
-        with TemporaryDirectory(dir=Path.cwd()) as tmpdir:
+        with TemporaryDirectory(
+            dir=str(get_setta_paths().workspace_root)
+        ) as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -730,7 +729,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
@@ -810,7 +808,6 @@ class TestShareRuntimeState:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )

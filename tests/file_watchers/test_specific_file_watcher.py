@@ -6,7 +6,7 @@ import pytest
 
 from setta.file_watchers.specific_file_watcher import MockFileEvent, SpecificFileWatcher
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_state_path
 
 
 @pytest.mark.asyncio
@@ -25,7 +25,7 @@ async def test_file_modification_triggers_callback() -> None:
             events.append(core_update)
             event.set()
 
-        normalized = normalize_path(file_path)
+        normalized = normalize_state_path(file_path)
         watcher.update_callbacks({normalized: callback}, "test", set())
         watcher.start()
         try:

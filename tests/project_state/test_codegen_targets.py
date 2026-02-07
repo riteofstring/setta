@@ -1,3 +1,4 @@
+from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -46,70 +47,15 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.constants import C
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_state_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-
-def _set_temp_constants(root: Path) -> dict[str, Path]:
-    previous = {
-        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-        "CODE_FOLDER": C.CODE_FOLDER,
-        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
-        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
-        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
-        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
-        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
-        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
-    }
-    C.SETTA_FILES_FOLDER = root / "setta_files"
-    C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
-    C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
-    C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
-    C.RUNTIME_FOLDER = C.SETTA_FILES_FOLDER / "runtime"
-    C.RUNTIME_SESSIONS_FOLDER = C.RUNTIME_FOLDER / "sessions"
-    C.RUNTIME_LOGS_FOLDER = C.RUNTIME_FOLDER / "logs"
-    C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
-    C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
-    C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
-    for path in (
-        C.SETTA_FILES_FOLDER,
-        C.CODE_FOLDER,
-        C.DB_BACKUP_FOLDER,
-        C.ARTIFACTS_FOLDER,
-        C.RUNTIME_FOLDER,
-        C.RUNTIME_SESSIONS_FOLDER,
-        C.RUNTIME_LOGS_FOLDER,
-        C.RUNTIME_MCP_FOLDER,
-        C.RUNTIME_SECRETS_FOLDER,
-        C.DETACHED_RUNS_FOLDER,
-        C.SHARE_DEPLOYMENTS_FOLDER,
-    ):
-        path.mkdir(parents=True, exist_ok=True)
-    return previous
-
-
-def _restore_constants(previous: dict[str, Path]) -> None:
-    C.SETTA_FILES_FOLDER = previous["SETTA_FILES_FOLDER"]
-    C.CODE_FOLDER = previous["CODE_FOLDER"]
-    C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
-    C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
-    C.RUNTIME_FOLDER = previous["RUNTIME_FOLDER"]
-    C.RUNTIME_SESSIONS_FOLDER = previous["RUNTIME_SESSIONS_FOLDER"]
-    C.RUNTIME_LOGS_FOLDER = previous["RUNTIME_LOGS_FOLDER"]
-    C.RUNTIME_MCP_FOLDER = previous["RUNTIME_MCP_FOLDER"]
-    C.RUNTIME_SECRETS_FOLDER = previous["RUNTIME_SECRETS_FOLDER"]
-    C.DETACHED_RUNS_FOLDER = previous["DETACHED_RUNS_FOLDER"]
-    C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
-
+from tests.utils.setta_paths import temporary_setta_paths
 
 class CodegenTargetsProjectManager(BaseProjectManager):
     def __init__(
@@ -158,17 +104,38 @@ class TestCodegenTargetsBindings:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
-        self._previous = _set_temp_constants(Path(self._tmpdir.name))
+        root = Path(self._tmpdir.name)
+        self._stack = ExitStack()
+        self._stack.enter_context(
+            temporary_setta_paths(
+                workspace_root=root,
+                setta_files_root=root / "setta_files",
+            )
+        )
+        for path in (
+            C.SETTA_FILES_FOLDER,
+            C.CODE_FOLDER,
+            C.DB_BACKUP_FOLDER,
+            C.ARTIFACTS_FOLDER,
+            C.RUNTIME_FOLDER,
+            C.RUNTIME_SESSIONS_FOLDER,
+            C.RUNTIME_LOGS_FOLDER,
+            C.RUNTIME_MCP_FOLDER,
+            C.RUNTIME_SECRETS_FOLDER,
+            C.DETACHED_RUNS_FOLDER,
+            C.SHARE_DEPLOYMENTS_FOLDER,
+        ):
+            path.mkdir(parents=True, exist_ok=True)
 
         yield
 
-        _restore_constants(self._previous)
+        self._stack.close()
         self._tmpdir.cleanup()
 
     def test_validate_code_file_bindings_skips_gen_python(self) -> None:
         gen_impl = GenPythonCodeSectionImpl()
         gen_impl.codeFileBinding = CodeFileBinding(
-            canonical_path=normalize_path(C.CODE_FOLDER / "generated.py"),
+            canonical_path=normalize_state_path(C.CODE_FOLDER / "generated.py"),
             access_mode=CodeFileAccessMode.write_only,
         )
         variant = Variant(
@@ -208,7 +175,28 @@ class TestCodegenTargetsRunCommand:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
-        self._previous = _set_temp_constants(Path(self._tmpdir.name))
+        root = Path(self._tmpdir.name)
+        self._stack = ExitStack()
+        self._stack.enter_context(
+            temporary_setta_paths(
+                workspace_root=root,
+                setta_files_root=root / "setta_files",
+            )
+        )
+        for path in (
+            C.SETTA_FILES_FOLDER,
+            C.CODE_FOLDER,
+            C.DB_BACKUP_FOLDER,
+            C.ARTIFACTS_FOLDER,
+            C.RUNTIME_FOLDER,
+            C.RUNTIME_SESSIONS_FOLDER,
+            C.RUNTIME_LOGS_FOLDER,
+            C.RUNTIME_MCP_FOLDER,
+            C.RUNTIME_SECRETS_FOLDER,
+            C.DETACHED_RUNS_FOLDER,
+            C.SHARE_DEPLOYMENTS_FOLDER,
+        ):
+            path.mkdir(parents=True, exist_ok=True)
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
@@ -239,7 +227,7 @@ class TestCodegenTargetsRunCommand:
 
         yield
 
-        _restore_constants(self._previous)
+        self._stack.close()
         self._tmpdir.cleanup()
 
     async def test_create_run_command_runs_manual_code_when_python_disabled(self) -> None:
@@ -704,7 +692,6 @@ class TestShareRuntimeStateCodegenTargets:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=project_config.id,
                 deploymentVersion=root.name,
             )
@@ -768,7 +755,6 @@ class TestShareRuntimeStateRunCommand:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=project_config.id,
                 deploymentVersion=root.name,
             )
@@ -867,7 +853,6 @@ class TestShareRuntimeStateRunCommand:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=project_config.id,
                 deploymentVersion=root.name,
             )
