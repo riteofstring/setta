@@ -172,17 +172,15 @@ class SettaFastAPIState:
         app,
         *,
         share_mode: bool = False,
-        app_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
-        self.app_mode = app_mode
-        self.share_mode = share_mode or app_mode
+        self.share_mode = share_mode
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
         self.share_deployment_root = self._resolve_share_deployment_root(
-            self.share_mode, share_deployment_root
+            share_mode, share_deployment_root
         )
         self.share_runtime_root = self._resolve_share_runtime_root(
             self.share_deployment_root
@@ -275,10 +273,7 @@ class SettaFastAPIState:
         self.run_chain_runner: RunChainRunner = self._defer_attr("run_chain_runner")
 
         self.init_status = BackendInitializationStatus()
-        if self.app_mode:
-            mode_label = "app"
-        else:
-            mode_label = "share" if self.share_mode else "backend"
+        mode_label = "share" if self.share_mode else "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(

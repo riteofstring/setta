@@ -12,7 +12,7 @@ from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from tests.utils.runtime_context import runtime_context
 
 
@@ -48,7 +48,6 @@ def _write_share_project(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
