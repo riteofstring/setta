@@ -117,8 +117,7 @@ This keeps Watch Code aligned whether edits happen in the UI or in the editor.
 ## Path matching rules
 - Non-recursive folders only match direct children.
 - Recursive folders match any descendant path.
-- Watch inputs are resolved with `normalize_workspace_path` so comparisons stay
-  consistent relative to the workspace root.
+- Watch inputs are resolved with `normalize_path` so comparisons are consistent
   across relative/absolute paths.
 
 ## Code references

@@ -61,10 +61,6 @@ export function openDropzoneFilePickerModal(
   openModal({ type: ModalTypeEnum.DROPZONE_FILE_PICKER, data });
 }
 
-export function openWorkspaceSwitcherModal() {
-  openModal({ type: ModalTypeEnum.WORKSPACE_SWITCHER, data: null });
-}
-
 export function useModalData<T extends ModalType>(
   modalType: T,
 ): ModalDataMap[T] {
