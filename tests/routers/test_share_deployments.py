@@ -31,7 +31,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
 from setta.utils.constants import C
 from setta.utils.structured_data import read_json_source_payload
 
