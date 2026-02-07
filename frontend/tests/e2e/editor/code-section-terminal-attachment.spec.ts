@@ -759,6 +759,72 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
   }
 });
 
+test("terminal reflows command echo when width increases", async ({ page }) => {
+  test.skip(
+    Boolean(process.env.CI),
+    "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
+  );
+  test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    await resetViewport(page);
+
+    await runCodeBlockInPage(page, codeSectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId);
+
+    await setSectionSize(page, codeSectionId, { width: 300, height: 480 });
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
+    );
+
+    // Use a marker + long x-tail in a comment so marker appears in the echoed
+    // command line, but NOT in the command output.
+    const marker = `CMDREFLOW_${Date.now()}`;
+    const longComment = `${marker}_${"x".repeat(220)}`;
+    await focusTerminalAndType(page, terminalId, `echo ok # ${longComment}`);
+
+    await waitForTerminalRowsMarker(page, terminalId, marker, 20000);
+    const narrowRowCount = countLongLineRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      marker,
+    );
+    expect(narrowRowCount).toBeGreaterThan(1);
+
+    await setSectionSize(page, codeSectionId, { width: 640, height: 480 });
+    await syncEmbeddedTerminalSectionSize(
+      page,
+      terminalId,
+      embeddedTerminalHost,
+    );
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineRows(rows, marker);
+      })
+      .toBeLessThan(narrowRowCount);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 test("terminal resize messages are throttled during drag detach", async ({
   page,
 }) => {
@@ -1027,13 +1093,21 @@ async function focusTerminalAndType(
   terminalId: string,
   text: string,
 ): Promise<void> {
-  const terminalNode = page.locator(
+  const detachedTerminalNode = page.locator(
     `.react-flow__node[data-id="${terminalId}"]`,
   );
-  const terminalContainer = terminalNode.locator(".xterm");
+  const embeddedTerminalHost = page.locator(
+    `[data-attached-terminal-section-id="${terminalId}"]`,
+  );
+  const root =
+    (await detachedTerminalNode.count()) > 0
+      ? detachedTerminalNode
+      : embeddedTerminalHost.locator("xpath=ancestor::section[1]");
+
+  const terminalContainer = root.locator(".xterm");
   await expect(terminalContainer).toBeVisible();
   await terminalContainer.click({ position: { x: 8, y: 8 } });
-  const input = terminalNode.locator(
+  const input = root.locator(
     ".xterm-helper-textarea, .xterm textarea",
   );
   await input.first().waitFor({ state: "attached", timeout: 20000 });
@@ -1048,7 +1122,7 @@ async function focusTerminalAndType(
   });
   await expect
     .poll(async () => {
-      return await terminalNode.evaluate((node) => {
+      return await root.evaluate((node) => {
         const active = document.activeElement;
         return Boolean(active instanceof HTMLElement && node.contains(active));
       });

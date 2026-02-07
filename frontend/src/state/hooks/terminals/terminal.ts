@@ -728,53 +728,108 @@ function patchWrappedFlagsForWidenReflow({
   const scanStart = Math.max(1, absCursorY - 400);
   const scanEnd = Math.min(active.length - 1, absCursorY + 8);
 
+  const anyTerminal = terminal as any;
+  const bufferService = anyTerminal?._core?._bufferService;
+  const internalBuffer =
+    bufferService?.buffer ?? bufferService?.buffers?.active ?? null;
+  const internalLines =
+    internalBuffer?.lines ??
+    internalBuffer?._lines ??
+    bufferService?.buffers?.active?.lines ??
+    null;
+
+  const readInternalLine = (lineView: any, y: number) => {
+    if (lineView && typeof lineView === "object") {
+      // xterm BufferLineApiView often keeps a reference to the internal line.
+      if ("_line" in lineView) {
+        return (lineView as any)._line;
+      }
+      if ("_bufferLine" in lineView) {
+        return (lineView as any)._bufferLine;
+      }
+    }
+    return internalLines?.get?.(y) ?? internalBuffer?.getLine?.(y) ?? null;
+  };
+
   let scanned = 0;
+  let candidates = 0;
   let patched = 0;
+  let internalLineHits = 0;
+  let internalLineMisses = 0;
   for (let y = scanStart; y <= scanEnd; y += 1) {
-    const prev = active.getLine(y - 1);
-    const line = active.getLine(y);
+    const prevView = active.getLine(y - 1) as any;
+    const lineView = active.getLine(y) as any;
+
+    const prev = readInternalLine(prevView, y - 1);
+    const line = readInternalLine(lineView, y);
     if (!prev || !line) {
+      internalLineMisses += 1;
       continue;
     }
+    internalLineHits += 1;
     scanned += 1;
 
     if (line.isWrapped) {
       continue;
     }
 
-    if (typeof line.getTrimmedLength !== "function") {
-      continue;
-    }
-    if (typeof prev.getTrimmedLength !== "function") {
-      continue;
-    }
-    if (typeof prev.getCodePoint !== "function") {
-      continue;
-    }
-
-    if (line.getTrimmedLength() === 0) {
+    const lineTrimmedLength =
+      typeof line.getTrimmedLength === "function"
+        ? line.getTrimmedLength()
+        : typeof lineView?.translateToString === "function"
+          ? lineView.translateToString(true).length
+          : 0;
+    if (lineTrimmedLength === 0) {
       continue;
     }
 
     // Only consider this a wrap continuation when the previous line is "full".
     // This mirrors xterm's own wrapping semantics and matches shells that break
     // the input line at the right margin.
-    if (prev.getTrimmedLength() !== oldCols) {
+    const prevTrimmedLength =
+      typeof prev.getTrimmedLength === "function"
+        ? prev.getTrimmedLength()
+        : typeof prevView?.translateToString === "function"
+          ? prevView.translateToString(true).length
+          : 0;
+    if (prevTrimmedLength !== oldCols && prevTrimmedLength !== oldCols - 1) {
       continue;
     }
 
-    // Bail if the last cell is blank/space. (TrimmedLength should already
-    // exclude whitespace, but guard anyway.)
-    const lastCodePoint = prev.getCodePoint(oldCols - 1);
-    if (lastCodePoint === 0 || lastCodePoint === 32 || lastCodePoint === 9) {
-      continue;
+    candidates += 1;
+
+    if (prevTrimmedLength === oldCols) {
+      // Bail if the last cell is blank/space. (TrimmedLength should already
+      // exclude whitespace, but guard anyway.)
+      const lastCodePoint =
+        typeof prev.getCodePoint === "function"
+          ? prev.getCodePoint(oldCols - 1)
+          : null;
+      if (
+        lastCodePoint === 0 ||
+        lastCodePoint === 32 ||
+        lastCodePoint === 9
+      ) {
+        continue;
+      }
     }
 
-    (line as any).isWrapped = true;
+    if ("isWrapped" in (line as any)) {
+      (line as any).isWrapped = true;
+    } else if ("_isWrapped" in (line as any)) {
+      (line as any)._isWrapped = true;
+    } else {
+      // Can't safely patch unknown line representations.
+      continue;
+    }
     patched += 1;
   }
 
-  if (patched > 0) {
+  if (
+    candidates > 0 ||
+    patched > 0 ||
+    (internalLineMisses > 0 && internalLineHits === 0)
+  ) {
     terminalDebugLog({
       event: "terminal_reflow_patch_wrapped_flags",
       sessionKey,
@@ -786,7 +841,15 @@ function patchWrappedFlagsForWidenReflow({
       scanStart,
       scanEnd,
       scanned,
+      candidates,
       patched,
+      internalLineHits,
+      internalLineMisses,
+      internalPaths: {
+        hasBufferService: Boolean(bufferService),
+        hasInternalBuffer: Boolean(internalBuffer),
+        hasInternalLines: Boolean(internalLines),
+      },
       buffer: getTerminalBufferCursorContext(terminal),
     });
   }
@@ -905,24 +968,33 @@ function fitTerminal({
   }
   let proposed: { cols: number; rows: number } | null = null;
   let proposeSource: "addon_fit" | "fallback" | null = null;
-  try {
-    const next = fitAddon.proposeDimensions();
-    if (
-      next &&
-      typeof next.cols === "number" &&
-      typeof next.rows === "number"
-    ) {
-      proposed = { cols: next.cols, rows: next.rows };
-      proposeSource = "addon_fit";
+  const anyFitAddon = fitAddon as any;
+  const proposeDisabled = Boolean(anyFitAddon.__settaProposeDisabled);
+  if (!proposeDisabled) {
+    try {
+      const next = fitAddon.proposeDimensions();
+      if (
+        next &&
+        typeof next.cols === "number" &&
+        typeof next.rows === "number"
+      ) {
+        proposed = { cols: next.cols, rows: next.rows };
+        proposeSource = "addon_fit";
+      }
+    } catch (err) {
+      // When addon-fit is mismatched with the xterm major version, proposeDimensions
+      // can reliably throw. Disable subsequent propose calls for this instance to
+      // avoid spamming logs and keep resizing responsive.
+      anyFitAddon.__settaProposeDisabled = true;
+      terminalDebugLog({
+        event: "terminal_fit_propose_error",
+        sessionKey,
+        sectionId,
+        reason,
+        error: String(err),
+        disabledFuturePropose: true,
+      });
     }
-  } catch (err) {
-    terminalDebugLog({
-      event: "terminal_fit_propose_error",
-      sessionKey,
-      sectionId,
-      reason,
-      error: String(err),
-    });
   }
   if (!proposed) {
     proposed = proposeDimensionsFallback(terminal);
