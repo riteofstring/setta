@@ -75,21 +75,25 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
         return;
       }
       setIsSaving(true);
-      const result = await onSave(value, attachments);
-      setIsSaving(false);
-      if (result === false) {
-        return;
+      try {
+        const result = await onSave(value, attachments);
+        if (result === false) {
+          return;
+        }
+      } finally {
+        setIsSaving(false);
       }
     },
     [attachments, canSubmit, onSave, value],
   );
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     if (isSaving) {
       return;
     }
+    await handleClearAttachments();
     onCancel();
-  }, [isSaving, onCancel]);
+  }, [handleClearAttachments, isSaving, onCancel]);
 
   const textAreaClassName = useMemo(() => {
     const base =

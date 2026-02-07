@@ -113,8 +113,6 @@ type ChatMessageListProps = {
   toolCallArguments?: Record<string, string>;
   className?: string;
   scrollRef?: Ref<HTMLDivElement>;
-  chatId?: string;
-  sectionId?: string;
   onEditMessage?: (
     messageId: string,
     text: string,

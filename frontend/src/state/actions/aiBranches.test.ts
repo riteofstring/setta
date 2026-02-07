@@ -44,27 +44,6 @@ function buildRun({
 }
 
 describe("aiBranches", () => {
-  it("indexes branches and orders children by createdAt", () => {
-    const runs = [
-      buildRun({ chatId: "parent" }),
-      buildRun({
-        chatId: "child-1",
-        branchParentChatId: "parent",
-        branchFromMessageId: "msg-1",
-        branchCreatedAt: 100,
-      }),
-      buildRun({
-        chatId: "child-2",
-        branchParentChatId: "parent",
-        branchFromMessageId: "msg-1",
-        branchCreatedAt: 200,
-      }),
-    ];
-    const index = buildChatBranchIndex(runs);
-    const children = index.branchChildrenByChatId.parent?.["msg-1"] ?? [];
-    expect(children).toEqual(["child-1", "child-2"]);
-  });
-
   it("builds branch switcher info for parent and child chats", () => {
     const runs = [
       buildRun({ chatId: "parent" }),

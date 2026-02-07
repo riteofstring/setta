@@ -304,11 +304,19 @@ async def route_get_llm_response(
             prior_messages = build_chat_state_from_run(parent_run).messages
             if not _has_message_id(prior_messages, x.branchFromMessageId):
                 prior_messages = _get_run_input_messages(parent_run)
-        combined_messages = _build_branch_messages(
-            prior_messages=prior_messages,
-            edited_message=x.message,
-            branch_from_message_id=x.branchFromMessageId,
-        )
+        try:
+            combined_messages = _build_branch_messages(
+                prior_messages=prior_messages,
+                edited_message=x.message,
+                branch_from_message_id=x.branchFromMessageId,
+            )
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    f"Message {x.branchFromMessageId} not found in chat history"
+                ),
+            ) from exc
     else:
         if x.chatId is not None:
             prior_messages = _get_prior_messages_for_engine(

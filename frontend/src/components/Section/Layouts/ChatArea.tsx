@@ -579,8 +579,6 @@ function ScriptableChatArea({
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
       <ChatMessageList
-        chatId={effectiveBranchId ?? undefined}
-        sectionId={sectionId}
         messages={effectiveMessages}
         waitingForResponse={effectiveState.waitingForResponse}
         toolCallArguments={toolCallArguments}
@@ -1024,8 +1022,6 @@ function ManagedChatArea({
         </div>
       ) : null}
       <ChatMessageList
-        chatId={typeof chatId === "string" ? chatId : undefined}
-        sectionId={sectionId}
         messages={messages}
         waitingForResponse={waitingForResponse}
         toolCallArguments={toolCallArguments}

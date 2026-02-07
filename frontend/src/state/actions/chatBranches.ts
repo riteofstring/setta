@@ -192,10 +192,6 @@ export function buildBranchIndexFromBranches(
   branches: Record<string, ChatSectionBranch>,
 ): ChatBranchIndex {
   const branchInfoByChatId: Record<string, ChatBranchInfo> = {};
-  const branchChildrenByChatId: Record<
-    string,
-    Record<string, Array<string>>
-  > = {};
   for (const [branchId, branch] of Object.entries(branches)) {
     if (!branch.parentBranchId || !branch.branchFromMessageId) {
       continue;
@@ -208,14 +204,5 @@ export function buildBranchIndexFromBranches(
       branchCreatedAt: branch.createdAt ?? null,
     };
   }
-  for (const info of Object.values(branchInfoByChatId)) {
-    if (!info.branchParentChatId || !info.branchFromMessageId) {
-      continue;
-    }
-    const parentEntry = branchChildrenByChatId[info.branchParentChatId] ?? {};
-    const messageChildren = parentEntry[info.branchFromMessageId] ?? [];
-    parentEntry[info.branchFromMessageId] = [...messageChildren, info.chatId];
-    branchChildrenByChatId[info.branchParentChatId] = parentEntry;
-  }
-  return { branchInfoByChatId, branchChildrenByChatId };
+  return { branchInfoByChatId };
 }

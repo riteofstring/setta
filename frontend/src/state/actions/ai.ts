@@ -807,13 +807,6 @@ export async function submitEditedMessage({
   if (!trimmed && attachments.length === 0) {
     return null;
   }
-  const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
-    parentChatId,
-    engineConfigId,
-  );
-  if (!resolvedEngineConfigId) {
-    return null;
-  }
 
   const content = [];
   if (trimmed) {
@@ -826,8 +819,17 @@ export async function submitEditedMessage({
     attachments,
   };
   const nextMessages = buildEditedMessageHistory(messages, editedMessage);
-  const pendingMessages = nextMessages ?? [...messages, editedMessage];
-  initializePendingChatDetailsWithMessages(pendingMessages);
+  if (!nextMessages) {
+    return null;
+  }
+  const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
+    parentChatId,
+    engineConfigId,
+  );
+  if (!resolvedEngineConfigId) {
+    return null;
+  }
+  initializePendingChatDetailsWithMessages(nextMessages);
   const projectConfigId = getCurrProjectConfigId();
 
   const setSectionChatId = async (nextChatId: string | null) => {

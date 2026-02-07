@@ -7,7 +7,6 @@ import {
 
 export type ChatBranchIndex = {
   branchInfoByChatId: Record<string, ChatBranchInfo>;
-  branchChildrenByChatId: Record<string, Record<string, Array<string>>>;
 };
 
 export type ChatMessageBranchInfo = {
@@ -25,10 +24,6 @@ type BranchMetadata = {
 
 export function buildChatBranchIndex(runs: Array<AgentRun>): ChatBranchIndex {
   const branchInfoByChatId: Record<string, ChatBranchInfo> = {};
-  const branchChildrenByChatId: Record<
-    string,
-    Record<string, Array<string>>
-  > = {};
 
   for (const run of runs) {
     const chatId = getRunChatId(run);
@@ -59,17 +54,7 @@ export function buildChatBranchIndex(runs: Array<AgentRun>): ChatBranchIndex {
     };
   }
 
-  for (const info of Object.values(branchInfoByChatId)) {
-    if (!info.branchParentChatId || !info.branchFromMessageId) {
-      continue;
-    }
-    const parentEntry = branchChildrenByChatId[info.branchParentChatId] ?? {};
-    const messageChildren = parentEntry[info.branchFromMessageId] ?? [];
-    parentEntry[info.branchFromMessageId] = [...messageChildren, info.chatId];
-    branchChildrenByChatId[info.branchParentChatId] = parentEntry;
-  }
-
-  return { branchInfoByChatId, branchChildrenByChatId };
+  return { branchInfoByChatId };
 }
 
 export function buildMessageBranchInfo({

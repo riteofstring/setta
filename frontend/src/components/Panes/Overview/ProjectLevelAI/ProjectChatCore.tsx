@@ -272,7 +272,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         <EmptyChatState />
       ) : (
         <ChatMessageList
-          chatId={typeof chatId === "string" ? chatId : undefined}
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}

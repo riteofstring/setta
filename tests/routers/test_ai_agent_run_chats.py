@@ -444,6 +444,59 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
 
+    async def test_branch_edit_missing_message_returns_404(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-branch-1")
+            parent_chat_id = ID("chat-parent")
+            user_message = UserChatMessage(
+                id="msg-1",
+                content=[MessageTextContent(text="Original")],
+            )
+            run = _build_run(
+                chat_id=parent_chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                id="edited",
+                                content=[MessageTextContent(text="Edited")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            branchParentChatId=parent_chat_id,
+                            branchFromMessageId=ID("missing"),
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 404
+            assert (
+                exc.value.detail
+                == "Message missing not found in chat history"
+            )
+
     async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
