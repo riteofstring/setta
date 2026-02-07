@@ -956,8 +956,18 @@ function AppParamUI({
           onChange={onChange}
           onEscape={onEscape}
           wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
-          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
+          colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center"
           isDisabled={isDisabled}
+          theme={{
+            inputBorderClassName: "!border-[color:var(--app-border)]",
+            triggerBorderClassName: "!border-[color:var(--app-border)]",
+            menuContentClassName:
+              "z-20 flex flex-col rounded border border-[color:var(--app-dropdown-border)] bg-[color:var(--app-dropdown-bg)] p-2 text-[color:var(--app-dropdown-text)] shadow-xl",
+            menuItemClassName:
+              "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-[color:var(--app-input-bg-hover)]",
+            menuItemTextClassName:
+              "max-w-48 truncate text-xs text-[color:var(--app-dropdown-text)]",
+          }}
         />
       );
     }
@@ -1041,6 +1051,24 @@ function AppParamUI({
           mode={mode ?? DropzoneModeEnum.STATEFUL}
           maxAttachments={maxAttachments}
           placeholder={placeholder ?? undefined}
+          theme={{
+            wrapperBaseClassName:
+              "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-[color:var(--app-muted)]",
+            dragActiveClassName:
+              "border-[color:var(--app-accent)] bg-[color:var(--app-surface-alt)] text-[color:var(--app-text)] ring-4 ring-[color:var(--app-accent)]",
+            controlsRowClassName:
+              "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-[color:var(--app-muted)]",
+            controlButtonClassName:
+              "rounded-full border border-[color:var(--app-border)] px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[color:var(--app-muted)] hover:border-[color:var(--app-accent)] hover:text-[color:var(--app-text)] disabled:cursor-not-allowed disabled:opacity-50",
+            uploadingTextClassName:
+              "text-[10px] font-semibold uppercase tracking-widest text-[color:var(--app-muted)]",
+            attachmentsContainerClassName:
+              "flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-2 text-[11px] text-[color:var(--app-text)]",
+            attachmentSizeTextClassName:
+              "text-[10px] uppercase tracking-wide text-[color:var(--app-muted)]",
+            deleteButtonClassName:
+              "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)] hover:text-[color:var(--app-text)]",
+          }}
         />
       );
     }
