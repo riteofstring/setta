@@ -35,7 +35,6 @@ from setta.share.deployment_utils import (
     parse_share_deployment_version,
 )
 from setta.types.routes import Route
-from setta.types.share_deployment import DeploymentType
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import (
     build_bootstrap_urls,
@@ -1152,10 +1151,6 @@ def share(
         raise click.ClickException(
             f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
         )
-    if manifest.deploymentType is not DeploymentType.share:
-        raise click.ClickException(
-            f"Deployment is not a share deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
-        )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
 
@@ -1170,92 +1165,6 @@ def share(
         f"Starting share backend for {resolved_deployment_label}/{resolved_version}"
     )
     click.echo(f"Share URL: {share_url}")
-
-    import uvicorn
-
-    config = uvicorn.Config(
-        "setta.server:app",
-        host=resolved_host,
-        port=resolved_port,
-        log_level=uvicorn_log_level,
-        log_config=None,
-        reload=False,
-        timeout_graceful_shutdown=1,
-    )
-    server = uvicorn.Server(config)
-    server.run()
-
-
-@click.command()
-@click.option(
-    "--deployment-root",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Path to an app deployment root (contains manifest.json/project.json).",
-)
-@click.option(
-    "--deployment-name",
-    default=None,
-    help="Deployment name under setta_files/share_deployments.",
-)
-@click.option(
-    "--version",
-    "deployment_version",
-    default=None,
-    help="Deployment version (vN).",
-)
-@click.option("--latest", is_flag=True, help="Use the latest deployment version.")
-@click.pass_context
-def app(
-    ctx: click.Context,
-    deployment_root: Path | None,
-    deployment_name: str | None,
-    deployment_version: str | None,
-    latest: bool,
-) -> None:
-    params = ctx.obj or {}
-    reload = params.get("reload", False)
-    host = params.get("host", C.DEFAULT_HOST)
-    port = params.get("port", None)
-    log_level = params.get("log_level", None)
-    no_open = params.get("no_open", False)
-    if reload:
-        raise click.ClickException("App mode does not support --reload.")
-
-    resolved_host = host
-    resolved_port = _resolve_port(resolved_host, port)
-    C.HOST = resolved_host
-    C.PORT = resolved_port
-
-    resolved_deployment_root = _resolve_share_deployment_root(
-        deployment_root=deployment_root,
-        deployment_name=deployment_name,
-        deployment_version=deployment_version,
-        latest=latest,
-    )
-    manifest = DBE(resolved_deployment_root).read_share_manifest_optional()
-    if manifest is None:
-        raise click.ClickException(
-            f"App deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
-        )
-    if manifest.deploymentType is not DeploymentType.app:
-        raise click.ClickException(
-            f"Deployment is not an app deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
-        )
-    C.APP_MODE = True
-    C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
-
-    resolved_log_level = configure_logging(level_override=log_level)
-    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    resolved_version = manifest.deploymentVersion
-    resolved_deployment_label = deployment_name or manifest.deploymentName
-    app_url = C.BACKEND
-    auto_open = _should_auto_open(no_open)
-    C.OPEN_BROWSER_ON_START = app_url if auto_open else None
-    click.echo(
-        f"Starting app backend for {resolved_deployment_label}/{resolved_version}"
-    )
-    click.echo(f"App URL: {app_url}")
 
     import uvicorn
 
@@ -1512,6 +1421,21 @@ def tools() -> None:
     help="Request timeout in seconds (0 disables).",
 )
 @click.option("--base-url", default=None, help="Override backend base URL")
+@click.option(
+    "--agentic-project-config-id",
+    default=None,
+    help="Set x-setta-project-config-id for agentic scope enforcement (temporary or canonical id).",
+)
+@click.option(
+    "--agentic-chat-id",
+    default=None,
+    help="Set x-setta-chat-id for agentic scope enforcement (temporary or canonical id).",
+)
+@click.option(
+    "--agentic-section-id",
+    default=None,
+    help="Set x-setta-section-id for agentic scope enforcement (temporary or canonical id).",
+)
 def api(
     tool_name: str,
     json_payload: str | None,
@@ -1524,6 +1448,9 @@ def api(
     auth_stdin: bool,
     timeout: float,
     base_url: str | None,
+    agentic_project_config_id: str | None,
+    agentic_chat_id: str | None,
+    agentic_section_id: str | None,
 ) -> None:
     if auth_stdin and payload_stdin:
         raise click.ClickException("Use --auth-stdin or --stdin, not both.")
@@ -1606,6 +1533,20 @@ def api(
         raise
 
     headers = {"Cookie": cookie_value}
+    if agentic_project_config_id is not None and agentic_project_config_id.strip():
+        from setta.mcp.agentic_context_headers import (
+            AGENTIC_CONTEXT_CHAT_ID_HEADER,
+            AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+            AGENTIC_CONTEXT_SECTION_ID_HEADER,
+        )
+
+        headers[AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER] = (
+            agentic_project_config_id.strip()
+        )
+        if agentic_chat_id is not None and agentic_chat_id.strip():
+            headers[AGENTIC_CONTEXT_CHAT_ID_HEADER] = agentic_chat_id.strip()
+        if agentic_section_id is not None and agentic_section_id.strip():
+            headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = agentic_section_id.strip()
     request_kwargs: dict[str, Any] = {
         "headers": headers,
         "json": {"tool": normalized_tool_name, "arguments": arguments},
@@ -2003,7 +1944,6 @@ def cli(
 cli.add_command(version)
 cli.add_command(export_db)
 cli.add_command(share)
-cli.add_command(app)
 cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)

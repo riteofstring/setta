@@ -4,7 +4,11 @@ import type {
   useProjectState as useProjectStateType,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { createProjectConfig } from "utils/generatedTypes";
+import {
+  ChatRoleEnum,
+  createMessageTextContent,
+  createProjectConfig,
+} from "utils/generatedTypes";
 import {
   afterAll,
   afterEach,
@@ -139,5 +143,67 @@ describe("chat hydration waitingForResponse", () => {
 
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details.waitingForResponse).toBe(true);
+  });
+
+  it("preserves backend message order when local assistant arrives before hydration", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            {
+              id: "assistant-1",
+              role: ChatRoleEnum.assistant,
+              content: [
+                createMessageTextContent({ text: "Hello there streaming" }),
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+          ],
+        },
+      },
+    });
+
+    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
+      .route_get_llm_chat as unknown as vi.Mock;
+    route_get_llm_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          {
+            id: "user-1",
+            role: ChatRoleEnum.user,
+            content: [createMessageTextContent({ text: "Hi" })],
+            attachments: [],
+          },
+          {
+            id: "assistant-1",
+            role: ChatRoleEnum.assistant,
+            content: [createMessageTextContent({ text: "Hello" })],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    const ids = details.messages.map((message) => message.id);
+    expect(ids).toEqual(["user-1", "assistant-1"]);
+
+    const assistant = details.messages.find(
+      (message) => message.id === "assistant-1",
+    );
+    expect(assistant?.role).toBe(ChatRoleEnum.assistant);
+    expect(assistant?.content?.[0]?.type).toBe("text");
+    if (assistant?.content?.[0]?.type === "text") {
+      expect(assistant.content[0].text).toBe("Hello there streaming");
+    }
   });
 });

@@ -157,7 +157,7 @@ async def route_emit_chat_stream_delta(
     ctx: RuntimeContextFromRequest,
 ) -> None:
     await ctx.enforce_llm_allowed()
-    await ctx.state.wmh_frontend_sender.send_streaming_response(
+    await ctx.frontend_sender.send_streaming_response(
         chatId=x.chatId,
         chunk=x.chunk,
         section_id=x.sectionId,
