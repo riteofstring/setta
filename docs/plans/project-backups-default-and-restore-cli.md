@@ -12,7 +12,7 @@
 - A server-side restore endpoint (CLI will operate on local files).
 - Changing the on-disk backup format or migrating existing backups.
 
-## Current Behavior (Feb 2026)
+## Behavior After This Change (Feb 2026)
 - Auto-backups are controlled by settings:
   - `settings.backend.autobackup` (defaults to `true`)
   - `settings.backend.autobackupFreq` (seconds, default `300`)
@@ -29,10 +29,6 @@
 ### 1) Default auto-backup = ON
 - Update `SettingsBackend.autobackup` default from `False` -> `True`.
 - Regenerate frontend settings schema/types so the UI default matches.
-- Compatibility:
-  - Existing users with `autobackup: false` in their saved settings remain off.
-  - Users missing the field (or missing settings file) will pick up the new
-    default on load.
 
 ### 2) CLI: `setta backups ...`
 Add a new CLI command group to `setta`:

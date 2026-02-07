@@ -131,4 +131,8 @@ def test_backups_restore_refuses_when_session_running_unless_forced(
         registry.delete_session(session.id)
         if process.poll() is None:
             process.terminate()
-        process.wait()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)

@@ -1165,52 +1165,45 @@ def backups_restore(
     force: bool,
     yes: bool,
 ) -> None:
-    selector_count = sum(
-        [
-            1 if latest else 0,
-            1 if index is not None else 0,
-            1 if backup_path is not None else 0,
-        ]
-    )
-    if selector_count != 1:
-        raise click.ClickException("Use exactly one of: --latest, --index, --path")
-
     backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
-    selected: Path | None = None
+    usage_error = "Use exactly one of: --latest, --index, --path"
+
     if backup_path is not None:
+        if latest or index is not None:
+            raise click.ClickException(usage_error)
         selected = normalize_path(backup_path)
-    else:
+    elif latest:
+        if index is not None:
+            raise click.ClickException(usage_error)
         backups = get_backup_files(backup_dir)
         if not backups:
             raise click.ClickException(f"No backups found in {backup_dir}")
-        if latest:
-            selected = backups[0]
-        else:
-            if index is None:
-                raise click.ClickException("Missing --index")
-            if index < 1 or index > len(backups):
-                raise click.ClickException(
-                    f"--index must be between 1 and {len(backups)} (got {index})"
-                )
-            selected = backups[index - 1]
-
-    if selected is None:
-        raise click.ClickException("Failed to resolve a backup to restore.")
+        selected = backups[0]
+    elif index is not None:
+        backups = get_backup_files(backup_dir)
+        if not backups:
+            raise click.ClickException(f"No backups found in {backup_dir}")
+        if index < 1 or index > len(backups):
+            raise click.ClickException(
+                f"--index must be between 1 and {len(backups)} (got {index})"
+            )
+        selected = backups[index - 1]
+    else:
+        raise click.ClickException(usage_error)
     if not selected.exists():
         raise click.ClickException(f"Backup file not found: {selected}")
     if not selected.is_file():
         raise click.ClickException(f"Backup path is not a file: {selected}")
 
     sessions_root = resolve_sessions_root(Path.cwd())
-    if sessions_root is not None:
-        registry = SessionRegistry(sessions_root=sessions_root)
-        sessions = registry.find_sessions_by_workspace(Path.cwd())
-        if sessions and not force:
-            session_ids = ", ".join(session.id for session in sessions)
-            raise click.ClickException(
-                "Refusing to restore while a Setta session is running for this workspace "
-                f"({session_ids}). Stop it first or pass --force."
-            )
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.find_sessions_by_workspace(Path.cwd())
+    if sessions and not force:
+        session_ids = ", ".join(session.id for session in sessions)
+        raise click.ClickException(
+            "Refusing to restore while a Setta session is running for this workspace "
+            f"({session_ids}). Stop it first or pass --force."
+        )
 
     dbe = DBE(C.SETTA_FILES_FOLDER)
     project_path = dbe.project
