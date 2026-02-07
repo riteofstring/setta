@@ -311,6 +311,8 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
   const previewConfigId = useAppPreview((x) => x.previewConfigId);
   const { projectMetadata } = useAllProjectMetadata((x) => x);
   const [draftSpec, setDraftSpec] = useState("");
+  const [draftTheme, setDraftTheme] = useState("");
+  const [draftAssets, setDraftAssets] = useState("");
   const [catalogId, setCatalogId] = useState(DEFAULT_CATALOG_ID);
   const [specVersion, setSpecVersion] = useState(DEFAULT_SPEC_VERSION);
   const [appSpecPath, setAppSpecPath] = useState("");
@@ -348,7 +350,12 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           res.data.appDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION,
         );
         setAppSpecPath(res.data.appDefinition?.appSpecPath ?? "");
-        setThemeMode(resolveThemeMode(res.data.appDefinition?.theme ?? null));
+        const theme = res.data.appDefinition?.theme ?? null;
+        setDraftTheme(theme ? JSON.stringify(theme, null, 2) : "");
+        setDraftAssets(
+          JSON.stringify(res.data.appDefinition?.assets ?? [], null, 2),
+        );
+        setThemeMode(resolveThemeMode(theme));
       }
     }
 
@@ -396,11 +403,39 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       setErrorMessage("Invalid JSON in app spec.");
       return;
     }
-    const existingTheme = useAppDefinition.getState().appDefinition?.theme ?? null;
+    let parsedTheme: Record<string, unknown> | null = null;
+    if (draftTheme.trim().length > 0) {
+      try {
+        const rawTheme = JSON.parse(draftTheme) as unknown;
+        if (!isRecord(rawTheme)) {
+          setErrorMessage("Theme JSON must be an object.");
+          return;
+        }
+        parsedTheme = rawTheme;
+      } catch (err) {
+        setErrorMessage("Invalid JSON in theme.");
+        return;
+      }
+    }
     const themePayload = {
-      ...(isRecord(existingTheme) ? existingTheme : {}),
+      ...(parsedTheme ?? {}),
       mode: themeMode,
     };
+
+    let parsedAssets: unknown[] | null = [];
+    if (draftAssets.trim().length > 0) {
+      try {
+        const rawAssets = JSON.parse(draftAssets) as unknown;
+        if (!Array.isArray(rawAssets)) {
+          setErrorMessage("Assets JSON must be a list.");
+          return;
+        }
+        parsedAssets = rawAssets;
+      } catch (err) {
+        setErrorMessage("Invalid JSON in assets.");
+        return;
+      }
+    }
     setLoading(true);
     const res = await route_set_app_definition({
       appSpec: parsed,
@@ -408,6 +443,7 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
       catalogId: catalogId.trim() ? catalogId.trim() : undefined,
       theme: themePayload,
+      assets: parsedAssets ?? undefined,
     });
     setLoading(false);
     if (!res200(res)) {
@@ -555,6 +591,38 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           }
           value={draftSpec}
           onChange={(event) => setDraftSpec(event.target.value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="text-xs text-setta-500 dark:text-setta-400">
+          <span>Theme JSON</span>
+          <span className="ml-2 text-[11px]">
+            Advanced styling can be set via <code>vars</code> (keys must start
+            with <code>--app-</code>).
+          </span>
+        </div>
+        <textarea
+          className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+          placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
+          value={draftTheme}
+          onChange={(event) => setDraftTheme(event.target.value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="text-xs text-setta-500 dark:text-setta-400">
+          <span>Assets JSON</span>
+          <span className="ml-2 text-[11px]">
+            Links are injected as <code>&lt;link&gt;</code> tags. External URLs
+            are gated by the deployment policy.
+          </span>
+        </div>
+        <textarea
+          className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+          placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
+          value={draftAssets}
+          onChange={(event) => setDraftAssets(event.target.value)}
         />
       </div>
     </section>
