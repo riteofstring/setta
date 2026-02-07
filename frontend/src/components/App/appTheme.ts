@@ -29,11 +29,23 @@ type AppThemeHeadingSizes = {
   h4?: number | string;
 };
 
+type AppThemeTextScale = {
+  xs?: number | string;
+  sm?: number | string;
+  base?: number | string;
+  lg?: number | string;
+  xl?: number | string;
+  "2xl"?: number | string;
+  "3xl"?: number | string;
+  "4xl"?: number | string;
+};
+
 type AppThemeTypography = {
   bodySize?: number | string;
   bodyLineHeight?: number | string;
   headingSizes?: AppThemeHeadingSizes;
   headingLineHeight?: number | string;
+  scale?: AppThemeTextScale;
 };
 
 type AppThemeSpacing = {
@@ -58,6 +70,49 @@ type AppThemeShadows = {
   lg?: string;
 };
 
+type AppThemeButtonTokens = {
+  bg?: string;
+  bgHover?: string;
+  text?: string;
+  ring?: string;
+  disabledBg?: string;
+  disabledText?: string;
+};
+
+type AppThemeInputTokens = {
+  bg?: string;
+  bgHover?: string;
+  border?: string;
+  text?: string;
+  placeholder?: string;
+  focusBorder?: string;
+  ring?: string;
+};
+
+type AppThemeDropdownTokens = {
+  bg?: string;
+  border?: string;
+  text?: string;
+  muted?: string;
+  shadow?: string;
+};
+
+type AppThemeCardTokens = {
+  shadow?: string;
+};
+
+type AppThemePageTokens = {
+  bgImage?: string;
+};
+
+type AppThemeComponents = {
+  button?: AppThemeButtonTokens;
+  input?: AppThemeInputTokens;
+  dropdown?: AppThemeDropdownTokens;
+  card?: AppThemeCardTokens;
+  page?: AppThemePageTokens;
+};
+
 type AppThemeConfig = {
   mode?: AppThemeMode;
   className?: string;
@@ -67,6 +122,7 @@ type AppThemeConfig = {
   spacing?: AppThemeSpacing;
   motion?: AppThemeMotion;
   shadows?: AppThemeShadows;
+  components?: AppThemeComponents;
   vars?: Record<string, string | number>;
 };
 
@@ -157,6 +213,63 @@ const SHADOW_VAR_MAP: Record<keyof AppThemeShadows, string> = {
   sm: "--app-shadow-sm",
   md: "--app-shadow-md",
   lg: "--app-shadow-lg",
+};
+
+const TEXT_SCALE_VAR_MAP: Record<keyof AppThemeTextScale, string> = {
+  xs: "--app-text-xs",
+  sm: "--app-text-sm",
+  base: "--app-text-base",
+  lg: "--app-text-lg",
+  xl: "--app-text-xl",
+  "2xl": "--app-text-2xl",
+  "3xl": "--app-text-3xl",
+  "4xl": "--app-text-4xl",
+};
+
+const DEFAULT_TEXT_SCALE: Record<keyof AppThemeTextScale, string> = {
+  xs: "0.75rem",
+  sm: "0.875rem",
+  base: "1rem",
+  lg: "1.125rem",
+  xl: "1.25rem",
+  "2xl": "1.5rem",
+  "3xl": "1.875rem",
+  "4xl": "2.25rem",
+};
+
+const COMPONENT_BUTTON_VAR_MAP: Record<keyof AppThemeButtonTokens, string> = {
+  bg: "--app-button-bg",
+  bgHover: "--app-button-bg-hover",
+  text: "--app-button-text",
+  ring: "--app-button-ring",
+  disabledBg: "--app-button-disabled-bg",
+  disabledText: "--app-button-disabled-text",
+};
+
+const COMPONENT_INPUT_VAR_MAP: Record<keyof AppThemeInputTokens, string> = {
+  bg: "--app-input-bg",
+  bgHover: "--app-input-bg-hover",
+  border: "--app-input-border",
+  text: "--app-input-text",
+  placeholder: "--app-input-placeholder",
+  focusBorder: "--app-input-focus-border",
+  ring: "--app-input-ring",
+};
+
+const COMPONENT_DROPDOWN_VAR_MAP: Record<keyof AppThemeDropdownTokens, string> = {
+  bg: "--app-dropdown-bg",
+  border: "--app-dropdown-border",
+  text: "--app-dropdown-text",
+  muted: "--app-dropdown-muted",
+  shadow: "--app-dropdown-shadow",
+};
+
+const COMPONENT_CARD_VAR_MAP: Record<keyof AppThemeCardTokens, string> = {
+  shadow: "--app-card-shadow",
+};
+
+const COMPONENT_PAGE_VAR_MAP: Record<keyof AppThemePageTokens, string> = {
+  bgImage: "--app-page-bg-image",
 };
 
 const DEFAULT_MOTION: ResolvedAppMotion = {
@@ -261,6 +374,29 @@ function resolveThemeTypography(
     }
   }
 
+  const scale = raw.scale;
+  if (scale && isRecord(scale)) {
+    const resolvedScale: AppThemeTextScale = {};
+    for (const key of [
+      "xs",
+      "sm",
+      "base",
+      "lg",
+      "xl",
+      "2xl",
+      "3xl",
+      "4xl",
+    ] as const) {
+      const value = scale[key];
+      if (typeof value === "number" || typeof value === "string") {
+        resolvedScale[key] = value;
+      }
+    }
+    if (Object.keys(resolvedScale).length > 0) {
+      output.scale = resolvedScale;
+    }
+  }
+
   return output;
 }
 
@@ -304,6 +440,57 @@ function resolveThemeMotion(
 
 function resolveThemeShadows(raw: AppThemeConfig["shadows"]): AppThemeShadows {
   return extractStringMap<AppThemeShadows>(raw);
+}
+
+function resolveThemeComponentTokens<T extends Record<string, string | undefined>>(
+  raw: unknown,
+  keys: ReadonlyArray<keyof T>,
+): Partial<T> {
+  if (!raw || !isRecord(raw)) {
+    return {};
+  }
+  const output: Record<string, string> = {};
+  for (const key of keys) {
+    const value = raw[key as string];
+    if (typeof value === "string" && value.trim().length > 0) {
+      output[key as string] = value;
+    }
+  }
+  return output as Partial<T>;
+}
+
+function resolveThemeComponents(raw: AppThemeConfig["components"]): AppThemeComponents {
+  if (!raw || !isRecord(raw)) {
+    return {};
+  }
+  return {
+    button: resolveThemeComponentTokens<AppThemeButtonTokens>(raw.button, [
+      "bg",
+      "bgHover",
+      "text",
+      "ring",
+      "disabledBg",
+      "disabledText",
+    ]),
+    input: resolveThemeComponentTokens<AppThemeInputTokens>(raw.input, [
+      "bg",
+      "bgHover",
+      "border",
+      "text",
+      "placeholder",
+      "focusBorder",
+      "ring",
+    ]),
+    dropdown: resolveThemeComponentTokens<AppThemeDropdownTokens>(raw.dropdown, [
+      "bg",
+      "border",
+      "text",
+      "muted",
+      "shadow",
+    ]),
+    card: resolveThemeComponentTokens<AppThemeCardTokens>(raw.card, ["shadow"]),
+    page: resolveThemeComponentTokens<AppThemePageTokens>(raw.page, ["bgImage"]),
+  };
 }
 
 function extractStringMap<T extends Record<string, string | undefined>>(
@@ -357,6 +544,30 @@ function applyAppVars(
   }
 }
 
+function applyTextScaleVars(
+  style: Record<string, string | number>,
+  typography: AppThemeTypography,
+): void {
+  for (const [scaleKey, cssVar] of Object.entries(TEXT_SCALE_VAR_MAP)) {
+    const key = scaleKey as keyof AppThemeTextScale;
+    style[cssVar] = DEFAULT_TEXT_SCALE[key];
+  }
+
+  const overrides = typography.scale;
+  if (!overrides) {
+    return;
+  }
+  for (const [scaleKey, cssVar] of Object.entries(TEXT_SCALE_VAR_MAP)) {
+    const key = scaleKey as keyof AppThemeTextScale;
+    const value = overrides[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      style[cssVar] = value;
+    } else if (typeof value === "number") {
+      style[cssVar] = `${value}px`;
+    }
+  }
+}
+
 export function resolveAppTheme(
   theme: unknown,
   options: { prefersDark?: boolean } = {},
@@ -376,6 +587,7 @@ export function resolveAppTheme(
     ...resolveThemeMotion(themeConfig?.motion),
   };
   const shadows = resolveThemeShadows(themeConfig?.shadows);
+  const components = resolveThemeComponents(themeConfig?.components);
   const className =
     themeConfig && typeof themeConfig.className === "string"
       ? themeConfig.className
@@ -386,11 +598,13 @@ export function resolveAppTheme(
   applyVars(style, FONT_VAR_MAP, fonts);
   applyVars(style, SPACING_VAR_MAP, spacing);
   applyVars(style, SHADOW_VAR_MAP, shadows);
+  applyTextScaleVars(style, typography);
 
   // Component-role tokens: stable override points beyond semantic colors.
   style["--app-button-bg"] = colors.accent ?? "";
   style["--app-button-bg-hover"] = colors.accentHover ?? colors.accent ?? "";
   style["--app-button-text"] = colors.accentText ?? colors.text ?? "";
+  style["--app-button-ring"] = colors.accent ?? "";
   style["--app-button-disabled-bg"] = colors.surfaceAlt ?? colors.surface ?? "";
   style["--app-button-disabled-text"] = colors.muted ?? colors.text ?? "";
 
@@ -413,6 +627,22 @@ export function resolveAppTheme(
     "var(--app-shadow-lg, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))";
   style["--app-page-bg-image"] =
     "radial-gradient(circle at top, color-mix(in srgb, var(--app-accent) 10%, transparent), transparent 45%), linear-gradient(180deg, color-mix(in srgb, var(--app-surface) 70%, transparent), color-mix(in srgb, var(--app-surface-alt) 60%, transparent))";
+
+  if (components.button) {
+    applyVars(style, COMPONENT_BUTTON_VAR_MAP, components.button);
+  }
+  if (components.input) {
+    applyVars(style, COMPONENT_INPUT_VAR_MAP, components.input);
+  }
+  if (components.dropdown) {
+    applyVars(style, COMPONENT_DROPDOWN_VAR_MAP, components.dropdown);
+  }
+  if (components.card) {
+    applyVars(style, COMPONENT_CARD_VAR_MAP, components.card);
+  }
+  if (components.page) {
+    applyVars(style, COMPONENT_PAGE_VAR_MAP, components.page);
+  }
 
   applyAppVars(style, themeConfig?.vars);
 

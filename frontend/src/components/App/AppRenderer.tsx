@@ -533,7 +533,7 @@ export function AppRenderer({
 
   if (!tree || !tree.root) {
     return (
-      <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center text-sm text-[color:var(--app-muted)]">
+      <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center [font-size:var(--app-text-sm)] text-[color:var(--app-muted)]">
         No app spec found. Generate or save an app spec to preview.
       </div>
     );

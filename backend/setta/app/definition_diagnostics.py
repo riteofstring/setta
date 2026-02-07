@@ -22,6 +22,7 @@ _THEME_ALLOWED_KEYS = {
     "vars",
     "motion",
     "shadows",
+    "components",
 }
 _THEME_COLOR_KEYS = {
     "background",
@@ -44,8 +45,10 @@ _THEME_TYPOGRAPHY_KEYS = {
     "bodyLineHeight",
     "headingSizes",
     "headingLineHeight",
+    "scale",
 }
 _THEME_HEADING_SIZE_KEYS = {"h1", "h2", "h3", "h4"}
+_THEME_TEXT_SCALE_KEYS = {"xs", "sm", "base", "lg", "xl", "2xl", "3xl", "4xl"}
 _THEME_SPACING_KEYS = {
     "pagePaddingX",
     "pagePaddingY",
@@ -56,6 +59,27 @@ _THEME_SPACING_KEYS = {
 }
 _THEME_MOTION_KEYS = {"durationMs", "delayMs", "staggerMs", "easing"}
 _THEME_SHADOW_KEYS = {"sm", "md", "lg"}
+_THEME_COMPONENTS_KEYS = {"button", "input", "dropdown", "card", "page"}
+_THEME_BUTTON_TOKEN_KEYS = {
+    "bg",
+    "bgHover",
+    "text",
+    "ring",
+    "disabledBg",
+    "disabledText",
+}
+_THEME_INPUT_TOKEN_KEYS = {
+    "bg",
+    "bgHover",
+    "border",
+    "text",
+    "placeholder",
+    "focusBorder",
+    "ring",
+}
+_THEME_DROPDOWN_TOKEN_KEYS = {"bg", "border", "text", "muted", "shadow"}
+_THEME_CARD_TOKEN_KEYS = {"shadow"}
+_THEME_PAGE_TOKEN_KEYS = {"bgImage"}
 
 
 def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
@@ -70,7 +94,9 @@ def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
         "responsive": True,
         "motion": True,
         "typography": True,
+        "typographyScale": True,
         "shadows": True,
+        "componentTokens": True,
         "customComponents": False,
     }
     return AppCapabilities(
@@ -163,6 +189,7 @@ def collect_app_theme_validation_issues(
     errors.extend(_validate_theme_vars(theme.get("vars"), warnings=warnings))
     errors.extend(_validate_theme_motion(theme.get("motion"), warnings=warnings))
     errors.extend(_validate_theme_shadows(theme.get("shadows"), warnings=warnings))
+    errors.extend(_validate_theme_components(theme.get("components"), warnings=warnings))
 
     return errors, warnings
 
@@ -356,6 +383,39 @@ def _validate_theme_typography(
                         )
                     )
 
+    if "scale" in raw:
+        scale = raw.get("scale")
+        if not isinstance(scale, dict):
+            errors.append(
+                AppValidationIssue(message="theme.typography.scale must be an object.")
+            )
+        else:
+            scale_unknown = sorted(
+                [key for key in scale.keys() if key not in _THEME_TEXT_SCALE_KEYS]
+            )
+            if scale_unknown:
+                preview, suffix = _preview_sorted(scale_unknown)
+                warnings.append(
+                    AppValidationIssue(
+                        message=(
+                            "theme.typography.scale contains unknown keys and they will be ignored: "
+                            f"{preview}{suffix}"
+                        )
+                    )
+                )
+            for key in _THEME_TEXT_SCALE_KEYS:
+                if key not in scale:
+                    continue
+                value = scale.get(key)
+                if not isinstance(value, (int, float, str)):
+                    errors.append(
+                        AppValidationIssue(
+                            message=(
+                                f"theme.typography.scale.{key} must be a number or string."
+                            )
+                        )
+                    )
+
     return errors
 
 
@@ -513,6 +573,70 @@ def _validate_theme_shadows(
             errors.append(
                 AppValidationIssue(message=f"theme.shadows.{key} must be a string.")
             )
+
+    return errors
+
+
+def _validate_theme_components(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.components must be an object.")]
+
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_COMPONENTS_KEYS])
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.components contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+
+    def validate_token_block(
+        component: str,
+        token_keys: set[str],
+    ) -> None:
+        if component not in raw:
+            return
+        value = raw.get(component)
+        prefix = f"theme.components.{component}"
+        if not isinstance(value, dict):
+            errors.append(AppValidationIssue(message=f"{prefix} must be an object."))
+            return
+        nested_unknown = sorted([key for key in value.keys() if key not in token_keys])
+        if nested_unknown:
+            preview, suffix = _preview_sorted(nested_unknown)
+            warnings.append(
+                AppValidationIssue(
+                    message=(
+                        f"{prefix} contains unknown keys and they will be ignored: "
+                        f"{preview}{suffix}"
+                    )
+                )
+            )
+        for token_key in token_keys:
+            if token_key not in value:
+                continue
+            token_val = value.get(token_key)
+            if not isinstance(token_val, str):
+                errors.append(
+                    AppValidationIssue(message=f"{prefix}.{token_key} must be a string.")
+                )
+
+    validate_token_block("button", _THEME_BUTTON_TOKEN_KEYS)
+    validate_token_block("input", _THEME_INPUT_TOKEN_KEYS)
+    validate_token_block("dropdown", _THEME_DROPDOWN_TOKEN_KEYS)
+    validate_token_block("card", _THEME_CARD_TOKEN_KEYS)
+    validate_token_block("page", _THEME_PAGE_TOKEN_KEYS)
 
     return errors
 

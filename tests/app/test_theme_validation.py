@@ -33,6 +33,52 @@ def test_collect_app_theme_validation_issues_accepts_typography_tokens() -> None
     assert warnings == []
 
 
+def test_collect_app_theme_validation_issues_accepts_typography_scale_tokens() -> None:
+    errors, warnings = collect_app_theme_validation_issues(
+        {"typography": {"scale": {"xs": 12, "2xl": "2.25rem"}}}
+    )
+
+    assert errors == []
+    assert warnings == []
+
+
+def test_collect_app_theme_validation_issues_accepts_component_tokens() -> None:
+    errors, warnings = collect_app_theme_validation_issues(
+        {
+            "components": {
+                "button": {"bg": "#ff00ff", "ring": "rgba(255, 0, 255, 0.5)"},
+                "page": {"bgImage": "linear-gradient(180deg, red, blue)"},
+            }
+        }
+    )
+
+    assert errors == []
+    assert warnings == []
+
+
+def test_collect_app_theme_validation_issues_reports_invalid_component_token_value() -> None:
+    errors, warnings = collect_app_theme_validation_issues(
+        {"components": {"button": {"bg": 123}}}
+    )
+
+    assert warnings == []
+    assert errors
+    assert any("theme.components.button.bg" in issue.message for issue in errors)
+
+
+def test_collect_app_theme_validation_issues_warns_on_unknown_component_keys() -> None:
+    errors, warnings = collect_app_theme_validation_issues(
+        {"components": {"extra": {"x": "y"}, "button": {"extra": "x"}}}
+    )
+
+    assert errors == []
+    assert warnings
+    assert any("theme.components contains unknown keys" in issue.message for issue in warnings)
+    assert any(
+        "theme.components.button contains unknown keys" in issue.message for issue in warnings
+    )
+
+
 def test_collect_app_theme_validation_issues_accepts_shadow_tokens() -> None:
     errors, warnings = collect_app_theme_validation_issues(
         {

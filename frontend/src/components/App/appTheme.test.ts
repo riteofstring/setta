@@ -15,7 +15,21 @@ describe("resolveAppTheme vars", () => {
     expect(resolved.style["--app-button-bg"]).toBe("#ff00ff");
     expect(resolved.style["--app-input-bg"]).toBe("rgba(255, 255, 255, 0.12)");
     expect(typeof resolved.style["--app-button-text"]).toBe("string");
+    expect(typeof resolved.style["--app-button-ring"]).toBe("string");
     expect(typeof resolved.style["--app-input-border"]).toBe("string");
+  });
+
+  it("supports theme.components overrides for component-role tokens", () => {
+    const resolved = resolveAppTheme({
+      components: {
+        button: {
+          bg: "#00ff00",
+        },
+      },
+    });
+
+    expect(resolved.style["--app-button-bg"]).toBe("#00ff00");
+    expect(typeof resolved.style["--app-button-text"]).toBe("string");
   });
 
   it("supports motion token overrides", () => {
@@ -45,6 +59,23 @@ describe("resolveAppTheme vars", () => {
     expect(resolved.typography.bodySize).toBe(18);
     expect(resolved.typography.bodyLineHeight).toBe(1.7);
     expect(resolved.typography.headingSizes?.h2).toBe("2.25rem");
+  });
+
+  it("sets a default typography scale and supports overrides", () => {
+    const resolvedDefault = resolveAppTheme(null);
+    expect(resolvedDefault.style["--app-text-xs"]).toBe("0.75rem");
+    expect(resolvedDefault.style["--app-text-2xl"]).toBe("1.5rem");
+
+    const resolvedOverride = resolveAppTheme({
+      typography: {
+        scale: {
+          xs: 14,
+          "2xl": "3rem",
+        },
+      },
+    });
+    expect(resolvedOverride.style["--app-text-xs"]).toBe("14px");
+    expect(resolvedOverride.style["--app-text-2xl"]).toBe("3rem");
   });
 
   it("supports shadow token overrides", () => {

@@ -51,7 +51,11 @@ test("app mode ActionButton triggers json-render actions", async ({ page }) => {
     routes: [],
     dataBindings: {},
     actions: {},
-    theme: null,
+    theme: {
+      mode: "light",
+      typography: { scale: { xs: "20px" } },
+      components: { button: { bg: "#ff00ff" } },
+    },
     assets: [],
   };
 
@@ -135,6 +139,12 @@ test("app mode ActionButton triggers json-render actions", async ({ page }) => {
   const button = page.getByRole("button", { name: "Run It" });
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
+
+  await expect(page.locator("header").getByText("App Mode")).toHaveCSS(
+    "font-size",
+    "20px",
+  );
+  await expect(button).toHaveCSS("background-color", "rgb(255, 0, 255)");
 
   const [runRequest] = await Promise.all([
     page.waitForRequest("**/runCode"),

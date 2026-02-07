@@ -36,6 +36,7 @@ Implemented (or mostly implemented):
 - Motion primitives: catalog-defined `Motion` and `Stagger` components for preset-based animations.
 - Theme motion + typography tokens (`theme.motion`, `theme.typography`) + backend theme schema validation (type checks + unknown-key warnings).
 - Theme shadow tokens (`theme.shadows`) + app components consume `--app-card-shadow` (elevation).
+- Theme schema expansion: typography scale (`theme.typography.scale`) and explicit component-role tokens (`theme.components`).
 - App Config error UX: surface backend validation detail on save/load failures (instead of generic errors).
 - App validation endpoint + UI: `validateAppDefinition` returns `{errors[], warnings[], capabilities}` and App Config exposes a `Validate` action.
 - Richer validator output: `validateAppDefinition` accumulates multiple errors (no fast-fail) and advertises feature support via capabilities flags.
@@ -43,7 +44,6 @@ Implemented (or mostly implemented):
 Not implemented yet (future work, integrations deferred):
 
 - External design tool compilers/importers/exporters (Pencil/Figma/etc.).
-- Theme schema expansion: typography scale and broader component-role tokens (beyond current motion/typography/shadows).
 
 ## Goals
 

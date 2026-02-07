@@ -309,12 +309,12 @@ function Card({ element, children }: AppComponentProps) {
       {(title || description) && (
         <header className="flex flex-col gap-1">
           {title && (
-            <h3 className="text-sm font-semibold text-[color:var(--app-text)]">
+            <h3 className="[font-size:var(--app-text-sm)] font-semibold text-[color:var(--app-text)]">
               {title}
             </h3>
           )}
           {description && (
-            <p className="text-xs text-[color:var(--app-muted)]">
+            <p className="[font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
               {description}
             </p>
           )}
@@ -387,7 +387,7 @@ function Tabs({ element, children }: AppComponentProps) {
             key={tab.key}
             type="button"
             onClick={() => setActiveKey(tab.key)}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+            className={`rounded-full px-3 py-1 [font-size:var(--app-text-xs)] font-semibold transition-colors ${
               tab.key === activeKey
                 ? "bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)] hover:bg-[color:var(--app-accent-hover)]"
                 : "bg-[color:var(--app-surface)] text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)]"
@@ -427,12 +427,13 @@ function Heading({ element }: AppComponentProps) {
   const headingSize = headingSizes?.[headingSizeKey];
   const HeadingTag = `h${clampedLevel}` as keyof JSX.IntrinsicElements;
   const sizeClassByLevel: Record<number, string> = {
-    1: "text-2xl",
-    2: "text-xl",
-    3: "text-lg",
-    4: "text-base",
+    1: "[font-size:var(--app-text-2xl)]",
+    2: "[font-size:var(--app-text-xl)]",
+    3: "[font-size:var(--app-text-lg)]",
+    4: "[font-size:var(--app-text-base)]",
   };
-  const sizeClass = sizeClassByLevel[clampedLevel] ?? "text-base";
+  const sizeClass =
+    sizeClassByLevel[clampedLevel] ?? "[font-size:var(--app-text-base)]";
 
   const style: React.CSSProperties = {};
   if (headingFont) {
@@ -480,7 +481,7 @@ function Text({ element }: AppComponentProps) {
 
   return (
     <p
-      className={`text-sm text-[color:var(--app-muted)] ${className}`.trim()}
+      className={`[font-size:var(--app-text-sm)] text-[color:var(--app-muted)] ${className}`.trim()}
       style={Object.keys(style).length > 0 ? style : undefined}
     >
       {text}
@@ -525,7 +526,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
 
   if (!resolvedConfigId) {
     return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-xs text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 [font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
         Missing config scope.
       </div>
     );
@@ -533,7 +534,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
 
   if (!configState) {
     return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-xs text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 [font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
         Loading config…
       </div>
     );
@@ -541,7 +542,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
 
   if (!sectionId || !paramId) {
     return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-xs text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 [font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
         Missing param binding.
       </div>
     );
@@ -658,7 +659,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
 
   if (!canRenderParam || !sectionImpl || !codeObjImpl) {
     return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-xs text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 [font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
         Missing param binding.
       </div>
     );
@@ -673,7 +674,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[color:var(--app-muted)]">
+        <span className="[font-size:var(--app-text-xs)] font-semibold uppercase tracking-wide text-[color:var(--app-muted)]">
           {label ?? displayName ?? paramId}
         </span>
         {description && (
@@ -963,7 +964,7 @@ function AppParamUI({
           sliderTrackClassName="relative flex-grow rounded-full bg-[color:var(--app-surface-alt)] data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px]"
           sliderRangeClassName="absolute h-full rounded-full bg-[color:var(--app-accent)]"
           sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer rounded-full border-2 border-[color:var(--app-border)] bg-[color:var(--app-surface)] shadow-sm drop-shadow-md hover:!bg-[color:var(--app-surface-alt)] focus-visible:!border-[color:var(--app-accent)] focus-visible:bg-[color:var(--app-accent)] focus-visible:outline-none data-[disabled]:pointer-events-none`}
-          textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-2 text-center font-mono text-xs text-[color:var(--app-text)] focus-visible:border-[color:var(--app-accent)] @[132px]/slider:block"
+          textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-2 text-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)] focus-visible:border-[color:var(--app-accent)] @[132px]/slider:block"
         />
       );
     }
@@ -1018,7 +1019,7 @@ function AppParamUI({
             menuItemClassName:
               "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-[color:var(--app-input-bg-hover)]",
             menuItemTextClassName:
-              "max-w-48 truncate text-xs text-[color:var(--app-dropdown-text)]",
+              "max-w-48 truncate [font-size:var(--app-text-xs)] text-[color:var(--app-dropdown-text)]",
           }}
         />
       );
@@ -1050,8 +1051,8 @@ function AppParamUI({
     case CodeObjTypeEnum.PasswordParam: {
       const revealDisabled =
         isDisabled || isPasswordRevealPending || !onRevealPassword;
-      const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono text-xs text-[color:var(--app-text)]`;
-      const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono text-xs text-[color:var(--app-muted)] hover:text-[color:var(--app-text)]`;
+      const inputClassName = `${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`;
+      const revealClassName = `${revealDisabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"} nodrag flex-none bg-transparent text-left font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-muted)] hover:text-[color:var(--app-text)]`;
       const wrapperClassName = "section-value flex min-w-0 items-center gap-2";
       return (
         <>
@@ -1105,7 +1106,7 @@ function AppParamUI({
           placeholder={placeholder ?? undefined}
           theme={{
             wrapperBaseClassName:
-              "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-[color:var(--app-muted)]",
+              "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-4 py-3 text-center [font-size:var(--app-text-xs)] font-bold uppercase tracking-widest text-[color:var(--app-muted)]",
             dragActiveClassName:
               "border-[color:var(--app-accent)] bg-[color:var(--app-surface-alt)] text-[color:var(--app-text)] ring-4 ring-[color:var(--app-accent)]",
             controlsRowClassName:
@@ -1227,7 +1228,7 @@ function ActionButton({ element, onAction }: AppComponentProps) {
   return (
     <button
       type="button"
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-button-ring,_var(--app-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
+      className={`rounded-full px-4 py-2 [font-size:var(--app-text-sm)] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--app-button-ring,_var(--app-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--app-background)] ${
         isDisabled
           ? "cursor-not-allowed bg-[color:var(--app-button-disabled-bg,_var(--app-surface-alt))] text-[color:var(--app-button-disabled-text,_var(--app-muted))]"
           : "bg-[color:var(--app-button-bg,_var(--app-accent))] text-[color:var(--app-button-text,_var(--app-accent-text))] hover:bg-[color:var(--app-button-bg-hover,_var(--app-accent-hover))]"
@@ -1319,7 +1320,7 @@ function TextOutput({ element }: AppComponentProps) {
 
   if (!resolvedConfigId || !sectionId || !textData) {
     return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-xs text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 [font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
         Missing text output.
       </div>
     );
@@ -1330,7 +1331,7 @@ function TextOutput({ element }: AppComponentProps) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
       {label && (
-        <div className="text-xs font-semibold uppercase tracking-wide text-[color:var(--app-muted)]">
+        <div className="[font-size:var(--app-text-xs)] font-semibold uppercase tracking-wide text-[color:var(--app-muted)]">
           {label}
         </div>
       )}
@@ -1344,7 +1345,7 @@ function TextOutput({ element }: AppComponentProps) {
           {text}
         </ReactMarkdown>
       ) : (
-        <pre className="whitespace-pre-wrap text-xs text-[color:var(--app-text)]">
+        <pre className="whitespace-pre-wrap [font-size:var(--app-text-xs)] text-[color:var(--app-text)]">
           {text}
         </pre>
       )}
@@ -1426,7 +1427,7 @@ function ImageOutput({ element }: AppComponentProps) {
 
   if (!artifactId) {
     return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-xs text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 [font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
         Missing image binding.
       </div>
     );
@@ -1441,7 +1442,7 @@ function ImageOutput({ element }: AppComponentProps) {
           className="h-auto max-h-[320px] w-full object-contain"
         />
       ) : (
-        <div className="text-xs text-[color:var(--app-muted)]">
+        <div className="[font-size:var(--app-text-xs)] text-[color:var(--app-muted)]">
           Waiting for image output…
         </div>
       )}
