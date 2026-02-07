@@ -345,8 +345,6 @@ class DependencyGraph:
             inputText=section_impl.inputText,
             waitingForResponse=section_impl.waitingForResponse,
             toolCallArguments=section_impl.toolCallArguments,
-            activeBranchId=section_impl.activeBranchId,
-            branches=section_impl.branches,
         )
         representation = ctx.codegen_policy.representation
         effective_representation = representation

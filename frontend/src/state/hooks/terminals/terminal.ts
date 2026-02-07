@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
 import { C } from "utils/c";
@@ -11,74 +11,22 @@ import {
   isPendingSectionTextFocus,
 } from "utils/tabbingLogic";
 import { Terminal } from "xterm";
+import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
-import { FitAddon } from "xterm-addon-fit";
-import { scrollSensitivityUpdater, terminalTheme } from "./utils";
+import {
+  scrollSensitivityUpdater,
+  terminalCleanup,
+  terminalTheme,
+  useFitAddon,
+} from "./utils";
 
-type TerminalSession = {
-  ws: WebSocket;
-  wsId: string;
-  refCount: number;
-  closeTimeoutId: number | null;
-  isReady: boolean;
-  terminal: Terminal;
-  fitAddon: FitAddon;
-  inputDisposable: { dispose: () => void };
-  resizeDisposable: { dispose: () => void };
-  pendingResizeMessage: string | null;
-  pendingResizeTimeoutId: number | null;
-  lastSentResizeMessage: string | null;
-  lastSentResizeTs: number | null;
-};
-
-const TERMINAL_DEBUG_TAG = "SETTA_TERMINAL_DEBUG";
-
-function terminalDebugLog(payload: Record<string, unknown>) {
-  // Always-on structured logs (requested). Keep payload JSON-serializable.
-  try {
-    console.log(
-      JSON.stringify({
-        tag: TERMINAL_DEBUG_TAG,
-        ts: Date.now(),
-        ...payload,
-      }),
-    );
-  } catch (err) {
-    console.log(
-      JSON.stringify({
-        tag: TERMINAL_DEBUG_TAG,
-        ts: Date.now(),
-        event: "terminal_debug_log_failed",
-        error: String(err),
-      }),
-    );
-  }
-}
-
-function getContainerDebugInfo(container: HTMLDivElement | null) {
-  if (!container) {
-    return null;
-  }
-  const rect = container.getBoundingClientRect();
-  return {
-    clientWidth: container.clientWidth,
-    clientHeight: container.clientHeight,
-    rectWidth: rect.width,
-    rectHeight: rect.height,
-  };
-}
-
-// Keyed by `${projectConfigId}::${shareSessionId ?? ""}::${sectionId}`.
-// We keep a single WebSocket per terminal section and re-use it across rapid
-// mount/unmount cycles (StrictMode, attach/detach transitions) to avoid re-sending
-// the full history and appending output multiple times.
-const TERMINAL_SESSIONS: Record<string, TerminalSession> = {};
-
-const TERMINAL_SESSION_CLOSE_DELAY_MS = 1200;
-// Leading-edge send + coalesced trailing send. Avoids long lag on widen (which
-// can cause shells/programs to hard-wrap at the old cols, making "unwrapping"
-// impossible later), while still keeping resize traffic bounded.
-const TERMINAL_RESIZE_THROTTLE_MS = 200;
+// Maps from sectionId to a list of websocket connections.
+// There should only be 1 websocket for a given section.
+// But in case of double renders (basically just StrictMode),
+// this keeps a list of websockets, so we can add the new websocket
+// while the old one gets deleted.
+const TERMINAL_WEBSOCKETS = {};
+const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
 export function useTerminal({
   sectionId,
@@ -93,64 +41,26 @@ export function useTerminal({
 }) {
   const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
   const terminalReadyRef = useRef(false);
-  const sessionRef = useRef<TerminalSession | null>(null);
+  const fitAddon = useFitAddon();
   const isShareMode = useShareSession((x) => x.isShareMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     terminalReadyRef.current = false;
-    const container = terminalRef.current;
-    if (!container) {
-      return;
-    }
     if (isShareMode && !shareSessionId) {
       clearPendingSectionTextFocus(sectionId);
       return;
     }
-    const sessionKey = getTerminalSessionKey(sectionId, shareSessionId);
-    const session = acquireTerminalSession({
-      sessionKey,
-      sectionId,
-      shareSessionId,
-      isShareMode,
-      container,
-    });
-    sessionRef.current = session;
-    const { terminal, ws, fitAddon } = session;
-
-    // Ensure the terminal matches the DOM size on mount/reattach.
-    requestAnimationFrame(() => {
-      fitTerminal({
-        container,
-        fitAddon,
-        terminal,
-        sessionKey,
-        sectionId,
-        reason: "layout_effect_mount_raf",
-        widthProp: width,
-        heightProp: height,
-      });
-    });
-
-    const resizeObserver = new ResizeObserver(() => {
-      terminalDebugLog({
-        event: "terminal_resize_observer",
-        sessionKey,
-        sectionId,
-        container: getContainerDebugInfo(container),
-      });
-      fitTerminal({
-        container,
-        fitAddon,
-        terminal,
-        sessionKey,
-        sectionId,
-        reason: "resize_observer",
-        widthProp: width,
-        heightProp: height,
-      });
-    });
-    resizeObserver.observe(container);
+    const terminal = new Terminal({
+      cursorBlink: true,
+      theme: terminalTheme,
+      disableStdin: isShareMode,
+      // fontFamily: fontFamily,
+      // letterSpacing: "0",
+      // fontSize: "14",
+    }); // Instantiate the terminal
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalRef.current); // Attach the terminal to the div
 
     const focusTerminalInput = (attempt = 0) => {
       if (!isPendingSectionTextFocus(sectionId)) {
@@ -185,138 +95,60 @@ export function useTerminal({
       requestAnimationFrame(() => focusTerminalInput());
     }
 
-    let onReady: ((message: MessageEvent) => void) | null = null;
-    const markReady = () => {
-      terminalReadyRef.current = true;
-      if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
-        requestAnimationFrame(() => focusTerminalInput());
-      }
-    };
+    const { ws } = newTerminalWebsocket(sectionId, shareSessionId);
 
-    if (session.isReady) {
-      markReady();
-    } else {
-      onReady = (message: MessageEvent) => {
-        if (message.data === C.SETTA_TERMINAL_READY) {
-          terminalDebugLog({
-            event: "terminal_ws_ready",
-            sessionKey,
-            sectionId,
-            wsId: session.wsId,
-          });
-          markReady();
-          ws.removeEventListener("message", onReady!);
-          onReady = null;
+    terminal.onResize((size) => {
+      // Send the new size to the backend
+      const message = JSON.stringify({
+        messageType: C.WS_TERMINAL_RESIZE,
+        cols: size.cols,
+        rows: size.rows,
+      });
+      if (ws.readyState === 1) {
+        ws.send(message);
+      } else {
+        addTerminalInitialMessage(sectionId, message);
+      }
+    });
+
+    function onInitialMessage(message) {
+      if (message.data === C.SETTA_TERMINAL_READY) {
+        terminalReadyRef.current = true;
+        const attachAddon = new AttachAddon(ws, {
+          bidirectional: !isShareMode,
+        });
+        terminal.loadAddon(attachAddon);
+        if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+          requestAnimationFrame(() => focusTerminalInput());
         }
-      };
-      ws.addEventListener("message", onReady);
-      // Handle the (rare) race where the session becomes ready between our first
-      // `session.isReady` check and registering the listener.
-      if (session.isReady) {
-        markReady();
-        ws.removeEventListener("message", onReady);
-        onReady = null;
+        ws.removeEventListener("message", onInitialMessage);
       }
     }
+
+    ws.addEventListener("message", onInitialMessage);
 
     const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
 
     return () => {
       clearPendingSectionTextFocus(sectionId);
-      if (onReady) {
-        ws.removeEventListener("message", onReady);
-      }
-      resizeObserver.disconnect();
+      terminalCleanup(ws, terminal);
       unsub();
-      sessionRef.current = null;
-      releaseTerminalSession(sessionKey);
     };
   }, [isShareMode, shareSessionId]);
 
   useEffect(() => {
-    const session = sessionRef.current;
-    const container = terminalRef.current;
-    if (!session || !container) {
-      return;
-    }
-    fitTerminal({
-      container,
-      fitAddon: session.fitAddon,
-      terminal: session.terminal,
-      sessionKey: getTerminalSessionKey(sectionId, shareSessionId),
-      sectionId,
-      reason: "prop_effect_width_height",
-      widthProp: width,
-      heightProp: height,
-    });
+    fitAddon.fit();
   }, [width, height]);
 
   return terminalRef;
 }
 
-function getTerminalSessionKey(
+function newTerminalWebsocket(
   sectionId: string,
   shareSessionId: string | null,
-): string {
-  const projectConfigId = getCurrProjectConfigId();
-  const shareKey = shareSessionId ?? "";
-  return `${projectConfigId}::${shareKey}::${sectionId}`;
-}
-
-function acquireTerminalSession({
-  sessionKey,
-  sectionId,
-  shareSessionId,
-  isShareMode,
-  container,
-}: {
-  sessionKey: string;
-  sectionId: string;
-  shareSessionId: string | null;
-  isShareMode: boolean;
-  container: HTMLDivElement;
-}): TerminalSession {
-  const existing = TERMINAL_SESSIONS[sessionKey];
-  if (existing) {
-    existing.refCount += 1;
-    if (existing.closeTimeoutId !== null) {
-      window.clearTimeout(existing.closeTimeoutId);
-      existing.closeTimeoutId = null;
-    }
-    attachTerminalToContainer(existing, container);
-    existing.terminal.options.disableStdin = isShareMode;
-    terminalDebugLog({
-      event: "terminal_session_acquire_existing",
-      sessionKey,
-      sectionId,
-      wsId: existing.wsId,
-      refCount: existing.refCount,
-      container: getContainerDebugInfo(container),
-      terminal: { cols: existing.terminal.cols, rows: existing.terminal.rows },
-      shareSessionId,
-      isShareMode,
-    });
-    return existing;
-  }
-
+) {
   const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
-  const terminal = new Terminal({
-    cursorBlink: true,
-    theme: terminalTheme,
-    disableStdin: isShareMode,
-  });
-  const fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-  terminal.open(container);
-  terminalDebugLog({
-    event: "terminal_session_create",
-    sessionKey,
-    sectionId,
-    shareSessionId,
-    isShareMode,
-    container: getContainerDebugInfo(container),
-  });
   const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
     RouteEnum.TERMINAL,
     { projectConfigId, sectionId, id },
@@ -325,139 +157,43 @@ function acquireTerminalSession({
     ? `${baseAddress}?shareSessionId=${encodeURIComponent(shareSessionId)}`
     : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
-
-  const session: TerminalSession = {
-    ws,
-    wsId: id,
-    refCount: 1,
-    closeTimeoutId: null,
-    isReady: false,
-    terminal,
-    fitAddon,
-    inputDisposable: terminal.onData(() => {}),
-    resizeDisposable: terminal.onResize(() => {}),
-    pendingResizeMessage: null,
-    pendingResizeTimeoutId: null,
-    lastSentResizeMessage: null,
-    lastSentResizeTs: null,
-  };
-  TERMINAL_SESSIONS[sessionKey] = session;
-
-  // Terminal -> backend input.
-  session.inputDisposable.dispose();
-  session.inputDisposable = terminal.onData((data) => {
-    const shareSession = useShareSession.getState();
-    if (shareSession.isShareMode) {
-      return;
-    }
-    if (!session.isReady) {
-      return;
-    }
-    if (ws.readyState === 1) {
-      ws.send(data);
-    }
-  });
-
-  // Terminal -> backend resize (debounced, keep only the latest).
-  session.resizeDisposable.dispose();
-  session.resizeDisposable = terminal.onResize((size) => {
-    const currentContainer =
-      terminal.element?.parentElement instanceof HTMLDivElement
-        ? terminal.element.parentElement
-        : container;
-    terminalDebugLog({
-      event: "terminal_on_resize",
-      sessionKey,
-      sectionId,
-      cols: size.cols,
-      rows: size.rows,
-      container: getContainerDebugInfo(currentContainer),
-      terminal: { cols: terminal.cols, rows: terminal.rows },
-      reactFlowZoom:
-        typeof window !== "undefined" && "reactFlowZoom" in window
-          ? (window as any).reactFlowZoom
-          : null,
-    });
-    const message = JSON.stringify({
-      messageType: C.WS_TERMINAL_RESIZE,
-      cols: size.cols,
-      rows: size.rows,
-    });
-    queueTerminalResize(sessionKey, message);
-  });
-
-  ws.addEventListener("open", () => {
-    terminalDebugLog({
-      event: "terminal_ws_open",
-      sessionKey,
-      sectionId,
-      wsId: session.wsId,
-    });
-    flushTerminalResize(sessionKey);
-  });
-
-  ws.addEventListener("message", (event) => {
-    if (typeof event.data === "string" && event.data === C.SETTA_TERMINAL_READY) {
-      session.isReady = true;
-      return;
-    }
-
-    const appendText = (text: string) => {
-      if (!text) {
-        return;
+  ws.addEventListener("open", async () => {
+    if (INITIAL_MESSAGES[sectionId]?.length > 0) {
+      const sentMessageIdx = [];
+      for (const [idx, initialMessage] of INITIAL_MESSAGES[
+        sectionId
+      ].entries()) {
+        // hack to get backend to receive distinct messages rather than 1 grouped message
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (ws.readyState === 1) {
+          ws.send(initialMessage);
+          sentMessageIdx.push(idx);
+        }
       }
-      session.terminal.write(text);
-    };
-
-    if (typeof event.data === "string") {
-      appendText(event.data);
-      return;
-    }
-    if (event.data instanceof ArrayBuffer) {
-      appendText(new TextDecoder().decode(event.data));
-      return;
-    }
-    if (event.data instanceof Blob) {
-      event.data
-        .arrayBuffer()
-        .then((buffer) => {
-          if (TERMINAL_SESSIONS[sessionKey] !== session) {
-            return;
-          }
-          appendText(new TextDecoder().decode(buffer));
-        })
-        .catch(() => {
-          // Ignore decode errors.
-        });
+      INITIAL_MESSAGES[sectionId] = INITIAL_MESSAGES[sectionId].filter(
+        (x, idx) => !sentMessageIdx.includes(idx),
+      );
     }
   });
 
-  const cleanup = () => {
-    delete TERMINAL_SESSIONS[sessionKey];
-  };
-  ws.addEventListener("close", (event) => {
-    terminalDebugLog({
-      event: "terminal_ws_close",
-      sessionKey,
-      sectionId,
-      wsId: session.wsId,
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
-    });
-    cleanup();
-  });
-  ws.addEventListener("error", () => {
-    terminalDebugLog({
-      event: "terminal_ws_error",
-      sessionKey,
-      sectionId,
-      wsId: session.wsId,
-    });
-    cleanup();
-  });
+  function cleanupTerminalWebsockets() {
+    if (sectionId in TERMINAL_WEBSOCKETS) {
+      TERMINAL_WEBSOCKETS[sectionId] = removeWsFromArray(
+        TERMINAL_WEBSOCKETS[sectionId],
+        ws,
+      );
+    }
+  }
 
-  return session;
+  ws.addEventListener("close", cleanupTerminalWebsockets);
+  ws.addEventListener("error", cleanupTerminalWebsockets);
+
+  if (!(sectionId in TERMINAL_WEBSOCKETS)) {
+    TERMINAL_WEBSOCKETS[sectionId] = [];
+  }
+  TERMINAL_WEBSOCKETS[sectionId].push(ws);
+
+  return { ws, wsId: id };
 }
 
 // const fontFamily = {
@@ -465,257 +201,15 @@ function acquireTerminalSession({
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-function queueTerminalResize(sessionKey: string, message: string) {
-  const session = TERMINAL_SESSIONS[sessionKey];
-  if (!session) {
-    return;
+function addTerminalInitialMessage(sectionId, msg) {
+  if (!(sectionId in INITIAL_MESSAGES)) {
+    INITIAL_MESSAGES[sectionId] = [];
   }
-  if (session.lastSentResizeMessage === message && !session.pendingResizeMessage) {
-    terminalDebugLog({
-      event: "terminal_resize_queue_skip_duplicate",
-      sessionKey,
-      wsId: session.wsId,
-      readyState: session.ws.readyState,
-      message,
-    });
-    return;
-  }
-  terminalDebugLog({
-    event: "terminal_resize_queue",
-    sessionKey,
-    wsId: session.wsId,
-    readyState: session.ws.readyState,
-    lastSentResizeTs: session.lastSentResizeTs,
-    message,
-  });
-
-  session.pendingResizeMessage = message;
-
-  const now = Date.now();
-  const lastSent = session.lastSentResizeTs;
-  const canSendNow =
-    session.ws.readyState === 1 &&
-    (lastSent === null || now - lastSent >= TERMINAL_RESIZE_THROTTLE_MS);
-
-  if (canSendNow) {
-    if (session.pendingResizeTimeoutId !== null) {
-      window.clearTimeout(session.pendingResizeTimeoutId);
-      session.pendingResizeTimeoutId = null;
-    }
-    flushTerminalResize(sessionKey);
-    return;
-  }
-
-  if (session.pendingResizeTimeoutId !== null) {
-    return;
-  }
-
-  const delay =
-    lastSent === null
-      ? TERMINAL_RESIZE_THROTTLE_MS
-      : Math.max(TERMINAL_RESIZE_THROTTLE_MS - (now - lastSent), 0);
-  session.pendingResizeTimeoutId = window.setTimeout(() => {
-    const latest = TERMINAL_SESSIONS[sessionKey];
-    if (!latest) {
-      return;
-    }
-    latest.pendingResizeTimeoutId = null;
-    flushTerminalResize(sessionKey);
-  }, delay);
-}
-
-function flushTerminalResize(sessionKey: string) {
-  const session = TERMINAL_SESSIONS[sessionKey];
-  if (!session) {
-    return;
-  }
-  const message = session.pendingResizeMessage;
-  if (!message) {
-    return;
-  }
-  if (session.ws.readyState === 1) {
-    terminalDebugLog({
-      event: "terminal_resize_flush_send",
-      sessionKey,
-      wsId: session.wsId,
-      message,
-    });
-    session.ws.send(message);
-    session.lastSentResizeMessage = message;
-    session.lastSentResizeTs = Date.now();
-    session.pendingResizeMessage = null;
-    return;
-  }
-  terminalDebugLog({
-    event: "terminal_resize_flush_skip_not_open",
-    sessionKey,
-    wsId: session.wsId,
-    readyState: session.ws.readyState,
-    message,
-  });
-}
-
-function releaseTerminalSession(sessionKey: string) {
-  const session = TERMINAL_SESSIONS[sessionKey];
-  if (!session) {
-    return;
-  }
-
-  session.refCount = Math.max(0, session.refCount - 1);
-  terminalDebugLog({
-    event: "terminal_session_release",
-    sessionKey,
-    wsId: session.wsId,
-    refCount: session.refCount,
-  });
-  if (session.refCount === 0) {
-    if (session.closeTimeoutId !== null) {
-      window.clearTimeout(session.closeTimeoutId);
-    }
-    session.closeTimeoutId = window.setTimeout(() => {
-      const latest = TERMINAL_SESSIONS[sessionKey];
-      if (!latest || latest.refCount !== 0) {
-        return;
-      }
-      if (latest.pendingResizeTimeoutId !== null) {
-        window.clearTimeout(latest.pendingResizeTimeoutId);
-        latest.pendingResizeTimeoutId = null;
-      }
-      latest.pendingResizeMessage = null;
-      latest.lastSentResizeMessage = null;
-      latest.lastSentResizeTs = null;
-      if (latest.ws.readyState === 1) {
-        latest.ws.close();
-      } else {
-        latest.ws.addEventListener("open", () => {
-          latest.ws.close();
-        });
-      }
-      latest.inputDisposable.dispose();
-      latest.resizeDisposable.dispose();
-      deferTerminalDispose(latest.terminal);
-      terminalDebugLog({
-        event: "terminal_session_dispose",
-        sessionKey,
-        wsId: latest.wsId,
-      });
-      delete TERMINAL_SESSIONS[sessionKey];
-    }, TERMINAL_SESSION_CLOSE_DELAY_MS);
+  if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
+    INITIAL_MESSAGES[sectionId].push(msg);
   }
 }
 
-function deferTerminalDispose(terminal: Terminal) {
-  // Work around an xterm.js dispose race that can throw:
-  // "Cannot read properties of undefined (reading 'dimensions')".
-  // Defer disposal past the next refresh tick.
-  if (typeof requestAnimationFrame !== "function") {
-    terminal.dispose();
-    return;
-  }
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      terminal.dispose();
-    });
-  });
-}
-
-function attachTerminalToContainer(
-  session: TerminalSession,
-  container: HTMLDivElement,
-) {
-  const element = session.terminal.element;
-  if (!element) {
-    terminalDebugLog({
-      event: "terminal_dom_open_missing_element",
-      wsId: session.wsId,
-      terminal: { cols: session.terminal.cols, rows: session.terminal.rows },
-    });
-    session.terminal.open(container);
-    return;
-  }
-  if (element.parentElement === container) {
-    return;
-  }
-  terminalDebugLog({
-    event: "terminal_dom_reparent",
-    wsId: session.wsId,
-  });
-  container.replaceChildren(element);
-}
-
-function fitTerminal({
-  container,
-  fitAddon,
-  terminal,
-  sessionKey,
-  sectionId,
-  reason,
-  widthProp,
-  heightProp,
-}: {
-  container: HTMLDivElement;
-  fitAddon: FitAddon;
-  terminal: Terminal;
-  sessionKey: string;
-  sectionId: string;
-  reason: string;
-  widthProp: number;
-  heightProp: number;
-}) {
-  // Avoid fitting while the container is effectively hidden, which can result
-  // in 0x0 proposals and a "blank" terminal until the next resize.
-  if (container.clientWidth < 16 || container.clientHeight < 16) {
-    terminalDebugLog({
-      event: "terminal_fit_skip_hidden",
-      sessionKey,
-      sectionId,
-      reason,
-      widthProp,
-      heightProp,
-      container: getContainerDebugInfo(container),
-    });
-    return;
-  }
-  let proposed: { cols: number; rows: number } | null = null;
-  try {
-    const next = fitAddon.proposeDimensions();
-    if (
-      next &&
-      typeof next.cols === "number" &&
-      typeof next.rows === "number"
-    ) {
-      proposed = { cols: next.cols, rows: next.rows };
-    }
-  } catch (err) {
-    terminalDebugLog({
-      event: "terminal_fit_propose_error",
-      sessionKey,
-      sectionId,
-      reason,
-      error: String(err),
-    });
-  }
-  terminalDebugLog({
-    event: "terminal_fit_start",
-    sessionKey,
-    sectionId,
-    reason,
-    widthProp,
-    heightProp,
-    container: getContainerDebugInfo(container),
-    proposed,
-    terminal: { cols: terminal.cols, rows: terminal.rows },
-  });
-  fitAddon.fit();
-  terminalDebugLog({
-    event: "terminal_fit_end",
-    sessionKey,
-    sectionId,
-    reason,
-    widthProp,
-    heightProp,
-    container: getContainerDebugInfo(container),
-    proposed,
-    terminal: { cols: terminal.cols, rows: terminal.rows },
-  });
+function removeWsFromArray(x, ws) {
+  return x.filter((w) => w !== ws);
 }

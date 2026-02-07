@@ -25,7 +25,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.id import ID
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
 
 
 def _write_share_project(
@@ -46,6 +46,7 @@ def _write_share_project(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -71,6 +72,7 @@ def _write_share_project_with_configs(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=default_project_config_id,
         deploymentVersion=deployment_version,
     )

@@ -50,8 +50,8 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
 - `ProjectChat.tsx` hydrates the LLM config/API key state, lets the user pick a provider, and renders both `ProjectChatCore` and `ProjectLLMSettings` side-by-side.
-- `ProjectChatCore` pulls chat details from the zustand `useAIStore`. `ChatMessageList`/`ChatMessage` filter out tool-only messages, stitch assistant streams together, and surface edit + branch switcher controls using branch metadata derived from agent runs.
-- `ChatInput` manages optimistic user submissions and attachments via `submitMessage`. `ChatMessageEditor` powers user-message edits and calls `submitEditedMessage`, which POSTs `/getLLMResponse` with `branchParentChatId`/`branchFromMessageId` to create a new branch chat. Pressing the send button while a response is inflight issues `/stopLLMChat`, mirroring the backend’s `request_stop_streaming`.
+- `ProjectChatCore` pulls chat details from the zustand `useAIStore`. The `MessageList`/`ChatMessage` components filter out tool-only messages and stitch the assistant stream together, while `ThinkingBox` animates the reasoning traces that arrive in `MessageThinkingDelta` chunks.
+- `ChatInput` manages optimistic user submissions. It sends messages through `submitMessage`, which immediately appends the user message locally, POSTs `/getLLMResponse`, and refreshes the chat once the backend acknowledges the chat ID. Pressing the send button while a response is inflight issues `/stopLLMChat`, mirroring the backend’s `request_stop_streaming`.
 - Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.
 
 ## Third-party access

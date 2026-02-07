@@ -69,9 +69,13 @@ def _build_tool_callable(
     async def tool_callable(**raw_kwargs: Any):
         ctx: Context = raw_kwargs.pop("ctx")
         request = request_model(**raw_kwargs)
-        manager = ctx.fastmcp.state.project_manager_switcher.get(
-            request.projectConfigId
-        )
+        project_config_id = getattr(request, "projectConfigId", None)
+        if project_config_id is None:
+            manager = ctx.fastmcp.state.project_manager_switcher.main
+            if manager is None:
+                raise KeyError("Missing main project manager.")
+        else:
+            manager = ctx.fastmcp.state.project_manager_switcher.get(project_config_id)
         manager_method = getattr(manager, manager_method_name)
         result = manager_method(request)
         if inspect.isawaitable(result):
