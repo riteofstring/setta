@@ -216,9 +216,9 @@ function applyVars(
 
 function applyAppVars(
   style: Record<string, string | number>,
-  vars: Record<string, string | number> | undefined,
+  vars: unknown,
 ): void {
-  if (!vars) {
+  if (!vars || !isRecord(vars)) {
     return;
   }
   for (const [key, value] of Object.entries(vars)) {
