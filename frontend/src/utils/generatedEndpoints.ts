@@ -565,6 +565,12 @@ export async function route_delete_engine_config(
   return await post("/deleteEngineConfig", x);
 }
 
+export async function route_stream_app_spec(
+  x: gt.StreamAppSpecRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/streamAppSpec", x);
+}
+
 export async function route_get_app_catalog(): Promise<
   ResponseDataAndStatus<
     Record<string, any> | Array<any> | string | number | number | boolean | null

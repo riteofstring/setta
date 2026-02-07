@@ -52,7 +52,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
 
-export type DropzoneInputTheme = {
+type DropzoneInputTheme = {
   wrapperBaseClassName?: string;
   dragActiveClassName?: string;
   controlsRowClassName?: string;
@@ -984,7 +984,8 @@ export function DropzoneInput({
     theme?.dragActiveClassName ??
     "border-emerald-500 bg-emerald-200/80 text-emerald-900 ring-4 ring-emerald-400/60 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] dark:border-emerald-300 dark:bg-emerald-500/30 dark:text-emerald-100 dark:ring-emerald-300/60 dark:shadow-[0_0_0_6px_rgba(16,185,129,0.25)]";
   const dragActiveClassName = isDragActive ? wrapperDragActiveClassName : "";
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value ${wrapperBaseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
+  const wrapperClassName =
+    `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value ${wrapperBaseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
 
   const controlsRowClassName =
     theme?.controlsRowClassName ??

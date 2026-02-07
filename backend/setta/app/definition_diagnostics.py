@@ -184,12 +184,16 @@ def collect_app_theme_validation_issues(
 
     errors.extend(_validate_theme_colors(theme.get("colors"), warnings=warnings))
     errors.extend(_validate_theme_fonts(theme.get("fonts"), warnings=warnings))
-    errors.extend(_validate_theme_typography(theme.get("typography"), warnings=warnings))
+    errors.extend(
+        _validate_theme_typography(theme.get("typography"), warnings=warnings)
+    )
     errors.extend(_validate_theme_spacing(theme.get("spacing"), warnings=warnings))
     errors.extend(_validate_theme_vars(theme.get("vars"), warnings=warnings))
     errors.extend(_validate_theme_motion(theme.get("motion"), warnings=warnings))
     errors.extend(_validate_theme_shadows(theme.get("shadows"), warnings=warnings))
-    errors.extend(_validate_theme_components(theme.get("components"), warnings=warnings))
+    errors.extend(
+        _validate_theme_components(theme.get("components"), warnings=warnings)
+    )
 
     return errors, warnings
 
@@ -240,7 +244,9 @@ def _validate_theme_colors(
             )
         return errors
 
-    errors.extend(_validate_theme_color_map(raw, prefix="theme.colors", warnings=warnings))
+    errors.extend(
+        _validate_theme_color_map(raw, prefix="theme.colors", warnings=warnings)
+    )
     return errors
 
 
@@ -318,9 +324,7 @@ def _validate_theme_typography(
     if not isinstance(raw, dict):
         return [AppValidationIssue(message="theme.typography must be an object.")]
 
-    unknown = sorted(
-        [key for key in raw.keys() if key not in _THEME_TYPOGRAPHY_KEYS]
-    )
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_TYPOGRAPHY_KEYS])
     if unknown:
         preview, suffix = _preview_sorted(unknown)
         warnings.append(
@@ -629,7 +633,9 @@ def _validate_theme_components(
             token_val = value.get(token_key)
             if not isinstance(token_val, str):
                 errors.append(
-                    AppValidationIssue(message=f"{prefix}.{token_key} must be a string.")
+                    AppValidationIssue(
+                        message=f"{prefix}.{token_key} must be a string."
+                    )
                 )
 
     validate_token_block("button", _THEME_BUTTON_TOKEN_KEYS)

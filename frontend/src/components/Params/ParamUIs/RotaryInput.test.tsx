@@ -26,4 +26,3 @@ describe("RotaryInput theme overrides", () => {
     expect(markup).not.toContain("bg-blue-500");
   });
 });
-

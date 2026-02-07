@@ -19,4 +19,3 @@ describe("resolveResponsiveValue", () => {
     expect(resolveResponsiveValue({ foo: 1 }, "md")).toEqual({ foo: 1 });
   });
 });
-

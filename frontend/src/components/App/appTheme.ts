@@ -126,7 +126,7 @@ type AppThemeConfig = {
   vars?: Record<string, string | number>;
 };
 
-export type ResolvedAppMotion = {
+type ResolvedAppMotion = {
   durationMs: number;
   delayMs: number;
   staggerMs: number;
@@ -256,13 +256,14 @@ const COMPONENT_INPUT_VAR_MAP: Record<keyof AppThemeInputTokens, string> = {
   ring: "--app-input-ring",
 };
 
-const COMPONENT_DROPDOWN_VAR_MAP: Record<keyof AppThemeDropdownTokens, string> = {
-  bg: "--app-dropdown-bg",
-  border: "--app-dropdown-border",
-  text: "--app-dropdown-text",
-  muted: "--app-dropdown-muted",
-  shadow: "--app-dropdown-shadow",
-};
+const COMPONENT_DROPDOWN_VAR_MAP: Record<keyof AppThemeDropdownTokens, string> =
+  {
+    bg: "--app-dropdown-bg",
+    border: "--app-dropdown-border",
+    text: "--app-dropdown-text",
+    muted: "--app-dropdown-muted",
+    shadow: "--app-dropdown-shadow",
+  };
 
 const COMPONENT_CARD_VAR_MAP: Record<keyof AppThemeCardTokens, string> = {
   shadow: "--app-card-shadow",
@@ -442,10 +443,9 @@ function resolveThemeShadows(raw: AppThemeConfig["shadows"]): AppThemeShadows {
   return extractStringMap<AppThemeShadows>(raw);
 }
 
-function resolveThemeComponentTokens<T extends Record<string, string | undefined>>(
-  raw: unknown,
-  keys: ReadonlyArray<keyof T>,
-): Partial<T> {
+function resolveThemeComponentTokens<
+  T extends Record<string, string | undefined>,
+>(raw: unknown, keys: ReadonlyArray<keyof T>): Partial<T> {
   if (!raw || !isRecord(raw)) {
     return {};
   }
@@ -459,7 +459,9 @@ function resolveThemeComponentTokens<T extends Record<string, string | undefined
   return output as Partial<T>;
 }
 
-function resolveThemeComponents(raw: AppThemeConfig["components"]): AppThemeComponents {
+function resolveThemeComponents(
+  raw: AppThemeConfig["components"],
+): AppThemeComponents {
   if (!raw || !isRecord(raw)) {
     return {};
   }
@@ -481,15 +483,14 @@ function resolveThemeComponents(raw: AppThemeConfig["components"]): AppThemeComp
       "focusBorder",
       "ring",
     ]),
-    dropdown: resolveThemeComponentTokens<AppThemeDropdownTokens>(raw.dropdown, [
-      "bg",
-      "border",
-      "text",
-      "muted",
-      "shadow",
-    ]),
+    dropdown: resolveThemeComponentTokens<AppThemeDropdownTokens>(
+      raw.dropdown,
+      ["bg", "border", "text", "muted", "shadow"],
+    ),
     card: resolveThemeComponentTokens<AppThemeCardTokens>(raw.card, ["shadow"]),
-    page: resolveThemeComponentTokens<AppThemePageTokens>(raw.page, ["bgImage"]),
+    page: resolveThemeComponentTokens<AppThemePageTokens>(raw.page, [
+      "bgImage",
+    ]),
   };
 }
 

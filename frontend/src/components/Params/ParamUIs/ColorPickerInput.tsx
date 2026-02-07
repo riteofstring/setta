@@ -218,7 +218,7 @@ export function ColorPickerInput({
   );
 }
 
-export type ColorPickerInputTheme = {
+type ColorPickerInputTheme = {
   inputBorderClassName?: string;
   triggerBorderClassName?: string;
   menuContentClassName?: string;
@@ -361,9 +361,7 @@ function ColorPickerFromColorChoices({
                 className="mr-2 h-4 w-4 rounded-full"
                 style={{ backgroundColor: item.color }}
               />
-              <p className={menuItemTextClassName}>
-                {item.description}
-              </p>
+              <p className={menuItemTextClassName}>{item.description}</p>
             </DropdownMenu.Item>
           ))}
         </DropdownMenu.Content>

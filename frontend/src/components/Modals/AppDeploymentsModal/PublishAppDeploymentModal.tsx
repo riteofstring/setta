@@ -16,9 +16,9 @@ import {
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_check_if_file_exists,
   route_list_app_deployments,
   route_publish_app_deployment,
-  route_check_if_file_exists,
 } from "utils/generatedEndpoints";
 import type {
   AppDeploymentMetadata,

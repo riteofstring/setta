@@ -43,7 +43,7 @@ export function AppPreview() {
         previewThemeOverride !== undefined ? previewThemeOverride : base.theme,
       assets:
         previewAssetsOverride !== undefined
-          ? (previewAssetsOverride ?? [])
+          ? previewAssetsOverride ?? []
           : base.assets,
     };
   }, [appDefinition, previewAssetsOverride, previewThemeOverride]);

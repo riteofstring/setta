@@ -36,7 +36,8 @@ export function RotaryInput({
   const clampedValue = parseValue(value, min, max);
   const indicatorAngle = getAngleFromValue(clampedValue, min, max);
   const displayValue = formatValue(clampedValue, step);
-  const indicatorResolvedThemeClassName = indicatorThemeClassName ?? "bg-blue-500";
+  const indicatorResolvedThemeClassName =
+    indicatorThemeClassName ?? "bg-blue-500";
 
   let knobStateClasses = "cursor-grab active:cursor-grabbing";
   if (isDisabled) {

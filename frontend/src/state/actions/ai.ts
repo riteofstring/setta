@@ -1,9 +1,9 @@
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { addTemporaryNotification } from "state/actions/notifications";
 import {
   clearChatStreamActive,
   isChatStreamActive,
@@ -1155,7 +1155,7 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
     : undefined;
 
   useAppDefinition.setState((state) => ({
-    appSpec: nextSpec === undefined ? state.appSpec : (nextSpec ?? null),
+    appSpec: nextSpec === undefined ? state.appSpec : nextSpec ?? null,
     appDefinition:
       nextDefinition === undefined
         ? state.appDefinition

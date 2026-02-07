@@ -1,6 +1,6 @@
 import React from "react";
 
-export type AppBreakpoint = "base" | "sm" | "md" | "lg" | "xl" | "2xl";
+type AppBreakpoint = "base" | "sm" | "md" | "lg" | "xl" | "2xl";
 
 const BREAKPOINTS: Array<{ name: AppBreakpoint; minWidth: number }> = [
   { name: "2xl", minWidth: 1536 },
@@ -103,4 +103,3 @@ export function resolveResponsiveValue(
   }
   return undefined;
 }
-

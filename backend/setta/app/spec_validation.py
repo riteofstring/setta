@@ -106,7 +106,9 @@ def collect_app_spec_validation_issues(
 ) -> list[AppValidationIssue]:
     issues: list[AppValidationIssue] = []
     if catalog_id != APP_CATALOG_ID:
-        issues.append(AppValidationIssue(message=f"Unknown app catalog id: {catalog_id}"))
+        issues.append(
+            AppValidationIssue(message=f"Unknown app catalog id: {catalog_id}")
+        )
         return issues
 
     component_schemas = _build_component_schema_map()

@@ -134,7 +134,9 @@ describe("AppPreview", () => {
       | null
       | undefined;
     expect(definition?.theme).toEqual({ mode: "dark" });
-    expect(definition?.assets).toEqual([{ rel: "stylesheet", href: "/static/b.css" }]);
+    expect(definition?.assets).toEqual([
+      { rel: "stylesheet", href: "/static/b.css" },
+    ]);
   });
 
   it("creates a default app definition when overrides exist but no definition is stored", () => {

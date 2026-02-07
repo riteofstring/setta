@@ -151,6 +151,7 @@ class Route(str, Enum):
     VALIDATE_APP_DEFINITION = "/validateAppDefinition"
     GET_APP_CATALOG = "/getAppCatalog"
     LIST_APP_COMPONENTS = "/listAppComponents"
+    STREAM_APP_SPEC = "/streamAppSpec"
     SET_PROMPT_TEMPLATE = "/setPromptTemplate"
     SET_PROMPT_INPUTS = "/setPromptInputs"
     SET_PROMPT_FORMAT = "/setPromptFormat"

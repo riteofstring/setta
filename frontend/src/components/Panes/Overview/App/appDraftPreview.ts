@@ -1,6 +1,6 @@
 export type AppThemeMode = "auto" | "light" | "dark";
 
-export type DraftParseResult<T> =
+type DraftParseResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: string };
 
@@ -8,7 +8,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export function parseDraftAppSpec(draftSpec: string): DraftParseResult<unknown | null> {
+export function parseDraftAppSpec(
+  draftSpec: string,
+): DraftParseResult<unknown | null> {
   if (draftSpec.trim().length === 0) {
     return { ok: true, value: null };
   }
@@ -61,4 +63,3 @@ export function parseDraftAppAssets(
   }
   return { ok: true, value: parsed };
 }
-

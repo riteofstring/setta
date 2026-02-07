@@ -582,7 +582,6 @@ class BaseProjectManager(ABC):
             str, tuple[str, list[RenameReferenceChangedValue]]
         ] = {}
         self._bootstrap_watch_code_baselines()
-        self.watch_code_manager.start()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         self.watch_json_source_files()
         self.watch_artifact_files()
@@ -1340,8 +1339,10 @@ class BaseProjectManager(ABC):
                 allow_reserved_project_name=allow_reserved_project_name,
                 validate_name_rules=validate_name_rules,
             )
-            if self.lsp_writers.full is not None:
-                await self._refresh_codegen_state(projectState)
+            # Codegen state is required even when the LSP is disabled (e.g. in tests
+            # or headless/server contexts). _refresh_codegen_state already handles
+            # the no-LSP case by skipping sync and resetting diagnostics.
+            await self._refresh_codegen_state(projectState)
             self._merge_project_state_backend(
                 projectState,
                 updateFileWatcher=updateFileWatcher,

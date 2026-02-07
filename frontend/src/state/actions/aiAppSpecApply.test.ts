@@ -1,8 +1,12 @@
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { receiveLLMResponseChunk } from "./ai";
 
-import { useAppDefinition, useAppPreview, useProjectState } from "state/definitions";
+import {
+  useAppDefinition,
+  useAppPreview,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -117,7 +121,9 @@ describe("ai app spec tool results", () => {
     });
 
     expect(useAppDefinition.getState().appSpec).toBeNull();
-    expect(useAppPreview.getState().previewSpecOverride).toEqual({ stale: true });
+    expect(useAppPreview.getState().previewSpecOverride).toEqual({
+      stale: true,
+    });
   });
 
   it("ignores errored tool results", () => {
@@ -159,7 +165,8 @@ describe("ai app spec tool results", () => {
     });
 
     expect(useAppDefinition.getState().appSpec).toBeNull();
-    expect(useAppPreview.getState().previewSpecOverride).toEqual({ stale: true });
+    expect(useAppPreview.getState().previewSpecOverride).toEqual({
+      stale: true,
+    });
   });
 });
-

@@ -31,6 +31,7 @@ from setta.routers import (
     agentic_router,
     ai_router,
     app_deployments_router,
+    app_spec_streaming_router,
     artifact_router,
     attachments_router,
     binary_router,
@@ -165,6 +166,7 @@ app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
 app.include_router(agentic_router, **http_router_kwargs)
+app.include_router(app_spec_streaming_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
 app.include_router(share_deployments_router, **http_router_kwargs)

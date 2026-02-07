@@ -1,10 +1,10 @@
+import type { Spec } from "@json-render/core";
 import {
   ActionProvider,
   DataProvider,
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
-import type { Spec } from "@json-render/core";
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -25,10 +25,10 @@ import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
 import { RouteEnum } from "utils/generatedTypes";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
+import "./appMotion.css";
 import { appRegistry } from "./appRegistry";
 import { AppBreakpointProvider } from "./appResponsive";
 import { resolveAppTheme } from "./appTheme";
-import "./appMotion.css";
 
 type RawUIElement = {
   key: string;
@@ -269,7 +269,8 @@ export function AppRenderer({
         params && typeof params.sectionId === "string"
           ? params.sectionId
           : null;
-      const entryCodeBlockId = configState?.projectConfig.entryCodeBlockId ?? null;
+      const entryCodeBlockId =
+        configState?.projectConfig.entryCodeBlockId ?? null;
       if (!sectionId && !entryCodeBlockId) {
         addTemporaryNotification(
           "Missing run target. Set the Run button sectionId (or configure an entry code block).",
@@ -549,7 +550,7 @@ export function AppRenderer({
 
   if (!spec || !spec.elements[spec.root]) {
     return (
-      <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center [font-size:var(--app-text-sm)] text-[color:var(--app-muted)]">
+      <div className="rounded-2xl border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-6 py-10 text-center text-[color:var(--app-muted)] [font-size:var(--app-text-sm)]">
         No app spec found. Generate or save an app spec to preview.
       </div>
     );
