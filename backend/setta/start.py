@@ -336,7 +336,9 @@ def _start_remote_setta(
             files_root_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
             files_root=str(files_root) if files_root is not None else None,
-            files_root_base=str(files_root_base) if files_root_base is not None else None,
+            files_root_base=str(files_root_base)
+            if files_root_base is not None
+            else None,
         )
     except LaunchError as exc:
         raise click.ClickException(str(exc)) from exc

@@ -187,7 +187,9 @@ def _validate_optional_dir(
         raise LaunchError(code, str(exc)) from exc
 
 
-def _terminate_launch_process(process: subprocess.Popen[str], *, log_path: Path) -> None:
+def _terminate_launch_process(
+    process: subprocess.Popen[str], *, log_path: Path
+) -> None:
     if process.poll() is not None:
         return
     try:

@@ -194,6 +194,7 @@ def _resolve_runtime_root(
         return resolve_path(raw)
     return (setta_files_root / "runtime").resolve(strict=False)
 
+
 def resolve_path(raw: Path | str) -> Path:
     if isinstance(raw, Path):
         raw_value = str(raw)

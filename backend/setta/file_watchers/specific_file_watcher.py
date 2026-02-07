@@ -266,9 +266,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             normalized_dest_path = normalize_workspace_path(dest_abs_path)
 
         handlers: list[FileWatcherCallback] = []
-        file_to_read = (
-            normalized_dest_path if normalized_dest_path else normalized_path
-        )
+        file_to_read = normalized_dest_path if normalized_dest_path else normalized_path
         for callbacks in self.callbacks.values():
             c = callbacks.get(file_to_read)
             if c:

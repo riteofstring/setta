@@ -87,9 +87,7 @@ export function WorkspaceSwitcherModal() {
       setFilesRootBase(entry.filesRootBase ?? "");
     }
     setShowAdvanced(
-      Boolean(
-        entry.localPort || entry.filesRoot || entry.filesRootBase,
-      ),
+      Boolean(entry.localPort || entry.filesRoot || entry.filesRootBase),
     );
     setError(null);
   }

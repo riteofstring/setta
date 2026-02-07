@@ -10,4 +10,3 @@ export function safeSessionStorage(): Storage | undefined {
   }
   return window.sessionStorage;
 }
-

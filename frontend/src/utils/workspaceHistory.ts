@@ -105,11 +105,16 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
     if (typeof record.workspaceRoot !== "string") {
       continue;
     }
-    const normalizedWorkspaceRoot = normalizeNullablePathLike(record.workspaceRoot);
+    const normalizedWorkspaceRoot = normalizeNullablePathLike(
+      record.workspaceRoot,
+    );
     if (!normalizedWorkspaceRoot) {
       continue;
     }
-    if (typeof record.lastUsedAt !== "number" || !Number.isFinite(record.lastUsedAt)) {
+    if (
+      typeof record.lastUsedAt !== "number" ||
+      !Number.isFinite(record.lastUsedAt)
+    ) {
       continue;
     }
     output.push({
