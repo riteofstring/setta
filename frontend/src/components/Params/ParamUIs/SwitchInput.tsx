@@ -7,8 +7,6 @@ type SwitchInputProps = {
   onEscape?: () => void;
   isDisabled?: boolean;
   outerDivClassName?: string;
-  rootThemeClassName?: string;
-  thumbThemeClassName?: string;
 };
 
 export function SwitchInput({
@@ -17,22 +15,11 @@ export function SwitchInput({
   onEscape,
   isDisabled,
   outerDivClassName,
-  rootThemeClassName,
-  thumbThemeClassName,
 }: SwitchInputProps) {
-  const rootBaseClassName =
-    "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none";
-  const rootResolvedThemeClassName =
-    rootThemeClassName ??
-    "bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
-  const thumbBaseClassName =
-    "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4";
-  const thumbResolvedThemeClassName =
-    thumbThemeClassName ?? "bg-white dark:bg-setta-800";
   return (
     <div className={outerDivClassName}>
       <Switch.Root
-        className={`${rootBaseClassName} ${rootResolvedThemeClassName}`}
+        className="nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full bg-setta-400 p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700"
         checked={value === true || value === "true"}
         disabled={isDisabled}
         onCheckedChange={onChange}
@@ -44,9 +31,7 @@ export function SwitchInput({
           }
         }}
       >
-        <Switch.Thumb
-          className={`${thumbBaseClassName} ${thumbResolvedThemeClassName}`}
-        />
+        <Switch.Thumb className="block h-2.5 w-2.5 rounded-full bg-white transition-all will-change-transform data-[state='checked']:translate-x-4 dark:bg-setta-800" />
       </Switch.Root>
     </div>
   );

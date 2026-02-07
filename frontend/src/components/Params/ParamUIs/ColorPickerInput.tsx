@@ -191,7 +191,6 @@ export function ColorPickerInput({
   wrapperClassName,
   colorPickerChoicesClasses,
   isDisabled = false,
-  theme,
 }: {
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   value: string;
@@ -200,7 +199,6 @@ export function ColorPickerInput({
   wrapperClassName: string;
   colorPickerChoicesClasses: string;
   isDisabled?: boolean;
-  theme?: ColorPickerInputTheme;
 }) {
   const _value = tryParseJSON(value);
   return (
@@ -212,19 +210,10 @@ export function ColorPickerInput({
         onEscape={onEscape}
         colorPickerChoicesClasses={colorPickerChoicesClasses}
         isDisabled={isDisabled}
-        theme={theme}
       />
     </div>
   );
 }
-
-export type ColorPickerInputTheme = {
-  inputBorderClassName?: string;
-  triggerBorderClassName?: string;
-  menuContentClassName?: string;
-  menuItemClassName?: string;
-  menuItemTextClassName?: string;
-};
 
 function ColorPicker({
   colorChoices,
@@ -233,7 +222,6 @@ function ColorPicker({
   onEscape,
   colorPickerChoicesClasses,
   isDisabled,
-  theme,
 }) {
   const style = {
     // from https://codepen.io/devongovett/pen/QwLbRrW
@@ -249,7 +237,6 @@ function ColorPicker({
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
       onEscape={onEscape}
-      theme={theme}
     />
   ) : (
     <>
@@ -257,30 +244,19 @@ function ColorPicker({
         className="gg-color-picker single-cell-child pointer-events-none mr-0.5 mt-0.5 place-self-center"
         style={style}
       />
-      {/*
-        Keep layout/interaction classes stable and make only the styling pieces overridable.
-        App mode uses `theme.*` to be token-driven without perturbing IDE rendering.
-      */}
-      {(() => {
-        const inputBorderClassName =
-          theme?.inputBorderClassName ??
-          "!border-setta-500/20 dark:!border-setta-500/40";
-        return (
-          <input
-            id="colorPicker"
-            type="color"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
-            disabled={isDisabled}
-            onKeyDown={(e) => {
-              if (e.code === "Escape") {
-                onEscape?.();
-              }
-            }}
-          />
-        );
-      })()}
+      <input
+        id="colorPicker"
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)]  min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
+        disabled={isDisabled}
+        onKeyDown={(e) => {
+          if (e.code === "Escape") {
+            onEscape?.();
+          }
+        }}
+      />
     </>
   );
 }
@@ -292,7 +268,6 @@ function ColorPickerFromColorChoices({
   colorPickerChoicesClasses,
   isDisabled,
   onEscape,
-  theme,
 }) {
   let selectedItem = colorChoices.find((c) => c.color === color);
   if (!selectedItem) {
@@ -304,19 +279,6 @@ function ColorPickerFromColorChoices({
     background: "var(--bg)",
     color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
   };
-
-  const triggerBorderClassName =
-    theme?.triggerBorderClassName ??
-    "!border-setta-500/20 dark:!border-setta-500/40";
-  const menuContentClassName =
-    theme?.menuContentClassName ??
-    "z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800";
-  const menuItemClassName =
-    theme?.menuItemClassName ??
-    "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
-  const menuItemTextClassName =
-    theme?.menuItemTextClassName ??
-    "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
 
   return (
     <DropdownMenu.Root modal={false}>
@@ -332,7 +294,7 @@ function ColorPickerFromColorChoices({
         }}
       >
         <div
-          className={`single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid ${triggerBorderClassName}`}
+          className="single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid !border-setta-500/20 dark:!border-setta-500/40"
           style={{ backgroundColor: selectedItem.color }}
         />
         <div className="single-cell-child flex items-center justify-between overflow-hidden">
@@ -347,21 +309,21 @@ function ColorPickerFromColorChoices({
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
-          className={menuContentClassName}
+          className="z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800"
           align="start"
           style={{ minWidth: "var(--radix-dropdown-menu-trigger-width)" }}
         >
           {colorChoices.map((item, index) => (
             <DropdownMenu.Item
               key={index}
-              className={menuItemClassName}
+              className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
               onSelect={() => setColor(item.color)}
             >
               <div
                 className="mr-2 h-4 w-4 rounded-full"
                 style={{ backgroundColor: item.color }}
               />
-              <p className={menuItemTextClassName}>
+              <p className="max-w-48 truncate text-xs text-setta-500 dark:text-setta-300">
                 {item.description}
               </p>
             </DropdownMenu.Item>

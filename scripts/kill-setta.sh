@@ -30,7 +30,10 @@ stop_setta_sessions() {
 stop_dev_processes() {
   local pids=""
   pids="$(
-    ps -ax -o pid= -o command= | awk -v root="${WORKTREE_ROOT}/frontend" 'index($0, root) && (index($0, "concurrently") || index($0, "vite") || index($0, "backendStart.sh") || index($0, "esbuild") || index($0, "/.venv/bin/setta")) { print $1 }'
+    ps -ax -o pid= -o command= | awk -v root="${WORKTREE_ROOT}" '
+      index($0, root "/frontend") && (index($0, "concurrently") || index($0, "vite") || index($0, "backendStart.sh") || index($0, "esbuild")) { print $1; next }
+      index($0, root "/.venv/bin/setta") { print $1 }
+    '
   )"
 
   if [[ -n "${pids}" ]]; then
