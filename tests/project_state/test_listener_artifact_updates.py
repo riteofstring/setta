@@ -17,7 +17,7 @@ from setta.types.artifact import (
     ImageArtifact,
 )
 from setta.types.binary_content import BinaryContentRef
-from setta.utils.paths import normalize_state_path
+from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -78,7 +78,7 @@ class TestApplyListenerArtifactUpdates:
 
         assert 1 == len(applied)
         cached = applied[0]
-        normalized_path = normalize_state_path("artifacts/new-image.png")
+        normalized_path = normalize_path("artifacts/new-image.png")
         assert str(normalized_path) == cached.id
         assert cached is artifacts.images[normalized_path]
         metadata = artifacts.image_metadata[normalized_path]
@@ -95,7 +95,7 @@ class TestApplyListenerArtifactUpdates:
             updates=[artifact],
         )
 
-        normalized_path = normalize_state_path("charts/data.csv")
+        normalized_path = normalize_path("charts/data.csv")
         assert 1 == len(applied)
         cached = applied[0]
         assert chart_data == cached.value
@@ -118,7 +118,7 @@ class TestApplyListenerArtifactUpdates:
             updates=[artifact],
         )
 
-        normalized_path = normalize_state_path("layers/brush.json")
+        normalized_path = normalize_path("layers/brush.json")
         assert brush == applied[0].value
         assert applied[0] is artifacts.brush_strokes[normalized_path]
 
@@ -135,7 +135,7 @@ class TestApplyListenerArtifactUpdates:
             updates=[artifact],
         )
 
-        normalized_path = normalize_state_path("layers/transform.json")
+        normalized_path = normalize_path("layers/transform.json")
         assert transform == applied[0].value
         assert (
             applied[0]
