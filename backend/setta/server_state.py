@@ -43,7 +43,11 @@ from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.init_status import BackendInitializationStatus
-from setta.utils.paths import clear_setta_paths_cache, get_setta_paths, warn_on_legacy_state
+from setta.utils.paths import (
+    clear_setta_paths_cache,
+    get_setta_paths,
+    warn_on_legacy_state,
+)
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender

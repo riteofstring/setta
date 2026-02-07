@@ -17,4 +17,3 @@ def build_watchdog_observer():
     if os.environ.get(_FORCE_POLLING_ENV_VAR):
         return PollingObserver()
     return Observer()
-
