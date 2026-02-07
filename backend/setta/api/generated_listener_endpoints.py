@@ -67,7 +67,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
-from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
     ProjectCodegenPythonTarget,
@@ -360,11 +359,6 @@ class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     sectionId: ID
-
-
-class ListenerGetLatestLspDiagnosticsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
 
 
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
@@ -1165,11 +1159,6 @@ class RouterEndpointAPI:
         self, payload: ListenerGetChatSectionChatIdRequestPayload
     ) -> str | None:
         return await self._caller("route_get_chat_section_chat_id", payload)
-
-    async def get_latest_lsp_diagnostics(
-        self, payload: ListenerGetLatestLspDiagnosticsRequestPayload
-    ) -> SettaLspDiagnosticsPayload:
-        return await self._caller("route_get_latest_lsp_diagnostics", payload)
 
     async def get_latest_project_state(
         self, payload: ListenerGetLatestProjectStateRequestPayload

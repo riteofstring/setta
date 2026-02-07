@@ -28,7 +28,7 @@ async function globalSetup(config: FullConfig) {
     `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
   );
   await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".app-shell, .app-base");
   await context.storageState({ path: storagePath });
   await browser.close();
 }

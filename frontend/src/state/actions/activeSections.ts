@@ -1,5 +1,9 @@
 import _ from "lodash";
-import { useProjectState, ZustandProjectState } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useProjectState,
+  ZustandProjectState,
+} from "state/definitions";
 import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
@@ -15,12 +19,23 @@ function optimisticActiveIdsUpdate(
 ) {
   return dispatchOptimisticProjectStateUpdate({
     apply,
-    send: (frontendOpId) =>
-      route_set_active_ids({
-        projectConfigId: getCurrProjectConfigId(),
+    send: (frontendOpId) => {
+      const projectConfigId = getCurrProjectConfigId();
+      if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+        // App mode can render before the IDE project config is hydrated; active ids are
+        // irrelevant there, so treat this as a no-op accepted by the backend.
+        return Promise.resolve({
+          data: undefined,
+          status: 200,
+          hasResponse: true,
+        });
+      }
+      return route_set_active_ids({
+        projectConfigId,
         activeIds: useProjectState.getState().projectConfig.activeIds,
         frontendOpId,
-      }),
+      });
+    },
   });
 }
 
