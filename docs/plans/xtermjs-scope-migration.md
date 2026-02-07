@@ -7,7 +7,7 @@
 - Keep terminal behavior/tests stable (especially code-section attach/detach + resize).
 
 ## Background / Constraints
-- The project currently patches `node_modules/xterm/lib/xterm.js` postinstall to divide mouse coords by `window.reactFlowZoom`.
+- The project patches the xterm bundle postinstall to divide mouse coords by `globalThis.reactFlowZoom` (see `frontend/fix_xterm.py`) so selection/clicks work under React Flow zoom transforms.
 - xterm.js v6 is a major release and includes breaking changes in options and viewport/scrollbar behavior; we want the minimal surface-area upgrade first.
 
 ## Plan
@@ -17,8 +17,7 @@
 2. Swap dependencies
    - Update `frontend/package.json`:
      - Replace `xterm` -> `@xterm/xterm@6.0.0`
-     - Replace `xterm-addon-fit` -> `@xterm/addon-fit@0.10.0`
-     - Replace `xterm-addon-attach` -> `@xterm/addon-attach@0.11.0` (keep only if still needed; otherwise remove)
+     - Replace `xterm-addon-fit` -> `@xterm/addon-fit` (pick a version compatible with xterm v6)
    - Run `pnpm -C frontend install` to update `frontend/pnpm-lock.yaml`.
 3. Update imports and CSS
    - Update TS imports:
@@ -40,4 +39,4 @@
 
 ## Notes / Follow-ups (Not Required For Migration)
 - Our “reflow on widen” behavior may still depend on shell output semantics (hard newlines vs wrapped buffer lines). If the issue persists after the upgrade, we should focus on backend ordering/output and/or explicit reflow strategies rather than more xterm internals.
-
+- If `@xterm/addon-fit` throws due to xterm v6 scrollbar/viewport changes, prefer upgrading the addon version. As a safety net, we can compute fit dimensions using xterm internals and DOM measurements (instead of letting an exception take down the app).
