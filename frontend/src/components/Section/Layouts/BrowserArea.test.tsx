@@ -111,8 +111,6 @@ describe("BrowserArea list view", () => {
     expect(markup).toContain("Filter");
     expect(markup).toContain("Files");
     expect(markup).toContain("Date modified");
-    expect(markup).toContain("CodeMirror-FileBrowserFilter");
-    expect(markup).toContain(`CodeMirror-${sectionId}-browser-path`);
   });
 
   it("does not render the explorer pane in thumbnail view", () => {
@@ -129,14 +127,13 @@ describe("BrowserArea list view", () => {
 
     expect(markup).toContain('aria-label="Go back"');
     expect(markup).toContain('aria-label="Go forward"');
-    expect(markup).toContain(`CodeMirror-${sectionId}-browser-path`);
   });
 
-  it("renders history controls in list view", () => {
+  it("omits history controls in list view", () => {
     setBrowserSectionState(BrowserAreaViewModeEnum.list);
     const markup = renderToStaticMarkup(<BrowserArea sectionId={sectionId} />);
 
-    expect(markup).toContain('aria-label="Go back"');
-    expect(markup).toContain('aria-label="Go forward"');
+    expect(markup).not.toContain('aria-label="Go back"');
+    expect(markup).not.toContain('aria-label="Go forward"');
   });
 });

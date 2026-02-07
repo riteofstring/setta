@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "state/definitions";
+import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { DropzoneFilePickerModal } from "./DropzoneFilePickerModal/DropzoneFilePickerModal";
@@ -52,6 +53,8 @@ function ModalContent({ open }: { open: boolean }) {
       return <RenameReferencesModal />;
     case ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT:
       return <PublishShareDeploymentModal open={open} />;
+    case ModalTypeEnum.PUBLISH_APP_DEPLOYMENT:
+      return <PublishAppDeploymentModal open={open} />;
     case ModalTypeEnum.DROPZONE_FILE_PICKER:
       return <DropzoneFilePickerModal open={open} />;
     default:
