@@ -102,6 +102,5 @@ Useful when you need to debug a specific subsystem.
 ## Notes
 
 - **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly.
-- **Repo-root logs**: `backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
-- **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
+- **Logs**: `backend.log`, `tests.log`, and `gcf.log` live at the repo root.
 - **Reset**: `reset.sh` and `pnpm reset` wipe `setta_files` (runtime metadata).

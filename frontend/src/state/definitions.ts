@@ -17,6 +17,7 @@ import {
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
+  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
@@ -120,6 +121,7 @@ export const useContextMenus = withProjectState(
 
 export type ZustandProjectState = ProjectStateSingleConfig & {
   previewSectionVariantMap: Record<string, string>;
+  appSpec: unknown | null;
 };
 
 export const NULL_PROJECT_CONFIG_ID = "null";
@@ -142,9 +144,38 @@ export const useProjectState = withProjectState(
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
+          appSpec: null,
         })),
       ),
     ),
+  ),
+);
+
+type AppDefinitionState = {
+  appDefinition: AppDefinition | null;
+  appSpec: unknown | null;
+};
+
+export const useAppDefinition = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppDefinitionState>(() => ({
+      appDefinition: null,
+      appSpec: null,
+    })),
+  ),
+);
+
+type AppConfigState = ZustandProjectState;
+
+type AppConfigsState = {
+  configs: Record<string, AppConfigState>;
+};
+
+export const useAppConfigs = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppConfigsState>(() => ({
+      configs: {},
+    })),
   ),
 );
 
@@ -154,6 +185,7 @@ type ShareSessionState = {
   sharePolicy: SharePolicy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
+  deploymentMode: "share" | "app" | null;
 };
 
 export const useShareSession = withProjectState(
@@ -164,19 +196,42 @@ export const useShareSession = withProjectState(
       sharePolicy: null,
       shareDeploymentName: null,
       shareDeploymentVersion: null,
+      deploymentMode: null,
     })),
   ),
 );
 
 type ServerModeState = {
-  isShareServer: boolean;
+  mode: "ide" | "share" | "app";
   modeResolved: boolean;
 };
 
 export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  isShareServer: false,
+  mode: "ide",
   modeResolved: false,
 }));
+
+type AppPreviewState = {
+  isPreviewEnabled: boolean;
+  previewConfigId: string | null;
+  // Draft-only overrides used for live preview while editing App Config.
+  // `undefined` means "no override"; `null` means "explicitly cleared".
+  previewSpecOverride?: unknown | null;
+  previewThemeOverride?: unknown | null;
+  previewAssetsOverride?: unknown[] | null;
+};
+
+export const useAppPreview = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppPreviewState>(() => ({
+      isPreviewEnabled: false,
+      previewConfigId: null,
+      previewSpecOverride: undefined,
+      previewThemeOverride: undefined,
+      previewAssetsOverride: undefined,
+    })),
+  ),
+);
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -295,8 +350,6 @@ type FileBrowserState = {
   selectedPath: string | null;
   expandedPaths: Record<string, boolean>;
   filterText: string;
-  pathSeparator: string;
-  ignorePatterns: string[];
 };
 
 export const useFileBrowserState = createWithEqualityFn(
@@ -305,8 +358,6 @@ export const useFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
   })),
 );
 
@@ -316,8 +367,6 @@ export const useBrowserSectionFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
   })),
 );
 
@@ -327,8 +376,6 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
   })),
 );
 
@@ -578,14 +625,6 @@ export type ChatDetails = {
   llmConfig: LLMConfig | null;
 };
 
-export type ChatBranchInfo = {
-  chatId: string;
-  branchParentChatId: string | null;
-  branchFromMessageId: string | null;
-  branchRootChatId: string | null;
-  branchCreatedAt: number | null;
-};
-
 type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
@@ -620,6 +659,7 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
+  pendingProjectChatPrompt: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -661,6 +701,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
+        pendingProjectChatPrompt: null,
       }),
       {
         name: "setta_ai_data",
