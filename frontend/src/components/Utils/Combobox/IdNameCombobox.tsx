@@ -14,6 +14,8 @@ export function IdNameCombobox<T>({
   small,
   outerDivClasses = "",
   inputOuterClasses,
+  inputThemeClassName,
+  listThemeClassName,
   placeholder,
   bg,
   isDisabled,
@@ -28,6 +30,8 @@ export function IdNameCombobox<T>({
   small?: boolean;
   outerDivClasses?: string;
   inputOuterClasses?: string;
+  inputThemeClassName?: string;
+  listThemeClassName?: string;
   placeholder?: string;
   bg?: string;
   isDisabled?: boolean;
@@ -74,6 +78,7 @@ export function IdNameCombobox<T>({
         isDisabled={isDisabled}
         inputRef={inputRef}
         inputOuterClasses={inputOuterClasses}
+        inputThemeClassName={inputThemeClassName}
         variant={variant}
       />
 
@@ -81,6 +86,7 @@ export function IdNameCombobox<T>({
         isOpen={isOpen}
         getMenuProps={getMenuProps}
         inputRef={inputRef}
+        listThemeClassName={listThemeClassName}
       >
         <ComboboxItems
           filteredItems={filteredItems}

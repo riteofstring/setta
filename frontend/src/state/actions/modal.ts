@@ -55,6 +55,10 @@ export function openPublishShareDeploymentModal() {
   openModal({ type: ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT, data: null });
 }
 
+export function openPublishAppDeploymentModal() {
+  openModal({ type: ModalTypeEnum.PUBLISH_APP_DEPLOYMENT, data: null });
+}
+
 export function openDropzoneFilePickerModal(
   data: ModalDataMap["DROPZONE_FILE_PICKER"],
 ) {
