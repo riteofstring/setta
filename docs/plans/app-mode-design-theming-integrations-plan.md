@@ -18,6 +18,9 @@ The core strategy is to treat “design” as a compiled artifact that targets a
 
 External design tools (Pencil/Figma/etc.) should compile/export into this contract rather than becoming part of the runtime.
 
+Versioning here is for clarity and tooling, not legacy support: Setta can support a single “latest”
+contract and hard-migrate old specs/themes when the contract changes.
+
 ## Goals
 
 - Make styling a first-class, versioned contract that can express sophisticated designs.
@@ -30,7 +33,7 @@ External design tools (Pencil/Figma/etc.) should compile/export into this contra
 
 - Replacing the AppSpec catalog constraint with arbitrary React code.
 - Allowing arbitrary JavaScript execution from the app spec.
-- Creating a full WYSIWYG builder in Setta in v1/v2 (design tools can cover that).
+- Creating a full WYSIWYG builder inside Setta (design tools can cover that).
 
 ## Design Principles
 
@@ -57,9 +60,9 @@ Important limitation:
 
 ## Proposed Runtime Contract (Versioned)
 
-### 1) Theme v2: Design Tokens Schema
+### 1) Theme Tokens: Design Tokens Schema (Breaking Update)
 
-Introduce `appDefinition.theme` versioning and a richer token schema (`themeVersion: v2`) that can represent:
+Evolve `appDefinition.theme` into a richer token schema that can represent:
 
 - Color system:
   - semantic roles: `primary`, `bg`, `surface`, `text`, `muted`, `border`, plus status colors
@@ -91,7 +94,7 @@ Refactor App renderer components and ParamInput UI wrappers so they:
 
 This makes theme changes predictable and allows design tools to output tokens without patching component code.
 
-### 3) Catalog v2: Layout + Responsiveness + Motion
+### 3) Catalog Expansion: Layout + Responsiveness + Motion (Breaking Update)
 
 Extend the catalog with a small, predictable set of primitives:
 
@@ -128,7 +131,7 @@ Add a spec/theme validator that returns structured output:
 Add a “capabilities” payload the AI can query:
 
 - catalog id/version
-- supported theme versions
+- active theme schema/version
 - supported feature flags (responsive, motion, assets, custom components)
 
 This allows AI prompts and toolchains to target exactly what the runtime supports.
@@ -194,8 +197,8 @@ Potential Setta integration shape:
 ## Sequencing (Recommended)
 
 1. Token-first refactor: ensure existing App widgets in app mode render using tokens/CSS variables (remove hard-coded Tailwind colors).
-2. Theme v2 schema + validator: richer tokens, explicit version, structured validation output.
-3. Catalog v2 primitives: Box/Grid/Container/Spacer + constrained responsive rules.
+2. Theme schema + validator: richer tokens, explicit schema contract, structured validation output.
+3. Catalog primitives: Box/Grid/Container/Spacer + constrained responsive rules.
 4. Motion primitives: small, typed animation system.
 5. External tool compilers: Pencil and Figma importers/exporters that compile into the Setta contract.
 6. Optional escape hatches: CSS-only extension points, and later custom component bundles if needed.
