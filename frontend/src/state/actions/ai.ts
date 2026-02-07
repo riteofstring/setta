@@ -1226,8 +1226,73 @@ function handleToolArgumentPreviewDelta(
   chatId: string,
   chunk: ToolArgumentPreviewDeltaEvent,
 ) {
+  if (chunk.preview_kind === "appSpecPatch") {
+    // For app spec patch streaming, the `arguments_delta` includes the entire JSON tool
+    // arguments payload (including the growing patches string). Updating chatDetails on
+    // every tiny delta can overwhelm React. We only need the patch preview for live
+    // rendering, so keep chat updates minimal.
+    ensureToolCallPlaceholder(chatId, chunk);
+    applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+    return;
+  }
+
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
   applyToolArgumentPreviewDeltaToPreviewStore(chunk);
+}
+
+function ensureToolCallPlaceholder(
+  chatId: string,
+  chunk: ToolArgumentPreviewDeltaEvent,
+) {
+  useAIStore.setState((state) => {
+    const existingDetails = state.chatDetails[chatId];
+    if (!existingDetails) {
+      return state;
+    }
+    const { messages, changed } = updateMessageById(
+      existingDetails.messages,
+      chunk.message_id,
+      (message) => {
+        const toolCalls = [...(message.tool_calls ?? [])];
+        const existingIndex = toolCalls.findIndex(
+          (entry) => entry.id === chunk.tool_call_id,
+        );
+        if (existingIndex !== -1) {
+          const existingCall = toolCalls[existingIndex];
+          if (existingCall.function.name === chunk.tool_name) {
+            return null;
+          }
+          toolCalls[existingIndex] = {
+            ...existingCall,
+            function: {
+              ...existingCall.function,
+              name: chunk.tool_name,
+            },
+          };
+          return { ...message, tool_calls: toolCalls };
+        }
+        toolCalls.push(
+          createToolCallPlaceholder({
+            tool_call_id: chunk.tool_call_id,
+            tool_name: chunk.tool_name,
+          }),
+        );
+        return { ...message, tool_calls: toolCalls };
+      },
+    );
+    if (!changed) {
+      return state;
+    }
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...existingDetails,
+          messages,
+        },
+      },
+    };
+  });
 }
 
 function applyToolArgumentPreviewDeltaToPreviewStore(
