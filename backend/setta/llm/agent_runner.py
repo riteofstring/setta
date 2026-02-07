@@ -97,7 +97,8 @@ from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.chat_attachments import build_attachment_content_blocks
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -136,10 +137,10 @@ class AIFollowState:
 
 
 class _NoopChatHistory:
-    def append(self, chat_id: ID, messages: list[BaseChatMessageUnion]) -> None:
+    def append(self, _chat_id: ID, _messages: list[BaseChatMessageUnion]) -> None:
         return None
 
-    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> None:
+    def set_system_prompt(self, _chat_id: ID, _system_prompt: str) -> None:
         return None
 
 
@@ -890,8 +891,9 @@ class AgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            base_root = CWD
-            artifacts_root = CWD / C.ARTIFACTS_FOLDER
+            paths = get_setta_paths()
+            base_root = paths.setta_files_root
+            artifacts_root = paths.artifacts_root
         extra_blocks = build_attachment_content_blocks(
             dbe=self.dbe,
             attachments=message.attachments,
