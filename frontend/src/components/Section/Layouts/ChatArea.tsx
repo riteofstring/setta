@@ -13,7 +13,7 @@ import {
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
   findLatestRunningExternalRunId,
@@ -21,8 +21,15 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
+import { buildMessageBranchInfo } from "state/actions/aiBranches";
+import {
+  buildBranchFromEdit,
+  buildBranchIndexFromBranches,
+  ensureChatBranchState,
+} from "state/actions/chatBranches";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -32,6 +39,7 @@ import {
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
+import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import {
@@ -154,6 +162,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     inputText,
     waitingForResponse,
     toolCallArguments,
+    activeBranchId,
+    branches,
     isFrozen,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -170,6 +180,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
       toolCallArguments: impl.toolCallArguments,
+      activeBranchId: impl.activeBranchId ?? null,
+      branches: impl.branches ?? {},
       isFrozen: impl.isFrozen,
     };
   }, shallow);
@@ -192,6 +204,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       inputText={inputText}
       waitingForResponse={waitingForResponse}
       toolCallArguments={toolCallArguments}
+      activeBranchId={activeBranchId}
+      branches={branches}
       isFrozen={isFrozen}
     />
   );
@@ -203,6 +217,8 @@ type ScriptableChatAreaProps = {
   inputText: string;
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
+  activeBranchId: string | null;
+  branches: ChatSectionState["branches"];
   isFrozen: boolean;
 };
 
@@ -212,6 +228,8 @@ function ScriptableChatArea({
   inputText,
   waitingForResponse,
   toolCallArguments,
+  activeBranchId,
+  branches,
   isFrozen,
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
@@ -275,6 +293,8 @@ function ScriptableChatArea({
             inputText: nextState.inputText,
             waitingForResponse: nextState.waitingForResponse,
             toolCallArguments: nextState.toolCallArguments,
+            activeBranchId: nextState.activeBranchId,
+            branches: nextState.branches,
           });
         },
         send: (frontendOpId) => {
@@ -293,10 +313,69 @@ function ScriptableChatArea({
     [projectConfigId, sectionId],
   );
 
+  const applyChatStateWithoutAck = useCallback(
+    (nextState: ChatSectionState) => {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+          messages: nextState.messages,
+          inputText: nextState.inputText,
+          waitingForResponse: nextState.waitingForResponse,
+          toolCallArguments: nextState.toolCallArguments,
+          activeBranchId: nextState.activeBranchId,
+          branches: nextState.branches,
+        });
+      });
+      return route_set_chat_section_state({
+        projectConfigId,
+        sectionId,
+        state: nextState,
+        frontendOpId: null,
+      });
+    },
+    [projectConfigId, sectionId],
+  );
+
+  const branchState = useMemo(
+    () =>
+      ensureChatBranchState({
+        messages,
+        inputText,
+        waitingForResponse,
+        toolCallArguments,
+        activeBranchId,
+        branches,
+      }),
+    [
+      activeBranchId,
+      branches,
+      inputText,
+      messages,
+      toolCallArguments,
+      waitingForResponse,
+    ],
+  );
+  const effectiveState = branchState.nextState;
+  const effectiveMessages = effectiveState.messages ?? [];
+  const effectiveBranches = effectiveState.branches ?? {};
+  const effectiveBranchId = effectiveState.activeBranchId ?? null;
+
+  useEffect(() => {
+    if (!branchState.didInitialize) {
+      return;
+    }
+    const sendPromise = applyChatStateWithoutAck(effectiveState);
+    if (sendPromise) {
+      void sendPromise;
+    }
+  }, [applyChatStateWithoutAck, branchState.didInitialize, effectiveState]);
+
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
       if (!trimmed && attachments.length === 0) {
+        return false;
+      }
+      if (!effectiveBranchId) {
         return false;
       }
       const messageId = createNewId();
@@ -311,12 +390,25 @@ function ScriptableChatArea({
         content,
         attachments,
       };
-      const nextMessages = [...messages, newMessage];
+      const currentBranch = effectiveBranches[effectiveBranchId];
+      const baseMessages = currentBranch?.messages ?? effectiveMessages;
+      const nextMessages = [...baseMessages, newMessage];
+      const nextBranches = currentBranch
+        ? {
+            ...effectiveBranches,
+            [effectiveBranchId]: {
+              ...currentBranch,
+              messages: nextMessages,
+            },
+          }
+        : effectiveBranches;
       const nextState = {
+        ...effectiveState,
         messages: nextMessages,
         inputText: "",
         waitingForResponse: true,
         toolCallArguments,
+        branches: nextBranches,
       };
       const sendPromise = applyChatStateWithAck(nextState);
       if (sendPromise) {
@@ -333,13 +425,22 @@ function ScriptableChatArea({
       });
       return true;
     },
-    [applyChatStateWithAck, messages, sectionId, toolCallArguments],
+    [
+      applyChatStateWithAck,
+      effectiveBranchId,
+      effectiveBranches,
+      effectiveMessages,
+      effectiveState,
+      sectionId,
+      toolCallArguments,
+    ],
   );
 
   const handleStop = useCallback(async () => {
     const nextState = {
-      messages,
-      inputText,
+      ...effectiveState,
+      messages: effectiveMessages,
+      inputText: effectiveState.inputText ?? "",
       waitingForResponse: false,
       toolCallArguments,
     };
@@ -354,32 +455,142 @@ function ScriptableChatArea({
     });
   }, [
     applyChatStateWithAck,
-    inputText,
-    messages,
+    effectiveMessages,
+    effectiveState,
     sectionId,
     toolCallArguments,
   ]);
 
+  const branchIndex = useMemo(
+    () => buildBranchIndexFromBranches(effectiveBranches),
+    [effectiveBranches],
+  );
+  const branchInfoByMessage = useMemo(() => {
+    if (!effectiveBranchId) {
+      return {};
+    }
+    return buildMessageBranchInfo({
+      chatId: effectiveBranchId,
+      messages: effectiveMessages,
+      branchIndex,
+    });
+  }, [branchIndex, effectiveBranchId, effectiveMessages]);
+
+  const handleBranchSwitch = useCallback(
+    async (nextBranchId: string) => {
+      if (!nextBranchId || nextBranchId === effectiveBranchId) {
+        return;
+      }
+      const nextBranch = effectiveBranches[nextBranchId];
+      if (!nextBranch) {
+        return;
+      }
+      const nextState: ChatSectionState = {
+        ...effectiveState,
+        activeBranchId: nextBranchId,
+        messages: [...(nextBranch.messages ?? [])],
+      };
+      const sendPromise = applyChatStateWithAck(nextState);
+      if (sendPromise) {
+        await sendPromise;
+      }
+    },
+    [
+      applyChatStateWithAck,
+      effectiveBranchId,
+      effectiveBranches,
+      effectiveState,
+    ],
+  );
+
+  const handleEditMessage = useCallback(
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
+      if (waitingForResponse) {
+        return false;
+      }
+      const trimmed = text.trim();
+      if (!trimmed && attachments.length === 0) {
+        return false;
+      }
+      const content = [];
+      if (trimmed) {
+        content.push(createMessageTextContent({ text }));
+      }
+      const editedMessage = {
+        id: messageId,
+        role: ChatRoleEnum.user,
+        content,
+        attachments,
+      };
+      const result = buildBranchFromEdit({
+        state: effectiveState,
+        editedMessage,
+        branchFromMessageId: messageId,
+      });
+      if (!result) {
+        return false;
+      }
+      const nextState: ChatSectionState = {
+        ...result.nextState,
+        inputText: "",
+        waitingForResponse: true,
+        toolCallArguments,
+      };
+      const sendPromise = applyChatStateWithAck(nextState);
+      if (sendPromise) {
+        await sendPromise;
+      }
+      emitChatSendAction({
+        sectionId,
+        messageId,
+        text,
+        attachments,
+        role: ChatRoleEnum.user,
+        managed: false,
+        timestampMs: Date.now(),
+      });
+      return true;
+    },
+    [
+      applyChatStateWithAck,
+      effectiveState,
+      sectionId,
+      toolCallArguments,
+      waitingForResponse,
+    ],
+  );
+
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const effectiveInputText =
-    waitingForResponse && draftInputText !== null ? draftInputText : inputText;
+    effectiveState.waitingForResponse && draftInputText !== null
+      ? draftInputText
+      : effectiveState.inputText ?? "";
   const submitDisabled = useMemo(
-    () => !waitingForResponse && hasPendingToolInteraction(messages),
-    [messages, waitingForResponse],
+    () =>
+      !effectiveState.waitingForResponse &&
+      hasPendingToolInteraction(effectiveMessages),
+    [effectiveMessages, effectiveState.waitingForResponse],
   );
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
       <ChatMessageList
-        messages={messages}
-        waitingForResponse={waitingForResponse}
+        messages={effectiveMessages}
+        waitingForResponse={effectiveState.waitingForResponse}
         toolCallArguments={toolCallArguments}
         className={scrollClassName}
         scrollRef={ref}
+        onEditMessage={handleEditMessage}
+        onBranchSwitch={handleBranchSwitch}
+        branchInfoByMessage={branchInfoByMessage}
       />
       <ChatInput
         placeholderText="Type a message..."
-        waitingForResponse={waitingForResponse}
+        waitingForResponse={effectiveState.waitingForResponse}
         submitDisabled={submitDisabled}
         disabled={isFrozen}
         value={effectiveInputText}
@@ -416,6 +627,12 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
+  const lastChatIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof chatId === "string") {
+      lastChatIdRef.current = chatId;
+    }
+  }, [chatId]);
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
       if (chatId === null) {
@@ -428,6 +645,17 @@ function ManagedChatArea({
     },
     shallow,
   );
+  const branchIndex = useChatBranchIndex(typeof chatId === "string");
+  const branchInfoByMessage = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return {};
+    }
+    return buildMessageBranchInfo({
+      chatId,
+      messages,
+      branchIndex,
+    });
+  }, [branchIndex, chatId, messages]);
 
   const {
     apiKeys,
@@ -719,6 +947,56 @@ function ManagedChatArea({
     await route_stop_llm_chat({ chatId });
   }, [chatId, isExternalEngine, projectConfigId, sectionId]);
 
+  const handleEditMessage = useCallback(
+    async (
+      messageId: string,
+      text: string,
+      attachments: ChatFileAttachment[],
+    ) => {
+      const resolvedChatId =
+        typeof chatId === "string" ? chatId : lastChatIdRef.current;
+      if (!resolvedChatId) {
+        return false;
+      }
+      if (isExternalEngine && !externalEngineAvailable) {
+        return false;
+      }
+      const nextChatId = await submitEditedMessage({
+        parentChatId: resolvedChatId,
+        messages,
+        messageId,
+        message: text,
+        attachments,
+        thinking,
+        engineConfigId: effectiveEngineConfigId,
+        isExternalEngine,
+        agentProfileId,
+        sectionId,
+      });
+      return Boolean(nextChatId);
+    },
+    [
+      agentProfileId,
+      chatId,
+      effectiveEngineConfigId,
+      externalEngineAvailable,
+      isExternalEngine,
+      messages,
+      sectionId,
+      thinking,
+    ],
+  );
+
+  const handleBranchSwitch = useCallback(
+    (nextChatId: string) => {
+      if (!nextChatId || nextChatId === chatId) {
+        return;
+      }
+      setChatId(nextChatId);
+    },
+    [chatId, setChatId],
+  );
+
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const isDisabled =
     !hasEngineConfig ||
@@ -749,6 +1027,9 @@ function ManagedChatArea({
         toolCallArguments={toolCallArguments}
         className={scrollClassName}
         scrollRef={ref}
+        onEditMessage={handleEditMessage}
+        onBranchSwitch={handleBranchSwitch}
+        branchInfoByMessage={branchInfoByMessage}
       />
       <ChatInput
         placeholderText={placeholderText}
