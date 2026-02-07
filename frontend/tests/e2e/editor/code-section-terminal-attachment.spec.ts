@@ -116,6 +116,108 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
   }
 });
 
+test("terminal text selection stays aligned at react flow zoom", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigName } = await createNewProjectConfig(page);
+
+  try {
+    const terminalId = await createTerminalSection(page);
+    await resetViewport(page);
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
+    });
+
+    // Make the terminal wide enough that the marker line doesn't wrap so we
+    // can do a precise single-line selection.
+    await setSectionSize(page, terminalId, { width: 1200, height: 420 });
+
+    const marker =
+      "SELECTION_ZOOM_TEST_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    await focusTerminalAndType(page, terminalId, `printf '${marker}\\n'`);
+    await waitForTerminalRowsMarker(page, terminalId, marker);
+
+    const startOffset = 14;
+    const endOffset = 42;
+
+    const selectionAtZoom1 = await dragSelectTerminalMarkerRangeAndCopy({
+      page,
+      terminalId,
+      marker,
+      startOffset,
+      endOffset,
+    });
+
+    const normalizedZoom1 = selectionAtZoom1.replace(/\r/g, "").trimEnd();
+    expect(normalizedZoom1.length).toBeGreaterThan(6);
+    expect(marker).toContain(normalizedZoom1);
+
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalId}"]`,
+    );
+    await expect(terminalNode).toBeVisible();
+    const boxAtZoom1 = await terminalNode.boundingBox();
+    if (!boxAtZoom1) {
+      throw new Error("Missing terminal bounding box.");
+    }
+
+    const zoomOutButton = page.getByRole("button", { name: "zoom out" });
+    await zoomOutButton.click();
+    await page.waitForTimeout(80);
+    await zoomOutButton.click();
+    await page.waitForTimeout(150);
+
+    const zoomOut = await page.evaluate(() => window.reactFlowZoom ?? 1);
+    expect(zoomOut).toBeLessThan(0.8);
+    const boxAfterZoomOut = await terminalNode.boundingBox();
+    if (!boxAfterZoomOut) {
+      throw new Error("Missing terminal bounding box after zoom out.");
+    }
+    expect(boxAfterZoomOut.width).toBeLessThan(boxAtZoom1.width - 10);
+
+    const selectionAtZoomOut = await dragSelectTerminalMarkerRangeAndCopy({
+      page,
+      terminalId,
+      marker,
+      startOffset,
+      endOffset,
+    });
+    expect(selectionAtZoomOut.replace(/\r/g, "").trimEnd()).toBe(normalizedZoom1);
+
+    const zoomInButton = page.getByRole("button", { name: "zoom in" });
+    await zoomInButton.click();
+    await page.waitForTimeout(80);
+    await zoomInButton.click();
+    await page.waitForTimeout(80);
+    await zoomInButton.click();
+    await page.waitForTimeout(150);
+
+    const zoomIn = await page.evaluate(() => window.reactFlowZoom ?? 1);
+    expect(zoomIn).toBeGreaterThan(1.1);
+    const boxAfterZoomIn = await terminalNode.boundingBox();
+    if (!boxAfterZoomIn) {
+      throw new Error("Missing terminal bounding box after zoom in.");
+    }
+    expect(boxAfterZoomIn.width).toBeGreaterThan(boxAtZoom1.width + 10);
+
+    const selectionAtZoomIn = await dragSelectTerminalMarkerRangeAndCopy({
+      page,
+      terminalId,
+      marker,
+      startOffset,
+      endOffset,
+    });
+    expect(selectionAtZoomIn.replace(/\r/g, "").trimEnd()).toBe(normalizedZoom1);
+  } finally {
+    await deleteProjectConfigByName(page, projectConfigName);
+  }
+});
+
 test("attached terminal renders without header and resizes independently", async ({
   page,
 }) => {
@@ -1602,6 +1704,148 @@ function getDetachTargetPoint({
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+async function dragSelectTerminalMarkerRangeAndCopy({
+  page,
+  terminalId,
+  marker,
+  startOffset,
+  endOffset,
+}: {
+  page: Page;
+  terminalId: string;
+  marker: string;
+  startOffset: number;
+  endOffset: number;
+}): Promise<string> {
+  const start = await getTerminalMarkerCharCenter({
+    page,
+    terminalId,
+    marker,
+    markerOffset: startOffset,
+  });
+  const end = await getTerminalMarkerCharCenter({
+    page,
+    terminalId,
+    marker,
+    markerOffset: endOffset,
+  });
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 14 });
+  await page.mouse.up();
+  await page.waitForTimeout(50);
+
+  return await copyTerminalSelection(page, terminalId);
+}
+
+async function getTerminalMarkerCharCenter({
+  page,
+  terminalId,
+  marker,
+  markerOffset,
+}: {
+  page: Page;
+  terminalId: string;
+  marker: string;
+  markerOffset: number;
+}): Promise<{ x: number; y: number }> {
+  return await page.evaluate(
+    ({ id, marker, markerOffset }) => {
+      const embedded = document.querySelector(
+        `[data-attached-terminal-section-id="${id}"]`,
+      );
+      const container =
+        embedded ?? document.querySelector(`.react-flow__node[data-id="${id}"]`);
+      if (!container) {
+        throw new Error(`Missing terminal container for ${id}.`);
+      }
+
+      const rows = Array.from(container.querySelectorAll(".xterm-rows > div"));
+      const row = rows.find((row) => (row.textContent ?? "").includes(marker));
+      if (!row) {
+        throw new Error(`Missing terminal row for marker ${marker}.`);
+      }
+
+      const rowText = row.textContent ?? "";
+      const markerStart = rowText.indexOf(marker);
+      if (markerStart < 0) {
+        throw new Error("Marker not found in row text.");
+      }
+      const targetIndex = markerStart + markerOffset;
+      if (
+        targetIndex < markerStart ||
+        targetIndex >= markerStart + marker.length
+      ) {
+        throw new Error("Requested markerOffset is out of bounds.");
+      }
+
+      const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+      let remaining = targetIndex;
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!(node instanceof Text)) {
+          continue;
+        }
+        const text = node.textContent ?? "";
+        if (remaining < text.length) {
+          const range = document.createRange();
+          range.setStart(node, remaining);
+          range.setEnd(node, remaining + 1);
+          const rect = range.getBoundingClientRect();
+          if (rect.width > 0 || rect.height > 0) {
+            return {
+              x: rect.left + rect.width / 2,
+              y: rect.top + rect.height / 2,
+            };
+          }
+          const rowRect = row.getBoundingClientRect();
+          return { x: rowRect.left + 2, y: rowRect.top + rowRect.height / 2 };
+        }
+        remaining -= text.length;
+      }
+      throw new Error("Unable to resolve marker character position.");
+    },
+    { id: terminalId, marker, markerOffset },
+  );
+}
+
+async function copyTerminalSelection(
+  page: Page,
+  terminalId: string,
+): Promise<string> {
+  return await page.evaluate((id) => {
+    const embedded = document.querySelector(
+      `[data-attached-terminal-section-id="${id}"]`,
+    );
+    const container =
+      embedded ?? document.querySelector(`.react-flow__node[data-id="${id}"]`);
+    if (!container) {
+      throw new Error(`Missing terminal container for ${id}.`);
+    }
+    const textarea = container.querySelector(
+      ".xterm-helper-textarea, .xterm textarea",
+    );
+    const xterm = container.querySelector(".xterm");
+    const target = (textarea ?? xterm) as HTMLElement | null;
+    if (!target) {
+      throw new Error("Missing xterm element.");
+    }
+    // xterm wires clipboard handlers around its helper textarea; dispatching
+    // here matches how real copy events are triggered more closely than
+    // dispatching on the container.
+    target.focus?.();
+    const clipboardData = new DataTransfer();
+    const event = new ClipboardEvent("copy", {
+      clipboardData,
+      bubbles: true,
+      cancelable: true,
+    });
+    target.dispatchEvent(event);
+    return clipboardData.getData("text/plain");
+  }, terminalId);
 }
 
 function isPointOutsideBox(
