@@ -260,3 +260,66 @@ class TestAppDeploymentPublish:
             deployed_spec_path = metadata.deploymentRoot / stored_path
             assert deployed_spec_path.exists()
             assert deployment_dbe.read_json(deployed_spec_path) == app_spec_payload
+
+    async def test_publishes_app_deployment_with_listener_entrypoint(self) -> None:
+        async with (
+            real_project_manager() as project_fixture,
+            real_settings_manager() as settings_fixture,
+        ):
+            project_config_id = (
+                project_fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            if project_config_id is None:
+                pytest.fail("Expected a default project config id for publishing.")
+
+            app_spec_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            await _set_app_definition(
+                project_fixture.setta_root,
+                project_fixture.manager,
+                app_spec_payload=app_spec_payload,
+            )
+
+            listener_source = project_fixture.setta_root.parent / "listener_entry.py"
+            listener_source.write_text(
+                "from setta.api import SettaListener\n\n"
+                "def build_listener(listener: SettaListener) -> None:\n"
+                "    return\n",
+                encoding="utf-8",
+            )
+
+            switcher = ProjectManagerSwitcher(
+                main_manager=project_fixture.manager,
+                settings_manager=settings_fixture.manager,
+            )
+            state = SimpleNamespace(
+                dbe=project_fixture.dbe,
+                project_manager_switcher=switcher,
+                share_mode=False,
+            )
+
+            deployments_root = project_fixture.setta_root / "share_deployments"
+            with _override_share_deployments_root(deployments_root):
+                metadata = await route_publish_app_deployment(
+                    PublishAppDeploymentRequest(
+                        deploymentName="app-deployment",
+                        projectConfigId=project_config_id,
+                        listenerEntrypoint=listener_source.as_posix(),
+                        listenerEnabled=True,
+                    ),
+                    state,
+                )
+
+            deployment_dbe = DBE(metadata.deploymentRoot)
+            manifest = deployment_dbe.read_share_manifest()
+            assert manifest.listener is not None
+            assert manifest.listener.entrypoint == "listener/app.py"
+            assert manifest.listener.enabled is True
+
+            deployed_listener = metadata.deploymentRoot / "listener" / "app.py"
+            assert deployed_listener.exists()
+            assert deployed_listener.read_text(encoding="utf-8") == listener_source.read_text(
+                encoding="utf-8"
+            )

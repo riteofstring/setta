@@ -18,6 +18,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_list_app_deployments,
   route_publish_app_deployment,
+  route_check_if_file_exists,
 } from "utils/generatedEndpoints";
 import type {
   AppDeploymentMetadata,
@@ -78,13 +79,33 @@ function listActionButtons(appSpec: unknown): Array<Record<string, unknown>> {
   return output;
 }
 
+const LISTENER_ENTRYPOINT_STORAGE_KEY =
+  "setta.publishAppDeployment.listenerEntrypoint";
+const DEFAULT_LISTENER_ENTRYPOINT = "listener/app.py";
+
+function loadStoredListenerEntrypoint(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem(LISTENER_ENTRYPOINT_STORAGE_KEY) ?? "";
+}
+
+function storeListenerEntrypoint(value: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(LISTENER_ENTRYPOINT_STORAGE_KEY, value);
+}
+
 export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   const projectConfig = useProjectState((x) => x.projectConfig);
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const [policyOverrides, setPolicyOverrides] =
     useState<AppPolicyOverridesInput>(createDefaultPolicyOverrides);
-  const [listenerEntrypoint, setListenerEntrypoint] = useState("");
+  const [listenerEntrypoint, setListenerEntrypoint] = useState(
+    loadStoredListenerEntrypoint,
+  );
   const [listenerEnabled, setListenerEnabled] = useState(true);
   const [deploymentName, setDeploymentName] = useState(
     createDefaultDeploymentName,
@@ -104,7 +125,26 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
     }
     resetForm();
     void loadRecentDeployments();
+    void maybeAutofillListenerEntrypoint();
   }, [open]);
+
+  async function maybeAutofillListenerEntrypoint(): Promise<void> {
+    if (loadStoredListenerEntrypoint().trim().length > 0) {
+      return;
+    }
+    const res = await route_check_if_file_exists({
+      filepath: DEFAULT_LISTENER_ENTRYPOINT,
+    });
+    if (res200(res) && res.data) {
+      setListenerEntrypoint((current) => {
+        if (current.trim().length > 0) {
+          return current;
+        }
+        storeListenerEntrypoint(DEFAULT_LISTENER_ENTRYPOINT);
+        return DEFAULT_LISTENER_ENTRYPOINT;
+      });
+    }
+  }
 
   async function loadRecentDeployments(): Promise<void> {
     setIsLoadingRecent(true);
@@ -119,7 +159,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
 
   function resetForm(): void {
     setPolicyOverrides(createDefaultPolicyOverrides());
-    setListenerEntrypoint("");
+    setListenerEntrypoint(loadStoredListenerEntrypoint());
     setListenerEnabled(true);
     setDeploymentName(createDefaultDeploymentName());
     setPublishedDeployment(null);
@@ -340,7 +380,11 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
               className="w-full rounded-md border border-setta-200 bg-white/80 px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
               placeholder="listener/app.py"
               value={listenerEntrypoint}
-              onChange={(event) => setListenerEntrypoint(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setListenerEntrypoint(value);
+                storeListenerEntrypoint(value);
+              }}
             />
             <span className="text-[11px] text-setta-500 dark:text-setta-400">
               Optional. The file must define <code>build_listener</code> or{" "}

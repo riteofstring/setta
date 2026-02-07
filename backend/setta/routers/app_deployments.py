@@ -671,10 +671,16 @@ async def route_publish_app_deployment(
     state.dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
     state.dbe.write_json(deployment_root / "share_policy.json", policy.model_dump())
 
+    listener_label = (
+        f"{listener_config.entrypoint} (enabled={listener_config.enabled})"
+        if listener_config is not None
+        else "-"
+    )
     logger.info(
-        "Published app deployment %s for %s",
+        "Published app deployment %s for %s (listener=%s)",
         deployment_version,
         deployment_name,
+        listener_label,
     )
     return AppDeploymentMetadata(
         deploymentName=deployment_name,
