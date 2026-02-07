@@ -13,12 +13,27 @@ from setta.utils.utils import normalize_path
 
 logger = logging.getLogger(__name__)
 
+_BACKUP_FILE_GLOB = "backup_*.json"
+
 
 def get_backup_files(backup_dir: Path) -> list[Path]:
     """Get a list of existing backup files, sorted by filename (which contains the timestamp)."""
     return sorted(
-        [f for f in backup_dir.glob("backup_*.db")], key=lambda x: x.name, reverse=True
+        [f for f in backup_dir.glob(_BACKUP_FILE_GLOB)],
+        key=lambda x: x.name,
+        reverse=True,
     )
+
+
+def backup_filename_to_datetime(path: Path) -> datetime:
+    """Parse a backup timestamp from the filename.
+
+    Filenames are expected to include the UTC timestamp as the last 3 underscore
+    delimited tokens, e.g. `backup_20260101_120000_123456.json`.
+    """
+
+    timestamp_str = "_".join(path.stem.split("_")[-3:])
+    return filename_to_datetime(timestamp_str)
 
 
 def get_last_backup_time(backup_dir: Path) -> datetime | None:
@@ -31,8 +46,7 @@ def get_last_backup_time(backup_dir: Path) -> datetime | None:
         return None
 
     latest_backup = backup_files[0]
-    timestamp_str = "_".join(latest_backup.stem.split("_")[-3:])
-    return filename_to_datetime(timestamp_str)
+    return backup_filename_to_datetime(latest_backup)
 
 
 def cleanup_old_backups(autobackupKeepLastN: int, backup_dir: Path):
@@ -45,12 +59,28 @@ def create_backup(db_path: Path, autobackupKeepLastN: int, backup_dir: Path):
     """Create a new backup of the database."""
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = get_now_timestamp()
-    backup_filename = f"backup_{timestamp_to_filename(timestamp)}.db"
+    backup_filename = f"backup_{timestamp_to_filename(timestamp)}.json"
     backup_path = backup_dir / backup_filename
     logger.debug("creating backup: %s", backup_path)
 
     shutil.copy2(db_path, backup_path)
     cleanup_old_backups(autobackupKeepLastN, backup_dir)
+
+
+def create_restore_stash(db_path: Path, backup_dir: Path) -> Path:
+    """Create a stash copy before overwriting `db_path` during restore.
+
+    This uses a distinct prefix so autobackup cleanup never deletes restore
+    stashes (cleanup only considers `backup_*.json`).
+    """
+
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = get_now_timestamp()
+    stash_filename = f"restore_stash_{timestamp_to_filename(timestamp)}.json"
+    stash_path = backup_dir / stash_filename
+    logger.debug("creating restore stash: %s", stash_path)
+    shutil.copy2(db_path, stash_path)
+    return stash_path
 
 
 def should_create_backup(
