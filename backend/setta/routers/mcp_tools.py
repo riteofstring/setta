@@ -1,9 +1,6 @@
 from typing import Any
-from uuid import uuid4
 
-from fastapi import Depends, HTTPException, Request, status
-from mcp.server.fastmcp.server import Context
-from mcp.shared.context import RequestContext
+from fastapi import Depends, HTTPException, status
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
@@ -26,7 +23,6 @@ class MCPToolCallRequest(BaseModel):
 async def route_call_mcp_tool(
     payload: MCPToolCallRequest,
     ctx: RuntimeContextFromRequest,
-    request: Request,
 ) -> dict[str, Any]:
     tool_name = payload.tool.strip()
     if not tool_name:
@@ -52,20 +48,7 @@ async def route_call_mcp_tool(
             detail=f"Unknown tool: {tool_name}",
         )
     try:
-        # `SettaFastMCP` scope enforcement relies on MCP request context. The
-        # `/__setta__/tools/call` route isn't an MCP transport, so we synthesize a
-        # request context from the HTTP request to avoid unscoped tool execution.
-        request_context = RequestContext(
-            request_id=str(uuid4()),
-            meta=None,
-            session=object(),
-            lifespan_context=object(),
-            request=request,
-        )
-        context = Context(
-            fastmcp=ctx.state.mcp_server,
-            request_context=request_context,
-        )
+        context = ctx.state.mcp_server.get_context()
         result = await tool.run(arguments, context=context, convert_result=True)
     except UrlElicitationRequiredError as exc:
         raise HTTPException(

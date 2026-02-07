@@ -1,4 +1,4 @@
-import { type AgenticScopeViolationEdge, useAIFollow } from "state/definitions";
+import { useAIFollow } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_get_ai_follow_snapshot } from "utils/generatedEndpoints";
 import {
@@ -8,8 +8,6 @@ import {
 
 const TOOL_RESULT_HIGHLIGHT_TIMEOUT_MS = 2000;
 const toolResultTimeouts = new Map<string, number>();
-const SCOPE_VIOLATION_TIMEOUT_MS = 5000;
-const scopeViolationTimeouts = new Map<string, number>();
 
 type AIFollowIdsByProjectConfig = Record<
   string,
@@ -23,13 +21,6 @@ function buildTimeoutKey(
   id: string,
 ): string {
   return `${projectConfigId}:${chatId}:${idType}:${id}`;
-}
-
-function buildScopeViolationKey(
-  projectConfigId: string,
-  edge: AgenticScopeViolationEdge,
-): string {
-  return `${projectConfigId}:${edge.kind}:${edge.sourceSectionId}:${edge.targetSectionId}`;
 }
 
 function deleteChatEntry(
@@ -75,25 +66,6 @@ function deleteIdEntry(
   if (Object.keys(chatEntries).length === 0) {
     deleteChatEntry(idsByProjectConfigId, projectConfigId, chatId);
   }
-}
-
-function deleteScopeViolationEdge(
-  edgesByProjectConfigId: Record<string, Array<AgenticScopeViolationEdge>>,
-  projectConfigId: string,
-  edgeKey: string,
-): void {
-  const existing = edgesByProjectConfigId[projectConfigId];
-  if (!existing) {
-    return;
-  }
-  const filtered = existing.filter(
-    (entry) => buildScopeViolationKey(projectConfigId, entry) !== edgeKey,
-  );
-  if (filtered.length > 0) {
-    edgesByProjectConfigId[projectConfigId] = filtered;
-    return;
-  }
-  delete edgesByProjectConfigId[projectConfigId];
 }
 
 export function receiveAIFollowToolArgumentsUpdate(
@@ -160,51 +132,6 @@ export function receiveAIFollowToolResultUpdate(
       }, TOOL_RESULT_HIGHLIGHT_TIMEOUT_MS);
       toolResultTimeouts.set(key, timeoutId);
     }
-  }
-}
-
-export function receiveAgenticScopeViolationEdges({
-  projectConfigId,
-  edges,
-}: {
-  projectConfigId: string;
-  edges: Array<AgenticScopeViolationEdge>;
-}): void {
-  if (edges.length === 0) {
-    return;
-  }
-  useAIFollow.setState((state) => {
-    const projectEdges =
-      state.scopeViolationEdgesByProjectConfigId[projectConfigId] ??
-      (state.scopeViolationEdgesByProjectConfigId[projectConfigId] = []);
-    for (const edge of edges) {
-      const edgeKey = buildScopeViolationKey(projectConfigId, edge);
-      const existing = projectEdges.some(
-        (entry) => buildScopeViolationKey(projectConfigId, entry) === edgeKey,
-      );
-      if (!existing) {
-        projectEdges.push(edge);
-      }
-    }
-  });
-
-  for (const edge of edges) {
-    const key = buildScopeViolationKey(projectConfigId, edge);
-    const existingTimeout = scopeViolationTimeouts.get(key);
-    if (existingTimeout !== undefined) {
-      window.clearTimeout(existingTimeout);
-    }
-    const timeoutId = window.setTimeout(() => {
-      useAIFollow.setState((state) => {
-        deleteScopeViolationEdge(
-          state.scopeViolationEdgesByProjectConfigId,
-          projectConfigId,
-          key,
-        );
-      });
-      scopeViolationTimeouts.delete(key);
-    }, SCOPE_VIOLATION_TIMEOUT_MS);
-    scopeViolationTimeouts.set(key, timeoutId);
   }
 }
 
