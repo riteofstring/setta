@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from setta.mcp.tool_setup import setta_init_tool
+from setta.utils.paths import get_setta_paths
 
 
 @setta_init_tool
@@ -73,7 +74,7 @@ def _normalize_end_line(end_line: int | None) -> int | None:
 
 def _workspace_root(workspace_root: str | Path | None) -> Path:
     if workspace_root is None:
-        return Path.cwd()
+        return get_setta_paths().workspace_root
     return Path(workspace_root).resolve()
 
 

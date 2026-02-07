@@ -30,7 +30,7 @@ from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, ConfigLanguage, SectionType
 from setta.utils.structured_data import read_json_source_payload, write_json_source_payload
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -90,7 +90,7 @@ class TestJsonSourceSaveNestedPaths:
             },
             "paths": {"root": "/opt/app", "data": "/var/lib/app/data"},
         }
-        filename = normalize_path(Path(self._tmpdir.name) / "sample.json")
+        filename = normalize_workspace_path(Path(self._tmpdir.name) / "sample.json")
         write_json_source_payload(filename, payload, self.dbe)
 
         section_id, variant_id = self._create_json_source_section(
@@ -146,7 +146,7 @@ class TestJsonSourceSaveNestedPaths:
             "app": {"name": "Setta Demo", "version": "1.2.3"},
             "features": {"flags": {"newUI": True, "betaMode": False}},
         }
-        filename = normalize_path(Path(self._tmpdir.name) / "sample.json")
+        filename = normalize_workspace_path(Path(self._tmpdir.name) / "sample.json")
         write_json_source_payload(filename, payload, self.dbe)
 
         section_root, variant_root = self._create_json_source_section([], filename)
