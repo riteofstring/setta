@@ -5,7 +5,6 @@ import { closeModal } from "state/actions/modal";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import type { LaunchRequestInput } from "utils/generatedTypes";
 import {
-  hydrateWorkspaceHistoryFromWindowName,
   loadWorkspaceHistory,
   saveWorkspaceHistory,
   workspaceHistoryEntryKey,
@@ -16,8 +15,6 @@ import {
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
-
-hydrateWorkspaceHistoryFromWindowName();
 
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();

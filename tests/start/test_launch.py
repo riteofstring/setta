@@ -66,6 +66,9 @@ def test_launch_reports_invalid_files_root(tmp_path: Path) -> None:
 
 
 def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
+    if not _can_bind_localhost():
+        pytest.skip("Socket binds are not permitted in this test environment.")
+
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     setta_files_root = tmp_path / "setta_files"
@@ -75,25 +78,33 @@ def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
     monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
 
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(("127.0.0.1", 0))
+    server_socket.listen(1)
+    port = server_socket.getsockname()[1]
+
     registry = SessionRegistry(sessions_root=sessions_root)
     session = registry.create_session(
         workspace_path=workspace,
         host="127.0.0.1",
-        port=61234,
+        port=port,
         pid=os.getpid(),
     )
 
     runner = CliRunner()
-    result = runner.invoke(
-        launch,
-        [
-            "--json",
-            "--workspace",
-            str(workspace),
-            "--files-root",
-            str(setta_files_root),
-        ],
-    )
+    try:
+        result = runner.invoke(
+            launch,
+            [
+                "--json",
+                "--workspace",
+                str(workspace),
+                "--files-root",
+                str(setta_files_root),
+            ],
+        )
+    finally:
+        server_socket.close()
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
@@ -108,6 +119,9 @@ def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
 def test_launch_reuses_existing_session_with_files_root_base(
     tmp_path: Path, monkeypatch
 ) -> None:
+    if not _can_bind_localhost():
+        pytest.skip("Socket binds are not permitted in this test environment.")
+
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     files_root_base = tmp_path / "files_root_base"
@@ -122,25 +136,33 @@ def test_launch_reuses_existing_session_with_files_root_base(
     monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
     monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
 
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(("127.0.0.1", 0))
+    server_socket.listen(1)
+    port = server_socket.getsockname()[1]
+
     registry = SessionRegistry(sessions_root=sessions_root)
     session = registry.create_session(
         workspace_path=workspace,
         host="127.0.0.1",
-        port=61234,
+        port=port,
         pid=os.getpid(),
     )
 
     runner = CliRunner()
-    result = runner.invoke(
-        launch,
-        [
-            "--json",
-            "--workspace",
-            str(workspace),
-            "--files-root-base",
-            str(files_root_base),
-        ],
-    )
+    try:
+        result = runner.invoke(
+            launch,
+            [
+                "--json",
+                "--workspace",
+                str(workspace),
+                "--files-root-base",
+                str(files_root_base),
+            ],
+        )
+    finally:
+        server_socket.close()
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)

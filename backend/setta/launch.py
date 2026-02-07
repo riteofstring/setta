@@ -1,3 +1,4 @@
+import os
 import socket
 import subprocess
 import sys
@@ -10,6 +11,7 @@ from setta.utils.paths import SettaPaths, resolve_setta_paths, validate_workspac
 
 DEFAULT_LAUNCH_TIMEOUT_SECONDS = 30.0
 DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
+DEFAULT_EXISTING_SESSION_GRACE_SECONDS = 2.0
 
 
 class LaunchError(RuntimeError):
@@ -51,13 +53,31 @@ def launch_workspace_session(
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
     sessions = registry.find_sessions_by_workspace(paths.workspace_root)
     if sessions:
-        session = max(sessions, key=lambda entry: entry.startedAt)
-        return LaunchResult(
-            session=session,
-            registry=registry,
-            paths=paths,
-            started_new=False,
+        reachable_sessions = [
+            session for session in sessions if _can_connect_to_session(session)
+        ]
+        if reachable_sessions:
+            session = max(reachable_sessions, key=lambda entry: entry.startedAt)
+            return LaunchResult(
+                session=session,
+                registry=registry,
+                paths=paths,
+                started_new=False,
+            )
+
+        latest = max(sessions, key=lambda entry: entry.startedAt)
+        grace_deadline = time.monotonic() + min(
+            timeout_seconds, DEFAULT_EXISTING_SESSION_GRACE_SECONDS
         )
+        while time.monotonic() < grace_deadline:
+            if _can_connect_to_session(latest):
+                return LaunchResult(
+                    session=latest,
+                    registry=registry,
+                    paths=paths,
+                    started_new=False,
+                )
+            time.sleep(min(poll_interval_seconds, 0.2))
 
     process = _start_setta_process(paths)
     session = _wait_for_session(
@@ -95,7 +115,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
     ]
     log_dir = paths.runtime_logs_root
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "launch.log"
+    log_path = log_dir / f"launch-{time.time_ns()}-{os.getpid()}.log"
     handle = log_path.open("w", encoding="utf-8")
     try:
         process = subprocess.Popen(

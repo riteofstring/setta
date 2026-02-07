@@ -1,3 +1,5 @@
+import { normalizeOrigin } from "utils/origin";
+
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
@@ -13,43 +15,6 @@ function resolveStorage(): Storage | undefined {
     return undefined;
   }
   return window.sessionStorage;
-}
-
-function normalizeOrigin(origin: string): string | undefined {
-  let normalizedOrigin = origin.trim();
-  if (!normalizedOrigin) {
-    return undefined;
-  }
-  const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(normalizedOrigin);
-  if (!hasProtocol) {
-    normalizedOrigin = `http://${normalizedOrigin}`;
-  }
-  try {
-    return new URL(normalizedOrigin).origin;
-  } catch (error) {
-    console.error(`Invalid backend origin "${origin}".`, error);
-    return undefined;
-  }
-}
-
-function readBackendOriginOverrideFromStorage(): string | undefined {
-  const storage = resolveStorage();
-  if (!storage) {
-    return undefined;
-  }
-  try {
-    const raw = storage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
-    if (!raw) {
-      return undefined;
-    }
-    return normalizeOrigin(raw);
-  } catch (error) {
-    console.warn(
-      "Failed to read backend origin override from sessionStorage",
-      error,
-    );
-    return undefined;
-  }
 }
 
 function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
@@ -91,7 +56,7 @@ export function applyBackendOriginOverrideFromUrl(): void {
     return;
   }
 
-  const override = normalizeOrigin(rawOverride);
+  const override = normalizeOrigin(rawOverride, "backend origin");
   if (override) {
     writeBackendOriginOverrideToStorage(override);
   }

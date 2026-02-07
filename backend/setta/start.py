@@ -31,6 +31,7 @@ from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
+from setta import ssh_common
 from setta.share.deployment_utils import (
     iter_share_deployment_versions,
     parse_share_deployment_version,
@@ -51,7 +52,6 @@ from setta.utils.paths import (
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
-_TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
 _ROUTE_NAMES = {route.value.lstrip("/") for route in Route}
 _MISSING_AUTH_MESSAGE = (
     "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
@@ -61,15 +61,7 @@ _MISSING_AUTH_MESSAGE = (
 _WORKSPACE_ROOT_ENV = "SETTA_WORKSPACE_ROOT"
 _FILES_ROOT_ENV = "SETTA_FILES_ROOT"
 
-
-@dataclass
-class RemoteSessionSummary:
-    id: str
-    workspace_path: str
-    host: str
-    port: int
-    pid: int
-    started_at: datetime
+RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
 
 def _resolve_cli_paths(
@@ -110,71 +102,29 @@ def _apply_paths_to_env(paths) -> None:
 
 
 def _parse_json_payload(output: str) -> dict:
-    for line in output.splitlines():
-        if line.startswith(_CONNECT_INFO_JSON_PREFIX):
-            encoded = line.removeprefix(_CONNECT_INFO_JSON_PREFIX)
-            decoded = base64.b64decode(encoded).decode("utf-8")
-            return json.loads(decoded)
-    raise click.ClickException("Missing JSON payload from remote output.")
+    try:
+        return ssh_common.parse_json_payload(output)
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _parse_session_list(payload: dict) -> list[RemoteSessionSummary]:
-    sessions = payload.get("sessions", [])
-    parsed: list[RemoteSessionSummary] = []
-    for session in sessions:
-        parsed.append(
-            RemoteSessionSummary(
-                id=session["id"],
-                workspace_path=session["workspacePath"],
-                host=session["host"],
-                port=int(session["port"]),
-                pid=int(session["pid"]),
-                started_at=datetime.fromisoformat(session["startedAt"]),
-            )
-        )
-    return parsed
+    try:
+        return ssh_common.parse_session_list(payload)
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _parse_ssh_args(raw: str | None) -> list[str]:
-    if not raw:
-        return []
-    return shlex.split(raw)
+    return ssh_common.parse_ssh_args(raw)
 
 
 def _has_control_socket_option(ssh_args: list[str]) -> bool:
-    control_keys = ("controlmaster", "controlpath", "controlpersist")
-    for idx, arg in enumerate(ssh_args):
-        if arg in {"-M", "-S"}:
-            return True
-        if arg.startswith("-S") and len(arg) > 2:
-            return True
-        lower = arg.lower()
-        if lower == "-o":
-            if idx + 1 >= len(ssh_args):
-                continue
-            option = ssh_args[idx + 1].lower()
-            if any(option.startswith(f"{key}=") for key in control_keys):
-                return True
-            continue
-        if lower.startswith("-o"):
-            option = lower[2:]
-            if any(option.startswith(f"{key}=") for key in control_keys):
-                return True
-    return False
+    return ssh_common.has_control_socket_option(ssh_args)
 
 
 def _apply_control_socket_args(ssh_args: list[str]) -> list[str]:
-    if _has_control_socket_option(ssh_args):
-        return ssh_args
-    control_args = [
-        "-o",
-        "ControlMaster=auto",
-        "-o",
-        "ControlPersist=5m",
-        "-o",
-        "ControlPath=~/.ssh/setta-ctl-%r@%h:%p",
-    ]
-    return control_args + ssh_args
+    return ssh_common.apply_control_socket_args(ssh_args)
 
 
 def _run_ssh_command(
@@ -184,16 +134,18 @@ def _run_ssh_command(
     capture_output: bool = True,
     timeout: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    cmd = ["ssh", *ssh_args, ssh_target, remote_command]
-    if capture_output:
-        return subprocess.run(
-            cmd, check=False, capture_output=True, text=True, timeout=timeout
-        )
-    return subprocess.run(cmd, check=False, timeout=timeout)
+    return ssh_common.run_ssh_command(
+        ssh_target,
+        ssh_args,
+        remote_command,
+        ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+        timeout=timeout,
+        capture_output=capture_output,
+    )
 
 
 def _build_remote_shell_command(shell: str, inner_command: str) -> str:
-    return f"{shell} -lc {shlex.quote(inner_command)}"
+    return ssh_common.build_remote_shell_command(shell, inner_command)
 
 
 def _format_remote_path(path: PurePath) -> str:
@@ -201,26 +153,14 @@ def _format_remote_path(path: PurePath) -> str:
 
 
 def _resolve_remote_shell(ssh_target: str, ssh_args: list[str]) -> str:
-    for candidate in ("bash", "sh"):
-        result = _run_ssh_command(
+    try:
+        return ssh_common.resolve_remote_shell(
             ssh_target,
             ssh_args,
-            f"command -v {candidate}",
-            capture_output=True,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
-        if result.returncode == 255:
-            details = (result.stderr or result.stdout or "").strip()
-            hint = "SSH failed while probing remote shell."
-            if details:
-                raise click.ClickException(f"{hint} {details}")
-            raise click.ClickException(
-                f"{hint} Check that SSH is reachable and credentials are valid."
-            )
-        if result.returncode == 0:
-            return candidate
-    raise click.ClickException(
-        "Remote shell not found (bash/sh missing). Use --remote-cmd and ensure a POSIX shell is available."
-    )
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _resolve_remote_workspace(
@@ -229,32 +169,16 @@ def _resolve_remote_workspace(
     shell: str,
     workspace: str,
 ) -> str:
-    tilde_parts = _split_tilde_path(workspace)
-    if tilde_parts is None:
-        inner = f"cd {shlex.quote(workspace)} && pwd -P"
-    else:
-        tilde_prefix, rest = tilde_parts
-        if rest:
-            inner = f"cd {tilde_prefix} && cd {shlex.quote(rest)} && pwd -P"
-        else:
-            inner = f"cd {tilde_prefix} && pwd -P"
-    result = _run_ssh_command(
-        ssh_target,
-        ssh_args,
-        _build_remote_shell_command(shell, inner),
-        capture_output=True,
-    )
-    if result.returncode != 0:
-        tilde_hint = _build_remote_workspace_tilde_hint(workspace)
-        suffix = f" {tilde_hint}" if tilde_hint else ""
-        raise click.ClickException(
-            f"Failed to resolve remote workspace: "
-            f"{result.stderr.strip() or result.stdout.strip()}{suffix}"
+    try:
+        return ssh_common.resolve_remote_workspace(
+            ssh_target,
+            ssh_args,
+            shell,
+            workspace,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    if not lines:
-        raise click.ClickException("Failed to resolve remote workspace path.")
-    return lines[-1]
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _resolve_remote_setta_command(
@@ -264,68 +188,17 @@ def _resolve_remote_setta_command(
     workspace: str,
     remote_cmd: str | None,
 ) -> str:
-    if remote_cmd:
-        return remote_cmd
-    activation = "source" if shell == "bash" else "."
-    quoted_workspace = shlex.quote(workspace)
-    inner = (
-        f"cd {quoted_workspace} || exit 1;"
-        f'if [ -f "./.venv/bin/activate" ]; then printf \'%s\' "{activation} ./.venv/bin/activate && setta"; exit 0; fi;'
-        f'if [ -f "./venv/bin/activate" ]; then printf \'%s\' "{activation} ./venv/bin/activate && setta"; exit 0; fi;'
-        f'if [ -f "./env/bin/activate" ]; then printf \'%s\' "{activation} ./env/bin/activate && setta"; exit 0; fi;'
-        'if [ -f "pyproject.toml" ] && command -v poetry >/dev/null 2>&1; then printf \'%s\' "poetry run setta"; exit 0; fi;'
-        'if [ -f "pyproject.toml" ] && command -v uv >/dev/null 2>&1; then printf \'%s\' "uv run setta"; exit 0; fi;'
-        "if command -v setta >/dev/null 2>&1; then printf '%s' \"setta\"; exit 0; fi;"
-        "exit 2;"
-    )
-    result = _run_ssh_command(
-        ssh_target,
-        ssh_args,
-        _build_remote_shell_command(shell, inner),
-        capture_output=True,
-    )
-    if result.returncode != 0:
-        raise click.ClickException(
-            "Unable to resolve remote Setta command. Use --remote-cmd "
-            "'source .venv/bin/activate && setta' (or equivalent)."
+    try:
+        return ssh_common.resolve_remote_setta_command(
+            ssh_target,
+            ssh_args,
+            shell,
+            workspace,
+            remote_cmd,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    if not lines:
-        raise click.ClickException(
-            "Remote Setta command resolution returned no output. Use --remote-cmd."
-        )
-    return lines[-1]
-
-
-def _split_tilde_path(path: str) -> tuple[str, str] | None:
-    if not path.startswith("~"):
-        return None
-    tilde_prefix, _, remainder = path.partition("/")
-    if not _TILDE_PREFIX_RE.fullmatch(tilde_prefix):
-        return None
-    return tilde_prefix, remainder.lstrip("/")
-
-
-def _build_remote_workspace_tilde_hint(workspace: str) -> str | None:
-    if workspace.startswith("~"):
-        return None
-    local_home = os.path.expanduser("~")
-    if not local_home or not workspace.startswith(local_home):
-        return None
-    return (
-        "\nIf you meant a remote ~ path, quote it like "
-        "-w '~/path' or -w \\~/path so your local shell does not expand it."
-    )
-
-
-def _remote_command_exists(ssh_target: str, ssh_args: list[str], command: str) -> bool:
-    result = _run_ssh_command(
-        ssh_target,
-        ssh_args,
-        f"command -v {shlex.quote(command)}",
-        capture_output=True,
-    )
-    return result.returncode == 0
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _run_remote_setta_command(
@@ -337,11 +210,15 @@ def _run_remote_setta_command(
     setta_args: str,
     capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    quoted_workspace = shlex.quote(workspace)
-    inner = f"cd {quoted_workspace} && {setta_command} {setta_args}"
-    remote_command = _build_remote_shell_command(shell, inner)
-    return _run_ssh_command(
-        ssh_target, ssh_args, remote_command, capture_output=capture_output
+    return ssh_common.run_remote_setta_command(
+        ssh_target,
+        ssh_args,
+        shell,
+        workspace,
+        setta_command,
+        setta_args,
+        ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+        timeout=None,
     )
 
 
@@ -350,12 +227,10 @@ def _build_remote_files_root_args(
     files_root: Path | None,
     files_root_base: Path | None,
 ) -> str:
-    args: list[str] = []
-    if files_root is not None:
-        args.append(f"--files-root {shlex.quote(str(files_root))}")
-    if files_root_base is not None:
-        args.append(f"--files-root-base {shlex.quote(str(files_root_base))}")
-    return " ".join(args)
+    return ssh_common.build_remote_files_root_args(
+        files_root=str(files_root) if files_root is not None else None,
+        files_root_base=str(files_root_base) if files_root_base is not None else None,
+    )
 
 
 def _fetch_remote_sessions(
@@ -366,23 +241,18 @@ def _fetch_remote_sessions(
     setta_command: str,
     files_root_args: str,
 ) -> list[RemoteSessionSummary]:
-    quoted_workspace = shlex.quote(workspace)
-    root_prefix = f"{files_root_args} " if files_root_args else ""
-    result = _run_remote_setta_command(
-        ssh_target,
-        ssh_args,
-        shell,
-        workspace,
-        setta_command,
-        f"{root_prefix}status --list-sessions --json --workspace {quoted_workspace}",
-        capture_output=True,
-    )
-    if result.returncode != 0:
-        raise click.ClickException(
-            f"Failed to list remote sessions: {result.stderr.strip() or result.stdout.strip()}"
+    try:
+        return ssh_common.fetch_remote_sessions(
+            ssh_target,
+            ssh_args,
+            shell,
+            workspace,
+            setta_command,
+            files_root_args,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
-    payload = _parse_json_payload(result.stdout)
-    return _parse_session_list(payload)
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _fetch_remote_connect_info(
@@ -395,27 +265,33 @@ def _fetch_remote_connect_info(
     session_id: str | None,
     latest: bool,
 ) -> dict:
-    quoted_workspace = shlex.quote(workspace)
-    root_prefix = f"{files_root_args} " if files_root_args else ""
-    args = f"{root_prefix}status --connect-info --json --workspace {quoted_workspace}"
-    if session_id:
-        args += f" --session {shlex.quote(session_id)}"
-    elif latest:
-        args += " --latest"
-    result = _run_remote_setta_command(
-        ssh_target,
-        ssh_args,
-        shell,
-        workspace,
-        setta_command,
-        args,
-        capture_output=True,
-    )
-    if result.returncode != 0:
-        raise click.ClickException(
-            f"Failed to read remote connect info: {result.stderr.strip() or result.stdout.strip()}"
+    if session_id is None:
+        if not latest:
+            raise click.ClickException("Use --session or --latest for remote connect.")
+        sessions = _fetch_remote_sessions(
+            ssh_target,
+            ssh_args,
+            shell,
+            workspace,
+            setta_command,
+            files_root_args,
         )
-    return _parse_json_payload(result.stdout)
+        if not sessions:
+            raise click.ClickException("No matching Setta sessions found.")
+        session_id = max(sessions, key=lambda entry: entry.started_at).id
+    try:
+        return ssh_common.fetch_remote_connect_info(
+            ssh_target,
+            ssh_args,
+            shell,
+            workspace,
+            setta_command,
+            files_root_args,
+            session_id=session_id,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+        )
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _delete_remote_session(
@@ -452,75 +328,20 @@ def _start_remote_setta(
     files_root_args: str,
     verbose: bool = False,
 ) -> None:
-    runner = None
-    if _remote_command_exists(ssh_target, ssh_args, "setsid"):
-        runner = "setsid"
-    elif _remote_command_exists(ssh_target, ssh_args, "nohup"):
-        runner = "nohup"
-    if runner is None:
-        raise click.ClickException(
-            "Remote host missing nohup/setsid for background start. Use --remote-cmd."
-        )
-    # Use a workspace-relative default so we never attempt to create a local
-    # absolute path on the remote machine.
-    remote_logs_dir = "setta_files/runtime/logs"
-    remote_log_file = f"{remote_logs_dir}/nohup.out"
-    root_prefix = f"{files_root_args} " if files_root_args else ""
-    start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} {root_prefix}--no-open"
-    quoted_start = shlex.quote(start_cmd)
-    if runner == "nohup":
-        launch = (
-            f"cd {shlex.quote(workspace)} && "
-            f"mkdir -p {shlex.quote(remote_logs_dir)} && "
-            f"nohup {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
-        )
-    else:
-        launch = (
-            f"cd {shlex.quote(workspace)} && "
-            f"mkdir -p {shlex.quote(remote_logs_dir)} && "
-            f"setsid {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
-        )
-    if verbose:
-        click.echo(f"Remote start runner: {runner}")
-        click.echo(f"Remote start log: {remote_log_file}")
-        click.echo(f"Remote start command: {launch}")
-    inner = launch
-    remote_command = _build_remote_shell_command(shell, inner)
-    if verbose:
-        ssh_cmd = ["ssh", *ssh_args, ssh_target, remote_command]
-        click.echo(f"Remote start ssh: {shlex.join(ssh_cmd)}")
     try:
-        result = _run_ssh_command(
+        ssh_common.start_remote_setta(
             ssh_target,
             ssh_args,
-            remote_command,
-            capture_output=True,
-            timeout=10.0,
+            shell,
+            workspace,
+            setta_command,
+            files_root_args,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+            files_root=None,
+            files_root_base=None,
         )
-    except subprocess.TimeoutExpired as exc:
-        if verbose:
-            click.echo(
-                "Remote start SSH command did not return after 10s; "
-                "continuing to poll for sessions."
-            )
-            stdout = (exc.stdout or "").strip()
-            stderr = (exc.stderr or "").strip()
-            if stdout:
-                click.echo(f"Remote start stdout (partial): {stdout}")
-            if stderr:
-                click.echo(f"Remote start stderr (partial): {stderr}")
-        return
-    if verbose:
-        stdout = result.stdout.strip()
-        stderr = result.stderr.strip()
-        if stdout:
-            click.echo(f"Remote start stdout: {stdout}")
-        if stderr:
-            click.echo(f"Remote start stderr: {stderr}")
-    if result.returncode != 0:
-        raise click.ClickException(
-            f"Failed to start remote Setta: {result.stderr.strip() or result.stdout.strip()}"
-        )
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _wait_for_remote_session(
@@ -569,19 +390,19 @@ def _stop_session_process(pid: int) -> None:
 def _ensure_background_process_started(
     proc: subprocess.Popen[str], wait_seconds: float = 0.2
 ) -> None:
-    time.sleep(wait_seconds)
-    if proc.poll() is not None:
+    try:
+        ssh_common.ensure_background_process_started(proc, wait_seconds=wait_seconds)
+    except LaunchError as exc:
         raise click.ClickException(
-            f"SSH tunnel failed to start (exit {proc.returncode}). "
-            "Try --print-only or --verbose."
-        )
+            f"{exc} Try --print-only or --verbose."
+        ) from exc
 
 
 def _extract_token_from_bootstrap_url(url: str) -> str:
-    marker = "#token="
-    if marker not in url:
-        raise click.ClickException("Bootstrap URL missing token fragment.")
-    return url.split(marker, 1)[1]
+    try:
+        return ssh_common.extract_token_from_bootstrap_url(url)
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _build_ssh_tunnel_args(
@@ -591,17 +412,14 @@ def _build_ssh_tunnel_args(
     local_port: int,
     remote_port: int,
 ) -> list[str]:
-    tunnel_host = format_host_for_ssh_tunnel(host)
-    return [
-        "ssh",
-        *ssh_args,
-        "-N",
-        "-L",
-        f"{local_port}:{tunnel_host}:{remote_port}",
-        "-o",
-        "ExitOnForwardFailure=yes",
+    return ssh_common.build_ssh_tunnel_args(
         ssh_target,
-    ]
+        ssh_args,
+        host,
+        local_port,
+        remote_port,
+        ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+    )
 
 
 def _prompt_for_session_action(
@@ -633,11 +451,7 @@ def _prompt_for_session_action(
 
 
 def _select_free_port(host: str) -> int:
-    addr_info = socket.getaddrinfo(host, 0, type=socket.SOCK_STREAM)
-    family, socktype, proto, _, sockaddr = addr_info[0]
-    with socket.socket(family, socktype, proto) as sock:
-        sock.bind(sockaddr)
-        return sock.getsockname()[1]
+    return ssh_common.select_free_port(host)
 
 
 def _resolve_port(host: str, port: int | None) -> int:

@@ -26,8 +26,8 @@ export function ModalContainer({ children }) {
 
   const contentClassName =
     modalType === ModalTypeEnum.WORKSPACE_SWITCHER
-      ? "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex max-h-[85vh] min-h-0 w-[90vw] max-w-[900px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800"
-      : "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_ 0.3,_ 1) fixed left-1/2 top-1/2 z-[100] flex max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800";
+      ? "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] fixed left-1/2 top-1/2 z-[100] flex max-h-[85vh] min-h-0 w-[90vw] max-w-[900px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800"
+      : "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] fixed left-1/2 top-1/2 z-[100] flex max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800";
 
   return (
     <Dialog.Root

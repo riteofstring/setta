@@ -13,6 +13,30 @@ const HISTORY_KEY = "setta.workspaceHistory";
 const HISTORY_LIMIT = 6;
 const WINDOW_NAME_PREFIX = "setta.workspaceHistory:";
 
+function normalizeNullableString(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizePathLike(value: string): string {
+  let output = value.trim();
+  while (output.length > 1 && output.endsWith("/")) {
+    output = output.slice(0, -1);
+  }
+  return output;
+}
+
+function normalizeNullablePathLike(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  const trimmed = normalizePathLike(value);
+  return trimmed ? trimmed : null;
+}
+
 function buildEntryKey(entry: {
   workspaceRoot: string;
   sshTarget: string | null;
@@ -22,7 +46,16 @@ function buildEntryKey(entry: {
   filesRoot: string | null;
   filesRootBase: string | null;
 }) {
-  return `${entry.workspaceRoot}::${entry.sshTarget ?? ""}::${entry.sshArgs ?? ""}::${entry.remoteCmd ?? ""}::${entry.localPort ?? ""}::${entry.filesRoot ?? ""}::${entry.filesRootBase ?? ""}`;
+  const normalized = {
+    workspaceRoot: normalizePathLike(entry.workspaceRoot),
+    sshTarget: normalizeNullableString(entry.sshTarget),
+    sshArgs: normalizeNullableString(entry.sshArgs),
+    remoteCmd: normalizeNullableString(entry.remoteCmd),
+    localPort: entry.localPort ?? null,
+    filesRoot: normalizeNullablePathLike(entry.filesRoot),
+    filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
+  };
+  return JSON.stringify(normalized);
 }
 
 export function workspaceHistoryEntryKey(entry: WorkspaceHistoryEntry): string {

@@ -872,12 +872,12 @@ class WatchCodeManager:
         files: tuple[str, ...],
         folders: tuple[tuple[str, bool], ...],
     ) -> bool:
-        normalized = normalize_workspace_path(path).resolve()
+        normalized = normalize_workspace_path(path)
         for file_path in files:
-            if normalized == normalize_workspace_path(Path(file_path)).resolve():
+            if normalized == normalize_workspace_path(Path(file_path)):
                 return True
         for folder_path, recursive in folders:
-            folder = normalize_workspace_path(Path(folder_path)).resolve()
+            folder = normalize_workspace_path(Path(folder_path))
             if recursive:
                 if normalized.parts[: len(folder.parts)] == folder.parts:
                     return True

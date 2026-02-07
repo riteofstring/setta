@@ -115,15 +115,6 @@ def workspace_relative_path(
         return resolved
 
 
-def state_relative_path(path: Path | str, setta_files_root: Path | None = None) -> Path:
-    root = setta_files_root or get_setta_paths().setta_files_root
-    resolved = normalize_state_path(path, setta_files_root=root)
-    try:
-        return resolved.relative_to(root)
-    except ValueError:
-        return resolved
-
-
 def validate_workspace_root(path: Path) -> None:
     if not path.exists():
         raise ValueError(f"Workspace root does not exist: {path}")

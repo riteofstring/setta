@@ -187,7 +187,7 @@ class JSONSource:
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 logger.debug(
                     "JSON source update: %s %s",
-                    coreUpdate.relPath,
+                    coreUpdate.fileToRead,
                     coreUpdate.eventType.value,
                 )
 
@@ -233,10 +233,12 @@ class JSONSource:
                 variant, _, impl = get_variant_base_and_effective_section_impl(
                     p, section, variant_id
                 )
+                json_source_path = normalize_workspace_path(variant.name)
+                update_path = normalize_workspace_path(coreUpdate.fileToRead)
                 if (
                     not isinstance(impl, BaseDictSectionImpl)
                     or not impl.isJsonSource
-                    or variant.name != str(coreUpdate.relPath)
+                    or json_source_path != update_path
                 ):
                     continue
 

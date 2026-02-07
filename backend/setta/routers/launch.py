@@ -1,18 +1,20 @@
 import os
 from pathlib import Path
 
+from fastapi import Depends
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.launch import LaunchError, launch_workspace_session
+from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import build_files_root_from_base
 
-router = SettaAPIRouter()
+router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 
 def _resolve_path(raw: str) -> Path:
