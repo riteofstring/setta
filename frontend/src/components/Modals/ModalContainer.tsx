@@ -7,6 +7,7 @@ import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModa
 import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import { RenameReferencesModal } from "./RenameReferencesModal/RenameReferencesModal";
 import { PublishShareDeploymentModal } from "./ShareDeploymentsModal/PublishShareDeploymentModal";
+import { WorkspaceSwitcherModal } from "./WorkspaceSwitcherModal/WorkspaceSwitcherModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
@@ -54,6 +55,8 @@ function ModalContent({ open }: { open: boolean }) {
       return <PublishShareDeploymentModal open={open} />;
     case ModalTypeEnum.DROPZONE_FILE_PICKER:
       return <DropzoneFilePickerModal open={open} />;
+    case ModalTypeEnum.WORKSPACE_SWITCHER:
+      return <WorkspaceSwitcherModal />;
     default:
       return modalInfo satisfies never;
   }

@@ -77,77 +77,13 @@ html.dark .react-flow__handle {
 }
 
 .react-flow__handle.agentic-handle {
-  --agentic-handle-size: 10px;
-  /* ~ tailwind m-1 */
-  --agentic-handle-gap: 4px;
-  --agentic-handle-fade-in-duration: 80ms;
-  --agentic-handle-fade-out-duration: 120ms;
-  --agentic-handle-exit-to-half-duration: 80ms;
-  --agentic-handle-exit-hold-duration: 260ms;
-  --agentic-handle-exit-to-zero-duration: 120ms;
-
-  width: var(--agentic-handle-size);
-  height: var(--agentic-handle-size);
+  width: 10px;
+  height: 10px;
   z-index: 160;
   border-width: 2px;
   border-color: #0ea5e9;
   background: #e0f2fe;
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22);
-
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity var(--agentic-handle-fade-out-duration) ease-out 0ms,
-    visibility 0s linear var(--agentic-handle-fade-out-duration);
-}
-
-.react-flow__node:hover .react-flow__handle.agentic-handle,
-.react-flow__handle.agentic-handle.agentic-handle--connected {
-  opacity: 1;
-  visibility: visible;
-  transition: opacity var(--agentic-handle-fade-in-duration) ease-out 0ms,
-    visibility 0s linear 0ms;
-  animation: none;
-}
-
-.react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
-  opacity: 0.45;
-}
-
-.react-flow__node.agentic-handles--exit
-  .react-flow__handle.agentic-handle:not(.agentic-handle--connected) {
-  opacity: 1;
-  visibility: visible;
-  transition: none;
-  animation: agentic-handle-exit
-    calc(
-      var(--agentic-handle-exit-to-half-duration) +
-        var(--agentic-handle-exit-hold-duration) +
-        var(--agentic-handle-exit-to-zero-duration)
-    )
-    ease-out forwards;
-}
-
-@keyframes agentic-handle-exit {
-  0% {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  17% {
-    opacity: 0.5;
-    visibility: visible;
-  }
-
-  72% {
-    opacity: 0.5;
-    visibility: visible;
-  }
-
-  100% {
-    opacity: 0;
-    visibility: hidden;
-  }
 }
 
 .react-flow__handle.agentic-handle.agentic-handle--source {
@@ -160,11 +96,15 @@ html.dark .react-flow__handle {
 }
 
 .react-flow__handle.agentic-handle.react-flow__handle-left {
-  left: calc(-1 * (var(--agentic-handle-size) + var(--agentic-handle-gap)));
+  left: -6px;
 }
 
 .react-flow__handle.agentic-handle.react-flow__handle-right {
-  right: calc(-1 * (var(--agentic-handle-size) + var(--agentic-handle-gap)));
+  right: -6px;
+}
+
+.react-flow__handle.agentic-handle:not(.connectable) {
+  opacity: 0.45;
 }
 
 html.dark .react-flow__handle.agentic-handle {

@@ -62,9 +62,7 @@ test.describe.serial("agentic edges", () => {
         `.react-flow__handle[data-nodeid="${secondChat.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
-      await page.getByTestId(`rf__node-${firstChat.sectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
-      await page.getByTestId(`rf__node-${secondChat.sectionId}`).hover();
       await expect(targetHandle).toBeVisible();
 
       const initialCount = await getAgenticEdgeCount(
@@ -85,8 +83,6 @@ test.describe.serial("agentic edges", () => {
           { timeout: 8000 },
         )
         .toBeGreaterThan(initialCount);
-
-      await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -123,9 +119,7 @@ test.describe.serial("agentic edges", () => {
         `.react-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
-      await page.getByTestId(`rf__node-${chatSection.sectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
-      await page.getByTestId(`rf__node-${textSection.sectionId}`).hover();
       await expect(targetHandle).toBeVisible();
 
       const initialCount = await getAgenticEdgeCount(
@@ -146,8 +140,6 @@ test.describe.serial("agentic edges", () => {
           { timeout: 8000 },
         )
         .toBeGreaterThan(initialCount);
-
-      await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -212,9 +204,7 @@ test.describe.serial("agentic edges", () => {
         `.react-flow__handle[data-nodeid="${secondSectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
-      await page.getByTestId(`rf__node-${firstSectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
-      await page.getByTestId(`rf__node-${secondSectionId}`).hover();
       await expect(targetHandle).toBeVisible();
       await ensureHandlesInViewport(page, sourceHandle, targetHandle);
 
@@ -236,8 +226,6 @@ test.describe.serial("agentic edges", () => {
           { timeout: 8000 },
         )
         .toBeGreaterThan(initialCount);
-
-      await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -445,66 +433,23 @@ async function dragHandleToHandle(
   source: Locator,
   target: Locator,
 ): Promise<void> {
-  const sourceNodeId = await getHandleNodeId(source);
-  const targetNodeId = await getHandleNodeId(target);
-
-  const sourceNode = page.getByTestId(`rf__node-${sourceNodeId}`);
-  const targetNode = page.getByTestId(`rf__node-${targetNodeId}`);
-
-  await sourceNode.hover();
-  await expect(source).toBeVisible();
-
   const sourceBox = await source.boundingBox();
   if (!sourceBox) {
     throw new Error("Source handle not visible.");
   }
-  const startX = sourceBox.x + sourceBox.width / 2;
-  const startY = sourceBox.y + sourceBox.height / 2;
-
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-
-  const targetNodeBox = await targetNode.boundingBox();
-  if (!targetNodeBox) {
-    throw new Error("Target node not visible.");
-  }
-  const targetNodeCenterX = targetNodeBox.x + targetNodeBox.width / 2;
-  const targetNodeCenterY = targetNodeBox.y + targetNodeBox.height / 2;
-  await page.mouse.move(targetNodeCenterX, targetNodeCenterY, { steps: 12 });
-
-  await expect(target).toBeVisible();
   const targetBox = await target.boundingBox();
   if (!targetBox) {
     throw new Error("Target handle not visible.");
   }
+  const startX = sourceBox.x + sourceBox.width / 2;
+  const startY = sourceBox.y + sourceBox.height / 2;
   const endX = targetBox.x + targetBox.width / 2;
   const endY = targetBox.y + targetBox.height / 2;
-  await page.mouse.move(endX, endY, { steps: 10 });
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps: 12 });
   await page.mouse.up();
-}
-
-async function getHandleNodeId(handle: Locator): Promise<string> {
-  const nodeId = await handle.getAttribute("data-nodeid");
-  if (!nodeId) {
-    throw new Error("Missing data-nodeid attribute on handle.");
-  }
-  return nodeId;
-}
-
-async function assertConnectedHandlesStayVisible(
-  page: Page,
-  sourceHandle: Locator,
-  targetHandle: Locator,
-): Promise<void> {
-  await expect(sourceHandle).toHaveClass(/agentic-handle--connected/);
-  await expect(targetHandle).toHaveClass(/agentic-handle--connected/);
-
-  // Move away so these are not visible purely due to hover/exiting animation.
-  await page.mouse.move(1, 1);
-  await page.waitForTimeout(900);
-
-  await expect(sourceHandle).toBeVisible();
-  await expect(targetHandle).toBeVisible();
 }
 
 async function getAgenticEdgeCount(
@@ -571,8 +516,8 @@ async function areHandlesInViewport(
   targetHandle: Locator,
 ): Promise<boolean> {
   const [sourceBox, targetBox] = await Promise.all([
-    getLocatorRect(sourceHandle),
-    getLocatorRect(targetHandle),
+    sourceHandle.boundingBox(),
+    targetHandle.boundingBox(),
   ]);
   const viewport = page.viewportSize();
   if (!sourceBox || !targetBox || !viewport) {
@@ -589,20 +534,4 @@ async function areHandlesInViewport(
     );
   };
   return withinViewport(sourceBox) && withinViewport(targetBox);
-}
-
-async function getLocatorRect(
-  locator: Locator,
-): Promise<{ x: number; y: number; width: number; height: number } | null> {
-  try {
-    return await locator.evaluate((el) => {
-      const rect = el.getBoundingClientRect();
-      if (!rect.width || !rect.height) {
-        return null;
-      }
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-    });
-  } catch {
-    return null;
-  }
 }

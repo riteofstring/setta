@@ -23,6 +23,7 @@ from setta.types.routes import Route
 from setta.types.section_impls import BaseSectionWithParamsImpl
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 
 
 @dataclass(slots=True)
@@ -359,7 +360,7 @@ class SettaRunner:
 
     def _resolve_workspace_root(self, workspace_root: Path | str | None) -> Path:
         if workspace_root is None:
-            return Path.cwd().resolve()
+            return get_setta_paths().workspace_root
         if isinstance(workspace_root, Path):
             return workspace_root.expanduser().resolve()
         return Path(workspace_root).expanduser().resolve()
