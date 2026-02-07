@@ -11,8 +11,8 @@ import {
   isPendingSectionTextFocus,
 } from "utils/tabbingLogic";
 import { Terminal } from "xterm";
-import "xterm/css/xterm.css";
 import { FitAddon } from "xterm-addon-fit";
+import "xterm/css/xterm.css";
 import { scrollSensitivityUpdater, terminalTheme } from "./utils";
 
 type TerminalSession = {
@@ -444,7 +444,10 @@ function acquireTerminalSession({
   });
 
   ws.addEventListener("message", (event) => {
-    if (typeof event.data === "string" && event.data === C.SETTA_TERMINAL_READY) {
+    if (
+      typeof event.data === "string" &&
+      event.data === C.SETTA_TERMINAL_READY
+    ) {
       session.isReady = true;
       return;
     }
@@ -517,7 +520,10 @@ function queueTerminalResize(sessionKey: string, message: string) {
   if (!session) {
     return;
   }
-  if (session.lastSentResizeMessage === message && !session.pendingResizeMessage) {
+  if (
+    session.lastSentResizeMessage === message &&
+    !session.pendingResizeMessage
+  ) {
     terminalDebugLog({
       event: "terminal_resize_queue_skip_duplicate",
       sessionKey,
@@ -690,6 +696,111 @@ function attachTerminalToContainer(
   container.replaceChildren(element);
 }
 
+function patchWrappedFlagsForWidenReflow({
+  terminal,
+  sessionKey,
+  sectionId,
+  oldCols,
+  newCols,
+  reason,
+}: {
+  terminal: Terminal;
+  sessionKey: string;
+  sectionId: string;
+  oldCols: number;
+  newCols: number;
+  reason: string;
+}) {
+  // xterm only reflows lines that are marked as wrapped (`isWrapped=true` on the
+  // continuation line). Some shells (notably zsh/ZLE) can redraw long command
+  // lines using explicit cursor movement/linefeeds, which results in visually
+  // wrapped lines that are not marked as wrapped, so widen reflow can't join
+  // them. This patch heuristically marks recent "hard wrapped" lines as wrapped
+  // just before we resize wider, so xterm can reflow them.
+  //
+  // This intentionally only scans near the cursor to reduce the chance of
+  // corrupting scrollback that contains real newlines of exactly `oldCols`.
+  const anyTerminal = terminal as any;
+  const bufferService = anyTerminal?._bufferService;
+  const buffer = bufferService?.buffer;
+  const lines = buffer?.lines;
+  if (
+    !lines ||
+    typeof lines.get !== "function" ||
+    typeof lines.length !== "number"
+  ) {
+    return;
+  }
+
+  const active = terminal.buffer.active;
+  const absCursorY = active.baseY + active.cursorY;
+  const scanStart = Math.max(1, absCursorY - 400);
+  const scanEnd = Math.min(lines.length - 1, absCursorY + 8);
+
+  let scanned = 0;
+  let patched = 0;
+  for (let y = scanStart; y <= scanEnd; y += 1) {
+    const prev = lines.get(y - 1);
+    const line = lines.get(y);
+    if (!prev || !line) {
+      continue;
+    }
+    scanned += 1;
+
+    if (line.isWrapped) {
+      continue;
+    }
+
+    if (typeof line.getTrimmedLength !== "function") {
+      continue;
+    }
+    if (typeof prev.getTrimmedLength !== "function") {
+      continue;
+    }
+    if (typeof prev.getCodePoint !== "function") {
+      continue;
+    }
+
+    if (line.getTrimmedLength() === 0) {
+      continue;
+    }
+
+    // Only consider this a wrap continuation when the previous line is "full".
+    // This mirrors xterm's own wrapping semantics and matches shells that break
+    // the input line at the right margin.
+    if (prev.getTrimmedLength() !== oldCols) {
+      continue;
+    }
+
+    // Bail if the last cell is blank/space. (TrimmedLength should already
+    // exclude whitespace, but guard anyway.)
+    const lastCodePoint = prev.getCodePoint(oldCols - 1);
+    if (lastCodePoint === 0 || lastCodePoint === 32 || lastCodePoint === 9) {
+      continue;
+    }
+
+    line.isWrapped = true;
+    patched += 1;
+  }
+
+  if (patched > 0) {
+    terminalDebugLog({
+      event: "terminal_reflow_patch_wrapped_flags",
+      sessionKey,
+      sectionId,
+      reason,
+      oldCols,
+      newCols,
+      absCursorY,
+      scanStart,
+      scanEnd,
+      scanned,
+      patched,
+      buffer: getTerminalBufferCursorContext(terminal),
+    });
+  }
+}
+
 function fitTerminal({
   container,
   fitAddon,
@@ -753,6 +864,17 @@ function fitTerminal({
     proposed,
     terminal: { cols: terminal.cols, rows: terminal.rows },
   });
+
+  if (proposed && proposed.cols > terminal.cols && terminal.cols > 0) {
+    patchWrappedFlagsForWidenReflow({
+      terminal,
+      sessionKey,
+      sectionId,
+      oldCols: terminal.cols,
+      newCols: proposed.cols,
+      reason,
+    });
+  }
   fitAddon.fit();
   terminalDebugLog({
     event: "terminal_fit_end",
