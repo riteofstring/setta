@@ -8,6 +8,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { TbLayoutDashboard } from "react-icons/tb";
 import {
@@ -18,12 +19,9 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
-  submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
-import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { useAIStore } from "state/definitions";
-import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   route_stop_external_agent_run,
@@ -73,26 +71,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     shallow,
   );
-  const branchIndex = useChatBranchIndex(typeof chatId === "string");
-  const branchInfoByMessage = useMemo(() => {
-    if (typeof chatId !== "string") {
-      return {};
-    }
-    return buildMessageBranchInfo({
-      chatId,
-      messages,
-      branchIndex,
-    });
-  }, [branchIndex, chatId, messages]);
+  const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
+  const [draftMessage, setDraftMessage] = useState("");
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const lastFetchedChatIdRef = useRef<string | null>(null);
-  const lastChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (typeof chatId === "string") {
-      lastChatIdRef.current = chatId;
+    if (!pendingPrompt) {
+      return;
     }
-  }, [chatId]);
+    setDraftMessage((current) => (current.trim() ? current : pendingPrompt));
+    useAIStore.setState({ pendingProjectChatPrompt: null });
+  }, [pendingPrompt]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -208,54 +198,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     await route_stop_llm_chat({ chatId });
   }, [chatId, isExternalEngine]);
 
-  const handleEditMessage = useCallback(
-    async (
-      messageId: string,
-      text: string,
-      attachments: ChatFileAttachment[],
-    ) => {
-      const resolvedChatId =
-        typeof chatId === "string" ? chatId : lastChatIdRef.current;
-      if (!resolvedChatId) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const nextChatId = await submitEditedMessage({
-        parentChatId: resolvedChatId,
-        messages,
-        messageId,
-        message: text,
-        attachments,
-        thinking,
-        engineConfigId,
-        isExternalEngine,
-        agentProfileId: null,
-        sectionId: null,
-      });
-      return Boolean(nextChatId);
-    },
-    [
-      chatId,
-      engineConfigId,
-      externalEngineAvailable,
-      isExternalEngine,
-      messages,
-      thinking,
-    ],
-  );
-
-  const handleBranchSwitch = useCallback(
-    (nextChatId: string) => {
-      if (!nextChatId || nextChatId === chatId) {
-        return;
-      }
-      setChatId(nextChatId);
-    },
-    [chatId, setChatId],
-  );
-
   const isDisabled =
     !engineConfigId ||
     (!isExternalEngine && !hasLLMConfig) ||
@@ -275,9 +217,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
-          onEditMessage={handleEditMessage}
-          onBranchSwitch={handleBranchSwitch}
-          branchInfoByMessage={branchInfoByMessage}
         />
       )}
       <ChatInput
@@ -285,6 +224,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         waitingForResponse={waitingForResponse}
         submitDisabled={submitDisabled}
         disabled={isDisabled}
+        value={draftMessage}
+        onChange={setDraftMessage}
         onSubmit={handleSubmit}
         onStop={handleStop}
       />

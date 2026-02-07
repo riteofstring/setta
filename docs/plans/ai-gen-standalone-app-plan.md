@@ -1,71 +1,179 @@
-# AI-Generated Standalone Setta App
+# AI-Generated Standalone App Mode Plan
 
-This document captures thoughts on generating a hostable, mobile-first React UI from a Setta project, using AI as the UI generator, while keeping the backend minimal.
+## Summary
+Setta currently has IDE mode (full editor) and Share mode (snapshot + policy gates) but both render the same complex UI with the pan/zoom canvas and editor panes. This plan introduces a third runtime mode, App mode, that serves a standard web app surface built from a Setta project. The app can be minimal (a few inputs + Run button) or fully custom, and can be generated or modified via project chat. The app spec is global (one per project/deployment) and can scope to multiple project configs simultaneously.
 
 ## Goals
+- Add a third runtime mode that serves an end-user web app without the IDE or canvas UI.
+- Allow developers to define a custom app surface that is independent of the pan/zoom section graph.
+- Support "public sharing" where users can update a limited set of params and run a selected code section.
+- Enable AI-driven app generation from project chat with guardrails.
+- Reuse as much of the existing share deployment/session machinery as possible.
+- Support multi-config app surfaces with explicit config scoping (tabs per config, multi-config flows).
 
-- Export a Setta project into a standalone, hostable web app.
-- Use AI to generate a mobile-first React UI that reflects the project’s flow and data.
-- Keep backend scope minimal (no language server or dev-only features).
-- Allow frontend hosting on Netlify (or similar) with the backend hosted elsewhere.
+## Non-Goals
+- Replacing IDE mode or Share mode.
+- Building a full WYSIWYG web builder in the first iteration.
+- Allowing arbitrary code execution or file access from the app UI outside existing share policy gates.
+- Migrating or preserving any per-config app spec fields (global only).
 
-## Core Idea
+## Current System Touchpoints
+- Frontend routing and server-mode detection live in `frontend/src/components/Pages/router.tsx` and `frontend/src/state/definitions.ts`.
+- IDE/Share UI are both rendered by `MainContainerCore` in `frontend/src/components/Pages/MainContainerCore.tsx`.
+- Share deployments and sessions are implemented in `backend/setta/routers/share_deployments.py` and stored under `setta_files/share_deployments/`.
+- View modes live in `ProjectConfig.viewModes` with `isUserFacing` for user-facing display (`docs/reference/view-modes.md`).
+- MCP + project chat tooling are documented in `docs/reference/mcp-system-overview.md`.
 
-Treat AI as a constrained design generator, not an open-ended code author. The system should provide a strict, structured UI specification and a limited component and styling contract so the output is consistent, buildable, and predictable.
+## Proposed UX
+- In IDE mode, add a new "App" configuration surface.
+- Include an app preview for fast iteration.
+- Add a "Generate App" entry that opens project chat with the app generator prompt.
+- Add a "Publish App Deployment" flow similar to Share deployments.
+- In App mode, the UI loads directly into a standard page layout that does not include Overview, UI Editor, or the ReactFlow canvas.
+- App mode should allow minimal param editing and a single "Run" action out of the box, with richer customization via the app spec.
+- Provide a config selector for preview context when the app spec targets multiple configs.
 
-## Key Building Blocks
+## App Definition (Global)
+- Introduce a global `AppDefinition` stored at the project level (not per `ProjectConfig`).
+- App spec is stored in json-render's UI tree format, not a custom schema.
+- Suggested fields (draft, iterate as we implement):
+- Field: `appSpecVersion` (string)
+- Field: `catalogId` (identifier for the UI component catalog)
+- Field: `appSpecPath` (string path to JSON Render UITree)
+- Field: `routes` (optional pages and path mapping; map route to UITree rootKey)
+- Field: `dataBindings` (mapping of data paths to Setta param ids or run outputs)
+- Field: `actions` (named actions mapped to backend endpoints such as run, reset, export)
+- Field: `theme` (colors, fonts, spacing, light/dark defaults)
+- Field: `assets` (static file references)
+- Store the json-render UI tree in a separate JSON file under `setta_files/app_specs/`, referenced by `appSpecPath`.
+- Priority note: UI surfaces for editing `routes`, `dataBindings`, `actions`, `theme`, and `assets` are **not important**. Assume AI- or JSON-based edits instead.
 
-1) UI Specification Layer
-   - Convert the Setta project into a structured UI spec with explicit semantics.
-   - Describe screens, data bindings, actions, navigation, and layout hints.
-   - The React Flow graph becomes a source of structure, not a literal layout.
+## Config Scoping
+- Canonical v1: a `ConfigScope` wrapper component sets the `configId` for its subtree.
+- Escape hatch: per-binding/action `configId` can override scope for cross-config controls.
+- App runtime holds multiple configs simultaneously (`appConfigs: Record<configId, ProjectStateSingleConfig>`).
 
-2) AI Generation Pipeline
-   - Provide a prompt that includes the UI spec, component contract, and style rules.
-   - Generate a React app that uses only approved components and patterns.
-   - Validate the output with deterministic checks and optional fix-up passes.
+## Renderer Strategy (Recommended Baseline: JSON Render)
+Use `json-render` to define a catalog of allowed components and let AI generate a JSON UI tree that is rendered by a dedicated App renderer.
 
-3) Minimal Backend Surface
-   - Expose only endpoints required by the generated UI.
-   - Provide authentication, data access, and asset handling as needed.
-   - Keep dev or editor features separate from the deployed runtime.
+- Catalog-driven guardrails define exactly which components and actions AI can output. This prevents arbitrary code generation and keeps app UIs safe and predictable.
+- Map catalog component types to Setta's existing param and layout components, or wrap them in app-specific UI components.
+- Map data paths to Setta state using JSON Pointer, then bind input components to those paths.
+- Actions should be named and mapped to concrete backend handlers (run section, reset values, download artifact).
+- Use explicit binding objects in the UI tree for params and actions, not implicit string conventions.
 
-4) Hosting Model
-   - Static frontend deployed to Netlify (or similar).
-   - Backend hosted separately, with clear CORS and auth configuration.
+## Output Mapping (v1)
+- Support TextBlock outputs by binding to a TextBlock section id.
+- Support image artifact outputs by binding to a specific artifact id.
+- Defer terminal outputs, arbitrary file downloads, and structured data tables to v2.
 
-## Why the UI Spec Is the Linchpin
+## AI Generation via Project Chat
+- Add a project chat flow that can generate or update the global `AppDefinition`.
+- Add MCP tools to read/write the app spec.
+- Tool: `get_app_definition`
+- Tool: `set_app_definition`
+- Tool: `update_app_definition`
+- Tool: `list_app_components`
+- Tool: `get_app_catalog`
+- Generate the LLM system prompt from the catalog schema and include project context (available params, code sections, run targets, project configs).
+- Provide a "Generate App" prompt template with guardrails.
+- Guardrail: Allowed components only.
+- Guardrail: All inputs must map to Setta params.
+- Guardrail: Exactly one run action unless explicitly requested.
+- Guardrail: Any multi-config UI must use `ConfigScope` or explicit `configId`.
+- Store generated app spec in the project state and include it in deployments.
 
-The AI needs semantic meaning to create a usable mobile UI. A flow graph without semantics does not convey:
+## Backend Plan
+- Reuse Share deployments and runtime for App mode.
+- Store the app UI tree as a separate JSON file in the deployment root.
+- Snapshot: `project.json` with global `appDefinition` referencing the app UI JSON.
+- Add App runtime state and sessions.
+- Consider reusing `ShareRuntimeState` with an `app_mode` flag and `app_policy`.
+- Reuse share session headers and session lifecycle to avoid new auth machinery.
+- Add App mode CLI entry: `setta app --deployment-name ... --version ...`.
+- Add new endpoints under `/api` to fetch App deployment metadata.
+- Add new endpoints under `/api` to create App sessions.
+- Add new endpoints under `/api` to load App UI state (app definition + app spec + policy + default config).
+- Add endpoint to lazily load additional project configs by id (no app spec payload).
 
-- What is a screen vs. a component?
-- Which nodes represent data lists vs. detail views?
-- How actions and navigation are meant to behave?
+## Frontend Plan
+- Extend `useServerMode` to track `ide | share | app`.
+- Add a new App container component that replaces `MainContainerCore` when `app` mode is detected.
+- Add an `AppRenderer` that loads `AppDefinition` and `app_policy`.
+- AppRenderer should set up data bindings to Setta params and run outputs.
+- AppRenderer should implement action handlers to call existing endpoints (run code, reset params, download artifacts).
+- Add app-specific stores:
+- `useAppDefinition` (global definition + spec)
+- `useAppConfigs` (map of configId -> ProjectStateSingleConfig)
+- Add `AppRuntimeContext` that includes `configId` scope.
+- Support `ConfigScope` and `Tabs` components in the catalog.
+- Add “App Preview” in IDE mode so developers can iterate without publishing.
+- Serve App mode as a single-page app at `/` on app deployments.
+- Support route-based UITree roots using `appDefinition.routes` and `rootKey`.
 
-A stable UI spec solves this by expressing the intended experience directly. Without it, the AI output will be inconsistent and hard to validate.
+## Policies and Gating
+- Base App gating on existing share policy rules.
+- Gate: `allowParamChanges`
+- Gate: `allowRun`
+- Gate: `allowLLM`
+- Add optional app-specific gates such as `allowExternalLinks`, `allowFileDownloads`, and `allowMultipleRuns`.
+- Keep file access restricted to deployment roots, mirroring Share mode.
 
-## Risks and Challenges
+## Long-Term Architecture (Principled Path)
+- Canonical runtime is a JSON UI spec rendered by a fixed, versioned renderer.
+- The renderer is catalog-driven so components and actions are explicitly allowed and validated.
+- AI writes or updates JSON specs only, never arbitrary runtime code.
+- External design tools (Pencil, Figma, etc.) act as import sources that compile to the canonical JSON spec.
+- The app spec remains the single source of truth for deployment and runtime.
 
-- Non-deterministic AI output can break builds or drift from expected patterns.
-- React Flow layouts do not map cleanly to mobile UI without explicit rules.
-- Tight control is needed to avoid generating components or API calls that do not exist.
-- Versioning changes in project schema must propagate to spec and generator behavior.
+## Escape Hatches (Power Users)
+- Optional export to a standalone React project for full customization.
+- Optional custom component bundles that are explicitly registered in the catalog.
+- Any non-catalog code path is opt-in and clearly marked as unsupported by default policies.
 
-## Possible Implementation Phases
+## Pencil.dev Integration (Optional)
+Priority: **not important** (defer unless explicitly requested).
+- Pencil uses `.pen` design files that are JSON-based, version-control friendly, and portable.
+- Pencil exposes an MCP server so AI can read or modify `.pen` files.
+- Pencil supports design-to-code workflows where AI generates React or Next.js components from designs.
+- Potential integration path: store a `.pen` file alongside the Setta project and reference it in `AppConfig`.
+- Potential integration path: add tooling to export Pencil designs to the App UI tree or to a static React bundle.
+- Potential integration path: use Pencil MCP tools to let project chat modify the design file, then regenerate the App UI.
 
-1) Define a minimal UI spec and component contract.
-2) Build a generator that produces a static React app from the spec.
-3) Add AI generation as a step, with strict constraints and validation.
-4) Ship a minimal backend profile and deployment guide.
-5) Iterate on UI fidelity, theming, and responsive behavior.
+## json-render Integration Notes
+- json-render catalogs define allowed components, actions, and validation, providing guardrails for AI-generated UIs.
+- Components are registered in a React registry and can use data binding hooks to read or write JSON Pointer paths.
+- Actions are named and handled by application code via an ActionProvider, so AI only declares intent.
+- json-render supports streaming JSONL patches via `useUIStream`.
+- json-render supports code export through `@json-render/codegen` utilities.
+
+## Testing Strategy
+- Backend tests for App deployment creation, policy enforcement, and session creation.
+- Backend regression tests for share deployments to ensure no mode interference.
+- Frontend Vitest coverage for App renderer data binding and action handlers.
+- Frontend Vitest coverage for `ConfigScope` and action overrides.
+- Frontend Playwright tests:
+- App mode load + run gating.
+- Multi-config tabs (scope reads/writes separate configs).
+- Route root selection from `appDefinition.routes`.
+
+## Phased Delivery
+- Phase 0: Spike on global AppDefinition schema, renderer choice, and deployment layout.
+- Phase 1: App mode runtime using json-render with a fixed catalog and manual JSON spec editing.
+- Phase 2: Project chat generation flow + MCP tools for app spec updates.
+- Phase 3: Optional Pencil integration and static code export pipeline.
 
 ## Open Questions
+- Do we support multiple app pages or only a single page in v1? (If yes, route-based rootKey switching is required.)
+- Do we allow app mode LLM calls, or restrict LLM to IDE-only generation?
 
-- What is the smallest useful UI spec that still enables good generation?
-- How much UI theming and layout control should be deterministic vs. AI-driven?
-- Which backend endpoints are truly required for a minimal deployed runtime?
-- How should the generated app be updated when the Setta project changes?
-
-## Suggested Direction
-
-Start by defining the spec and contract, then add AI as a component that fills in the UI within those constraints. This keeps the system reliable and makes it easier to validate, host, and iterate.
+## Related Code
+- `frontend/src/components/Pages/router.tsx`
+- `frontend/src/components/Pages/MainContainerCore.tsx`
+- `frontend/src/state/definitions.ts`
+- `backend/setta/routers/share_deployments.py`
+- `backend/setta/server_state.py`
+- `backend/setta/types/app_definition.py`
+- `backend/setta/routers/app_deployments.py`
+- `docs/reference/sharing-mode-vs-ide-mode.md`
+- `docs/reference/mcp-system-overview.md`
