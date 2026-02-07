@@ -68,8 +68,7 @@ from setta.utils.name_validation import (
     validate_param_name,
     validate_view_mode_name,
 )
-from setta.utils.paths import normalize_state_path, normalize_workspace_path
-from setta.utils.utils import build_project_sections_dir
+from setta.utils.utils import build_project_sections_dir, normalize_path
 
 
 def _ensure_callable_root(
@@ -828,7 +827,7 @@ class TestSectionNameValidation:
         )
         assert impl_a_after.codeFileBinding is None
         assert impl_b_after.codeFileBinding is not None
-        assert impl_b_after.codeFileBinding.canonical_path == normalize_workspace_path(
+        assert impl_b_after.codeFileBinding.canonical_path == Path(
             "custom/manual_binding.py"
         )
 
@@ -852,11 +851,11 @@ class TestSectionNameValidation:
         section_full_name = get_section_path_full_name(project_state, section_id)
         section_slug = sanitize_slug(section_full_name)
         extension = CODE_LANGUAGE_EXTENSIONS[impl.codeLanguage]
-        code_root = normalize_state_path(C.CODE_FOLDER)
+        code_root = normalize_path(C.CODE_FOLDER)
         canonical_sections_dir = build_project_sections_dir(
             code_root, project_state.projectConfig.name
         )
-        canonical_path = normalize_state_path(
+        canonical_path = normalize_path(
             canonical_sections_dir / f"{section_slug}.{extension}"
         )
         legacy_binding = CodeFileBinding(

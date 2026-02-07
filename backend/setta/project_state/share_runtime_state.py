@@ -23,6 +23,7 @@ from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     load_share_policy_from_dbe,
 )
+from setta.types.chat_messages import JSONValue
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -73,6 +74,7 @@ class ShareRuntimeState:
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
         self.manifest = self.dbe.read_share_manifest()
+        self.deployment_type = self.manifest.deploymentType
         self.deployment_name = self._resolve_deployment_name()
         self.deployment_version = self._resolve_deployment_version()
         self.default_project_config_id = self._resolve_default_project_config_id()
@@ -88,6 +90,7 @@ class ShareRuntimeState:
             )
         self._session_backends: dict[str, ProjectStateBackend] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
+        self._session_run_counts: dict[str, int] = {}
         self._artifact_watcher = specific_file_watcher or SpecificFileWatcher()
         self._base_backend: ProjectStateBackend | None = None
 
@@ -120,15 +123,18 @@ class ShareRuntimeState:
             raise KeyError(f"Share session already exists: {session_id}")
         project_state = self._build_base_backend()
         self._session_backends[session_id] = project_state
+        self._ensure_session_run_count(session_id)
         return project_state
 
     def get_session_backend(self, session_id: str) -> ProjectStateBackend:
         if session_id not in self._session_backends:
             raise KeyError(f"Unknown share session backend: {session_id}")
+        self._ensure_session_run_count(session_id)
         return self._session_backends[session_id]
 
     def get_or_create_session_backend(self, session_id: str) -> ProjectStateBackend:
         if session_id in self._session_backends:
+            self._ensure_session_run_count(session_id)
             return self._session_backends[session_id]
         return self.create_session_backend(session_id)
 
@@ -171,6 +177,18 @@ class ShareRuntimeState:
         project_state = self.get_session_state(session_id, project_config_id)
         return self.format_project_state_for_client(project_state)
 
+    def get_app_spec(self) -> JSONValue | None:
+        app_definition = self.project_state_backend.appDefinition
+        if app_definition is None or not app_definition.appSpecPath:
+            return None
+        spec_path = self._resolve_deployment_path_to_absolute(
+            app_definition.appSpecPath
+        )
+        payload = self.dbe.read_json(spec_path)
+        if not payload:
+            return None
+        return payload
+
     def update_session_state(
         self,
         session_id: str,
@@ -193,6 +211,20 @@ class ShareRuntimeState:
         del self._session_backends[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
+        self._session_run_counts.pop(session_id, None)
+
+    def get_session_run_count(self, session_id: str) -> int:
+        self._ensure_session_run_count(session_id)
+        return self._session_run_counts[session_id]
+
+    def increment_session_run_count(self, session_id: str) -> int:
+        self._ensure_session_run_count(session_id)
+        self._session_run_counts[session_id] += 1
+        return self._session_run_counts[session_id]
+
+    def _ensure_session_run_count(self, session_id: str) -> None:
+        if session_id not in self._session_run_counts:
+            self._session_run_counts[session_id] = 0
 
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
@@ -359,29 +391,15 @@ class ShareRuntimeState:
             project_state.projectConfig,
             ProjectCodegenLanguage.python,
         ):
-            if project_state.genCodeBinding is None:
-                return False
             project_state.genCodeBinding = None
-            return True
-
-        # ProjectStateSingleConfig computes genCodeBinding via model validators using
-        # the global code root (derived from setta_files_root). Share mode must always
-        # bind generated code inside the deployment root, regardless of process-level
-        # defaults.
-        fallback_binding = self._build_fallback_gen_code_binding(project_state)
-        existing_binding = project_state.genCodeBinding
-        if existing_binding is not None:
-            try:
-                self._resolve_deployment_path_to_absolute(
-                    existing_binding.canonical_path
-                )
-            except ValueError:
-                project_state.genCodeBinding = fallback_binding
-                return True
+            return False
+        if project_state.genCodeBinding is not None:
             return False
         gen_section_id = project_state.singletonSections.GenPythonCode
         if gen_section_id is None:
-            project_state.genCodeBinding = fallback_binding
+            project_state.genCodeBinding = self._build_fallback_gen_code_binding(
+                project_state
+            )
             return True
         gen_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
@@ -389,14 +407,9 @@ class ShareRuntimeState:
             GenPythonCodeSectionImpl,
         )
         if gen_impl.codeFileBinding is None:
-            project_state.genCodeBinding = fallback_binding
-            return True
-        try:
-            self._resolve_deployment_path_to_absolute(
-                gen_impl.codeFileBinding.canonical_path
+            project_state.genCodeBinding = self._build_fallback_gen_code_binding(
+                project_state
             )
-        except ValueError:
-            project_state.genCodeBinding = fallback_binding
             return True
         project_state.genCodeBinding = gen_impl.codeFileBinding
         return True

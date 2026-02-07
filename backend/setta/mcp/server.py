@@ -508,10 +508,12 @@ class _SettaStreamableHTTPSessionManager(StreamableHTTPSessionManager):
                                 self.app.create_initialization_options(),
                                 stateless=False,
                             )
-                        except Exception:
-                            logger.exception(
-                                "Session %s crashed",
+                        except Exception as exc:
+                            logger.error(
+                                "Session %s crashed: %s",
                                 http_transport.mcp_session_id,
+                                exc,
+                                exc_info=True,
                             )
                         finally:
                             if (

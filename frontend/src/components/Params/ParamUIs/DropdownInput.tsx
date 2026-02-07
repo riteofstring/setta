@@ -135,6 +135,9 @@ export function DropdownInput({
   onChange,
   outerDivClasses,
   inputOuterClasses,
+  comboboxInputThemeClassName,
+  comboboxRightButtonThemeClassName,
+  comboboxListThemeClassName,
   isDisabled,
   placeholder,
   small = true,
@@ -144,6 +147,9 @@ export function DropdownInput({
   onChange: OnSelectedItemChangeFnType<string>;
   outerDivClasses?: string;
   inputOuterClasses?: string;
+  comboboxInputThemeClassName?: string;
+  comboboxRightButtonThemeClassName?: string;
+  comboboxListThemeClassName?: string;
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
@@ -165,6 +171,9 @@ export function DropdownInput({
       isDisabled={isDisabled}
       placeholder={placeholder}
       inputOuterClasses={inputOuterClasses}
+      inputThemeClassName={comboboxInputThemeClassName}
+      rightButtonThemeClassName={comboboxRightButtonThemeClassName}
+      listThemeClassName={comboboxListThemeClassName}
     />
   );
 }
