@@ -776,18 +776,31 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const codeSectionId = await createCodeSection(page);
     await resetViewport(page);
 
-    await runCodeBlockInPage(page, codeSectionId);
-    const terminalId = await waitForAttachedTerminalId(
+    // This test needs a stable interactive shell prompt. Running a code block
+    // injects a command into the PTY and can leave the terminal busy, which
+    // makes subsequent `echo`/`stty`/`python -c` steps flaky. Attach a fresh
+    // terminal section instead.
+    const terminalId = await createTerminalSection(page);
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalId],
+      newParentId: codeSectionId,
+      newIndex: 0,
+      positionsById: null,
+    });
+    const attachedId = await waitForAttachedTerminalId(
       page,
       projectConfigName,
       codeSectionId,
     );
+    expect(attachedId).toBe(terminalId);
 
     const embeddedTerminalHost = page.locator(
       `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
