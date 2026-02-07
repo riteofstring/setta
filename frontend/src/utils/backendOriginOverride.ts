@@ -1,24 +1,12 @@
 import { normalizeOrigin } from "utils/origin";
+import { safeSessionStorage } from "utils/storage";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 
-function resolveStorage(): Storage | undefined {
-  if (typeof sessionStorage !== "undefined") {
-    return sessionStorage;
-  }
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  if (typeof window.sessionStorage === "undefined") {
-    return undefined;
-  }
-  return window.sessionStorage;
-}
-
 function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
-  const storage = resolveStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }

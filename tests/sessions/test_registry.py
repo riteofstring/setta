@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -42,6 +43,75 @@ def test_create_and_load_session() -> None:
 
         secret_bytes = registry.load_secret(loaded)
         assert len(secret_bytes) == C.SESSION_SECRET_BYTES
+
+
+def test_load_sessions_defaults_missing_workspace_path_canonical(
+    tmp_path: Path,
+) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "abc123"
+    session_dir = sessions_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    secret_path = session_dir / "secret"
+    secret_path.write_bytes(b"secret")
+
+    metadata_path = session_dir / "session.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "id": session_id,
+                "workspacePath": str(workspace),
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 12345,
+                "secretPath": str(secret_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.load_sessions(prune_stale=False)
+    assert len(sessions) == 1
+    assert sessions[0].workspacePathCanonical == str(workspace)
+
+
+def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    bad_session_id = "bad1"
+    bad_session_dir = sessions_root / bad_session_id
+    bad_session_dir.mkdir(parents=True, exist_ok=True)
+    (bad_session_dir / "secret").write_bytes(b"secret")
+    (bad_session_dir / "session.json").write_text("{not json", encoding="utf-8")
+
+    good_session_id = "good1"
+    good_session_dir = sessions_root / good_session_id
+    good_session_dir.mkdir(parents=True, exist_ok=True)
+    good_secret_path = good_session_dir / "secret"
+    good_secret_path.write_bytes(b"secret")
+    (good_session_dir / "session.json").write_text(
+        json.dumps(
+            {
+                "id": good_session_id,
+                "workspacePath": str(workspace),
+                "workspacePathCanonical": str(workspace.resolve()),
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 12345,
+                "secretPath": str(good_secret_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.load_sessions(prune_stale=False)
+    assert [session.id for session in sessions] == [good_session_id]
 
 
 def test_find_sessions_by_workspace_resolves_paths() -> None:

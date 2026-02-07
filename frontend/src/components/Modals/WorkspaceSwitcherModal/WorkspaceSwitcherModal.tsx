@@ -76,8 +76,8 @@ export function WorkspaceSwitcherModal() {
   function onSelectHistory(entry: WorkspaceHistoryEntry) {
     setWorkspaceRoot(entry.workspaceRoot);
     setSshTarget(entry.sshTarget ?? "");
-    setSshArgs(entry.sshArgs ?? "");
-    setRemoteCmd(entry.remoteCmd ?? "");
+    setSshArgs("");
+    setRemoteCmd("");
     setLocalPort(entry.localPort ? String(entry.localPort) : "");
     if (entry.filesRoot) {
       setFilesRoot(entry.filesRoot);
@@ -88,11 +88,7 @@ export function WorkspaceSwitcherModal() {
     }
     setShowAdvanced(
       Boolean(
-        entry.sshArgs ||
-          entry.remoteCmd ||
-          entry.localPort ||
-          entry.filesRoot ||
-          entry.filesRootBase,
+        entry.localPort || entry.filesRoot || entry.filesRootBase,
       ),
     );
     setError(null);

@@ -1,8 +1,6 @@
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
   sshTarget: string | null;
-  sshArgs: string | null;
-  remoteCmd: string | null;
   localPort: number | null;
   filesRoot: string | null;
   filesRootBase: string | null;
@@ -13,8 +11,8 @@ const HISTORY_KEY = "setta.workspaceHistory";
 const HISTORY_LIMIT = 6;
 const WINDOW_NAME_PREFIX = "setta.workspaceHistory:";
 
-function normalizeNullableString(value: string | null): string | null {
-  if (value === null) {
+function normalizeNullableString(value: unknown): string | null {
+  if (typeof value !== "string") {
     return null;
   }
   const trimmed = value.trim();
@@ -29,19 +27,46 @@ function normalizePathLike(value: string): string {
   return output;
 }
 
-function normalizeNullablePathLike(value: string | null): string | null {
-  if (value === null) {
+function normalizeNullablePathLike(value: unknown): string | null {
+  const normalized = normalizeNullableString(value);
+  if (normalized === null) {
     return null;
   }
-  const trimmed = normalizePathLike(value);
-  return trimmed ? trimmed : null;
+  const trimmed = normalizePathLike(normalized);
+  return trimmed || null;
+}
+
+function normalizeNullablePort(value: unknown): number | null {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    const port = Math.trunc(value);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return null;
+    }
+    return port;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+      return null;
+    }
+    if (parsed < 1 || parsed > 65535) {
+      return null;
+    }
+    return parsed;
+  }
+  return null;
 }
 
 function buildEntryKey(entry: {
   workspaceRoot: string;
   sshTarget: string | null;
-  sshArgs: string | null;
-  remoteCmd: string | null;
   localPort: number | null;
   filesRoot: string | null;
   filesRootBase: string | null;
@@ -49,8 +74,6 @@ function buildEntryKey(entry: {
   const normalized = {
     workspaceRoot: normalizePathLike(entry.workspaceRoot),
     sshTarget: normalizeNullableString(entry.sshTarget),
-    sshArgs: normalizeNullableString(entry.sshArgs),
-    remoteCmd: normalizeNullableString(entry.remoteCmd),
     localPort: entry.localPort ?? null,
     filesRoot: normalizeNullablePathLike(entry.filesRoot),
     filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
@@ -62,16 +85,43 @@ export function workspaceHistoryEntryKey(entry: WorkspaceHistoryEntry): string {
   return buildEntryKey(entry);
 }
 
-function filterValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
+function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
   if (!Array.isArray(raw)) {
     return [];
   }
-  return raw.filter(
-    (entry) =>
-      entry &&
-      typeof entry.workspaceRoot === "string" &&
-      typeof entry.lastUsedAt === "number",
-  );
+  const output: WorkspaceHistoryEntry[] = [];
+  for (const candidate of raw) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
+    const record = candidate as {
+      workspaceRoot?: unknown;
+      sshTarget?: unknown;
+      localPort?: unknown;
+      filesRoot?: unknown;
+      filesRootBase?: unknown;
+      lastUsedAt?: unknown;
+    };
+    if (typeof record.workspaceRoot !== "string") {
+      continue;
+    }
+    const normalizedWorkspaceRoot = normalizeNullablePathLike(record.workspaceRoot);
+    if (!normalizedWorkspaceRoot) {
+      continue;
+    }
+    if (typeof record.lastUsedAt !== "number" || !Number.isFinite(record.lastUsedAt)) {
+      continue;
+    }
+    output.push({
+      workspaceRoot: normalizedWorkspaceRoot,
+      sshTarget: normalizeNullableString(record.sshTarget),
+      localPort: normalizeNullablePort(record.localPort),
+      filesRoot: normalizeNullablePathLike(record.filesRoot),
+      filesRootBase: normalizeNullablePathLike(record.filesRootBase),
+      lastUsedAt: record.lastUsedAt,
+    });
+  }
+  return output;
 }
 
 export function loadWorkspaceHistory(): WorkspaceHistoryEntry[] {
@@ -83,7 +133,7 @@ export function loadWorkspaceHistory(): WorkspaceHistoryEntry[] {
     if (!raw) {
       return [];
     }
-    return filterValidEntries(JSON.parse(raw));
+    return parseValidEntries(JSON.parse(raw));
   } catch (error) {
     console.warn("Failed to read workspace history", error);
     return [];
@@ -125,7 +175,7 @@ function readWorkspaceHistoryFromWindowName(): WorkspaceHistoryEntry[] {
     return [];
   }
   try {
-    return filterValidEntries(JSON.parse(raw));
+    return parseValidEntries(JSON.parse(raw));
   } catch (error) {
     console.warn("Failed to read workspace history from window.name", error);
     return [];

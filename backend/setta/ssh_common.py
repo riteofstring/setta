@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 import shlex
 import socket
 import subprocess
@@ -15,6 +16,7 @@ from setta.utils.network import format_host_for_ssh_tunnel
 from setta.utils.paths import build_files_root_from_base
 
 _CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
+_TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
 
 
 @dataclass(frozen=True)
@@ -105,21 +107,76 @@ def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
     for session in raw_sessions:
         if not isinstance(session, dict):
             continue
+        missing = [
+            key
+            for key in (
+                "id",
+                "host",
+                "port",
+                "pid",
+                "startedAt",
+            )
+            if key not in session
+        ]
+        if missing:
+            missing_joined = ", ".join(missing)
+            raise LaunchError(
+                "RemoteSessionList",
+                f"Remote sessions payload missing required key(s): {missing_joined}.",
+            )
+        session_id = session.get("id")
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid id values.",
+            )
+        host = session.get("host")
+        if not isinstance(host, str) or not host.strip():
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid host values.",
+            )
         try:
-            started_at = datetime.fromisoformat(str(session["startedAt"]))
+            port = int(session.get("port"))
+        except (TypeError, ValueError) as exc:
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid port values.",
+            ) from exc
+        try:
+            pid = int(session.get("pid"))
+        except (TypeError, ValueError) as exc:
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid pid values.",
+            ) from exc
+        started_at_raw = session.get("startedAt")
+        if not isinstance(started_at_raw, str) or not started_at_raw.strip():
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid startedAt values.",
+            )
+        try:
+            started_at = datetime.fromisoformat(started_at_raw)
         except Exception as exc:
             raise LaunchError(
                 "RemoteSessionList",
                 "Remote sessions payload has invalid startedAt values.",
             ) from exc
+        workspace_path = session.get("workspacePath", "")
+        if not isinstance(workspace_path, str):
+            workspace_path = ""
+        workspace_path_canonical = session.get("workspacePathCanonical", "")
+        if not isinstance(workspace_path_canonical, str):
+            workspace_path_canonical = ""
         sessions.append(
             RemoteSessionSummary(
-                id=str(session["id"]),
-                workspace_path=str(session.get("workspacePath", "")),
-                workspace_path_canonical=str(session.get("workspacePathCanonical", "")),
-                host=str(session["host"]),
-                port=int(session["port"]),
-                pid=int(session["pid"]),
+                id=session_id,
+                workspace_path=workspace_path,
+                workspace_path_canonical=workspace_path_canonical,
+                host=host,
+                port=port,
+                pid=pid,
                 started_at=started_at,
             )
         )
@@ -190,8 +247,13 @@ def _split_tilde_path(path: str) -> tuple[str, str] | None:
     if not path.startswith("~"):
         return None
     tilde_prefix, _, remainder = path.partition("/")
-    if not tilde_prefix or any(ch.isspace() for ch in tilde_prefix):
+    if not tilde_prefix:
         return None
+    if not _TILDE_PREFIX_RE.fullmatch(tilde_prefix):
+        raise LaunchError(
+            "RemoteWorkspace",
+            f"Invalid remote workspace path. Unsupported tilde prefix: {tilde_prefix!r}",
+        )
     return tilde_prefix, remainder.lstrip("/")
 
 

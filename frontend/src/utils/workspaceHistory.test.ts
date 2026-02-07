@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  loadWorkspaceHistory,
   upsertWorkspaceHistoryEntry,
   workspaceHistoryEntryKey,
 } from "./workspaceHistory";
@@ -41,8 +42,6 @@ describe("workspaceHistory", () => {
       {
         workspaceRoot: "/tmp/work",
         sshTarget: null,
-        sshArgs: null,
-        remoteCmd: null,
         localPort: null,
         filesRoot: null,
         filesRootBase: null,
@@ -64,18 +63,14 @@ describe("workspaceHistory", () => {
     const entryA = {
       workspaceRoot: "a",
       sshTarget: "b::c",
-      sshArgs: "d",
-      remoteCmd: null,
       localPort: null,
       filesRoot: null,
       filesRootBase: null,
       lastUsedAt: 1,
     };
     const entryB = {
-      workspaceRoot: "a",
-      sshTarget: "b",
-      sshArgs: "c",
-      remoteCmd: "d",
+      workspaceRoot: "a::b",
+      sshTarget: "c",
       localPort: null,
       filesRoot: null,
       filesRootBase: null,
@@ -85,5 +80,59 @@ describe("workspaceHistory", () => {
     expect(workspaceHistoryEntryKey(entryA)).not.toBe(
       workspaceHistoryEntryKey(entryB),
     );
+  });
+
+  it("coerces partial entries from localStorage safely", () => {
+    memoryStorage.setItem(
+      "setta.workspaceHistory",
+      JSON.stringify([
+        {
+          workspaceRoot: " /tmp/work/ ",
+          lastUsedAt: 123,
+        },
+        {
+          workspaceRoot: "/tmp/invalid",
+          lastUsedAt: "not-a-number",
+        },
+        {
+          workspaceRoot: 42,
+          lastUsedAt: 999,
+        },
+      ]),
+    );
+
+    const loaded = loadWorkspaceHistory();
+    expect(loaded).toEqual([
+      {
+        workspaceRoot: "/tmp/work",
+        sshTarget: null,
+        localPort: null,
+        filesRoot: null,
+        filesRootBase: null,
+        lastUsedAt: 123,
+      },
+    ]);
+  });
+
+  it("coerces localPort values", () => {
+    memoryStorage.setItem(
+      "setta.workspaceHistory",
+      JSON.stringify([
+        {
+          workspaceRoot: "/tmp/work",
+          localPort: "54321",
+          lastUsedAt: 1,
+        },
+        {
+          workspaceRoot: "/tmp/work2",
+          localPort: 70000,
+          lastUsedAt: 2,
+        },
+      ]),
+    );
+
+    const loaded = loadWorkspaceHistory();
+    expect(loaded[0]?.localPort).toBe(54321);
+    expect(loaded[1]?.localPort).toBeNull();
   });
 });

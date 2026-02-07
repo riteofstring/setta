@@ -46,6 +46,20 @@ export function WorkspaceLaunchPage() {
   const [phase, setPhase] = useState<LaunchPhase>({ status: "idle" });
   const [elapsedMs, setElapsedMs] = useState(0);
 
+  const startedAt = phase.status === "loading" ? phase.startedAt : null;
+  useEffect(() => {
+    if (startedAt === null) {
+      return;
+    }
+    setElapsedMs(Date.now() - startedAt);
+    const intervalId = window.setInterval(() => {
+      setElapsedMs(Date.now() - startedAt);
+    }, 250);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [startedAt]);
+
   useEffect(() => {
     const pending = readPendingWorkspaceLaunch();
     if (!pending) {
@@ -67,10 +81,6 @@ export function WorkspaceLaunchPage() {
       workspaceRoot: pending.request.workspaceRoot ?? "",
       sshTarget: pending.request.sshTarget ?? null,
     });
-
-    const intervalId = window.setInterval(() => {
-      setElapsedMs(Date.now() - pending.requestedAt);
-    }, 250);
 
     async function runLaunch() {
       const res = await route_launch(pending.request);
@@ -116,8 +126,6 @@ export function WorkspaceLaunchPage() {
       const nextEntry = {
         workspaceRoot: pending.request.workspaceRoot ?? "",
         sshTarget: pending.request.sshTarget ?? null,
-        sshArgs: pending.request.sshArgs ?? null,
-        remoteCmd: pending.request.remoteCmd ?? null,
         localPort: pending.request.localPort ?? null,
         filesRoot: res.data.filesRoot ?? pending.request.filesRoot ?? null,
         filesRootBase: pending.request.filesRootBase ?? null,
@@ -144,7 +152,6 @@ export function WorkspaceLaunchPage() {
 
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
       clearTimeout(launchTimeoutId);
     };
   }, []);

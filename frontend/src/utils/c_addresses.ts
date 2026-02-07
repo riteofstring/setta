@@ -1,6 +1,7 @@
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { C } from "utils/c";
 import { RouteEnum } from "utils/generatedTypes";
+import { normalizeOrigin } from "utils/origin";
 
 export class C_ADDRESSES {
   static DEV_MODE = import.meta.env?.DEV;
@@ -16,7 +17,7 @@ export class C_ADDRESSES {
       if (!rawOverride) {
         return undefined;
       }
-      return this.normalizeOrigin(rawOverride);
+      return normalizeOrigin(rawOverride, "backend origin override (sessionStorage)");
     } catch (error) {
       console.warn(
         "Failed to read backend origin override from sessionStorage",
@@ -31,27 +32,7 @@ export class C_ADDRESSES {
     if (!override) {
       return undefined;
     }
-    return this.normalizeOrigin(override);
-  }
-
-  static normalizeOrigin(origin: string) {
-    let normalizedOrigin = origin.trim();
-    if (!normalizedOrigin) {
-      return undefined;
-    }
-    const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(normalizedOrigin);
-    if (!hasProtocol) {
-      normalizedOrigin = `http://${normalizedOrigin}`;
-    }
-    try {
-      return new URL(normalizedOrigin).origin;
-    } catch (error) {
-      console.error(
-        `Invalid VITE_BACKEND_ORIGIN value "${origin}". Falling back to default origin.`,
-        error,
-      );
-      return undefined;
-    }
+    return normalizeOrigin(override, "VITE_BACKEND_ORIGIN");
   }
 
   // Computed properties that mirror the Python class

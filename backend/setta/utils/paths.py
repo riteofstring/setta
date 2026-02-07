@@ -122,6 +122,15 @@ def validate_workspace_root(path: Path) -> None:
         raise ValueError(f"Workspace root is not a directory: {path}")
 
 
+def validate_optional_dir(raw_path: Path | str | None, *, label: str) -> Path | None:
+    if raw_path is None:
+        return None
+    path = resolve_path(raw_path)
+    if path.exists() and not path.is_dir():
+        raise ValueError(f"{label} is not a directory: {path}")
+    return path
+
+
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     sanitized_leaf = _sanitize_leaf(workspace_root.name)
     digest = hashlib.sha256(str(workspace_root).encode("utf-8")).hexdigest()[:8]
@@ -156,7 +165,7 @@ def warn_on_legacy_state(
 
 def _resolve_workspace_root(workspace_root: Path | str | None) -> Path:
     raw = workspace_root or os.environ.get(_WORKSPACE_ROOT_ENV) or Path.cwd()
-    return _resolve_path(raw)
+    return resolve_path(raw)
 
 
 def _resolve_files_root(
@@ -167,10 +176,10 @@ def _resolve_files_root(
 ) -> Path:
     raw_files_root = files_root or os.environ.get(_FILES_ROOT_ENV)
     if raw_files_root:
-        return _resolve_path(raw_files_root)
+        return resolve_path(raw_files_root)
     raw_base = files_root_base or os.environ.get(_FILES_ROOT_BASE_ENV)
     if raw_base:
-        base_root = _resolve_path(raw_base)
+        base_root = resolve_path(raw_base)
         return build_files_root_from_base(base_root, workspace_root).resolve(
             strict=False
         )
@@ -182,11 +191,10 @@ def _resolve_runtime_root(
 ) -> Path:
     raw = runtime_root or os.environ.get(_RUNTIME_ROOT_ENV)
     if raw:
-        return _resolve_path(raw)
+        return resolve_path(raw)
     return (setta_files_root / "runtime").resolve(strict=False)
 
-
-def _resolve_path(raw: Path | str) -> Path:
+def resolve_path(raw: Path | str) -> Path:
     if isinstance(raw, Path):
         raw_value = str(raw)
     else:

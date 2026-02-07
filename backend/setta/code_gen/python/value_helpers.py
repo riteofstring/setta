@@ -17,11 +17,10 @@ def read_binary_value(payload: dict[str, object]) -> bytes:
     runtime_root = os.environ.get(_RUNTIME_ROOT_ENV)
     if runtime_root:
         runtime_path = Path(runtime_root) / "binary" / content_id
-        if runtime_path.exists():
-            return runtime_path.read_bytes()
-    local_path = get_setta_paths().setta_files_root / "binary" / content_id
-    if local_path.exists():
-        return local_path.read_bytes()
+    else:
+        runtime_path = get_setta_paths().runtime_root / "binary" / content_id
+    if runtime_path.exists():
+        return runtime_path.read_bytes()
     base_url = os.environ.get(_BINARY_BASE_URL_ENV)
     if not base_url:
         raise FileNotFoundError(f"Missing binary payload: {content_id}")

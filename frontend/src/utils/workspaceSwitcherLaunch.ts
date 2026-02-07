@@ -1,4 +1,5 @@
 import type { LaunchRequestInput } from "utils/generatedTypes";
+import { safeSessionStorage } from "utils/storage";
 
 type PendingWorkspaceLaunch = {
   request: LaunchRequestInput;
@@ -10,21 +11,8 @@ const PENDING_LAUNCH_STORAGE_KEY = "setta.pendingWorkspaceLaunch";
 const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
 
-function resolveSessionStorage(): Storage | undefined {
-  if (typeof sessionStorage !== "undefined") {
-    return sessionStorage;
-  }
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  if (typeof window.sessionStorage === "undefined") {
-    return undefined;
-  }
-  return window.sessionStorage;
-}
-
 export function writeWorkspaceSwitcherDraft(request: LaunchRequestInput): void {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }
@@ -36,7 +24,7 @@ export function writeWorkspaceSwitcherDraft(request: LaunchRequestInput): void {
 }
 
 export function readWorkspaceSwitcherDraft(): LaunchRequestInput | null {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return null;
   }
@@ -59,7 +47,7 @@ export function readWorkspaceSwitcherDraft(): LaunchRequestInput | null {
 export function writePendingWorkspaceLaunch(
   pending: PendingWorkspaceLaunch,
 ): void {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }
@@ -71,7 +59,7 @@ export function writePendingWorkspaceLaunch(
 }
 
 export function readPendingWorkspaceLaunch(): PendingWorkspaceLaunch | null {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return null;
   }
@@ -110,7 +98,7 @@ export function readPendingWorkspaceLaunch(): PendingWorkspaceLaunch | null {
 }
 
 export function clearPendingWorkspaceLaunch(): void {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }
@@ -122,7 +110,7 @@ export function clearPendingWorkspaceLaunch(): void {
 }
 
 export function requestOpenWorkspaceSwitcherOnNextMount(): void {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return;
   }
@@ -134,7 +122,7 @@ export function requestOpenWorkspaceSwitcherOnNextMount(): void {
 }
 
 export function consumeOpenWorkspaceSwitcherRequest(): boolean {
-  const storage = resolveSessionStorage();
+  const storage = safeSessionStorage();
   if (!storage) {
     return false;
   }

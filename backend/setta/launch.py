@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
-from setta.utils.paths import SettaPaths, resolve_setta_paths, validate_workspace_root
+from setta.utils.paths import (
+    SettaPaths,
+    resolve_setta_paths,
+    validate_optional_dir,
+    validate_workspace_root,
+)
 
 DEFAULT_LAUNCH_TIMEOUT_SECONDS = 30.0
 DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
@@ -152,6 +157,7 @@ def _wait_for_session(
             message = details or "Setta exited before session startup completed."
             raise LaunchError("LaunchFailed", message)
         if time.monotonic() >= deadline:
+            _terminate_launch_process(process, log_path=log_path)
             raise LaunchError(
                 "LaunchTimeout",
                 f"Timed out waiting for Setta to launch. Check logs at: {log_path}",
@@ -175,18 +181,52 @@ def _can_connect_to_session(session: SessionMetadata) -> bool:
 def _validate_optional_dir(
     raw_path: Path | str | None, *, label: str, code: str
 ) -> None:
-    if raw_path is None:
+    try:
+        validate_optional_dir(raw_path, label=label)
+    except ValueError as exc:
+        raise LaunchError(code, str(exc)) from exc
+
+
+def _terminate_launch_process(process: subprocess.Popen[str], *, log_path: Path) -> None:
+    if process.poll() is not None:
         return
-    path = Path(raw_path).expanduser()
-    if path.exists() and not path.is_dir():
-        raise LaunchError(code, f"{label} is not a directory: {path}")
+    try:
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                f"\n[setta] launch timed out; terminating process {process.pid}\n"
+            )
+    except OSError:
+        pass
+    try:
+        process.terminate()
+    except OSError:
+        return
+    try:
+        process.wait(timeout=5.0)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        process.kill()
+    except OSError:
+        return
+    try:
+        process.wait(timeout=5.0)
+    except subprocess.TimeoutExpired:
+        return
 
 
 def _read_log_tail(log_path: Path, *, max_bytes: int = 8000) -> str:
     try:
-        data = log_path.read_bytes()
+        with log_path.open("rb") as handle:
+            try:
+                handle.seek(0, os.SEEK_END)
+                size = handle.tell()
+                offset = max(0, size - max_bytes)
+                handle.seek(offset, os.SEEK_SET)
+            except OSError:
+                pass
+            data = handle.read(max_bytes)
     except OSError:
         return ""
-    if len(data) > max_bytes:
-        data = data[-max_bytes:]
     return data.decode("utf-8", errors="replace").strip()

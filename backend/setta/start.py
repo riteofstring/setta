@@ -42,6 +42,7 @@ from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
     resolve_setta_paths,
+    validate_optional_dir,
     validate_workspace_root,
 )
 
@@ -83,11 +84,10 @@ def _resolve_cli_paths(
 
 
 def _validate_optional_dir(raw_path: Path | str | None, *, label: str) -> None:
-    if raw_path is None:
-        return
-    path = Path(raw_path).expanduser()
-    if path.exists() and not path.is_dir():
-        raise click.ClickException(f"{label} is not a directory: {path}")
+    try:
+        validate_optional_dir(raw_path, label=label)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _apply_paths_to_env(paths) -> None:
@@ -321,6 +321,9 @@ def _start_remote_setta(
     workspace: str,
     setta_command: str,
     files_root_args: str,
+    *,
+    files_root: Path | None,
+    files_root_base: Path | None,
     verbose: bool = False,
 ) -> None:
     try:
@@ -332,8 +335,8 @@ def _start_remote_setta(
             setta_command,
             files_root_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-            files_root=None,
-            files_root_base=None,
+            files_root=str(files_root) if files_root is not None else None,
+            files_root_base=str(files_root_base) if files_root_base is not None else None,
         )
     except LaunchError as exc:
         raise click.ClickException(str(exc)) from exc
@@ -1704,6 +1707,8 @@ def connect(
             remote_workspace,
             setta_command,
             files_root_args,
+            files_root=params.get("files_root"),
+            files_root_base=params.get("files_root_base"),
             verbose=verbose,
         )
         selected_session = _wait_for_remote_session(
