@@ -3,6 +3,7 @@ import {
   cleanupIsolatedProject,
   createCallableSection,
   createChatSection,
+  createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
@@ -108,6 +109,50 @@ test.describe.serial("agentic scope", () => {
       await expect(
         page.locator("path.agentic-edge--missing").first(),
       ).toBeVisible();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("shows a warning banner when write scope is empty", async ({ page }) => {
+    await seedLocalStorage(page, { uiEditorVis: true });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId: chatSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_agentic_scope_banner__",
+      );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: chatSectionId,
+        managed: true,
+        engineConfigId: null,
+        agentProfileId: null,
+        thinking: true,
+      });
+      const { sectionId: sourceSectionId } = await createTextBlockSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_agentic_scope_banner_source__",
+      );
+      await postBackend(page, "/createAgenticEdge", {
+        projectConfigId: projectContext.projectConfigId,
+        sourceSectionId,
+        targetSectionId: chatSectionId,
+        kind: "section_chat",
+        contextMode: "reference_only",
+      });
+
+      const chatNode = page.locator(
+        `.react-flow__node[data-id="${chatSectionId}"]`,
+      );
+      await expect(chatNode).toBeVisible();
+      await chatNode.click();
+
+      await expect(chatNode.getByText("No writable sections in scope.")).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

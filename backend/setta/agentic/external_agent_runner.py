@@ -833,6 +833,9 @@ class ExternalAgentRunner:
         raw_name = outputs.get("name")
         if not isinstance(raw_name, str) or not raw_name.strip():
             outputs["name"] = title_result.title
+            outputs["nameSource"] = "deterministic"
+        elif "nameSource" not in outputs:
+            outputs["nameSource"] = "reused"
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 

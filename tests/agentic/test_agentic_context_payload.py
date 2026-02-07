@@ -127,7 +127,7 @@ def test_build_agentic_context_payload_summary_mode_uses_tighter_truncation() ->
     payload = build_agentic_context_payload(project_state, chat_section_id)
 
     assert payload.section_ids == [ID(context_section_id)]
-    assert f"[id: {context_section_id} | summary]" in payload.text
+    assert f"[id: {context_section_id} | summary | fallback]" in payload.text
     assert "... (168 more lines)" in payload.text
 
 
@@ -204,6 +204,6 @@ def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_ava
     )
 
     assert payload.section_ids == [ID(context_section_id)]
-    assert f"[id: {context_section_id} | summary]" in payload.text
+    assert f"[id: {context_section_id} | summary | cached]" in payload.text
     assert "- cached summary bullet" in payload.text
     assert "... (168 more lines)" not in payload.text

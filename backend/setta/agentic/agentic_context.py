@@ -117,7 +117,7 @@ def _build_context_block(
         )
         if isinstance(cached, str) and cached.strip():
             return (
-                f"### {label} ({section_type}) [id: {rendered_id} | summary]\n"
+                f"### {label} ({section_type}) [id: {rendered_id} | summary | cached]\n"
                 f"{cached.strip()}".strip()
             )
 
@@ -135,9 +135,9 @@ def _build_context_block(
         else MAX_INLINE_LINES
     )
     truncated = _truncate_lines(raw_text, max_lines)
-    mode_label = (
-        "summary" if context_mode == AgenticEdgeContextMode.summary else "inline"
-    )
+    mode_label = "inline"
+    if context_mode == AgenticEdgeContextMode.summary:
+        mode_label = "summary | fallback"
     return (
         f"### {label} ({section_type}) [id: {rendered_id} | {mode_label}]\n"
         f"{truncated}".strip()

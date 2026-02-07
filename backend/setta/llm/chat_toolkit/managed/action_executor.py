@@ -176,7 +176,6 @@ class ManagedActionExecutor:
                 )
                 temporary_to_canonical, _ = self._dbe.read_temporary_id_map()
                 scope_check = check_agentic_scope_for_tool(
-                    tool_name=tool_name,
                     tool_args=arguments,
                     annotations=self._mcp_client.tool_annotations_by_name.get(
                         tool_name
@@ -193,8 +192,9 @@ class ManagedActionExecutor:
                         project_state=project_state,
                     )
                     self._logger.warning(
-                        "Blocked tool %s by agentic scope (chat=%s, section=%s, blocked=%s)",
+                        "Blocked tool %s by agentic scope (project=%s, chat=%s, section=%s, blocked=%s)",
                         tool_name,
+                        action.project_config_id,
                         action.agentic_context.chat_id,
                         action.agentic_context.section_id,
                         sorted(scope_check.blocked_section_ids),

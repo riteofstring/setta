@@ -178,7 +178,6 @@ class TestAgenticScope:
             idPathsByType={"section": ["sectionId"]},
         )
         allowed = check_agentic_scope_for_tool(
-            tool_name="setta__set_code",
             tool_args={"sectionId": writable_section_id},
             annotations=annotations,
             project_state=project_state,
@@ -187,7 +186,6 @@ class TestAgenticScope:
         assert allowed.allowed
 
         blocked = check_agentic_scope_for_tool(
-            tool_name="setta__set_code",
             tool_args={"sectionId": "temp-section"},
             annotations=annotations,
             project_state=project_state,
@@ -199,7 +197,6 @@ class TestAgenticScope:
         assert blocked.allowed
 
         denied = check_agentic_scope_for_tool(
-            tool_name="setta__set_code",
             tool_args={"sectionId": chat_id},
             annotations=annotations,
             project_state=project_state,
@@ -247,7 +244,6 @@ class TestAgenticScope:
             idPathsByType={"codeObj": ["codeObjId"]},
         )
         allowed = check_agentic_scope_for_tool(
-            tool_name="setta__set_code_obj_name",
             tool_args={"codeObjId": str(code_obj_id)},
             annotations=annotations,
             project_state=project_state,
@@ -263,7 +259,6 @@ class TestAgenticScope:
         assert allowed.target_section_ids == {section_id}
 
         denied = check_agentic_scope_for_tool(
-            tool_name="setta__set_code_obj_name",
             tool_args={"codeObjId": "missing-code-obj"},
             annotations=annotations,
             project_state=project_state,
@@ -296,7 +291,6 @@ class TestAgenticScope:
             idPathsByType={},
         )
         result = check_agentic_scope_for_tool(
-            tool_name="setta__get_latest_project_state_summary",
             tool_args={},
             annotations=annotations,
             project_state=project_state,

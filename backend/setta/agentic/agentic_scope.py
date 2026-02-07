@@ -116,7 +116,6 @@ def resolve_context_edges(
 
 def check_agentic_scope_for_tool(
     *,
-    tool_name: str,
     tool_args: dict[str, Any],
     annotations: SettaToolAnnotations | None,
     project_state: ProjectStateSingleConfig,

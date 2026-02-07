@@ -540,12 +540,10 @@ class _SettaStreamableHTTPSessionManager(StreamableHTTPSessionManager):
                                 self.app.create_initialization_options(),
                                 stateless=False,
                             )
-                        except Exception as exc:
-                            logger.error(
-                                "Session %s crashed: %s",
+                        except Exception:
+                            logger.exception(
+                                "Session %s crashed.",
                                 http_transport.mcp_session_id,
-                                exc,
-                                exc_info=True,
                             )
                         finally:
                             if (
@@ -870,7 +868,6 @@ class SettaFastMCP(FastMCP):
                 tool = self._tool_manager.get_tool(tool_name)
                 annotations = tool.annotations if tool else None
                 scope_check = check_agentic_scope_for_tool(
-                    tool_name=tool_name,
                     tool_args=kwargs,
                     annotations=annotations,
                     project_state=project_state,

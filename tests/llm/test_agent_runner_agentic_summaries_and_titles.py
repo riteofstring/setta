@@ -185,6 +185,7 @@ async def test_agent_runner_generates_and_reuses_chat_titles_across_runs() -> No
         )
         assert outputs1["name"] == "Example title"
         assert "nameInputHash" in outputs1
+        assert outputs1["nameSource"] == "llm"
         assert runner.title_calls == 1
 
         run1.outputs = dict(outputs1)  # type: ignore[arg-type]
@@ -208,4 +209,60 @@ async def test_agent_runner_generates_and_reuses_chat_titles_across_runs() -> No
         )
         assert outputs2["name"] == outputs1["name"]
         assert outputs2["nameInputHash"] == outputs1["nameInputHash"]
+        assert outputs2["nameSource"] == "reused"
         assert runner.title_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_runner_sets_deterministic_chat_title_when_llm_disabled() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        runner = _StubUtilityCompletionAgentRunner(dbe)
+        runner.update_config(AllLLMConfigs(configs={"primary": _build_llm_config()}))
+
+        chat_id = ID("chat-2")
+        project_config_id = ID("project-2")
+        llm_config = _build_llm_config()
+        profile = AgentProfile(
+            name="Managed chat",
+            engineConfigId=ID("engine-1"),
+        )
+        messages = [UserChatMessage(content=[MessageTextContent(text="Hello world")])]
+
+        run_inputs = {
+            "runType": "llm_chat",
+            "chatId": str(chat_id),
+            "projectConfigId": str(project_config_id),
+        }
+        run = create_agent_run(profile_id=None, inputs=run_inputs)
+        outputs: dict[str, object] = {}
+        context = AgentRunContext(
+            run=run,
+            profile=profile,
+            llm_config=llm_config,
+            engine_config_id=ID("engine-1"),
+            project_config_id=project_config_id,
+            chat_id=chat_id,
+            section_id=None,
+            thinking=False,
+            system_prompt="",
+            allowlist=None,
+            agentic_scope=AgenticScope(),
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=chat_id,
+                section_id=None,
+            ),
+            context_payload=None,
+            emit_stream=False,
+            emit_ai_follow=False,
+        )
+        await runner._apply_chat_title_to_outputs(  # type: ignore[attr-defined]
+            context,
+            messages=messages,
+            outputs=outputs,  # type: ignore[arg-type]
+            allow_llm=False,
+        )
+        assert outputs["name"] == "Hello world"
+        assert outputs["nameSource"] == "deterministic"
+        assert runner.title_calls == 0

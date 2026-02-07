@@ -13,7 +13,7 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   createAgenticEdgeFromSections,
   deleteAgenticEdgesById,
@@ -33,13 +33,16 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_get_agentic_summary_cache_status,
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
+  AgenticSummaryCacheStatus,
   EngineTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -287,6 +290,13 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       ),
     [agenticEdges, sectionId],
   );
+  const summaryContextEdgeCount = useMemo(
+    () =>
+      contextEdges.filter(
+        (edge) => edge.contextMode === AgenticEdgeContextModeEnum.summary,
+      ).length,
+    [contextEdges],
+  );
   const scopeEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -338,6 +348,52 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     () => buildScopeEntries(agenticScope.contextSectionIds),
     [agenticScope, buildScopeEntries],
   );
+
+  const [summaryCacheStatus, setSummaryCacheStatus] =
+    useState<AgenticSummaryCacheStatus | null>(null);
+  const [summaryCacheStatusLoading, setSummaryCacheStatusLoading] =
+    useState<boolean>(false);
+  const [summaryCacheStatusError, setSummaryCacheStatusError] = useState<
+    string | null
+  >(null);
+
+  const fetchSummaryCacheStatus = useCallback(async () => {
+    if (summaryContextEdgeCount === 0) {
+      setSummaryCacheStatus(null);
+      setSummaryCacheStatusError(null);
+      return;
+    }
+    setSummaryCacheStatusLoading(true);
+    try {
+      const response = await route_get_agentic_summary_cache_status({
+        projectConfigId,
+        chatSectionId: sectionId,
+      });
+      if (!res200(response)) {
+        const detail = getErrorDetail(response.data as unknown);
+        const status = typeof response.status === "number" ? response.status : null;
+        setSummaryCacheStatus(null);
+        setSummaryCacheStatusError(
+          detail ??
+            `Failed to load summary cache status${status ? ` (status ${status}).` : "."}`,
+        );
+        return;
+      }
+      setSummaryCacheStatus(response.data);
+      setSummaryCacheStatusError(null);
+    } catch (err) {
+      console.error("Failed to load agentic summary cache status", err);
+      const message = err instanceof Error ? err.message : String(err);
+      setSummaryCacheStatus(null);
+      setSummaryCacheStatusError(message);
+    } finally {
+      setSummaryCacheStatusLoading(false);
+    }
+  }, [projectConfigId, sectionId, summaryContextEdgeCount]);
+
+  useEffect(() => {
+    void fetchSummaryCacheStatus();
+  }, [fetchSummaryCacheStatus]);
 
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
@@ -705,6 +761,61 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 ))}
               </div>
             )}
+            {summaryContextEdgeCount > 0 ? (
+              <div className="mt-2 rounded-md border border-setta-200/80 bg-white/80 p-2 text-[11px] text-setta-700 shadow-sm dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-setta-600 dark:text-setta-300">
+                    Summary cache
+                  </span>
+                  <button
+                    type="button"
+                    className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
+                    onClick={fetchSummaryCacheStatus}
+                    disabled={summaryCacheStatusLoading}
+                  >
+                    Refresh
+                  </button>
+                </div>
+                {summaryCacheStatusLoading ? (
+                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+                    Loading summary cache status...
+                  </p>
+                ) : summaryCacheStatusError ? (
+                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                    Failed to load summary cache status: {summaryCacheStatusError}
+                  </p>
+                ) : summaryCacheStatus ? (
+                  <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
+                    <p>
+                      Cached: {summaryCacheStatus.cachedSectionIds.length}/
+                      {summaryCacheStatus.summarySectionIds.length}. Missing:{" "}
+                      {summaryCacheStatus.missingSectionIds.length}. Deferred due
+                      to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
+                      {Math.max(
+                        summaryCacheStatus.missingSectionIds.length -
+                          summaryCacheStatus.consideredSectionIds.length,
+                        0,
+                      )}
+                      .
+                    </p>
+                    {summaryCacheStatus.emptySourceSectionIds.length > 0 ? (
+                      <p>
+                        Empty deterministic sources:{" "}
+                        {summaryCacheStatus.emptySourceSectionIds.length}.
+                      </p>
+                    ) : null}
+                    <p>
+                      Missing summaries fall back to a deterministic excerpt in
+                      the Agentic Context message until cached.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+                    Summary cache status unavailable.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">

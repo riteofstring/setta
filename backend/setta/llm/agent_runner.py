@@ -27,6 +27,7 @@ from setta.agentic.agentic_summary_cache import (
     load_cached_agentic_summary_texts_for_chat_section,
     write_cached_agentic_summary,
 )
+from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN
 from setta.agentic.chat_titles import (
     build_chat_title_input,
     build_deterministic_chat_title,
@@ -139,7 +140,6 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 DEFAULT_ANTHROPIC_THINKING_BUDGET = 1024
-MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN = 6
 MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS = 1200
 MAX_CHAT_TITLE_INPUT_CHARS = 2000
 
@@ -176,10 +176,10 @@ class AIFollowState:
 
 
 class _NoopChatHistory:
-    def append(self, chat_id: ID, messages: list[BaseChatMessageUnion]) -> None:
+    def append(self, _chat_id: ID, _messages: list[BaseChatMessageUnion]) -> None:
         return None
 
-    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> None:
+    def set_system_prompt(self, _chat_id: ID, _system_prompt: str) -> None:
         return None
 
 
@@ -799,6 +799,17 @@ class AgentRunner:
         )
         agentic_scope = resolve_agentic_scope(project_state, section_id)
         resolved_chat_id = chat_id or run.id
+        logger.info(
+            "Resolved agentic scope for managed run (project=%s, chat=%s, section=%s, read=%s write=%s context=%s peer=%s structural=%s).",
+            project_config_id,
+            resolved_chat_id,
+            section_id,
+            len(agentic_scope.read_section_ids),
+            len(agentic_scope.write_section_ids),
+            len(agentic_scope.context_section_ids),
+            len(agentic_scope.peer_chat_section_ids),
+            agentic_scope.structural_allowed,
+        )
         agentic_context = AgenticContext(
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
@@ -982,23 +993,52 @@ class AgentRunner:
             chat_section_id=chat_section_id,
         )
         missing_section_ids: list[ID] = []
+        summary_edge_count = 0
         context_edges = resolve_context_edges(project_state, chat_section_id)
         for section_id, context_mode in context_edges:
             if context_mode != AgenticEdgeContextMode.summary:
                 continue
+            summary_edge_count += 1
             if section_id in cached:
                 continue
             missing_section_ids.append(section_id)
 
+        if summary_edge_count and not missing_section_ids:
+            logger.debug(
+                "Agentic summary cache hit (project=%s, chatSection=%s, edges=%s).",
+                project_config_id,
+                chat_section_id,
+                summary_edge_count,
+            )
         if not missing_section_ids:
             return cached
+
+        deferred_due_to_cap = max(
+            len(missing_section_ids) - MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN, 0
+        )
+        logger.info(
+            "Agentic summary cache miss (project=%s, chatSection=%s, edges=%s cached=%s missing=%s deferred=%s, llm=%s).",
+            project_config_id,
+            chat_section_id,
+            summary_edge_count,
+            len(cached),
+            len(missing_section_ids),
+            deferred_due_to_cap,
+            llm_config.id,
+        )
+
+        generated_count = 0
+        skipped_empty_count = 0
+        attempted_count = 0
         for section_id in missing_section_ids[:MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN]:
             if section_id not in project_state.projectConfig.sectionVariantMap:
                 raise KeyError(f"Section {section_id} missing variant mapping.")
             variant_id = project_state.projectConfig.sectionVariantMap[section_id]
             source = build_agentic_section_summary_source(project_state, section_id)
             if not source.raw_text.strip():
+                skipped_empty_count += 1
                 continue
+            attempted_count += 1
             cache_key = build_agentic_summary_cache_key(
                 project_config_id=project_config_id,
                 section_id=section_id,
@@ -1021,6 +1061,15 @@ class AgentRunner:
                 },
             )
             cached[section_id] = summary
+            generated_count += 1
+        logger.info(
+            "Agentic summary generation complete (project=%s, chatSection=%s, attempted=%s generated=%s skippedEmpty=%s).",
+            project_config_id,
+            chat_section_id,
+            attempted_count,
+            generated_count,
+            skipped_empty_count,
+        )
         return cached
 
     async def _generate_agentic_section_summary(
@@ -1124,10 +1173,18 @@ class AgentRunner:
         if existing:
             outputs["name"] = existing
             outputs["nameInputHash"] = title_input_hash
+            outputs["nameSource"] = "reused"
+            logger.info(
+                "Reused chat title (project=%s, chat=%s, section=%s).",
+                context.project_config_id,
+                context.chat_id,
+                context.section_id,
+            )
             return
 
         outputs["name"] = title_result.title
         outputs["nameInputHash"] = title_input_hash
+        outputs["nameSource"] = "deterministic"
         if not allow_llm:
             return
 
@@ -1145,6 +1202,14 @@ class AgentRunner:
         if generated:
             outputs["name"] = generated
             outputs["nameInputHash"] = title_input_hash
+            outputs["nameSource"] = "llm"
+            logger.info(
+                "Generated chat title (project=%s, chat=%s, section=%s, llm=%s).",
+                context.project_config_id,
+                context.chat_id,
+                context.section_id,
+                context.llm_config.id,
+            )
 
     async def _generate_llm_chat_title(
         self,
