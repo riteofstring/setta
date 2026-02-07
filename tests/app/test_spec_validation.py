@@ -267,3 +267,29 @@ class TestAppSpecValidation:
             catalog_id=APP_CATALOG_ID,
             data_bindings=bindings,
         )
+
+    def test_allows_dimension_string_props(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "root",
+                "type": "Stack",
+                "props": {"gap": "clamp(8px, 2vw, 20px)"},
+                "children": [
+                    {
+                        "key": "box",
+                        "type": "Box",
+                        "props": {"padding": "1.5rem", "radius": "12px"},
+                        "children": [
+                            {
+                                "key": "spacer",
+                                "type": "Spacer",
+                                "props": {"size": "2rem", "axis": "y"},
+                            }
+                        ],
+                    }
+                ],
+            },
+            "elements": {},
+        }
+
+        validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)

@@ -365,7 +365,15 @@ def _validate_prop_value(
             raise ValueError(
                 f"App spec element '{element_key}' prop '{prop_key}' must be a string (component '{component_type}')."
             )
-    elif expected_type == "number":
+    elif expected_type in {"number", "dimension"}:
+        is_dimension = expected_type == "dimension"
+        if is_dimension and isinstance(value, str):
+            if value.strip() == "":
+                raise ValueError(
+                    f"App spec element '{element_key}' prop '{prop_key}' must be a non-empty string (component '{component_type}')."
+                )
+            # CSS lengths (e.g. "1rem", "clamp(...)") are accepted but cannot be range-validated.
+            return
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             raise ValueError(
                 f"App spec element '{element_key}' prop '{prop_key}' must be a number (component '{component_type}')."

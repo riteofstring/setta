@@ -16,7 +16,7 @@ APP_CATALOG: JSONValue = {
                     "enum": ["column", "row"],
                     "default": "column",
                 },
-                "gap": {"type": "number", "min": 0, "max": 48, "default": 16},
+                "gap": {"type": "dimension", "min": 0, "max": 48, "default": 16},
                 "align": {
                     "type": "string",
                     "enum": ["start", "center", "end", "stretch"],
@@ -35,8 +35,8 @@ APP_CATALOG: JSONValue = {
             "type": "Box",
             "description": "Generic wrapper with optional padding, radius, border, and background role.",
             "props": {
-                "padding": {"type": "number", "min": 0, "max": 96, "default": 0},
-                "radius": {"type": "number", "min": 0, "max": 48, "default": 0},
+                "padding": {"type": "dimension", "min": 0, "max": 96, "default": 0},
+                "radius": {"type": "dimension", "min": 0, "max": 48, "default": 0},
                 "background": {
                     "type": "string",
                     "enum": ["none", "background", "surface", "surfaceAlt", "card"],
@@ -56,7 +56,7 @@ APP_CATALOG: JSONValue = {
             "description": "Grid container for multi-column layouts.",
             "props": {
                 "columns": {"type": "number", "min": 1, "max": 12, "default": 2},
-                "gap": {"type": "number", "min": 0, "max": 48, "default": 16},
+                "gap": {"type": "dimension", "min": 0, "max": 48, "default": 16},
                 "align": {
                     "type": "string",
                     "enum": ["start", "center", "end", "stretch"],
@@ -75,7 +75,12 @@ APP_CATALOG: JSONValue = {
             "type": "Container",
             "description": "Center content and constrain its max width.",
             "props": {
-                "maxWidth": {"type": "number", "min": 320, "max": 1600, "default": 1024},
+                "maxWidth": {
+                    "type": "dimension",
+                    "min": 320,
+                    "max": 1600,
+                    "default": 1024,
+                },
                 "className": {"type": "string"},
             },
             "children": True,
@@ -84,7 +89,7 @@ APP_CATALOG: JSONValue = {
             "type": "Spacer",
             "description": "Fixed-size spacer for layout.",
             "props": {
-                "size": {"type": "number", "min": 0, "max": 200, "default": 16},
+                "size": {"type": "dimension", "min": 0, "max": 200, "default": 16},
                 "axis": {"type": "string", "enum": ["x", "y"], "default": "y"},
                 "className": {"type": "string"},
             },
