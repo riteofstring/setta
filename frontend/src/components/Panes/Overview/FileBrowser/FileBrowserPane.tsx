@@ -1,5 +1,14 @@
+import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
+import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder } from "react-icons/tb";
 import { List, useListRef } from "react-window";
@@ -10,6 +19,12 @@ import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
+import {
+  matchesFileBrowserNameFilter,
+  matchesFileBrowserPathFilter,
+  normalizeFileBrowserPathForFilter,
+  parseFileBrowserFilterText,
+} from "utils/fileBrowserFilter";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
@@ -28,6 +43,8 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 const FILTER_DEBOUNCE_MS = 150;
 const MAX_ENTRIES = 5000;
+const FILTER_RECURSIVE_MIN_CHARS = 2;
+const FILTER_RECURSIVE_MAX_FOLDERS = 600;
 
 type NodeKind = "folder" | "file";
 
@@ -45,6 +62,110 @@ export type FileNode = {
 type FlattenedNode = FileNode & {
   depth: number;
 };
+
+export type FlattenedFileNode = FlattenedNode;
+
+export function flattenFileBrowserTree({
+  rootPath,
+  nodesByPath,
+  expandedPaths,
+  filterText,
+  getChildPaths,
+}: {
+  rootPath: string | null;
+  nodesByPath: Record<string, FileNode>;
+  expandedPaths: Record<string, boolean>;
+  filterText: string;
+  getChildPaths: (path: string) => string[];
+}): FlattenedFileNode[] {
+  if (!rootPath) {
+    return [];
+  }
+  const rootNode = nodesByPath[rootPath];
+  if (!rootNode) {
+    return [];
+  }
+
+  const query = parseFileBrowserFilterText(filterText);
+  if (query.kind === "none") {
+    const result: FlattenedFileNode[] = [];
+    const walk = (path: string, depth: number) => {
+      const node = nodesByPath[path];
+      if (!node) {
+        return;
+      }
+      result.push({ ...node, depth });
+      const isExpanded = expandedPaths[path] === true;
+      if (node.type === "folder" && isExpanded) {
+        const children = getChildPaths(path);
+        for (const childPath of children) {
+          walk(childPath, depth + 1);
+        }
+      }
+    };
+    walk(rootPath, 0);
+    return result;
+  }
+
+  const normalizedRootPath = normalizeFileBrowserPathForFilter(rootPath);
+  const collectFiltered = (path: string, depth: number) => {
+    const node = nodesByPath[path];
+    if (!node) {
+      return { matched: false, items: [] as FlattenedFileNode[] };
+    }
+
+    let matched = false;
+    if (query.kind === "path") {
+      const normalizedFullPath = normalizeFileBrowserPathForFilter(
+        node.fullPath,
+      );
+      let normalizedRelativePath: string | null = null;
+      if (normalizedFullPath.startsWith(normalizedRootPath)) {
+        normalizedRelativePath = normalizedFullPath.slice(
+          normalizedRootPath.length,
+        );
+        if (normalizedRelativePath.startsWith("/")) {
+          normalizedRelativePath = normalizedRelativePath.slice(1);
+        }
+      }
+      matched = matchesFileBrowserPathFilter(
+        query,
+        normalizedFullPath,
+        normalizedRelativePath,
+      );
+    } else {
+      matched = matchesFileBrowserNameFilter(
+        query,
+        node.name.toLowerCase(),
+        node.type,
+      );
+    }
+
+    const children = getChildPaths(path);
+    if (children.length === 0) {
+      return matched
+        ? { matched: true, items: [{ ...node, depth }] }
+        : { matched: false, items: [] as FlattenedFileNode[] };
+    }
+
+    const childItems: FlattenedFileNode[] = [];
+    for (const childPath of children) {
+      const childResult = collectFiltered(childPath, depth + 1);
+      if (childResult.matched) {
+        matched = true;
+        childItems.push(...childResult.items);
+      }
+    }
+    if (!matched) {
+      return { matched: false, items: [] as FlattenedFileNode[] };
+    }
+    return {
+      matched: true,
+      items: [{ ...node, depth }, ...childItems],
+    };
+  };
+  return collectFiltered(rootPath, 0).items;
+}
 
 type RowData = {
   items: FlattenedNode[];
@@ -66,6 +187,7 @@ type FileBrowserRowProps = RowData & {
 
 type FileBrowserPaneProps = {
   onFileOpen?: (node: FileNode) => void;
+  onFolderOpen?: (node: FileNode) => void;
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
@@ -79,6 +201,7 @@ type FileBrowserPaneProps = {
 
 export function FileBrowserPane({
   onFileOpen,
+  onFolderOpen,
   onSelectionChange,
   useFileBrowserStateHook,
   showFilter = true,
@@ -95,9 +218,17 @@ export function FileBrowserPane({
       filterText: state.filterText,
     }));
   const [nodesByPath, setNodesByPath] = useState<Record<string, FileNode>>({});
+  const nodesByPathRef = useRef(nodesByPath);
+  useEffect(() => {
+    nodesByPathRef.current = nodesByPath;
+  }, [nodesByPath]);
   const [childrenByPath, setChildrenByPath] = useState<
     Record<string, string[]>
   >({});
+  const childrenByPathRef = useRef(childrenByPath);
+  useEffect(() => {
+    childrenByPathRef.current = childrenByPath;
+  }, [childrenByPath]);
   const [loadingPaths, setLoadingPaths] = useState<Record<string, boolean>>({});
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
   const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
@@ -111,6 +242,8 @@ export function FileBrowserPane({
   const didLoadRootRef = useRef(false);
   const rootRequestIdRef = useRef(0);
   const folderRequestIdRef = useRef<Record<string, number>>({});
+  const filterRequestIdRef = useRef(0);
+  const appliedRootRef = useRef<string | null>(null);
   const applyRootPathRef =
     useRef<
       (
@@ -145,7 +278,7 @@ export function FileBrowserPane({
       folderPath: string,
       ignoreOverride?: string[],
       rootRequestId?: number,
-    ) => {
+    ): Promise<FileNode[] | null> => {
       const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
       const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
       const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
@@ -158,24 +291,26 @@ export function FileBrowserPane({
         includeMtime: true,
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
-        return;
+        return null;
       }
       if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
-        return;
+        return null;
       }
+      let loadedNodes: FileNode[] | null = null;
       if (res200(res)) {
         const items = res.data;
-        const childPaths = items.map((item) => item.fullPath);
+        loadedNodes = items.map((item) => ({
+          name: item.name,
+          fullPath: item.fullPath,
+          type: item.type,
+          parentPath: folderPath,
+          mtime: item.mtime ?? null,
+        }));
+        const childPaths = loadedNodes.map((node) => node.fullPath);
         setNodesByPath((prev) => {
           const next = { ...prev };
-          for (const item of items) {
-            next[item.fullPath] = {
-              name: item.name,
-              fullPath: item.fullPath,
-              type: item.type,
-              parentPath: folderPath,
-              mtime: item.mtime ?? null,
-            };
+          for (const node of loadedNodes ?? []) {
+            next[node.fullPath] = node;
           }
           return next;
         });
@@ -209,6 +344,7 @@ export function FileBrowserPane({
         delete next[folderPath];
         return next;
       });
+      return loadedNodes;
     },
     [ignorePatterns],
   );
@@ -224,6 +360,7 @@ export function FileBrowserPane({
         setRootError("Root path is required.");
         return;
       }
+      appliedRootRef.current = trimmed;
       const separator = separatorOverride ?? pathSeparator;
       const displayName = getDisplayNameFromPath(trimmed, separator);
       rootRequestIdRef.current += 1;
@@ -287,6 +424,16 @@ export function FileBrowserPane({
   }, [applyRootPath]);
 
   useEffect(() => {
+    if (!rootPath) {
+      return;
+    }
+    if (appliedRootRef.current === rootPath) {
+      return;
+    }
+    applyRootPath(rootPath, pathSeparator, ignorePatterns);
+  }, [applyRootPath, ignorePatterns, pathSeparator, rootPath]);
+
+  useEffect(() => {
     if (didLoadRootRef.current) {
       return;
     }
@@ -303,8 +450,14 @@ export function FileBrowserPane({
       }
       setIgnorePatterns(res.data.ignorePatterns);
       setPathSeparator(res.data.pathSeparator);
+      fileBrowserState.setState({
+        pathSeparator: res.data.pathSeparator,
+        ignorePatterns: res.data.ignorePatterns,
+      });
+      const preferredRoot =
+        fileBrowserState.getState().rootPath ?? res.data.rootPath;
       applyRootPathRef.current?.(
-        res.data.rootPath,
+        preferredRoot,
         res.data.pathSeparator,
         res.data.ignorePatterns,
       );
@@ -312,60 +465,85 @@ export function FileBrowserPane({
     void loadRoot();
   }, []);
 
-  const flattenedItems = useMemo(() => {
+  useEffect(() => {
+    const query = parseFileBrowserFilterText(filterText);
+    if (query.kind === "none") {
+      filterRequestIdRef.current += 1;
+      return;
+    }
+    if (
+      query.kind === "name" &&
+      query.needle.length < FILTER_RECURSIVE_MIN_CHARS
+    ) {
+      filterRequestIdRef.current += 1;
+      return;
+    }
     if (!rootPath) {
-      return [];
+      return;
     }
-    const rootNode = nodesByPath[rootPath];
-    if (!rootNode) {
-      return [];
-    }
-    const normalizedFilter = filterText.trim().toLowerCase();
-    const hasFilter = normalizedFilter.length > 0;
-    if (!hasFilter) {
-      const result: FlattenedNode[] = [];
-      const walk = (path: string, depth: number) => {
-        const node = nodesByPath[path];
-        if (!node) {
+
+    const requestId = filterRequestIdRef.current + 1;
+    filterRequestIdRef.current = requestId;
+    const rootRequestId = rootRequestIdRef.current;
+
+    const queue: string[] = [rootPath];
+    const visited = new Set<string>();
+    const crawl = async () => {
+      while (
+        queue.length > 0 &&
+        visited.size < FILTER_RECURSIVE_MAX_FOLDERS &&
+        filterRequestIdRef.current === requestId
+      ) {
+        const folder = queue.shift();
+        if (!folder) {
+          continue;
+        }
+        if (visited.has(folder)) {
+          continue;
+        }
+        visited.add(folder);
+
+        const cachedChildren = childrenByPathRef.current[folder];
+        if (cachedChildren !== undefined) {
+          for (const childPath of cachedChildren) {
+            const childNode = nodesByPathRef.current[childPath];
+            if (childNode?.type === "folder") {
+              queue.push(childPath);
+            }
+          }
+          continue;
+        }
+
+        const loaded = await fetchFolderContents(
+          folder,
+          undefined,
+          rootRequestId,
+        );
+        if (filterRequestIdRef.current !== requestId) {
           return;
         }
-        result.push({ ...node, depth });
-        const isExpanded = expandedPaths[path] === true;
-        if (node.type === "folder" && isExpanded) {
-          const children = getSortedChildPaths(path);
-          for (const childPath of children) {
-            walk(childPath, depth + 1);
+        if (!loaded) {
+          continue;
+        }
+        for (const node of loaded) {
+          if (node.type === "folder") {
+            queue.push(node.fullPath);
           }
         }
-      };
-      walk(rootPath, 0);
-      return result;
-    }
-    const collectFiltered = (path: string, depth: number) => {
-      const node = nodesByPath[path];
-      if (!node) {
-        return { matched: false, items: [] as FlattenedNode[] };
       }
-      const nameMatches = node.name.toLowerCase().includes(normalizedFilter);
-      const children = getSortedChildPaths(path);
-      let matched = nameMatches;
-      const childItems: FlattenedNode[] = [];
-      for (const childPath of children) {
-        const childResult = collectFiltered(childPath, depth + 1);
-        if (childResult.matched) {
-          matched = true;
-          childItems.push(...childResult.items);
-        }
-      }
-      if (!matched) {
-        return { matched: false, items: [] as FlattenedNode[] };
-      }
-      return {
-        matched: true,
-        items: [{ ...node, depth }, ...childItems],
-      };
     };
-    return collectFiltered(rootPath, 0).items;
+
+    void crawl();
+  }, [fetchFolderContents, filterText, rootPath]);
+
+  const flattenedItems = useMemo(() => {
+    return flattenFileBrowserTree({
+      rootPath,
+      nodesByPath,
+      expandedPaths,
+      filterText,
+      getChildPaths: getSortedChildPaths,
+    });
   }, [rootPath, nodesByPath, expandedPaths, filterText, getSortedChildPaths]);
 
   const selectedIndex = useMemo(() => {
@@ -426,6 +604,10 @@ export function FileBrowserPane({
         return;
       }
       if (node.type === "folder") {
+        if (onFolderOpen) {
+          onFolderOpen(node);
+          return;
+        }
         handleToggle(path);
         return;
       }
@@ -441,7 +623,7 @@ export function FileBrowserPane({
         codeLanguage,
       });
     },
-    [handleToggle, nodesByPath, onFileOpen],
+    [handleToggle, nodesByPath, onFileOpen, onFolderOpen],
   );
 
   const handleKeyDown = useCallback(
@@ -610,7 +792,7 @@ export function FileBrowserPane({
       )}
       <div
         ref={listWrapperRef}
-        className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white/80 dark:bg-setta-950/60"
+        className="nodrag relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white/80 dark:bg-setta-950/60"
         tabIndex={0}
         onKeyDown={handleKeyDown}
       >
@@ -621,7 +803,7 @@ export function FileBrowserPane({
           }}
         >
           <div
-            className="relative flex items-center border-r border-transparent pr-3 transition-colors group-hover:border-setta-100/80 dark:group-hover:border-setta-800/80"
+            className="relative flex items-center border-r border-transparent pr-6 transition-colors group-hover:border-setta-100/80 dark:group-hover:border-setta-800/80"
             style={listInsetLeft ? { paddingLeft: listInsetLeft } : undefined}
           >
             <button
@@ -650,13 +832,13 @@ export function FileBrowserPane({
               )}
             </button>
             <div
-              className="group/resize nopan nodrag absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center"
+              className="group/resize nopan nodrag pointer-events-none absolute -right-2 top-0 flex h-full w-4 cursor-col-resize items-center justify-center opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100"
               onMouseDown={handleResizeStart}
             >
               <div className="h-4 w-1.5 rounded-full bg-setta-400/90 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-500 dark:group-hover/resize:bg-blue-400" />
             </div>
           </div>
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end pl-3">
             <button
               type="button"
               className="flex w-full min-w-0 items-center justify-end gap-1 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
@@ -690,7 +872,7 @@ export function FileBrowserPane({
             rowComponent={FileBrowserRow}
             rowCount={flattenedItems.length}
             rowHeight={ROW_HEIGHT}
-            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
             rowProps={{
               items: flattenedItems,
               expandedPaths,
@@ -740,25 +922,59 @@ function FileBrowserRow({
     ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
     : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-900";
 
+  function handleRowDoubleClick(event: React.MouseEvent<HTMLElement>) {
+    event.stopPropagation();
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      target.closest('[data-filebrowser-toggle="true"]')
+    ) {
+      return;
+    }
+    onSelect(item.fullPath);
+    onOpen(item.fullPath);
+  }
+
   return (
-    <div
+    <button
+      type="button"
       style={{
         ...style,
         display: "grid",
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
-      className={`cursor-pointer items-center gap-2 pr-2 text-xs ${rowClasses}`}
+      className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
       title={item.fullPath}
-      onClick={() => onSelect(item.fullPath)}
-      onDoubleClick={() => onOpen(item.fullPath)}
+      onMouseDown={(event) => {
+        event.stopPropagation();
+        // Clicking a row should behave like a real file explorer: it should
+        // take focus away from the address bar/filter so completion tooltips
+        // don't keep intercepting clicks.
+        if (typeof document !== "undefined") {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement) {
+            active.blur();
+          }
+        }
+      }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect(item.fullPath);
+      }}
     >
       <div
         className="flex min-w-0 items-center gap-1 pr-2"
         style={{ paddingLeft }}
+        onDoubleClick={handleRowDoubleClick}
       >
         {isFolder ? (
-          <button
+          <div
+            role="button"
+            tabIndex={-1}
+            aria-label={isExpanded ? "Collapse folder" : "Expand folder"}
+            data-filebrowser-toggle="true"
             className="flex h-4 w-4 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               onToggle(item.fullPath);
@@ -769,7 +985,7 @@ function FileBrowserRow({
             ) : (
               <HiChevronRight size={12} />
             )}
-          </button>
+          </div>
         ) : (
           <span className="h-4 w-4" />
         )}
@@ -778,7 +994,12 @@ function FileBrowserRow({
         ) : (
           <TbFile className="text-setta-400" size={14} />
         )}
-        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+        <span
+          className="min-w-0 flex-1 truncate"
+          onDoubleClick={handleRowDoubleClick}
+        >
+          {item.name}
+        </span>
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}
@@ -786,10 +1007,13 @@ function FileBrowserRow({
           <span className="truncate text-[10px] text-red-400">!</span>
         )}
       </div>
-      <div className="pr-1 text-right text-[11px] text-setta-400 dark:text-setta-500">
+      <div
+        className="pr-1 text-right text-[11px] text-setta-400 dark:text-setta-500"
+        onDoubleClick={handleRowDoubleClick}
+      >
         {modifiedLabel}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -829,13 +1053,31 @@ function formatModifiedAt(mtime?: number | null): string {
 export function FileBrowserFilter({
   useFileBrowserStateHook,
   className,
+  tooltipParentDivId,
 }: {
   useFileBrowserStateHook?: typeof useFileBrowserState;
   className?: string;
+  tooltipParentDivId?: string | null;
 }) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
-  const filterText = fileBrowserState((state) => state.filterText);
+  const { filterText, rootPath, pathSeparator, ignorePatterns } =
+    fileBrowserState((state) => ({
+      filterText: state.filterText,
+      rootPath: state.rootPath,
+      pathSeparator: state.pathSeparator,
+      ignorePatterns: state.ignorePatterns,
+    }));
   const [filterInput, setFilterInput] = useState(filterText);
+  const inputId = useId();
+  const completionSource = useMemo(
+    () =>
+      createFolderPathCompletionSource({
+        rootPath,
+        pathSeparator,
+        ignorePatterns,
+      }),
+    [rootPath, pathSeparator, ignorePatterns],
+  );
 
   useEffect(() => {
     setFilterInput(filterText);
@@ -850,22 +1092,42 @@ export function FileBrowserFilter({
     };
   }, [filterInput, fileBrowserState]);
 
+  const keyComboActions = useMemo(
+    () => ({
+      Escape: () => {
+        if (typeof document !== "undefined") {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement) {
+            active.blur();
+          }
+        }
+        return true;
+      },
+    }),
+    [],
+  );
+
+  const dummyInputClassName =
+    "min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 font-sans";
+  const realInputClassName =
+    "min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent outline-0 [border-width:0_0_1px_0] focus-within:border-blue-300 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-3 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-300 [&_.cm-placeholder]:text-setta-400 dark:[&_.cm-placeholder]:text-setta-600 [&_.cm-content]:font-sans";
+
   return (
     <search
       className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 flex-1 items-center ${className ?? ""}`}
     >
       <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
-      <input
+      <InlineCodeMirrorInput
+        id={`CodeMirror-FileBrowserFilter-${inputId}`}
         value={filterInput}
-        className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
         placeholder="Filter files and folders"
-        tabIndex={0}
-        onChange={(event) => setFilterInput(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.code === "Escape") {
-            event.currentTarget.blur();
-          }
-        }}
+        onChange={setFilterInput}
+        className={realInputClassName}
+        dummyClassName={dummyInputClassName}
+        singleLine
+        completionsFn={completionSource ?? undefined}
+        keyComboActions={keyComboActions}
+        tooltipParentDivId={tooltipParentDivId}
       />
     </search>
   );

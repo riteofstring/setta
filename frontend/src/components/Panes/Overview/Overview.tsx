@@ -10,7 +10,7 @@ import {
   MdOutlineSmartToy,
 } from "react-icons/md";
 import { RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
-import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
+import { TbFolder } from "react-icons/tb";
 import {
   useBackendLogEvents,
   useLocalStorage,
@@ -28,7 +28,6 @@ import {
   onOverviewTabClick,
   TabButton,
 } from "../paneFns";
-import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { NotificationsArea } from "./NotificationsArea";
@@ -61,7 +60,6 @@ export function Overview() {
   }));
   const showFileBrowserTab = !isShareMode;
   const showWatchCodeTab = !isShareMode;
-  const showAppTab = !isShareMode;
   const showLLMTabs = !isShareMode || allowLLM;
   let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
@@ -79,9 +77,6 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
-    effectiveTabName = OverviewTabNameEnum.Overview;
-  }
-  if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
@@ -125,14 +120,6 @@ export function Overview() {
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Watch Code" })}
             icon={<RiRadarLine size={18} />}
-          />
-        )}
-        {showAppTab && (
-          <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.App}
-            {...commonProps}
-            {...getFloatingBoxHandlers({ content: "App" })}
-            icon={<TbLayoutDashboard size={18} />}
           />
         )}
         <TabButton<OverviewTabName>
@@ -251,8 +238,6 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
-    case OverviewTabNameEnum.App:
-      return <AppConfigPane />;
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:

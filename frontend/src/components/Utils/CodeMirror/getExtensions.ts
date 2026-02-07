@@ -1,8 +1,12 @@
 import {
   acceptCompletion,
   autocompletion,
+  closeCompletion,
+  completionKeymap,
   CompletionSource,
   completionStatus,
+  pickedCompletion,
+  startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
@@ -33,33 +37,42 @@ type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
   completionsFn?: CompletionSource;
+  completionInteractionDelayMs?: number;
   singleLine?: boolean;
   wrapLines?: boolean;
   tabToAutocomplete?: boolean;
   indentWithTab?: boolean;
   keyComboActions?: Record<string, (text: string) => boolean | void>;
   onTab?: (text: string, completionResult: boolean) => void;
+  onEnter?: (text: string, completionResult: boolean) => void;
   onEscape?: (status: ReturnType<typeof completionStatus>) => void;
   isDisabled?: boolean;
   useJsx?: boolean;
+  triggerCompletionAfterAccept?: boolean;
+  completionTriggerChars?: string[];
 };
 
 export function getExtensions({
   parent,
   language,
   completionsFn,
+  completionInteractionDelayMs,
   singleLine,
   wrapLines,
   tabToAutocomplete,
   indentWithTab,
   onTab,
+  onEnter,
   onEscape,
   keyComboActions,
   isDisabled,
   useJsx,
+  triggerCompletionAfterAccept,
+  completionTriggerChars,
 }: GetExtensionsOptions) {
   const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
   const shouldWrap = wrapLines ?? !singleLine;
+  const triggerChars = completionTriggerChars ?? ["/", "\\"];
   if (shouldWrap) {
     extensions.push(EditorView.lineWrapping);
   }
@@ -91,8 +104,73 @@ export function getExtensions({
       autocompletion({
         override: [completionsFn],
         tooltipClass: () => "nowheel",
+        interactionDelay: completionInteractionDelayMs,
+        selectOnOpen: true,
       }),
     );
+    if (completionTriggerChars && completionTriggerChars.length > 0) {
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) {
+            return;
+          }
+          const isUserInput = update.transactions.some((tr) =>
+            tr.isUserEvent("input"),
+          );
+          if (!isUserInput) {
+            return;
+          }
+          const head = update.state.selection.main.head;
+          if (head <= 0) {
+            return;
+          }
+          const lastChar = update.state.doc.sliceString(head - 1, head);
+          if (!triggerChars.includes(lastChar)) {
+            return;
+          }
+          if (!update.view.hasFocus) {
+            return;
+          }
+          if (completionStatus(update.state) === "active") {
+            return;
+          }
+          queueMicrotask(() => startCompletion(update.view));
+        }),
+      );
+    }
+    if (triggerCompletionAfterAccept) {
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) {
+            return;
+          }
+          for (const transaction of update.transactions) {
+            if (transaction.annotation(pickedCompletion)) {
+              const lastChar = update.state.doc.sliceString(
+                update.state.doc.length - 1,
+              );
+              if (triggerChars.includes(lastChar)) {
+                if (!update.view.hasFocus) {
+                  return;
+                }
+                // Defer to the next tick so CodeMirror's own completion accept
+                // transaction has fully settled before we re-trigger completion.
+                queueMicrotask(() => {
+                  if (!update.view.hasFocus) {
+                    return;
+                  }
+                  if (completionStatus(update.view.state) === "active") {
+                    return;
+                  }
+                  startCompletion(update.view);
+                });
+              }
+              break;
+            }
+          }
+        }),
+      );
+    }
   }
 
   if (singleLine) {
@@ -105,29 +183,32 @@ export function getExtensions({
     extensions.push(EditorState.readOnly.of(true));
   }
 
-  extensions.push(
-    Prec.highest(
-      keymap.of(
-        getKeyMapArray({
-          indentWithTab,
-          singleLine,
-          tabToAutocomplete,
-          onTab,
-          onEscape,
-          keyComboActions,
-        }),
-      ),
-    ),
-  );
+  const keymapArray = getKeyMapArray({
+    hasCompletions: Boolean(completionsFn),
+    indentWithTab,
+    singleLine,
+    tabToAutocomplete,
+    onTab,
+    onEnter,
+    onEscape,
+    keyComboActions,
+  });
+  const fullKeymap =
+    completionsFn && completionsFn !== null
+      ? [...keymapArray, ...completionKeymap]
+      : keymapArray;
+  extensions.push(Prec.highest(keymap.of(fullKeymap)));
 
   return extensions;
 }
 
 function getKeyMapArray({
+  hasCompletions,
   indentWithTab,
   singleLine,
   tabToAutocomplete,
   onTab,
+  onEnter,
   onEscape,
   keyComboActions,
 }) {
@@ -173,6 +254,22 @@ function getKeyMapArray({
     },
   ];
 
+  if (onEnter) {
+    keymapArray.push({
+      key: "Enter",
+      preventDefault: true,
+      stopPropagation: true,
+      run: (view) => {
+        const completionResult = hasCompletions ? acceptCompletion(view) : false;
+        if (hasCompletions) {
+          closeCompletion(view);
+        }
+        onEnter(view.state.doc.toString(), completionResult);
+        return true;
+      },
+    });
+  }
+
   if (indentWithTab) {
     keymapArray.push({
       key: "Shift-Tab",
@@ -201,12 +298,15 @@ function getKeyMapArray({
       run: (view) => {
         let completionResult = false;
         let movedFocus = false;
-        if (tabToAutocomplete && completionStatus(view.state) === "active") {
+        if (tabToAutocomplete && hasCompletions) {
           completionResult = acceptCompletion(view);
-        } else if (indentWithTab) {
-          indentMore(view);
-        } else if (shouldHandleTabNavigation || singleLine) {
-          movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
+        }
+        if (!completionResult) {
+          if (indentWithTab) {
+            indentMore(view);
+          } else if (shouldHandleTabNavigation || singleLine) {
+            movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
+          }
         }
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);
