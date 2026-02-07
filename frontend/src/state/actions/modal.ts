@@ -55,14 +55,14 @@ export function openPublishShareDeploymentModal() {
   openModal({ type: ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT, data: null });
 }
 
+export function openPublishAppDeploymentModal() {
+  openModal({ type: ModalTypeEnum.PUBLISH_APP_DEPLOYMENT, data: null });
+}
+
 export function openDropzoneFilePickerModal(
   data: ModalDataMap["DROPZONE_FILE_PICKER"],
 ) {
   openModal({ type: ModalTypeEnum.DROPZONE_FILE_PICKER, data });
-}
-
-export function openWorkspaceSwitcherModal() {
-  openModal({ type: ModalTypeEnum.WORKSPACE_SWITCHER, data: null });
 }
 
 export function useModalData<T extends ModalType>(

@@ -3,10 +3,11 @@ import os
 from pathlib import Path
 
 from setta.types.routes import Route
-from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
 
+CWD = Path.cwd()
+CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
 
@@ -36,70 +37,27 @@ class C:
     HOST: str = DEFAULT_HOST
     PORT: int = DEFAULT_PORT
 
-    @classproperty
-    def SETTA_FILES_FOLDER(cls) -> Path:
-        return get_setta_paths().setta_files_root
-
-    @classproperty
-    def CODE_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "code"
-
-    @classproperty
-    def DB_BACKUP_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "backups"
-
-    @classproperty
-    def ARTIFACTS_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "artifacts"
-
-    @classproperty
-    def RUNTIME_FOLDER(cls) -> Path:
-        return get_setta_paths().runtime_root
-
-    @classproperty
-    def RUNTIME_SESSIONS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "sessions"
-
-    @classproperty
-    def RUNTIME_LOGS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "logs"
-
-    @classproperty
-    def RUNTIME_MCP_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "mcp"
-
-    @classproperty
-    def RUNTIME_SECRETS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "secrets"
-
-    @classproperty
-    def DETACHED_RUNS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "detached_runs"
-
+    SETTA_FILES_FOLDER = Path("setta_files")
+    CODE_FOLDER = SETTA_FILES_FOLDER / "code"
+    DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
+    ARTIFACTS_FOLDER = SETTA_FILES_FOLDER / "artifacts"
+    RUNTIME_FOLDER = SETTA_FILES_FOLDER / "runtime"
+    RUNTIME_SESSIONS_FOLDER = RUNTIME_FOLDER / "sessions"
+    RUNTIME_LOGS_FOLDER = RUNTIME_FOLDER / "logs"
+    RUNTIME_MCP_FOLDER = RUNTIME_FOLDER / "mcp"
+    RUNTIME_SECRETS_FOLDER = RUNTIME_FOLDER / "secrets"
+    DETACHED_RUNS_FOLDER = RUNTIME_FOLDER / "detached_runs"
     BINARY_FOLDER_NAME = "binary"
-
-    @classproperty
-    def BINARY_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / cls.BINARY_FOLDER_NAME
-
-    @classproperty
-    def RUN_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "run"
-
-    @classproperty
-    def RUN_SESSIONS_FOLDER(cls) -> Path:
-        return cls.RUN_FOLDER / "sessions"
-
-    @classproperty
-    def RUN_LOGS_FOLDER(cls) -> Path:
-        return cls.RUN_FOLDER / "logs"
-
-    @classproperty
-    def SHARE_DEPLOYMENTS_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "share_deployments"
-
+    BINARY_FOLDER = SETTA_FILES_FOLDER / BINARY_FOLDER_NAME
+    RUN_FOLDER = SETTA_FILES_FOLDER / "run"
+    RUN_SESSIONS_FOLDER = RUN_FOLDER / "sessions"
+    RUN_LOGS_FOLDER = RUN_FOLDER / "logs"
+    SHARE_DEPLOYMENTS_FOLDER = SETTA_FILES_FOLDER / "share_deployments"
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
+    APP_SPECS_FOLDER = SETTA_FILES_FOLDER / "app_specs"
+    APP_MODE = False
+    APP_DEPLOYMENT_ROOT: Path | None = None
 
     AUTH_COOKIE_NAME = os.environ.get("SETTA_AUTH_COOKIE_NAME", "setta_auth")
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12

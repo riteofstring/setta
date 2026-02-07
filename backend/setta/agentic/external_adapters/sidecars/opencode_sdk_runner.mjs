@@ -575,9 +575,7 @@ const systemPrompt =
   typeof input.systemPrompt === "string" ? input.systemPrompt.trim() : "";
 const baseUrl = typeof input.baseUrl === "string" ? input.baseUrl : null;
 const workingDir =
-  typeof input.workingDir === "string"
-    ? input.workingDir
-    : process.env.SETTA_WORKSPACE_ROOT ?? process.cwd();
+  typeof input.workingDir === "string" ? input.workingDir : process.cwd();
 const model = parseModel(input.model);
 const requestedSessionId =
   typeof input.sessionId === "string" ? input.sessionId : null;
