@@ -22,7 +22,7 @@ from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, ConfigLanguage, DictSectionImpl
 from setta.utils.structured_data import write_json_source_payload
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_workspace_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -194,7 +194,7 @@ class TestJsonSourceKeysRefresh:
         )
         assert impl.jsonSourceKeys == ["beta"]
 
-        normalized_path = normalize_path(self.json_path)
+        normalized_path = normalize_workspace_path(self.json_path)
         processed = self.json_source.json_sources[normalized_path]
         assert ("beta",) in processed.hierarchy.name_path_to_id
         assert ("alpha",) not in processed.hierarchy.name_path_to_id
