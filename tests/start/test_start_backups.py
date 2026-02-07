@@ -32,9 +32,9 @@ def test_settings_backend_autobackup_default_true() -> None:
 
 def test_backups_list_json_sorted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _, backup_dir = _patch_paths(monkeypatch, tmp_path)
-    p0 = backup_dir / "backup_20251231_235959_999999.db"
-    p1 = backup_dir / "backup_20260101_000000_000001.db"
-    p2 = backup_dir / "backup_20260101_000000_000002.db"
+    p0 = backup_dir / "backup_20251231_235959_999999.json"
+    p1 = backup_dir / "backup_20260101_000000_000001.json"
+    p2 = backup_dir / "backup_20260101_000000_000002.json"
     p0.write_text("0", encoding="utf-8")
     p2.write_text("2", encoding="utf-8")
     p1.write_text("1", encoding="utf-8")
@@ -55,7 +55,7 @@ def test_backups_restore_latest_overwrites_project_and_stashes(
     project_path = setta_root / "project.json"
     project_path.write_text("OLD", encoding="utf-8")
 
-    backup_path = backup_dir / "backup_20260101_000000_000000.db"
+    backup_path = backup_dir / "backup_20260101_000000_000000.json"
     backup_path.write_text("NEW", encoding="utf-8")
 
     runner = CliRunner()
@@ -63,7 +63,7 @@ def test_backups_restore_latest_overwrites_project_and_stashes(
 
     assert result.exit_code == 0, result.output
     assert project_path.read_text(encoding="utf-8") == "NEW"
-    stashes = sorted(backup_dir.glob("restore_stash_*.db"))
+    stashes = sorted(backup_dir.glob("restore_stash_*.json"))
     assert len(stashes) == 1
     assert stashes[0].read_text(encoding="utf-8") == "OLD"
 
@@ -80,7 +80,7 @@ def test_backups_restore_refuses_when_session_running_unless_forced(
     project_path = setta_root / "project.json"
     project_path.write_text("OLD", encoding="utf-8")
 
-    backup_path = backup_dir / "backup_20260101_000000_000000.db"
+    backup_path = backup_dir / "backup_20260101_000000_000000.json"
     backup_path.write_text("NEW", encoding="utf-8")
 
     process = subprocess.Popen(

@@ -14,15 +14,15 @@
 
 ## Current Behavior (Feb 2026)
 - Auto-backups are controlled by settings:
-  - `settings.backend.autobackup` (currently defaults to `false`)
+  - `settings.backend.autobackup` (defaults to `true`)
   - `settings.backend.autobackupFreq` (seconds, default `300`)
   - `settings.backend.autobackupKeepLastN` (default `10`)
 - Backups are created during project saves via:
   - `backend/setta/project_state/session_project_manager.py` calling
     `backend/setta/database/backup.py:maybe_create_backup(...)`
 - Backup files are stored under `setta_files/backups/` (`C.DB_BACKUP_FOLDER`).
-- Backup filenames match `backup_<timestamp>.db` even though the contents are a
-  byte-for-byte copy of `setta_files/project.json` (JSON).
+- Backup filenames match `backup_<timestamp>.json` and are a byte-for-byte copy
+  of `setta_files/project.json`.
 
 ## Design
 
@@ -49,7 +49,7 @@ Restores a chosen backup by overwriting `setta_files/project.json`.
 Selection options (exactly one required):
 - `--latest`: restore newest backup
 - `--index N`: restore the Nth item from `backups list` (1-based)
-- `--path /.../backup_....db`: restore a specific file
+- `--path /.../backup_....json`: restore a specific file
 
 Safety rules:
 - By default, refuse to restore if there is an active Setta session for the
@@ -90,4 +90,3 @@ User messaging:
 ## Follow-ups (Optional)
 - Add `setta backups create` for manual snapshots (calls `create_backup`).
 - Add a small UI surface in Settings to explain backup location and restore CLI.
-
