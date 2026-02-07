@@ -110,9 +110,6 @@ function getCachedShareSession(): ShareDeploymentSessionResponse | null {
   if (!shareSession.isShareMode) {
     return null;
   }
-  if (shareSession.deploymentMode !== "share") {
-    return null;
-  }
   if (
     !shareSession.shareSessionId ||
     !shareSession.sharePolicy ||
@@ -144,10 +141,9 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
     sharePolicy: session.sharePolicy,
     shareDeploymentName: session.deploymentName,
     shareDeploymentVersion: session.deploymentVersion,
-    deploymentMode: "share",
   });
   useServerMode.setState({
-    mode: "share",
+    isShareServer: true,
     modeResolved: true,
   });
   useAllProjectMetadata.setState({
@@ -167,7 +163,7 @@ export async function ensureShareSessionFromCurrentDeployment(
     hydrateShareSessionFromStorage();
   }
   const serverMode = useServerMode.getState();
-  if (serverMode.modeResolved && serverMode.mode === "share") {
+  if (serverMode.modeResolved && serverMode.isShareServer) {
     if (!forceNewSession) {
       const cached = getCachedShareSession();
       if (cached) {
@@ -188,21 +184,21 @@ export async function initializeShareSessionFromCurrentDeployment(
   options: ShareSessionOptions = {},
 ): Promise<boolean> {
   const serverMode = useServerMode.getState();
-  if (serverMode.modeResolved && serverMode.mode !== "share") {
+  if (serverMode.modeResolved && !serverMode.isShareServer) {
     resetShareSessionState();
     return false;
   }
   const session = await ensureShareSessionFromCurrentDeployment(options);
   if (session) {
     useServerMode.setState({
-      mode: "share",
+      isShareServer: true,
       modeResolved: true,
     });
     return true;
   }
   if (!serverMode.modeResolved) {
     useServerMode.setState({
-      mode: "ide",
+      isShareServer: false,
       modeResolved: true,
     });
   }
