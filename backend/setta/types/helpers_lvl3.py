@@ -312,11 +312,13 @@ def filter_project_state_summary(
         filtered_parent_map[section_id] = parent_id
 
     filtered_sections: list[ProjectStateSummarySection] = []
+    allowed_draw_asset_paths: set[str] = set()
     for entry in summary.sections:
         if entry.sectionId not in allowed_section_ids:
             continue
         child_ids = [cid for cid in entry.childSectionIds if cid in allowed_section_ids]
         parent_id = filtered_parent_map.get(entry.sectionId)
+        allowed_draw_asset_paths.update(entry.drawLayerAssetPaths)
         filtered_sections.append(
             ProjectStateSummarySection(
                 sectionId=entry.sectionId,
@@ -358,13 +360,18 @@ def filter_project_state_summary(
         for variant_id in summary.shownParamVariantIds
         if variant_id in allowed_variant_ids
     ]
+    filtered_required_decoded_images = [
+        path
+        for path in summary.requiredDecodedImages
+        if path in allowed_draw_asset_paths
+    ]
     return ProjectStateSummary(
         projectConfig=filtered_project_config,
         sections=filtered_sections,
         singletonSections=filtered_singleton,
         parentSectionMap=filtered_parent_map,
         shownParamVariantIds=filtered_shown_variant_ids,
-        requiredDecodedImages=list(summary.requiredDecodedImages),
+        requiredDecodedImages=filtered_required_decoded_images,
         genCodeBinding=summary.genCodeBinding,
     )
 

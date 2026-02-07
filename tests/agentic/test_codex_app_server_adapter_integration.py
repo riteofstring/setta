@@ -56,7 +56,7 @@ class TestCodexAppServerAdapterIntegration:
             with socket.create_connection(("api.openai.com", 443), timeout=3):
                 pass
         except OSError as exc:
-            pytest.fail(f"Cannot connect to api.openai.com:443 ({exc})")
+            pytest.skip(f"Cannot connect to api.openai.com:443 ({exc})")
         return codex_path
 
     async def _await_completed_run(

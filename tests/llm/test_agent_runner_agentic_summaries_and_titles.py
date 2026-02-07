@@ -110,7 +110,7 @@ async def test_agent_runner_generates_and_caches_agentic_section_summaries() -> 
         )
 
         llm_config = _build_llm_config()
-        first = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
+        first, _summary_by_section = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
             project_state,
             chat_section_id=chat_section_id,
             project_config_id=project_state.projectConfig.id,
@@ -120,7 +120,7 @@ async def test_agent_runner_generates_and_caches_agentic_section_summaries() -> 
         assert runner.summary_calls == 1
 
         # Second call should be served from cache without generating again.
-        second = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
+        second, _summary_by_section = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
             project_state,
             chat_section_id=chat_section_id,
             project_config_id=project_state.projectConfig.id,
@@ -142,6 +142,9 @@ async def test_agent_runner_generates_and_reuses_chat_titles_across_runs() -> No
 
         chat_id = ID("chat-1")
         project_config_id = ID("project-1")
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(id=project_config_id, name="project-1")
+        )
         llm_config = _build_llm_config()
         profile = AgentProfile(
             name="Managed chat",
@@ -162,6 +165,7 @@ async def test_agent_runner_generates_and_reuses_chat_titles_across_runs() -> No
             llm_config=llm_config,
             engine_config_id=ID("engine-1"),
             project_config_id=project_config_id,
+            project_state=project_state,
             chat_id=chat_id,
             section_id=None,
             thinking=False,
@@ -222,6 +226,9 @@ async def test_agent_runner_sets_deterministic_chat_title_when_llm_disabled() ->
 
         chat_id = ID("chat-2")
         project_config_id = ID("project-2")
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(id=project_config_id, name="project-2")
+        )
         llm_config = _build_llm_config()
         profile = AgentProfile(
             name="Managed chat",
@@ -242,6 +249,7 @@ async def test_agent_runner_sets_deterministic_chat_title_when_llm_disabled() ->
             llm_config=llm_config,
             engine_config_id=ID("engine-1"),
             project_config_id=project_config_id,
+            project_state=project_state,
             chat_id=chat_id,
             section_id=None,
             thinking=False,

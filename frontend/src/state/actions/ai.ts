@@ -1,8 +1,12 @@
-import { receiveAgenticScopeViolationEdges } from "state/actions/aiFollow";
+import {
+  receiveAgenticScopeViolationEdges,
+  SCOPE_VIOLATION_TIMEOUT_MS,
+} from "state/actions/aiFollow";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
+  isManagedChatSection,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
@@ -98,6 +102,11 @@ import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
 import { mergeChatMessages } from "./chatMergeUtils";
+
+const scopeViolationToastTimeouts = new Map<
+  string,
+  ReturnType<typeof setTimeout>
+>();
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -1030,37 +1039,6 @@ function applyStreamingChunkToSection(
   }
 }
 
-function isManagedChatSection(
-  state: ZustandProjectState,
-  sectionId: string,
-): boolean {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return false;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return false;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return false;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return false;
-  }
-  const effective = {
-    ...impl,
-    ...core.sharedModifier,
-    ...variant.modifier,
-  } as { type?: unknown; managed?: unknown };
-  if (effective.type !== SectionTypeEnum.Chat) {
-    return false;
-  }
-  return Boolean(effective.managed);
-}
-
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
   const projectConfigId = getCurrProjectConfigId();
@@ -1359,12 +1337,26 @@ function handleAgenticScopeViolation(
   if (!violation) {
     return;
   }
+  const projectConfigId = getCurrProjectConfigId();
   receiveAgenticScopeViolationEdges({
-    projectConfigId: getCurrProjectConfigId(),
+    projectConfigId,
     edges: violation.edges,
   });
+  const existingTimeout = scopeViolationToastTimeouts.get(projectConfigId);
+  if (existingTimeout !== undefined) {
+    globalThis.clearTimeout(existingTimeout);
+    const timeoutId = globalThis.setTimeout(() => {
+      scopeViolationToastTimeouts.delete(projectConfigId);
+    }, SCOPE_VIOLATION_TIMEOUT_MS);
+    scopeViolationToastTimeouts.set(projectConfigId, timeoutId);
+    return;
+  }
   const notice = `${violation.message} Use Project Chat for full access.`;
   addTemporaryNotification(notice, SettaNotificationTypeEnum.warning);
+  const timeoutId = globalThis.setTimeout(() => {
+    scopeViolationToastTimeouts.delete(projectConfigId);
+  }, SCOPE_VIOLATION_TIMEOUT_MS);
+  scopeViolationToastTimeouts.set(projectConfigId, timeoutId);
 }
 
 function handleToolResult(chatId: string, chunk: ToolResultEvent) {

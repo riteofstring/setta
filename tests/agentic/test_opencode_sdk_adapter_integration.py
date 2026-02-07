@@ -176,7 +176,7 @@ class TestOpenCodeSdkAdapterIntegration:
             with socket.create_connection((host, port), timeout=3):
                 pass
         except OSError as exc:
-            pytest.fail(f"Cannot connect to {host}:{port} ({exc})")
+            pytest.skip(f"Cannot connect to {host}:{port} ({exc})")
 
     async def _await_completed_run(
         self,

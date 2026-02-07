@@ -6,6 +6,7 @@ import inspect
 import json
 import logging
 import weakref
+from dataclasses import dataclass
 from functools import wraps
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Callable
@@ -47,6 +48,7 @@ from starlette.types import Receive, Scope, Send
 
 from setta.agentic.agentic_scope import (
     AgenticContext,
+    AgenticScope,
     AgenticScopeCheck,
     build_missing_edge_hints,
     build_scope_blocked_tool_result,
@@ -80,6 +82,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _CATCH_ALL_PATH = "/{full_path:path}"
+
+
+@dataclass(frozen=True)
+class _CachedAgenticScope:
+    project_state_backend_id: int
+    project_state_single: object
+    scope: AgenticScope
 
 
 def _parse_meta_id(value: Any) -> ID | None:
@@ -596,6 +605,9 @@ class SettaFastMCP(FastMCP):
         self._agentic_context_by_session: weakref.WeakKeyDictionary[
             Any, AgenticContext
         ] = weakref.WeakKeyDictionary()
+        self._agentic_scope_cache_by_session: weakref.WeakKeyDictionary[
+            Any, dict[tuple[str | None, ID, ID | None], _CachedAgenticScope]
+        ] = weakref.WeakKeyDictionary()
         self._refresh_temporary_id_map_if_needed()
         msg_path = f"{mount_path}/messages/"
         sse_transport = _SettaSseServerTransport(msg_path)
@@ -858,16 +870,64 @@ class SettaFastMCP(FastMCP):
                     if ctx is not None and has_request_context
                     else None
                 )
+                session = (
+                    self._resolve_agentic_session(ctx)
+                    if ctx is not None and has_request_context
+                    else None
+                )
+                if session is not None:
+                    try:
+                        weakref.ref(session)
+                    except TypeError:
+                        session = None
                 manager = self.state.project_manager_switcher.get(
                     agentic_context.project_config_id,
                     share_session_id=share_session_id,
                 )
-                project_state = convert_backend_to_single_config(
-                    manager.project_state_backend,
+                project_state_backend = manager.project_state_backend
+                project_state_backend_id = id(project_state_backend)
+                cache_key = (
+                    share_session_id,
                     agentic_context.project_config_id,
+                    agentic_context.section_id,
                 )
-                scope = resolve_agentic_scope(project_state, agentic_context.section_id)
-                logger.info(
+                if session is not None:
+                    scope_cache = self._agentic_scope_cache_by_session.get(session)
+                    if scope_cache is None:
+                        scope_cache = {}
+                        self._agentic_scope_cache_by_session[session] = scope_cache
+                    cached_scope = scope_cache.get(cache_key)
+                    if (
+                        cached_scope is not None
+                        and cached_scope.project_state_backend_id
+                        == project_state_backend_id
+                    ):
+                        project_state = cached_scope.project_state_single
+                        scope = cached_scope.scope
+                    else:
+                        project_state = convert_backend_to_single_config(
+                            project_state_backend,
+                            agentic_context.project_config_id,
+                        )
+                        scope = resolve_agentic_scope(
+                            project_state, agentic_context.section_id
+                        )
+                        scope_cache[cache_key] = _CachedAgenticScope(
+                            project_state_backend_id=project_state_backend_id,
+                            project_state_single=project_state,
+                            scope=scope,
+                        )
+                        if len(scope_cache) > 8:
+                            scope_cache.clear()
+                else:
+                    project_state = convert_backend_to_single_config(
+                        project_state_backend,
+                        agentic_context.project_config_id,
+                    )
+                    scope = resolve_agentic_scope(
+                        project_state, agentic_context.section_id
+                    )
+                logger.debug(
                     "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
                     agentic_context.project_config_id,
                     agentic_context.chat_id,

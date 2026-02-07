@@ -1,9 +1,8 @@
-from typing import Any
-
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
+    get_cached_agentic_summary_from_entries,
     read_agentic_summary_cache,
 )
 from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN
@@ -70,7 +69,7 @@ def build_agentic_summary_cache_status_for_chat_section(
             variant_id=variant_id,
             content_hash=source.content_hash,
         )
-        cached = _get_cached_summary_from_entries(entries, cache_key)
+        cached = get_cached_agentic_summary_from_entries(entries, cache_key=cache_key)
         if cached:
             cached_section_ids.append(section_id)
         else:
@@ -92,15 +91,3 @@ def build_agentic_summary_cache_status_for_chat_section(
         consideredSectionIds=considered_section_ids,
         wouldAttemptSectionIds=would_attempt_section_ids,
     )
-
-
-def _get_cached_summary_from_entries(
-    entries: dict[str, Any], cache_key: str
-) -> str | None:
-    entry = entries.get(cache_key)
-    if not isinstance(entry, dict):
-        return None
-    summary = entry.get("summary")
-    if isinstance(summary, str) and summary.strip():
-        return summary.strip()
-    return None

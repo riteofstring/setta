@@ -314,8 +314,9 @@ async def _run_query(
 ) -> None:
     message_count = 0
     logger.info("Claude SDK query starting (session_id=%s)", session_id)
+    close_prompt_event = asyncio.Event()
     try:
-        prompt_stream = _build_prompt_stream(prompt, session_id)
+        prompt_stream = _build_prompt_stream(prompt, session_id, close_prompt_event)
         async for message in query(prompt=prompt_stream, options=options):
             message_count += 1
             if message_count <= 3:
@@ -325,11 +326,28 @@ async def _run_query(
                     _describe_sdk_message(message),
                 )
             await queue.put((_QUEUE_KIND_MESSAGE, message))
+            if isinstance(message, ResultMessage):
+                close_prompt_event.set()
+            elif isinstance(message, StreamEvent):
+                raw_event = getattr(message, "event", None) or getattr(
+                    message, "stream_event", None
+                )
+                if not isinstance(raw_event, dict):
+                    continue
+                event_type = raw_event.get("type")
+                if (
+                    isinstance(event_type, str)
+                    and event_type in {"result", "final", "complete", "done"}
+                ):
+                    close_prompt_event.set()
+                elif raw_event.get("final") is True:
+                    close_prompt_event.set()
     except asyncio.CancelledError:
         raise
     except Exception as exc:
         await queue.put((_QUEUE_KIND_ERROR, exc))
     finally:
+        close_prompt_event.set()
         logger.info(
             "Claude SDK query finished (session_id=%s, message_count=%s)",
             session_id,
@@ -342,7 +360,7 @@ async def _run_query(
 
 
 async def _build_prompt_stream(
-    prompt: str, session_id: str | None
+    prompt: str, session_id: str | None, close_prompt_event: asyncio.Event
 ) -> AsyncIterator[dict[str, Any]]:
     payload: dict[str, Any] = {
         "type": "user",
@@ -352,6 +370,7 @@ async def _build_prompt_stream(
     if session_id:
         payload["session_id"] = session_id
     yield payload
+    await close_prompt_event.wait()
     return
 
 
@@ -414,8 +433,9 @@ def _build_options(
     if model:
         options["model"] = model
     max_turns = _normalize_max_turns(inputs.get("maxTurns") or inputs.get("max_turns"))
-    if max_turns is not None:
-        options["max_turns"] = max_turns
+    if max_turns is None:
+        max_turns = 1
+    options["max_turns"] = max_turns
     thinking_budget = _extract_thinking_budget(inputs)
     if thinking_budget is not None:
         options["max_thinking_tokens"] = thinking_budget

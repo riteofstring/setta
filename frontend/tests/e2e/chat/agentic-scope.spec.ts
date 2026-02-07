@@ -109,10 +109,25 @@ test.describe.serial("agentic scope", () => {
         },
       });
 
-      const notification = page.locator(".header-notification-fade");
-      await expect(notification).toContainText(
-        "Use Project Chat for full access.",
-      );
+      const scopeToast = page.locator(".header-notification-fade", {
+        hasText: "Use Project Chat for full access.",
+      });
+      await expect(scopeToast).toHaveCount(1);
+
+      await postBackend(page, "/emitChatStreamDelta", {
+        sectionId: chatSectionId,
+        chatId,
+        chunk: {
+          type: "tool_result",
+          result: {
+            ...toolResultMessage,
+            id: `tool-msg-${Date.now()}-second`,
+            tool_call_id: `tool-call-${Date.now()}-second`,
+          },
+        },
+      });
+
+      await expect(scopeToast).toHaveCount(1);
       await expect(
         page.locator("path.agentic-edge--missing").first(),
       ).toBeVisible();

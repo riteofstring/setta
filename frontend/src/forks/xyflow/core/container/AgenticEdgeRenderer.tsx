@@ -172,11 +172,6 @@ const AgenticEdgeRenderer = () => {
     [allowedChatIds, projectConfigId, toolResultIdsByProjectConfigId],
   );
 
-  if (!width || !height) {
-    return null;
-  }
-
-  const sortedEdges = [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex);
   const missingEdges = useMemo(() => {
     const violations =
       scopeViolationEdgesByProjectConfigId[projectConfigId] ?? [];
@@ -206,6 +201,15 @@ const AgenticEdgeRenderer = () => {
         )}`,
       }));
   }, [agenticEdges, projectConfigId, scopeViolationEdgesByProjectConfigId]);
+
+  const sortedEdges = useMemo(
+    () => [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex),
+    [agenticEdges],
+  );
+
+  if (!width || !height) {
+    return null;
+  }
 
   return (
     <svg

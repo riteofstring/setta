@@ -111,6 +111,49 @@ def test_load_cached_agentic_summary_texts_for_chat_section_returns_summary_entr
         assert summaries == {context_section_id: "- cached"}
 
 
+def test_load_cached_agentic_summary_texts_for_chat_section_skips_missing_sections() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="agentic-summary-cache-stale-edges-test")
+        )
+        chat_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        context_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        create_agentic_edge(
+            project_state,
+            AgenticEdge(
+                id=create_new_id(),
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
+                contextMode=AgenticEdgeContextMode.summary,
+            ),
+        )
+
+        # Simulate a stale edge by removing the section without cleaning up agentic edges.
+        project_state.sections.pop(context_section_id, None)
+        project_state.projectConfig.sectionVariantMap.pop(context_section_id, None)
+
+        summaries = load_cached_agentic_summary_texts_for_chat_section(
+            dbe,
+            project_state=project_state,
+            project_config_id=project_state.projectConfig.id,
+            chat_section_id=chat_section_id,
+        )
+        assert summaries == {}
+
+
 def test_write_cached_agentic_summaries_prunes_by_project_config_limit() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)

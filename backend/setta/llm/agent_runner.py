@@ -159,6 +159,7 @@ class AgentRunContext:
     llm_config: LLMConfig
     engine_config_id: ID
     project_config_id: ID
+    project_state: ProjectStateSingleConfig
     chat_id: ID
     section_id: ID | None
     thinking: bool
@@ -807,7 +808,7 @@ class AgentRunner:
         )
         agentic_scope = resolve_agentic_scope(project_state, section_id)
         resolved_chat_id = chat_id or run.id
-        logger.info(
+        logger.debug(
             "Resolved agentic scope for managed run (project=%s, chat=%s, section=%s, read=%s write=%s context=%s peer=%s structural=%s).",
             project_config_id,
             resolved_chat_id,
@@ -829,6 +830,7 @@ class AgentRunner:
             llm_config=llm_config,
             engine_config_id=engine_config_id,
             project_config_id=project_config_id,
+            project_state=project_state,
             chat_id=resolved_chat_id,
             section_id=section_id,
             thinking=thinking,
@@ -959,11 +961,8 @@ class AgentRunner:
         if section_id is None:
             return None
 
-        project_state_backend = self.dbe.read_project_required()
-        project_state = convert_backend_to_single_config(
-            project_state_backend, context.project_config_id
-        )
-        summary_text_by_section_id = (
+        project_state = context.project_state
+        summary_text_by_section_id, summary_by_section = (
             await self._resolve_agentic_summary_text_by_section_id(
                 project_state,
                 chat_section_id=section_id,
@@ -990,6 +989,7 @@ class AgentRunner:
             section_id,
             format_section_id=_format_section_id,
             summary_text_by_section_id=summary_text_by_section_id,
+            summary_by_section=summary_by_section,
         )
         if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
@@ -1004,23 +1004,33 @@ class AgentRunner:
         chat_section_id: ID,
         project_config_id: ID,
         llm_config: LLMConfig,
-    ) -> dict[ID, str]:
+    ) -> tuple[dict[ID, str], dict[ID, object] | None]:
+        context_edges = resolve_context_edges(project_state, chat_section_id)
+        summary_section_ids = [
+            section_id
+            for section_id, context_mode in context_edges
+            if context_mode == AgenticEdgeContextMode.summary
+            and section_id in project_state.sections
+        ]
+        if not summary_section_ids:
+            return {}, None
+
+        project_summary = build_project_state_summary(project_state)
+        summary_by_section = {
+            entry.sectionId: entry for entry in project_summary.sections
+        }
         cached = load_cached_agentic_summary_texts_for_chat_section(
             self.dbe,
             project_state=project_state,
             project_config_id=project_config_id,
             chat_section_id=chat_section_id,
+            summary_by_section=summary_by_section,
         )
         missing_section_ids: list[ID] = []
-        summary_edge_count = 0
-        context_edges = resolve_context_edges(project_state, chat_section_id)
-        for section_id, context_mode in context_edges:
-            if context_mode != AgenticEdgeContextMode.summary:
-                continue
-            summary_edge_count += 1
-            if section_id in cached:
-                continue
-            missing_section_ids.append(section_id)
+        for section_id in summary_section_ids:
+            if section_id not in cached:
+                missing_section_ids.append(section_id)
+        summary_edge_count = len(summary_section_ids)
 
         if summary_edge_count and not missing_section_ids:
             logger.debug(
@@ -1030,12 +1040,7 @@ class AgentRunner:
                 summary_edge_count,
             )
         if not missing_section_ids:
-            return cached
-
-        project_summary = build_project_state_summary(project_state)
-        summary_by_section = {
-            entry.sectionId: entry for entry in project_summary.sections
-        }
+            return cached, summary_by_section
         cache_updates: dict[str, dict[str, Any]] = {}
 
         deferred_due_to_cap = max(
@@ -1103,7 +1108,7 @@ class AgentRunner:
             generated_count,
             skipped_empty_count,
         )
-        return cached
+        return cached, summary_by_section
 
     async def _generate_agentic_section_summary(
         self,

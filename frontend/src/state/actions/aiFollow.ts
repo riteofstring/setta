@@ -7,9 +7,9 @@ import {
 } from "utils/generatedTypes";
 
 const TOOL_RESULT_HIGHLIGHT_TIMEOUT_MS = 2000;
-const toolResultTimeouts = new Map<string, number>();
-const SCOPE_VIOLATION_TIMEOUT_MS = 5000;
-const scopeViolationTimeouts = new Map<string, number>();
+const toolResultTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+export const SCOPE_VIOLATION_TIMEOUT_MS = 5000;
+const scopeViolationTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
 type AIFollowIdsByProjectConfig = Record<
   string,
@@ -143,10 +143,10 @@ export function receiveAIFollowToolResultUpdate(
       const key = buildTimeoutKey(projectConfigId, chatId, idType, id);
       const existingTimeout = toolResultTimeouts.get(key);
       if (existingTimeout !== undefined) {
-        window.clearTimeout(existingTimeout);
+        globalThis.clearTimeout(existingTimeout);
       }
 
-      const timeoutId = window.setTimeout(() => {
+      const timeoutId = globalThis.setTimeout(() => {
         useAIFollow.setState((state) => {
           deleteIdEntry(
             state.toolResultIdsByProjectConfigId,
@@ -192,9 +192,9 @@ export function receiveAgenticScopeViolationEdges({
     const key = buildScopeViolationKey(projectConfigId, edge);
     const existingTimeout = scopeViolationTimeouts.get(key);
     if (existingTimeout !== undefined) {
-      window.clearTimeout(existingTimeout);
+      globalThis.clearTimeout(existingTimeout);
     }
-    const timeoutId = window.setTimeout(() => {
+    const timeoutId = globalThis.setTimeout(() => {
       useAIFollow.setState((state) => {
         deleteScopeViolationEdge(
           state.scopeViolationEdgesByProjectConfigId,

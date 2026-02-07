@@ -38,7 +38,6 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import { resolveAgenticScopeFromEdges } from "state/agenticScopeUtils";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
@@ -57,6 +56,7 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   EngineTypeEnum,
+  AgenticEdgeKindEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
   createMessageTextContent,
@@ -633,24 +633,30 @@ function ManagedChatArea({
   useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const agenticEdges = useProjectState(
-    (state) => state.projectConfig.agenticEdges,
-    _.isEqual,
-  );
-  const hasAnyAgenticEdge = useMemo(
-    () =>
-      agenticEdges.some(
-        (edge) =>
+  const { hasAnyAgenticEdge, hasWriteScope } = useProjectState(
+    (state) => {
+      let hasAny = false;
+      let hasWrite = false;
+      for (const edge of state.projectConfig.agenticEdges) {
+        if (
+          edge.kind === AgenticEdgeKindEnum.chat_section &&
+          edge.sourceSectionId === sectionId
+        ) {
+          hasAny = true;
+          hasWrite = true;
+          break;
+        }
+        if (
           edge.sourceSectionId === sectionId ||
-          edge.targetSectionId === sectionId,
-      ),
-    [agenticEdges, sectionId],
+          edge.targetSectionId === sectionId
+        ) {
+          hasAny = true;
+        }
+      }
+      return { hasAnyAgenticEdge: hasAny, hasWriteScope: hasWrite };
+    },
+    shallow,
   );
-  const agenticScope = useMemo(
-    () => resolveAgenticScopeFromEdges(agenticEdges, sectionId),
-    [agenticEdges, sectionId],
-  );
-  const hasWriteScope = agenticScope.writeSectionIds.size > 0;
   const chatId = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,

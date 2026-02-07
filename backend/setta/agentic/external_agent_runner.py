@@ -11,6 +11,7 @@ from typing import Any
 from mcp.types import TextContent
 
 from setta.agentic.agentic_context import build_agentic_context_payload
+from setta.agentic.agentic_scope import resolve_context_edges
 from setta.agentic.agentic_summary_cache import (
     load_cached_agentic_summary_texts_for_chat_section,
 )
@@ -86,7 +87,11 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
+from setta.types.agentic_edges import AgenticEdgeContextMode
+from setta.types.helpers_lvl3 import (
+    build_project_state_summary,
+    convert_backend_to_single_config,
+)
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -489,12 +494,23 @@ class ExternalAgentRunner:
                     )
                 )
 
+            summary_by_section = None
+            context_edges = resolve_context_edges(project_state_single, section_id)
+            if any(
+                context_mode == AgenticEdgeContextMode.summary
+                for _, context_mode in context_edges
+            ):
+                project_summary = build_project_state_summary(project_state_single)
+                summary_by_section = {
+                    entry.sectionId: entry for entry in project_summary.sections
+                }
             summary_text_by_section_id = (
                 load_cached_agentic_summary_texts_for_chat_section(
                     self.dbe,
                     project_state=project_state_single,
                     project_config_id=project_config_id,
                     chat_section_id=section_id,
+                    summary_by_section=summary_by_section,
                 )
             )
             payload = build_agentic_context_payload(
@@ -502,6 +518,7 @@ class ExternalAgentRunner:
                 section_id,
                 format_section_id=_format_section_id,
                 summary_text_by_section_id=summary_text_by_section_id,
+                summary_by_section=summary_by_section,
             )
             if len(canonical_to_temporary) != map_size_before:
                 self.dbe.write_temporary_id_map(canonical_to_temporary)

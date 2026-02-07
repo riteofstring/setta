@@ -53,35 +53,39 @@ def build_agentic_context_payload(
     *,
     format_section_id: Callable[[ID], str] | None = None,
     summary_text_by_section_id: dict[ID, str] | None = None,
+    summary_by_section: dict[ID, object] | None = None,
 ) -> AgenticContextPayload:
     context_edges = resolve_context_edges(project_state, chat_section_id)
     if not context_edges:
         return AgenticContextPayload(text="", section_ids=[])
 
     needs_project_summary = False
-    for section_id, context_mode in context_edges:
-        if section_id not in project_state.sections:
-            continue
-        if context_mode == AgenticEdgeContextMode.reference_only:
-            continue
-        cached = (
-            summary_text_by_section_id.get(section_id)
-            if summary_text_by_section_id is not None
-            else None
-        )
-        if (
-            context_mode == AgenticEdgeContextMode.summary
-            and isinstance(cached, str)
-            and cached.strip()
-        ):
-            continue
-        needs_project_summary = True
-        break
+    if summary_by_section is None:
+        for section_id, context_mode in context_edges:
+            if section_id not in project_state.sections:
+                continue
+            if context_mode == AgenticEdgeContextMode.reference_only:
+                continue
+            cached = (
+                summary_text_by_section_id.get(section_id)
+                if summary_text_by_section_id is not None
+                else None
+            )
+            if (
+                context_mode == AgenticEdgeContextMode.summary
+                and isinstance(cached, str)
+                and cached.strip()
+            ):
+                continue
+            needs_project_summary = True
+            break
 
-    summary_by_section: dict[ID, object] = {}
+    resolved_summary_by_section: dict[ID, object] = summary_by_section or {}
     if needs_project_summary:
         summary = build_project_state_summary(project_state)
-        summary_by_section = {entry.sectionId: entry for entry in summary.sections}
+        resolved_summary_by_section = {
+            entry.sectionId: entry for entry in summary.sections
+        }
 
     blocks: list[str] = []
     section_ids: list[ID] = []
@@ -90,7 +94,7 @@ def build_agentic_context_payload(
             continue
         block = _build_context_block(
             project_state,
-            summary_by_section,
+            resolved_summary_by_section,
             section_id,
             context_mode,
             format_section_id=format_section_id,

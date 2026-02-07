@@ -164,6 +164,7 @@ def load_cached_agentic_summary_texts_for_chat_section(
     project_state: ProjectStateSingleConfig,
     project_config_id: ID,
     chat_section_id: ID,
+    summary_by_section: dict[ID, object] | None = None,
 ) -> dict[ID, str]:
     summaries: dict[ID, str] = {}
     payload = read_agentic_summary_cache(dbe)
@@ -177,18 +178,24 @@ def load_cached_agentic_summary_texts_for_chat_section(
     ):
         return summaries
 
-    summary = build_project_state_summary(project_state)
-    summary_by_section = {entry.sectionId: entry for entry in summary.sections}
+    resolved_summary_by_section = summary_by_section
+    if resolved_summary_by_section is None:
+        summary = build_project_state_summary(project_state)
+        resolved_summary_by_section = {
+            entry.sectionId: entry for entry in summary.sections
+        }
     for section_id, context_mode in context_edges:
         if context_mode != AgenticEdgeContextMode.summary:
             continue
+        if section_id not in project_state.sections:
+            continue
         if section_id not in project_state.projectConfig.sectionVariantMap:
-            raise KeyError(f"Section {section_id} missing variant mapping.")
+            continue
         variant_id = project_state.projectConfig.sectionVariantMap[section_id]
         source = build_agentic_section_summary_source(
             project_state,
             section_id,
-            summary_by_section=summary_by_section,
+            summary_by_section=resolved_summary_by_section,
         )
         cache_key = build_agentic_summary_cache_key(
             project_config_id=project_config_id,
