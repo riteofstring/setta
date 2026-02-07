@@ -2,9 +2,9 @@
 
 This doc covers the commands exposed by the `setta` CLI (implemented in
 `backend/setta/start.py`). Local commands read/write `setta_files/` in the
-current working directory, so run `setta`, `setta status`, or `setta stop`
-from the workspace you want to manage. `setta connect` can be run from anywhere
-because it targets a remote workspace via `--workspace`.
+current working directory, so run the CLI from the workspace you want to manage
+(for example `setta`, `setta backups`, `setta status`, or `setta stop`). `setta connect`
+can be run from anywhere because it targets a remote workspace via `--workspace`.
 
 There are two types of CLI commands: local commands that operate on the
 workspace where they are executed, and remote helpers that use SSH to target
@@ -63,6 +63,12 @@ Options:
 ## `setta backups`
 
 Manage local backups stored in `setta_files/backups/`.
+Backups are byte-for-byte copies of `setta_files/project.json` created during project
+saves when `settings.backend.autobackup` is enabled (default: `true`). Frequency and
+retention are controlled by `settings.backend.autobackupFreq` (seconds) and
+`settings.backend.autobackupKeepLastN` (count). Restore stashes created by
+`setta backups restore` are named `restore_stash_*.json` and are not shown by
+`setta backups list`.
 
 ### `setta backups list`
 
@@ -70,11 +76,13 @@ Lists backups in descending timestamp order (most recent first).
 
 Options:
 - `--json` emits machine-readable JSON:
-```json
-[
-  { "index": 1, "path": "...", "timestamp": "..." }
-]
-```
+
+  ```json
+  [
+    { "index": 1, "path": "...", "timestamp": "..." }
+  ]
+  ```
+
 - `--limit N` limits output entries (must be `>= 1`).
 
 Examples:
