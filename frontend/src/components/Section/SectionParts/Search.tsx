@@ -104,10 +104,10 @@ function SectionSearchCore({
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       return;
     }
+    const handleScope = node.closest(".agentic-handle-scope");
     let lastMeasuredHeight: number | null = null;
     let pendingAgenticHandleFrame: number | null = null;
     const updateAgenticHandleTop = () => {
-      const handleScope = node.closest(".agentic-handle-scope");
       if (!(handleScope instanceof HTMLElement)) {
         return;
       }
@@ -173,8 +173,12 @@ function SectionSearchCore({
         cancelAnimationFrame(pendingAgenticHandleFrame);
       }
       useTemporaryMiscState.setState({ [heightKey]: 0 });
+      if (handleScope instanceof HTMLElement) {
+        handleScope.style.removeProperty("--agentic-handle-top");
+        scheduleEdgeHandlePositionUpdate([sectionId]);
+      }
     };
-  }, [heightKey]);
+  }, [heightKey, sectionId]);
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {

@@ -95,3 +95,38 @@ Branch/Commit: style-updates-13-nodes @ 761eb2a1af6fac7f904f0b533ed9216e9ad0f1e9
 - Visual snapshots:
   - `perf/artifacts/2026-02-07_agentic-handles-hover-light-v3.png`
   - `perf/artifacts/2026-02-07_agentic-handles-hover-dark-v3.png`
+
+## Update (Extra Gap +2)
+
+- Change:
+  - Gap from section edge: 8px -> 10px
+- Measurement method: DevTools Performance trace via `chrome-devtools-mcp`
+  (`performance_start_trace` / `performance_stop_trace`)
+- Scenario:
+  1. Hover multiple sections in quick succession (skim hover + exit).
+  2. Toggle agentic connectors/wires off/on, then args connectors/wires off/on.
+- Observations:
+  - Forced reflow insight total reflow time: 167 ms (trace includes broader app
+    work; this interaction did not introduce additional obvious layout thrash).
+- Raw artifact:
+  - `perf/artifacts/2026-02-07_agentic-handle-hover-safe-zone-v4.trace.json.gz`
+
+## Update (Handle Size 18 + Gap 12)
+
+- Change:
+  - Agentic handle size: 16px -> 18px (output dot: 12px -> 14px)
+  - Gap from section edge: 10px -> 12px
+  - Safe-zone overhang now scales with handle size (covers the handle even after size changes)
+- Measurement method: DevTools Performance trace via `chrome-devtools-mcp`
+  (`performance_start_trace` / `performance_stop_trace`)
+- Scenario:
+  1. Hover multiple sections in quick succession (skim hover + exit).
+  2. Toggle agentic connectors/wires off/on, then args connectors/wires off/on.
+- Observations:
+  - Forced reflow insight total reflow time: 35 ms (no top-level forced reflow
+    functions identified in this trace).
+- Raw artifact:
+  - `perf/artifacts/2026-02-07_agentic-handle-hover-safe-zone-v6.trace.json.gz`
+- Visual snapshots:
+  - `perf/artifacts/2026-02-07_agentic-handles-hover-light-v5.png`
+  - `perf/artifacts/2026-02-07_agentic-handles-hover-dark-v5.png`

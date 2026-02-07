@@ -145,22 +145,21 @@ html.dark .react-flow__handle {
   --agentic-handle-top: 50%;
 }
 
-.agentic-handle-scope[data-agentic-handle-align="top"] {
-  --agentic-handle-top: 32px;
-}
-
 .agentic-handle-metrics {
   /* blue-600 (more contrast on light backgrounds) */
   --agentic-handle-accent: #2563eb;
-  --agentic-handle-size: 16px;
-  /* ~ tailwind m-1 */
-  --agentic-handle-gap: 8px;
-  --agentic-handle-safe-overhang: 16px;
+  --agentic-handle-size: 18px;
+  /* Gap between the section edge and the handle. */
+  --agentic-handle-gap: 12px;
+  /* Must cover the handle render size to act as a reliable hover bridge. */
+  --agentic-handle-safe-overhang: max(
+    16px,
+    calc(var(--agentic-handle-size) + 2px)
+  );
   --agentic-handle-safe-y-pad: 12px;
   --agentic-handle-ring-width: 2px;
   --agentic-handle-fade-in-duration: 70ms;
   --agentic-handle-fade-out-duration: 80ms;
-  --agentic-handle-exit-delay: 220ms;
 }
 
 html.dark .agentic-handle-metrics {
@@ -204,7 +203,6 @@ html.dark .agentic-handle-metrics {
 }
 
 .react-flow__node:hover .react-flow__handle.agentic-handle,
-.react-flow__node.agentic-handles--active .react-flow__handle.agentic-handle,
 .react-flow__handle.agentic-handle.agentic-handle--connected {
   opacity: 1;
   visibility: visible;
@@ -216,30 +214,14 @@ html.dark .agentic-handle-metrics {
 }
 
 .react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow__node.agentic-handles--active
-  .react-flow__handle.agentic-handle:not(.connectable),
 .react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
   opacity: 0.45;
   pointer-events: none;
 }
 
-.react-flow__node.agentic-handles--exit
-  .react-flow__handle.agentic-handle:not(.agentic-handle--connected) {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity var(--agentic-handle-fade-out-duration) ease-out
-      var(--agentic-handle-exit-delay),
-    visibility 0s linear
-      calc(
-        var(--agentic-handle-exit-delay) +
-          var(--agentic-handle-fade-out-duration)
-      );
-  animation: none;
-}
-
 .react-flow__handle.agentic-handle.agentic-handle--target {
+  --agentic-handle-render-size: var(--agentic-handle-inner-size);
+
   background: transparent;
   border-color: var(--agentic-handle-accent);
 }
@@ -273,7 +255,7 @@ html.dark .agentic-handle-metrics {
   height: calc(
     var(--agentic-handle-size) + (2 * var(--agentic-handle-safe-y-pad))
   );
-  z-index: 159;
+  z-index: 0; /* should never block handles; only fills empty space */
   background: transparent;
   pointer-events: auto;
 }

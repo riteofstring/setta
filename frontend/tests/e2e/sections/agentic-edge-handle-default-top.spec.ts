@@ -35,7 +35,7 @@ async function createTopLevelSection(
 }
 
 test.describe.serial("agentic handles", () => {
-  test("defaults to a top-aligned handle position for non-text/prompt sections", async ({
+  test("defaults to a centered handle position for non-callable sections", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -55,9 +55,7 @@ test.describe.serial("agentic handles", () => {
         getComputedStyle(el).getPropertyValue("--agentic-handle-top").trim(),
       );
 
-      // This is intentionally a structural assertion: the default (non-callable)
-      // behavior should be "higher up" rather than centered.
-      expect(top).toBe("32px");
+      expect(top).toBe("50%");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

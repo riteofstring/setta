@@ -109,8 +109,6 @@ test.describe.serial("agentic handles", () => {
       );
 
       await node.hover();
-      // Ensure we'd normally trigger the exit animation if we actually left the node.
-      await page.waitForTimeout(250);
 
       await expect
         .poll(
@@ -147,9 +145,6 @@ test.describe.serial("agentic handles", () => {
       // (safe zone) should keep the node in :hover so the handles don't fade.
       await page.mouse.move(nodeBox.x - 2, targetCenterY);
       await page.waitForTimeout(80);
-      await expect(
-        node.evaluate((el) => el.classList.contains("agentic-handles--exit")),
-      ).resolves.toBe(false);
 
       await expect
         .poll(
@@ -173,9 +168,6 @@ test.describe.serial("agentic handles", () => {
 
       await page.mouse.move(nodeBox.x + nodeBox.width + 2, sourceCenterY);
       await page.waitForTimeout(80);
-      await expect(
-        node.evaluate((el) => el.classList.contains("agentic-handles--exit")),
-      ).resolves.toBe(false);
 
       await expect
         .poll(
