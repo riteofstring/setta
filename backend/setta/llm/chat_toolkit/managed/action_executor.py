@@ -4,18 +4,12 @@ from typing import TYPE_CHECKING, Any
 from litellm.types.llms.openai import ChatCompletionToolParam
 from mcp.types import CallToolResult
 
-from setta.agentic.agentic_scope import (
-    build_missing_edge_hints,
-    build_scope_blocked_tool_result,
-    check_agentic_scope_for_tool,
-)
 from setta.database.db_objs import DBE
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.mcp.client import MultiMCPClient
 from setta.types.chat_messages import ToolCall, ToolChatMessage
 from setta.types.chat_stream_events import ToolResultEvent
 from setta.types.id import ID
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -33,7 +27,6 @@ from .sanitization import sanitize_tool_arguments
 from .tool_runner import build_disallowed_tool_result, build_missing_tool_result
 from .tool_search import build_search_tool_chat_message, run_local_search_tool
 from .utils import is_setta_tool_name
-from setta.mcp.namespacing import split_namespaced_tool_name
 
 if TYPE_CHECKING:
     from setta.mcp.tool_metadata import SettaToolAnnotations
@@ -160,118 +153,52 @@ class ManagedActionExecutor:
                 arguments["serverIds"] = normalized_server_ids
             elif allowed_server_ids is not None:
                 arguments["serverIds"] = list(allowed_server_ids)
-
-        call_result: CallToolResult | None = None
-        if is_setta_tool_name(tool_name):
-            _, base_name = split_namespaced_tool_name(tool_name)
-            if base_name != "set_agentic_context":
-                project_state_backend = self._dbe.read_project_required()
-                if (
-                    action.project_config_id
-                    not in project_state_backend.projectConfigs
-                ):
-                    raise KeyError(
-                        f"Unknown project config: {action.project_config_id}"
-                    )
-                project_state = convert_backend_to_single_config(
-                    project_state_backend,
-                    action.project_config_id,
-                )
-                temporary_to_canonical, _ = self._dbe.read_temporary_id_map()
-                scope_check = check_agentic_scope_for_tool(
-                    tool_name=tool_name,
-                    tool_args=arguments,
-                    annotations=self._mcp_client.tool_annotations_by_name.get(
-                        tool_name
-                    ),
-                    project_state=project_state,
-                    scope=action.agentic_scope,
-                    temporary_to_canonical=temporary_to_canonical,
-                )
-                if not scope_check.allowed:
-                    missing_edges = build_missing_edge_hints(
-                        chat_section_id=action.agentic_context.section_id,
-                        blocked_section_ids=scope_check.blocked_section_ids,
-                        access_type=scope_check.access_type,
-                        project_state=project_state,
-                    )
-                    self._logger.warning(
-                        "Blocked tool %s by agentic scope (chat=%s, section=%s, blocked=%s)",
-                        tool_name,
-                        action.agentic_context.chat_id,
-                        action.agentic_context.section_id,
-                        sorted(scope_check.blocked_section_ids),
-                    )
-                    call_result = build_scope_blocked_tool_result(
-                        tool_name=tool_name,
-                        scope_check=scope_check,
-                        agentic_context=action.agentic_context,
-                        missing_edges=missing_edges,
-                    )
         started_at = get_now_timestamp()
-        if call_result is None:
-            if tool_name == self._search_tool_name:
-                call_result = run_local_search_tool(
-                    arguments=arguments,
-                    available_tools=available_tools,
-                    annotations_by_name=annotations_by_name,
+        if tool_name == self._search_tool_name:
+            call_result = run_local_search_tool(
+                arguments=arguments,
+                available_tools=available_tools,
+                annotations_by_name=annotations_by_name,
+            )
+        else:
+            route = self._mcp_client.routing.get(tool_name)
+            if route is None:
+                self._logger.warning(
+                    "MCP tool %s is not registered; skipping call",
+                    tool_name,
+                )
+                call_result = build_missing_tool_result(
+                    tool_name,
+                    self._search_tool_name,
                 )
             else:
-                route = self._mcp_client.routing.get(tool_name)
-                if route is None:
+                server_id, _ = route
+                if (
+                    allowed_server_ids is not None
+                    and server_id not in allowed_server_ids
+                ):
                     self._logger.warning(
-                        "MCP tool %s is not registered; skipping call",
+                        "MCP tool %s is not allowed; skipping call",
                         tool_name,
                     )
-                    call_result = build_missing_tool_result(
-                        tool_name,
-                        self._search_tool_name,
-                    )
+                    call_result = build_disallowed_tool_result(tool_name)
                 else:
-                    server_id, _ = route
-                    if (
-                        allowed_server_ids is not None
-                        and server_id not in allowed_server_ids
-                    ):
-                        self._logger.warning(
-                            "MCP tool %s is not allowed; skipping call",
+                    try:
+                        meta = None
+                        if action.share_session_id and is_setta_tool_name(tool_name):
+                            meta = {"shareSessionId": action.share_session_id}
+                        call_result = await self._mcp_client.call_tool(
+                            tool_name,
+                            arguments,
+                            meta=meta,
+                        )
+                    except Exception:
+                        self._logger.exception(
+                            "MCP tool invocation failed for chat %s (tool=%s)",
+                            action.chat_id,
                             tool_name,
                         )
-                        call_result = build_disallowed_tool_result(tool_name)
-                    else:
-                        try:
-                            meta = None
-                            if is_setta_tool_name(tool_name):
-                                meta_payload: dict[str, Any] = {
-                                    "projectConfigId": str(
-                                        action.agentic_context.project_config_id
-                                    ),
-                                    "chatId": str(action.agentic_context.chat_id),
-                                    "sectionId": (
-                                        str(action.agentic_context.section_id)
-                                        if action.agentic_context.section_id
-                                        else None
-                                    ),
-                                }
-                                if action.share_session_id:
-                                    meta_payload["shareSessionId"] = (
-                                        action.share_session_id
-                                    )
-                                meta = meta_payload
-                            elif action.share_session_id:
-                                meta = {"shareSessionId": action.share_session_id}
-                            call_result = await self._mcp_client.call_tool(
-                                tool_name,
-                                arguments,
-                                meta=meta,
-                            )
-                        except Exception:
-                            self._logger.exception(
-                                "MCP tool invocation failed for chat %s (tool=%s)",
-                                action.chat_id,
-                                tool_name,
-                            )
-                            raise
+                        raise
         completed_at = get_now_timestamp()
 
         sanitized_arguments = sanitize_tool_arguments(self._dbe, arguments)

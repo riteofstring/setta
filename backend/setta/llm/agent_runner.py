@@ -12,11 +12,6 @@ from litellm.utils import supports_prompt_caching
 from pydantic import BaseModel
 
 from setta.agentic.chat_view import build_chat_state_from_run
-from setta.agentic.agentic_context import (
-    AgenticContextPayload,
-    build_agentic_context_payload,
-)
-from setta.agentic.agentic_scope import AgenticContext, AgenticScope, resolve_agentic_scope
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
@@ -101,9 +96,9 @@ from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.utils.chat_attachments import build_attachment_content_blocks
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -132,9 +127,6 @@ class AgentRunContext:
     thinking: bool
     system_prompt: str
     allowlist: ToolAllowlist | None
-    agentic_scope: AgenticScope
-    agentic_context: AgenticContext
-    context_payload: AgenticContextPayload | None
     emit_stream: bool
     emit_ai_follow: bool
 
@@ -346,11 +338,6 @@ class AgentRunner:
     async def _run_agent(self, context: AgentRunContext) -> None:
         run = context.run
         messages = self._build_initial_messages(context.run.inputs)
-        messages, context_actions = self._maybe_inject_agentic_context(
-            context, messages
-        )
-        if context_actions:
-            await self._apply_actions(context_actions, context)
         usage_summary: dict[str, int] | None = None
         cost_value: float | None = None
         try:
@@ -361,7 +348,6 @@ class AgentRunner:
                     thinking=context.thinking,
                     system_prompt=context.system_prompt,
                     allowlist=context.allowlist,
-                    agentic_scope=context.agentic_scope,
                 )
                 assistant_message = AssistantChatMessage(content=[])
                 tool_call_state = ManagedToolCallState()
@@ -640,8 +626,6 @@ class AgentRunner:
                 set(self._resolve_mcp_server_ids(context.llm_config)),
             ),
             share_session_id=self.share_session_id,
-            agentic_scope=context.agentic_scope,
-            agentic_context=context.agentic_context,
         )
         if execute_action is not None:
             tool_results = await self._apply_actions([execute_action], context)
@@ -697,8 +681,8 @@ class AgentRunner:
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
     ) -> AgentRunContext:
-        project_state_backend = self.dbe.read_project_required()
-        if project_state_backend.defaultProjectConfigId is None:
+        project_state = self.dbe.read_project_required()
+        if project_state.defaultProjectConfigId is None:
             raise KeyError("Project state does not define a default project config")
         if inputs and "projectConfigId" in inputs:
             raw_project_id = inputs["projectConfigId"]
@@ -706,8 +690,8 @@ class AgentRunner:
                 raise TypeError("projectConfigId must be a string")
             project_config_id = ID(raw_project_id)
         else:
-            project_config_id = project_state_backend.defaultProjectConfigId
-        if project_config_id not in project_state_backend.projectConfigs:
+            project_config_id = project_state.defaultProjectConfigId
+        if project_config_id not in project_state.projectConfigs:
             raise KeyError(f"Unknown project config: {project_config_id}")
         if inputs and "chatId" in inputs:
             raw_chat_id = inputs["chatId"]
@@ -741,35 +725,17 @@ class AgentRunner:
         run = create_agent_run(profile_id=profile.id, inputs=payload_inputs)
         system_prompt = self._build_system_prompt(profile, project_config_id)
         allowlist = self._normalize_tool_allowlist(profile)
-        project_state = convert_backend_to_single_config(
-            project_state_backend, project_config_id
-        )
-        agentic_scope = resolve_agentic_scope(project_state, section_id)
-        resolved_chat_id = chat_id or run.id
-        agentic_context = AgenticContext(
-            project_config_id=project_config_id,
-            chat_id=resolved_chat_id,
-            section_id=section_id,
-        )
-        context_payload = None
-        if section_id is not None:
-            payload = build_agentic_context_payload(project_state, section_id)
-            if payload.text.strip():
-                context_payload = payload
         return AgentRunContext(
             run=run,
             profile=profile,
             llm_config=llm_config,
             engine_config_id=engine_config_id,
             project_config_id=project_config_id,
-            chat_id=resolved_chat_id,
+            chat_id=chat_id or run.id,
             section_id=section_id,
             thinking=thinking,
             system_prompt=system_prompt,
             allowlist=allowlist,
-            agentic_scope=agentic_scope,
-            agentic_context=agentic_context,
-            context_payload=context_payload,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
         )
@@ -862,38 +828,6 @@ class AgentRunner:
                 )
         return messages
 
-    def _maybe_inject_agentic_context(
-        self,
-        context: AgentRunContext,
-        messages: list[BaseChatMessageUnion],
-    ) -> tuple[list[BaseChatMessageUnion], list[ManagedAction]]:
-        payload = context.context_payload
-        if payload is None or not payload.text.strip():
-            return messages, []
-        context_message = SystemChatMessage(
-            content=[MessageTextContent(text=payload.text)]
-        )
-        insert_at: int | None = None
-        for idx in range(len(messages) - 1, -1, -1):
-            if isinstance(messages[idx], UserChatMessage):
-                insert_at = idx
-                break
-        if insert_at is None:
-            updated_messages = list(messages) + [context_message]
-        else:
-            updated_messages = list(messages)
-            updated_messages.insert(insert_at, context_message)
-        actions: list[ManagedAction] = []
-        if context.emit_ai_follow and payload.section_ids:
-            actions.append(
-                UpdateAIFollowAction(
-                    project_config_id=context.project_config_id,
-                    chat_id=context.chat_id,
-                    ids_by_type={"section": payload.section_ids},
-                )
-            )
-        return updated_messages, actions
-
     def _build_llm_request_payload(
         self,
         llm_config: LLMConfig,
@@ -902,7 +836,6 @@ class AgentRunner:
         thinking: bool,
         system_prompt: str,
         allowlist: ToolAllowlist | None,
-        agentic_scope: AgenticScope,
     ) -> dict[str, Any]:
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
@@ -938,7 +871,6 @@ class AgentRunner:
             server_ids,
             allowlist=allowlist,
             use_tool_search=use_tool_search,
-            agentic_scope=agentic_scope,
         )
         if tools:
             request["tools"] = tools
@@ -959,8 +891,9 @@ class AgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            base_root = CWD
-            artifacts_root = CWD / C.ARTIFACTS_FOLDER
+            paths = get_setta_paths()
+            base_root = paths.workspace_root
+            artifacts_root = paths.artifacts_root
         extra_blocks = build_attachment_content_blocks(
             dbe=self.dbe,
             attachments=message.attachments,
@@ -984,7 +917,6 @@ class AgentRunner:
         *,
         allowlist: ToolAllowlist | None,
         use_tool_search: bool,
-        agentic_scope: AgenticScope,
     ) -> list[ChatCompletionToolParam]:
         if not server_ids:
             return []
@@ -1001,7 +933,6 @@ class AgentRunner:
             defer_loading=use_tool_search,
             include_search_tool=use_tool_search,
             allowlist=allowlist,
-            agentic_scope=agentic_scope,
         )
         return tools
 
@@ -1012,7 +943,6 @@ class AgentRunner:
         defer_loading: bool,
         include_search_tool: bool,
         allowlist: ToolAllowlist | None,
-        agentic_scope: AgenticScope,
     ) -> list[ChatCompletionToolParam]:
         init_tools = self.mcp_client.init_tool_definitions_for_servers(server_ids)
         discoverable_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
@@ -1031,7 +961,6 @@ class AgentRunner:
             tool_names = [
                 name for name in tool_names if self._is_tool_allowed(name, allowlist)
             ]
-        tool_names = self._filter_tool_names_by_scope(tool_names, agentic_scope)
         if not tool_names:
             return []
         payload: list[ChatCompletionToolParam] = []
@@ -1046,29 +975,6 @@ class AgentRunner:
         if defer_loading and not has_non_deferred and payload:
             payload[0].pop("defer_loading", None)
         return payload
-
-    def _filter_tool_names_by_scope(
-        self,
-        tool_names: list[str],
-        agentic_scope: AgenticScope,
-    ) -> list[str]:
-        if not tool_names:
-            return tool_names
-        filtered: list[str] = []
-        for name in tool_names:
-            if not is_setta_tool_name(name):
-                filtered.append(name)
-                continue
-            annotations = self.mcp_client.tool_annotations_by_name.get(name)
-            access_type = "structural" if annotations is None else annotations.accessType
-            if access_type == "structural" and not agentic_scope.structural_allowed:
-                continue
-            if access_type == "read" and not agentic_scope.effective_read_section_ids():
-                continue
-            if access_type == "write" and not agentic_scope.write_section_ids:
-                continue
-            filtered.append(name)
-        return filtered
 
     def _resolve_allowed_server_ids(
         self, allowlist: ToolAllowlist | None, server_ids: set[str]

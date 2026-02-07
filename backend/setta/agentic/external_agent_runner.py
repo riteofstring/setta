@@ -57,7 +57,6 @@ from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
-from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
@@ -87,7 +86,8 @@ from setta.utils.chat_attachments import (
     build_attachments_prompt_text_pair,
     collect_message_attachments,
 )
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -448,12 +448,6 @@ class ExternalAgentRunner:
             payload_inputs=payload_inputs,
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
-        system_prompt = self._build_external_agentic_prompt(
-            system_prompt,
-            chat_id=chat_id,
-            section_id=section_id,
-            project_config_id=project_config_id,
-        )
         working_dir = self._resolve_working_dir(config)
         env = self._build_env(config)
         cleanup_paths: list[Path] = []
@@ -511,8 +505,9 @@ class ExternalAgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            base_root = CWD
-            artifacts_root = CWD / C.ARTIFACTS_FOLDER
+            paths = get_setta_paths()
+            base_root = paths.workspace_root
+            artifacts_root = paths.artifacts_root
         attachment_text = ""
         attachment_text_no_images = ""
         if include_text or include_text_no_images:
@@ -774,47 +769,12 @@ class ExternalAgentRunner:
     def _build_system_prompt(
         self, profile: AgentProfile | None, project_config_id: ID
     ) -> str:
-        base_prompt = build_agent_system_prompt(
+        return build_agent_system_prompt(
             base_prompt=self._system_prompt,
             profile=profile,
             project_config_id=project_config_id,
             dbe=self.dbe,
         )
-        return base_prompt
-
-    def _build_external_agentic_prompt(
-        self,
-        base_prompt: str,
-        *,
-        chat_id: ID | None,
-        section_id: ID | None,
-        project_config_id: ID,
-    ) -> str:
-        temporary_chat_id = self._ensure_temporary_id(chat_id)
-        temporary_section_id = self._ensure_temporary_id(section_id)
-        temporary_project_id = self._ensure_temporary_id(project_config_id)
-        lines = [
-            "## Agentic Scope Setup",
-            "Before using any MCP tools, call `set_agentic_context` with:",
-            f"- projectConfigId: {temporary_project_id}",
-            f"- chatId: {temporary_chat_id or 'null'}",
-            f"- sectionId: {temporary_section_id or 'null'}",
-        ]
-        return f"{base_prompt}\n\n" + "\n".join(lines)
-
-    def _ensure_temporary_id(self, value: ID | None) -> ID | None:
-        if value is None:
-            return None
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
-        map_size_before = len(canonical_to_temporary)
-        temporary_value = convert_canonical_ids_to_temporary(
-            value,
-            canonical_to_temporary,
-            temporary_to_canonical,
-        )
-        if len(canonical_to_temporary) != map_size_before:
-            self.dbe.write_temporary_id_map(canonical_to_temporary)
-        return temporary_value
 
     @staticmethod
     def _resolve_external_tool_allowlist(
@@ -893,7 +853,7 @@ class ExternalAgentRunner:
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
                 system_prompt=codex_prompt,
-                project_root=working_dir or CWD,
+                project_root=working_dir or get_setta_paths().workspace_root,
             )
             env["CODEX_HOME"] = str(codex_home)
 
@@ -966,15 +926,12 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
-        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
-        if required_tool not in tools:
-            tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
         strategy = config.workingDirStrategy
         if strategy == ExternalAgentWorkingDirStrategy.project_root:
-            return CWD
+            return get_setta_paths().workspace_root
         if strategy == ExternalAgentWorkingDirStrategy.temp_dir:
             return Path(tempfile.mkdtemp(prefix="setta-external-agent-"))
         if strategy == ExternalAgentWorkingDirStrategy.custom:
@@ -985,7 +942,7 @@ class ExternalAgentRunner:
             path = Path(config.workingDir)
             path.mkdir(parents=True, exist_ok=True)
             return path
-        return CWD
+        return get_setta_paths().workspace_root
 
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}

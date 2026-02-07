@@ -14,7 +14,6 @@ import {
 import {
   AgentProfile,
   AgentRun,
-  AgenticEdgeKindEnum,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
@@ -687,10 +686,6 @@ type AIFollowState = {
   >;
   selectedChatIdsByProjectConfigId: Record<string, Array<string>>;
   selectedSectionIdsByProjectConfigId: Record<string, Array<string>>;
-  scopeViolationEdgesByProjectConfigId: Record<
-    string,
-    Array<AgenticScopeViolationEdge>
-  >;
 };
 
 export const useAIFollow = withProjectState(
@@ -703,29 +698,6 @@ export const useAIFollow = withProjectState(
         toolResultIdsByProjectConfigId: {},
         selectedChatIdsByProjectConfigId: {},
         selectedSectionIdsByProjectConfigId: {},
-        scopeViolationEdgesByProjectConfigId: {},
-      })),
-    ),
-  ),
-);
-
-export type AgenticScopeViolationEdge = {
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKindEnum;
-};
-
-type AgenticScopeHighlightsState = {
-  readSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
-  writeSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
-};
-
-export const useAgenticScopeHighlights = withProjectState(
-  createWithEqualityFn(
-    immer(
-      withResetFn<AgenticScopeHighlightsState>(() => ({
-        readSectionIdsByProjectConfigId: {},
-        writeSectionIdsByProjectConfigId: {},
       })),
     ),
   ),
