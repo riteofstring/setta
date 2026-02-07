@@ -417,8 +417,14 @@ function Heading({ element }: AppComponentProps) {
   const level = typeof props.level === "number" ? props.level : 2;
   const className = typeof props.className === "string" ? props.className : "";
   const headingFont = runtime?.theme?.fonts?.heading;
+  const typography = runtime?.theme?.typography;
+  const headingSizes = typography?.headingSizes;
+  const clampedLevel = Math.min(Math.max(level, 1), 4);
+  const headingKeyByLevel = { 1: "h1", 2: "h2", 3: "h3", 4: "h4" } as const;
+  const headingSizeKey = headingKeyByLevel[clampedLevel];
+  const headingSize = headingSizes?.[headingSizeKey];
   const HeadingTag =
-    `h${Math.min(Math.max(level, 1), 4)}` as keyof JSX.IntrinsicElements;
+    `h${clampedLevel}` as keyof JSX.IntrinsicElements;
   const sizeClassByLevel: Record<number, string> = {
     1: "text-2xl",
     2: "text-xl",
@@ -426,12 +432,26 @@ function Heading({ element }: AppComponentProps) {
     4: "text-base",
   };
   const sizeClass =
-    sizeClassByLevel[Math.min(Math.max(level, 1), 4)] ?? "text-base";
+    sizeClassByLevel[clampedLevel] ?? "text-base";
+
+  const style: React.CSSProperties = {};
+  if (headingFont) {
+    style.fontFamily = headingFont;
+  }
+  if (typeof headingSize === "number" || typeof headingSize === "string") {
+    style.fontSize = headingSize;
+  }
+  if (
+    typeof typography?.headingLineHeight === "number" ||
+    typeof typography?.headingLineHeight === "string"
+  ) {
+    style.lineHeight = typography.headingLineHeight;
+  }
 
   return (
     <HeadingTag
       className={`font-semibold tracking-tight text-[color:var(--app-text)] ${sizeClass} ${className}`.trim()}
-      style={headingFont ? { fontFamily: headingFont } : undefined}
+      style={Object.keys(style).length > 0 ? style : undefined}
     >
       {text}
     </HeadingTag>
@@ -440,11 +460,28 @@ function Heading({ element }: AppComponentProps) {
 
 function Text({ element }: AppComponentProps) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const text = typeof props.text === "string" ? props.text : "";
   const className = typeof props.className === "string" ? props.className : "";
+  const typography = runtime?.theme?.typography;
+  const style: React.CSSProperties = {};
+  if (
+    typeof typography?.bodySize === "number" ||
+    typeof typography?.bodySize === "string"
+  ) {
+    style.fontSize = typography.bodySize;
+  }
+  if (
+    typeof typography?.bodyLineHeight === "number" ||
+    typeof typography?.bodyLineHeight === "string"
+  ) {
+    style.lineHeight = typography.bodyLineHeight;
+  }
+
   return (
     <p
       className={`text-sm text-[color:var(--app-muted)] ${className}`.trim()}
+      style={Object.keys(style).length > 0 ? style : undefined}
     >
       {text}
     </p>
@@ -1441,20 +1478,23 @@ function resolveNumber(raw: unknown, fallback: number): number {
   return raw;
 }
 
-function resolveEasing(raw: unknown): string {
+function resolveEasing(raw: unknown, fallback: string): string {
   if (typeof raw === "string" && raw.trim()) {
     return raw;
   }
-  return "cubic-bezier(0.16, 1, 0.3, 1)";
+  return fallback;
 }
 
 function Motion({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const className = typeof props.className === "string" ? props.className : "";
+  const themeMotion = runtime?.theme?.motion;
+  const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
   const preset = resolveMotionPreset(props.preset);
-  const durationMs = resolveNumber(props.durationMs, 220);
-  const delayMs = resolveNumber(props.delayMs, 0);
-  const easing = resolveEasing(props.easing);
+  const durationMs = resolveNumber(props.durationMs, themeMotion?.durationMs ?? 220);
+  const delayMs = resolveNumber(props.delayMs, themeMotion?.delayMs ?? 0);
+  const easing = resolveEasing(props.easing, fallbackEasing);
 
   const presetClass = `setta-app-motion--${preset}`;
   return (
@@ -1473,12 +1513,15 @@ function Motion({ element, children }: AppComponentProps) {
 
 function Stagger({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
+  const runtime = useAppRuntime();
   const className = typeof props.className === "string" ? props.className : "";
+  const themeMotion = runtime?.theme?.motion;
+  const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
   const preset = resolveMotionPreset(props.preset);
-  const durationMs = resolveNumber(props.durationMs, 220);
-  const delayMs = resolveNumber(props.delayMs, 0);
-  const staggerMs = resolveNumber(props.staggerMs, 70);
-  const easing = resolveEasing(props.easing);
+  const durationMs = resolveNumber(props.durationMs, themeMotion?.durationMs ?? 220);
+  const delayMs = resolveNumber(props.delayMs, themeMotion?.delayMs ?? 0);
+  const staggerMs = resolveNumber(props.staggerMs, themeMotion?.staggerMs ?? 70);
+  const easing = resolveEasing(props.easing, fallbackEasing);
   const items = React.Children.toArray(children);
   const presetClass = `setta-app-motion--${preset}`;
 

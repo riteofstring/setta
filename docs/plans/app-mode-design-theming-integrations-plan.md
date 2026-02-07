@@ -34,6 +34,7 @@ Implemented (or mostly implemented):
 - Layout primitives (`Box`, `Grid`, `Container`, `Spacer`) and catalog support for CSS dimension strings on key layout props (e.g. `"1rem"`, `"clamp(...)"`).
 - Responsive schema: breakpoint maps for selected layout props (breakpoints `base|sm|md|lg|xl|2xl`, resolved at runtime).
 - Motion primitives: catalog-defined `Motion` and `Stagger` components for preset-based animations.
+- Theme motion + typography tokens (`theme.motion`, `theme.typography`) + backend theme schema validation (type checks + unknown-key warnings).
 - App Config error UX: surface backend validation detail on save/load failures (instead of generic errors).
 - App validation endpoint + UI: `validateAppDefinition` returns `{errors[], warnings[], capabilities}` and App Config exposes a `Validate` action.
 - Richer validator output: `validateAppDefinition` accumulates multiple errors (no fast-fail) and advertises feature support via capabilities flags.
@@ -41,7 +42,7 @@ Implemented (or mostly implemented):
 Not implemented yet (future work, integrations deferred):
 
 - External design tool compilers/importers/exporters (Pencil/Figma/etc.).
-- Theme schema expansion + validator hardening (beyond `theme.vars` warnings).
+- Theme schema expansion: typography scale, shadows/elevation, and broader component-role tokens.
 
 ## Goals
 

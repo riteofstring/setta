@@ -74,6 +74,20 @@ class TestAppDefinitionProjectManager:
                     )
                 )
 
+    async def test_set_app_definition_rejects_invalid_theme(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            with pytest.raises(ValueError, match="theme.motion"):
+                await fixture.manager.set_app_definition(
+                    SetAppDefinitionRequest(
+                        appSpec=payload,
+                        theme={"motion": "nope"},
+                    )
+                )
+
     async def test_update_app_definition_merges_patch(self) -> None:
         async with real_project_manager() as fixture:
             initial = {
@@ -149,6 +163,22 @@ class TestAppDefinitionProjectManager:
 
         assert response.errors
         assert "unknown component" in response.errors[0].message.lower()
+
+    async def test_validate_app_definition_reports_theme_errors(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(
+                    appSpec=payload,
+                    theme={"motion": "nope"},
+                )
+            )
+
+        assert response.errors
+        assert any("theme.motion" in issue.message for issue in response.errors)
 
     async def test_validate_app_definition_warns_on_run_missing_section_id(self) -> None:
         async with real_project_manager() as fixture:

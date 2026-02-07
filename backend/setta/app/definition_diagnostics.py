@@ -11,6 +11,49 @@ from setta.types.chat_messages import JSONValue
 
 _EXTERNAL_HREF_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 _THEME_SCHEMA_VERSION = "v1"
+_THEME_MODE_VALUES = {"light", "dark", "auto"}
+_THEME_ALLOWED_KEYS = {
+    "mode",
+    "className",
+    "colors",
+    "fonts",
+    "typography",
+    "spacing",
+    "vars",
+    "motion",
+}
+_THEME_COLOR_KEYS = {
+    "background",
+    "surface",
+    "surfaceAlt",
+    "headerBackground",
+    "headerText",
+    "text",
+    "muted",
+    "border",
+    "cardBackground",
+    "cardBorder",
+    "accent",
+    "accentHover",
+    "accentText",
+}
+_THEME_FONT_KEYS = {"body", "heading", "mono"}
+_THEME_TYPOGRAPHY_KEYS = {
+    "bodySize",
+    "bodyLineHeight",
+    "headingSizes",
+    "headingLineHeight",
+}
+_THEME_HEADING_SIZE_KEYS = {"h1", "h2", "h3", "h4"}
+_THEME_SPACING_KEYS = {
+    "pagePaddingX",
+    "pagePaddingY",
+    "contentWidth",
+    "cardPadding",
+    "cardRadius",
+    "stackGap",
+}
+_THEME_MOTION_KEYS = {"durationMs", "delayMs", "staggerMs", "easing"}
 
 
 def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
@@ -53,37 +96,385 @@ def validate_app_definition_payload(
         )
     )
 
-    warnings.extend(_validate_theme(definition.theme))
+    theme_errors, theme_warnings = collect_app_theme_validation_issues(definition.theme)
+    errors.extend(theme_errors)
+    warnings.extend(theme_warnings)
     warnings.extend(_validate_assets(definition.assets))
     warnings.extend(_collect_action_warnings(app_spec, definition=definition))
 
     return errors, warnings
 
 
-def _validate_theme(theme: dict[str, JSONValue] | None) -> list[AppValidationIssue]:
+def validate_app_theme_or_raise(theme: dict[str, JSONValue] | None) -> None:
+    errors, _warnings = collect_app_theme_validation_issues(theme)
+    if errors:
+        raise ValueError(errors[0].message)
+
+
+def _preview_sorted(values: list[str], *, limit: int = 6) -> tuple[str, str]:
+    preview = ", ".join(values[:limit])
+    suffix = " ..." if len(values) > limit else ""
+    return preview, suffix
+
+
+def collect_app_theme_validation_issues(
+    theme: dict[str, JSONValue] | None,
+) -> tuple[list[AppValidationIssue], list[AppValidationIssue]]:
     if theme is None:
-        return []
-    raw_vars = theme.get("vars")
-    if not isinstance(raw_vars, dict):
-        return []
-    invalid = [
-        key
-        for key in raw_vars.keys()
-        if not isinstance(key, str) or not key.startswith("--app-")
-    ]
-    if not invalid:
-        return []
-    invalid_sorted = sorted([key for key in invalid if isinstance(key, str)])
-    preview = ", ".join(invalid_sorted[:6])
-    suffix = " ..." if len(invalid_sorted) > 6 else ""
-    return [
-        AppValidationIssue(
-            message=(
-                "theme.vars contains keys that do not start with '--app-' and will be ignored: "
-                f"{preview}{suffix}"
+        return [], []
+
+    errors: list[AppValidationIssue] = []
+    warnings: list[AppValidationIssue] = []
+
+    unknown_keys = sorted(
+        [key for key in theme.keys() if key not in _THEME_ALLOWED_KEYS]
+    )
+    if unknown_keys:
+        preview, suffix = _preview_sorted(unknown_keys)
+        warnings.append(
+            AppValidationIssue(
+                message=f"theme contains unknown keys and they will be ignored: {preview}{suffix}"
             )
         )
-    ]
+
+    mode = theme.get("mode")
+    if mode is not None:
+        if not isinstance(mode, str):
+            errors.append(AppValidationIssue(message="theme.mode must be a string."))
+        elif mode not in _THEME_MODE_VALUES:
+            errors.append(
+                AppValidationIssue(
+                    message="theme.mode must be one of: light, dark, auto."
+                )
+            )
+
+    class_name = theme.get("className")
+    if class_name is not None and not isinstance(class_name, str):
+        errors.append(AppValidationIssue(message="theme.className must be a string."))
+
+    errors.extend(_validate_theme_colors(theme.get("colors"), warnings=warnings))
+    errors.extend(_validate_theme_fonts(theme.get("fonts"), warnings=warnings))
+    errors.extend(_validate_theme_typography(theme.get("typography"), warnings=warnings))
+    errors.extend(_validate_theme_spacing(theme.get("spacing"), warnings=warnings))
+    errors.extend(_validate_theme_vars(theme.get("vars"), warnings=warnings))
+    errors.extend(_validate_theme_motion(theme.get("motion"), warnings=warnings))
+
+    return errors, warnings
+
+
+def _validate_theme_colors(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.colors must be an object.")]
+
+    errors: list[AppValidationIssue] = []
+    has_variants = "light" in raw or "dark" in raw
+    if has_variants:
+        extra_variant_keys = sorted(
+            [key for key in raw.keys() if key not in ("light", "dark")]
+        )
+        if extra_variant_keys:
+            preview, suffix = _preview_sorted(extra_variant_keys)
+            warnings.append(
+                AppValidationIssue(
+                    message=(
+                        "theme.colors contains unknown keys and they will be ignored: "
+                        f"{preview}{suffix}"
+                    )
+                )
+            )
+        for variant_name in ("light", "dark"):
+            if variant_name not in raw:
+                continue
+            variant = raw.get(variant_name)
+            if not isinstance(variant, dict):
+                errors.append(
+                    AppValidationIssue(
+                        message=f"theme.colors.{variant_name} must be an object."
+                    )
+                )
+                continue
+            errors.extend(
+                _validate_theme_color_map(
+                    variant,
+                    prefix=f"theme.colors.{variant_name}",
+                    warnings=warnings,
+                )
+            )
+        return errors
+
+    errors.extend(_validate_theme_color_map(raw, prefix="theme.colors", warnings=warnings))
+    return errors
+
+
+def _validate_theme_color_map(
+    raw: dict[str, JSONValue],
+    *,
+    prefix: str,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_COLOR_KEYS])
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    f"{prefix} contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+    for key in _THEME_COLOR_KEYS:
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if not isinstance(value, str):
+            errors.append(
+                AppValidationIssue(message=f"{prefix}.{key} must be a string.")
+            )
+    return errors
+
+
+def _validate_theme_fonts(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.fonts must be an object.")]
+
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_FONT_KEYS])
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.fonts contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+    for key in _THEME_FONT_KEYS:
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if not isinstance(value, str):
+            errors.append(
+                AppValidationIssue(message=f"theme.fonts.{key} must be a string.")
+            )
+    return errors
+
+
+def _validate_theme_typography(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.typography must be an object.")]
+
+    unknown = sorted(
+        [key for key in raw.keys() if key not in _THEME_TYPOGRAPHY_KEYS]
+    )
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.typography contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+    for key in ("bodySize", "bodyLineHeight", "headingLineHeight"):
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if not isinstance(value, (int, float, str)):
+            errors.append(
+                AppValidationIssue(
+                    message=f"theme.typography.{key} must be a number or string."
+                )
+            )
+
+    if "headingSizes" in raw:
+        heading_sizes = raw.get("headingSizes")
+        if not isinstance(heading_sizes, dict):
+            errors.append(
+                AppValidationIssue(
+                    message="theme.typography.headingSizes must be an object."
+                )
+            )
+        else:
+            heading_unknown = sorted(
+                [
+                    key
+                    for key in heading_sizes.keys()
+                    if key not in _THEME_HEADING_SIZE_KEYS
+                ]
+            )
+            if heading_unknown:
+                preview, suffix = _preview_sorted(heading_unknown)
+                warnings.append(
+                    AppValidationIssue(
+                        message=(
+                            "theme.typography.headingSizes contains unknown keys and they will be ignored: "
+                            f"{preview}{suffix}"
+                        )
+                    )
+                )
+            for key in _THEME_HEADING_SIZE_KEYS:
+                if key not in heading_sizes:
+                    continue
+                value = heading_sizes.get(key)
+                if not isinstance(value, (int, float, str)):
+                    errors.append(
+                        AppValidationIssue(
+                            message=(
+                                f"theme.typography.headingSizes.{key} must be a number or string."
+                            )
+                        )
+                    )
+
+    return errors
+
+
+def _validate_theme_spacing(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.spacing must be an object.")]
+
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_SPACING_KEYS])
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.spacing contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+    for key in _THEME_SPACING_KEYS:
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if not isinstance(value, (int, float, str)):
+            errors.append(
+                AppValidationIssue(
+                    message=f"theme.spacing.{key} must be a number or string."
+                )
+            )
+    return errors
+
+
+def _validate_theme_vars(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.vars must be an object.")]
+
+    invalid_namespace = sorted(
+        [
+            key
+            for key in raw.keys()
+            if not isinstance(key, str) or not key.startswith("--app-")
+        ]
+    )
+    if invalid_namespace:
+        invalid_sorted = sorted(
+            [key for key in invalid_namespace if isinstance(key, str)]
+        )
+        preview, suffix = _preview_sorted(invalid_sorted)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.vars contains keys that do not start with '--app-' and will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key.startswith("--app-"):
+            continue
+        if isinstance(value, str):
+            continue
+        if isinstance(value, (int, float)):
+            continue
+        warnings.append(
+            AppValidationIssue(
+                message=f"theme.vars {key} must be a string or number and will be ignored."
+            )
+        )
+    return []
+
+
+def _validate_theme_motion(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.motion must be an object.")]
+
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_MOTION_KEYS])
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.motion contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+    for key in ("durationMs", "delayMs", "staggerMs"):
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if not isinstance(value, (int, float)):
+            errors.append(
+                AppValidationIssue(message=f"theme.motion.{key} must be a number.")
+            )
+
+    easing = raw.get("easing")
+    if easing is not None and not isinstance(easing, str):
+        errors.append(
+            AppValidationIssue(message="theme.motion.easing must be a string.")
+        )
+
+    return errors
 
 
 def _is_external_href(href: str) -> bool:

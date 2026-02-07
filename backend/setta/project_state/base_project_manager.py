@@ -30,6 +30,7 @@ from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
+    validate_app_theme_or_raise,
 )
 from setta.app.spec_store import (
     default_app_spec_path,
@@ -1718,6 +1719,7 @@ class BaseProjectManager(ABC):
         if x.assets is not None:
             updates["assets"] = x.assets
         updated_definition = app_definition.model_copy(update=updates)
+        validate_app_theme_or_raise(updated_definition.theme)
         validate_app_action_definitions(updated_definition.actions)
         validate_app_spec(
             x.appSpec,

@@ -22,6 +22,20 @@ type AppThemeFonts = {
   mono?: string;
 };
 
+type AppThemeHeadingSizes = {
+  h1?: number | string;
+  h2?: number | string;
+  h3?: number | string;
+  h4?: number | string;
+};
+
+type AppThemeTypography = {
+  bodySize?: number | string;
+  bodyLineHeight?: number | string;
+  headingSizes?: AppThemeHeadingSizes;
+  headingLineHeight?: number | string;
+};
+
 type AppThemeSpacing = {
   pagePaddingX?: number | string;
   pagePaddingY?: number | string;
@@ -31,13 +45,29 @@ type AppThemeSpacing = {
   stackGap?: number | string;
 };
 
+type AppThemeMotion = {
+  durationMs?: number;
+  delayMs?: number;
+  staggerMs?: number;
+  easing?: string;
+};
+
 type AppThemeConfig = {
   mode?: AppThemeMode;
   className?: string;
   colors?: AppThemeColors | { light?: AppThemeColors; dark?: AppThemeColors };
   fonts?: AppThemeFonts;
+  typography?: AppThemeTypography;
   spacing?: AppThemeSpacing;
+  motion?: AppThemeMotion;
   vars?: Record<string, string | number>;
+};
+
+export type ResolvedAppMotion = {
+  durationMs: number;
+  delayMs: number;
+  staggerMs: number;
+  easing: string;
 };
 
 export type ResolvedAppTheme = {
@@ -45,7 +75,9 @@ export type ResolvedAppTheme = {
   mode: "light" | "dark";
   colors: AppThemeColors;
   fonts: AppThemeFonts;
+  typography: AppThemeTypography;
   spacing: AppThemeSpacing;
+  motion: ResolvedAppMotion;
   style: Record<string, string | number>;
 };
 
@@ -113,6 +145,13 @@ const SPACING_VAR_MAP: Record<keyof AppThemeSpacing, string> = {
   stackGap: "--app-stack-gap",
 };
 
+const DEFAULT_MOTION: ResolvedAppMotion = {
+  durationMs: 220,
+  delayMs: 0,
+  staggerMs: 70,
+  easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -170,6 +209,47 @@ function resolveThemeFonts(raw: AppThemeConfig["fonts"]): AppThemeFonts {
   return extractStringMap<AppThemeFonts>(raw);
 }
 
+function resolveThemeTypography(
+  raw: AppThemeConfig["typography"],
+): AppThemeTypography {
+  if (!raw || !isRecord(raw)) {
+    return {};
+  }
+
+  const output: AppThemeTypography = {};
+  if (typeof raw.bodySize === "number" || typeof raw.bodySize === "string") {
+    output.bodySize = raw.bodySize;
+  }
+  if (
+    typeof raw.bodyLineHeight === "number" ||
+    typeof raw.bodyLineHeight === "string"
+  ) {
+    output.bodyLineHeight = raw.bodyLineHeight;
+  }
+  if (
+    typeof raw.headingLineHeight === "number" ||
+    typeof raw.headingLineHeight === "string"
+  ) {
+    output.headingLineHeight = raw.headingLineHeight;
+  }
+
+  const headingSizes = raw.headingSizes;
+  if (headingSizes && isRecord(headingSizes)) {
+    const resolvedHeadingSizes: AppThemeHeadingSizes = {};
+    for (const key of ["h1", "h2", "h3", "h4"]) {
+      const value = headingSizes[key];
+      if (typeof value === "number" || typeof value === "string") {
+        resolvedHeadingSizes[key] = value;
+      }
+    }
+    if (Object.keys(resolvedHeadingSizes).length > 0) {
+      output.headingSizes = resolvedHeadingSizes;
+    }
+  }
+
+  return output;
+}
+
 function resolveThemeSpacing(raw: AppThemeConfig["spacing"]): AppThemeSpacing {
   if (!raw || !isRecord(raw)) {
     return {};
@@ -181,6 +261,30 @@ function resolveThemeSpacing(raw: AppThemeConfig["spacing"]): AppThemeSpacing {
       output[key as keyof AppThemeSpacing] = value;
     }
   }
+  return output;
+}
+
+function resolveThemeMotion(
+  raw: AppThemeConfig["motion"],
+): Partial<ResolvedAppMotion> {
+  if (!raw || !isRecord(raw)) {
+    return {};
+  }
+  const output: Partial<ResolvedAppMotion> = {};
+
+  if (typeof raw.durationMs === "number") {
+    output.durationMs = raw.durationMs;
+  }
+  if (typeof raw.delayMs === "number") {
+    output.delayMs = raw.delayMs;
+  }
+  if (typeof raw.staggerMs === "number") {
+    output.staggerMs = raw.staggerMs;
+  }
+  if (typeof raw.easing === "string" && raw.easing.trim().length > 0) {
+    output.easing = raw.easing;
+  }
+
   return output;
 }
 
@@ -247,7 +351,12 @@ export function resolveAppTheme(
     ...overrideColors,
   };
   const fonts = resolveThemeFonts(themeConfig?.fonts);
+  const typography = resolveThemeTypography(themeConfig?.typography);
   const spacing = resolveThemeSpacing(themeConfig?.spacing);
+  const motion = {
+    ...DEFAULT_MOTION,
+    ...resolveThemeMotion(themeConfig?.motion),
+  };
   const className =
     themeConfig && typeof themeConfig.className === "string"
       ? themeConfig.className
@@ -290,7 +399,9 @@ export function resolveAppTheme(
     mode,
     colors,
     fonts,
+    typography,
     spacing,
+    motion,
     style,
   };
 }
