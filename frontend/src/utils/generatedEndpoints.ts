@@ -315,12 +315,6 @@ async function route_emit_chat_stream_delta(
   return await post("/emitChatStreamDelta", x);
 }
 
-export async function route_launch(
-  x: gt.LaunchRequestInput,
-): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
-  return await post("/launch", x);
-}
-
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
@@ -471,6 +465,12 @@ export async function route_get_agent_runs(): Promise<
   ResponseDataAndStatus<Array<gt.AgentRun>>
 > {
   return await get("/getAgentRuns");
+}
+
+export async function route_get_agentic_summary_cache_status(
+  x: gt.GetAgenticSummaryCacheStatusRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgenticSummaryCacheStatus>> {
+  return await post("/getAgenticSummaryCacheStatus", x);
 }
 
 export async function route_get_prompt_templates(): Promise<

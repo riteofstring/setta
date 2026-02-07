@@ -24,6 +24,7 @@ class ExternalAgentRunContext:
     system_prompt: str
     working_dir: Path
     env: dict[str, str]
+    agentic_context_section_ids: tuple[ID, ...] = field(default_factory=tuple)
     cleanup_paths: tuple[Path, ...] = field(default_factory=tuple)
 
 
@@ -39,6 +40,8 @@ class ExternalAgentRunHandle:
     process: Any | None = None
     session_id: str | None = None
     thread_id: str | None = None
+    external_title: str | None = None
+    external_title_kind: str | None = None
     return_code: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
