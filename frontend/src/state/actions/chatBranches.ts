@@ -6,13 +6,13 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
-  getMessageCompletenessScore,
-  mergeChatMessages,
-} from "./chatMergeUtils";
-import {
   buildChatBranchIndexFromInfos,
   type ChatBranchIndex,
 } from "./chatBranchIndex";
+import {
+  getMessageCompletenessScore,
+  mergeChatMessages,
+} from "./chatMergeUtils";
 
 type BranchInitializationResult = {
   nextState: ChatSectionState;

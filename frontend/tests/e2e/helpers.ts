@@ -122,7 +122,9 @@ export async function seedLocalStorage(
                 ? (parsedRecord.state as Record<string, unknown>)
                 : {},
             version:
-              typeof parsedRecord.version === "number" ? parsedRecord.version : 0,
+              typeof parsedRecord.version === "number"
+                ? parsedRecord.version
+                : 0,
           };
         }
       } catch {
@@ -413,9 +415,7 @@ export async function createCallableSection(
   return response.sectionId;
 }
 
-export async function getViewportBoundsForPlacement(
-  page: Page,
-): Promise<{
+export async function getViewportBoundsForPlacement(page: Page): Promise<{
   x: number;
   y: number;
   w: number;
@@ -425,7 +425,10 @@ export async function getViewportBoundsForPlacement(
     const bounds = await page.evaluate(async () => {
       const pane = document.querySelector(".react-flow__pane");
       const viewport = document.querySelector(".react-flow__viewport");
-      if (!(pane instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
+      if (
+        !(pane instanceof HTMLElement) ||
+        !(viewport instanceof HTMLElement)
+      ) {
         return null;
       }
       const paneRect = pane.getBoundingClientRect();
@@ -437,8 +440,7 @@ export async function getViewportBoundsForPlacement(
         ? overviewPane.getBoundingClientRect().width
         : 0;
       const { useLocalStorage } = await import("/src/state/definitions");
-      const storedOverviewWidth =
-        useLocalStorage.getState().overviewTrueWidth;
+      const storedOverviewWidth = useLocalStorage.getState().overviewTrueWidth;
       const overviewWidth = Number.isFinite(storedOverviewWidth)
         ? storedOverviewWidth
         : overviewDomWidth;
@@ -489,10 +491,7 @@ export async function postBackend<T>(
   return JSON.parse(text) as T;
 }
 
-export async function getBackend<T>(
-  page: Page,
-  path: string,
-): Promise<T | null> {
+async function getBackend<T>(page: Page, path: string): Promise<T | null> {
   const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`);
   const text = await response.text();
   if (!response.ok()) {

@@ -1,7 +1,4 @@
-import {
-  AgentRunStatusEnum,
-  type AgentRun,
-} from "utils/generatedTypes";
+import { AgentRunStatusEnum, type AgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   getRunInputNumber,
@@ -35,9 +32,7 @@ describe("agentRunUtils", () => {
       finishedAt: "2024-01-01T00:00:05Z",
     });
 
-    expect(getRunLastUpdatedMs(run)).toBe(
-      Date.parse("2024-01-01T00:00:20Z"),
-    );
+    expect(getRunLastUpdatedMs(run)).toBe(Date.parse("2024-01-01T00:00:20Z"));
   });
 
   it("falls back to finishedAt then startedAt when no valid events exist", () => {
@@ -47,9 +42,7 @@ describe("agentRunUtils", () => {
       startedAt: "2024-01-01T00:00:01Z",
     });
 
-    expect(getRunLastUpdatedMs(run)).toBe(
-      Date.parse("2024-01-01T00:00:15Z"),
-    );
+    expect(getRunLastUpdatedMs(run)).toBe(Date.parse("2024-01-01T00:00:15Z"));
   });
 
   it("returns 0 when no timestamps parse", () => {

@@ -1,7 +1,10 @@
 import { ChatRoleEnum, createMessageTextContent } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { buildMessageBranchInfo } from "./aiBranches";
-import { buildBranchIndexFromBranches, buildEditedMessageHistory } from "./chatBranches";
+import {
+  buildBranchIndexFromBranches,
+  buildEditedMessageHistory,
+} from "./chatBranches";
 
 describe("chatBranches", () => {
   it("truncates history and replaces edited message", () => {

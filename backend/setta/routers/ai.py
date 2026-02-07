@@ -313,9 +313,7 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(
                 status_code=404,
-                detail=(
-                    f"Message {x.branchFromMessageId} not found in chat history"
-                ),
+                detail=(f"Message {x.branchFromMessageId} not found in chat history"),
             ) from exc
     else:
         if x.chatId is not None:
