@@ -53,7 +53,9 @@ describe("safeSessionStorage", () => {
 
   it("returns sessionStorage when accessible", () => {
     const memory = buildMemoryStorage();
-    (globalThis as unknown as { window?: unknown }).window = { sessionStorage: memory };
+    (globalThis as unknown as { window?: unknown }).window = {
+      sessionStorage: memory,
+    };
     expect(typeof window).not.toBe("undefined");
 
     expect(safeSessionStorage()).toBe(memory);

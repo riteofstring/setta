@@ -8,7 +8,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Any
 
 from setta.launch import LaunchError

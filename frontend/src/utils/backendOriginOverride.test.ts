@@ -39,7 +39,10 @@ describe("applyBackendOriginOverrideFromUrl", () => {
         ) {
           this.state = state;
           if (typeof url === "string") {
-            windowStub.location.href = new URL(url, windowStub.location.href).toString();
+            windowStub.location.href = new URL(
+              url,
+              windowStub.location.href,
+            ).toString();
           }
         },
       },
