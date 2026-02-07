@@ -27,6 +27,10 @@ from setta.agentic.chat_view import (
     SCRIPTABLE_CHAT_RUN_TYPE,
 )
 from setta.agentic.store import list_agent_run_ids_by_metadata
+from setta.app.definition_diagnostics import (
+    build_app_capabilities,
+    validate_app_definition_payload,
+)
 from setta.app.spec_store import (
     default_app_spec_path,
     normalize_app_spec_path,
@@ -221,6 +225,8 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    ValidateAppDefinitionRequest,
+    ValidateAppDefinitionResponse,
 )
 from setta.project_state.watch_code import (
     WatchCodeManager,
@@ -1647,6 +1653,41 @@ class BaseProjectManager(ABC):
         if app_definition and app_definition.appSpecPath:
             app_spec = read_app_spec(self.dbe, app_definition.appSpecPath)
         return AppDefinitionResponse(appSpec=app_spec, appDefinition=app_definition)
+
+    @enqueue_method(require_serialization=False)
+    @project_state_tool()
+    async def validate_app_definition(
+        self, x: ValidateAppDefinitionRequest
+    ) -> ValidateAppDefinitionResponse:
+        """Validate an app spec + definition overrides without persisting them."""
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        updates: dict[str, JSONValue | str | None] = {}
+        if x.appSpecVersion is not None:
+            updates["appSpecVersion"] = x.appSpecVersion
+        if x.catalogId is not None:
+            updates["catalogId"] = x.catalogId
+        if x.routes is not None:
+            updates["routes"] = x.routes
+        if x.dataBindings is not None:
+            updates["dataBindings"] = x.dataBindings
+        if x.actions is not None:
+            updates["actions"] = x.actions
+        if x.theme is not None:
+            updates["theme"] = x.theme
+        if x.assets is not None:
+            updates["assets"] = x.assets
+
+        updated_definition = app_definition.model_copy(update=updates)
+        errors, warnings = validate_app_definition_payload(
+            x.appSpec, definition=updated_definition
+        )
+        capabilities = build_app_capabilities(updated_definition)
+        return ValidateAppDefinitionResponse(
+            errors=errors,
+            warnings=warnings,
+            capabilities=capabilities,
+        )
 
     @enqueue_method
     @project_state_tool()

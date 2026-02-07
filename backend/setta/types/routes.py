@@ -148,6 +148,7 @@ class Route(str, Enum):
     GET_APP_DEFINITION = "/getAppDefinition"
     SET_APP_DEFINITION = "/setAppDefinition"
     UPDATE_APP_DEFINITION = "/updateAppDefinition"
+    VALIDATE_APP_DEFINITION = "/validateAppDefinition"
     GET_APP_CATALOG = "/getAppCatalog"
     LIST_APP_COMPONENTS = "/listAppComponents"
     SET_PROMPT_TEMPLATE = "/setPromptTemplate"

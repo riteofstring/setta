@@ -5,6 +5,7 @@ from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
     SetAppDefinitionRequest,
     UpdateAppDefinitionRequest,
+    ValidateAppDefinitionRequest,
 )
 
 from tests.utils.manager_fixture import real_project_manager
@@ -117,3 +118,83 @@ class TestAppDefinitionProjectManager:
                 await fixture.manager.update_app_definition(
                     UpdateAppDefinitionRequest(patch={"root": {"type": "Nope"}})
                 )
+
+    async def test_validate_app_definition_returns_capabilities(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(appSpec=payload)
+            )
+
+        assert response.errors == []
+        assert response.capabilities.catalogId == "setta.app.default"
+        assert response.capabilities.catalogVersion == "v1"
+        assert response.capabilities.appSpecVersion
+        assert response.capabilities.themeSchemaVersion
+
+    async def test_validate_app_definition_reports_unknown_component(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "UnknownComponent"},
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(appSpec=payload)
+            )
+
+        assert response.errors
+        assert "unknown component" in response.errors[0].message.lower()
+
+    async def test_validate_app_definition_warns_on_run_missing_section_id(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {
+                    "key": "run-btn",
+                    "type": "ActionButton",
+                    "props": {"label": "Run", "action": "run"},
+                },
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(appSpec=payload)
+            )
+
+        assert response.errors == []
+        assert any("missing sectionId" in w.message for w in response.warnings)
+        assert any(w.elementKey == "run-btn" for w in response.warnings)
+
+    async def test_validate_app_definition_warns_on_ignored_theme_vars(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(
+                    appSpec=payload,
+                    theme={"vars": {"accent": "#fff", "--app-accent": "#fff"}},
+                )
+            )
+
+        assert response.errors == []
+        assert any("theme.vars" in w.message for w in response.warnings)
+        assert any("accent" in w.message for w in response.warnings)
+
+    async def test_validate_app_definition_warns_on_external_assets(self) -> None:
+        async with real_project_manager() as fixture:
+            payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            response = await fixture.manager.validate_app_definition(
+                ValidateAppDefinitionRequest(
+                    appSpec=payload,
+                    assets=[{"rel": "stylesheet", "href": "https://example.com/app.css"}],
+                )
+            )
+
+        assert response.errors == []
+        assert any("external urls" in w.message.lower() for w in response.warnings)

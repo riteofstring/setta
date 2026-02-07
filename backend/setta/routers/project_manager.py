@@ -129,6 +129,8 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    ValidateAppDefinitionRequest,
+    ValidateAppDefinitionResponse,
 )
 from setta.routers.dependencies import (
     ReadyAppStateFromRequest as AppStateFromRequest,
@@ -625,6 +627,17 @@ async def route_get_app_definition(
     if manager is None:
         raise HTTPException(status_code=404, detail="Project manager not available.")
     return await manager.get_app_definition(x)
+
+
+@router.post(Route.VALIDATE_APP_DEFINITION)
+async def route_validate_app_definition(
+    x: ValidateAppDefinitionRequest, ctx: RuntimeContextFromRequest
+) -> ValidateAppDefinitionResponse:
+    await _deny_share_mode_structural(ctx)
+    manager = ctx.state.project_manager_switcher.main
+    if manager is None:
+        raise HTTPException(status_code=404, detail="Project manager not available.")
+    return await manager.validate_app_definition(x)
 
 
 @router.post(Route.SET_APP_DEFINITION)

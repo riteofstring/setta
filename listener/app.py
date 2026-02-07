@@ -10,4 +10,3 @@ def build_listener(listener: SettaListener) -> None:
         await ctx.emit_to_frontend(
             dependency_values={"app_output": f"The value is {math.sqrt(x)}"}
         )
-

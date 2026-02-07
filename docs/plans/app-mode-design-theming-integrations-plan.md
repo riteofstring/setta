@@ -33,10 +33,11 @@ Implemented (or mostly implemented):
 - Portal theming in App mode (combobox/dropdowns inherit theme variables + dark class).
 - Layout primitives (`Box`, `Grid`, `Container`, `Spacer`) and catalog support for CSS dimension strings on key layout props (e.g. `"1rem"`, `"clamp(...)"`).
 - App Config error UX: surface backend validation detail on save/load failures (instead of generic errors).
+- App validation endpoint + UI: `validateAppDefinition` returns `{errors[], warnings[], capabilities}` and App Config exposes a `Validate` action.
 
 Not implemented yet (future work, integrations deferred):
 
-- Structured validator output (`errors[]`, `warnings[]`) and a dedicated `capabilities` payload for AI tooling.
+- Richer validator output: multi-error accumulation (avoid fast-fail), more warning categories, and schema/capability negotiation for future theme/spec versions.
 - Responsive schema (breakpoint-based `responsive` props or container-query variants in the catalog).
 - Motion primitives (catalog-defined animations and motion tokens).
 

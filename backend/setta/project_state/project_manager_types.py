@@ -11,6 +11,7 @@ from setta.types.agentic_edges import (
     AgenticEdgeKind,
 )
 from setta.types.app_definition import AppDefinition, AppRoute
+from setta.types.app_validation import AppCapabilities, AppValidationIssue
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
 from setta.types.chat_messages import JSONValue
@@ -596,6 +597,46 @@ class SetAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
         default=None,
         description="Optional asset list for the app.",
     )
+
+
+class ValidateAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
+    """Validate an app spec + definition overrides without persisting them."""
+
+    appSpec: JSONValue = Field(description="Full JSON app spec to validate.")
+    appSpecVersion: str | None = Field(
+        default=None,
+        description="Optional app spec version override.",
+    )
+    catalogId: str | None = Field(
+        default=None,
+        description="Optional catalog id override for the app spec.",
+    )
+    routes: list[AppRoute] | None = Field(
+        default=None,
+        description="Optional route definitions for the app.",
+    )
+    dataBindings: dict[str, JSONValue] | None = Field(
+        default=None,
+        description="Optional data binding overrides for the app.",
+    )
+    actions: dict[str, JSONValue] | None = Field(
+        default=None,
+        description="Optional action map overrides for the app.",
+    )
+    theme: dict[str, JSONValue] | None = Field(
+        default=None,
+        description="Optional theme overrides for the app.",
+    )
+    assets: list[JSONValue] | None = Field(
+        default=None,
+        description="Optional asset list for the app.",
+    )
+
+
+class ValidateAppDefinitionResponse(BaseModel, extra="forbid"):
+    errors: list[AppValidationIssue] = Field(default_factory=list)
+    warnings: list[AppValidationIssue] = Field(default_factory=list)
+    capabilities: AppCapabilities
 
 
 class UpdateAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):

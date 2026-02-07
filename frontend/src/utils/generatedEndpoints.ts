@@ -815,6 +815,12 @@ export async function route_get_app_definition(
   return await post("/getAppDefinition", x);
 }
 
+export async function route_validate_app_definition(
+  x: gt.ValidateAppDefinitionRequestInput,
+): Promise<ResponseDataAndStatus<gt.ValidateAppDefinitionResponse>> {
+  return await post("/validateAppDefinition", x);
+}
+
 export async function route_set_app_definition(
   x: gt.SetAppDefinitionRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AppDefinitionResponse>> {

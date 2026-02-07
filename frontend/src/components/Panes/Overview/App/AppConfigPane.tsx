@@ -15,6 +15,7 @@ import {
   route_get_app_catalog,
   route_get_app_definition,
   route_set_app_definition,
+  route_validate_app_definition,
 } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
@@ -318,7 +319,19 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
   const [appSpecPath, setAppSpecPath] = useState("");
   const [themeMode, setThemeMode] = useState<AppThemeMode>(DEFAULT_THEME_MODE);
   const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<{
+    errors: Array<{ message: string }>;
+    warnings: Array<{ message: string; elementKey?: string | null }>;
+    capabilities: {
+      catalogId: string;
+      catalogVersion: string;
+      appSpecVersion: string;
+      themeSchemaVersion: string;
+      features: Record<string, boolean>;
+    };
+  } | null>(null);
 
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
 
@@ -460,6 +473,74 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
     addTemporaryNotification("App spec saved.");
   }
 
+  async function handleValidate() {
+    setErrorMessage(null);
+    setValidationResult(null);
+    let parsed: AppSpecPayload | null = null;
+    try {
+      parsed = JSON.parse(draftSpec) as AppSpecPayload;
+    } catch (err) {
+      setErrorMessage("Invalid JSON in app spec.");
+      return;
+    }
+    let parsedTheme: Record<string, unknown> | null = null;
+    if (draftTheme.trim().length > 0) {
+      try {
+        const rawTheme = JSON.parse(draftTheme) as unknown;
+        if (!isRecord(rawTheme)) {
+          setErrorMessage("Theme JSON must be an object.");
+          return;
+        }
+        parsedTheme = rawTheme;
+      } catch (err) {
+        setErrorMessage("Invalid JSON in theme.");
+        return;
+      }
+    }
+    const themePayload = {
+      ...(parsedTheme ?? {}),
+      mode: themeMode,
+    };
+
+    let parsedAssets: unknown[] | null = [];
+    if (draftAssets.trim().length > 0) {
+      try {
+        const rawAssets = JSON.parse(draftAssets) as unknown;
+        if (!Array.isArray(rawAssets)) {
+          setErrorMessage("Assets JSON must be a list.");
+          return;
+        }
+        parsedAssets = rawAssets;
+      } catch (err) {
+        setErrorMessage("Invalid JSON in assets.");
+        return;
+      }
+    }
+
+    setValidating(true);
+    const res = await route_validate_app_definition({
+      appSpec: parsed,
+      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+      theme: themePayload,
+      assets: parsedAssets ?? undefined,
+    });
+    setValidating(false);
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      setErrorMessage(detail ?? "Failed to validate app spec.");
+      return;
+    }
+    setValidationResult(res.data);
+    if (res.data.errors.length === 0) {
+      addTemporaryNotification(
+        res.data.warnings.length > 0
+          ? `Validation passed with ${res.data.warnings.length} warning(s).`
+          : "Validation passed.",
+      );
+    }
+  }
+
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4 pr-2 text-sm text-setta-600 dark:text-setta-300">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -494,6 +575,49 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
       {errorMessage && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
           {errorMessage}
+        </div>
+      )}
+
+      {validationResult && (
+        <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Validation
+            </span>
+            <span className="text-[11px] text-setta-500 dark:text-setta-400">
+              {validationResult.errors.length} error(s),{" "}
+              {validationResult.warnings.length} warning(s)
+            </span>
+          </div>
+          {validationResult.errors.length > 0 && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
+              <div className="font-semibold">Errors</div>
+              <ul className="mt-1 list-disc pl-4">
+                {validationResult.errors.map((err, idx) => (
+                  <li key={`${idx}-${err.message}`}>{err.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {validationResult.warnings.length > 0 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/70 dark:bg-amber-900/30 dark:text-amber-200">
+              <div className="font-semibold">Warnings</div>
+              <ul className="mt-1 list-disc pl-4">
+                {validationResult.warnings.map((warn, idx) => (
+                  <li key={`${idx}-${warn.message}`}>
+                    {warn.message}
+                    {warn.elementKey ? ` (element ${warn.elementKey})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="text-[11px] text-setta-500 dark:text-setta-400">
+            Capabilities: {validationResult.capabilities.catalogId}{" "}
+            {validationResult.capabilities.catalogVersion
+              ? `(${validationResult.capabilities.catalogVersion})`
+              : ""}
+          </div>
         </div>
       )}
 
@@ -577,9 +701,16 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
               Create Default
             </button>
             <button
+              className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              onClick={() => void handleValidate()}
+              disabled={loading || validating || !hasDraft}
+            >
+              {validating ? "Validating..." : "Validate"}
+            </button>
+            <button
               className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void handleSave()}
-              disabled={loading || !hasDraft}
+              disabled={loading || validating || !hasDraft}
             >
               {loading ? "Saving..." : "Save"}
             </button>
@@ -593,7 +724,10 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
               : "No app spec yet. Create or generate one."
           }
           value={draftSpec}
-          onChange={(event) => setDraftSpec(event.target.value)}
+          onChange={(event) => {
+            setDraftSpec(event.target.value);
+            setValidationResult(null);
+          }}
         />
       </div>
 
@@ -609,7 +743,10 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           className="min-h-[160px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
           placeholder='{"mode":"dark","vars":{"--app-accent":"#ff006e"}}'
           value={draftTheme}
-          onChange={(event) => setDraftTheme(event.target.value)}
+          onChange={(event) => {
+            setDraftTheme(event.target.value);
+            setValidationResult(null);
+          }}
         />
       </div>
 
@@ -625,7 +762,10 @@ export function formatSectionsForAppPrompt(state: ZustandProjectState) {
           className="min-h-[120px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
           placeholder='[{"rel":"stylesheet","href":"/static/app.css"}]'
           value={draftAssets}
-          onChange={(event) => setDraftAssets(event.target.value)}
+          onChange={(event) => {
+            setDraftAssets(event.target.value);
+            setValidationResult(null);
+          }}
         />
       </div>
     </section>
