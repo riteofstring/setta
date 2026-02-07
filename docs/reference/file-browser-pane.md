@@ -16,7 +16,8 @@ it opens files into Code sections.
   path autocompletion can reuse the same root metadata.
 - Default ignore patterns include `.git`, `node_modules`, `.venv`, `dist`, `build`,
   `__pycache__`, and `setta_files`.
-- The root defaults to the backend CWD and must stay inside the project root. Attempts
+- The root defaults to the workspace root (which defaults to the backend CWD when
+  no workspace override is provided) and must stay inside the project root. Attempts
   to browse outside the project root fail with a 403.
 - The pane currently does not expose a root-path input; consumers change the root by
   updating file browser state.
