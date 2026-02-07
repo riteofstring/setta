@@ -62,7 +62,8 @@ def launch_workspace_session(
     session = _wait_for_session(
         registry,
         paths.workspace_root,
-        process,
+        process.process,
+        process.log_path,
         timeout_seconds=timeout_seconds,
         poll_interval_seconds=poll_interval_seconds,
     )
@@ -74,7 +75,13 @@ def launch_workspace_session(
     )
 
 
-def _start_setta_process(paths: SettaPaths) -> subprocess.Popen[str]:
+@dataclass(frozen=True)
+class _LaunchProcess:
+    process: subprocess.Popen[str]
+    log_path: Path
+
+
+def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
     cmd = [
         sys.executable,
         "-m",
@@ -85,18 +92,27 @@ def _start_setta_process(paths: SettaPaths) -> subprocess.Popen[str]:
         "--files-root",
         str(paths.setta_files_root),
     ]
-    return subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
+    log_dir = paths.runtime_logs_root
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "launch.log"
+    handle = log_path.open("w", encoding="utf-8")
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=handle,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    finally:
+        handle.close()
+    return _LaunchProcess(process=process, log_path=log_path)
 
 
 def _wait_for_session(
     registry: SessionRegistry,
     workspace_root: Path,
     process: subprocess.Popen[str],
+    log_path: Path,
     *,
     timeout_seconds: float,
     poll_interval_seconds: float,
@@ -107,12 +123,14 @@ def _wait_for_session(
         if sessions:
             return max(sessions, key=lambda entry: entry.startedAt)
         if process.poll() is not None:
-            stdout, stderr = process.communicate(timeout=0)
-            details = (stderr or stdout or "").strip()
+            details = _read_log_tail(log_path)
             message = details or "Setta exited before session startup completed."
             raise LaunchError("LaunchFailed", message)
         if time.monotonic() >= deadline:
-            raise LaunchError("LaunchTimeout", "Timed out waiting for Setta to launch.")
+            raise LaunchError(
+                "LaunchTimeout",
+                f"Timed out waiting for Setta to launch. Check logs at: {log_path}",
+            )
         time.sleep(poll_interval_seconds)
 
 
@@ -124,3 +142,13 @@ def _validate_optional_dir(
     path = Path(raw_path).expanduser()
     if path.exists() and not path.is_dir():
         raise LaunchError(code, f"{label} is not a directory: {path}")
+
+
+def _read_log_tail(log_path: Path, *, max_bytes: int = 8000) -> str:
+    try:
+        data = log_path.read_bytes()
+    except OSError:
+        return ""
+    if len(data) > max_bytes:
+        data = data[-max_bytes:]
+    return data.decode("utf-8", errors="replace").strip()

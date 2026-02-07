@@ -85,8 +85,22 @@ def _resolve_cli_paths(
         files_root_base=files_root_base,
     )
     if validate:
-        validate_workspace_root(paths.workspace_root)
+        try:
+            validate_workspace_root(paths.workspace_root)
+        except ValueError as exc:
+            # Click should render a clean message without an exception traceback.
+            raise click.ClickException(str(exc)) from exc
+        _validate_optional_dir(files_root, label="files root")
+        _validate_optional_dir(files_root_base, label="files root base")
     return paths
+
+
+def _validate_optional_dir(raw_path: Path | str | None, *, label: str) -> None:
+    if raw_path is None:
+        return
+    path = Path(raw_path).expanduser()
+    if path.exists() and not path.is_dir():
+        raise click.ClickException(f"{label} is not a directory: {path}")
 
 
 def _apply_paths_to_env(paths) -> None:
@@ -331,21 +345,36 @@ def _run_remote_setta_command(
     )
 
 
+def _build_remote_files_root_args(
+    *,
+    files_root: Path | None,
+    files_root_base: Path | None,
+) -> str:
+    args: list[str] = []
+    if files_root is not None:
+        args.append(f"--files-root {shlex.quote(str(files_root))}")
+    if files_root_base is not None:
+        args.append(f"--files-root-base {shlex.quote(str(files_root_base))}")
+    return " ".join(args)
+
+
 def _fetch_remote_sessions(
     ssh_target: str,
     ssh_args: list[str],
     shell: str,
     workspace: str,
     setta_command: str,
+    files_root_args: str,
 ) -> list[RemoteSessionSummary]:
     quoted_workspace = shlex.quote(workspace)
+    root_prefix = f"{files_root_args} " if files_root_args else ""
     result = _run_remote_setta_command(
         ssh_target,
         ssh_args,
         shell,
         workspace,
         setta_command,
-        f"status --list-sessions --json --workspace {quoted_workspace}",
+        f"{root_prefix}status --list-sessions --json --workspace {quoted_workspace}",
         capture_output=True,
     )
     if result.returncode != 0:
@@ -362,11 +391,13 @@ def _fetch_remote_connect_info(
     shell: str,
     workspace: str,
     setta_command: str,
+    files_root_args: str,
     session_id: str | None,
     latest: bool,
 ) -> dict:
     quoted_workspace = shlex.quote(workspace)
-    args = f"status --connect-info --json --workspace {quoted_workspace}"
+    root_prefix = f"{files_root_args} " if files_root_args else ""
+    args = f"{root_prefix}status --connect-info --json --workspace {quoted_workspace}"
     if session_id:
         args += f" --session {shlex.quote(session_id)}"
     elif latest:
@@ -393,15 +424,17 @@ def _delete_remote_session(
     shell: str,
     workspace: str,
     setta_command: str,
+    files_root_args: str,
     session_id: str,
 ) -> None:
+    root_prefix = f"{files_root_args} " if files_root_args else ""
     result = _run_remote_setta_command(
         ssh_target,
         ssh_args,
         shell,
         workspace,
         setta_command,
-        f"status --delete-session {shlex.quote(session_id)}",
+        f"{root_prefix}status --delete-session {shlex.quote(session_id)}",
         capture_output=True,
     )
     if result.returncode != 0:
@@ -416,6 +449,7 @@ def _start_remote_setta(
     shell: str,
     workspace: str,
     setta_command: str,
+    files_root_args: str,
     verbose: bool = False,
 ) -> None:
     runner = None
@@ -427,9 +461,14 @@ def _start_remote_setta(
         raise click.ClickException(
             "Remote host missing nohup/setsid for background start. Use --remote-cmd."
         )
-    remote_logs_dir = _format_remote_path(C.RUNTIME_LOGS_FOLDER)
+    # Use a workspace-relative default so we never attempt to create a local
+    # absolute path on the remote machine.
+    remote_logs_dir = "setta_files/runtime/logs"
     remote_log_file = f"{remote_logs_dir}/nohup.out"
-    start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} --no-open"
+    root_prefix = f"{files_root_args} " if files_root_args else ""
+    start_cmd = (
+        f"cd {shlex.quote(workspace)} && {setta_command} {root_prefix}--no-open"
+    )
     quoted_start = shlex.quote(start_cmd)
     if runner == "nohup":
         launch = (
@@ -492,6 +531,7 @@ def _wait_for_remote_session(
     shell: str,
     workspace: str,
     setta_command: str,
+    files_root_args: str,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
 ) -> RemoteSessionSummary:
@@ -500,7 +540,7 @@ def _wait_for_remote_session(
     while True:
         attempt += 1
         sessions = _fetch_remote_sessions(
-            ssh_target, ssh_args, shell, workspace, setta_command
+            ssh_target, ssh_args, shell, workspace, setta_command, files_root_args
         )
         if verbose:
             click.echo(
@@ -1664,7 +1704,9 @@ def api(
 @click.option("--all", "stop_all", is_flag=True)
 @click.option("--ssh-args", default=None)
 @click.option("--remote-cmd", default=None)
+@click.pass_context
 def stop(
+    ctx: click.Context,
     ssh_target: str | None,
     workspace: str,
     session_id: str | None,
@@ -1691,6 +1733,11 @@ def stop(
             click.echo(f"Stopped session {session.id}.")
         return
 
+    params = ctx.obj or {}
+    files_root_args = _build_remote_files_root_args(
+        files_root=params.get("files_root"),
+        files_root_base=params.get("files_root_base"),
+    )
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
     shell = _resolve_remote_shell(ssh_target, ssh_args_list)
     remote_workspace = _resolve_remote_workspace(
@@ -1700,7 +1747,12 @@ def stop(
         ssh_target, ssh_args_list, shell, remote_workspace, remote_cmd
     )
     sessions = _fetch_remote_sessions(
-        ssh_target, ssh_args_list, shell, remote_workspace, setta_command
+        ssh_target,
+        ssh_args_list,
+        shell,
+        remote_workspace,
+        setta_command,
+        files_root_args,
     )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1712,6 +1764,7 @@ def stop(
             shell,
             remote_workspace,
             setta_command,
+            files_root_args,
             session.id,
         )
         click.echo(f"Stopped session {session.id}.")
@@ -1729,7 +1782,9 @@ def stop(
 @click.option("--print-only", is_flag=True)
 @click.option("--no-open", is_flag=True)
 @click.option("--verbose", is_flag=True)
+@click.pass_context
 def connect(
+    ctx: click.Context,
     ssh_target: str,
     workspace: str,
     session_id: str | None,
@@ -1746,6 +1801,12 @@ def connect(
         raise click.ClickException("Use either --session or --latest, not both.")
     if detach and print_only:
         raise click.ClickException("Use either --detach or --print-only, not both.")
+
+    params = ctx.obj or {}
+    files_root_args = _build_remote_files_root_args(
+        files_root=params.get("files_root"),
+        files_root_base=params.get("files_root_base"),
+    )
 
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
     if verbose:
@@ -1767,7 +1828,12 @@ def connect(
         click.echo(f"Remote Setta command: {setta_command}")
 
     sessions = _fetch_remote_sessions(
-        ssh_target, ssh_args_list, shell, remote_workspace, setta_command
+        ssh_target,
+        ssh_args_list,
+        shell,
+        remote_workspace,
+        setta_command,
+        files_root_args,
     )
     if verbose:
         click.echo(f"Remote sessions found: {len(sessions)}")
@@ -1800,6 +1866,7 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
+                        files_root_args,
                         target.id,
                     )
                     sessions = _fetch_remote_sessions(
@@ -1808,6 +1875,7 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
+                        files_root_args,
                     )
                     if not sessions:
                         break
@@ -1830,6 +1898,7 @@ def connect(
             shell,
             remote_workspace,
             setta_command,
+            files_root_args,
             verbose=verbose,
         )
         selected_session = _wait_for_remote_session(
@@ -1838,6 +1907,7 @@ def connect(
             shell,
             remote_workspace,
             setta_command,
+            files_root_args,
             verbose=verbose,
         )
 
@@ -1852,6 +1922,7 @@ def connect(
         shell,
         remote_workspace,
         setta_command,
+        files_root_args,
         session_id=selected_session.id,
         latest=False,
     )
