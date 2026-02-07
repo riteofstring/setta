@@ -304,6 +304,31 @@ export async function createChatSection(
   return { sectionId: created.sectionId, sectionName };
 }
 
+export async function createTextBlockSection(
+  page: Page,
+  projectConfigId: string,
+  baseName: string,
+): Promise<{ sectionId: string; sectionName: string }> {
+  const sectionName = `${baseName}-${Date.now()}`;
+  const created = await postBackend<CreateSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "TextBlock",
+    },
+  );
+  if (!created?.sectionId) {
+    throw new Error("Missing sectionId when creating text block section.");
+  }
+  await postBackend(page, "/setSectionName", {
+    projectConfigId,
+    sectionId: created.sectionId,
+    name: sectionName,
+  });
+  return { sectionId: created.sectionId, sectionName };
+}
+
 export async function setChatSectionState(
   page: Page,
   payload: {
