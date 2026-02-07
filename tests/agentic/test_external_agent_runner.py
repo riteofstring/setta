@@ -14,7 +14,6 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
     ExternalAgentRunHandle,
 )
-from setta.auth.cookies import auth_cookie_name
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
@@ -1939,7 +1938,7 @@ class TestExternalAgentRunnerMcpAuth:
                     cookie = None
                 assert isinstance(cookie, str)
                 if isinstance(cookie, str):
-                    assert cookie.startswith(f"{auth_cookie_name(session_id)}=")
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_opencode_config_includes_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1968,7 +1967,7 @@ class TestExternalAgentRunnerMcpAuth:
                     cookie = None
                 assert isinstance(cookie, str)
                 if isinstance(cookie, str):
-                    assert cookie.startswith(f"{auth_cookie_name(session_id)}=")
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_codex_config_includes_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -2008,7 +2007,7 @@ class TestExternalAgentRunnerMcpAuth:
                     cookie = None
                 assert isinstance(cookie, str)
                 if isinstance(cookie, str):
-                    assert cookie.startswith(f"{auth_cookie_name(session_id)}=")
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_assistant_payload_persists_tool_calls(self) -> None:
         async def _run() -> None:

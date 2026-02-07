@@ -26,7 +26,6 @@ from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
-from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.logging.config import configure_logging
@@ -158,18 +157,17 @@ async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
     async with create_mcp_http_client() as client:
         response = await client.post(consume_url, json={"token": token})
         response.raise_for_status()
-    cookies = list(response.cookies.jar)
-    if not cookies:
+    cookie_value = response.cookies.get(C.AUTH_COOKIE_NAME)
+    if not cookie_value:
         raise ValueError("Bootstrap response did not include auth cookie.")
-    cookie = cookies[0]
-    return f"{cookie.name}={cookie.value}"
+    return cookie_value
 
 
 async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
     token = _resolve_bridge_token(config)
     if token:
-        cookie_header = await _consume_bootstrap_token(config.backend_url, token)
-        return {"Cookie": cookie_header}
+        cookie_value = await _consume_bootstrap_token(config.backend_url, token)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
     session_info = load_current_session_secret()
     if session_info is None:
         raise ValueError(
@@ -178,7 +176,7 @@ async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
         )
     session_metadata, secret = session_info
     cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+    return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
 
 @dataclass
@@ -467,7 +465,7 @@ class MultiMCPClient:
             return None
         session_metadata, secret = session_info
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)

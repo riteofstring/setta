@@ -7,7 +7,7 @@ from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
-from setta.utils.paths import normalize_workspace_path
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -38,7 +38,7 @@ class DotEnvWatcher:
         async def fn(_core_update: FileWatcherCoreUpdate):
             await self._reload_from_disk()
 
-        normalized_path = normalize_workspace_path(self.dbe.dot_env)
+        normalized_path = normalize_path(self.dbe.dot_env)
         callbacks: CallbacksDict = {normalized_path: fn}
         self.specific_file_watcher.update_callbacks(
             callbacks,

@@ -9,7 +9,7 @@ import {
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
-const AUTH_COOKIE_PREFIX = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
+const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
@@ -368,11 +368,7 @@ async function hasAuthCookie(page: Page): Promise<boolean> {
   const cookies = await page
     .context()
     .cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some(
-    (cookie) =>
-      cookie.name === AUTH_COOKIE_PREFIX ||
-      cookie.name.startsWith(`${AUTH_COOKIE_PREFIX}_`),
-  );
+  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
 }
 
 function resolveProjectUrl(): string {

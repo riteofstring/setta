@@ -4,7 +4,11 @@ from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+import setta.file_watchers.lsp as lsp_file_watcher
+import setta.file_watchers.specific_file_watcher as specific_file_watcher
+import setta.project_state.watch_code as watch_code
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -34,8 +38,14 @@ from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
+from watchdog.observers.polling import PollingObserver
 
-from tests.utils.setta_paths import temporary_setta_paths
+# The default macOS watchdog observer uses FSEvents, which is flaky/unsupported in
+# some sandboxed test environments. Polling keeps tests deterministic.
+specific_file_watcher.Observer = PollingObserver
+lsp_file_watcher.Observer = PollingObserver
+watch_code.Observer = PollingObserver
+
 __all__ = [
     "ProjectManagerFixture",
     "SettingsManagerFixture",
@@ -95,12 +105,10 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             path.mkdir(parents=True, exist_ok=True)
 
         async with AsyncExitStack() as stack:
-            stack.enter_context(
-                temporary_setta_paths(
-                    workspace_root=root,
-                    setta_files_root=setta_root,
-                )
-            )
+            stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
+            stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
+            stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
+            stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
@@ -192,12 +200,10 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         _seed_minimal_setta_files(setta_root)
 
         async with AsyncExitStack() as stack:
-            stack.enter_context(
-                temporary_setta_paths(
-                    workspace_root=root,
-                    setta_files_root=setta_root,
-                )
-            )
+            stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
+            stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
+            stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
+            stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
