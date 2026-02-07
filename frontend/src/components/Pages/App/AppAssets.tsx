@@ -10,6 +10,16 @@ type NormalizedAsset = {
   crossOrigin?: string;
 };
 
+const EXTERNAL_HREF_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+
+function isExternalHref(href: string): boolean {
+  const trimmed = href.trim();
+  if (trimmed.startsWith("//")) {
+    return true;
+  }
+  return EXTERNAL_HREF_RE.test(trimmed);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -69,12 +79,28 @@ function normalizeAssets(assets: unknown): NormalizedAsset[] {
   return output;
 }
 
+export function resolveAppAssets(
+  assets: unknown,
+  options: { allowExternalLinks: boolean },
+): NormalizedAsset[] {
+  const normalized = normalizeAssets(assets);
+  if (options.allowExternalLinks) {
+    return normalized;
+  }
+  return normalized.filter((asset) => !isExternalHref(asset.href));
+}
+
 export function AppAssets({
   assets,
+  allowExternalLinks = false,
 }: {
   assets: unknown[] | null | undefined;
+  allowExternalLinks?: boolean;
 }) {
-  const normalized = useMemo(() => normalizeAssets(assets), [assets]);
+  const normalized = useMemo(
+    () => resolveAppAssets(assets, { allowExternalLinks }),
+    [assets, allowExternalLinks],
+  );
 
   useEffect(() => {
     if (typeof document === "undefined") {

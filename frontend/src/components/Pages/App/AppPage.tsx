@@ -172,7 +172,10 @@ export function AppPage() {
       className={`flex min-h-0 flex-1 flex-col ${themeModeClassName} ${themeClassName}`.trim()}
       style={resolvedTheme.style as CSSProperties}
     >
-      <AppAssets assets={appDefinition?.assets ?? null} />
+      <AppAssets
+        assets={appDefinition?.assets ?? null}
+        allowExternalLinks={appPolicy?.allowExternalLinks ?? false}
+      />
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[color:var(--app-border)] bg-[color:var(--app-header-bg)] px-6 py-4">
         <div className="flex flex-col gap-1">
           <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--app-muted)]">
