@@ -146,6 +146,7 @@ async def route_run_code(
     share_session_id = ctx.share_session_id
     manager = ctx.get_project_manager(x.projectConfigId)
     await ctx.enforce_run_allowed()
+    await ctx.enforce_multiple_runs_allowed()
     await run_code(
         x,
         manager,
@@ -153,6 +154,8 @@ async def route_run_code(
         ctx.state.wmh_cli_sender,
         share_session_id=share_session_id,
     )
+    if ctx.share_mode and share_session_id is not None:
+        ctx.state.share_runtime_state.increment_session_run_count(share_session_id)
 
     await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "Started command",

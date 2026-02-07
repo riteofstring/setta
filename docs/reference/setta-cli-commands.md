@@ -1,12 +1,9 @@
 # Setta CLI Commands
 
 This doc covers the commands exposed by the `setta` CLI (implemented in
-`backend/setta/start.py`). Local commands operate on a workspace root (code
-operations) and a `setta_files` root (state/runtime). By default both roots
-follow the current working directory, but you can override them with
-`--workspace`, `--files-root`, `--files-root-base` or the corresponding env vars.
-Run `setta`, `setta status`, or `setta stop` from the workspace you want to manage
-when you are not passing explicit roots. `setta connect` can be run from anywhere
+`backend/setta/start.py`). Local commands read/write `setta_files/` in the
+current working directory, so run `setta`, `setta status`, or `setta stop`
+from the workspace you want to manage. `setta connect` can be run from anywhere
 because it targets a remote workspace via `--workspace`.
 
 There are two types of CLI commands: local commands that operate on the
@@ -22,7 +19,6 @@ another host.
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
 | `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
-| `setta launch` | yes | no | Start (or reuse) a local session and emit bootstrap JSON. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -37,11 +33,6 @@ Options:
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
-- `--workspace PATH` sets the workspace root (code operations).
-- `--files-root PATH` sets the `setta_files` root explicitly.
-- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
-Env equivalents:
-`SETTA_WORKSPACE_ROOT`, `SETTA_FILES_ROOT`, and `SETTA_FILES_ROOT_BASE`.
 
 Examples:
 ```sh
@@ -115,7 +106,6 @@ JSON output schema:
   "session": {
     "id": "...",
     "workspacePath": "...",
-    "workspacePathCanonical": "...",
     "host": "127.0.0.1",
     "port": 8000,
     "pid": 12345,
@@ -130,47 +120,6 @@ JSON output schema:
 Example:
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
-```
-
-## `setta launch`
-
-Starts or reuses a local session for a workspace and emits JSON output that the
-frontend can consume. This command requires `--json`.
-
-Options:
-- `--workspace PATH` sets the workspace root (required for detached workspaces).
-- `--files-root PATH` sets the `setta_files` root explicitly.
-- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
-- `--timeout SECONDS` overrides the default launch timeout (30s).
-- `--json` emits strict JSON only (required).
-
-Success payload:
-```json
-{
-  "ok": true,
-  "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
-  "workspaceRoot": "/path/to/workspace",
-  "filesRoot": "/path/to/setta_files",
-  "sessionId": "...",
-  "startedNew": true,
-  "session": {
-    "id": "...",
-    "workspacePath": "...",
-    "workspacePathCanonical": "...",
-    "host": "127.0.0.1",
-    "port": 8000,
-    "pid": 12345,
-    "startedAt": "2025-01-01T12:00:00.000000"
-  }
-}
-```
-
-Error payload:
-```json
-{
-  "ok": false,
-  "error": { "code": "InvalidWorkspace", "message": "..." }
-}
 ```
 
 ## `setta tools`

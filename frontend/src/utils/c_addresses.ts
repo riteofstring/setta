@@ -1,32 +1,40 @@
 import { C } from "utils/c";
-import {
-  normalizeOrigin,
-  readBackendOriginOverrideFromStorage,
-} from "utils/backendOriginOverride";
 import { RouteEnum } from "utils/generatedTypes";
 
 export class C_ADDRESSES {
   static DEV_MODE = import.meta.env?.DEV;
-
-  static get DEV_BACKEND_ORIGIN_RUNTIME_OVERRIDE() {
-    return readBackendOriginOverrideFromStorage();
-  }
 
   static get DEV_BACKEND_ORIGIN_OVERRIDE() {
     const override = import.meta.env?.VITE_BACKEND_ORIGIN as string | undefined;
     if (!override) {
       return undefined;
     }
-    return normalizeOrigin(override);
+    return this.normalizeOrigin(override);
+  }
+
+  static normalizeOrigin(origin: string) {
+    let normalizedOrigin = origin.trim();
+    if (!normalizedOrigin) {
+      return undefined;
+    }
+    const hasProtocol = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(normalizedOrigin);
+    if (!hasProtocol) {
+      normalizedOrigin = `http://${normalizedOrigin}`;
+    }
+    try {
+      return new URL(normalizedOrigin).origin;
+    } catch (error) {
+      console.error(
+        `Invalid VITE_BACKEND_ORIGIN value "${origin}". Falling back to default origin.`,
+        error,
+      );
+      return undefined;
+    }
   }
 
   // Computed properties that mirror the Python class
   static get BACKEND_ORIGIN() {
     if (this.DEV_MODE) {
-      const runtimeOverride = this.DEV_BACKEND_ORIGIN_RUNTIME_OVERRIDE;
-      if (runtimeOverride) {
-        return runtimeOverride;
-      }
       const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
       if (override) {
         return override;
