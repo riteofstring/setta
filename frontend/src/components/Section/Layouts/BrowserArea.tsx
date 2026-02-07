@@ -1575,44 +1575,6 @@ function FolderPath({
     [blurActiveElement, folder, onChange, blurTriggeredByEscapeKey],
   );
 
-  const onBlurCommitLatestValue = useCallback(() => {
-    // `inputValue` can be stale if the user (or Playwright) types quickly and
-    // immediately blurs/presses Enter. Read the current CodeMirror doc from the
-    // DOM so we always commit the latest value.
-    if (typeof document === "undefined") {
-      void onBlur(inputValue);
-      return;
-    }
-
-    const root = document.getElementById(`CodeMirror-${sectionId}-browser-path`);
-    if (!root) {
-      void onBlur(inputValue);
-      return;
-    }
-
-    const editor = (root.querySelector(".cm-editor") ?? root) as HTMLElement & {
-      cmView?: unknown;
-    };
-    const maybeView = editor.cmView;
-    if (
-      maybeView &&
-      typeof maybeView === "object" &&
-      "state" in maybeView &&
-      typeof (maybeView as { state?: unknown }).state === "object" &&
-      (maybeView as { state?: { doc?: unknown } }).state?.doc &&
-      typeof (maybeView as { state: { doc: { toString: () => string } } }).state
-        .doc.toString === "function"
-    ) {
-      void onBlur(
-        (maybeView as { state: { doc: { toString: () => string } } }).state.doc.toString(),
-      );
-      return;
-    }
-
-    const content = root.querySelector(".cm-content");
-    void onBlur(content?.textContent ?? inputValue);
-  }, [inputValue, onBlur, sectionId]);
-
   const dummyInputStyles =
     "flex-1 min-w-0 cursor-text truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent pl-4 py-1 text-xs outline-0 focus-visible:border-blue-300 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
   const realInputStyles =
@@ -1628,7 +1590,7 @@ function FolderPath({
         id={`CodeMirror-${sectionId}-browser-path`}
         value={inputValue}
         onChange={onChange}
-        onBlur={onBlurCommitLatestValue}
+        onBlur={() => onBlur(inputValue)}
         onEnter={(_, completionResult) => {
           if (!completionResult) {
             blurActiveElement();
