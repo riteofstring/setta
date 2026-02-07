@@ -305,8 +305,8 @@ export function WorkspaceSwitcherModal() {
           spellCheck={false}
         />
         <p className="text-xs text-setta-500 dark:text-setta-400">
-          Leave blank for local workspaces. When set, Setta will start (or reuse)
-          a remote session and open a local tunnel.
+          Leave blank for local workspaces. When set, Setta will start (or
+          reuse) a remote session and open a local tunnel.
         </p>
       </div>
 

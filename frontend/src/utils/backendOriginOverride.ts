@@ -1,5 +1,6 @@
-export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY = "setta.backendOriginOverride";
-export const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
+export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
+  "setta.backendOriginOverride";
+const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 
 function resolveStorage(): Storage | undefined {
   if (typeof sessionStorage !== "undefined") {
@@ -43,7 +44,10 @@ export function readBackendOriginOverrideFromStorage(): string | undefined {
     }
     return normalizeOrigin(raw);
   } catch (error) {
-    console.warn("Failed to read backend origin override from sessionStorage", error);
+    console.warn(
+      "Failed to read backend origin override from sessionStorage",
+      error,
+    );
     return undefined;
   }
 }
@@ -60,7 +64,10 @@ function writeBackendOriginOverrideToStorage(origin: string | undefined): void {
     }
     storage.setItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY, origin);
   } catch (error) {
-    console.warn("Failed to store backend origin override in sessionStorage", error);
+    console.warn(
+      "Failed to store backend origin override in sessionStorage",
+      error,
+    );
   }
 }
 
