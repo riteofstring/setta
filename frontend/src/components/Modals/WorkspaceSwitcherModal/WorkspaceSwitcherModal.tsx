@@ -155,159 +155,163 @@ export function WorkspaceSwitcherModal() {
         </Dialog.Description>
       </header>
 
-      <div className="flex flex-col gap-3">
-        <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-          Workspace Path
-        </label>
-        <input
-          className={inputClassName}
-          placeholder="/path/to/workspace"
-          value={workspaceRoot}
-          onChange={(event) => setWorkspaceRoot(event.target.value)}
-          spellCheck={false}
-        />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-          SSH Target (Optional)
-        </label>
-        <input
-          className={inputClassName}
-          placeholder="user@host"
-          value={sshTarget}
-          onChange={(event) => setSshTarget(event.target.value)}
-          spellCheck={false}
-        />
-        <p className="text-xs text-setta-500 dark:text-setta-400">
-          Leave blank for local workspaces. When set, Setta will start (or
-          reuse) a remote session and open a local tunnel.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-        <span>Advanced Paths</span>
-        <button
-          className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={() => setShowAdvanced((prev) => !prev)}
-        >
-          {showAdvanced ? "Hide" : "Show"}
-        </button>
-      </div>
-
-      {showAdvanced && (
-        <div className="grid gap-3">
-          {trimmedSshTarget.length > 0 && (
-            <>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                  SSH Args (Optional)
-                </label>
-                <input
-                  className={inputClassName}
-                  placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
-                  value={sshArgs}
-                  onChange={(event) => setSshArgs(event.target.value)}
-                  spellCheck={false}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                  Remote Cmd (Optional)
-                </label>
-                <input
-                  className={inputClassName}
-                  placeholder="source .venv/bin/activate && setta"
-                  value={remoteCmd}
-                  onChange={(event) => setRemoteCmd(event.target.value)}
-                  spellCheck={false}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                  Local Tunnel Port (Optional)
-                </label>
-                <input
-                  className={inputClassName}
-                  placeholder="61000"
-                  value={localPort}
-                  onChange={(event) => setLocalPort(event.target.value)}
-                  spellCheck={false}
-                  inputMode="numeric"
-                />
-              </div>
-            </>
-          )}
-          <div className="flex flex-col gap-2">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-              Files Root (Optional)
+              Workspace Path
             </label>
             <input
               className={inputClassName}
-              placeholder="/path/to/setta_files"
-              value={filesRoot}
-              onChange={(event) => setFilesRoot(event.target.value)}
+              placeholder="/path/to/workspace"
+              value={workspaceRoot}
+              onChange={(event) => setWorkspaceRoot(event.target.value)}
               spellCheck={false}
             />
           </div>
-          <div className="flex flex-col gap-2">
+
+          <div className="flex flex-col gap-3">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-              Files Root Base (Optional)
+              SSH Target (Optional)
             </label>
             <input
               className={inputClassName}
-              placeholder="/path/to/setta_state"
-              value={filesRootBase}
-              onChange={(event) => setFilesRootBase(event.target.value)}
+              placeholder="user@host"
+              value={sshTarget}
+              onChange={(event) => setSshTarget(event.target.value)}
               spellCheck={false}
             />
+            <p className="text-xs text-setta-500 dark:text-setta-400">
+              Leave blank for local workspaces. When set, Setta will start (or
+              reuse) a remote session and open a local tunnel.
+            </p>
           </div>
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            Files root overrides the base when both are provided.
-          </p>
-        </div>
-      )}
 
-      {orderedHistory.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-              Recent Workspaces
-            </span>
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+            <span>Advanced Paths</span>
             <button
-              className="text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:text-setta-700 dark:text-setta-300"
-              onClick={clearHistory}
+              className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              onClick={() => setShowAdvanced((prev) => !prev)}
             >
-              Clear
+              {showAdvanced ? "Hide" : "Show"}
             </button>
           </div>
-          <div className="grid gap-2">
-            {orderedHistory.map((entry) => (
-              <button
-                key={workspaceHistoryEntryKey(entry)}
-                className="flex flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left text-sm text-setta-700 transition hover:border-setta-200 hover:bg-white dark:text-setta-200 dark:hover:border-setta-700 dark:hover:bg-setta-800"
-                onClick={() => onSelectHistory(entry)}
-              >
-                <span className="truncate font-medium">
-                  {entry.workspaceRoot}
+
+          {showAdvanced && (
+            <div className="grid gap-3">
+              {trimmedSshTarget.length > 0 && (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                      SSH Args (Optional)
+                    </label>
+                    <input
+                      className={inputClassName}
+                      placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
+                      value={sshArgs}
+                      onChange={(event) => setSshArgs(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                      Remote Cmd (Optional)
+                    </label>
+                    <input
+                      className={inputClassName}
+                      placeholder="source .venv/bin/activate && setta"
+                      value={remoteCmd}
+                      onChange={(event) => setRemoteCmd(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                      Local Tunnel Port (Optional)
+                    </label>
+                    <input
+                      className={inputClassName}
+                      placeholder="61000"
+                      value={localPort}
+                      onChange={(event) => setLocalPort(event.target.value)}
+                      spellCheck={false}
+                      inputMode="numeric"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Files Root (Optional)
+                </label>
+                <input
+                  className={inputClassName}
+                  placeholder="/path/to/setta_files"
+                  value={filesRoot}
+                  onChange={(event) => setFilesRoot(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Files Root Base (Optional)
+                </label>
+                <input
+                  className={inputClassName}
+                  placeholder="/path/to/setta_state"
+                  value={filesRootBase}
+                  onChange={(event) => setFilesRootBase(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <p className="text-xs text-setta-500 dark:text-setta-400">
+                Files root overrides the base when both are provided.
+              </p>
+            </div>
+          )}
+
+          {orderedHistory.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Recent Workspaces
                 </span>
-                {(entry.filesRoot || entry.filesRootBase) && (
-                  <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                    {entry.filesRoot
-                      ? `Files root: ${entry.filesRoot}`
-                      : `Files base: ${entry.filesRootBase}`}
-                  </span>
-                )}
-                {entry.sshTarget && (
-                  <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                    SSH: {entry.sshTarget}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+                <button
+                  className="text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:text-setta-700 dark:text-setta-300"
+                  onClick={clearHistory}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="grid gap-2">
+                {orderedHistory.map((entry) => (
+                  <button
+                    key={workspaceHistoryEntryKey(entry)}
+                    className="flex flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left text-sm text-setta-700 transition hover:border-setta-200 hover:bg-white dark:text-setta-200 dark:hover:border-setta-700 dark:hover:bg-setta-800"
+                    onClick={() => onSelectHistory(entry)}
+                  >
+                    <span className="truncate font-medium">
+                      {entry.workspaceRoot}
+                    </span>
+                    {(entry.filesRoot || entry.filesRootBase) && (
+                      <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                        {entry.filesRoot
+                          ? `Files root: ${entry.filesRoot}`
+                          : `Files base: ${entry.filesRootBase}`}
+                      </span>
+                    )}
+                    {entry.sshTarget && (
+                      <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                        SSH: {entry.sshTarget}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
@@ -315,7 +319,7 @@ export function WorkspaceSwitcherModal() {
         </div>
       )}
 
-      <div className="mt-auto flex justify-end gap-2 border-t border-setta-200 pt-4 dark:border-setta-700">
+      <div className="flex justify-end gap-2 border-t border-setta-200 pt-4 dark:border-setta-700">
         <button
           className="cursor-pointer rounded-full border border-setta-300 px-4 py-2 text-sm text-setta-700 transition-colors hover:bg-setta-50 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
           onClick={closeModal}

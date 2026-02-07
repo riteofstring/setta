@@ -41,6 +41,7 @@ test("workspace switcher launches a session and persists history", async ({
   await ensureAppReady(page);
   const context = await openIsolatedProject(page);
   try {
+    await page.setViewportSize({ width: 1000, height: 560 });
     await page.evaluate(() =>
       localStorage.removeItem("setta.workspaceHistory"),
     );
@@ -61,6 +62,28 @@ test("workspace switcher launches a session and persists history", async ({
 
     const modal = page.getByRole("dialog");
     await expect(modal.getByText("Switch Workspace")).toBeVisible();
+
+    await modal.getByRole("button", { name: "Show" }).click();
+    await modal.getByPlaceholder("user@host").fill("user@host");
+    const scrollInfo = await page.evaluate(() => {
+      const dialog = document.querySelector("[role='dialog']");
+      const scroll = dialog?.querySelector(".overflow-y-auto");
+      if (!scroll) {
+        return null;
+      }
+      const styles = getComputedStyle(scroll);
+      return {
+        overflowY: styles.overflowY,
+        clientHeight: scroll.clientHeight,
+        scrollHeight: scroll.scrollHeight,
+      };
+    });
+    expect(scrollInfo).not.toBeNull();
+    expect(scrollInfo?.overflowY).toBe("auto");
+    expect(scrollInfo?.scrollHeight ?? 0).toBeGreaterThan(
+      scrollInfo?.clientHeight ?? 0,
+    );
+    await modal.getByPlaceholder("user@host").fill("");
 
     await modal
       .getByPlaceholder("/path/to/workspace")
