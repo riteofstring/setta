@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -7,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import psutil
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
@@ -15,10 +16,13 @@ from setta.utils.constants import C
 SESSION_METADATA_FILENAME = "session.json"
 SESSION_SECRET_FILENAME = "secret"
 
+logger = logging.getLogger(__name__)
+
 
 class SessionMetadata(BaseModel):
     id: str
     workspacePath: str
+    workspacePathCanonical: str
     host: str
     port: int
     pid: int
@@ -42,6 +46,8 @@ class SessionRegistry:
         if not metadata_path.exists():
             return None
         metadata = self._read_metadata_path(metadata_path)
+        if metadata is None:
+            return None
         if prune_stale and self._is_session_stale(metadata):
             self.delete_session(metadata.id)
             return None
@@ -56,8 +62,10 @@ class SessionRegistry:
         port: int,
         pid: int,
         started_at: datetime | None = None,
+        workspace_display_path: str | None = None,
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
+        display_workspace = workspace_display_path or str(workspace_path)
         session_id = self._create_session_id()
         session_dir = self._session_dir(session_id)
         while session_dir.exists():
@@ -72,7 +80,8 @@ class SessionRegistry:
 
         metadata = SessionMetadata(
             id=session_id,
-            workspacePath=str(canonical_workspace),
+            workspacePath=display_workspace,
+            workspacePathCanonical=str(canonical_workspace),
             host=host,
             port=port,
             pid=pid,
@@ -96,6 +105,8 @@ class SessionRegistry:
             if not metadata_path.exists():
                 continue
             metadata = self._read_metadata_path(metadata_path)
+            if metadata is None:
+                continue
             if prune_stale and self._is_session_stale(metadata):
                 self.delete_session(metadata.id)
                 continue
@@ -117,7 +128,7 @@ class SessionRegistry:
         return [
             session
             for session in sessions
-            if Path(session.workspacePath).resolve() == canonical_workspace
+            if Path(session.workspacePathCanonical).resolve() == canonical_workspace
         ]
 
     def delete_session(self, session_id: str) -> None:
@@ -133,7 +144,9 @@ class SessionRegistry:
         secret_path = Path(metadata.secretPath)
         if secret_path.is_absolute():
             return secret_path
-        workspace_root = self._canonicalize_workspace_path(metadata.workspacePath)
+        workspace_root = self._canonicalize_workspace_path(
+            metadata.workspacePathCanonical
+        )
         return workspace_root / secret_path
 
     def load_secret(self, metadata: SessionMetadata) -> bytes:
@@ -169,9 +182,23 @@ class SessionRegistry:
         payload = metadata.model_dump(mode="json")
         path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
-    def _read_metadata_path(self, path: Path) -> SessionMetadata:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        return SessionMetadata.model_validate(raw)
+    def _read_metadata_path(self, path: Path) -> SessionMetadata | None:
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            logger.warning("Failed to read session metadata at %s", path, exc_info=True)
+            return None
+        if isinstance(raw, dict) and "workspacePathCanonical" not in raw:
+            logger.warning(
+                "Session metadata missing workspacePathCanonical at %s. Delete the runtime sessions directory to recreate sessions.",
+                path,
+            )
+            return None
+        try:
+            return SessionMetadata.model_validate(raw)
+        except ValidationError:
+            logger.warning("Invalid session metadata at %s", path, exc_info=True)
+            return None
 
     def _is_session_stale(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:

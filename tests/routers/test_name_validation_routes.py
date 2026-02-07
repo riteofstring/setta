@@ -50,15 +50,15 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.server_state import SettaFastAPIState
-from setta.utils.constants import C
-
 from tests.utils.manager_fixture import _populate_project_fixture_files
 from tests.utils.runtime_context import runtime_context
+from tests.utils.setta_paths import temporary_setta_paths
 
 
 @contextmanager
 def _patched_setta_paths(tmpdir: str) -> Path:
-    setta_root = Path(tmpdir) / "setta_files"
+    root = Path(tmpdir)
+    setta_root = root / "setta_files"
     code_folder = setta_root / "code"
     artifacts_folder = setta_root / "artifacts"
     backup_folder = setta_root / "backups"
@@ -84,47 +84,11 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         path.mkdir(parents=True, exist_ok=True)
 
     _populate_project_fixture_files(setta_root)
-
-    previous_values = {
-        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-        "CODE_FOLDER": C.CODE_FOLDER,
-        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
-        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
-        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
-        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
-        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
-        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
-    }
-
-    C.SETTA_FILES_FOLDER = setta_root
-    C.CODE_FOLDER = code_folder
-    C.ARTIFACTS_FOLDER = artifacts_folder
-    C.DB_BACKUP_FOLDER = backup_folder
-    C.RUNTIME_FOLDER = run_folder
-    C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
-    C.RUNTIME_LOGS_FOLDER = run_logs_folder
-    C.RUNTIME_MCP_FOLDER = run_mcp_folder
-    C.RUNTIME_SECRETS_FOLDER = run_secrets_folder
-    C.DETACHED_RUNS_FOLDER = detached_runs_folder
-    C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
-
-    try:
+    with temporary_setta_paths(
+        workspace_root=root,
+        setta_files_root=setta_root,
+    ):
         yield setta_root
-    finally:
-        C.SETTA_FILES_FOLDER = previous_values["SETTA_FILES_FOLDER"]
-        C.CODE_FOLDER = previous_values["CODE_FOLDER"]
-        C.ARTIFACTS_FOLDER = previous_values["ARTIFACTS_FOLDER"]
-        C.DB_BACKUP_FOLDER = previous_values["DB_BACKUP_FOLDER"]
-        C.RUNTIME_FOLDER = previous_values["RUNTIME_FOLDER"]
-        C.RUNTIME_SESSIONS_FOLDER = previous_values["RUNTIME_SESSIONS_FOLDER"]
-        C.RUNTIME_LOGS_FOLDER = previous_values["RUNTIME_LOGS_FOLDER"]
-        C.RUNTIME_MCP_FOLDER = previous_values["RUNTIME_MCP_FOLDER"]
-        C.RUNTIME_SECRETS_FOLDER = previous_values["RUNTIME_SECRETS_FOLDER"]
-        C.DETACHED_RUNS_FOLDER = previous_values["DETACHED_RUNS_FOLDER"]
-        C.SHARE_DEPLOYMENTS_FOLDER = previous_values["SHARE_DEPLOYMENTS_FOLDER"]
 
 
 async def _build_state() -> SettaFastAPIState:
