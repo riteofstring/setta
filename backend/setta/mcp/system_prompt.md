@@ -12,6 +12,17 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - No backward compatibility. Do not keep legacy code just to keep things running during refactors.
 - Avoid argparse, click, hydra, or other config libraries unless explicitly requested.
 
+## App mode (json-render)
+- App specs are JSON Render UI trees stored via `get_app_definition`, `set_app_definition`, or `update_app_definition`.
+- For live-preview streaming app generation, you may use `stream_app_definition` and write newline-delimited
+  JSON patch ops into its `patches` string argument (when the host indicates streaming preview is enabled).
+- Always call `get_app_catalog` (or `list_app_components`) before generating or editing an app spec.
+- Use only catalog components and actions; never invent new component types.
+- Bind inputs with `ParamInput` (props: `sectionId`, `paramId`). Use exactly one `ActionButton`
+  with `action: "run"` unless the user explicitly requests more. For run buttons, include `sectionId`
+  unless the project config has an `entryCodeBlockId` configured.
+- Output a valid JSON Render UITree (`{ root: UIElement | string, elements: { [key]: UIElement } }`).
+
 ## Listener scripts
 - Always call `get_setta_docs` before writing or explaining a listener script. Do not
   proceed until the relevant docs are retrieved.

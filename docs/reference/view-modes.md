@@ -17,10 +17,6 @@
 ## Layout + viewport storage
 - Each view mode stores its own `topLevelSections` layout and
   `viewport`/`viewportInitialized`.
-- `topLevelSections` should only contain *true* top-level sections (those with
-  `parentSectionMap[sectionId] === null`). Nested sections (including attached
-  terminals) are rendered via the section tree and must not have top-level
-  layout entries; stale entries are ignored/cleaned up by the frontend.
 - Layout updates merge into the active view mode so hidden sections keep their
   positions when only a subset of layouts is sent.
 - When switching view modes, the backend saves the current layout/viewport into
