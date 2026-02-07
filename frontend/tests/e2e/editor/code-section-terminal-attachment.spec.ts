@@ -1825,16 +1825,25 @@ async function copyTerminalSelection(
     if (!container) {
       throw new Error(`Missing terminal container for ${id}.`);
     }
+    const textarea = container.querySelector(
+      ".xterm-helper-textarea, .xterm textarea",
+    );
     const xterm = container.querySelector(".xterm");
-    if (!xterm) {
+    const target = (textarea ?? xterm) as HTMLElement | null;
+    if (!target) {
       throw new Error("Missing xterm element.");
     }
+    // xterm wires clipboard handlers around its helper textarea; dispatching
+    // here matches how real copy events are triggered more closely than
+    // dispatching on the container.
+    target.focus?.();
     const clipboardData = new DataTransfer();
     const event = new ClipboardEvent("copy", {
       clipboardData,
       bubbles: true,
+      cancelable: true,
     });
-    xterm.dispatchEvent(event);
+    target.dispatchEvent(event);
     return clipboardData.getData("text/plain");
   }, terminalId);
 }
