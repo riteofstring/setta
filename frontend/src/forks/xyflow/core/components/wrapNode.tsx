@@ -17,6 +17,11 @@ export const arrowKeyDiffs: Record<string, Position> = {
   ArrowRight: { x: 1, y: 0 },
 };
 
+const AGENTIC_HANDLES_EXIT_CLASS = "agentic-handles--exit";
+// Keep in sync with `--agentic-handle-fade-in-duration` in
+// `frontend/src/forks/xyflow/core/styles/style.css`.
+const AGENTIC_HANDLES_FADE_IN_DURATION_MS = 80;
+
 const _NodeWrapper = ({
   id,
   isDraggable: _isDraggable,
@@ -29,6 +34,7 @@ const _NodeWrapper = ({
 }) => {
   const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
+  const agenticHandlesHoverStartMsRef = useRef<number | null>(null);
   const positionAndSizeLocked = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, id);
     return impl.positionAndSizeLocked;
@@ -52,6 +58,22 @@ const _NodeWrapper = ({
 
   return (
     <div
+      onPointerEnter={() => {
+        agenticHandlesHoverStartMsRef.current = performance.now();
+        nodeRef.current?.classList.remove(AGENTIC_HANDLES_EXIT_CLASS);
+      }}
+      onPointerLeave={() => {
+        const startMs = agenticHandlesHoverStartMsRef.current;
+        const nodeEl = nodeRef.current;
+        if (startMs === null || !nodeEl) {
+          return;
+        }
+        const hoveredMs = performance.now() - startMs;
+        if (hoveredMs < AGENTIC_HANDLES_FADE_IN_DURATION_MS) {
+          return;
+        }
+        nodeEl.classList.add(AGENTIC_HANDLES_EXIT_CLASS);
+      }}
       className={cc([
         "react-flow__node",
         {
