@@ -24,11 +24,14 @@ be server-side, with UI affordances that make the boundaries obvious.
 
 ## Current state (Feb 2026)
 - Agentic edges are stored in `ProjectConfig.agenticEdges` and render in the
-  canvas UI, but do not affect tool access or prompts.
-- Managed LLM tools call MCP directly with no scope guard except tool allowlist.
-- External agents get a system prompt and an optional tool allowlist, but no
-  section-level scope enforcement.
-- `get_latest_project_state_summary` always returns the full project summary.
+  canvas UI.
+- Managed LLM tool calls are guarded by agentic scope before calling MCP.
+- MCP server-side tool calls are guarded by agentic scope (including CLI flows),
+  with a strict “missing context = blocked” default.
+- External agents can provide agentic context via MCP `meta`, HTTP headers, or
+  the `set_agentic_context` init tool.
+- `get_latest_project_state_summary` and `get_latest_lsp_diagnostics` are scoped
+  when agentic context is present.
 
 ## Policy model
 ### Access types
@@ -112,18 +115,122 @@ Add `resolve_agentic_scope(project_state, chat_section_id)`:
 - Add `build_agentic_context_blocks(scope, project_state)`:
   - For each `contextSectionId`, build a content block based on section type.
   - `inline_text`: include raw text/code (truncate by tokens/lines).
-  - `summary`: include a summary generated at chat start and reused for that chat.
+  - `summary`: include a true summary (not just “shorter truncation”).
   - `reference_only`: include a brief reference line (name + id) only.
 - Insert context blocks as a system or user message right before the user
   message that triggers the run (managed + external). Keep it deterministic.
-- Defer summary caching until we have performance profiling data.
+
+### True summary generation (LLM + deterministic fallback)
+`contextMode=summary` should exist to keep prompts low-token and high-signal
+while still preserving the important constraints of a section.
+
+Implementation constraints:
+- The injected context must be deterministic across runs for the same section
+  content (avoid “summary drift” that changes agent behavior).
+- Summary generation must not require users to configure a separate LLM by
+  default.
+- Summary generation must work even when no LLM is available (external-agent
+  only, offline, etc.) via a deterministic fallback.
+
+#### Summary model selection (no extra user configuration by default)
+- Default: use the same engine/model that the chat section is already using
+  when the chat is managed by Setta (`EngineType.setta_llm`).
+- Optional override (advanced): allow a separate engine/model for summarization
+  (for example, “cheap model for summaries, strong model for chats”). This can
+  live on an EngineConfig, AgentProfile, or global default.
+- External-agent chats (`EngineType.external_agent`): prefer a Setta-managed
+  summarizer if available; otherwise fall back to deterministic summaries.
+
+#### Determinism and caching
+To avoid summary drift and keep latency/cost bounded:
+- Cache by `{projectConfigId, sectionId, sectionVariantId, contentHash}`.
+- Compute `contentHash` from the extracted “summary input” payload (see below),
+  not raw section JSON, so hash changes reflect real semantic input changes.
+- Generate with a constrained format and low randomness (temperature=0).
+- If a cached summary exists, always reuse it for prompt injection.
+
+Cache fill strategy (pick one; both are viable):
+- Synchronous fill: when a chat run starts and a summary is missing, generate it
+  inline (adds latency but is simplest and always correct).
+- Lazy fill: if missing, inject `reference_only` (or a deterministic fallback)
+  and queue background generation; use cached summary on subsequent runs.
+
+#### Deterministic (non-LLM) summary baseline
+Always produce a deterministic “facts block” per section type. The LLM summary
+step (if enabled) can be treated as optional compression of these facts.
+
+Suggested per-type deterministic inputs:
+- TextBlock: raw `text` (bounded by lines/tokens) + label/type/id.
+- Prompt: `renderedText` (or `template` + key `inputs`) + label/type/id.
+- Code/GenPython*/GlobalVariables: code outline + key exports + label/type/id
+  (avoid “first N lines” as a summary; prefer structure).
+- Dict/MetaControl/params-heavy sections: parameter name + value preview list
+  (already derivable from `build_project_state_summary`).
+- Callable: callable reference (codeObj id/name/description) plus parameter
+  list/value previews and any binding info needed to locate the implementation.
+- Chart: `dataPath` + chartSettings summary; optionally include deterministic
+  computed stats if reading data is safe and in-scope.
+- Draw/Image: metadata-only by default (layer names/counts, `imagePath` /
+  `renderedImagePath`). Do not attempt semantic interpretation without a vision
+  model.
+- Group/ListRoot: children list/count + label/type/id.
+- Browser/Social/IFrame/Terminal: reference-only or simple metadata (folder/url,
+  view mode). Avoid dumping large outputs into summaries.
+
+LLM summary prompt should:
+- Be explicit about format (for example: 5-12 bullet constraints).
+- Prohibit speculation/hallucination (“only summarize what is present”).
+- Include the deterministic facts block, not arbitrary deep project reads.
 
 ## External agent specifics
-- Update external adapters to call `set_agentic_context` during startup or before
-  the first tool call (Codex/Claude/OpenCode).
+- Support providing agentic context via MCP `meta`, HTTP headers, or
+  `set_agentic_context`:
+  - Prefer stateless propagation (meta/headers) when possible to avoid session
+    coupling and extra init calls.
+  - Keep `set_agentic_context` as a fallback for clients that cannot reliably
+    send meta/headers.
 - Ensure the same scope filtering is applied in MCP server for external tools.
 - Surface “blocked by scope” responses as tool results so external agents learn
   boundaries quickly.
+
+## Conversation titles (Project Chat history)
+We can reuse the same “deterministic input + optional LLM compression + caching”
+pipeline to generate chat titles.
+
+Purpose:
+- Replace “first 30 chars of the first message” labels with short, meaningful
+  titles in the Project Chat history pane.
+
+Data model:
+- Persist titles on the run as `AgentRun.outputs.name` (frontend already prefers
+  this when present).
+
+Generation rules:
+- Deterministic fallback (always available):
+  - Use the first user message text normalized (trim, collapse whitespace),
+    truncated to a small bound (for example 30-60 chars).
+- Optional LLM title:
+  - Generate a single short phrase (for example 4-10 words).
+  - No quotes, no trailing punctuation, no newline, max length bound (for
+    example <= 60 chars).
+  - Use the same model-selection rules as “True summary generation” above
+    (default to the chat’s managed model; external-agent uses Setta summarizer if
+    configured; otherwise deterministic-only).
+
+Caching/invalidation:
+- Cache/persist the title once computed; do not regenerate on every run.
+- Invalidate only when the “title input hash” changes (for example: first N
+  user messages change due to branching, or the chat is recreated).
+
+Scope constraints:
+- Title generation must only use the chat’s own messages and the agentic context
+  that would have been injected anyway (no extra project reads), to avoid
+  accidentally leaking out-of-scope content into global history labels.
+
+Tests:
+- Unit: title generation formatting rules and deterministic fallback.
+- Integration: a run with no outputs.name gets a generated title once and is
+  stable across subsequent runs.
 
 ## Frontend UX
 - Add an “Agentic Scope” panel in Chat settings:
@@ -144,6 +251,8 @@ Add `resolve_agentic_scope(project_state, chat_section_id)`:
   `chatId`, `sectionId`, tool name, and blocked ids.
 - Emit AI follow updates when context blocks are injected so the UI can
   highlight context sources.
+- Log summary cache hits/misses and title generation events (project/chat/section
+  ids plus content hashes).
 
 ## Rollout strategy
 - Enforce scope by default for Chat sections (always strict).
