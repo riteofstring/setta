@@ -84,6 +84,23 @@
   border-radius: 999px;
 }
 
+.react-flow[data-show-agentic-edges="false"] .react-flow__agentic-edges {
+  display: none;
+}
+
+.react-flow[data-show-agentic-edges="false"] .react-flow__handle.agentic-handle,
+.react-flow[data-show-agentic-edges="false"] .agentic-handle-safe-zone {
+  display: none !important;
+}
+
+.react-flow[data-show-arg-edges="false"] .react-flow__edges {
+  display: none;
+}
+
+.react-flow[data-show-arg-edges="false"] .react-flow__handle.arg-edge-handle {
+  display: none !important;
+}
+
 .react-flow__handle.arg-edge-handle {
   /* These are slightly larger than the default (8px incl. border), and centered
      on the node edge (half inside, half outside). */
