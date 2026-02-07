@@ -66,8 +66,6 @@ function TerminalAreaReadWrite({
 }: TerminalAreaReadWriteProps) {
   const terminalRef = useTerminal({
     sectionId,
-    width,
-    height,
     setHasScrollbar,
   });
 
