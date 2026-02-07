@@ -200,9 +200,13 @@ function removeSectionsFromParents({
   removeTopLevelNodes: boolean;
 }) {
   const idsByParent: Record<string, string[]> = {};
+  const topLevelIds: string[] = [];
   for (const sectionId of sectionIds) {
     const parentId = parentsById[sectionId] ?? null;
-    if (!parentId) continue;
+    if (!parentId) {
+      topLevelIds.push(sectionId);
+      continue;
+    }
     if (!idsByParent[parentId]) {
       idsByParent[parentId] = [];
     }
@@ -228,18 +232,10 @@ function removeSectionsFromParents({
     );
   }
 
-  if (removeTopLevelNodes && sectionIds.length > 0) {
-    // Defensive cleanup: if any of these sections have a top-level node/layout entry,
-    // they must be removed when moving into a parent, even if their `parentSectionMap`
-    // was already (incorrectly) non-null.
-    const nodeIdsToDelete = sectionIds.filter((sectionId) =>
-      hasNode(sectionId),
-    );
-    if (nodeIdsToDelete.length > 0) {
-      deleteNodes(nodeIdsToDelete);
-    }
-    for (const sectionId of sectionIds) {
-      deleteTopLevelSectionLayout(state, sectionId);
+  if (removeTopLevelNodes && topLevelIds.length > 0) {
+    deleteNodes(topLevelIds);
+    for (const sectionId of topLevelIds) {
+      delete state.projectConfig.topLevelSections[sectionId];
     }
   }
 }
@@ -270,24 +266,13 @@ function updateTopLevelLayout(
   zIndex: number | null,
 ) {
   const existing = state.projectConfig.topLevelSections[sectionId];
-  const nextLayout = {
+  state.projectConfig.topLevelSections[sectionId] = {
     x: position.x,
     y: position.y,
     zIndex: zIndex ?? existing?.zIndex ?? 0,
     w: existing?.w ?? null,
     h: existing?.h ?? null,
   };
-  state.projectConfig.topLevelSections[sectionId] = nextLayout;
-  const { activeViewModeId, viewModes } = state.projectConfig;
-  if (activeViewModeId) {
-    const viewMode = viewModes[activeViewModeId];
-    if (viewMode) {
-      if (!viewMode.topLevelSections) {
-        viewMode.topLevelSections = {};
-      }
-      viewMode.topLevelSections[sectionId] = nextLayout;
-    }
-  }
 }
 
 function isCodeSection(state: ZustandProjectState, sectionId: string): boolean {
@@ -336,17 +321,4 @@ function resolveParentIds(
     parentsById[sectionId] = state.parentSectionMap[sectionId] ?? null;
   }
   return parentsById;
-}
-
-function deleteTopLevelSectionLayout(
-  state: ZustandProjectState,
-  sectionId: string,
-) {
-  delete state.projectConfig.topLevelSections[sectionId];
-  for (const viewMode of Object.values(state.projectConfig.viewModes)) {
-    if (!viewMode.topLevelSections) {
-      continue;
-    }
-    delete viewMode.topLevelSections[sectionId];
-  }
 }

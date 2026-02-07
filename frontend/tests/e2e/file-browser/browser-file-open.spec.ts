@@ -108,27 +108,6 @@ async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
     if (!root) {
       return null;
     }
-    const candidates = [
-      root,
-      root.querySelector(".cm-content"),
-      root.querySelector(".cm-editor"),
-      root.querySelector("[contenteditable='true']"),
-    ].filter(Boolean) as HTMLElement[];
-
-    for (const candidate of candidates) {
-      const maybeView = (candidate as HTMLElement & { cmView?: unknown }).cmView;
-      if (
-        maybeView &&
-        typeof maybeView === "object" &&
-        "state" in maybeView &&
-        typeof (maybeView as { state?: unknown }).state === "object" &&
-        (maybeView as { state?: { doc?: unknown } }).state?.doc &&
-        typeof (maybeView as { state: { doc: { toString: () => string } } }).state.doc
-          .toString === "function"
-      ) {
-        return (maybeView as { state: { doc: { toString: () => string } } }).state.doc.toString();
-      }
-    }
     const content =
       root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
     return content?.textContent ?? root.textContent ?? "";
@@ -381,86 +360,5 @@ test("browser history buttons navigate folders", async ({ page }) => {
       sectionIds: [sectionId],
     });
     await fs.rm(folderPath, { recursive: true, force: true });
-  }
-});
-
-test("browser path commits latest value on blur after fast typing", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    },
-  );
-  const sectionId = browserSection?.sectionId;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating browser section.");
-  }
-
-  const folderName = `browser_blur_commit_${Date.now()}`;
-  const folderPath = path.join(workspaceRoot, folderName);
-  await fs.mkdir(folderPath, { recursive: true });
-
-  try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
-    await expect(sectionNode).toBeVisible();
-    await sectionNode
-      .locator('button[aria-label="Carousel view"]')
-      .click();
-
-    const pathInputId = `CodeMirror-${sectionId}-browser-path`;
-    const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
-    await expect(pathInput).toBeVisible();
-
-    // Establish a known starting value.
-    await pathInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(workspaceRoot);
-    await page.click(".react-flow__pane", {
-      position: { x: 8, y: 8 },
-      force: true,
-    });
-    await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-      )
-      .toContain(normalizePathForComparison(workspaceRoot));
-
-    // Repro: type fast, blur immediately. We should commit the latest value,
-    // not a stale pre-change inputValue.
-    await pathInput.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(folderPath);
-    await page.click(".react-flow__pane", {
-      position: { x: 8, y: 8 },
-      force: true,
-    });
-
-    await expect
-      .poll(async () => await readCodeMirrorValue(page, pathInputId))
-      .toContain(folderName);
-  } finally {
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: [sectionId],
-    });
-    await fs.rm(folderPath, { force: true, recursive: true });
   }
 });

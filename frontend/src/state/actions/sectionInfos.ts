@@ -229,12 +229,7 @@ export function getTopLevelSectionIdsForDisplay(
   projectState: ZustandProjectState,
 ): string[] {
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  return Object.keys(topLevelSections).filter((sectionId) => {
-    // Only true top-level sections should be rendered as React Flow nodes. If a
-    // section has a parent, it will be rendered via the nested section tree.
-    const parentId = projectState.parentSectionMap[sectionId] ?? null;
-    return parentId === null;
-  });
+  return Object.keys(topLevelSections);
 }
 
 function getEffectiveCodeObjImplIfPresent(
@@ -1324,24 +1319,10 @@ export function debounced_route_set_top_level_section_layout() {
     return;
   }
   const projectState = useProjectState.getState();
-  const parentSectionMap = projectState.parentSectionMap;
-  const existingLayoutsRaw = getActiveViewModeTopLevelSections(projectState);
-  const existingLayouts = Object.fromEntries(
-    Object.entries(existingLayoutsRaw).filter(([sectionId]) => {
-      const parentId = parentSectionMap[sectionId] ?? null;
-      return parentId === null;
-    }),
-  );
-  const nodeInternalsRaw = useNodeInternals.getState().x;
-  const nodeInternals: typeof nodeInternalsRaw = new Map(
-    Array.from(nodeInternalsRaw.entries()).filter(([sectionId]) => {
-      const parentId = parentSectionMap[sectionId] ?? null;
-      return parentId === null;
-    }),
-  );
+  const existingLayouts = getActiveViewModeTopLevelSections(projectState);
   const topLevelSections = createTopLevelSectionLayoutDict(
     projectState.sections,
-    nodeInternals,
+    useNodeInternals.getState().x,
     existingLayouts,
   );
   if (pendingTopLevelLayoutRef.opId) {
