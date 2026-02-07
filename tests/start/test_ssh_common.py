@@ -1,5 +1,5 @@
 from datetime import datetime
-from pathlib import Path
+from pathlib import PurePosixPath
 import subprocess
 
 import pytest
@@ -68,10 +68,10 @@ def test_resolve_remote_logs_dir_allows_spaces_in_workspace_and_roots() -> None:
         files_root_base=files_root_base,
     )
     computed = ssh_common.build_files_root_from_base(
-        Path(files_root_base.strip()),
-        Path(workspace),
+        PurePosixPath(files_root_base.strip()),
+        PurePosixPath(workspace),
     )
-    assert resolved == f"{str(computed).rstrip('/')}/runtime/logs"
+    assert resolved == f"{computed.as_posix().rstrip('/')}/runtime/logs"
 
 
 def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:

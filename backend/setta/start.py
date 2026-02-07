@@ -55,6 +55,7 @@ _MISSING_AUTH_MESSAGE = (
 )
 _WORKSPACE_ROOT_ENV = "SETTA_WORKSPACE_ROOT"
 _FILES_ROOT_ENV = "SETTA_FILES_ROOT"
+_FILES_ROOT_BASE_ENV = "SETTA_FILES_ROOT_BASE"
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
@@ -79,6 +80,7 @@ def _resolve_cli_paths(
             raise click.ClickException(str(exc)) from exc
         _validate_optional_dir(files_root, label="files root")
         _validate_optional_dir(files_root_base, label="files root base")
+        _validate_optional_dir(paths.setta_files_root, label="files root")
     return paths
 
 
@@ -89,9 +91,11 @@ def _validate_optional_dir(raw_path: Path | str | None, *, label: str) -> None:
         raise click.ClickException(str(exc)) from exc
 
 
-def _apply_paths_to_env(paths) -> None:
+def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
     os.environ[_WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
     os.environ[_FILES_ROOT_ENV] = str(paths.setta_files_root)
+    if files_root_base is not None:
+        os.environ[_FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
     clear_setta_paths_cache()
 
 
@@ -1826,7 +1830,7 @@ def cli(
             files_root_base=files_root_base,
             validate=True,
         )
-        _apply_paths_to_env(paths_override)
+        _apply_paths_to_env(paths_override, files_root_base=files_root_base)
     if ctx.invoked_subcommand is None:
         logging.getLogger(__name__).info("Starting Setta")
 
@@ -1837,7 +1841,7 @@ def cli(
             validate=True,
         )
         if paths_override is None:
-            _apply_paths_to_env(paths)
+            _apply_paths_to_env(paths, files_root_base=files_root_base)
 
         resolved_host = host
         resolved_port = _resolve_port(resolved_host, port)

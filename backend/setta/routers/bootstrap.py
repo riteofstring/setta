@@ -315,34 +315,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
       (function () {
         const redirectUrl = "__SETTA_REDIRECT_URL__";
-        const windowNamePrefix = "setta.workspaceHistory:";
-        const historyStorageKey = "setta.workspaceHistory";
-
-        (function hydrateWorkspaceHistoryFromWindowName() {
-          // Only hydrate into localStorage when the redirect stays on this origin.
-          // In dev we redirect to the Vite origin, so we must not clear the payload here.
-          if (!redirectUrl || !redirectUrl.startsWith("/")) {
-            return;
-          }
-          const rawName = window.name;
-          if (!rawName || !rawName.startsWith(windowNamePrefix)) {
-            return;
-          }
-          const raw = rawName.slice(windowNamePrefix.length);
-          if (!raw) {
-            return;
-          }
-          try {
-            localStorage.setItem(historyStorageKey, raw);
-          } catch (error) {
-            console.warn("Failed to store workspace history from window.name", error);
-          }
-          try {
-            window.name = "";
-          } catch (error) {
-            console.warn("Failed to clear workspace history from window.name", error);
-          }
-        })();
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");

@@ -8,7 +8,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from setta.launch import LaunchError
@@ -16,7 +16,6 @@ from setta.utils.network import format_host_for_ssh_tunnel
 from setta.utils.paths import build_files_root_from_base
 
 CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
-_CONNECT_INFO_JSON_PREFIX = CONNECT_INFO_JSON_PREFIX
 _TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
 
 
@@ -72,10 +71,10 @@ def run_ssh_command(
         raise LaunchError("SshTimeout", f"SSH command timed out: {exc.cmd}") from exc
 
 
-def _parse_json_payload(output: str) -> dict[str, Any]:
+def parse_json_payload(output: str) -> dict[str, Any]:
     for line in output.splitlines():
-        if line.startswith(_CONNECT_INFO_JSON_PREFIX):
-            encoded = line.removeprefix(_CONNECT_INFO_JSON_PREFIX)
+        if line.startswith(CONNECT_INFO_JSON_PREFIX):
+            encoded = line.removeprefix(CONNECT_INFO_JSON_PREFIX)
             try:
                 decoded = base64.b64decode(encoded).decode("utf-8")
                 data = json.loads(decoded)
@@ -94,10 +93,6 @@ def _parse_json_payload(output: str) -> dict[str, Any]:
         "RemoteJsonPayload",
         "Missing JSON payload from remote output.",
     )
-
-
-def parse_json_payload(output: str) -> dict[str, Any]:
-    return _parse_json_payload(output)
 
 
 def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
@@ -399,7 +394,7 @@ def fetch_remote_sessions(
             "RemoteSessions",
             f"Failed to list remote sessions. {details}".strip(),
         )
-    payload = _parse_json_payload(result.stdout)
+    payload = parse_json_payload(result.stdout)
     return parse_session_list(payload)
 
 
@@ -467,7 +462,7 @@ def fetch_remote_connect_info(
             "RemoteConnectInfo",
             f"Failed to read remote connect info. {details}".strip(),
         )
-    return _parse_json_payload(result.stdout)
+    return parse_json_payload(result.stdout)
 
 
 def _remote_command_exists(
@@ -517,10 +512,10 @@ def _resolve_remote_logs_dir(
         and _is_safe_remote_path(workspace)
     ):
         computed = build_files_root_from_base(
-            Path(files_root_base.strip()),
-            Path(workspace),
+            PurePosixPath(files_root_base.strip()),
+            PurePosixPath(workspace.strip()),
         )
-        return f"{str(computed).rstrip('/')}/runtime/logs"
+        return f"{computed.as_posix().rstrip('/')}/runtime/logs"
     # Avoid creating unexpected workspace-relative `setta_files/` directories on the
     # remote host for detached-root launches.
     return "/tmp"
@@ -546,7 +541,7 @@ def start_remote_setta(
     if runner is None:
         raise LaunchError(
             "RemoteStart",
-            "Remote host missing nohup/setsid for background start. Provide remoteCmd.",
+            "Remote host missing nohup/setsid; cannot background Setta automatically. Start it manually or install nohup/setsid.",
         )
 
     remote_logs_dir = _resolve_remote_logs_dir(

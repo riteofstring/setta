@@ -207,13 +207,9 @@ def _resolve_folder_path(
 ) -> Path:
     if share_mode:
         return ensure_share_deployment_path(folder_path, deployment_root)
-    root = get_setta_paths().workspace_root
-    path = Path(folder_path)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        resolved = (root / path).resolve()
-    if not resolved.is_relative_to(root):
+    workspace_root = get_setta_paths().workspace_root
+    resolved = normalize_workspace_path(folder_path, workspace_root=workspace_root)
+    if not resolved.is_relative_to(workspace_root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Folder path must be within the project root.",
@@ -222,13 +218,9 @@ def _resolve_folder_path(
 
 
 def _resolve_file_path(path_str: str) -> Path:
-    root = get_setta_paths().workspace_root
-    path = Path(path_str)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        resolved = (root / path).resolve()
-    if not resolved.is_relative_to(root):
+    workspace_root = get_setta_paths().workspace_root
+    resolved = normalize_workspace_path(path_str, workspace_root=workspace_root)
+    if not resolved.is_relative_to(workspace_root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="File path must be within the project root.",
@@ -240,13 +232,9 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
     trimmed = path_str.strip()
     if not trimmed:
         return None
-    root = get_setta_paths().workspace_root
-    path = Path(trimmed)
-    if path.is_absolute():
-        resolved = path.resolve()
-    else:
-        resolved = (root / path).resolve()
-    if not resolved.is_relative_to(root):
+    workspace_root = get_setta_paths().workspace_root
+    resolved = normalize_workspace_path(trimmed, workspace_root=workspace_root)
+    if not resolved.is_relative_to(workspace_root):
         return None
     if not resolved.exists() or resolved.is_dir():
         return None

@@ -29,6 +29,19 @@ def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
 
+def test_resolve_setta_paths_strips_workspace_root_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", f"  {workspace}  ")
+
+    paths = resolve_setta_paths()
+
+    assert paths.workspace_root == workspace.resolve()
+
+
 def test_resolve_setta_paths_honors_files_root_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -131,6 +144,20 @@ def test_runtime_root_env_override(
     workspace.mkdir()
     runtime_root = tmp_path / "runtime"
     monkeypatch.setenv("SETTA_RUNTIME_ROOT", str(runtime_root))
+
+    paths = resolve_setta_paths(workspace_root=workspace)
+
+    assert paths.runtime_root == runtime_root.resolve()
+
+
+def test_runtime_root_env_override_strips_whitespace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime_root = tmp_path / "runtime"
+
+    monkeypatch.setenv("SETTA_RUNTIME_ROOT", f"  {runtime_root}  ")
 
     paths = resolve_setta_paths(workspace_root=workspace)
 

@@ -65,6 +65,30 @@ def test_launch_reports_invalid_files_root(tmp_path: Path) -> None:
     assert payload["error"]["code"] == "InvalidFilesRoot"
 
 
+def test_launch_reports_invalid_files_root_env(tmp_path: Path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    files_root = tmp_path / "not-a-dir.txt"
+    files_root.write_text("nope", encoding="utf-8")
+
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(files_root))
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        [
+            "--json",
+            "--workspace",
+            str(workspace),
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidFilesRoot"
+
+
 def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     if not _can_bind_localhost():
         pytest.skip("Socket binds are not permitted in this test environment.")

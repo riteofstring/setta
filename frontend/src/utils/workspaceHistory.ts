@@ -42,7 +42,7 @@ function normalizeNullablePort(value: unknown): number | null {
       return null;
     }
     const port = Math.trunc(value);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    if (port < 1 || port > 65535) {
       return null;
     }
     return port;

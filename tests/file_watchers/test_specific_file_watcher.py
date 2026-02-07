@@ -7,6 +7,7 @@ import pytest
 from setta.file_watchers.specific_file_watcher import MockFileEvent, SpecificFileWatcher
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.paths import normalize_state_path
+from tests.utils.setta_paths import temporary_setta_paths
 
 
 @pytest.mark.asyncio
@@ -53,3 +54,50 @@ async def test_file_modification_triggers_callback() -> None:
             }
         finally:
             watcher.stop()
+
+
+@pytest.mark.asyncio
+async def test_file_modification_rel_path_is_workspace_relative() -> None:
+    event = asyncio.Event()
+    events: list[FileWatcherCoreUpdate] = []
+
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        (root / "setta_files").mkdir()
+        file_path = root / "settings.json"
+        file_path.write_text('{"value": 1}')
+
+        with temporary_setta_paths(
+            workspace_root=root,
+            setta_files_root=root / "setta_files",
+        ):
+            loop = asyncio.get_running_loop()
+            watcher = SpecificFileWatcher(loop=loop)
+
+            async def callback(core_update: FileWatcherCoreUpdate) -> None:
+                events.append(core_update)
+                event.set()
+
+            normalized = normalize_state_path(file_path)
+            watcher.update_callbacks({normalized: callback}, "test", set())
+            watcher.start()
+            try:
+                await asyncio.sleep(0.05)
+                event.clear()
+                events.clear()
+
+                file_path.write_text('{"value": 2}')
+                await asyncio.sleep(0.2)
+                if not event.is_set():
+                    watcher.handler._send_event(
+                        MockFileEvent(file_path), FileEventType.modified
+                    )
+
+                await asyncio.wait_for(event.wait(), timeout=2)
+                assert events
+
+                core_update = events[0]
+                assert core_update.fileToRead == file_path.resolve()
+                assert core_update.relPath == Path("settings.json")
+            finally:
+                watcher.stop()

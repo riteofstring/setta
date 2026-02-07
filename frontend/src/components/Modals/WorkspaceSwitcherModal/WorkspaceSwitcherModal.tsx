@@ -57,9 +57,6 @@ export function WorkspaceSwitcherModal() {
     }
   }, []);
 
-  const inputClassName =
-    "w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100";
-
   const trimmedWorkspace = workspaceRoot.trim();
   const trimmedSshTarget = sshTarget.trim();
   const trimmedSshArgs = sshArgs.trim();
@@ -158,7 +155,7 @@ export function WorkspaceSwitcherModal() {
               Workspace Path
             </label>
             <input
-              className={inputClassName}
+              className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
               placeholder="/path/to/workspace"
               value={workspaceRoot}
               onChange={(event) => setWorkspaceRoot(event.target.value)}
@@ -171,7 +168,7 @@ export function WorkspaceSwitcherModal() {
               SSH Target (Optional)
             </label>
             <input
-              className={inputClassName}
+              className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
               placeholder="user@host"
               value={sshTarget}
               onChange={(event) => setSshTarget(event.target.value)}
@@ -202,7 +199,7 @@ export function WorkspaceSwitcherModal() {
                       SSH Args (Optional)
                     </label>
                     <input
-                      className={inputClassName}
+                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                       placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
                       value={sshArgs}
                       onChange={(event) => setSshArgs(event.target.value)}
@@ -214,7 +211,7 @@ export function WorkspaceSwitcherModal() {
                       Remote Cmd (Optional)
                     </label>
                     <input
-                      className={inputClassName}
+                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                       placeholder="source .venv/bin/activate && setta"
                       value={remoteCmd}
                       onChange={(event) => setRemoteCmd(event.target.value)}
@@ -226,7 +223,7 @@ export function WorkspaceSwitcherModal() {
                       Local Tunnel Port (Optional)
                     </label>
                     <input
-                      className={inputClassName}
+                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                       placeholder="61000"
                       value={localPort}
                       onChange={(event) => setLocalPort(event.target.value)}
@@ -241,7 +238,7 @@ export function WorkspaceSwitcherModal() {
                   Files Root (Optional)
                 </label>
                 <input
-                  className={inputClassName}
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                   placeholder="/path/to/setta_files"
                   value={filesRoot}
                   onChange={(event) => setFilesRoot(event.target.value)}
@@ -253,7 +250,7 @@ export function WorkspaceSwitcherModal() {
                   Files Root Base (Optional)
                 </label>
                 <input
-                  className={inputClassName}
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                   placeholder="/path/to/setta_state"
                   value={filesRootBase}
                   onChange={(event) => setFilesRootBase(event.target.value)}

@@ -167,6 +167,8 @@ def warn_on_legacy_state(
 
 def _resolve_workspace_root(workspace_root: Path | str | None) -> Path:
     raw = workspace_root or os.environ.get(_WORKSPACE_ROOT_ENV) or Path.cwd()
+    if isinstance(raw, str):
+        raw = raw.strip() or Path.cwd()
     return resolve_path(raw)
 
 
@@ -222,7 +224,9 @@ def _resolve_runtime_root(
     setta_files_root: Path, *, runtime_root: Path | str | None
 ) -> Path:
     raw = runtime_root or os.environ.get(_RUNTIME_ROOT_ENV)
-    if raw:
+    if isinstance(raw, str):
+        raw = raw.strip() or None
+    if raw is not None:
         return resolve_path(raw)
     return (setta_files_root / "runtime").resolve(strict=False)
 

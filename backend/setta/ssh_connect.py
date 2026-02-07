@@ -1,3 +1,4 @@
+import math
 import hashlib
 import json
 import subprocess
@@ -46,6 +47,7 @@ class SshTunnelMetadata(BaseModel):
     remotePort: int
     localPort: int
     pid: int
+    pidCreateTime: float
     createdAt: str
     lastUsedAt: str
 
@@ -197,10 +199,18 @@ def _load_tunnel_metadata(path: Path) -> SshTunnelMetadata | None:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
+        try:
+            path.unlink()
+        except OSError:
+            pass
         return None
     try:
         return SshTunnelMetadata.model_validate(raw)
     except Exception:
+        try:
+            path.unlink()
+        except OSError:
+            pass
         return None
 
 
@@ -229,13 +239,40 @@ def _is_pid_alive(pid: int) -> bool:
         return True
 
 
-def _stop_pid(pid: int) -> None:
+def _pid_matches_create_time(pid: int, expected_create_time: float) -> bool:
+    if pid <= 0:
+        return False
+    if not _is_pid_alive(pid):
+        return False
+    try:
+        proc = psutil.Process(pid)
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return False
+    try:
+        actual = proc.create_time()
+    except psutil.Error:
+        return False
+    return math.isclose(actual, expected_create_time, rel_tol=0.0, abs_tol=0.01)
+
+
+def _stop_pid(pid: int, *, expected_create_time: float | None = None) -> None:
     if pid <= 0:
         return
     try:
         proc = psutil.Process(pid)
     except (psutil.NoSuchProcess, psutil.ZombieProcess):
         return
+    if expected_create_time is not None:
+        try:
+            if not math.isclose(
+                proc.create_time(),
+                expected_create_time,
+                rel_tol=0.0,
+                abs_tol=0.01,
+            ):
+                return
+        except psutil.Error:
+            return
     try:
         proc.terminate()
         proc.wait(timeout=2)
@@ -277,7 +314,15 @@ def _ensure_ssh_tunnel(
 
     now = datetime.now(timezone.utc).isoformat()
     if existing is not None and _is_pid_alive(existing.pid):
-        if requested_local_port is None or requested_local_port == existing.localPort:
+        if not _pid_matches_create_time(existing.pid, existing.pidCreateTime):
+            # Metadata is stale (PID reuse). Delete metadata but do not touch the
+            # running process.
+            try:
+                metadata_path.unlink()
+            except OSError:
+                pass
+            existing = None
+        elif requested_local_port is None or requested_local_port == existing.localPort:
             updated = existing.model_copy(
                 update={
                     "lastUsedAt": now,
@@ -285,10 +330,10 @@ def _ensure_ssh_tunnel(
             )
             _write_tunnel_metadata(metadata_path, updated)
             return updated
-
-        # The caller asked for a different port; stop the prior tunnel to avoid
-        # accumulating orphan tunnels.
-        _stop_pid(existing.pid)
+        else:
+            # The caller asked for a different port; stop the prior tunnel to
+            # avoid accumulating orphan tunnels.
+            _stop_pid(existing.pid, expected_create_time=existing.pidCreateTime)
 
     if existing is not None and not _is_pid_alive(existing.pid):
         try:
@@ -330,6 +375,12 @@ def _ensure_ssh_tunnel(
             _stop_pid(proc.pid)
             continue
 
+        try:
+            pid_create_time = psutil.Process(proc.pid).create_time()
+        except psutil.Error:
+            _stop_pid(proc.pid)
+            continue
+
         metadata = SshTunnelMetadata(
             key=key,
             sshTarget=ssh_target,
@@ -338,6 +389,7 @@ def _ensure_ssh_tunnel(
             remotePort=remote_port,
             localPort=candidate_port,
             pid=proc.pid,
+            pidCreateTime=pid_create_time,
             createdAt=now,
             lastUsedAt=now,
         )

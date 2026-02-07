@@ -11,7 +11,7 @@ from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
 )
-from setta.utils.paths import normalize_workspace_path
+from setta.utils.paths import normalize_workspace_path, workspace_relative_path
 from setta.utils.utils import ensure_str_path
 from setta.utils.watchdog_observer import build_watchdog_observer
 
@@ -257,13 +257,16 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         # Get absolute path
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
         normalized_path = normalize_workspace_path(abs_path)
+        rel_path = workspace_relative_path(abs_path)
 
         # For moved events, get the content of the destination file
         dest_abs_path = None
         normalized_dest_path = None
+        dest_rel_path = None
         if event_type == FileEventType.moved and hasattr(event, "dest_path"):
             dest_abs_path = Path(ensure_str_path(event.dest_path)).resolve()
             normalized_dest_path = normalize_workspace_path(dest_abs_path)
+            dest_rel_path = workspace_relative_path(dest_abs_path)
 
         handlers: list[FileWatcherCallback] = []
         file_to_read = normalized_dest_path if normalized_dest_path else normalized_path
@@ -277,11 +280,11 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         core_update = FileWatcherCoreUpdate(
             absPath=abs_path,
-            relPath=normalized_path,
+            relPath=rel_path,
             eventType=event_type,
             matchingGlobPatterns=list(self.file_to_patterns.get(abs_path, [])),
             destAbsPath=dest_abs_path,
-            destRelPath=normalized_dest_path,
+            destRelPath=dest_rel_path,
             fileToRead=file_to_read,
         )
 

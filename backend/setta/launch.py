@@ -57,6 +57,9 @@ def launch_workspace_session(
     _validate_optional_dir(
         files_root_base, label="files root base", code="InvalidFilesRootBase"
     )
+    _validate_optional_dir(
+        paths.setta_files_root, label="files root", code="InvalidFilesRoot"
+    )
 
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
     sessions = registry.find_sessions_by_workspace(paths.workspace_root)
@@ -131,6 +134,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             "stderr": subprocess.STDOUT,
             "text": True,
             "stdin": subprocess.DEVNULL,
+            "cwd": str(paths.workspace_root),
         }
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True

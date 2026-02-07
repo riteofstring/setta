@@ -17,7 +17,7 @@ from setta.types.id import (
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.share_deployment import ShareDeploymentManifest
-from setta.utils.paths import normalize_state_path
+from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import compute_md5_prefix
 
 
@@ -55,7 +55,7 @@ class DBE:
         self.prompts = self.path / "prompts"
         self.prompts_example = self.path / "prompts.example.json"
         self.share_manifest = self.path / "manifest.json"
-        self.dot_env = Path(".env")
+        self.dot_env = normalize_workspace_path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
             self.runtime_root.mkdir(parents=True, exist_ok=True)
