@@ -48,7 +48,6 @@ if IS_WINDOWS:
     TERMINAL_TERMINATE_EXCEPTIONS: tuple[type[Exception], ...] = (
         ChildProcessError,
         ProcessLookupError,
-        OSError,
     )
 
 else:
@@ -61,7 +60,6 @@ else:
         PtyProcessError,
         ChildProcessError,
         ProcessLookupError,
-        OSError,
     )
 
 
@@ -222,25 +220,68 @@ class Terminals:
 
     async def delete_terminal(self, sectionId):
         logger.debug("delete terminal %s", sectionId)
-        pty_info = self.PTY_PIDS.pop(sectionId, None)
+        pty_info = self.PTY_PIDS.get(sectionId)
         if pty_info is not None:
             process = pty_info.get("process")
+            pid = pty_info.get("pid")
             if process is not None:
                 try:
                     await asyncio.to_thread(process.terminate, force=True)
-                except TERMINAL_TERMINATE_EXCEPTIONS as e:
+                except TERMINAL_TERMINATE_EXCEPTIONS as exc:
                     logger.debug(
-                        "terminal %s terminate failed (likely already gone): %s",
+                        "terminal %s terminate failed (already gone): %s",
                         sectionId,
-                        e,
+                        exc,
                     )
+                except OSError as exc:
+                    if exc.errno == errno.ESRCH:
+                        logger.debug(
+                            "terminal %s terminate failed (already gone): %s",
+                            sectionId,
+                            exc,
+                        )
+                    else:
+                        logger.exception("terminal %s terminate failed", sectionId)
+                        if isinstance(pid, int) and pid > 0:
+                            await self._force_kill_terminal_pid(sectionId, pid)
                 except Exception:
                     logger.exception("terminal %s terminate failed", sectionId)
+                    if isinstance(pid, int) and pid > 0:
+                        await self._force_kill_terminal_pid(sectionId, pid)
+
+        # Remove terminal state even if termination fails; the caller requested deletion.
+        self.PTY_PIDS.pop(sectionId, None)
 
         # make copy to avoid set size changing while iterating
         to_disconnect = set(self.section_to_socket_ids[sectionId])
         for id in to_disconnect:
             self.disconnect(sectionId, id)
+
+    async def _force_kill_terminal_pid(self, section_id: str, pid: int) -> None:
+        """Best-effort kill when PTY termination fails for unexpected reasons."""
+
+        def _kill() -> None:
+            try:
+                proc = psutil.Process(pid)
+            except psutil.NoSuchProcess:
+                return
+            try:
+                proc.kill()
+            except psutil.NoSuchProcess:
+                return
+            except psutil.AccessDenied:
+                logger.warning(
+                    "terminal %s kill access denied pid=%s",
+                    section_id,
+                    pid,
+                )
+                return
+            try:
+                proc.wait(timeout=1.0)
+            except (psutil.TimeoutExpired, psutil.NoSuchProcess):
+                return
+
+        await asyncio.to_thread(_kill)
 
     async def delete_terminals(self, sectionIds):
         await asyncio.gather(*(self.delete_terminal(s) for s in sectionIds))

@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from setta.database.utils import create_new_id
@@ -50,14 +51,8 @@ def _write_text(path: Path, content: str = "{}") -> None:
 
 @contextmanager
 def _override_share_deployments_root(root: Path):
-    original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
-    C.SHARE_DEPLOYMENTS_FOLDER = root
-    try:
+    with patch.object(C, "SHARE_DEPLOYMENTS_FOLDER", root):
         yield
-    finally:
-        C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
-
-
 
 def _create_section(impl, *, variant_name: str | None = None):
     section_id = create_new_id()

@@ -4,6 +4,7 @@ cd "${ROOT_DIR}"
 
 # Default dev log file is backend.log, but allow wrappers (ai.sh) to isolate logs.
 LOG_FILE="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
+mkdir -p "$(dirname "${LOG_FILE}")"
 : > "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 # SETTA_DEV_MODE="true" setta "$@" # pass in other command line args
