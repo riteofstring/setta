@@ -21,6 +21,25 @@ External design tools (Pencil/Figma/etc.) should compile/export into this contra
 Versioning here is for clarity and tooling, not legacy support: Setta can support a single “latest”
 contract and hard-migrate old specs/themes when the contract changes.
 
+## Implementation Status (As Of 2026-02-06)
+
+Implemented (or mostly implemented):
+
+- Token-first App theming via `--app-*` CSS variables, including `theme.vars` (arbitrary `--app-*` overrides).
+- App Config pane editing for `App Spec JSON`, `Theme JSON`, and `Assets JSON`.
+- App-mode tokenization for common Param UIs (App-only overrides/wrappers):
+  - `DropdownParam`, `PasswordParam`, `SliderParam`, `RotaryParam`, `SwitchParam`,
+    `DropzoneParam`, `ColorPickerParam`.
+- Portal theming in App mode (combobox/dropdowns inherit theme variables + dark class).
+- Layout primitives (`Box`, `Grid`, `Container`, `Spacer`) and catalog support for CSS dimension strings on key layout props (e.g. `"1rem"`, `"clamp(...)"`).
+- App Config error UX: surface backend validation detail on save/load failures (instead of generic errors).
+
+Not implemented yet (future work, integrations deferred):
+
+- Structured validator output (`errors[]`, `warnings[]`) and a dedicated `capabilities` payload for AI tooling.
+- Responsive schema (breakpoint-based `responsive` props or container-query variants in the catalog).
+- Motion primitives (catalog-defined animations and motion tokens).
+
 ## Goals
 
 - Make styling a first-class, versioned contract that can express sophisticated designs.
