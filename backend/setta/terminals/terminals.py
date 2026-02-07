@@ -33,6 +33,27 @@ IS_MACOS = platform.system() == "Darwin"
 # need to mark the terminal as ready so websocket clients don't hang forever.
 TERMINAL_PROMPT_READY_FALLBACK_SECONDS = 5.0
 
+TERMINAL_DEBUG_TAG = "SETTA_TERMINAL_DEBUG"
+
+
+def terminal_debug_log(payload: dict[str, Any]) -> None:
+    # Always-on structured logs (requested). Keep payload JSON-serializable.
+    try:
+        logger.info(
+            "%s",
+            json.dumps(
+                {
+                    "tag": TERMINAL_DEBUG_TAG,
+                    "ts": time.time(),
+                    **payload,
+                },
+                default=str,
+            ),
+        )
+    except Exception:
+        # Avoid disrupting the terminal loop if logging fails for any reason.
+        logger.exception("terminal_debug_log_failed")
+
 
 if IS_WINDOWS:
     from winpty import PtyProcess  # type: ignore
@@ -285,6 +306,17 @@ class Terminals:
                 if isinstance(json_val, dict):
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
+                        terminal_debug_log(
+                            {
+                                "event": "backend_terminal_resize",
+                                "sectionId": sectionId,
+                                "projectConfigId": pty_info.get("projectConfigId"),
+                                "shareSessionId": pty_info.get("shareSessionId"),
+                                "ptyPid": pty_info.get("pid"),
+                                "rows": json_val.get("rows"),
+                                "cols": json_val.get("cols"),
+                            }
+                        )
                         pty_process.setwinsize(json_val["rows"], json_val["cols"])
                     pty_info["wasJustResized"] = doResize
                     continue
