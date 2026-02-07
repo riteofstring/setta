@@ -68,6 +68,52 @@ function getContainerDebugInfo(container: HTMLDivElement | null) {
   };
 }
 
+function getTerminalBufferCursorContext(terminal: Terminal) {
+  try {
+    const buffer = terminal.buffer.active;
+    const absCursorY = buffer.baseY + buffer.cursorY;
+    const start = Math.max(0, absCursorY - 4);
+    const end = Math.min(buffer.length - 1, absCursorY + 4);
+    const lines: Array<{
+      y: number;
+      isWrapped: boolean;
+      len: number;
+      textLen: number;
+      textTail: string;
+    }> = [];
+    for (let y = start; y <= end; y += 1) {
+      const line = buffer.getLine(y);
+      if (!line) {
+        continue;
+      }
+      const text = line.translateToString(true);
+      lines.push({
+        y,
+        isWrapped: line.isWrapped,
+        len: line.length,
+        textLen: text.length,
+        textTail: text.slice(-240),
+      });
+    }
+    return {
+      type: buffer.type,
+      cols: terminal.cols,
+      rows: terminal.rows,
+      baseY: buffer.baseY,
+      viewportY: buffer.viewportY,
+      cursorX: buffer.cursorX,
+      cursorY: buffer.cursorY,
+      absCursorY,
+      length: buffer.length,
+      lines,
+    };
+  } catch (err) {
+    return {
+      error: String(err),
+    };
+  }
+}
+
 // Keyed by `${projectConfigId}::${shareSessionId ?? ""}::${sectionId}`.
 // We keep a single WebSocket per terminal section and re-use it across rapid
 // mount/unmount cycles (StrictMode, attach/detach transitions) to avoid re-sending
@@ -373,6 +419,7 @@ function acquireTerminalSession({
       rows: size.rows,
       container: getContainerDebugInfo(currentContainer),
       terminal: { cols: terminal.cols, rows: terminal.rows },
+      buffer: getTerminalBufferCursorContext(terminal),
       reactFlowZoom:
         typeof window !== "undefined" && "reactFlowZoom" in window
           ? (window as any).reactFlowZoom

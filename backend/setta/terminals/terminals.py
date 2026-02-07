@@ -2,9 +2,11 @@ import asyncio
 import errno
 import json
 import logging
+import os
 import platform
 import select
 import shlex
+import signal
 import time
 import warnings
 from asyncio import CancelledError
@@ -306,6 +308,8 @@ class Terminals:
                 if isinstance(json_val, dict):
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
+                        requested_rows = json_val["rows"]
+                        requested_cols = json_val["cols"]
                         terminal_debug_log(
                             {
                                 "event": "backend_terminal_resize",
@@ -313,11 +317,52 @@ class Terminals:
                                 "projectConfigId": pty_info.get("projectConfigId"),
                                 "shareSessionId": pty_info.get("shareSessionId"),
                                 "ptyPid": pty_info.get("pid"),
-                                "rows": json_val.get("rows"),
-                                "cols": json_val.get("cols"),
+                                "rows": requested_rows,
+                                "cols": requested_cols,
                             }
                         )
-                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                        pty_process.setwinsize(requested_rows, requested_cols)
+                        applied_cols: int | None = None
+                        applied_rows: int | None = None
+                        sigwinch_pgid: int | None = None
+                        sigwinch_sent = False
+                        sigwinch_error: str | None = None
+                        if not IS_WINDOWS:
+                            try:
+                                winsize = os.get_terminal_size(pty_process.fd)
+                            except OSError:
+                                winsize = None
+                            if winsize is not None:
+                                applied_cols = winsize.columns
+                                applied_rows = winsize.lines
+                            try:
+                                sigwinch_pgid = os.tcgetpgrp(pty_process.fd)
+                            except OSError:
+                                sigwinch_pgid = None
+                            try:
+                                if sigwinch_pgid is not None and sigwinch_pgid > 0:
+                                    os.killpg(sigwinch_pgid, signal.SIGWINCH)
+                                else:
+                                    os.kill(pty_process.pid, signal.SIGWINCH)
+                                sigwinch_sent = True
+                            except OSError as exc:
+                                sigwinch_error = str(exc)
+                        terminal_debug_log(
+                            {
+                                "event": "backend_terminal_resize_applied",
+                                "sectionId": sectionId,
+                                "projectConfigId": pty_info.get("projectConfigId"),
+                                "shareSessionId": pty_info.get("shareSessionId"),
+                                "ptyPid": pty_info.get("pid"),
+                                "requestedRows": requested_rows,
+                                "requestedCols": requested_cols,
+                                "appliedRows": applied_rows,
+                                "appliedCols": applied_cols,
+                                "sigwinchPgid": sigwinch_pgid,
+                                "sigwinchSent": sigwinch_sent,
+                                "sigwinchError": sigwinch_error,
+                            }
+                        )
                     pty_info["wasJustResized"] = doResize
                     continue
                 if allow_input and input_data:
