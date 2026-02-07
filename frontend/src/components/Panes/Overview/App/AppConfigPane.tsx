@@ -7,6 +7,7 @@ import {
   useAppPreview,
   useLocalStorage,
   useProjectState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
@@ -15,6 +16,11 @@ import {
   route_get_app_definition,
   route_set_app_definition,
 } from "utils/generatedEndpoints";
+import {
+  CodeObjTypeEnum,
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 type AppSpecPayload = Record<string, unknown>;
 
@@ -159,7 +165,116 @@ function buildElementIndex(
   return elements;
 }
 
-export function AppConfigPane() {
+function resolvePromptDisplayName(core: unknown, fallback: string) {
+  if (!core || typeof core !== "object") {
+    return fallback;
+  }
+  const record = core as Record<string, unknown>;
+  const displayName =
+    typeof record.displayName === "string" ? record.displayName.trim() : "";
+  if (displayName) {
+    return displayName;
+  }
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  if (name) {
+    return name;
+  }
+  return fallback;
+}
+
+export function formatSectionsForAppPrompt(state: ZustandProjectState) {
+  const entries: Array<{
+    sectionId: string;
+    label: string;
+    sectionType: string | null;
+    params: Array<{ id: string; name: string }>;
+  }> = [];
+
+  for (const [sectionId, core] of Object.entries(state.sections)) {
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    const variant = variantId ? state.sectionVariants[variantId] : null;
+    const impl = variant ? state.sectionImpls[variant.impl] : null;
+    const sectionType = impl ? impl.type : null;
+
+    // These are generated UI mirrors, not meaningful app targets.
+    if (
+      sectionType === SectionTypeEnum.GenPythonCode ||
+      sectionType === SectionTypeEnum.GenPythonMetadata
+    ) {
+      continue;
+    }
+
+    const params: Array<{ id: string; name: string }> = [];
+    if (impl && impl.type === SectionTypeEnum.MetaControl) {
+      const metaControlParamId =
+        typeof impl.metaControlParamId === "string"
+          ? impl.metaControlParamId
+          : null;
+      if (metaControlParamId) {
+        params.push({
+          id: metaControlParamId,
+          name: resolvePromptDisplayName(
+            state.codeObjs[metaControlParamId],
+            metaControlParamId,
+          ),
+        });
+      }
+    } else if (impl && isBaseSectionWithParamsImpl(impl)) {
+      for (const [codeObjId, codeObjVariantId] of Object.entries(
+        impl.codeObjVariantMap,
+      )) {
+        const codeObjVariant = state.codeObjVariants[codeObjVariantId];
+        if (!codeObjVariant) {
+          continue;
+        }
+        const codeObjImpl = state.codeObjImpls[codeObjVariant.impl];
+        if (!codeObjImpl) {
+          continue;
+        }
+        if (codeObjImpl.type === CodeObjTypeEnum.CodeCallable) {
+          continue;
+        }
+        params.push({
+          id: codeObjId,
+          name: resolvePromptDisplayName(state.codeObjs[codeObjId], codeObjId),
+        });
+      }
+    }
+
+    entries.push({
+      sectionId,
+      label: resolvePromptDisplayName(core, sectionId),
+      sectionType: typeof sectionType === "string" ? sectionType : null,
+      params,
+    });
+  }
+
+  if (entries.length === 0) {
+    return "";
+  }
+
+  const MAX_SECTIONS = 40;
+  const MAX_PARAMS = 20;
+
+  entries.sort((a, b) => a.label.localeCompare(b.label));
+  const slice = entries.slice(0, MAX_SECTIONS);
+
+  return slice
+    .map((entry) => {
+      const typeSuffix = entry.sectionType ? ` type=${entry.sectionType}` : "";
+      const params =
+        entry.params.length > 0
+          ? ` params: ${entry.params
+              .slice(0, MAX_PARAMS)
+              .map((param) => `${param.name} (${param.id})`)
+              .join(", ")}${entry.params.length > MAX_PARAMS ? ` (+${entry.params.length - MAX_PARAMS} more)` : ""}`
+          : "";
+      return `- ${entry.label} (${entry.sectionId})${typeSuffix}${params}`;
+    })
+    .join("\n");
+}
+
+  export function AppConfigPane() {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const appSpec = useAppDefinition((x) => x.appSpec);
   const isPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
@@ -223,10 +338,8 @@ export function AppConfigPane() {
     } else {
       addTemporaryNotification("Failed to load app catalog.");
     }
-    const sections = Object.values(useProjectState.getState().sectionImpls)
-      .map((section) => `${section.name} (${section.id})`)
-      .join("\n");
-    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run".\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections:\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
+    const sections = formatSectionsForAppPrompt(useProjectState.getState());
+    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run".\n- Return JSON only (no prose).\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
     useAIStore.setState({ pendingProjectChatPrompt: prompt });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAIChat,
