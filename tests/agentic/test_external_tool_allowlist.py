@@ -21,11 +21,7 @@ class TestExternalToolAllowlist:
         assert error is None
         assert allowlist is not None
         assert not allowlist.allow_all
-        assert list(allowlist.tool_names) == [
-            "getProjectState",
-            "runTool",
-            "set_agentic_context",
-        ]
+        assert list(allowlist.tool_names) == ["getProjectState", "runTool"]
 
     def test_accepts_namespaced_tool_names(self) -> None:
         allowlist, error = build_external_tool_allowlist(
@@ -34,11 +30,7 @@ class TestExternalToolAllowlist:
         assert error is None
         assert allowlist is not None
         assert not allowlist.allow_all
-        assert list(allowlist.tool_names) == [
-            "getProjectState",
-            "runTool",
-            "set_agentic_context",
-        ]
+        assert list(allowlist.tool_names) == ["getProjectState", "runTool"]
 
     def test_rejects_other_server_entries(self) -> None:
         allowlist, error = build_external_tool_allowlist(["other__tool"])

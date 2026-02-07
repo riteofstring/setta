@@ -3,7 +3,6 @@ import importlib.metadata
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
@@ -45,15 +44,6 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
     """
     terminal_id = build_terminal_id(sectionId, None)
     return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
-
-
-attach_tool_access(
-    getTerminalOutput,
-    ToolAccessMetadata(
-        accessType="read",
-        idPathsByType={"section": ["sectionId"]},
-    ),
-)
 
 
 @setta_init_tool
