@@ -487,6 +487,11 @@ export function AppConfigPane() {
           "- patches must be newline-delimited JSON objects with keys: op, path, value (unless op=remove).",
           "- Allowed paths: /root and /elements/<key> (and nested paths under /elements/<key>/...).",
           "- Prefer op 'set'. Ensure /root references an element present in /elements.",
+          "- When setting /elements/<key>, the value must be a UIElement with top-level { key: string, type: string }.",
+          "Example JSONL (each line is exactly one JSON object; this is what goes in the patches string):",
+          `{"op":"set","path":"/root","value":"root"}`,
+          `{"op":"set","path":"/elements/root","value":{"key":"root","type":"Stack","props":{"direction":"column","gap":16},"children":["title"]}}`,
+          `{"op":"set","path":"/elements/title","value":{"key":"title","type":"Heading","props":{"level":1,"text":"Hello"}}}`,
           "- The tool persists the app spec and will error if the final spec is invalid.",
         ].join("\n")
       : [
@@ -496,7 +501,7 @@ export function AppConfigPane() {
           "- Optional (recommended): call setta__validate_app_definition first and fix any errors.",
         ].join("\n");
 
-    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nGoal:\n- Generate the app spec and save it into this Setta project.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- Do not bind ParamInput to CodeParam params; CodeParam edits are blocked in app deployments.\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run" and set its sectionId.\n\nHow to deliver:\n${deliveryInstructions}\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format for appSpec should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
+    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nGoal:\n- Generate the app spec and save it into this Setta project.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- Do not bind ParamInput to CodeParam params; CodeParam edits are blocked in app deployments.\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run" and set its sectionId.\n\nUITree / UIElement schema (important):\n- UITree: { root: UIElement | string, elements: { [key: string]: UIElement } }\n- UIElement must have top-level { key: string, type: string }.\n- Component props go under 'props' (object). Do not put props at the top level.\n- Children go under 'children' (array). Even for one child, use an array.\n- In elements, the map key should match UIElement.key.\n\nHow to deliver:\n${deliveryInstructions}\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format for appSpec should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
     useAIStore.setState({ pendingProjectChatPrompt: prompt });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAIChat,

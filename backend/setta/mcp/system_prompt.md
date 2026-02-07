@@ -22,6 +22,15 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
   with `action: "run"` unless the user explicitly requests more. For run buttons, include `sectionId`
   unless the project config has an `entryCodeBlockId` configured.
 - Output a valid JSON Render UITree (`{ root: UIElement | string, elements: { [key]: UIElement } }`).
+- UIElement schema:
+  Required top-level fields: `key` (string) and `type` (string).
+  Component props must be under `props` (object), not at the top level.
+  `children` is optional, but if present it must be an array of element keys (strings) or inline UIElement objects.
+  When using `elements`, the map key should match `UIElement.key`.
+- Example `stream_app_definition` patches (JSONL; each line is one JSON object):
+  {"op":"set","path":"/root","value":"root"}
+  {"op":"set","path":"/elements/root","value":{"key":"root","type":"Stack","props":{"direction":"column","gap":16},"children":["title"]}}
+  {"op":"set","path":"/elements/title","value":{"key":"title","type":"Heading","props":{"level":1,"text":"Hello"}}}
 
 ## Listener scripts
 - Always call `get_setta_docs` before writing or explaining a listener script. Do not

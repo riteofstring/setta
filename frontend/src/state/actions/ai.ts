@@ -1494,7 +1494,7 @@ function updateChatDetails(
     };
     const nextDetails = updater(baseDetails);
     if (!nextDetails) {
-      return {};
+      return state;
     }
     return {
       chatDetails: {
@@ -1513,7 +1513,7 @@ function updatePendingChatDetails(
       state.pendingChatDetails ?? getDefaultChatDetails();
     const nextDetails = updater(baseDetails);
     if (!nextDetails) {
-      return {};
+      return state;
     }
     return {
       pendingChatDetails: nextDetails,
@@ -1546,11 +1546,15 @@ function mergeChatDetails(
 
 function promotePendingChatDetailsIfNeeded(chatId: string) {
   useAIStore.setState((state) => {
-    if (state.activeChatId !== null) {
-      return {};
+    if (!chatId) {
+      return state;
+    }
+    const activeChatId = state.activeChatId;
+    if (activeChatId !== null && activeChatId !== undefined) {
+      return state;
     }
     if (!state.pendingChatDetails) {
-      return {};
+      return state;
     }
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
@@ -1581,7 +1585,7 @@ export function finalizePendingChatDetails(chatId: string) {
       state.activeChatId === chatId;
     const needsActiveUpdate = shouldSetActive && state.activeChatId !== chatId;
     if (!pendingDetails && !needsActiveUpdate) {
-      return {};
+      return state;
     }
     const nextState: Partial<ReturnType<typeof useAIStore.getState>> = {};
     if (pendingDetails) {

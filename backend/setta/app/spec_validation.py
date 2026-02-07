@@ -575,7 +575,10 @@ def _resolve_app_spec(
             if not isinstance(key, str):
                 raise ValueError("App spec element keys must be strings.")
             if not _is_ui_element(value):
-                raise ValueError(f"Invalid app spec element for key '{key}'.")
+                example = '{"key":"root","type":"Stack","props":{},"children":[]}'
+                raise ValueError(
+                    f"Invalid app spec element for key '{key}': each element must be an object with top-level string fields 'key' and 'type' (example: {example})."
+                )
             elements[key] = value
 
     if _is_ui_element(root_value):
