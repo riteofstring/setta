@@ -1,5 +1,6 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
+import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   Dispatch,
   SetStateAction,
@@ -50,6 +51,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
+  noLLMConfigsAvailable,
   setChatId,
 }: {
   chatId: string | null | undefined;
@@ -59,6 +61,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
+  noLLMConfigsAvailable: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
@@ -260,6 +263,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     !engineConfigId ||
     (!isExternalEngine && !hasLLMConfig) ||
     (isExternalEngine && !externalEngineAvailable);
+  const editDisabledReason = useMemo(
+    () =>
+      getChatEditDisabledReason({
+        hasEngineConfig: Boolean(engineConfigId),
+        hasLLMConfig,
+        isExternalEngine,
+        externalEngineAvailable,
+        noLLMConfigsAvailable,
+      }),
+    [
+      engineConfigId,
+      externalEngineAvailable,
+      hasLLMConfig,
+      isExternalEngine,
+      noLLMConfigsAvailable,
+    ],
+  );
   const showEmptyState = typeof chatId === "undefined";
   const submitDisabled = useMemo(
     () => !waitingForResponse && hasPendingToolInteraction(messages),
@@ -275,6 +295,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
+          editDisabledReason={editDisabledReason}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}
           branchInfoByMessage={branchInfoByMessage}

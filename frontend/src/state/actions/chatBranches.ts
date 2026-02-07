@@ -5,11 +5,14 @@ import {
   ChatSectionState,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { ChatBranchIndex } from "./aiBranches";
 import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "./chatMergeUtils";
+import {
+  buildChatBranchIndexFromInfos,
+  type ChatBranchIndex,
+} from "./chatBranchIndex";
 
 type BranchInitializationResult = {
   nextState: ChatSectionState;
@@ -191,18 +194,57 @@ export function buildBranchFromEdit({
 export function buildBranchIndexFromBranches(
   branches: Record<string, ChatSectionBranch>,
 ): ChatBranchIndex {
-  const branchInfoByChatId: Record<string, ChatBranchInfo> = {};
+  const infos: ChatBranchInfo[] = [];
   for (const [branchId, branch] of Object.entries(branches)) {
     if (!branch.parentBranchId || !branch.branchFromMessageId) {
       continue;
     }
-    branchInfoByChatId[branchId] = {
+    const branchRootChatId = resolveBranchRootChatId(
+      branchId,
+      branch.branchFromMessageId,
+      branches,
+    );
+    infos.push({
       chatId: branchId,
       branchParentChatId: branch.parentBranchId,
       branchFromMessageId: branch.branchFromMessageId,
-      branchRootChatId: null,
+      branchRootChatId,
       branchCreatedAt: branch.createdAt ?? null,
-    };
+    });
   }
-  return { branchInfoByChatId };
+  return buildChatBranchIndexFromInfos(infos);
+}
+
+function resolveBranchRootChatId(
+  branchId: string,
+  branchFromMessageId: string,
+  branches: Record<string, ChatSectionBranch>,
+): string | null {
+  let currentId: string | null = branchId;
+  let rootCandidate: string | null = branchId;
+  const seen = new Set<string>();
+  while (currentId && !seen.has(currentId)) {
+    seen.add(currentId);
+    const parentId = branches[currentId]?.parentBranchId ?? null;
+    if (!parentId) {
+      return rootCandidate;
+    }
+    const parentBranch = branches[parentId];
+    if (!branchHasMessage(parentBranch, branchFromMessageId)) {
+      return rootCandidate;
+    }
+    rootCandidate = parentId;
+    currentId = parentId;
+  }
+  return rootCandidate;
+}
+
+function branchHasMessage(
+  branch: ChatSectionBranch | undefined,
+  messageId: string,
+): boolean {
+  if (!branch) {
+    return false;
+  }
+  return (branch.messages ?? []).some((message) => message.id === messageId);
 }

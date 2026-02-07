@@ -1,6 +1,7 @@
 import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
+import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   getChatPlaceholderText,
   getExternalEngineStatus,
@@ -475,6 +476,17 @@ function ScriptableChatArea({
       branchIndex,
     });
   }, [branchIndex, effectiveBranchId, effectiveMessages]);
+  const editDisabledReason = useMemo(
+    () =>
+      getChatEditDisabledReason({
+        hasEngineConfig: true,
+        hasLLMConfig: true,
+        isExternalEngine: false,
+        externalEngineAvailable: true,
+        isFrozen,
+      }),
+    [isFrozen],
+  );
 
   const handleBranchSwitch = useCallback(
     async (nextBranchId: string) => {
@@ -584,6 +596,7 @@ function ScriptableChatArea({
         toolCallArguments={toolCallArguments}
         className={scrollClassName}
         scrollRef={ref}
+        editDisabledReason={editDisabledReason}
         onEditMessage={handleEditMessage}
         onBranchSwitch={handleBranchSwitch}
         branchInfoByMessage={branchInfoByMessage}
@@ -1002,6 +1015,23 @@ function ManagedChatArea({
     !hasEngineConfig ||
     (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
     (isExternalEngine && !externalEngineAvailable);
+  const editDisabledReason = useMemo(
+    () =>
+      getChatEditDisabledReason({
+        hasEngineConfig,
+        hasLLMConfig,
+        isExternalEngine,
+        externalEngineAvailable,
+        noLLMConfigsAvailable: noConfigsAvailable,
+      }),
+    [
+      externalEngineAvailable,
+      hasEngineConfig,
+      hasLLMConfig,
+      isExternalEngine,
+      noConfigsAvailable,
+    ],
+  );
   const submitDisabled = useMemo(
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
@@ -1027,6 +1057,7 @@ function ManagedChatArea({
         toolCallArguments={toolCallArguments}
         className={scrollClassName}
         scrollRef={ref}
+        editDisabledReason={editDisabledReason}
         onEditMessage={handleEditMessage}
         onBranchSwitch={handleBranchSwitch}
         branchInfoByMessage={branchInfoByMessage}

@@ -91,6 +91,7 @@ import {
   UpdatePromptTemplateRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { buildEditedMessageHistory } from "./chatBranches";
 import { mergeChatMessages } from "./chatMergeUtils";
 
@@ -1148,36 +1149,6 @@ function extractRunMessages(
     return null;
   }
   return raw as Array<BaseChatMessageUnion>;
-}
-
-function getRunLastUpdatedMs(run: AgentRun): number {
-  const eventTimestamps = (run.events ?? [])
-    .map((event) => Date.parse(event.timestamp))
-    .filter((value) => !Number.isNaN(value));
-  if (eventTimestamps.length > 0) {
-    return Math.max(...eventTimestamps);
-  }
-  const finishedAt = Date.parse(run.finishedAt ?? "");
-  if (!Number.isNaN(finishedAt)) {
-    return finishedAt;
-  }
-  const startedAt = Date.parse(run.startedAt ?? "");
-  if (!Number.isNaN(startedAt)) {
-    return startedAt;
-  }
-  return 0;
-}
-
-function getRunInputString(run: AgentRun, key: string): string | null {
-  const inputs = run.inputs;
-  if (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) {
-    return null;
-  }
-  const raw = (inputs as Record<string, unknown>)[key];
-  if (typeof raw === "string" && raw.trim()) {
-    return raw;
-  }
-  return null;
 }
 
 async function resolveEngineConfigIdForChat(

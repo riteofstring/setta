@@ -402,6 +402,7 @@ export function ProjectChat() {
               engineType={engineType}
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
+              noLLMConfigsAvailable={noConfigsAvailable}
               setChatId={setChatId}
             />
           </>

@@ -113,6 +113,7 @@ type ChatMessageListProps = {
   toolCallArguments?: Record<string, string>;
   className?: string;
   scrollRef?: Ref<HTMLDivElement>;
+  editDisabledReason?: string | null;
   onEditMessage?: (
     messageId: string,
     text: string,
@@ -1540,6 +1541,7 @@ function ChatMessages({
   waitingForResponse,
   toolCallArguments,
   allMessages,
+  editDisabledReason,
   onEditMessage,
   onBranchSwitch,
   branchInfoByMessage,
@@ -1548,6 +1550,7 @@ function ChatMessages({
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
   allMessages: Array<BaseChatMessageUnion>;
+  editDisabledReason?: string | null;
   onEditMessage?: (
     messageId: string,
     text: string,
@@ -1673,11 +1676,13 @@ function ChatMessages({
       message.role === ChatRoleEnum.assistant &&
       message.id === streamingMessageId;
     const branchInfo = branchInfoByMessage?.[message.id];
-    let editDisabledReason: string | null = null;
+    let resolvedEditDisabledReason: string | null = null;
     if (!canEditParams) {
-      editDisabledReason = "Editing disabled by share policy.";
+      resolvedEditDisabledReason = "Editing disabled by share policy.";
     } else if (waitingForResponse) {
-      editDisabledReason = "Wait for response to finish.";
+      resolvedEditDisabledReason = "Wait for response to finish.";
+    } else if (editDisabledReason) {
+      resolvedEditDisabledReason = editDisabledReason;
     }
     const canEdit = Boolean(onEditMessage);
     const isEditing = editingMessageId === message.id;
@@ -1693,9 +1698,9 @@ function ChatMessages({
         requestAttachmentUrls={requestAttachmentUrls}
         isEditing={isEditing}
         canEdit={canEdit}
-        editDisabledReason={editDisabledReason}
+        editDisabledReason={resolvedEditDisabledReason}
         onStartEdit={
-          !canEdit || editDisabledReason
+          !canEdit || resolvedEditDisabledReason
             ? undefined
             : () => setEditingMessageId(message.id)
         }
@@ -1709,7 +1714,7 @@ function ChatMessages({
                   text,
                   attachments,
                 );
-                if (result !== false) {
+                if (result === true) {
                   setEditingMessageId(null);
                 }
                 return result;
@@ -1754,6 +1759,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   toolCallArguments,
   className,
   scrollRef,
+  editDisabledReason,
   onEditMessage,
   onBranchSwitch,
   branchInfoByMessage,
@@ -1773,6 +1779,7 @@ export const ChatMessageList = memo(function ChatMessageList({
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolArgs}
           allMessages={messages}
+          editDisabledReason={editDisabledReason}
           onEditMessage={onEditMessage}
           onBranchSwitch={onBranchSwitch}
           branchInfoByMessage={branchInfoByMessage}

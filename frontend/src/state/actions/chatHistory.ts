@@ -3,6 +3,7 @@ import {
   AgentRunStatusEnum,
   BaseChatMessageUnion,
 } from "utils/generatedTypes";
+import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 
 type ChatHistoryEntry = {
   chatId: string;
@@ -87,25 +88,11 @@ export function buildChatHistoryEntries(
 }
 
 function getRunChatId(run: AgentRun): string | null {
-  const inputs = isRecord(run.inputs) ? run.inputs : null;
-  const chatId = inputs ? inputs.chatId : null;
-  if (typeof chatId === "string" && chatId.trim()) {
-    return chatId;
-  }
-  return null;
-}
-
-function getRunType(run: AgentRun): string | null {
-  const inputs = isRecord(run.inputs) ? run.inputs : null;
-  const runType = inputs ? inputs.runType : null;
-  if (typeof runType === "string" && runType.trim()) {
-    return runType;
-  }
-  return null;
+  return getRunInputString(run, "chatId");
 }
 
 function isChatRun(run: AgentRun): boolean {
-  const runType = getRunType(run);
+  const runType = getRunInputString(run, "runType");
   if (!runType) {
     return false;
   }
@@ -117,30 +104,11 @@ function isChatRun(run: AgentRun): boolean {
 }
 
 function isBranchRun(run: AgentRun): boolean {
-  const inputs = isRecord(run.inputs) ? run.inputs : null;
-  const branchParentChatId = inputs ? inputs.branchParentChatId : null;
-  if (typeof branchParentChatId === "string" && branchParentChatId.trim()) {
+  const branchParentChatId = getRunInputString(run, "branchParentChatId");
+  if (branchParentChatId) {
     return true;
   }
   return false;
-}
-
-function getRunLastUpdatedMs(run: AgentRun): number {
-  const eventTimestamps = (run.events ?? [])
-    .map((event) => Date.parse(event.timestamp))
-    .filter((value) => !Number.isNaN(value));
-  if (eventTimestamps.length > 0) {
-    return Math.max(...eventTimestamps);
-  }
-  const finishedAt = Date.parse(run.finishedAt ?? "");
-  if (!Number.isNaN(finishedAt)) {
-    return finishedAt;
-  }
-  const startedAt = Date.parse(run.startedAt ?? "");
-  if (!Number.isNaN(startedAt)) {
-    return startedAt;
-  }
-  return 0;
 }
 
 function deriveChatLabel(run: AgentRun, chatId: string): string {
