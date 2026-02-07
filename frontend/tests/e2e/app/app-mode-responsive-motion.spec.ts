@@ -41,9 +41,7 @@ test("app mode supports responsive layout props and motion primitives", async ({
               key: "card",
               type: "Card",
               props: { title: "Motion Card" },
-              children: [
-                { key: "t1", type: "Text", props: { text: "Hello" } },
-              ],
+              children: [{ key: "t1", type: "Text", props: { text: "Hello" } }],
             },
           ],
         },
@@ -204,9 +202,7 @@ test("app mode can theme motion defaults", async ({ page }) => {
       key: "root",
       type: "Motion",
       props: { preset: "fadeIn" },
-      children: [
-        { key: "t1", type: "Text", props: { text: "Theme Motion" } },
-      ],
+      children: [{ key: "t1", type: "Text", props: { text: "Theme Motion" } }],
     },
     elements: {},
   };
@@ -450,13 +446,139 @@ test("app mode can theme typography tokens", async ({ page }) => {
   });
   await expect(heading).toBeVisible();
 
-  const headingFontSize = await heading.evaluate((node) =>
-    getComputedStyle(node).fontSize,
+  const headingFontSize = await heading.evaluate(
+    (node) => getComputedStyle(node).fontSize,
   );
   expect(headingFontSize).toBe("40px");
 
   const body = page.getByText("Body copy");
   await expect(body).toBeVisible();
-  const bodyFontSize = await body.evaluate((node) => getComputedStyle(node).fontSize);
+  const bodyFontSize = await body.evaluate(
+    (node) => getComputedStyle(node).fontSize,
+  );
   expect(bodyFontSize).toBe("18px");
+});
+
+test("app mode can theme shadow tokens", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+
+  const projectConfig = createProjectConfig({
+    id: "config-1",
+    name: "Config A",
+  });
+  const sharePolicy = {
+    allowParamChanges: true,
+    allowVariantChanges: false,
+    allowLayoutChanges: false,
+    allowRun: true,
+    allowLLM: false,
+    allowExternalLinks: false,
+    allowFileDownloads: false,
+    allowMultipleRuns: true,
+    runSnapshotMode: "ephemeral",
+  };
+  const appSpec = {
+    root: {
+      key: "root",
+      type: "Card",
+      props: { title: "Shadow Card" },
+      children: [{ key: "t", type: "Text", props: { text: "Body copy" } }],
+    },
+    elements: {},
+  };
+  const appDefinition = {
+    appSpecVersion: "v1",
+    catalogId: "setta.app.default",
+    appSpecPath: null,
+    routes: [],
+    dataBindings: {},
+    actions: {},
+    theme: {
+      shadows: {
+        sm: "0 0 0 10px rgba(255, 0, 255, 0.9)",
+      },
+    },
+    assets: [],
+  };
+
+  const appSessionResponse = {
+    deploymentName: "app-test",
+    deploymentVersion: "v1",
+    shareSessionId: "session-1",
+    defaultProjectConfigId: projectConfig.id,
+    projectMetadata: [
+      {
+        id: projectConfig.id,
+        name: projectConfig.name,
+      },
+    ],
+    appPolicy: sharePolicy,
+    manifest: null,
+  };
+  const appDeploymentStateResponse = {
+    projectState: {
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+    },
+    appDefinition,
+    appSpec,
+    appPolicy: sharePolicy,
+  };
+
+  await ensureAppReady(page);
+  await page.waitForLoadState("domcontentloaded");
+
+  await page.route("**/loadSettings", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    }),
+  );
+  await page.route("**/app/deployments/current/session", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(appSessionResponse),
+    }),
+  );
+  await page.route("**/app/deployments/*/*/state", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(appDeploymentStateResponse),
+    }),
+  );
+  await page.evaluate(async () => {
+    const { useServerMode } = await import("/src/state/definitions.ts");
+    useServerMode.setState({ mode: "app", modeResolved: true });
+  });
+
+  const title = page.getByText("Shadow Card");
+  await expect(title).toBeVisible();
+  const boxShadow = await title.evaluate((node) => {
+    const container = node.closest("section");
+    if (!container) {
+      return null;
+    }
+    return getComputedStyle(container).boxShadow;
+  });
+
+  expect(boxShadow).not.toBeNull();
+  if (!boxShadow) {
+    return;
+  }
+
+  expect(boxShadow).toContain("10px");
+  expect(boxShadow).toMatch(/255\D+0\D+255/);
 });

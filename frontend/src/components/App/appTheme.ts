@@ -52,6 +52,12 @@ type AppThemeMotion = {
   easing?: string;
 };
 
+type AppThemeShadows = {
+  sm?: string;
+  md?: string;
+  lg?: string;
+};
+
 type AppThemeConfig = {
   mode?: AppThemeMode;
   className?: string;
@@ -60,6 +66,7 @@ type AppThemeConfig = {
   typography?: AppThemeTypography;
   spacing?: AppThemeSpacing;
   motion?: AppThemeMotion;
+  shadows?: AppThemeShadows;
   vars?: Record<string, string | number>;
 };
 
@@ -78,6 +85,7 @@ export type ResolvedAppTheme = {
   typography: AppThemeTypography;
   spacing: AppThemeSpacing;
   motion: ResolvedAppMotion;
+  shadows: AppThemeShadows;
   style: Record<string, string | number>;
 };
 
@@ -143,6 +151,12 @@ const SPACING_VAR_MAP: Record<keyof AppThemeSpacing, string> = {
   cardPadding: "--app-card-padding",
   cardRadius: "--app-card-radius",
   stackGap: "--app-stack-gap",
+};
+
+const SHADOW_VAR_MAP: Record<keyof AppThemeShadows, string> = {
+  sm: "--app-shadow-sm",
+  md: "--app-shadow-md",
+  lg: "--app-shadow-lg",
 };
 
 const DEFAULT_MOTION: ResolvedAppMotion = {
@@ -288,6 +302,10 @@ function resolveThemeMotion(
   return output;
 }
 
+function resolveThemeShadows(raw: AppThemeConfig["shadows"]): AppThemeShadows {
+  return extractStringMap<AppThemeShadows>(raw);
+}
+
 function extractStringMap<T extends Record<string, string | undefined>>(
   raw: unknown,
 ): T {
@@ -357,6 +375,7 @@ export function resolveAppTheme(
     ...DEFAULT_MOTION,
     ...resolveThemeMotion(themeConfig?.motion),
   };
+  const shadows = resolveThemeShadows(themeConfig?.shadows);
   const className =
     themeConfig && typeof themeConfig.className === "string"
       ? themeConfig.className
@@ -366,6 +385,7 @@ export function resolveAppTheme(
   applyVars(style, COLOR_VAR_MAP, colors);
   applyVars(style, FONT_VAR_MAP, fonts);
   applyVars(style, SPACING_VAR_MAP, spacing);
+  applyVars(style, SHADOW_VAR_MAP, shadows);
 
   // Component-role tokens: stable override points beyond semantic colors.
   style["--app-button-bg"] = colors.accent ?? "";
@@ -387,6 +407,11 @@ export function resolveAppTheme(
   style["--app-dropdown-text"] = colors.text ?? "";
   style["--app-dropdown-muted"] = colors.muted ?? "";
 
+  style["--app-card-shadow"] =
+    "var(--app-shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05))";
+  style["--app-dropdown-shadow"] =
+    "var(--app-shadow-lg, 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1))";
+
   applyAppVars(style, themeConfig?.vars);
 
   const resolvedBodyFontVar = style["--app-font-body"];
@@ -402,6 +427,7 @@ export function resolveAppTheme(
     typography,
     spacing,
     motion,
+    shadows,
     style,
   };
 }

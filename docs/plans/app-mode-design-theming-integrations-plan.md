@@ -35,6 +35,7 @@ Implemented (or mostly implemented):
 - Responsive schema: breakpoint maps for selected layout props (breakpoints `base|sm|md|lg|xl|2xl`, resolved at runtime).
 - Motion primitives: catalog-defined `Motion` and `Stagger` components for preset-based animations.
 - Theme motion + typography tokens (`theme.motion`, `theme.typography`) + backend theme schema validation (type checks + unknown-key warnings).
+- Theme shadow tokens (`theme.shadows`) + app components consume `--app-card-shadow` (elevation).
 - App Config error UX: surface backend validation detail on save/load failures (instead of generic errors).
 - App validation endpoint + UI: `validateAppDefinition` returns `{errors[], warnings[], capabilities}` and App Config exposes a `Validate` action.
 - Richer validator output: `validateAppDefinition` accumulates multiple errors (no fast-fail) and advertises feature support via capabilities flags.
@@ -42,7 +43,7 @@ Implemented (or mostly implemented):
 Not implemented yet (future work, integrations deferred):
 
 - External design tool compilers/importers/exporters (Pencil/Figma/etc.).
-- Theme schema expansion: typography scale, shadows/elevation, and broader component-role tokens.
+- Theme schema expansion: typography scale and broader component-role tokens (beyond current motion/typography/shadows).
 
 ## Goals
 
@@ -72,7 +73,7 @@ Not implemented yet (future work, integrations deferred):
 - AppSpec is a JSON-render UITree using `setta.app.default` catalog `v1`.
 - `appDefinition.theme` supports a limited set of styling knobs:
   - `mode`: `light | dark | auto`
-  - `colors`, `fonts`, `spacing`
+  - `colors`, `fonts`, `spacing`, `typography`, `motion`, `shadows`
   - resolved into a small set of `--app-*` CSS variables
 - Many App components already reference `--app-*` variables in their Tailwind classnames.
 - Some param widgets still contain hard-coded Tailwind colors (not fully token-driven yet).

@@ -47,6 +47,19 @@ describe("resolveAppTheme vars", () => {
     expect(resolved.typography.headingSizes?.h2).toBe("2.25rem");
   });
 
+  it("supports shadow token overrides", () => {
+    const resolved = resolveAppTheme({
+      shadows: {
+        sm: "0 0 0 10px rgba(255, 0, 255, 0.9)",
+      },
+    });
+
+    expect(resolved.style["--app-shadow-sm"]).toBe(
+      "0 0 0 10px rgba(255, 0, 255, 0.9)",
+    );
+    expect(typeof resolved.style["--app-card-shadow"]).toBe("string");
+  });
+
   it("ignores vars outside the --app- namespace", () => {
     const resolved = resolveAppTheme({
       vars: {

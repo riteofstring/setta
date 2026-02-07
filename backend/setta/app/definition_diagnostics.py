@@ -21,6 +21,7 @@ _THEME_ALLOWED_KEYS = {
     "spacing",
     "vars",
     "motion",
+    "shadows",
 }
 _THEME_COLOR_KEYS = {
     "background",
@@ -54,6 +55,7 @@ _THEME_SPACING_KEYS = {
     "stackGap",
 }
 _THEME_MOTION_KEYS = {"durationMs", "delayMs", "staggerMs", "easing"}
+_THEME_SHADOW_KEYS = {"sm", "md", "lg"}
 
 
 def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
@@ -67,6 +69,8 @@ def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
         "dataBindingsJsonPointer": True,
         "responsive": True,
         "motion": True,
+        "typography": True,
+        "shadows": True,
         "customComponents": False,
     }
     return AppCapabilities(
@@ -158,6 +162,7 @@ def collect_app_theme_validation_issues(
     errors.extend(_validate_theme_spacing(theme.get("spacing"), warnings=warnings))
     errors.extend(_validate_theme_vars(theme.get("vars"), warnings=warnings))
     errors.extend(_validate_theme_motion(theme.get("motion"), warnings=warnings))
+    errors.extend(_validate_theme_shadows(theme.get("shadows"), warnings=warnings))
 
     return errors, warnings
 
@@ -473,6 +478,41 @@ def _validate_theme_motion(
         errors.append(
             AppValidationIssue(message="theme.motion.easing must be a string.")
         )
+
+    return errors
+
+
+def _validate_theme_shadows(
+    raw: JSONValue | None,
+    *,
+    warnings: list[AppValidationIssue],
+) -> list[AppValidationIssue]:
+    if raw is None:
+        return []
+    if not isinstance(raw, dict):
+        return [AppValidationIssue(message="theme.shadows must be an object.")]
+
+    unknown = sorted([key for key in raw.keys() if key not in _THEME_SHADOW_KEYS])
+    if unknown:
+        preview, suffix = _preview_sorted(unknown)
+        warnings.append(
+            AppValidationIssue(
+                message=(
+                    "theme.shadows contains unknown keys and they will be ignored: "
+                    f"{preview}{suffix}"
+                )
+            )
+        )
+
+    errors: list[AppValidationIssue] = []
+    for key in _THEME_SHADOW_KEYS:
+        if key not in raw:
+            continue
+        value = raw.get(key)
+        if not isinstance(value, str):
+            errors.append(
+                AppValidationIssue(message=f"theme.shadows.{key} must be a string.")
+            )
 
     return errors
 

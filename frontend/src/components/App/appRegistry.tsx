@@ -299,10 +299,11 @@ function Card({ element, children }: AppComponentProps) {
   } else if (typeof cardRadius === "string") {
     cardStyle.borderRadius = cardRadius;
   }
+  cardStyle.boxShadow = "var(--app-card-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))";
 
   return (
     <section
-      className={`flex flex-col gap-3 rounded-xl border border-[color:var(--app-card-border)] bg-[color:var(--app-card-bg)] p-4 text-[color:var(--app-text)] shadow-sm ${className}`.trim()}
+      className={`flex flex-col gap-3 rounded-xl border border-[color:var(--app-card-border)] bg-[color:var(--app-card-bg)] p-4 text-[color:var(--app-text)] ${className}`.trim()}
       style={cardStyle}
     >
       {(title || description) && (

@@ -33,6 +33,36 @@ def test_collect_app_theme_validation_issues_accepts_typography_tokens() -> None
     assert warnings == []
 
 
+def test_collect_app_theme_validation_issues_accepts_shadow_tokens() -> None:
+    errors, warnings = collect_app_theme_validation_issues(
+        {
+            "shadows": {
+                "sm": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+                "lg": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+            }
+        }
+    )
+
+    assert errors == []
+    assert warnings == []
+
+
+def test_collect_app_theme_validation_issues_reports_invalid_shadow_value() -> None:
+    errors, warnings = collect_app_theme_validation_issues({"shadows": {"sm": 123}})
+
+    assert warnings == []
+    assert errors
+    assert any("theme.shadows.sm" in issue.message for issue in errors)
+
+
+def test_collect_app_theme_validation_issues_warns_on_unknown_shadow_keys() -> None:
+    errors, warnings = collect_app_theme_validation_issues({"shadows": {"extra": "x"}})
+
+    assert errors == []
+    assert warnings
+    assert any("theme.shadows" in issue.message for issue in warnings)
+
+
 def test_collect_app_theme_validation_issues_reports_invalid_mode() -> None:
     errors, warnings = collect_app_theme_validation_issues({"mode": "nope"})
 

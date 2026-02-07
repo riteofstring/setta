@@ -150,6 +150,8 @@ class TestAppDefinitionProjectManager:
         assert response.capabilities.themeSchemaVersion
         assert response.capabilities.features.get("responsive") is True
         assert response.capabilities.features.get("motion") is True
+        assert response.capabilities.features.get("typography") is True
+        assert response.capabilities.features.get("shadows") is True
 
     async def test_validate_app_definition_reports_unknown_component(self) -> None:
         async with real_project_manager() as fixture:
