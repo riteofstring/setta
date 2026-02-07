@@ -18,7 +18,11 @@ from setta.sessions import SessionRegistry
 from setta.start import api, auth, tools
 from setta.types.routes import Route
 from setta.utils.constants import C
-from tests.utils.manager_fixture import _seed_minimal_setta_files
+from setta.mcp.agentic_context_headers import AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER
+from tests.utils.manager_fixture import (
+    DEFAULT_SAMPLE_PROJECT_CONFIG_ID,
+    _seed_minimal_setta_files,
+)
 
 
 TOOLS_CALL_TIMEOUT_SECONDS = 15
@@ -131,30 +135,19 @@ def api_integration_env(request):
     original_cwd = Path.cwd()
     os.chdir(root)
 
-    handle = None
-    constants_module = None
-    server_module = None
-    backend_launcher_module = None
-    original_is_dev_mode = None
-    original_server_is_dev_mode = None
-    original_backend_launcher_is_dev_mode = None
     try:
         import importlib
         import setta.backend_launcher as backend_launcher
         import setta.server as server
         import setta.utils.constants as constants
 
-        constants_module = constants
-        server_module = server
-        backend_launcher_module = backend_launcher
-
-        original_is_dev_mode = constants_module.IS_DEV_MODE
-        original_server_is_dev_mode = server_module.IS_DEV_MODE
-        original_backend_launcher_is_dev_mode = backend_launcher_module.IS_DEV_MODE
+        original_is_dev_mode = constants.IS_DEV_MODE
+        original_server_is_dev_mode = server.IS_DEV_MODE
+        original_backend_launcher_is_dev_mode = backend_launcher.IS_DEV_MODE
         constants.IS_DEV_MODE = "1"
         server.IS_DEV_MODE = "1"
         backend_launcher.IS_DEV_MODE = "1"
-        importlib.reload(server_module)
+        importlib.reload(server)
 
         port = _select_free_port()
         handle = backend_launcher.start_backend(
@@ -164,32 +157,37 @@ def api_integration_env(request):
             open_browser=False,
             ws_protocol="none",
         )
+    except Exception as exc:  # pragma: no cover - environment dependent
+        os.chdir(original_cwd)
+        _restore_fixture_constants(originals)
+        temp_dir.cleanup()
+        pytest.skip(f"Setta backend unavailable: {exc}")
 
-        env = SimpleNamespace(
-            root=root,
-            setta_root=setta_root,
-            handle=handle,
-            original_cwd=original_cwd,
-            originals=originals,
-            original_is_dev_mode=original_is_dev_mode,
-            original_server_is_dev_mode=original_server_is_dev_mode,
-            original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
-        )
+    env = SimpleNamespace(
+        root=root,
+        setta_root=setta_root,
+        handle=handle,
+        original_cwd=original_cwd,
+        originals=originals,
+        original_is_dev_mode=original_is_dev_mode,
+        original_server_is_dev_mode=original_server_is_dev_mode,
+        original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
+    )
+
+    try:
         yield env
     finally:
         if handle is not None:
             handle.stop(join_timeout=30.0)
         os.chdir(original_cwd)
         _restore_fixture_constants(originals)
-        if constants_module is not None and original_is_dev_mode is not None:
-            constants_module.IS_DEV_MODE = original_is_dev_mode
-        if server_module is not None and original_server_is_dev_mode is not None:
-            server_module.IS_DEV_MODE = original_server_is_dev_mode
-        if (
-            backend_launcher_module is not None
-            and original_backend_launcher_is_dev_mode is not None
-        ):
-            backend_launcher_module.IS_DEV_MODE = original_backend_launcher_is_dev_mode
+        import setta.utils.constants as constants
+        import setta.server as server
+        import setta.backend_launcher as backend_launcher
+
+        constants.IS_DEV_MODE = original_is_dev_mode
+        server.IS_DEV_MODE = original_server_is_dev_mode
+        backend_launcher.IS_DEV_MODE = original_backend_launcher_is_dev_mode
         temp_dir.cleanup()
 
 
@@ -257,6 +255,8 @@ def test_setta_api_tool_call(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--auth-json",
             str(auth_path),
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json-output",
         ],
     )
@@ -717,6 +717,8 @@ def test_setta_api_tool_call_rejects_http_error(api_integration_env) -> None:
             "get_latest_project_state_summary",
             "--auth-json",
             str(auth_path),
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json",
             "{}",
             "--json-output",
@@ -795,12 +797,15 @@ def test_tools_call_endpoint_tool_error_contract(api_integration_env) -> None:
     cookie = auth_payload["cookie"]
     base_url = auth_payload["baseUrl"]
     url = f"{base_url}{Route.TOOLS_CALL.value}"
-    headers = {"Cookie": cookie}
+    headers = {
+        "Cookie": cookie,
+        AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER: str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
+    }
 
     response = requests.post(
         url,
         headers=headers,
-        json={"tool": "getTerminalOutput", "arguments": {"sectionId": "missing"}},
+        json={"tool": "read_file_range", "arguments": {"path": "missing-file.txt"}},
         timeout=TOOLS_CALL_TIMEOUT_SECONDS,
     )
     assert response.status_code == 500
@@ -819,6 +824,8 @@ def test_setta_api_payload_stdin(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--auth-json",
             str(auth_path),
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--stdin",
             "--json-output",
         ],
@@ -843,6 +850,8 @@ def test_setta_api_payload_file(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--auth-json",
             str(auth_path),
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--file",
             str(payload_path),
             "--json-output",
@@ -866,6 +875,8 @@ def test_setta_api_auth_stdin(api_integration_env) -> None:
         [
             "getProjectConfigNamesAndIds",
             "--auth-stdin",
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json",
             "{}",
             "--json-output",
@@ -890,6 +901,8 @@ def test_setta_api_cookie_header(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--cookie-header",
             cookie_header,
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json-output",
         ],
     )
@@ -911,6 +924,8 @@ def test_setta_api_cookie_value(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--cookie",
             cookie,
+            "--agentic-project-config-id",
+            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json-output",
         ],
     )

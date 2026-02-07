@@ -32,19 +32,9 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
-from tests.utils.integration_flags import (
-    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    external_agent_integration_tests_enabled,
-)
 
 
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.skipif(
-        not external_agent_integration_tests_enabled(),
-        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    ),
-]
+pytestmark = pytest.mark.asyncio
 
 
 class TestClaudeSdkAdapterIntegration:
@@ -81,18 +71,21 @@ class TestClaudeSdkAdapterIntegration:
         return str(path)
 
     def _require_claude_sdk(self) -> str:
-        try:
-            version = importlib.metadata.version("claude-agent-sdk")
-        except importlib.metadata.PackageNotFoundError:
-            pytest.skip("claude-agent-sdk is not installed")
         if not os.environ.get("ANTHROPIC_API_KEY"):
             pytest.skip("ANTHROPIC_API_KEY not set")
         try:
             socket.getaddrinfo("api.anthropic.com", 443)
-            with socket.create_connection(("api.anthropic.com", 443), timeout=3):
+            with socket.create_connection(
+                ("api.anthropic.com", 443),
+                timeout=3,
+            ):
                 pass
         except OSError:
             pytest.skip("Cannot connect to api.anthropic.com:443")
+        try:
+            version = importlib.metadata.version("claude-agent-sdk")
+        except importlib.metadata.PackageNotFoundError:
+            pytest.fail("claude-agent-sdk is not installed")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:

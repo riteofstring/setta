@@ -1575,10 +1575,6 @@ function FolderPath({
     [blurActiveElement, folder, onChange, blurTriggeredByEscapeKey],
   );
 
-  const onBlurCommitLatestValue = useCallback(() => {
-    void onBlur(inputValue);
-  }, [inputValue, onBlur]);
-
   const dummyInputStyles =
     "flex-1 min-w-0 cursor-text truncate bg-transparent [border-width:0_0_1px_0] border-solid border-transparent pl-4 py-1 text-xs outline-0 focus-visible:border-blue-300 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
   const realInputStyles =
@@ -1594,7 +1590,7 @@ function FolderPath({
         id={`CodeMirror-${sectionId}-browser-path`}
         value={inputValue}
         onChange={onChange}
-        onBlur={onBlurCommitLatestValue}
+        onBlur={() => onBlur(inputValue)}
         onEnter={(_, completionResult) => {
           if (!completionResult) {
             blurActiveElement();
