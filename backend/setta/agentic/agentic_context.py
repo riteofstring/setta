@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import hashlib
+
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -10,6 +12,10 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BrowserSectionImpl,
+    CallableSectionImpl,
+    ChartSectionImpl,
+    DrawSectionImpl,
+    ImageSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
     TextBlockSectionImpl,
@@ -17,6 +23,7 @@ from setta.types.section_impls import (
 
 MAX_INLINE_LINES = 160
 MAX_SUMMARY_LINES = 32
+MAX_SUMMARY_PROMPT_CHARS = 18_000
 
 
 @dataclass(frozen=True)
@@ -25,11 +32,28 @@ class AgenticContextPayload:
     section_ids: list[ID]
 
 
+@dataclass(frozen=True)
+class AgenticSectionSummarySource:
+    """Deterministic summary inputs derived from a single section.
+
+    `content_hash` should change whenever the semantic summary source changes.
+    `prompt_text` is a bounded excerpt suitable for sending to an LLM.
+    """
+
+    section_id: ID
+    label: str
+    section_type: str
+    raw_text: str
+    prompt_text: str
+    content_hash: str
+
+
 def build_agentic_context_payload(
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
     *,
     format_section_id: Callable[[ID], str] | None = None,
+    summary_text_by_section_id: dict[ID, str] | None = None,
 ) -> AgenticContextPayload:
     context_edges = resolve_context_edges(project_state, chat_section_id)
     if not context_edges:
@@ -49,6 +73,7 @@ def build_agentic_context_payload(
             section_id,
             context_mode,
             format_section_id=format_section_id,
+            summary_text_by_section_id=summary_text_by_section_id,
         )
         if not block:
             continue
@@ -71,6 +96,7 @@ def _build_context_block(
     context_mode: AgenticEdgeContextMode,
     *,
     format_section_id: Callable[[ID], str] | None,
+    summary_text_by_section_id: dict[ID, str] | None,
 ) -> str:
     section = project_state.sections[section_id]
     display_name = (section.displayName or "").strip()
@@ -83,6 +109,18 @@ def _build_context_block(
     )
     if context_mode == AgenticEdgeContextMode.reference_only:
         return f"- {label} ({section_type}) [id: {rendered_id}]"
+
+    if context_mode == AgenticEdgeContextMode.summary:
+        cached = (
+            summary_text_by_section_id.get(section_id)
+            if summary_text_by_section_id is not None
+            else None
+        )
+        if isinstance(cached, str) and cached.strip():
+            return (
+                f"### {label} ({section_type}) [id: {rendered_id} | summary]\n"
+                f"{cached.strip()}".strip()
+            )
 
     raw_text = _extract_section_text(
         project_state,
@@ -115,8 +153,56 @@ def _extract_section_text(
     section_impl = get_curr_effective_section_impl(project_state, section_id)
     if isinstance(section_impl, TextBlockSectionImpl):
         return section_impl.text or ""
+    if isinstance(section_impl, ImageSectionImpl):
+        image_path = (section_impl.imagePath or "").strip()
+        return f"imagePath: {image_path}".strip() if image_path else ""
     if isinstance(section_impl, BaseCodeSectionImpl):
         return section_impl.code or ""
+    if isinstance(section_impl, CallableSectionImpl):
+        callable_id = section_impl.callable
+        callable_line = f"callable: {callable_id}" if callable_id is not None else ""
+        summary_entry = summary_by_section.get(section_id)
+        param_lines = _extract_summary_params(summary_entry)
+        combined = "\n".join([line for line in (callable_line, param_lines) if line])
+        return combined.strip()
+    if isinstance(section_impl, ChartSectionImpl):
+        lines: list[str] = []
+        data_path = (section_impl.dataPath or "").strip()
+        if data_path:
+            lines.append(f"dataPath: {data_path}")
+        chart_settings = getattr(section_impl, "chartSettings", None)
+        chart_type = getattr(chart_settings, "type", None)
+        if chart_type is not None:
+            value = chart_type.value if hasattr(chart_type, "value") else str(chart_type)
+            value = value.strip()
+            if value:
+                lines.append(f"chartType: {value}")
+        x_axis_column = getattr(chart_settings, "xAxisColumn", None)
+        if isinstance(x_axis_column, str) and x_axis_column.strip():
+            lines.append(f"xAxisColumn: {x_axis_column.strip()}")
+        return "\n".join(lines).strip()
+    if isinstance(section_impl, DrawSectionImpl):
+        lines: list[str] = [f"layerCount: {len(section_impl.layers)}"]
+        rendered_path = section_impl.renderedImagePath
+        if isinstance(rendered_path, str) and rendered_path.strip():
+            lines.append(f"renderedImagePath: {rendered_path.strip()}")
+        layer_names = [layer.name for layer in section_impl.layers if layer.name]
+        if layer_names:
+            lines.append("layers:")
+            for name in layer_names[:8]:
+                lines.append(f"- {name}")
+            if len(layer_names) > 8:
+                lines.append(f"... ({len(layer_names) - 8} more)")
+        summary_entry = summary_by_section.get(section_id)
+        draw_paths = getattr(summary_entry, "drawLayerAssetPaths", None)
+        if isinstance(draw_paths, list) and draw_paths:
+            lines.append("assetPaths:")
+            for entry in draw_paths[:8]:
+                if isinstance(entry, str) and entry.strip():
+                    lines.append(f"- {entry.strip()}")
+            if len(draw_paths) > 8:
+                lines.append(f"... ({len(draw_paths) - 8} more)")
+        return "\n".join(lines).strip()
     if isinstance(section_impl, PromptSectionImpl):
         return section_impl.renderedText or section_impl.template or ""
     if isinstance(section_impl, SocialSectionImpl):
@@ -127,6 +213,10 @@ def _extract_section_text(
         return f"folder: {folder}\nview: {view_mode}".strip()
 
     summary_entry = summary_by_section.get(section_id)
+    return _extract_summary_params(summary_entry)
+
+
+def _extract_summary_params(summary_entry: object | None) -> str:
     if summary_entry is None:
         return ""
     params = getattr(summary_entry, "parameters", None)
@@ -140,7 +230,7 @@ def _extract_section_text(
             lines.append(f"- {name}: {preview}")
         else:
             lines.append(f"- {name}")
-    return "\n".join(lines)
+    return "\n".join(lines).strip()
 
 
 def _truncate_lines(text: str, max_lines: int) -> str:
@@ -152,3 +242,44 @@ def _truncate_lines(text: str, max_lines: int) -> str:
     clipped = "\n".join(lines[:max_lines]).strip()
     remainder = len(lines) - max_lines
     return f"{clipped}\n... ({remainder} more lines)"
+
+
+def build_agentic_section_summary_source(
+    project_state: ProjectStateSingleConfig,
+    section_id: ID,
+) -> AgenticSectionSummarySource:
+    if section_id not in project_state.sections:
+        raise KeyError(f"Section {section_id} not found in project state.")
+
+    section = project_state.sections[section_id]
+    display_name = (section.displayName or "").strip()
+    label = display_name if display_name else section.name or str(section_id)
+    section_impl = get_curr_effective_section_impl(project_state, section_id)
+    section_type = section_impl.type.value
+
+    summary = build_project_state_summary(project_state)
+    summary_by_section = {entry.sectionId: entry for entry in summary.sections}
+    raw_text = _extract_section_text(project_state, summary_by_section, section_id)
+
+    hashed_payload = f"{section_type}\n{raw_text}".encode("utf-8")
+    content_hash = hashlib.sha256(hashed_payload).hexdigest()
+
+    prompt_body = raw_text
+    if len(prompt_body) > MAX_SUMMARY_PROMPT_CHARS:
+        prompt_body = (
+            prompt_body[:MAX_SUMMARY_PROMPT_CHARS].rstrip()
+            + "\n\n[...truncated...]"
+        )
+    prompt_text = (
+        f"Section: {label}\n"
+        f"Type: {section_type}\n\n"
+        f"Content:\n{prompt_body}".strip()
+    )
+    return AgenticSectionSummarySource(
+        section_id=section_id,
+        label=label,
+        section_type=section_type,
+        raw_text=raw_text,
+        prompt_text=prompt_text,
+        content_hash=content_hash,
+    )

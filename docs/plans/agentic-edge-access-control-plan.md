@@ -182,6 +182,16 @@ LLM summary prompt should:
 - Prohibit speculation/hallucination (“only summarize what is present”).
 - Include the deterministic facts block, not arbitrary deep project reads.
 
+Implementation (Feb 2026):
+- Cache file: `setta_files/agentic_summary_cache.json` (via `DBE.agentic_summary_cache`).
+- Cache helpers: `backend/setta/agentic/agentic_summary_cache.py`.
+- Summary source + hash: `backend/setta/agentic/agentic_context.py` (`build_agentic_section_summary_source`).
+- Managed LLM generation + injection: `backend/setta/llm/agent_runner.py`
+  - On run start, load cached summaries for `contextMode=summary` edges.
+  - Synchronously generate missing summaries (bounded per run) with the chat’s `LLMConfig` at `temperature=0`.
+  - Persist summaries to cache and inject them into the Agentic Context payload.
+- External agents: `backend/setta/agentic/external_agent_runner.py` reuses cached summaries when present (no new LLM calls; deterministic fallback otherwise).
+
 ## External agent specifics
 - Support providing agentic context via MCP `meta`, HTTP headers, or
   `set_agentic_context`:
@@ -204,6 +214,8 @@ Purpose:
 Data model:
 - Persist titles on the run as `AgentRun.outputs.name` (frontend already prefers
   this when present).
+  - Also persist `AgentRun.outputs.nameInputHash` so titles can be invalidated
+    only when the title input changes.
 
 Generation rules:
 - Deterministic fallback (always available):
@@ -231,6 +243,12 @@ Tests:
 - Unit: title generation formatting rules and deterministic fallback.
 - Integration: a run with no outputs.name gets a generated title once and is
   stable across subsequent runs.
+
+Implementation (Feb 2026):
+- Managed `llm_chat` runs: `backend/setta/llm/agent_runner.py` sets `outputs.name`
+  (LLM-generated on first completed run when possible, deterministic fallback otherwise).
+- External agents: `backend/setta/agentic/external_agent_runner.py` sets a deterministic `outputs.name`.
+- Frontend label preference: `frontend/src/state/actions/chatHistory.ts` already prefers `outputs.name`.
 
 ## Frontend UX
 - Add an “Agentic Scope” panel in Chat settings:

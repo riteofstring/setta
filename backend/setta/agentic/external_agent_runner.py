@@ -11,6 +11,10 @@ from typing import Any
 from mcp.types import TextContent
 
 from setta.agentic.agentic_context import build_agentic_context_payload
+from setta.agentic.agentic_summary_cache import (
+    load_cached_agentic_summary_texts_for_chat_section,
+)
+from setta.agentic.chat_titles import build_deterministic_chat_title
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     build_chat_state_from_run,
@@ -482,10 +486,19 @@ class ExternalAgentRunner:
                     )
                 )
 
+            summary_text_by_section_id = (
+                load_cached_agentic_summary_texts_for_chat_section(
+                    self.dbe,
+                    project_state=project_state_single,
+                    project_config_id=project_config_id,
+                    chat_section_id=section_id,
+                )
+            )
             payload = build_agentic_context_payload(
                 project_state_single,
                 section_id,
                 format_section_id=_format_section_id,
+                summary_text_by_section_id=summary_text_by_section_id,
             )
             if len(canonical_to_temporary) != map_size_before:
                 self.dbe.write_temporary_id_map(canonical_to_temporary)
@@ -814,6 +827,12 @@ class ExternalAgentRunner:
                 metadata["settingsPaths"] = resolved_paths
         if metadata:
             outputs["metadata"] = metadata
+        title_result = build_deterministic_chat_title(state.messages)
+        if "nameInputHash" not in outputs:
+            outputs["nameInputHash"] = title_result.input_hash
+        raw_name = outputs.get("name")
+        if not isinstance(raw_name, str) or not raw_name.strip():
+            outputs["name"] = title_result.title
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 

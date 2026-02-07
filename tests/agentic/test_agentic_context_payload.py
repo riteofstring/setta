@@ -165,3 +165,45 @@ def test_build_agentic_context_payload_reference_only_omits_section_body() -> No
     assert payload.section_ids == [ID(context_section_id)]
     assert f"[id: {context_section_id}]" in payload.text
     assert "### " not in payload.text
+
+
+def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_available() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="agentic-context-summary-cache-test")
+    )
+    chat_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    context_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TextBlock,
+        Position(),
+    )
+    long_text = "\n".join(f"line {idx}" for idx in range(200))
+    set_text_block_text(project_state, context_section_id, long_text)
+    create_agentic_edge(
+        project_state,
+        AgenticEdge(
+            id=create_new_id(),
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
+            contextMode=AgenticEdgeContextMode.summary,
+        ),
+    )
+
+    payload = build_agentic_context_payload(
+        project_state,
+        chat_section_id,
+        summary_text_by_section_id={ID(context_section_id): "- cached summary bullet"},
+    )
+
+    assert payload.section_ids == [ID(context_section_id)]
+    assert f"[id: {context_section_id} | summary]" in payload.text
+    assert "- cached summary bullet" in payload.text
+    assert "... (168 more lines)" not in payload.text
