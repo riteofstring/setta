@@ -1,7 +1,8 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import type { LaunchRequestInput } from "utils/generatedTypes";
 import {
@@ -11,6 +12,7 @@ import {
   type WorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
 import {
+  encodePendingWorkspaceLaunchForUrlHash,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
@@ -18,7 +20,6 @@ import {
 
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
   const [sshArgs, setSshArgs] = useState("");
@@ -129,11 +130,33 @@ export function WorkspaceSwitcherModal() {
     };
 
     writeWorkspaceSwitcherDraft(request);
-    writePendingWorkspaceLaunch({
+    const pendingLaunch = {
       request,
-      returnPath: `${location.pathname}${location.search}${location.hash}`,
+      returnUrl: typeof window !== "undefined" ? window.location.href : "/",
       requestedAt: Date.now(),
-    });
+    };
+
+    if (
+      !import.meta.env?.DEV &&
+      typeof window !== "undefined" &&
+      C_ADDRESSES.LAUNCHER_ORIGIN !== window.location.origin
+    ) {
+      const encoded = encodePendingWorkspaceLaunchForUrlHash(pendingLaunch);
+      if (!encoded) {
+        setIsLaunching(false);
+        setError("Failed to encode launch request.");
+        return;
+      }
+      const url = new URL(WORKSPACE_LAUNCH_ROUTER_PATH, C_ADDRESSES.LAUNCHER_ORIGIN);
+      const params = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : url.hash);
+      params.set("pl", encoded);
+      url.hash = params.toString();
+      closeModal();
+      window.location.assign(url.toString());
+      return;
+    }
+
+    writePendingWorkspaceLaunch(pendingLaunch);
 
     closeModal();
     navigate(WORKSPACE_LAUNCH_ROUTER_PATH);
@@ -327,7 +350,7 @@ export function WorkspaceSwitcherModal() {
           Cancel
         </button>
         <button
-          className="cursor-pointer rounded-full bg-setta-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-blue-700"
+          className="cursor-pointer rounded-full bg-setta-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-setta-800 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-setta-600"
           onClick={handleLaunch}
           disabled={!canLaunch}
         >

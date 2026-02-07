@@ -16,17 +16,11 @@ function isLocalHostname(hostname: string): boolean {
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;
-  if (!raw) {
+  if (typeof raw !== "string") {
     return false;
   }
-  if (typeof raw === "boolean") {
-    return raw;
-  }
-  if (typeof raw === "string") {
-    const normalized = raw.trim().toLowerCase();
-    return normalized === "1" || normalized === "true" || normalized === "yes";
-  }
-  return false;
+  const normalized = raw.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 function isOverrideAllowed(

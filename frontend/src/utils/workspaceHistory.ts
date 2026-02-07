@@ -20,7 +20,7 @@ function normalizeNullableString(value: unknown): string | null {
 
 function normalizePathLike(value: string): string {
   let output = value.trim();
-  while (output.length > 1 && output.endsWith("/")) {
+  while (output.length > 1 && (output.endsWith("/") || output.endsWith("\\"))) {
     output = output.slice(0, -1);
   }
   return output;

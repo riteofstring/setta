@@ -14,6 +14,7 @@ from click.testing import CliRunner
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
+from setta.auth.cookies import auth_cookie_name
 from setta.sessions import SessionRegistry
 from setta.start import api, auth, tools
 from setta.types.routes import Route
@@ -187,11 +188,12 @@ def test_auth_json_emits_payload(auth_env) -> None:
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
+    cookie_name = auth_cookie_name(session.id)
 
     assert payload["baseUrl"] == "http://127.0.0.1:61234"
     assert payload["apiBaseUrl"] == "http://127.0.0.1:61234/api"
-    assert payload["cookieName"] == C.AUTH_COOKIE_NAME
-    assert payload["cookie"].startswith(f"{C.AUTH_COOKIE_NAME}=")
+    assert payload["cookieName"] == cookie_name
+    assert payload["cookie"].startswith(f"{cookie_name}=")
     assert payload["cookieHeader"].startswith("Cookie: ")
     assert payload["session"]["id"] == session.id
     assert (

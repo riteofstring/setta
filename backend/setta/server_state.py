@@ -42,11 +42,11 @@ from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.init_status import BackendInitializationStatus
 from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
-    warn_on_legacy_state,
 )
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
@@ -193,13 +193,6 @@ class SettaFastAPIState:
         self.share_runtime_root = self._resolve_share_runtime_root(
             self.share_deployment_root
         )
-        if not self.share_mode:
-            warn_on_legacy_state(
-                workspace_root=self.paths.workspace_root,
-                setta_files_root=self.paths.setta_files_root,
-                logger=logger,
-            )
-
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.dbe = DBE(
@@ -217,7 +210,7 @@ class SettaFastAPIState:
             # Ensure runtime-root consumers (password store, binary lookups, etc) point at
             # the active share deployment runtime root even when multiple share states
             # are constructed in-process (tests).
-            os.environ["SETTA_RUNTIME_ROOT"] = str(self.dbe.runtime_root)
+            os.environ[RUNTIME_ROOT_ENV] = str(self.dbe.runtime_root)
             clear_setta_paths_cache()
             self.paths = get_setta_paths()
         if not self.share_mode:

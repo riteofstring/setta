@@ -3,10 +3,10 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from setta.secrets.password_store import get_password_secret
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.paths import get_setta_paths
 
 _BINARY_BASE_URL_ENV = "SETTA_BINARY_BASE_URL"
-_RUNTIME_ROOT_ENV = "SETTA_RUNTIME_ROOT"
 
 
 def read_binary_value(payload: dict[str, object]) -> bytes:
@@ -14,7 +14,7 @@ def read_binary_value(payload: dict[str, object]) -> bytes:
     content_id = payload.get("contentId")
     if not isinstance(content_id, str) or not content_id:
         raise ValueError("Binary payload missing contentId.")
-    runtime_root = os.environ.get(_RUNTIME_ROOT_ENV)
+    runtime_root = os.environ.get(RUNTIME_ROOT_ENV)
     if runtime_root:
         runtime_path = Path(runtime_root) / "binary" / content_id
     else:

@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-_WORKSPACE_ROOT_ENV = "SETTA_WORKSPACE_ROOT"
-_FILES_ROOT_ENV = "SETTA_FILES_ROOT"
-_FILES_ROOT_BASE_ENV = "SETTA_FILES_ROOT_BASE"
-_RUNTIME_ROOT_ENV = "SETTA_RUNTIME_ROOT"
+from setta.utils.env_vars import (
+    FILES_ROOT_BASE_ENV,
+    FILES_ROOT_ENV,
+    RUNTIME_ROOT_ENV,
+    WORKSPACE_ROOT_ENV,
+)
 
 
 @dataclass(frozen=True)
@@ -169,38 +171,8 @@ def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     return base_root / f"{sanitized_leaf}-{digest}"
 
 
-def warn_on_legacy_state(
-    *,
-    workspace_root: Path,
-    setta_files_root: Path,
-    logger,
-) -> None:
-    raw_enabled = os.environ.get("SETTA_WARN_LEGACY_STATE")
-    if not raw_enabled or raw_enabled.strip().lower() in {"0", "false", "no"}:
-        return
-    legacy_root = (workspace_root / "setta_files").resolve(strict=False)
-    if legacy_root == setta_files_root:
-        return
-    legacy_exists = legacy_root.exists()
-    if not legacy_exists:
-        return
-    new_root_has_contents = setta_files_root.exists() and any(
-        setta_files_root.iterdir()
-    )
-    if new_root_has_contents:
-        return
-    logger.warning(
-        "Detected existing state at %s while using files root %s. To reuse it, start Setta with: "
-        "setta --workspace %s --files-root %s",
-        legacy_root,
-        setta_files_root,
-        workspace_root,
-        legacy_root,
-    )
-
-
 def _resolve_workspace_root(workspace_root: Path | str | None) -> Path:
-    raw = workspace_root or os.environ.get(_WORKSPACE_ROOT_ENV) or Path.cwd()
+    raw = workspace_root or os.environ.get(WORKSPACE_ROOT_ENV) or Path.cwd()
     if isinstance(raw, str):
         raw = raw.strip() or Path.cwd()
     return resolve_path(raw)
@@ -223,11 +195,11 @@ def _resolve_files_root(
 
     raw_env_files_root: str | None = None
     if not ignore_env_files_root:
-        raw_env_files_root = os.environ.get(_FILES_ROOT_ENV)
+        raw_env_files_root = os.environ.get(FILES_ROOT_ENV)
         if raw_env_files_root is not None:
             raw_env_files_root = raw_env_files_root.strip() or None
 
-    raw_env_files_root_base = os.environ.get(_FILES_ROOT_BASE_ENV)
+    raw_env_files_root_base = os.environ.get(FILES_ROOT_BASE_ENV)
     if raw_env_files_root_base is not None:
         raw_env_files_root_base = raw_env_files_root_base.strip() or None
 
@@ -257,7 +229,7 @@ def _resolve_files_root(
 def _resolve_runtime_root(
     setta_files_root: Path, *, runtime_root: Path | str | None
 ) -> Path:
-    raw = runtime_root or os.environ.get(_RUNTIME_ROOT_ENV)
+    raw = runtime_root or os.environ.get(RUNTIME_ROOT_ENV)
     if isinstance(raw, str):
         raw = raw.strip() or None
     if raw is not None:

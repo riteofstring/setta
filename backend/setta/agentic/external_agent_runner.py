@@ -42,6 +42,7 @@ from setta.agentic.store import (
     save_agent_run,
 )
 from setta.agentic.system_prompt import build_agent_system_prompt
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
@@ -904,7 +905,7 @@ class ExternalAgentRunner:
             return None
         session_metadata, secret = session_info
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
 
     @staticmethod
     def _build_claude_allowed_tools(

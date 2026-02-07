@@ -17,6 +17,7 @@ import requests
 import yaml
 
 from setta import __version__, ssh_common
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
 from setta.launch import LaunchError, launch_workspace_session
@@ -33,6 +34,11 @@ from setta.share.deployment_utils import (
 )
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.env_vars import (
+    FILES_ROOT_BASE_ENV,
+    FILES_ROOT_ENV,
+    WORKSPACE_ROOT_ENV,
+)
 from setta.utils.network import (
     build_bootstrap_urls,
     format_host_for_ssh_tunnel,
@@ -53,9 +59,6 @@ _MISSING_AUTH_MESSAGE = (
     "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
     "workspace)."
 )
-_WORKSPACE_ROOT_ENV = "SETTA_WORKSPACE_ROOT"
-_FILES_ROOT_ENV = "SETTA_FILES_ROOT"
-_FILES_ROOT_BASE_ENV = "SETTA_FILES_ROOT_BASE"
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
@@ -90,10 +93,10 @@ def _resolve_cli_paths(
 
 
 def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
-    os.environ[_WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-    os.environ[_FILES_ROOT_ENV] = str(paths.setta_files_root)
+    os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
+    os.environ[FILES_ROOT_ENV] = str(paths.setta_files_root)
     if files_root_base is not None:
-        os.environ[_FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
+        os.environ[FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
     clear_setta_paths_cache()
 
 
@@ -776,8 +779,12 @@ def _cookie_header_from_auth_payload(payload: dict[str, Any]) -> str:
     if isinstance(cookie, str) and cookie.strip():
         cookie_value = _strip_cookie_header_prefix(cookie)
         if "=" not in cookie_value:
-            name = payload.get("cookieName") or C.AUTH_COOKIE_NAME
-            cookie_value = f"{name}={cookie_value}"
+            name = payload.get("cookieName")
+            if not isinstance(name, str) or not name.strip():
+                raise click.ClickException(
+                    "Auth JSON missing cookieName for raw cookie values."
+                )
+            cookie_value = f"{name.strip()}={cookie_value}"
         return cookie_value
     raise click.ClickException("Auth JSON missing cookieHeader/cookie fields.")
 
@@ -1245,8 +1252,9 @@ def auth(
         resolved_base_url, token_for_output
     )
 
+    cookie_name = auth_cookie_name(session.id)
     cookie_value = AUTH_COOKIE_MANAGER.mint(session.id, secret)
-    cookie = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
+    cookie = f"{cookie_name}={cookie_value}"
     cookie_header = f"Cookie: {cookie}"
 
     payload = {
@@ -1254,7 +1262,7 @@ def auth(
         "apiBaseUrl": api_base_url,
         "cookieHeader": cookie_header,
         "cookie": cookie,
-        "cookieName": C.AUTH_COOKIE_NAME,
+        "cookieName": cookie_name,
         "session": _format_session_payload(session),
         "bootstrapUrlFragment": bootstrap_url_fragment,
         "bootstrapUrlPlain": bootstrap_url_plain,
@@ -1364,7 +1372,9 @@ def api(
             elif cookie:
                 cookie_value = _strip_cookie_header_prefix(cookie)
                 if "=" not in cookie_value:
-                    cookie_value = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
+                    raise click.ClickException(
+                        "Cookie must be provided in name=value form."
+                    )
             if resolved_base_url is None:
                 session, _ = _resolve_latest_session_for_workspace(
                     get_setta_paths().workspace_root
@@ -1388,9 +1398,7 @@ def api(
                 if base_url
                 else _base_url_from_session(session)
             )
-            cookie_value = (
-                f"{C.AUTH_COOKIE_NAME}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
-            )
+            cookie_value = f"{auth_cookie_name(session.id)}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
 
         if resolved_base_url is None:
             raise click.ClickException(

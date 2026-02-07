@@ -59,6 +59,27 @@ describe("workspaceHistory", () => {
     expect(merged[0].workspaceRoot).toBe("/tmp/work/");
   });
 
+  it("dedupes entries that only differ by trailing backslashes", () => {
+    const existing = [
+      {
+        workspaceRoot: "C:\\\\repo\\\\",
+        sshTarget: null,
+        localPort: null,
+        filesRoot: null,
+        filesRootBase: null,
+        lastUsedAt: 1,
+      },
+    ];
+    const nextEntry = {
+      ...existing[0],
+      workspaceRoot: "C:\\\\repo",
+      lastUsedAt: 2,
+    };
+
+    const merged = upsertWorkspaceHistoryEntry(existing, nextEntry);
+    expect(merged).toHaveLength(1);
+  });
+
   it("avoids key collisions when values contain '::'", () => {
     const entryA = {
       workspaceRoot: "a",

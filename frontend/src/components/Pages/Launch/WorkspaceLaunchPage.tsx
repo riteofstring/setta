@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { C_ADDRESSES } from "utils/c_addresses";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
+import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
 import {
   appendWorkspaceHistoryToBootstrapUrlFragment,
   loadWorkspaceHistory,
@@ -19,14 +21,14 @@ type LaunchPhase =
   | {
       status: "loading";
       startedAt: number;
-      returnPath: string;
+      returnUrl: string;
       workspaceRoot: string;
       sshTarget: string | null;
     }
   | {
       status: "error";
       message: string;
-      returnPath: string;
+      returnUrl: string;
       workspaceRoot: string;
       sshTarget: string | null;
     };
@@ -64,7 +66,10 @@ export function WorkspaceLaunchPage() {
       setPhase({
         status: "error",
         message: "Missing pending workspace launch request.",
-        returnPath: HOME_ROUTER_PATH,
+        returnUrl:
+          typeof window !== "undefined"
+            ? new URL(HOME_ROUTER_PATH, window.location.href).toString()
+            : HOME_ROUTER_PATH,
         workspaceRoot: "",
         sshTarget: null,
       });
@@ -75,7 +80,7 @@ export function WorkspaceLaunchPage() {
     setPhase({
       status: "loading",
       startedAt: pending.requestedAt,
-      returnPath: pending.returnPath,
+      returnUrl: pending.returnUrl,
       workspaceRoot: pending.request.workspaceRoot ?? "",
       sshTarget: pending.request.sshTarget ?? null,
     });
@@ -94,7 +99,7 @@ export function WorkspaceLaunchPage() {
             (res.status
               ? `Launch failed (HTTP ${res.status}). Please try again.`
               : "Launch failed. Please try again."),
-          returnPath: pending.returnPath,
+          returnUrl: pending.returnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pending.request.sshTarget ?? null,
         });
@@ -104,7 +109,7 @@ export function WorkspaceLaunchPage() {
         setPhase({
           status: "error",
           message: res.data.error?.message ?? "Launch failed.",
-          returnPath: pending.returnPath,
+          returnUrl: pending.returnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pending.request.sshTarget ?? null,
         });
@@ -114,7 +119,7 @@ export function WorkspaceLaunchPage() {
         setPhase({
           status: "error",
           message: "Launch succeeded but no bootstrap URL was returned.",
-          returnPath: pending.returnPath,
+          returnUrl: pending.returnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pending.request.sshTarget ?? null,
         });
@@ -157,9 +162,12 @@ export function WorkspaceLaunchPage() {
       clearPendingWorkspaceLaunch();
       const bootstrapUrl = import.meta.env?.DEV
         ? res.data.bootstrapUrlFragment
-        : appendWorkspaceHistoryToBootstrapUrlFragment(
-            res.data.bootstrapUrlFragment,
-            nextHistory,
+        : appendLauncherOriginToBootstrapUrlFragment(
+            appendWorkspaceHistoryToBootstrapUrlFragment(
+              res.data.bootstrapUrlFragment,
+              nextHistory,
+            ),
+            C_ADDRESSES.LAUNCHER_ORIGIN,
           );
       window.location.href = bootstrapUrl;
     }
@@ -181,17 +189,30 @@ export function WorkspaceLaunchPage() {
     return "Launch failed";
   }, [elapsedMs, phase.status]);
 
-  function goBack(returnPath: string) {
+  function goBack(returnUrl: string) {
     clearPendingWorkspaceLaunch();
-    requestOpenWorkspaceSwitcherOnNextMount();
-    navigate(returnPath, { replace: true });
+    try {
+      const url = new URL(returnUrl, window.location.href);
+      if (url.origin === window.location.origin) {
+        requestOpenWorkspaceSwitcherOnNextMount();
+        navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
+        return;
+      }
+      url.searchParams.set("__setta_open_workspace_switcher", "1");
+      window.location.assign(url.toString());
+    } catch {
+      requestOpenWorkspaceSwitcherOnNextMount();
+      navigate(HOME_ROUTER_PATH, { replace: true });
+    }
   }
 
   const errorMessage = phase.status === "error" ? phase.message : null;
-  const returnPath =
+  const returnUrl =
     phase.status === "loading" || phase.status === "error"
-      ? phase.returnPath
-      : HOME_ROUTER_PATH;
+      ? phase.returnUrl
+      : typeof window !== "undefined"
+        ? new URL(HOME_ROUTER_PATH, window.location.href).toString()
+        : HOME_ROUTER_PATH;
   const workspaceLabel =
     phase.status === "loading" || phase.status === "error"
       ? phase.workspaceRoot
@@ -240,13 +261,13 @@ export function WorkspaceLaunchPage() {
         <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row sm:justify-center">
           <button
             className="cursor-pointer rounded-full border border-setta-300 px-5 py-2 text-sm text-setta-700 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-            onClick={() => goBack(returnPath)}
+            onClick={() => goBack(returnUrl)}
           >
             Back to Switcher
           </button>
           {phase.status === "error" && (
             <button
-              className="cursor-pointer rounded-full bg-setta-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600 dark:hover:bg-blue-700"
+              className="cursor-pointer rounded-full bg-setta-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-setta-800 dark:hover:bg-setta-600"
               onClick={() => window.location.reload()}
             >
               Retry

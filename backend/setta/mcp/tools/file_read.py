@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from setta.mcp.tool_setup import setta_init_tool
-from setta.utils.paths import get_setta_paths
+from setta.utils.paths import ensure_within_workspace_root, get_setta_paths
 
 
 @setta_init_tool
@@ -79,10 +79,13 @@ def _workspace_root(workspace_root: str | Path | None) -> Path:
 
 
 def _resolve_path(path: str, workspace_root: str | Path | None) -> Path:
+    base = _workspace_root(workspace_root)
     candidate = Path(path)
     if candidate.is_absolute():
-        return candidate.resolve()
-    return (_workspace_root(workspace_root) / candidate).resolve()
+        resolved = candidate.resolve()
+    else:
+        resolved = (base / candidate).resolve()
+    return ensure_within_workspace_root(resolved, label="path", workspace_root=base)
 
 
 def _relative_to_workspace(file_path: Path, workspace_root: Path) -> str:

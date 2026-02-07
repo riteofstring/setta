@@ -47,6 +47,8 @@ test("workspace switcher launches a session and persists history", async ({
   await page.evaluate(() =>
     sessionStorage.removeItem("setta.backendOriginOverride"),
   );
+  await page.evaluate(() => sessionStorage.removeItem("setta.launcherOrigin"));
+  await page.evaluate(() => localStorage.removeItem("setta.launcherOrigin"));
   await page.evaluate(() =>
     sessionStorage.removeItem("setta.pendingWorkspaceLaunch"),
   );
@@ -161,12 +163,23 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
       "Missing SETTA_WORKSPACE_ROOT for workspace switcher test.",
     );
   }
+  const expectedLauncherOrigin = process.env.SETTA_BACKEND_ORIGIN;
+  if (!expectedLauncherOrigin) {
+    throw new Error(
+      "Missing SETTA_BACKEND_ORIGIN for workspace switcher test.",
+    );
+  }
   const canonicalWorkspaceRoot = fs.realpathSync(workspaceRoot);
   const requestedLocalPort = await pickFreeLocalPort();
   const filesRootBase = `${workspaceRoot.replace(/\/+$/, "")}/setta_state_base`;
 
   await ensureAppReady(page);
   await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
+  await page.evaluate(() =>
+    sessionStorage.removeItem("setta.backendOriginOverride"),
+  );
+  await page.evaluate(() => sessionStorage.removeItem("setta.launcherOrigin"));
+  await page.evaluate(() => localStorage.removeItem("setta.launcherOrigin"));
   await page.evaluate(() =>
     sessionStorage.removeItem("setta.pendingWorkspaceLaunch"),
   );
@@ -189,7 +202,11 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await modal.getByPlaceholder("/path/to/setta_state").fill(filesRootBase);
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
-    return req.method() === "POST" && url.pathname === "/api/launch";
+    return (
+      req.method() === "POST" &&
+      url.pathname === "/api/launch" &&
+      url.origin === expectedLauncherOrigin
+    );
   });
   const bootstrapRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
@@ -216,15 +233,20 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
 
   await page.waitForLoadState("domcontentloaded");
   await page.waitForSelector(".react-flow__pane");
+  const tunnelOrigin = `http://127.0.0.1:${connectedPort}`;
   await page.waitForFunction(
     (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
-    `http://127.0.0.1:${connectedPort}`,
+    tunnelOrigin,
   );
-  const backendOrigin = await page.evaluate(async () => {
+  const { backendOrigin, launcherOrigin } = await page.evaluate(async () => {
     const { C_ADDRESSES } = await import("/src/utils/c_addresses");
-    return C_ADDRESSES.BACKEND_ORIGIN;
+    return {
+      backendOrigin: C_ADDRESSES.BACKEND_ORIGIN,
+      launcherOrigin: C_ADDRESSES.LAUNCHER_ORIGIN,
+    };
   });
-  expect(backendOrigin).toBe(`http://127.0.0.1:${connectedPort}`);
+  expect(backendOrigin).toBe(tunnelOrigin);
+  expect(launcherOrigin).toBe(expectedLauncherOrigin);
 
   await page.getByRole("menuitem", { name: "Project" }).click();
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
@@ -240,4 +262,27 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await expect(
     modalAfterReload.getByPlaceholder("/path/to/setta_state"),
   ).toHaveValue(filesRootBase);
+
+  // Regression test: once we are "inside" an SSH session, launching again must
+  // still send /api/launch to the original launcher backend (not the tunneled backend).
+  const followupLaunchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return (
+      req.method() === "POST" &&
+      url.pathname === "/api/launch" &&
+      url.origin === expectedLauncherOrigin
+    );
+  });
+  await modalAfterReload.getByPlaceholder("61000").fill("");
+  await modalAfterReload.getByPlaceholder("/path/to/setta_state").fill("");
+  await modalAfterReload.getByPlaceholder("/path/to/setta_files").fill("");
+  await modalAfterReload.getByPlaceholder("user@host").fill("");
+  await modalAfterReload
+    .getByPlaceholder("/path/to/workspace")
+    .fill("/path/does/not/exist");
+  await modalAfterReload.getByRole("button", { name: "Launch" }).click();
+
+  await page.waitForURL("**/launching");
+  await followupLaunchRequest;
+  await expect(page.getByText("Workspace root does not exist")).toBeVisible();
 });

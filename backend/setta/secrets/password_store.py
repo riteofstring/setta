@@ -5,14 +5,14 @@ from pathlib import Path
 
 from filelock import FileLock
 
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.paths import get_setta_paths
 
-_RUNTIME_ROOT_ENV = "SETTA_RUNTIME_ROOT"
 PASSWORD_STORE_FILENAME = "passwords.json"
 
 
 def _runtime_secrets_root() -> Path:
-    runtime_root = os.environ.get(_RUNTIME_ROOT_ENV)
+    runtime_root = os.environ.get(RUNTIME_ROOT_ENV)
     if runtime_root:
         return Path(runtime_root) / "secrets"
     return get_setta_paths().runtime_secrets_root

@@ -3,6 +3,7 @@ import sys
 import time
 
 import psutil
+import pytest
 
 from setta import ssh_connect
 
@@ -64,3 +65,22 @@ def test_stop_pid_terminates_when_create_time_matches() -> None:
         assert proc.poll() is not None
     finally:
         _cleanup_process(proc)
+
+
+def test_stop_pid_treats_no_such_process_races_as_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeProc:
+        def __init__(self, pid: int) -> None:
+            self._pid = pid
+
+        def create_time(self) -> float:
+            return 123.456
+
+        def terminate(self) -> None:
+            raise psutil.NoSuchProcess(pid=self._pid)
+
+    monkeypatch.setattr(psutil, "Process", lambda pid: _FakeProc(pid))
+
+    # Should not raise even if the process disappears between checks.
+    ssh_connect._stop_pid(99, expected_create_time=123.456)

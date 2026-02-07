@@ -27,6 +27,24 @@ def test_parse_session_list_validates_required_keys() -> None:
     assert excinfo.value.code == "RemoteSessionList"
 
 
+def test_parse_session_list_requires_workspace_paths() -> None:
+    payload = {
+        "sessions": [
+            {
+                "id": "session-1",
+                "workspacePath": "/tmp/work",
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 123,
+                "startedAt": "2025-01-01T00:00:00",
+            }
+        ]
+    }
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_common.parse_session_list(payload)
+    assert excinfo.value.code == "RemoteSessionList"
+
+
 def test_parse_session_list_parses_valid_payload() -> None:
     payload = {
         "sessions": [

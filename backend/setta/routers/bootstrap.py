@@ -317,6 +317,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         const redirectUrl = "__SETTA_REDIRECT_URL__";
         const workspaceHistoryKey = "setta.workspaceHistory";
         const workspaceHistoryLimit = 6;
+        const launcherOriginKey = "setta.launcherOrigin";
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");
@@ -350,29 +351,123 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           return output;
         }
 
+        function normalizeNullableString(value) {
+          if (typeof value !== "string") {
+            return null;
+          }
+          const trimmed = value.trim();
+          return trimmed ? trimmed : null;
+        }
+
+        function normalizePathLike(value) {
+          let output = value.trim();
+          while (
+            output.length > 1 &&
+            (output.endsWith("/") || output.endsWith("\\\\"))
+          ) {
+            output = output.slice(0, -1);
+          }
+          return output;
+        }
+
+        function normalizeNullablePathLike(value) {
+          const normalized = normalizeNullableString(value);
+          if (normalized === null) {
+            return null;
+          }
+          const trimmed = normalizePathLike(normalized);
+          return trimmed || null;
+        }
+
+        function normalizeNullablePort(value) {
+          if (typeof value === "number") {
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            const port = Math.trunc(value);
+            if (port < 1 || port > 65535) {
+              return null;
+            }
+            return port;
+          }
+          if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (!trimmed) {
+              return null;
+            }
+            const parsed = Number(trimmed);
+            if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
+              return null;
+            }
+            if (parsed < 1 || parsed > 65535) {
+              return null;
+            }
+            return parsed;
+          }
+          return null;
+        }
+
+        function normalizeWorkspaceHistoryEntry(value) {
+          if (!value || typeof value !== "object") {
+            return null;
+          }
+          const record = value;
+          const workspaceRoot = normalizeNullablePathLike(record.workspaceRoot);
+          if (!workspaceRoot) {
+            return null;
+          }
+          const lastUsedAt =
+            typeof record.lastUsedAt === "number" && Number.isFinite(record.lastUsedAt)
+              ? record.lastUsedAt
+              : null;
+          if (lastUsedAt === null) {
+            return null;
+          }
+          return {
+            workspaceRoot: workspaceRoot,
+            sshTarget: normalizeNullableString(record.sshTarget),
+            localPort: normalizeNullablePort(record.localPort),
+            filesRoot: normalizeNullablePathLike(record.filesRoot),
+            filesRootBase: normalizeNullablePathLike(record.filesRootBase),
+            lastUsedAt: lastUsedAt,
+          };
+        }
+
+        function workspaceHistoryEntryKey(entry) {
+          const normalized = {
+            workspaceRoot: normalizePathLike(entry.workspaceRoot),
+            sshTarget: normalizeNullableString(entry.sshTarget),
+            localPort: entry.localPort ?? null,
+            filesRoot: normalizeNullablePathLike(entry.filesRoot),
+            filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
+          };
+          return JSON.stringify(normalized);
+        }
+
         function mergeWorkspaceHistory(incoming, existing) {
-          const seen = new Set();
-          const merged = [];
+          const merged = new Map();
           const combined = [].concat(incoming || [], existing || []);
           for (let idx = 0; idx < combined.length; idx++) {
-            const entry = combined[idx];
+            const entry = normalizeWorkspaceHistoryEntry(combined[idx]);
+            if (!entry) {
+              continue;
+            }
+            let key;
             try {
-              const key = JSON.stringify(entry);
-              if (seen.has(key)) {
-                continue;
-              }
-              seen.add(key);
-              merged.push(entry);
+              key = workspaceHistoryEntryKey(entry);
             } catch {
-              /* ignore */
+              continue;
+            }
+            const previous = merged.get(key);
+            if (!previous || entry.lastUsedAt > previous.lastUsedAt) {
+              merged.set(key, entry);
             }
           }
-          merged.sort(function (a, b) {
-            const left = a && typeof a.lastUsedAt === "number" ? a.lastUsedAt : 0;
-            const right = b && typeof b.lastUsedAt === "number" ? b.lastUsedAt : 0;
-            return right - left;
+          const output = Array.from(merged.values());
+          output.sort(function (a, b) {
+            return b.lastUsedAt - a.lastUsedAt;
           });
-          return merged.slice(0, workspaceHistoryLimit);
+          return output.slice(0, workspaceHistoryLimit);
         }
 
         function hydrateWorkspaceHistoryFromHash() {
@@ -405,6 +500,30 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
             }
             const merged = mergeWorkspaceHistory(incoming, existing);
             localStorage.setItem(workspaceHistoryKey, JSON.stringify(merged));
+          } catch {
+            /* ignore */
+          }
+        }
+
+        function hydrateLauncherOriginFromHash() {
+          try {
+            const hash = window.location.hash.slice(1);
+            if (!hash) {
+              return;
+            }
+            const params = new URLSearchParams(hash);
+            const raw = params.get("lo");
+            if (!raw) {
+              return;
+            }
+            const trimmed = raw.trim();
+            if (!trimmed) {
+              return;
+            }
+            const url = new URL(trimmed);
+            if (url.origin) {
+              localStorage.setItem(launcherOriginKey, url.origin);
+            }
           } catch {
             /* ignore */
           }
@@ -448,6 +567,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         });
 
         hydrateWorkspaceHistoryFromHash();
+        hydrateLauncherOriginFromHash();
 
         const urlToken = readTokenFromUrl();
         if (urlToken) {
@@ -544,5 +664,5 @@ async def route_bootstrap_consume(
         )
 
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    set_auth_cookie(response, auth_cookie, request=request)
+    set_auth_cookie(response, auth_cookie, session_id=session_metadata.id, request=request)
     return {"status": "ok"}

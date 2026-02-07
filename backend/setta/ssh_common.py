@@ -107,6 +107,8 @@ def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
             key
             for key in (
                 "id",
+                "workspacePath",
+                "workspacePathCanonical",
                 "host",
                 "port",
                 "pid",
@@ -159,12 +161,21 @@ def parse_session_list(payload: dict[str, Any]) -> list[RemoteSessionSummary]:
                 "RemoteSessionList",
                 "Remote sessions payload has invalid startedAt values.",
             ) from exc
-        workspace_path = session.get("workspacePath", "")
-        if not isinstance(workspace_path, str):
-            workspace_path = ""
-        workspace_path_canonical = session.get("workspacePathCanonical", "")
-        if not isinstance(workspace_path_canonical, str):
-            workspace_path_canonical = ""
+        workspace_path = session.get("workspacePath")
+        if not isinstance(workspace_path, str) or not workspace_path.strip():
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid workspacePath values.",
+            )
+        workspace_path_canonical = session.get("workspacePathCanonical")
+        if (
+            not isinstance(workspace_path_canonical, str)
+            or not workspace_path_canonical.strip()
+        ):
+            raise LaunchError(
+                "RemoteSessionList",
+                "Remote sessions payload has invalid workspacePathCanonical values.",
+            )
         sessions.append(
             RemoteSessionSummary(
                 id=session_id,
@@ -202,6 +213,8 @@ def has_control_socket_option(ssh_args: list[str]) -> bool:
 
 
 def apply_control_socket_args(ssh_args: list[str]) -> list[str]:
+    if os.name != "posix":
+        return ssh_args
     if has_control_socket_option(ssh_args):
         return ssh_args
     control_args = [
@@ -299,15 +312,14 @@ def resolve_remote_setta_command(
 ) -> str:
     if remote_cmd:
         return remote_cmd
-    activation = "source" if shell == "bash" else "."
     quoted_workspace = shlex.quote(workspace)
     inner = (
         f"cd {quoted_workspace} || exit 1;"
-        f'if [ -f "./.venv/bin/activate" ]; then printf \'%s\' "{activation} ./.venv/bin/activate && setta"; exit 0; fi;'
-        f'if [ -f "./venv/bin/activate" ]; then printf \'%s\' "{activation} ./venv/bin/activate && setta"; exit 0; fi;'
-        f'if [ -f "./env/bin/activate" ]; then printf \'%s\' "{activation} ./env/bin/activate && setta"; exit 0; fi;'
-        'if [ -f "pyproject.toml" ] && command -v poetry >/dev/null 2>&1; then printf \'%s\' "poetry run setta"; exit 0; fi;'
-        'if [ -f "pyproject.toml" ] && command -v uv >/dev/null 2>&1; then printf \'%s\' "uv run setta"; exit 0; fi;'
+        'if [ -x "./.venv/bin/python" ]; then printf \'%s\' "./.venv/bin/python -m setta"; exit 0; fi;'
+        'if [ -x "./venv/bin/python" ]; then printf \'%s\' "./venv/bin/python -m setta"; exit 0; fi;'
+        'if [ -x "./env/bin/python" ]; then printf \'%s\' "./env/bin/python -m setta"; exit 0; fi;'
+        'if [ -f "pyproject.toml" ] && command -v poetry >/dev/null 2>&1; then printf \'%s\' "poetry run python -m setta"; exit 0; fi;'
+        'if [ -f "pyproject.toml" ] && command -v uv >/dev/null 2>&1; then printf \'%s\' "uv run python -m setta"; exit 0; fi;'
         "if command -v setta >/dev/null 2>&1; then printf '%s' \"setta\"; exit 0; fi;"
         "exit 2;"
     )
@@ -551,12 +563,24 @@ def start_remote_setta(
     )
     remote_log_file = f"{remote_logs_dir}/nohup-{time.time_ns()}-{os.getpid()}.out"
     root_prefix = f"{files_root_args} " if files_root_args else ""
-    start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} {root_prefix}--no-open"
-    quoted_start = shlex.quote(start_cmd)
+    setta_args = f"{root_prefix}--no-open".strip()
+
+    def _needs_shell_wrapper(command: str) -> bool:
+        # Support user-provided remoteCmd values like `source ... && setta`.
+        trimmed = command.strip()
+        if trimmed.startswith("source ") or trimmed.startswith(". "):
+            return True
+        return any(token in command for token in ("&&", "||", ";", "|"))
+
+    start_part = f"{runner} {setta_command} {setta_args}"
+    if _needs_shell_wrapper(setta_command):
+        wrapped = f"{setta_command} {setta_args}".strip()
+        start_part = f"{runner} {shell} -lc {shlex.quote(wrapped)}"
     launch = (
-        f"cd {shlex.quote(workspace)} && "
         f"mkdir -p {shlex.quote(remote_logs_dir)} && "
-        f"{runner} {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
+        f"cd {shlex.quote(workspace)} && "
+        f"{start_part} "
+        f"> {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
     )
     remote_command = build_remote_shell_command(shell, launch)
     try:

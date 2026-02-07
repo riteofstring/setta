@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 import requests
 
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.project_state.project_manager_types import (
@@ -302,16 +303,16 @@ class SettaRunner:
         if self._auth_headers is not None:
             return dict(self._auth_headers)
         if self._bootstrap_token is not None:
-            cookie_value = self._consume_bootstrap_token(self._bootstrap_token)
-            return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+            cookie_header = self._consume_bootstrap_token(self._bootstrap_token)
+            return {"Cookie": cookie_header}
         session_info = load_current_session_secret()
         if session_info is not None:
             session_metadata, secret = session_info
             cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-            return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
-        cookie_value = self._load_cookie_from_sessions()
-        if cookie_value is not None:
-            return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+            return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+        cookie_header = self._load_cookie_from_sessions()
+        if cookie_header is not None:
+            return {"Cookie": cookie_header}
         raise ValueError(
             "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
             "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
@@ -323,10 +324,14 @@ class SettaRunner:
         consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
         response = self._session.post(consume_url, json={"token": token})
         response.raise_for_status()
-        cookie_value = response.cookies.get(C.AUTH_COOKIE_NAME)
+        cookies = list(response.cookies)
+        if not cookies:
+            raise ValueError("Bootstrap response did not include auth cookie.")
+        cookie_name = cookies[0]
+        cookie_value = response.cookies.get(cookie_name)
         if not cookie_value:
             raise ValueError("Bootstrap response did not include auth cookie.")
-        return cookie_value
+        return f"{cookie_name}={cookie_value}"
 
     def _load_cookie_from_sessions(self) -> str | None:
         registry = self._build_session_registry()
@@ -350,7 +355,8 @@ class SettaRunner:
         if not secret_path.exists():
             return None
         secret = secret_path.read_bytes()
-        return AUTH_COOKIE_MANAGER.mint(selected.id, secret)
+        token = AUTH_COOKIE_MANAGER.mint(selected.id, secret)
+        return f"{auth_cookie_name(selected.id)}={token}"
 
     def _build_session_registry(self) -> SessionRegistry | None:
         sessions_root = resolve_sessions_root(self._workspace_root)

@@ -287,7 +287,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         loop.call_soon_threadsafe(
             lambda: spawn_background_task(
-                self.call_handlers(handlers, core_update),
+                lambda: self.call_handlers(handlers, core_update),
                 loop=loop,
                 label="specific-file-watcher-dispatch",
                 extra_values={

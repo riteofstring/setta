@@ -1,4 +1,13 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   applyBackendOriginOverrideFromUrl,
   BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
@@ -6,6 +15,7 @@ import {
 
 describe("applyBackendOriginOverrideFromUrl", () => {
   let memoryStorage: Storage;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeAll(() => {
     const storage = new Map<string, string>();
@@ -53,6 +63,14 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     (globalThis as { sessionStorage?: Storage }).sessionStorage = memoryStorage;
   });
 
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   afterAll(() => {
     delete (globalThis as { window?: unknown }).window;
     delete (globalThis as { sessionStorage?: Storage }).sessionStorage;
@@ -85,6 +103,7 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     expect(
       memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY),
     ).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
   });
 
   it("allows non-local overrides when explicitly enabled", () => {

@@ -42,9 +42,7 @@ class RemoteConnectResult:
 
 
 class SshTunnelMetadata(BaseModel):
-    key: str
-    sshTarget: str
-    sshArgs: list[str]
+    keyHash: str
     remoteHost: str
     remotePort: int
     localPort: int
@@ -175,7 +173,7 @@ def _tunnels_root(runtime_root: Path) -> Path:
     return runtime_root / "ssh_tunnels"
 
 
-def _compute_tunnel_key(
+def _compute_tunnel_key_hash(
     *,
     ssh_target: str,
     ssh_args: list[str],
@@ -188,11 +186,12 @@ def _compute_tunnel_key(
         "sshArgs": ssh_args,
         "sshTarget": ssh_target,
     }
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def _tunnel_id_for_key(key: str) -> str:
-    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+def _tunnel_id_for_key_hash(key_hash: str) -> str:
+    return key_hash[:12]
 
 
 def _load_tunnel_metadata(path: Path) -> SshTunnelMetadata | None:
@@ -273,18 +272,37 @@ def _stop_pid(pid: int, *, expected_create_time: float | None = None) -> None:
                 abs_tol=0.01,
             ):
                 return
-        except psutil.Error:
+        except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.Error):
             return
     try:
         proc.terminate()
+    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.Error):
+        return
+    try:
         proc.wait(timeout=2)
+        return
     except psutil.TimeoutExpired:
+        pass
+    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.Error):
+        return
+    try:
         proc.kill()
+    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.Error):
+        return
+    try:
         proc.wait(timeout=2)
+    except (
+        psutil.TimeoutExpired,
+        psutil.NoSuchProcess,
+        psutil.ZombieProcess,
+        psutil.AccessDenied,
+        psutil.Error,
+    ):
+        return
 
 
-def _preferred_local_port(key: str) -> int:
-    raw = hashlib.sha256(key.encode("utf-8")).digest()
+def _preferred_local_port(key_hash: str) -> int:
+    raw = bytes.fromhex(key_hash)
     value = int.from_bytes(raw[:4], "big")
     min_port = 61000
     max_port = 65535
@@ -302,16 +320,16 @@ def _ensure_ssh_tunnel(
 ) -> SshTunnelMetadata:
     runtime_root = get_setta_paths().runtime_root
     tunnels_root = _tunnels_root(runtime_root)
-    key = _compute_tunnel_key(
+    key_hash = _compute_tunnel_key_hash(
         ssh_target=ssh_target,
         ssh_args=ssh_args,
         remote_host=remote_host,
         remote_port=remote_port,
     )
-    tunnel_id = _tunnel_id_for_key(key)
+    tunnel_id = _tunnel_id_for_key_hash(key_hash)
     metadata_path = tunnels_root / f"{tunnel_id}.json"
     existing = _load_tunnel_metadata(metadata_path)
-    if existing is not None and existing.key != key:
+    if existing is not None and existing.keyHash != key_hash:
         existing = None
 
     now = datetime.now(timezone.utc).isoformat()
@@ -348,7 +366,7 @@ def _ensure_ssh_tunnel(
         candidate_ports.append(requested_local_port)
     # Always attempt a stable port and a random free port as fallbacks, even if the
     # caller requested a specific port (it can be grabbed by another process).
-    candidate_ports.append(_preferred_local_port(key))
+    candidate_ports.append(_preferred_local_port(key_hash))
     try:
         candidate_ports.append(select_free_port("127.0.0.1"))
     except OSError:
@@ -408,9 +426,7 @@ def _ensure_ssh_tunnel(
             continue
 
         metadata = SshTunnelMetadata(
-            key=key,
-            sshTarget=ssh_target,
-            sshArgs=ssh_args,
+            keyHash=key_hash,
             remoteHost=remote_host,
             remotePort=remote_port,
             localPort=candidate_port,
