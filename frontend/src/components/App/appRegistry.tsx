@@ -1,3 +1,4 @@
+import type { Action } from "@json-render/core";
 import { ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
 import { DropdownInput } from "components/Params/ParamUIs/DropdownInput";
 import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
@@ -87,7 +88,7 @@ type RawElementProps = {
 type AppComponentProps = {
   element: RawElementProps & { props?: Record<string, unknown> };
   children?: React.ReactNode;
-  onAction?: (name: string, params?: Record<string, unknown>) => void;
+  onAction?: (action: Action) => void;
 };
 
 const ALIGN_CLASS: Record<string, string> = {
@@ -423,16 +424,14 @@ function Heading({ element }: AppComponentProps) {
   const headingKeyByLevel = { 1: "h1", 2: "h2", 3: "h3", 4: "h4" } as const;
   const headingSizeKey = headingKeyByLevel[clampedLevel];
   const headingSize = headingSizes?.[headingSizeKey];
-  const HeadingTag =
-    `h${clampedLevel}` as keyof JSX.IntrinsicElements;
+  const HeadingTag = `h${clampedLevel}` as keyof JSX.IntrinsicElements;
   const sizeClassByLevel: Record<number, string> = {
     1: "text-2xl",
     2: "text-xl",
     3: "text-lg",
     4: "text-base",
   };
-  const sizeClass =
-    sizeClassByLevel[clampedLevel] ?? "text-base";
+  const sizeClass = sizeClassByLevel[clampedLevel] ?? "text-base";
 
   const style: React.CSSProperties = {};
   if (headingFont) {
@@ -684,7 +683,9 @@ function ParamInputBlock({ element }: AppComponentProps) {
       </div>
       <div className="rounded-md border border-[color:var(--app-input-border,_var(--app-border))] bg-[color:var(--app-input-bg,_var(--app-surface))] px-2 py-1">
         <div
-          className={effectiveCanEditParams ? "" : "pointer-events-none opacity-60"}
+          className={
+            effectiveCanEditParams ? "" : "pointer-events-none opacity-60"
+          }
         >
           <AppParamInput
             configId={resolvedConfigId}
@@ -1235,11 +1236,14 @@ function ActionButton({ element, onAction }: AppComponentProps) {
         if (!actionName || !onAction || isDisabled) {
           return;
         }
-        const params = {
-          ...(sectionId ? { sectionId } : {}),
-          ...(resolvedConfigId ? { configId: resolvedConfigId } : {}),
-        };
-        onAction(actionName, params);
+        const params: Record<string, string> = {};
+        if (sectionId) {
+          params.sectionId = sectionId;
+        }
+        if (resolvedConfigId) {
+          params.configId = resolvedConfigId;
+        }
+        onAction({ name: actionName, params });
       }}
       disabled={isDisabled}
     >
@@ -1448,9 +1452,7 @@ function Divider({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const className = typeof props.className === "string" ? props.className : "";
   return (
-    <hr
-      className={`border-[color:var(--app-border)] ${className}`.trim()}
-    />
+    <hr className={`border-[color:var(--app-border)] ${className}`.trim()} />
   );
 }
 
@@ -1492,7 +1494,10 @@ function Motion({ element, children }: AppComponentProps) {
   const themeMotion = runtime?.theme?.motion;
   const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
   const preset = resolveMotionPreset(props.preset);
-  const durationMs = resolveNumber(props.durationMs, themeMotion?.durationMs ?? 220);
+  const durationMs = resolveNumber(
+    props.durationMs,
+    themeMotion?.durationMs ?? 220,
+  );
   const delayMs = resolveNumber(props.delayMs, themeMotion?.delayMs ?? 0);
   const easing = resolveEasing(props.easing, fallbackEasing);
 
@@ -1518,9 +1523,15 @@ function Stagger({ element, children }: AppComponentProps) {
   const themeMotion = runtime?.theme?.motion;
   const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
   const preset = resolveMotionPreset(props.preset);
-  const durationMs = resolveNumber(props.durationMs, themeMotion?.durationMs ?? 220);
+  const durationMs = resolveNumber(
+    props.durationMs,
+    themeMotion?.durationMs ?? 220,
+  );
   const delayMs = resolveNumber(props.delayMs, themeMotion?.delayMs ?? 0);
-  const staggerMs = resolveNumber(props.staggerMs, themeMotion?.staggerMs ?? 70);
+  const staggerMs = resolveNumber(
+    props.staggerMs,
+    themeMotion?.staggerMs ?? 70,
+  );
   const easing = resolveEasing(props.easing, fallbackEasing);
   const items = React.Children.toArray(children);
   const presetClass = `setta-app-motion--${preset}`;
