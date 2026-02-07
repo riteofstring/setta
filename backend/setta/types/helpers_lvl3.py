@@ -104,6 +104,7 @@ def merge_single_config_into_backend(
             config.projectConfig.id: config.projectConfig,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
+        appDefinition=x.appDefinition,
     )
 
 

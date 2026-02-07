@@ -10,6 +10,7 @@ export const ModalTypeEnum = {
   FILE_MENU_SAVE_PROJECT_CONFIG_AS: "FILE_MENU_SAVE_PROJECT_CONFIG_AS",
   RENAME_REFERENCES: "RENAME_REFERENCES",
   PUBLISH_SHARE_DEPLOYMENT: "PUBLISH_SHARE_DEPLOYMENT",
+  PUBLISH_APP_DEPLOYMENT: "PUBLISH_APP_DEPLOYMENT",
   DROPZONE_FILE_PICKER: "DROPZONE_FILE_PICKER",
 } as const;
 
@@ -33,6 +34,7 @@ export type ModalDataMap = {
     changedValues: Array<RenameReferenceChangedValue>;
   };
   [ModalTypeEnum.PUBLISH_SHARE_DEPLOYMENT]: null;
+  [ModalTypeEnum.PUBLISH_APP_DEPLOYMENT]: null;
   [ModalTypeEnum.DROPZONE_FILE_PICKER]: {
     title: string;
     remainingSlots: number | null;
