@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import * as fs from "node:fs";
 import net from "node:net";
 import { ensureAppReady } from "../helpers";
 import { cleanupIsolatedProject, openIsolatedProject } from "../helpers";
@@ -37,6 +38,8 @@ test("workspace switcher launches a session and persists history", async ({
       "Missing SETTA_BACKEND_ORIGIN for workspace switcher test.",
     );
   }
+  const filesRoot = `${initialWorkspaceRoot.replace(/\/+$/, "")}/setta_files`;
+  const canonicalFilesRoot = fs.realpathSync(filesRoot);
 
   await ensureAppReady(page);
   const context = await openIsolatedProject(page);
@@ -85,6 +88,7 @@ test("workspace switcher launches a session and persists history", async ({
     );
     await modal.getByPlaceholder("user@host").fill("");
 
+    await modal.getByPlaceholder("/path/to/setta_files").fill(filesRoot);
     await modal
       .getByPlaceholder("/path/to/workspace")
       .fill("/path/does/not/exist");
@@ -98,12 +102,26 @@ test("workspace switcher launches a session and persists history", async ({
       modalAfterError.getByText("Switch Workspace"),
     ).toBeVisible();
 
+    await expect(
+      modalAfterError.getByPlaceholder("/path/to/setta_files"),
+    ).toHaveValue(filesRoot);
     await modalAfterError
       .getByPlaceholder("/path/to/workspace")
       .fill(initialWorkspaceRoot);
+
+    const launchRequest = page.waitForRequest((req) => {
+      const url = new URL(req.url());
+      return req.method() === "POST" && url.pathname === "/api/launch";
+    });
     await modalAfterError.getByRole("button", { name: "Launch" }).click();
 
     await page.waitForURL("**/launching");
+    const requestBody = (await launchRequest).postDataJSON() as Record<
+      string,
+      unknown
+    >;
+    expect(requestBody.filesRoot).toBe(filesRoot);
+    expect(requestBody.filesRootBase).toBeNull();
     await page.waitForSelector(".react-flow__pane");
     await page.waitForFunction(
       (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
@@ -120,6 +138,27 @@ test("workspace switcher launches a session and persists history", async ({
         (localStorage.getItem("setta.workspaceHistory") ?? "").includes(root),
       initialWorkspaceRoot,
     );
+
+    const storedHistory = await page.evaluate(() => {
+      const raw = localStorage.getItem("setta.workspaceHistory");
+      return raw ? (JSON.parse(raw) as unknown) : null;
+    });
+    expect(storedHistory).not.toBeNull();
+    expect(Array.isArray(storedHistory)).toBe(true);
+    const firstEntry = (storedHistory as Array<Record<string, unknown>>)[0];
+    expect(firstEntry).toMatchObject({
+      workspaceRoot: initialWorkspaceRoot,
+      filesRoot: canonicalFilesRoot,
+      filesRootBase: null,
+    });
+
+    await page.getByRole("menuitem", { name: "Project" }).click();
+    await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+    const modalAfterSuccess = page.getByRole("dialog");
+    await expect(modalAfterSuccess.getByText("Switch Workspace")).toBeVisible();
+    await expect(
+      modalAfterSuccess.getByText(`Files root: ${canonicalFilesRoot}`),
+    ).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, context);
   }
@@ -133,6 +172,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     );
   }
   const localPort = await pickFreeLocalPort();
+  const filesRootBase = `${workspaceRoot.replace(/\/+$/, "")}/setta_state_base`;
 
   await ensureAppReady(page);
   await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
@@ -155,6 +195,11 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await modal.getByPlaceholder("user@host").fill("user@host");
   await modal.getByRole("button", { name: "Show" }).click();
   await modal.getByPlaceholder("61000").fill(String(localPort));
+  await modal.getByPlaceholder("/path/to/setta_state").fill(filesRootBase);
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
   const bootstrapRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
@@ -164,6 +209,13 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   });
   await modal.getByRole("button", { name: "Launch" }).click();
   await page.waitForURL("**/launching");
+
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.filesRoot).toBeNull();
+  expect(requestBody.filesRootBase).toBe(filesRootBase);
 
   await bootstrapRequest;
   await page.waitForLoadState("domcontentloaded");
@@ -182,6 +234,12 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
   const modalAfterReload = page.getByRole("dialog");
   await expect(modalAfterReload.getByText("Switch Workspace")).toBeVisible();
-  await expect(modalAfterReload.getByText(workspaceRoot)).toBeVisible();
+  await expect(modalAfterReload.getByText(workspaceRoot, { exact: true })).toBeVisible();
   await expect(modalAfterReload.getByText("SSH: user@host")).toBeVisible();
+  await expect(
+    modalAfterReload.getByText(`Files base: ${filesRootBase}`),
+  ).toBeVisible();
+  await expect(
+    modalAfterReload.getByPlaceholder("/path/to/setta_state"),
+  ).toHaveValue(filesRootBase);
 });

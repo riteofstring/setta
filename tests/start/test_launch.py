@@ -13,6 +13,7 @@ from click.testing import CliRunner
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.start import launch
+from setta.utils.paths import build_files_root_from_base
 from setta.utils.network import format_host_for_url
 
 
@@ -102,6 +103,52 @@ def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     assert payload["workspaceRoot"] == str(workspace.resolve())
     assert payload["filesRoot"] == str(setta_files_root.resolve())
     assert payload["session"]["workspacePathCanonical"] == str(workspace.resolve())
+
+
+def test_launch_reuses_existing_session_with_files_root_base(
+    tmp_path: Path, monkeypatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    files_root_base = tmp_path / "files_root_base"
+    files_root_base.mkdir()
+    expected_files_root = build_files_root_from_base(
+        files_root_base.resolve(strict=False),
+        workspace.resolve(strict=False),
+    ).resolve(strict=False)
+    sessions_root = expected_files_root / "runtime" / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
+    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    session = registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=os.getpid(),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        [
+            "--json",
+            "--workspace",
+            str(workspace),
+            "--files-root-base",
+            str(files_root_base),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    assert payload["startedNew"] is False
+    assert payload["sessionId"] == session.id
+    assert payload["workspaceRoot"] == str(workspace.resolve())
+    assert payload["filesRoot"] == str(expected_files_root)
 
 
 def test_launch_starts_new_session(tmp_path: Path, monkeypatch) -> None:
