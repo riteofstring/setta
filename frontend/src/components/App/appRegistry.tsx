@@ -781,9 +781,9 @@ function AppParamUI({
           isDisabled={isDisabled}
           wrapperDivClass={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} cursor-pointer @container/slider section-value flex gap-1`}
           sliderRootClassName=" data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex w-full touch-none select-none items-center data-[orientation='horizontal']:h-5"
-          sliderTrackClassName="relative flex-grow rounded-full bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
-          sliderRangeClassName="absolute h-full rounded-full bg-blue-500"
-          sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer rounded-full border-2 border-setta-300 bg-white shadow-sm drop-shadow-md hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-blue-500 focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`}
+          sliderTrackClassName="relative flex-grow rounded-full bg-[color:var(--app-surface-alt)] bg-setta-200 data-[orientation='horizontal']:h-[3px] data-[orientation='vertical']:w-[3px] dark:bg-setta-700"
+          sliderRangeClassName="absolute h-full rounded-full bg-[color:var(--app-accent)] bg-blue-500"
+          sliderThumbClassName={`${SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION} block h-3 w-3 cursor-pointer rounded-full border-2 border-[color:var(--app-border)] border-setta-300 bg-[color:var(--app-surface)] bg-white shadow-sm drop-shadow-md hover:!bg-[color:var(--app-surface-alt)] hover:!bg-setta-100 hover:dark:!bg-setta-700 focus-visible:!border-[color:var(--app-accent)] focus-visible:!border-blue-500 focus-visible:bg-[color:var(--app-accent)] focus-visible:bg-blue-500 focus-visible:dark:bg-blue-700 focus-visible:outline-none dark:border-setta-400 dark:bg-setta-600 data-[disabled]:pointer-events-none`}
           textInputClassName="hidden my-auto mr-[1px] h-5/6 w-8 cursor-auto resize-none rounded-lg border border-solid border-setta-300/20 bg-white px-2 text-center font-mono text-xs focus-visible:border-blue-300 dark:border-setta-875 dark:bg-setta-875 dark:text-setta-300 @[132px]/slider:block"
         />
       );
@@ -801,6 +801,7 @@ function AppParamUI({
           max={max}
           step={step}
           isDisabled={isDisabled}
+          indicatorThemeClassName="bg-[color:var(--app-accent)] bg-blue-500"
         />
       );
     }
@@ -813,6 +814,8 @@ function AppParamUI({
           onEscape={onEscape}
           isDisabled={isDisabled}
           outerDivClassName="section-value flex justify-self-start self-center"
+          rootThemeClassName="bg-[color:var(--app-surface-alt)] bg-setta-400 data-[state='checked']:bg-[color:var(--app-accent)] data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700"
+          thumbThemeClassName="bg-[color:var(--app-surface)] bg-white dark:bg-setta-800"
         />
       );
     }
