@@ -388,7 +388,7 @@ from setta.utils.name_validation import (
     validate_project_name,
     validate_view_mode_name,
 )
-from setta.utils.paths import normalize_workspace_path
+from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -2890,7 +2890,14 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = False
         try:
-            Path(x.filepath).unlink()
+            target_path = normalize_workspace_path(x.filepath)
+            workspace_root = get_setta_paths().workspace_root
+            if not target_path.is_relative_to(workspace_root):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="File path must be within the project root.",
+                )
+            target_path.unlink()
             success = True
         except FileNotFoundError:
             await self.websocket_msg_handler.log_and_broadcast_backend_log_event(

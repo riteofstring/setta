@@ -288,7 +288,17 @@ def route_check_if_file_exists(
     if ctx.share_mode:
         target_path = ensure_share_deployment_path(x.filepath, ctx.deployment_root)
         return target_path.exists()
-    return os.path.exists(x.filepath)
+    raw_path = x.filepath.strip()
+    if not raw_path:
+        return False
+    workspace_root = get_setta_paths().workspace_root
+    resolved = normalize_workspace_path(raw_path, workspace_root=workspace_root)
+    if not resolved.is_relative_to(workspace_root):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File path must be within the project root.",
+        )
+    return resolved.exists()
 
 
 @router.post(Route.GET_FILE_BROWSER_ROOT)
