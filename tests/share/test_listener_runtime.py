@@ -7,6 +7,7 @@ from setta.share.listener_runtime import ShareListenerRuntime
 from setta.types.id import ID
 from setta.types.share_deployment import (
     ShareDeploymentListenerConfig,
+    DeploymentType,
     ShareDeploymentManifest,
 )
 
@@ -32,6 +33,7 @@ def _build_manifest(
     return ShareDeploymentManifest(
         version=1,
         deploymentName=str(project_config_id),
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config_id,
         deploymentVersion="v1",
         listener=ShareDeploymentListenerConfig(entrypoint=entrypoint),

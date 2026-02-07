@@ -2916,8 +2916,6 @@ def set_chat_section_state(
             inputText=state.inputText,
             waitingForResponse=state.waitingForResponse,
             toolCallArguments=state.toolCallArguments,
-            activeBranchId=state.activeBranchId,
-            branches=state.branches,
         ),
     )
 
