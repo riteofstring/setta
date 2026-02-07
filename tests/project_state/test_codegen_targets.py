@@ -46,7 +46,7 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
@@ -704,7 +704,6 @@ class TestShareRuntimeStateCodegenTargets:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=project_config.id,
                 deploymentVersion=root.name,
             )
@@ -768,7 +767,6 @@ class TestShareRuntimeStateRunCommand:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=project_config.id,
                 deploymentVersion=root.name,
             )
@@ -867,7 +865,6 @@ class TestShareRuntimeStateRunCommand:
             manifest = ShareDeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
-                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=project_config.id,
                 deploymentVersion=root.name,
             )
