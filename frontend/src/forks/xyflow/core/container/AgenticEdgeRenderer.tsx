@@ -16,10 +16,10 @@ import {
   SectionTypeEnum,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { getBezierPath } from "../components/Edges/BezierEdge";
 import { useReactFlow } from "../store";
 import { HandlePosition, type Node } from "../types";
-import { shallow } from "zustand/shallow";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";

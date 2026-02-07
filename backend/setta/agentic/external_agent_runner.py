@@ -70,6 +70,7 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_nam
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
+from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.chat_messages import (
     AssistantChatMessage,
     ToolCall,
@@ -87,7 +88,6 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
-from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
     convert_backend_to_single_config,

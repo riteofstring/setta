@@ -1823,14 +1823,20 @@ def _extract_codex_thread_preview(
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
-        raw_id = candidate.get("id") or candidate.get("threadId") or candidate.get(
-            "thread_id"
+        raw_id = (
+            candidate.get("id")
+            or candidate.get("threadId")
+            or candidate.get("thread_id")
         )
         if not raw_id and isinstance(candidate.get("thread"), dict):
-            raw_id = candidate["thread"].get("id") or candidate["thread"].get("threadId")
+            raw_id = candidate["thread"].get("id") or candidate["thread"].get(
+                "threadId"
+            )
         if raw_id != thread_id:
             continue
-        raw_preview = candidate.get("preview") or candidate.get("title") or candidate.get("name")
+        raw_preview = (
+            candidate.get("preview") or candidate.get("title") or candidate.get("name")
+        )
         if raw_preview is None and isinstance(candidate.get("thread"), dict):
             raw_preview = (
                 candidate["thread"].get("preview")

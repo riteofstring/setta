@@ -64,4 +64,3 @@ export function extractAgenticScopeViolation(
     .filter((entry): entry is AgenticScopeViolationEdge => Boolean(entry));
   return { edges, message };
 }
-

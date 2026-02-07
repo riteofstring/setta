@@ -1,6 +1,6 @@
+import { AgenticEdgeKindEnum, ToolChatMessage } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
-import { AgenticEdgeKindEnum, ToolChatMessage } from "utils/generatedTypes";
 
 function buildToolMessage(result: unknown): ToolChatMessage {
   return {
@@ -100,4 +100,3 @@ describe("extractAgenticScopeViolation", () => {
     expect(violation).toEqual({ message: "blocked", edges: [] });
   });
 });
-

@@ -50,13 +50,13 @@ import {
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
+  AgenticEdgeKindEnum,
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   EngineTypeEnum,
-  AgenticEdgeKindEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
   createMessageTextContent,
@@ -633,30 +633,27 @@ function ManagedChatArea({
   useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const { hasAnyAgenticEdge, hasWriteScope } = useProjectState(
-    (state) => {
-      let hasAny = false;
-      let hasWrite = false;
-      for (const edge of state.projectConfig.agenticEdges) {
-        if (
-          edge.kind === AgenticEdgeKindEnum.chat_section &&
-          edge.sourceSectionId === sectionId
-        ) {
-          hasAny = true;
-          hasWrite = true;
-          break;
-        }
-        if (
-          edge.sourceSectionId === sectionId ||
-          edge.targetSectionId === sectionId
-        ) {
-          hasAny = true;
-        }
+  const { hasAnyAgenticEdge, hasWriteScope } = useProjectState((state) => {
+    let hasAny = false;
+    let hasWrite = false;
+    for (const edge of state.projectConfig.agenticEdges) {
+      if (
+        edge.kind === AgenticEdgeKindEnum.chat_section &&
+        edge.sourceSectionId === sectionId
+      ) {
+        hasAny = true;
+        hasWrite = true;
+        break;
       }
-      return { hasAnyAgenticEdge: hasAny, hasWriteScope: hasWrite };
-    },
-    shallow,
-  );
+      if (
+        edge.sourceSectionId === sectionId ||
+        edge.targetSectionId === sectionId
+      ) {
+        hasAny = true;
+      }
+    }
+    return { hasAnyAgenticEdge: hasAny, hasWriteScope: hasWrite };
+  }, shallow);
   const chatId = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,

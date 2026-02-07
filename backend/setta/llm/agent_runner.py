@@ -124,8 +124,10 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
 )
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
-from setta.types.helpers_lvl3 import build_project_state_summary
+from setta.types.helpers_lvl3 import (
+    build_project_state_summary,
+    convert_backend_to_single_config,
+)
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
@@ -943,9 +945,7 @@ class AgentRunner:
         base_prompt = context.system_prompt.strip()
         payload_text = payload.text.strip()
         combined = (
-            f"{base_prompt}\n\n{payload_text}".strip()
-            if base_prompt
-            else payload_text
+            f"{base_prompt}\n\n{payload_text}".strip() if base_prompt else payload_text
         )
         return replace(
             context,
@@ -962,13 +962,14 @@ class AgentRunner:
             return None
 
         project_state = context.project_state
-        summary_text_by_section_id, summary_by_section = (
-            await self._resolve_agentic_summary_text_by_section_id(
-                project_state,
-                chat_section_id=section_id,
-                project_config_id=context.project_config_id,
-                llm_config=context.llm_config,
-            )
+        (
+            summary_text_by_section_id,
+            summary_by_section,
+        ) = await self._resolve_agentic_summary_text_by_section_id(
+            project_state,
+            chat_section_id=section_id,
+            project_config_id=context.project_config_id,
+            llm_config=context.llm_config,
         )
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()

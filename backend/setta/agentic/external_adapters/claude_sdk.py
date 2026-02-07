@@ -136,9 +136,7 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
         stderr_lines: list[str] = []
         options = _build_options(context, pending_approvals, queue, stderr_lines)
         session_id = _extract_session_id(context.inputs) or str(context.run.id)
-        task = asyncio.create_task(
-            _run_query(prompt, options, queue, session_id)
-        )
+        task = asyncio.create_task(_run_query(prompt, options, queue, session_id))
         handle = ExternalAgentRunHandle(
             run_id=context.run.id,
             metadata={
@@ -335,10 +333,12 @@ async def _run_query(
                 if not isinstance(raw_event, dict):
                     continue
                 event_type = raw_event.get("type")
-                if (
-                    isinstance(event_type, str)
-                    and event_type in {"result", "final", "complete", "done"}
-                ):
+                if isinstance(event_type, str) and event_type in {
+                    "result",
+                    "final",
+                    "complete",
+                    "done",
+                }:
                     close_prompt_event.set()
                 elif raw_event.get("final") is True:
                     close_prompt_event.set()
