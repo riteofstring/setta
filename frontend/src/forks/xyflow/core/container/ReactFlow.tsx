@@ -30,18 +30,7 @@ const SCROLL_INIT = 5000;
 
 const ReactFlow = () => {
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
-  const darkMode = useLocalStorage((x) => x.darkMode);
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
-  const wireColor = useSettings((x) => {
-    // If the backend is running an older build, these fields can be missing.
-    const gui = x.gui as unknown as {
-      wireColor?: string;
-      wireColorDarkMode?: string;
-    };
-    const light = gui.wireColor ?? "#41506c";
-    const dark = gui.wireColorDarkMode ?? "#bac2d3";
-    return darkMode ? dark : light;
-  });
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
@@ -65,12 +54,7 @@ const ReactFlow = () => {
 
   return (
     <div
-      style={
-        {
-          ...wrapperStyle,
-          "--setta-wire-color": wireColor,
-        } as CSSProperties
-      }
+      style={wrapperStyle}
       className="react-flow setta-light dark:setta-dark"
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
