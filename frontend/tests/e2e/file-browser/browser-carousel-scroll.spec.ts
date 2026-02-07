@@ -8,6 +8,9 @@ import {
   postBackend,
 } from "../helpers";
 
+const SELECT_ALL_SHORTCUT =
+  process.platform === "darwin" ? "Meta+A" : "Control+A";
+
 test("carousel thumbnail strip scrolls with trackpad wheel", async ({
   page,
 }) => {
@@ -28,6 +31,10 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
     {
       projectConfigId,
       implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       viewportBounds,
     },
   );
@@ -56,11 +63,16 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
     const cmContent = pathInput.locator(".cm-content");
     await expect(cmContent).toBeVisible();
     await cmContent.click();
-    await cmContent.fill(parentDir);
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.type(parentDir);
     await page.keyboard.press("Enter");
 
-    const thumbnailRow = sectionNode
-      .locator('[class*="overflow-x-scroll"]')
+    const resizeHandle = sectionNode.getByRole("separator", {
+      name: "Resize thumbnail strip",
+    });
+    await expect(resizeHandle).toBeVisible();
+    const thumbnailRow = resizeHandle
+      .locator("xpath=following-sibling::article")
       .first();
     await expect(thumbnailRow.locator("button")).toHaveCount(40, {
       timeout: 15000,
@@ -77,5 +89,9 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
       .toBeGreaterThan(initialScrollLeft);
   } finally {
     await fs.rm(parentDir, { recursive: true, force: true });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });

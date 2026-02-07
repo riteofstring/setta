@@ -42,6 +42,10 @@ test("browser path input autocompletes folders", async ({ page }) => {
     {
       projectConfigId,
       implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       viewportBounds,
     },
   );
@@ -103,9 +107,9 @@ test("browser path input autocompletes folders", async ({ page }) => {
     // tooltip is visible (the list can be temporarily disabled while results are
     // recomputing).
     await expect(tooltip).not.toHaveClass(/cm-tooltip-autocomplete-disabled/);
-    // Ensure we have an active selection before pressing Enter.
+    // Ensure we have an active selection before accepting the completion.
     await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
 
     const normalizedExpected = normalizePathForComparison(
       `${parentDir}${path.sep}alpha${path.sep}`,
@@ -125,5 +129,9 @@ test("browser path input autocompletes folders", async ({ page }) => {
       .toContain(normalizedExpected);
   } finally {
     await fs.rm(parentDir, { recursive: true, force: true });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });

@@ -8,6 +8,9 @@ import {
   postBackend,
 } from "../helpers";
 
+const SELECT_ALL_SHORTCUT =
+  process.platform === "darwin" ? "Meta+A" : "Control+A";
+
 type ProjectStateResponse = {
   projectConfig: {
     sectionVariantMap: Record<string, string>;
@@ -133,7 +136,8 @@ async function setBrowserPath(
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
   await cmContent.click();
-  await cmContent.fill(nextValue);
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.type(nextValue);
   await page.keyboard.press("Enter");
 
   await expect
@@ -186,6 +190,10 @@ test("browser opens markdown and text files in text sections", async ({
     {
       projectConfigId,
       implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       viewportBounds,
     },
   );
@@ -220,10 +228,7 @@ test("browser opens markdown and text files in text sections", async ({
 
     await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
 
-    const thumbnailRow = sectionNode
-      .locator('[class*="overflow-x-scroll"]')
-      .first();
-    const readmeTile = thumbnailRow
+    const readmeTile = sectionNode
       .locator("button")
       .filter({ hasText: markdownName })
       .first();
@@ -241,7 +246,7 @@ test("browser opens markdown and text files in text sections", async ({
       },
     );
 
-    const textTile = thumbnailRow
+    const textTile = sectionNode
       .locator("button")
       .filter({ hasText: textName })
       .first();
@@ -261,6 +266,10 @@ test("browser opens markdown and text files in text sections", async ({
   } finally {
     await fs.rm(markdownPath, { force: true });
     await fs.rm(textPath, { force: true });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });
 
@@ -283,6 +292,10 @@ test("browser history buttons navigate folders", async ({ page }) => {
     {
       projectConfigId,
       implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       viewportBounds,
     },
   );
@@ -312,10 +325,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
       workspaceRoot,
     );
 
-    const thumbnailRow = sectionNode
-      .locator('[class*="overflow-x-scroll"]')
-      .first();
-    const backendTile = thumbnailRow
+    const backendTile = sectionNode
       .locator("button")
       .filter({ hasText: folderName })
       .first();
@@ -346,6 +356,10 @@ test("browser history buttons navigate folders", async ({ page }) => {
       .toContain(folderName);
   } finally {
     await fs.rm(folderPath, { recursive: true, force: true });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });
 
@@ -368,6 +382,10 @@ test("browser list view opens folders on double click", async ({ page }) => {
     {
       projectConfigId,
       implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       viewportBounds,
     },
   );
@@ -386,6 +404,8 @@ test("browser list view opens folders on double click", async ({ page }) => {
     );
     await expect(sectionNode).toBeVisible();
 
+    await sectionNode.locator('button[aria-label="List view"]').click();
+
     // List view is the default; ensure we're rooted at the workspace.
     const pathInputId = await setBrowserPath(
       page,
@@ -394,22 +414,18 @@ test("browser list view opens folders on double click", async ({ page }) => {
       workspaceRoot,
     );
 
-    const folderRow = sectionNode
-      .locator('section[aria-label="File explorer"] [title]')
-      .filter({ hasText: folderName })
-      .first();
-    await expect(folderRow).toBeVisible();
+    const explorer = sectionNode.locator('section[aria-label="File explorer"]');
+    await expect(explorer).toBeVisible();
 
     const backButton = sectionNode.locator('button[aria-label="Go back"]');
     const forwardButton = sectionNode.locator('button[aria-label="Go forward"]');
 
-    // Double-click on the folder label itself (not the expand/collapse caret).
-    const folderLabel = folderRow.locator("span").filter({ hasText: folderName });
-    await folderRow.scrollIntoViewIfNeeded();
-    await folderLabel.first().click({ clickCount: 2 });
-    // Ensure the row click handler ran (selection is a good proxy for events
-    // reaching the virtualized list row).
-    await expect(folderRow).toHaveClass(/bg-blue-50/);
+    const folderButton = explorer
+      .getByRole("button", { name: folderName })
+      .first();
+    await expect(folderButton).toBeVisible();
+    await folderButton.scrollIntoViewIfNeeded();
+    await folderButton.dblclick();
 
     await expect
       .poll(async () =>
@@ -434,5 +450,9 @@ test("browser list view opens folders on double click", async ({ page }) => {
       .toContain(folderName);
   } finally {
     await fs.rm(folderPath, { recursive: true, force: true });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });

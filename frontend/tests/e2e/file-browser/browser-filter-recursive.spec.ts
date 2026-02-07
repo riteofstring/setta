@@ -28,7 +28,8 @@ async function setBrowserPath({
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
   await cmContent.click();
-  await cmContent.fill(targetPath);
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.type(targetPath);
   await page.keyboard.press("Enter");
 }
 
@@ -66,15 +67,19 @@ test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
 
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    },
-  );
+	  const browserSection = await postBackend<{ sectionId?: string }>(
+	    page,
+	    "/createTopLevelSection",
+	    {
+	      projectConfigId,
+	      implType: "Browser",
+	      position: {
+	        x: viewportBounds.x + viewportBounds.w * 0.55,
+	        y: viewportBounds.y + viewportBounds.h * 0.25,
+	      },
+	      viewportBounds,
+	    },
+	  );
   const sectionId = browserSection?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId when creating browser section.");
@@ -98,38 +103,39 @@ test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
 
     await sectionNode.locator('button[aria-label="Carousel view"]').click();
 
-    await setBrowserPath({
-      page,
-      sectionNode,
-      sectionId,
-      targetPath: parentDir,
-    });
+	    await setBrowserPath({
+	      page,
+	      sectionNode,
+	      sectionId,
+	      targetPath: parentDir,
+	    });
 
-    const thumbnailRow = sectionNode
-      .locator('[class*="overflow-x-scroll"]')
-      .first();
-    const deepJpgTile = thumbnailRow
-      .locator("button")
-      .filter({ hasText: "cat.jpg" })
-      .first();
-    await expect(deepJpgTile).toHaveCount(0);
+	    const deepJpgTile = sectionNode
+	      .locator("button")
+	      .filter({ hasText: "cat.jpg" })
+	      .first();
+	    await expect(deepJpgTile).toHaveCount(0);
 
     await setBrowserFilter({ page, sectionNode, value: "*.jpg" });
 
     await expect(deepJpgTile).toHaveCount(1, { timeout: 15000 });
-    await deepJpgTile.scrollIntoViewIfNeeded();
-    await expect(deepJpgTile).toBeVisible();
+	    await deepJpgTile.scrollIntoViewIfNeeded();
+	    await expect(deepJpgTile).toBeVisible();
 
-    const deepReadmeTile = thumbnailRow
-      .locator("button")
-      .filter({ hasText: "README.md" })
-      .first();
+	    const deepReadmeTile = sectionNode
+	      .locator("button")
+	      .filter({ hasText: "README.md" })
+	      .first();
 
     await setBrowserFilter({ page, sectionNode, value: "rdme" });
     await expect(deepReadmeTile).toHaveCount(1, { timeout: 15000 });
     await deepReadmeTile.scrollIntoViewIfNeeded();
     await expect(deepReadmeTile).toBeVisible();
-  } finally {
-    await fs.rm(parentDir, { recursive: true, force: true });
-  }
-});
+	  } finally {
+	    await fs.rm(parentDir, { recursive: true, force: true });
+	    await postBackend(page, "/deleteSections", {
+	      projectConfigId,
+	      sectionIds: [sectionId],
+	    });
+	  }
+	});

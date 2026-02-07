@@ -1,3 +1,4 @@
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import type { CSSProperties } from "react";
@@ -25,6 +26,10 @@ import {
   normalizeFileBrowserPathForFilter,
   parseFileBrowserFilterText,
 } from "utils/fileBrowserFilter";
+import {
+  filterFileBrowserItemsByTypeFilters,
+  type FileBrowserSearchScope,
+} from "utils/fileBrowserTypes";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
@@ -70,12 +75,14 @@ export function flattenFileBrowserTree({
   nodesByPath,
   expandedPaths,
   filterText,
+  searchScope = "recursive",
   getChildPaths,
 }: {
   rootPath: string | null;
   nodesByPath: Record<string, FileNode>;
   expandedPaths: Record<string, boolean>;
   filterText: string;
+  searchScope?: FileBrowserSearchScope;
   getChildPaths: (path: string) => string[];
 }): FlattenedFileNode[] {
   if (!rootPath) {
@@ -108,6 +115,51 @@ export function flattenFileBrowserTree({
   }
 
   const normalizedRootPath = normalizeFileBrowserPathForFilter(rootPath);
+  if (searchScope === "local") {
+    const root = nodesByPath[rootPath];
+    if (!root) {
+      return [];
+    }
+    const result: FlattenedFileNode[] = [{ ...root, depth: 0 }];
+    const children = getChildPaths(rootPath);
+    for (const childPath of children) {
+      const node = nodesByPath[childPath];
+      if (!node) {
+        continue;
+      }
+      let matched = false;
+      if (query.kind === "path") {
+        const normalizedFullPath = normalizeFileBrowserPathForFilter(
+          node.fullPath,
+        );
+        let normalizedRelativePath: string | null = null;
+        if (normalizedFullPath.startsWith(normalizedRootPath)) {
+          normalizedRelativePath = normalizedFullPath.slice(
+            normalizedRootPath.length,
+          );
+          if (normalizedRelativePath.startsWith("/")) {
+            normalizedRelativePath = normalizedRelativePath.slice(1);
+          }
+        }
+        matched = matchesFileBrowserPathFilter(
+          query,
+          normalizedFullPath,
+          normalizedRelativePath,
+        );
+      } else {
+        matched = matchesFileBrowserNameFilter(
+          query,
+          node.name.toLowerCase(),
+          node.type,
+        );
+      }
+      if (matched) {
+        result.push({ ...node, depth: 1 });
+      }
+    }
+    return result;
+  }
+
   const collectFiltered = (path: string, depth: number) => {
     const node = nodesByPath[path];
     if (!node) {
@@ -210,12 +262,14 @@ export function FileBrowserPane({
   columnWidthConfig,
 }: FileBrowserPaneProps = {}) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
-  const { rootPath, expandedPaths, selectedPath, filterText } =
+  const { rootPath, expandedPaths, selectedPath, filterText, typeFilters, searchScope } =
     fileBrowserState((state) => ({
       rootPath: state.rootPath,
       expandedPaths: state.expandedPaths,
       selectedPath: state.selectedPath,
       filterText: state.filterText,
+      typeFilters: state.typeFilters,
+      searchScope: state.searchScope,
     }));
   const [nodesByPath, setNodesByPath] = useState<Record<string, FileNode>>({});
   const nodesByPathRef = useRef(nodesByPath);
@@ -466,6 +520,10 @@ export function FileBrowserPane({
   }, []);
 
   useEffect(() => {
+    if (searchScope !== "recursive") {
+      filterRequestIdRef.current += 1;
+      return;
+    }
     const query = parseFileBrowserFilterText(filterText);
     if (query.kind === "none") {
       filterRequestIdRef.current += 1;
@@ -534,7 +592,7 @@ export function FileBrowserPane({
     };
 
     void crawl();
-  }, [fetchFolderContents, filterText, rootPath]);
+  }, [fetchFolderContents, filterText, rootPath, searchScope]);
 
   const flattenedItems = useMemo(() => {
     return flattenFileBrowserTree({
@@ -542,16 +600,29 @@ export function FileBrowserPane({
       nodesByPath,
       expandedPaths,
       filterText,
+      searchScope,
       getChildPaths: getSortedChildPaths,
     });
-  }, [rootPath, nodesByPath, expandedPaths, filterText, getSortedChildPaths]);
+  }, [
+    expandedPaths,
+    filterText,
+    getSortedChildPaths,
+    nodesByPath,
+    rootPath,
+    searchScope,
+  ]);
+
+  const displayedItems = useMemo(
+    () => filterFileBrowserItemsByTypeFilters(flattenedItems, typeFilters),
+    [flattenedItems, typeFilters],
+  );
 
   const selectedIndex = useMemo(() => {
     if (!selectedPath) {
       return -1;
     }
-    return flattenedItems.findIndex((item) => item.fullPath === selectedPath);
-  }, [flattenedItems, selectedPath]);
+    return displayedItems.findIndex((item) => item.fullPath === selectedPath);
+  }, [displayedItems, selectedPath]);
 
   const handleToggle = useCallback(
     (path: string) => {
@@ -628,22 +699,22 @@ export function FileBrowserPane({
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (flattenedItems.length === 0) {
+      if (displayedItems.length === 0) {
         return;
       }
       if (selectedIndex < 0) {
         if (event.key === "ArrowDown") {
           event.preventDefault();
           const nextIndex = 0;
-          const nextItem = flattenedItems[nextIndex];
+          const nextItem = displayedItems[nextIndex];
           if (nextItem) {
             handleSelect(nextItem.fullPath);
             listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
           }
         } else if (event.key === "ArrowUp") {
           event.preventDefault();
-          const nextIndex = flattenedItems.length - 1;
-          const nextItem = flattenedItems[nextIndex];
+          const nextIndex = displayedItems.length - 1;
+          const nextItem = displayedItems[nextIndex];
           if (nextItem) {
             handleSelect(nextItem.fullPath);
             listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
@@ -651,7 +722,7 @@ export function FileBrowserPane({
         }
         return;
       }
-      const currentItem = flattenedItems[selectedIndex];
+      const currentItem = displayedItems[selectedIndex];
       if (!currentItem) {
         return;
       }
@@ -659,9 +730,9 @@ export function FileBrowserPane({
         event.preventDefault();
         const nextIndex = Math.min(
           selectedIndex + 1,
-          flattenedItems.length - 1,
+          displayedItems.length - 1,
         );
-        const nextItem = flattenedItems[nextIndex];
+        const nextItem = displayedItems[nextIndex];
         if (nextItem) {
           handleSelect(nextItem.fullPath);
           listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
@@ -671,7 +742,7 @@ export function FileBrowserPane({
       if (event.key === "ArrowUp") {
         event.preventDefault();
         const nextIndex = Math.max(selectedIndex - 1, 0);
-        const nextItem = flattenedItems[nextIndex];
+        const nextItem = displayedItems[nextIndex];
         if (nextItem) {
           handleSelect(nextItem.fullPath);
           listRef.current?.scrollToRow({ index: nextIndex, align: "smart" });
@@ -715,8 +786,8 @@ export function FileBrowserPane({
     },
     [
       childrenByPath,
+      displayedItems,
       expandedPaths,
-      flattenedItems,
       handleOpen,
       handleSelect,
       handleToggle,
@@ -870,11 +941,11 @@ export function FileBrowserPane({
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
-            rowCount={flattenedItems.length}
+            rowCount={displayedItems.length}
             rowHeight={ROW_HEIGHT}
             className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
             rowProps={{
-              items: flattenedItems,
+              items: displayedItems,
               expandedPaths,
               selectedPath,
               loadingPaths,
@@ -1060,14 +1131,16 @@ export function FileBrowserFilter({
   tooltipParentDivId?: string | null;
 }) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
-  const { filterText, rootPath, pathSeparator, ignorePatterns } =
+  const { filterText, rootPath, pathSeparator, ignorePatterns, searchScope } =
     fileBrowserState((state) => ({
       filterText: state.filterText,
       rootPath: state.rootPath,
       pathSeparator: state.pathSeparator,
       ignorePatterns: state.ignorePatterns,
+      searchScope: state.searchScope,
     }));
   const [filterInput, setFilterInput] = useState(filterText);
+  const [searchMenuOpen, setSearchMenuOpen] = useState(false);
   const inputId = useId();
   const completionSource = useMemo(
     () =>
@@ -1129,6 +1202,74 @@ export function FileBrowserFilter({
         keyComboActions={keyComboActions}
         tooltipParentDivId={tooltipParentDivId}
       />
+      <StandardPopover
+        open={searchMenuOpen}
+        onOpenChange={setSearchMenuOpen}
+        arrowClasses="fill-white dark:fill-setta-800"
+        contentClasses="z-40 rounded-md border border-solid border-setta-200 bg-white px-2 py-2 shadow-lg dark:border-setta-700 dark:bg-setta-800"
+        trigger={
+          <button
+            type="button"
+            aria-label="Search scope options"
+            className="nodrag ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-setta-400 hover:bg-setta-50 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-500 dark:hover:bg-setta-850 dark:hover:text-setta-200"
+          >
+            <HiChevronDown size={16} />
+          </button>
+        }
+      >
+        <div className="flex w-[220px] flex-col gap-1 text-xs text-setta-700 dark:text-setta-200">
+          <button
+            type="button"
+            aria-pressed={searchScope === "recursive"}
+            className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-setta-50 dark:hover:bg-setta-850 ${
+              searchScope === "recursive"
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
+                : ""
+            }`}
+            onClick={() => {
+              fileBrowserState.setState({ searchScope: "recursive" });
+              setSearchMenuOpen(false);
+            }}
+          >
+            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
+              {searchScope === "recursive" ? (
+                <div className="h-full w-full rounded-full bg-blue-500" />
+              ) : null}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold">Recursive search</div>
+              <div className="text-[11px] text-setta-400 dark:text-setta-500">
+                Search the current folder and nested folders.
+              </div>
+            </div>
+          </button>
+          <button
+            type="button"
+            aria-pressed={searchScope === "local"}
+            className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-setta-50 dark:hover:bg-setta-850 ${
+              searchScope === "local"
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
+                : ""
+            }`}
+            onClick={() => {
+              fileBrowserState.setState({ searchScope: "local" });
+              setSearchMenuOpen(false);
+            }}
+          >
+            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
+              {searchScope === "local" ? (
+                <div className="h-full w-full rounded-full bg-blue-500" />
+              ) : null}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold">Local search</div>
+              <div className="text-[11px] text-setta-400 dark:text-setta-500">
+                Search only the current folder.
+              </div>
+            </div>
+          </button>
+        </div>
+      </StandardPopover>
     </search>
   );
 }

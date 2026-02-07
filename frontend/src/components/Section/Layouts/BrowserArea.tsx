@@ -31,7 +31,7 @@ import {
 } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
-import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
+import { MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal, TbFolder } from "react-icons/tb";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -41,6 +41,7 @@ import {
 } from "state/actions/sectionInfos";
 import {
   openFileInCodeSection,
+  openFileInImageSection,
   openFileInTextSection,
 } from "state/actions/sections/createSections";
 import {
@@ -62,6 +63,11 @@ import {
   parseFileBrowserFilterText,
 } from "utils/fileBrowserFilter";
 import {
+  DEFAULT_FILE_BROWSER_TYPE_FILTERS,
+  filterFileBrowserItemsByTypeFilters,
+  getFileBrowserFolderPathLabel,
+} from "utils/fileBrowserTypes";
+import {
   route_get_file_browser_download_urls,
   route_get_file_browser_root,
   route_get_folder_contents,
@@ -78,13 +84,10 @@ import {
 import { clamp } from "utils/utils";
 
 const artifactTypes = [
-  // { type: "Select All" },
-  { type: "Image", icon: <IoImageOutline /> },
-  { type: "Video", icon: <IoVideocam /> },
-  { type: "Text", icon: <FiFileText /> },
-  { type: "Data", icon: <MdDataArray /> },
-  { type: "Brushes", icon: <MdBrush /> },
-  { type: "Other", icon: <MdCategory /> },
+  { type: "image" as const, label: "Image", icon: <IoImageOutline /> },
+  { type: "video" as const, label: "Video", icon: <IoVideocam /> },
+  { type: "text" as const, label: "Text", icon: <FiFileText /> },
+  { type: "data" as const, label: "Data", icon: <MdDataArray /> },
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
@@ -193,6 +196,10 @@ function getExtensionBadge(value: string | undefined): string | null {
     return null;
   }
   return label.length > 6 ? label.slice(0, 6) : label;
+}
+
+function normalizeFolderPrefix(value: string): string {
+  return value.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
 function toBrowserAttachment(item: FolderContentItem): BrowserFileAttachment {
@@ -308,7 +315,7 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
 
   return (
     <div
-      className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
+      className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible"
       ref={containerRef}
     >
       {!hideColumn && (
@@ -339,10 +346,13 @@ function TypesColumn({
   onResizeStart: React.MouseEventHandler<HTMLDivElement>;
 }) {
   const { ref, isScrollable } = useIsScrollable();
+  const typeFilters = useBrowserSectionFileBrowserState(
+    (state) => state.typeFilters,
+  );
   const isResizable = width > TYPES_COLUMN_MIN_CONTAINER_WIDTH;
   return (
     <article
-      className="nodrag relative flex min-w-0 flex-col pr-1"
+      className="nodrag relative flex min-w-0 flex-col pr-1 @sm/multipane:z-20"
       style={isResizable ? { width: columnWidth } : undefined}
     >
       {isResizable && (
@@ -359,12 +369,29 @@ function TypesColumn({
         className={`relative mb-2 mt-2 flex min-h-0 flex-col overflow-y-auto pr-1 ${isScrollable ? "nowheel" : ""}`}
       >
         {artifactTypes.map((x) => (
-          <CheckboxNextToLabel key={x.type} icon={x.icon}>
-            <p className="truncate">{x.type}</p>
+          <CheckboxNextToLabel
+            key={x.type}
+            icon={x.icon}
+            checked={typeFilters[x.type] === true}
+            onChange={(checked) => {
+              useBrowserSectionFileBrowserState.setState((state) => ({
+                typeFilters: { ...state.typeFilters, [x.type]: checked },
+              }));
+            }}
+          >
+            <p className="truncate">{x.label}</p>
           </CheckboxNextToLabel>
         ))}
       </div>
-      <button className="nodrag mt-auto flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-2 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400">
+      <button
+        type="button"
+        className="nodrag mt-auto flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-2 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400"
+        onClick={() => {
+          useBrowserSectionFileBrowserState.setState({
+            typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+          });
+        }}
+      >
         <BiSolidSelectMultiple />
         Select All
       </button>
@@ -443,6 +470,7 @@ function ThumbnailItem({
   label,
   children,
   onClick,
+  onDoubleClick,
 }: {
   size: string;
   thumbnailUrl?: string | null;
@@ -451,12 +479,14 @@ function ThumbnailItem({
   label: string;
   children: ReactNode;
   onClick?: () => void;
+  onDoubleClick?: () => void;
 }) {
   return (
     <div
       className="group/thumbnail flex cursor-pointer flex-col items-center gap-1"
       style={{ width: size }}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
     >
       <div
         className="single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
@@ -489,6 +519,7 @@ function ViewSwitch({
   selectedCarouselId,
   onSelectCarouselId,
   textPreviewMap,
+  getItemSubLabel,
   onOpenFolder,
   onOpenFile,
 }: {
@@ -500,6 +531,7 @@ function ViewSwitch({
   selectedCarouselId: string | null;
   onSelectCarouselId: (nextId: string | null) => void;
   textPreviewMap: Record<string, FileTextPreview>;
+  getItemSubLabel?: (item: FolderContentItem) => string | null;
   onOpenFolder: (path: string) => void;
   onOpenFile: (item: OpenableBrowserItem) => void;
 }) {
@@ -719,6 +751,7 @@ function ViewSwitch({
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
             {items.map((item) => {
               const previewKind = getBrowserPreviewKind(item);
+              const subLabel = getItemSubLabel ? getItemSubLabel(item) : null;
               const badgeText =
                 previewKind === "image" || previewKind === "folder"
                   ? null
@@ -731,6 +764,10 @@ function ViewSwitch({
                 previewKind === "folder"
                   ? () => onOpenFolder(item.fullPath)
                   : undefined;
+              const handleDoubleClick =
+                previewKind === "folder"
+                  ? () => onOpenFolder(item.fullPath)
+                  : () => onOpenFile(item);
               return (
                 <ThumbnailItem
                   key={item.fullPath}
@@ -739,8 +776,14 @@ function ViewSwitch({
                   thumbnailUrl={thumbnailUrl}
                   label={item.name}
                   onClick={handleClick}
+                  onDoubleClick={handleDoubleClick}
                 >
-                  {item.name}
+                  <span className="block w-full break-words">{item.name}</span>
+                  {subLabel ? (
+                    <span className="block w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
+                      {subLabel}
+                    </span>
+                  ) : null}
                 </ThumbnailItem>
               );
             })}
@@ -757,9 +800,11 @@ function ViewSwitch({
               previewKind === "image"
                 ? fileUrlMap[item.fullPath]?.url ?? null
                 : null;
+            const subLabel = getItemSubLabel ? getItemSubLabel(item) : null;
             return {
               id: item.fullPath,
               label: item.name,
+              subLabel,
               thumbnailUrl: fileUrl,
               imageUrl: fileUrl,
               data: item,
@@ -834,6 +879,12 @@ function ItemsColumn({
   const filterText = useBrowserSectionFileBrowserState(
     (state) => state.filterText,
   );
+  const searchScope = useBrowserSectionFileBrowserState(
+    (state) => state.searchScope,
+  );
+  const typeFilters = useBrowserSectionFileBrowserState(
+    (state) => state.typeFilters,
+  );
   const browserStateRootPath = useBrowserSectionFileBrowserState(
     (state) => state.rootPath,
   );
@@ -901,14 +952,20 @@ function ItemsColumn({
     }
     return filterFileBrowserFolderItems(items, filterText);
   }, [filterQuery.kind, filterText, isListView, items, recursiveFilterResults]);
+
+  const filteredVisibleItems = useMemo(
+    () => filterFileBrowserItemsByTypeFilters(visibleItems, typeFilters),
+    [typeFilters, visibleItems],
+  );
   const selectedCarouselItem = useMemo(() => {
     if (!selectedCarouselId) {
       return null;
     }
     return (
-      visibleItems.find((item) => item.fullPath === selectedCarouselId) ?? null
+      filteredVisibleItems.find((item) => item.fullPath === selectedCarouselId) ??
+      null
     );
-  }, [selectedCarouselId, visibleItems]);
+  }, [filteredVisibleItems, selectedCarouselId]);
   const folderCompletionSource = useMemo(() => {
     if (!rootInfo) {
       return null;
@@ -919,6 +976,71 @@ function ItemsColumn({
       ignorePatterns: rootInfo.ignorePatterns,
     });
   }, [rootInfo]);
+
+  const shouldShowFolderPaths = filterQuery.kind !== "none";
+  const normalizedRootPathForPrefix = useMemo(() => {
+    if (!rootInfo?.rootPath) {
+      return null;
+    }
+    return normalizeFolderPrefix(rootInfo.rootPath);
+  }, [rootInfo?.rootPath]);
+  const normalizedEffectiveFolderForPrefix = useMemo(() => {
+    if (!rootInfo?.rootPath) {
+      return normalizeFolderPrefix(effectiveFolder);
+    }
+    const resolved = resolvePathWithinRoot(effectiveFolder, rootInfo.rootPath);
+    if (!resolved) {
+      return normalizeFolderPrefix(effectiveFolder);
+    }
+    return normalizeFolderPrefix(resolved);
+  }, [effectiveFolder, rootInfo?.rootPath]);
+  const getItemSubLabel = useCallback(
+    (item: FolderContentItem): string | null => {
+      if (!shouldShowFolderPaths) {
+        return null;
+      }
+      if (!rootInfo?.rootPath) {
+        return null;
+      }
+      const resolvedItemPath = resolvePathWithinRoot(
+        item.fullPath,
+        rootInfo.rootPath,
+      );
+      if (!resolvedItemPath) {
+        return null;
+      }
+      const folderPath = getFileBrowserFolderPathLabel(resolvedItemPath);
+      if (!folderPath) {
+        return null;
+      }
+      const normalizedFolder = normalizeFolderPrefix(folderPath);
+      if (
+        normalizedEffectiveFolderForPrefix &&
+        normalizedFolder === normalizedEffectiveFolderForPrefix
+      ) {
+        return null;
+      }
+      if (
+        normalizedEffectiveFolderForPrefix &&
+        normalizedFolder.startsWith(`${normalizedEffectiveFolderForPrefix}/`)
+      ) {
+        return normalizedFolder.slice(normalizedEffectiveFolderForPrefix.length + 1);
+      }
+      if (
+        normalizedRootPathForPrefix &&
+        normalizedFolder.startsWith(`${normalizedRootPathForPrefix}/`)
+      ) {
+        return normalizedFolder.slice(normalizedRootPathForPrefix.length + 1);
+      }
+      return normalizedFolder;
+    },
+    [
+      normalizedEffectiveFolderForPrefix,
+      normalizedRootPathForPrefix,
+      rootInfo?.rootPath,
+      shouldShowFolderPaths,
+    ],
+  );
 
   useEffect(() => {
     if (rootInfo) {
@@ -1271,23 +1393,23 @@ function ItemsColumn({
       setSelectedCarouselId(null);
       return;
     }
-    if (visibleItems.length === 0) {
+    if (filteredVisibleItems.length === 0) {
       setSelectedCarouselId(null);
       return;
     }
     if (
       selectedCarouselId &&
-      visibleItems.some((item) => item.fullPath === selectedCarouselId)
+      filteredVisibleItems.some((item) => item.fullPath === selectedCarouselId)
     ) {
       return;
     }
     const preferred =
-      visibleItems.find((item) => getBrowserPreviewKind(item) === "image") ??
-      visibleItems[0];
+      filteredVisibleItems.find((item) => getBrowserPreviewKind(item) === "image") ??
+      filteredVisibleItems[0];
     if (preferred) {
       setSelectedCarouselId(preferred.fullPath);
     }
-  }, [selectedCarouselId, value, visibleItems]);
+  }, [filteredVisibleItems, selectedCarouselId, value]);
 
   useEffect(() => {
     if (isListView) {
@@ -1325,6 +1447,19 @@ function ItemsColumn({
   const handleOpenFile = useCallback(
     (item: OpenableBrowserItem) => {
       if (item.type.toLowerCase() === "folder") {
+        return;
+      }
+      const previewKind = getAttachmentPreviewKind({
+        id: item.fullPath,
+        name: item.name,
+        mimeType: null,
+        size: null,
+      });
+      if (previewKind === "image") {
+        void openFileInImageSection({
+          filePath: item.fullPath,
+          fileName: item.name,
+        });
         return;
       }
       const extension = extractExtension(item.name);
@@ -1384,6 +1519,7 @@ function ItemsColumn({
     [
       getFileUrlEntry,
       openFileInCodeSection,
+      openFileInImageSection,
       openFileInTextSection,
       resolveCodeLanguageFromPath,
     ],
@@ -1460,6 +1596,11 @@ function ItemsColumn({
 
   useEffect(() => {
     if (isListView) {
+      setRecursiveFilterResults(null);
+      recursiveFilterRequestIdRef.current += 1;
+      return;
+    }
+    if (searchScope !== "recursive") {
       setRecursiveFilterResults(null);
       recursiveFilterRequestIdRef.current += 1;
       return;
@@ -1574,6 +1715,7 @@ function ItemsColumn({
     items,
     rootInfo?.ignorePatterns,
     rootInfo?.rootPath,
+    searchScope,
   ]);
 
   useEffect(() => {
@@ -1621,13 +1763,14 @@ function ItemsColumn({
       </div>
       <ViewSwitch
         view={value}
-        items={isListView ? items : visibleItems}
+        items={isListView ? items : filteredVisibleItems}
         filesColumnWidth={filesColumnWidth}
         onFilesColumnResizeStart={onFilesColumnResizeStart}
         fileUrlMap={fileUrlMap}
         selectedCarouselId={selectedCarouselId}
         onSelectCarouselId={setSelectedCarouselId}
         textPreviewMap={textPreviewMap}
+        getItemSubLabel={getItemSubLabel}
         onOpenFolder={handleOpenFolder}
         onOpenFile={handleOpenFile}
       />
@@ -1638,34 +1781,39 @@ function ItemsColumn({
 function CheckboxNextToLabel({
   children,
   checked,
-  shown,
   onChange,
-  onClick,
-  onMouseEnter,
   icon,
+}: {
+  children: ReactNode;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  icon?: ReactNode;
 }) {
   return (
-    <li
-      className="group/checkboxlabel flex justify-between"
-      // onMouseEnter={onMouseEnter}
-    >
-      <label
-        className={`flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700  group-hover/checkboxlabel:!text-blue-500 dark:text-setta-200`}
+    <li className="group/checkboxlabel flex justify-between">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        className={`nodrag flex min-h-6 w-full items-center gap-2 truncate rounded px-1 py-0.5 text-left text-xs text-setta-700 group-hover/checkboxlabel:!text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-200 ${
+          checked ? "text-blue-600 dark:text-blue-300" : ""
+        }`}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          onChange(!checked);
+        }}
       >
-        <input
-          type="checkbox"
-          className={
-            icon
-              ? "peer sr-only"
-              : "h-[12px] w-[12px] min-w-[12px] cursor-pointer rounded-sm bg-setta-500/15 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
-          }
-          // checked={checked}
-          // onChange={onChange}
-        />
-        {icon && <i className="peer-checked:text-blue-600">{icon}</i>}
-
+        <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
+          {checked ? (
+            <span className="block h-full w-full rounded-full bg-blue-500" />
+          ) : null}
+        </span>
+        {icon ? (
+          <span className={checked ? "text-blue-600" : ""}>{icon}</span>
+        ) : null}
         {children}
-      </label>
+      </button>
     </li>
   );
 }

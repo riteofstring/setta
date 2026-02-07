@@ -18,6 +18,7 @@ import {
 export type MediaCarouselItem<T = unknown> = {
   id: string;
   label: string;
+  subLabel?: string | null;
   thumbnailUrl?: string | null;
   imageUrl?: string | null;
   text?: string | null;
@@ -339,15 +340,15 @@ export function MediaCarousel<T>({
     .filter(Boolean)
     .join(" ");
 
-  const thumbnailRowClasses = [
-    // `px-2` prevents selected thumbnails (scale + shadow) from being clipped.
-    thumbnailRowResizable
-      ? "flex shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2"
-      : "flex shrink-0 gap-2 overflow-x-scroll px-2 pb-4 pt-[4px]",
-    NO_PAN_CLASS_NAME,
-    // Keep wheel events from being intercepted by the canvas zoom handler.
-    NO_WHEEL_CLASS_NAME,
-    thumbnailRowClassName,
+	  const thumbnailRowClasses = [
+	    // `px-2` prevents selected thumbnails (scale + shadow) from being clipped.
+	    thumbnailRowResizable
+	      ? "flex shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2"
+	      : "flex shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 pb-4 pt-[4px]",
+	    NO_PAN_CLASS_NAME,
+	    // Keep wheel events from being intercepted by the canvas zoom handler.
+	    NO_WHEEL_CLASS_NAME,
+	    thumbnailRowClassName,
   ]
     .filter(Boolean)
     .join(" ");
@@ -526,26 +527,33 @@ export function MediaCarousel<T>({
                 {renderThumbnailOverlay ? renderThumbnailOverlay(item) : null}
               </div>
               {showThumbnailLabels ? (
-                thumbnailRowLayout.labelMode === "compact" ? (
-                  <p className="w-full text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
-                    <span className="flex w-full min-w-0 items-baseline gap-0.5">
-                      <span className="min-w-0 flex-1 truncate">
-                        {fileStem}
+                <div className="w-full">
+                  {thumbnailRowLayout.labelMode === "compact" ? (
+                    <p className="w-full text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
+                      <span className="flex w-full min-w-0 items-baseline gap-0.5">
+                        <span className="min-w-0 flex-1 truncate">
+                          {fileStem}
+                        </span>
+                        {fileExtension ? (
+                          <span className="shrink-0">{fileExtension}</span>
+                        ) : null}
                       </span>
-                      {fileExtension ? (
-                        <span className="shrink-0">{fileExtension}</span>
-                      ) : null}
-                    </span>
-                  </p>
-                ) : thumbnailRowResizable ? (
-                  <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
-                    {item.label}
-                  </p>
-                ) : (
-                  <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
-                    {item.label}
-                  </p>
-                )
+                    </p>
+                  ) : thumbnailRowResizable ? (
+                    <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
+                      {item.label}
+                    </p>
+                  ) : (
+                    <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
+                      {item.label}
+                    </p>
+                  )}
+                  {item.subLabel ? (
+                    <p className="w-full truncate text-center text-[10px] text-setta-400 dark:text-setta-500">
+                      {item.subLabel}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </button>
           );

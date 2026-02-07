@@ -203,4 +203,60 @@ describe("flattenFileBrowserTree", () => {
       "/root/docs/README.md",
     ]);
   });
+
+  it("supports local filtering (only the current folder)", () => {
+    const rootPath = "/root";
+    const nodesByPath: Record<string, FileNode> = {
+      [rootPath]: {
+        name: "root",
+        fullPath: rootPath,
+        type: "folder",
+        parentPath: null,
+      },
+      "/root/images": {
+        name: "images",
+        fullPath: "/root/images",
+        type: "folder",
+        parentPath: rootPath,
+      },
+      "/root/images/cat.jpg": {
+        name: "cat.jpg",
+        fullPath: "/root/images/cat.jpg",
+        type: "file",
+        parentPath: "/root/images",
+      },
+      "/root/README.md": {
+        name: "README.md",
+        fullPath: "/root/README.md",
+        type: "file",
+        parentPath: rootPath,
+      },
+    };
+    const childrenByPath: Record<string, string[]> = {
+      [rootPath]: ["/root/images", "/root/README.md"],
+      "/root/images": ["/root/images/cat.jpg"],
+    };
+
+    const flattened = flattenFileBrowserTree({
+      rootPath,
+      nodesByPath,
+      expandedPaths: {},
+      filterText: "*.jpg",
+      searchScope: "local",
+      getChildPaths: (path) => childrenByPath[path] ?? [],
+    });
+
+    // cat.jpg is nested; local search should not traverse into /root/images.
+    expect(flattened.map((x) => x.fullPath)).toEqual([rootPath]);
+
+    const localReadme = flattenFileBrowserTree({
+      rootPath,
+      nodesByPath,
+      expandedPaths: {},
+      filterText: "readme",
+      searchScope: "local",
+      getChildPaths: (path) => childrenByPath[path] ?? [],
+    });
+    expect(localReadme.map((x) => x.fullPath)).toEqual([rootPath, "/root/README.md"]);
+  });
 });

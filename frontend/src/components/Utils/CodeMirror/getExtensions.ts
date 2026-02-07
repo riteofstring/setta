@@ -260,7 +260,12 @@ function getKeyMapArray({
       preventDefault: true,
       stopPropagation: true,
       run: (view) => {
-        const completionResult = hasCompletions ? acceptCompletion(view) : false;
+        // In single-line "submit" inputs (like the Browser path bar) Enter should
+        // submit, not silently accept a completion. If a caller wants Enter to
+        // accept completions, they should disable tab-to-autocomplete so Enter
+        // is the primary completion interaction.
+        const completionResult =
+          hasCompletions && !tabToAutocomplete ? acceptCompletion(view) : false;
         if (hasCompletions) {
           closeCompletion(view);
         }
