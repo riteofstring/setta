@@ -124,7 +124,8 @@ export function WorkspaceLaunchPage() {
       const resolvedWorkspaceRoot =
         res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
       const requestedFilesRoot = pending.request.filesRoot ?? null;
-      const resolvedFilesRoot = res.data.filesRoot ?? requestedFilesRoot ?? null;
+      const resolvedFilesRoot =
+        res.data.filesRoot ?? requestedFilesRoot ?? null;
       const requestedFilesRootBase = pending.request.filesRootBase ?? null;
       let resolvedLocalPort = pending.request.localPort ?? null;
       if (pending.request.sshTarget) {

@@ -82,7 +82,9 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     applyBackendOriginOverrideFromUrl();
 
     expect(window.location.href).not.toContain("__setta_backend_origin");
-    expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBeNull();
+    expect(
+      memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY),
+    ).toBeNull();
   });
 
   it("allows non-local overrides when explicitly enabled", () => {

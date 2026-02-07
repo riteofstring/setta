@@ -281,8 +281,10 @@ def _sanitize_leaf(value: str) -> str:
     cleaned_chars: list[str] = []
     for ch in value:
         codepoint = ord(ch)
-        is_ascii_alnum = (48 <= codepoint <= 57) or (65 <= codepoint <= 90) or (
-            97 <= codepoint <= 122
+        is_ascii_alnum = (
+            (48 <= codepoint <= 57)
+            or (65 <= codepoint <= 90)
+            or (97 <= codepoint <= 122)
         )
         if is_ascii_alnum or ch in allowed_symbols:
             cleaned_chars.append(ch)

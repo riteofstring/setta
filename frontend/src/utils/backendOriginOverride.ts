@@ -8,7 +8,9 @@ const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 function isLocalHostname(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase();
   return (
-    normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1"
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1"
   );
 }
 
@@ -27,7 +29,10 @@ function allowNonLocalOriginOverride(): boolean {
   return false;
 }
 
-function isOverrideAllowed(overrideOrigin: string, currentOrigin: string): boolean {
+function isOverrideAllowed(
+  overrideOrigin: string,
+  currentOrigin: string,
+): boolean {
   let overrideUrl: URL;
   let currentUrl: URL;
   try {
@@ -39,7 +44,10 @@ function isOverrideAllowed(overrideOrigin: string, currentOrigin: string): boole
   if (overrideUrl.hostname === currentUrl.hostname) {
     return true;
   }
-  if (isLocalHostname(overrideUrl.hostname) && isLocalHostname(currentUrl.hostname)) {
+  if (
+    isLocalHostname(overrideUrl.hostname) &&
+    isLocalHostname(currentUrl.hostname)
+  ) {
     return true;
   }
   return allowNonLocalOriginOverride();

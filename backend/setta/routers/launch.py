@@ -10,7 +10,11 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
-from setta.utils.paths import build_files_root_from_base, resolve_path, resolve_setta_paths
+from setta.utils.paths import (
+    build_files_root_from_base,
+    resolve_path,
+    resolve_setta_paths,
+)
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 

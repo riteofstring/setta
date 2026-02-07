@@ -53,4 +53,3 @@ describe("appendWorkspaceHistoryToBootstrapUrlFragment", () => {
     expect(wh).not.toContain("/");
   });
 });
-

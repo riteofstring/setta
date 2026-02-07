@@ -96,6 +96,7 @@ def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
         os.environ[_FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
     clear_setta_paths_cache()
 
+
 def _parse_ssh_args(raw: str | None) -> list[str]:
     return ssh_common.parse_ssh_args(raw)
 
