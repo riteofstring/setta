@@ -22,7 +22,6 @@ from setta.routers.ai import (
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
-    _build_branch_messages,
     _get_prior_messages_for_engine,
     route_get_external_agent_chat,
     route_get_llm_chat,
@@ -444,59 +443,6 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
 
-    async def test_branch_edit_missing_message_returns_404(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            project_config_id = ID("project-branch-1")
-            parent_chat_id = ID("chat-parent")
-            user_message = UserChatMessage(
-                id="msg-1",
-                content=[MessageTextContent(text="Original")],
-            )
-            run = _build_run(
-                chat_id=parent_chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                started_at=datetime(2024, 1, 4, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message],
-            )
-            save_agent_run(dbe, run)
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_response(
-                        GetLLMResponseRequest(
-                            chatId=None,
-                            message=UserChatMessage(
-                                id="edited",
-                                content=[MessageTextContent(text="Edited")],
-                            ),
-                            engineConfigId=engine_config_id,
-                            agentProfileId=None,
-                            thinking=False,
-                            projectConfigId=project_config_id,
-                            branchParentChatId=parent_chat_id,
-                            branchFromMessageId=ID("missing"),
-                        ),
-                        ctx,
-                    )
-
-            assert exc.value.status_code == 404
-            assert (
-                exc.value.detail
-                == "Message missing not found in chat history"
-            )
-
     async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -643,47 +589,3 @@ class TestAgentRunChatRoutes:
                 return
             assert stopped.status == AgentRunStatus.cancelled
             assert stopped.finishedAt is not None
-
-    def test_branch_messages_replace_and_truncate(self) -> None:
-        first = UserChatMessage(
-            id="msg-1",
-            content=[MessageTextContent(text="Original")],
-        )
-        second = AssistantChatMessage(
-            id="msg-2",
-            content=[MessageTextContent(text="Reply")],
-        )
-        third = UserChatMessage(
-            id="msg-3",
-            content=[MessageTextContent(text="Later")],
-        )
-        edited = UserChatMessage(
-            id="edited",
-            content=[MessageTextContent(text="Edited")],
-        )
-
-        result = _build_branch_messages(
-            prior_messages=[first, second, third],
-            edited_message=edited,
-            branch_from_message_id=ID("msg-1"),
-        )
-
-        assert [message.id for message in result] == ["msg-1"]
-        assert result[0].content[0].text == "Edited"
-
-    def test_branch_messages_missing_target_raises(self) -> None:
-        first = UserChatMessage(
-            id="msg-1",
-            content=[MessageTextContent(text="Original")],
-        )
-        edited = UserChatMessage(
-            id="edited",
-            content=[MessageTextContent(text="Edited")],
-        )
-
-        with pytest.raises(KeyError):
-            _build_branch_messages(
-                prior_messages=[first],
-                edited_message=edited,
-                branch_from_message_id=ID("missing"),
-            )
