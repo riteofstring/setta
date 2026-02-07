@@ -16,8 +16,7 @@ from setta.types.chat_stream_events import (
     ToolResultEvent,
 )
 from setta.types.generated.chat_messages import BaseChatMessageUnion
-from setta.types.id import ID
-from setta.types.section_impls import ChatSectionBranch, ChatSectionState
+from setta.types.section_impls import ChatSectionState
 
 
 def build_chat_section_state(
@@ -26,16 +25,12 @@ def build_chat_section_state(
     input_text: str = "",
     waiting_for_response: bool = False,
     tool_call_arguments: dict[str, str] | None = None,
-    active_branch_id: ID | None = None,
-    branches: dict[ID, ChatSectionBranch] | None = None,
 ) -> ChatSectionState:
     return ChatSectionState(
         messages=list(messages),
         inputText=input_text,
         waitingForResponse=waiting_for_response,
         toolCallArguments=dict(tool_call_arguments or {}),
-        activeBranchId=active_branch_id,
-        branches=dict(branches or {}),
     )
 
 
@@ -48,19 +43,6 @@ def apply_stream_delta(
     tool_call_arguments = dict(state.toolCallArguments)
     waiting_for_response = state.waitingForResponse
     input_text = state.inputText
-    active_branch_id = state.activeBranchId
-    branches = dict(state.branches)
-
-    def sync_active_branch_messages() -> dict[ID, ChatSectionBranch]:
-        if not active_branch_id:
-            return branches
-        active_branch = branches.get(active_branch_id)
-        if active_branch is None:
-            return branches
-        updated = active_branch.model_copy(update={"messages": list(messages)})
-        next_branches = dict(branches)
-        next_branches[active_branch_id] = updated
-        return next_branches
 
     if isinstance(chunk, MessageStartEvent):
         message = chunk.message
@@ -68,98 +50,74 @@ def apply_stream_delta(
             message = message.model_copy(deep=True)
         messages = _upsert_message(messages, message)
         waiting_for_response = True
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
     if isinstance(chunk, MessageDeltaEvent):
         messages = _apply_message_delta(messages, chunk)
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
     if isinstance(chunk, ToolCallDeltaEvent):
         messages = _apply_tool_call_delta(messages, tool_call_arguments, chunk)
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
     if isinstance(chunk, ToolArgumentPreviewDeltaEvent):
         messages = _apply_tool_call_delta(messages, tool_call_arguments, chunk)
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
     if isinstance(chunk, ToolResultEvent):
         messages = _upsert_message(messages, chunk.result)
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
     if isinstance(chunk, MessageStopEvent):
         waiting_for_response = False
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
     if isinstance(chunk, MessageFinalizedEvent):
         messages = _upsert_message(messages, chunk.message)
         waiting_for_response = False
         tool_call_arguments = {}
-        updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,
             input_text=input_text,
             waiting_for_response=waiting_for_response,
             tool_call_arguments=tool_call_arguments,
-            active_branch_id=active_branch_id,
-            branches=updated_branches,
         )
 
-    updated_branches = sync_active_branch_messages()
     return build_chat_section_state(
         messages=messages,
         input_text=input_text,
         waiting_for_response=waiting_for_response,
         tool_call_arguments=tool_call_arguments,
-        active_branch_id=active_branch_id,
-        branches=updated_branches,
     )
 
 

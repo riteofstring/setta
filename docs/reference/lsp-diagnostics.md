@@ -6,8 +6,6 @@ code sections, how they are broadcast to the UI, and how suppression works.
 ## Payloads and routing
 - Diagnostics are broadcast over the frontend websocket as `LSPDiagnostics` and
   returned by the `get_latest_lsp_diagnostics` tool/route.
-- The frontend calls `get_latest_lsp_diagnostics` on project load or websocket
-  reconnect to rehydrate diagnostics after hard refreshes.
 - Payload shape: `SettaLspDiagnosticsPayload`.
   - `projectConfigId`: target project config.
   - `genCode`: `SettaProjectConfigDiagnostics` (section/param type errors from
