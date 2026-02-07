@@ -6,7 +6,6 @@ from io import BytesIO
 from pathlib import Path
 
 from setta.api import SettaListener
-from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.binary import BinaryStore
 from setta.logging.config import configure_listener_logging
@@ -14,7 +13,6 @@ from setta.sessions import SessionMetadata, SessionRegistry
 from setta.types.artifact import ImageArtifact
 from setta.types.binary_content import BinaryContentRef
 from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +49,7 @@ def _resolve_session_metadata(
             track_suspicious=False,
         )
     sessions = registry.find_sessions_by_workspace(
-        get_setta_paths().workspace_root,
+        Path.cwd(),
         prune_stale=False,
         track_suspicious=False,
     )
@@ -67,7 +65,7 @@ def _build_auth_headers(session: SessionMetadata | None) -> dict[str, str] | Non
     cookie_value = AUTH_COOKIE_MANAGER.mint(session.id, secret)
     bootstrap_token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
     return {
-        "Cookie": f"{auth_cookie_name(session.id)}={cookie_value}",
+        "Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}",
         "Authorization": f"Bearer {bootstrap_token}",
     }
 
