@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -14,9 +15,15 @@ class ShareDeploymentListenerConfig(BaseModel, extra="forbid"):
     enabled: bool = True
 
 
+class DeploymentType(str, Enum):
+    share = "share"
+    app = "app"
+
+
 class ShareDeploymentManifest(BaseModel, extra="forbid"):
     version: int
     deploymentName: str
+    deploymentType: DeploymentType
     defaultProjectConfigId: ID
     deploymentVersion: str
     createdAt: datetime = Field(default_factory=get_now_timestamp)
@@ -40,6 +47,9 @@ class SharePolicy(BaseModel, extra="forbid"):
     allowLayoutChanges: bool = True
     allowRun: bool = False
     allowLLM: bool = False
+    allowExternalLinks: bool = False
+    allowFileDownloads: bool = False
+    allowMultipleRuns: bool = True
     runSnapshotMode: RunSnapshotMode = RunSnapshotMode.ephemeral
 
 

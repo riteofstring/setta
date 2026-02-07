@@ -23,7 +23,7 @@ from setta.types.websocket import (
     WebsocketMsgRealtimeUIChange,
 )
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -88,6 +88,7 @@ def _build_share_runtime_state(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion="v1",
     )
