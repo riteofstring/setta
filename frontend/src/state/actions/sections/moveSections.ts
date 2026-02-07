@@ -335,7 +335,10 @@ function resolveParentIds(
   return parentsById;
 }
 
-function deleteTopLevelSectionLayout(state: ZustandProjectState, sectionId: string) {
+function deleteTopLevelSectionLayout(
+  state: ZustandProjectState,
+  sectionId: string,
+) {
   delete state.projectConfig.topLevelSections[sectionId];
   for (const viewMode of Object.values(state.projectConfig.viewModes)) {
     if (!viewMode.topLevelSections) {

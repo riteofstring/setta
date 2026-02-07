@@ -428,8 +428,12 @@ class Terminals:
         await info["terminalPromptIsReady"].wait()
         pty_process = info["process"]
 
-        base_rows: int | None = info.get("rows") if isinstance(info.get("rows"), int) else None
-        base_cols: int | None = info.get("cols") if isinstance(info.get("cols"), int) else None
+        base_rows: int | None = (
+            info.get("rows") if isinstance(info.get("rows"), int) else None
+        )
+        base_cols: int | None = (
+            info.get("cols") if isinstance(info.get("cols"), int) else None
+        )
         override_cols: int | None = None
         sigwinch_pgid: int | None = None
         sigwinch_error: str | None = None
@@ -503,7 +507,10 @@ class Terminals:
                     except OSError:
                         sigwinch_restore_pgid = None
                     try:
-                        if sigwinch_restore_pgid is not None and sigwinch_restore_pgid > 0:
+                        if (
+                            sigwinch_restore_pgid is not None
+                            and sigwinch_restore_pgid > 0
+                        ):
                             os.killpg(sigwinch_restore_pgid, signal.SIGWINCH)
                         else:
                             os.kill(pty_process.pid, signal.SIGWINCH)

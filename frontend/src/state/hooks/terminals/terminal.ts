@@ -1,3 +1,6 @@
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
+import "@xterm/xterm/css/xterm.css";
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
@@ -10,9 +13,6 @@ import {
   clearPendingSectionTextFocus,
   isPendingSectionTextFocus,
 } from "utils/tabbingLogic";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
-import "@xterm/xterm/css/xterm.css";
 import { scrollSensitivityUpdater, terminalTheme } from "./utils";
 
 type TerminalSession = {
@@ -805,11 +805,7 @@ function patchWrappedFlagsForWidenReflow({
         typeof prev.getCodePoint === "function"
           ? prev.getCodePoint(oldCols - 1)
           : null;
-      if (
-        lastCodePoint === 0 ||
-        lastCodePoint === 32 ||
-        lastCodePoint === 9
-      ) {
+      if (lastCodePoint === 0 || lastCodePoint === 32 || lastCodePoint === 9) {
         continue;
       }
     }
