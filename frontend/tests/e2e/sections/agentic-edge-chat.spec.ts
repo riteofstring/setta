@@ -62,10 +62,20 @@ test.describe.serial("agentic edges", () => {
         `.react-flow__handle[data-nodeid="${secondChat.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
+      await ensureHandlesInViewport(page, sourceHandle, targetHandle);
+      await page.mouse.move(1, 1);
+      await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
+      await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
+
       await page.getByTestId(`rf__node-${firstChat.sectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
       await page.getByTestId(`rf__node-${secondChat.sectionId}`).hover();
       await expect(targetHandle).toBeVisible();
+
+      // After hover is gone, unconnected handles should fade out quickly.
+      await page.mouse.move(1, 1);
+      await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
+      await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
 
       const initialCount = await getAgenticEdgeCount(
         page,
@@ -123,10 +133,19 @@ test.describe.serial("agentic edges", () => {
         `.react-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
+      await ensureHandlesInViewport(page, sourceHandle, targetHandle);
+      await page.mouse.move(1, 1);
+      await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
+      await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
+
       await page.getByTestId(`rf__node-${chatSection.sectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
       await page.getByTestId(`rf__node-${textSection.sectionId}`).hover();
       await expect(targetHandle).toBeVisible();
+
+      await page.mouse.move(1, 1);
+      await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
+      await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
 
       const initialCount = await getAgenticEdgeCount(
         page,
@@ -211,6 +230,11 @@ test.describe.serial("agentic edges", () => {
       const targetHandle = page.locator(
         `.react-flow__handle[data-nodeid="${secondSectionId}"][data-handleid="agentic-edge-target"]`,
       );
+
+      await ensureHandlesInViewport(page, sourceHandle, targetHandle);
+      await page.mouse.move(1, 1);
+      await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
+      await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
 
       await page.getByTestId(`rf__node-${firstSectionId}`).hover();
       await expect(sourceHandle).toBeVisible();

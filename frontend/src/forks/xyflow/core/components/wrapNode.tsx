@@ -18,9 +18,9 @@ export const arrowKeyDiffs: Record<string, Position> = {
 };
 
 const AGENTIC_HANDLES_EXIT_CLASS = "agentic-handles--exit";
-// Keep in sync with `--agentic-handle-fade-in-duration` in
-// `frontend/src/forks/xyflow/core/styles/style.css`.
-const AGENTIC_HANDLES_FADE_IN_DURATION_MS = 80;
+// If the user is just skimming across a node, we skip the linger animation so
+// the handles fade out immediately.
+const AGENTIC_HANDLES_MIN_HOVER_FOR_EXIT_ANIMATION_MS = 200;
 
 const _NodeWrapper = ({
   id,
@@ -65,11 +65,13 @@ const _NodeWrapper = ({
       onPointerLeave={() => {
         const startMs = agenticHandlesHoverStartMsRef.current;
         const nodeEl = nodeRef.current;
+        agenticHandlesHoverStartMsRef.current = null;
         if (startMs === null || !nodeEl) {
           return;
         }
         const hoveredMs = performance.now() - startMs;
-        if (hoveredMs < AGENTIC_HANDLES_FADE_IN_DURATION_MS) {
+        if (hoveredMs < AGENTIC_HANDLES_MIN_HOVER_FOR_EXIT_ANIMATION_MS) {
+          nodeEl.classList.remove(AGENTIC_HANDLES_EXIT_CLASS);
           return;
         }
         nodeEl.classList.add(AGENTIC_HANDLES_EXIT_CLASS);

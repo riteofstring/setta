@@ -9,6 +9,7 @@ import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
+import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import {
   getOnSectionClick,
@@ -102,6 +103,7 @@ function _SectionContainerCore({
       ref={refForPosition}
     >
       <AgenticEdgeHandles isUserView={isUserView} />
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
