@@ -86,8 +86,7 @@ from setta.utils.chat_attachments import (
     build_attachments_prompt_text_pair,
     collect_message_attachments,
 )
-from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
+from setta.utils.constants import CWD, C
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -505,9 +504,8 @@ class ExternalAgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            paths = get_setta_paths()
-            base_root = paths.setta_files_root
-            artifacts_root = paths.artifacts_root
+            base_root = CWD
+            artifacts_root = CWD / C.ARTIFACTS_FOLDER
         attachment_text = ""
         attachment_text_no_images = ""
         if include_text or include_text_no_images:
@@ -853,7 +851,7 @@ class ExternalAgentRunner:
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
                 system_prompt=codex_prompt,
-                project_root=working_dir or get_setta_paths().workspace_root,
+                project_root=working_dir or CWD,
             )
             env["CODEX_HOME"] = str(codex_home)
 
@@ -931,7 +929,7 @@ class ExternalAgentRunner:
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
         strategy = config.workingDirStrategy
         if strategy == ExternalAgentWorkingDirStrategy.project_root:
-            return get_setta_paths().workspace_root
+            return CWD
         if strategy == ExternalAgentWorkingDirStrategy.temp_dir:
             return Path(tempfile.mkdtemp(prefix="setta-external-agent-"))
         if strategy == ExternalAgentWorkingDirStrategy.custom:
@@ -942,7 +940,7 @@ class ExternalAgentRunner:
             path = Path(config.workingDir)
             path.mkdir(parents=True, exist_ok=True)
             return path
-        return get_setta_paths().workspace_root
+        return CWD
 
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}

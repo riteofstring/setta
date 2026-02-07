@@ -5,10 +5,10 @@ import site
 from pathlib import Path
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 from setta.logging.tasks import spawn_background_task
 from setta.utils.constants import C
-from setta.utils.watchdog_observer import build_watchdog_observer
 
 
 def _default_ignore_paths() -> list[Path]:
@@ -29,7 +29,7 @@ class LSPFileWatcher:
             notify_callback: Callback function that sends notifications to the LSP server.
                            Should accept FileSystemEvent as parameter.
         """
-        self.observer = build_watchdog_observer()
+        self.observer = Observer()
         self.observer.daemon = True
         self.watched_paths: set[str] = set()
         self.handler = LSPEventHandler(
