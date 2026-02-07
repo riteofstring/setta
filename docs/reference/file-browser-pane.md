@@ -12,8 +12,6 @@ it opens files into Code sections.
 
 - On first load, the pane calls `route_get_file_browser_root` to get the default root
   path, OS path separator, and ignore patterns.
-- The returned path separator + ignore patterns are cached in file browser state so
-  path autocompletion can reuse the same root metadata.
 - Default ignore patterns include `.git`, `node_modules`, `.venv`, `dist`, `build`,
   `__pycache__`, and `setta_files`.
 - The root defaults to the backend CWD and must stay inside the project root. Attempts
@@ -42,12 +40,7 @@ it opens files into Code sections.
 ## Filters And Visibility
 
 - The Filter input (when shown) does a case-insensitive substring match on file and
-  folder names by default.
-- If the filter includes `/` or `\`, it also matches normalized relative paths (root
-  trimmed) plus full paths, which makes it possible to filter by path fragments.
-- Path filtering normalizes backslashes to `/` before matching.
-- The filter input uses CodeMirror autocomplete to suggest folder names. It runs off
-  the current root path + ignore patterns and can be forced with `Ctrl+Space`.
+  folder names.
 - Filtering only includes nodes that have already been loaded. Expand folders first if
   you want their children to participate in filtering.
 - Hidden items (dotfiles) and default ignore patterns are filtered out by the backend.
@@ -77,8 +70,6 @@ Keyboard navigation works when the list has focus.
 ## Implementation References
 
 - UI: `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
-- Autocomplete: `frontend/src/components/Utils/CodeMirror/folderPathCompletions.ts`
-- Path helpers: `frontend/src/utils/browserPaths.ts`
 - State: `frontend/src/state/definitions.ts`
 - Open file flow: `frontend/src/state/actions/sections/createSections.ts`
 - Backend routes: `backend/setta/routers/artifact.py`
