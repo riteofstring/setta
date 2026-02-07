@@ -72,7 +72,7 @@ test("run attaches a terminal and reuses it", async ({ page }) => {
     );
     await expect(terminalNode).toHaveCount(0);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -112,7 +112,7 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
     });
     expect(isInsideCodeEditor).toBe(false);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -123,7 +123,7 @@ test("terminal text selection stays aligned at react flow zoom", async ({
   await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const terminalId = await createTerminalSection(page);
@@ -214,7 +214,7 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     });
     expect(selectionAtZoomIn.replace(/\r/g, "").trimEnd()).toBe(normalizedZoom1);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -224,7 +224,7 @@ test("attached terminal renders without header and resizes independently", async
   test.setTimeout(90000);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
@@ -280,7 +280,7 @@ test("attached terminal renders without header and resizes independently", async
       Math.abs(updatedCodeBox.height - initialCodeBox.height),
     ).toBeLessThanOrEqual(3);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -290,7 +290,7 @@ test("embedded terminal code editor scrolls when content overflows", async ({
   test.setTimeout(90000);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
@@ -325,7 +325,7 @@ test("embedded terminal code editor scrolls when content overflows", async ({
     });
     expect(scrollTop).toBeGreaterThan(0);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -335,7 +335,7 @@ test("embedded terminals only receive runs from their code section", async ({
   test.setTimeout(90000);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const codeXId = await createCodeSection(page);
@@ -389,7 +389,7 @@ test("embedded terminals only receive runs from their code section", async ({
       })
       .toBe(false);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -449,7 +449,7 @@ test("terminal can attach via moveSectionsWithBackend", async ({ page }) => {
       page.locator(`.react-flow__node[data-id="${terminalSectionId}"]`),
     ).toHaveCount(0);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -523,7 +523,7 @@ test("attach then detach round trip", async ({ page }) => {
       })
       .toBe(true);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -532,7 +532,7 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
   await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
@@ -612,7 +612,7 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       )
       .toBe(true);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -715,7 +715,7 @@ test("detaching a narrow attached terminal does not append extra output", async 
     const appendedOutput = afterOutput.slice(beforeOutput.length);
     expect(appendedOutput.length).toBeLessThanOrEqual(128);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -795,7 +795,7 @@ test("detached terminal accepts input", async ({ page }) => {
     await focusTerminalAndType(page, terminalId, `echo ${inputMarker}`);
     await waitForTerminalOutputMarker(page, terminalId, inputMarker, 20000);
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -808,7 +808,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
   await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
 
   try {
     const codeSectionId = await createCodeSection(page);
@@ -870,7 +870,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
       .toBeLessThan(narrowRowCount);
     // Wrapping should reduce when the terminal grows wider.
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -1055,7 +1055,7 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
       );
     }
   } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -1071,7 +1071,7 @@ test("terminal resize messages are throttled during drag detach", async ({
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
   let dragStarted = false;
   let altPressed = false;
 
@@ -1177,7 +1177,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     if (altPressed) {
       await page.keyboard.up("Alt");
     }
-    await deleteProjectConfigByName(page, projectConfigName);
+    await deleteProjectConfigById(page, projectConfigId);
   }
 });
 
@@ -1838,10 +1838,12 @@ async function copyTerminalSelection(
     // dispatching on the container.
     target.focus?.();
     const clipboardData = new DataTransfer();
-    const event = new ClipboardEvent("copy", {
-      clipboardData,
-      bubbles: true,
-      cancelable: true,
+    // Chromium has tightened restrictions around constructing ClipboardEvent
+    // with a writable `clipboardData`. xterm only checks for the presence of
+    // `event.clipboardData`, so define it manually on a standard Event.
+    const event = new Event("copy", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: clipboardData,
     });
     target.dispatchEvent(event);
     return clipboardData.getData("text/plain");
@@ -2032,25 +2034,15 @@ function getProjectConfigName(pageUrl: string, baseUrl: string): string {
   return decodeURIComponent(relativePath);
 }
 
-async function deleteProjectConfigByName(
+async function deleteProjectConfigById(
   page: Page,
-  projectConfigName: string,
+  projectConfigId: string,
 ): Promise<void> {
-  const metadata = await postBackend<ProjectMetadataResponse>(
-    page,
-    "/loadAllProjectMetadata",
-    {},
-  );
-  if (!metadata) {
-    throw new Error("Missing project metadata response.");
-  }
-  const match = metadata.projectMetadata.find(
-    (entry) => entry.name === projectConfigName,
-  );
-  if (!match) {
-    return;
-  }
-  await postBackend(page, "/deleteProjectConfigs", { ids: [match.id] });
+  // Clean up via the same surface area as users (home page), otherwise the
+  // still-mounted project page can keep sending layout updates for the deleted
+  // config and starve the delete request.
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await postBackend(page, "/deleteProjectConfigs", { ids: [projectConfigId] });
 }
 
 function resolveProjectUrl(): string {
