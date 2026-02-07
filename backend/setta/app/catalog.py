@@ -146,6 +146,7 @@ APP_CATALOG: JSONValue = {
             "type": "ParamInput",
             "description": "Input bound to a Setta param.",
             "props": {
+                "configId": {"type": "string"},
                 "sectionId": {"type": "string", "required": True},
                 "paramId": {"type": "string", "required": True},
                 "label": {"type": "string"},
@@ -160,6 +161,7 @@ APP_CATALOG: JSONValue = {
             "props": {
                 "label": {"type": "string", "required": True},
                 "action": {"type": "string", "required": True},
+                "configId": {"type": "string"},
                 "sectionId": {"type": "string"},
                 "dataPath": {"type": "string"},
             },
@@ -169,6 +171,7 @@ APP_CATALOG: JSONValue = {
             "type": "TextOutput",
             "description": "Display a TextBlock section output.",
             "props": {
+                "configId": {"type": "string"},
                 "sectionId": {"type": "string", "required": True},
                 "label": {"type": "string"},
                 "dataPath": {"type": "string"},
@@ -179,6 +182,7 @@ APP_CATALOG: JSONValue = {
             "type": "ImageOutput",
             "description": "Display an image artifact by id.",
             "props": {
+                "configId": {"type": "string"},
                 "artifactId": {"type": "string", "required": True},
                 "alt": {"type": "string"},
                 "dataPath": {"type": "string"},

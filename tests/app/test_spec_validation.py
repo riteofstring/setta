@@ -15,7 +15,7 @@ class TestAppSpecValidation:
             "elements": {},
         }
 
-        with pytest.raises(ValueError, match="ParamInput requires sectionId and paramId"):
+        with pytest.raises(ValueError, match="missing required prop 'sectionId'"):
             validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
 
     def test_allows_param_input_binding_from_props(self) -> None:
@@ -180,6 +180,84 @@ class TestAppSpecValidation:
                 "name": {
                     "sectionId": "section-1",
                     "paramId": "param-1",
+                }
+            }
+        }
+
+        validate_app_spec(
+            app_spec,
+            catalog_id=APP_CATALOG_ID,
+            data_bindings=bindings,
+        )
+
+    def test_rejects_unknown_prop(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "root",
+                "type": "Stack",
+                "props": {"unknown": "nope"},
+                "children": [],
+            },
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="unknown prop 'unknown'"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_rejects_childless_component_with_children(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "heading",
+                "type": "Heading",
+                "props": {"text": "Hello"},
+                "children": [],
+            },
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="cannot have children"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_rejects_config_scope_without_config_id(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "scope",
+                "type": "ConfigScope",
+                "children": [],
+            },
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="missing required prop 'configId'"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_rejects_text_output_without_section_id(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "output",
+                "type": "TextOutput",
+                "props": {"label": "Result"},
+            },
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="missing required prop 'sectionId'"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_allows_text_output_binding_from_data_bindings(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "output",
+                "type": "TextOutput",
+                "props": {"dataPath": "/outputs/result"},
+            },
+            "elements": {},
+        }
+        bindings = {
+            "outputs": {
+                "result": {
+                    "sectionId": "section-1",
+                    "label": "From binding",
                 }
             }
         }

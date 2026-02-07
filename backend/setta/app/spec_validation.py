@@ -1,4 +1,4 @@
-from setta.app.catalog import APP_CATALOG, APP_CATALOG_ID, list_app_components
+from setta.app.catalog import APP_CATALOG, APP_CATALOG_ID
 from setta.types.chat_messages import JSONValue
 
 
@@ -12,7 +12,8 @@ def validate_app_spec(
     if catalog_id != APP_CATALOG_ID:
         raise ValueError(f"Unknown app catalog id: {catalog_id}")
 
-    allowed_components = set(list_app_components())
+    component_schemas = _build_component_schema_map()
+    allowed_components = set(component_schemas.keys())
     allowed_actions = _list_catalog_actions()
     if action_definitions is not None:
         allowed_actions.update(action_definitions.keys())
@@ -27,6 +28,7 @@ def validate_app_spec(
         root_element,
         elements,
         allowed_components,
+        component_schemas,
         allowed_actions,
         action_definitions,
         data_bindings,
@@ -88,6 +90,20 @@ def _collect_run_action_names(
     return run_names
 
 
+def _build_component_schema_map() -> dict[str, dict[str, JSONValue]]:
+    components = APP_CATALOG.get("components")
+    if not isinstance(components, list):
+        return {}
+    output: dict[str, dict[str, JSONValue]] = {}
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        type_name = component.get("type")
+        if isinstance(type_name, str):
+            output[type_name] = component
+    return output
+
+
 def _resolve_app_spec(
     app_spec: JSONValue,
 ) -> tuple[dict[str, JSONValue], dict[str, dict[str, JSONValue]]]:
@@ -126,6 +142,7 @@ def _validate_elements(
     root_element: dict[str, JSONValue],
     elements: dict[str, dict[str, JSONValue]],
     allowed_components: set[str],
+    component_schemas: dict[str, dict[str, JSONValue]],
     allowed_actions: set[str],
     action_definitions: dict[str, JSONValue] | None,
     data_bindings: dict[str, JSONValue] | None,
@@ -153,15 +170,34 @@ def _validate_elements(
                 f"App spec element '{key}' uses unknown component '{component_type}'."
             )
 
+        component_schema = component_schemas.get(component_type)
+        if component_schema is None:
+            raise ValueError(
+                f"App spec element '{key}' uses unknown component '{component_type}'."
+            )
+
+        props = _resolve_element_props(key, element)
+        binding = _resolve_binding_record(data_bindings, _get_data_path(props))
+
+        _validate_children_against_catalog(
+            key,
+            component_type,
+            component_schema,
+            element,
+        )
+        _validate_props_against_catalog(
+            key,
+            component_type,
+            component_schema,
+            props,
+            binding,
+        )
+
         if component_type == "ConfigScope":
             config_id = _get_prop_string(element, "configId")
             if config_id:
                 used_config_ids.add(config_id)
             scope_config_id = config_id
-
-        binding = _resolve_binding_record(
-            data_bindings, _get_prop_string(element, "dataPath")
-        )
 
         if component_type == "ParamInput":
             _validate_param_binding(key, element, binding)
@@ -219,6 +255,146 @@ def _validate_elements(
                 f"App spec element '{key}' children must be element keys or objects."
             )
     return run_action_count, used_config_ids, unscoped_keys
+
+
+def _resolve_element_props(
+    element_key: str,
+    element: dict[str, JSONValue],
+) -> dict[str, JSONValue]:
+    raw = element.get("props")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"App spec element '{element_key}' props must be an object.")
+    return raw
+
+
+def _get_data_path(props: dict[str, JSONValue]) -> str | None:
+    value = props.get("dataPath")
+    if isinstance(value, str):
+        return value
+    return None
+
+
+def _validate_children_against_catalog(
+    element_key: str,
+    component_type: str,
+    component_schema: dict[str, JSONValue],
+    element: dict[str, JSONValue],
+) -> None:
+    allows_children = component_schema.get("children")
+    if not isinstance(allows_children, bool) or allows_children:
+        return
+    if element.get("children") is None:
+        return
+    raise ValueError(
+        f"App spec element '{element_key}' cannot have children (component '{component_type}' is childless)."
+    )
+
+
+def _validate_props_against_catalog(
+    element_key: str,
+    component_type: str,
+    component_schema: dict[str, JSONValue],
+    props: dict[str, JSONValue],
+    binding: dict[str, JSONValue] | None,
+) -> None:
+    raw_props_schema = component_schema.get("props")
+    props_schema: dict[str, JSONValue] = (
+        raw_props_schema if isinstance(raw_props_schema, dict) else {}
+    )
+
+    for prop_key, prop_value in props.items():
+        if prop_key not in props_schema:
+            raise ValueError(
+                f"App spec element '{element_key}' has unknown prop '{prop_key}' for component '{component_type}'."
+            )
+        prop_schema = props_schema.get(prop_key)
+        if isinstance(prop_schema, dict):
+            _validate_prop_value(
+                element_key, component_type, prop_key, prop_value, prop_schema
+            )
+
+    for prop_key, prop_schema in props_schema.items():
+        if not isinstance(prop_schema, dict):
+            continue
+        if prop_schema.get("required") is not True:
+            continue
+        if prop_key in props:
+            if _is_missing_required_value(props[prop_key]):
+                raise ValueError(
+                    f"App spec element '{element_key}' missing required prop '{prop_key}' for component '{component_type}'."
+                )
+            continue
+        if binding is not None and prop_key in binding:
+            bound_value = binding[prop_key]
+            _validate_prop_value(
+                element_key, component_type, prop_key, bound_value, prop_schema
+            )
+            if _is_missing_required_value(bound_value):
+                raise ValueError(
+                    f"App spec element '{element_key}' missing required prop '{prop_key}' for component '{component_type}'."
+                )
+            continue
+        raise ValueError(
+            f"App spec element '{element_key}' missing required prop '{prop_key}' for component '{component_type}'."
+        )
+
+
+def _is_missing_required_value(value: JSONValue) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and value.strip() == "":
+        return True
+    return False
+
+
+def _validate_prop_value(
+    element_key: str,
+    component_type: str,
+    prop_key: str,
+    value: JSONValue,
+    prop_schema: dict[str, JSONValue],
+) -> None:
+    expected_type = prop_schema.get("type")
+    if not isinstance(expected_type, str):
+        return
+
+    if expected_type == "string":
+        if not isinstance(value, str):
+            raise ValueError(
+                f"App spec element '{element_key}' prop '{prop_key}' must be a string (component '{component_type}')."
+            )
+    elif expected_type == "number":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(
+                f"App spec element '{element_key}' prop '{prop_key}' must be a number (component '{component_type}')."
+            )
+        min_value = prop_schema.get("min")
+        max_value = prop_schema.get("max")
+        if isinstance(min_value, (int, float)) and value < min_value:
+            raise ValueError(
+                f"App spec element '{element_key}' prop '{prop_key}' must be >= {min_value} (component '{component_type}')."
+            )
+        if isinstance(max_value, (int, float)) and value > max_value:
+            raise ValueError(
+                f"App spec element '{element_key}' prop '{prop_key}' must be <= {max_value} (component '{component_type}')."
+            )
+    elif expected_type == "boolean":
+        if not isinstance(value, bool):
+            raise ValueError(
+                f"App spec element '{element_key}' prop '{prop_key}' must be a boolean (component '{component_type}')."
+            )
+    else:
+        return
+
+    enum_values = prop_schema.get("enum")
+    if isinstance(enum_values, list) and enum_values:
+        if value not in enum_values:
+            allowed = ", ".join(str(v) for v in enum_values)
+            raise ValueError(
+                f"App spec element '{element_key}' prop '{prop_key}' must be one of [{allowed}] (component '{component_type}')."
+            )
 
 
 def _validate_action_binding(
