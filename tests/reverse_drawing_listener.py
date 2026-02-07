@@ -13,7 +13,6 @@ from setta.sessions import SessionMetadata, SessionRegistry
 from setta.types.artifact import ImageArtifact
 from setta.types.binary_content import BinaryContentRef
 from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ def _resolve_session_metadata(
             track_suspicious=False,
         )
     sessions = registry.find_sessions_by_workspace(
-        get_setta_paths().workspace_root,
+        Path.cwd(),
         prune_stale=False,
         track_suspicious=False,
     )
