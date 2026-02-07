@@ -40,6 +40,7 @@ contract and hard-migrate old specs/themes when the contract changes.
 - Stable contract: App runtime should depend on a versioned schema, not a specific tool.
 - Catalog-driven: AppSpec stays bounded to a known component catalog with typed props.
 - Token-first styling: Theming is data, resolved into CSS variables, consumed by all widgets.
+- Keep IDE stable: Prefer App-only wrappers or explicit theme-override props for shared widgets so App mode theming does not accidentally perturb IDE mode layout/behavior.
 - Explicit escape hatches: When needed, allow CSS-only extension points that are deployable and policy-gated.
 - AI-friendly: Schemas + validators + capabilities metadata are the primary interface for AI generation/editing.
 
@@ -91,6 +92,10 @@ Refactor App renderer components and ParamInput UI wrappers so they:
 - Avoid hard-coded color classes (`bg-blue-500`, `bg-setta-*`, etc.) for app mode rendering.
 - Use CSS variables for color, borders, focus rings, disabled state, etc.
 - Define a consistent component token surface (e.g., `--app-button-bg`, `--app-input-border`, `--app-slider-track`, etc.).
+- Prefer App-only wrappers and theme override props:
+  - Many Param UIs are shared with IDE mode and are highly sensitive to layout/interaction constraints.
+  - Default approach: keep shared Param UIs "IDE-correct" by default, and let App mode opt into token styling via explicit override props or `App*` wrappers.
+  - Only refactor shared Param UIs to be fully token-driven when we explicitly want the same token system in IDE mode.
 
 This makes theme changes predictable and allows design tools to output tokens without patching component code.
 
@@ -196,7 +201,9 @@ Potential Setta integration shape:
 
 ## Sequencing (Recommended)
 
-1. Token-first refactor: ensure existing App widgets in app mode render using tokens/CSS variables (remove hard-coded Tailwind colors).
+1. Token-first refactor (App-only): ensure existing App widgets in App mode render using tokens/CSS variables.
+   - Prefer App-only wrappers / explicit theme override props for shared Param UIs.
+   - Avoid changing IDE-mode behavior/layout unless we intentionally want IDE theming.
 2. Theme schema + validator: richer tokens, explicit schema contract, structured validation output.
 3. Catalog primitives: Box/Grid/Container/Spacer + constrained responsive rules.
 4. Motion primitives: small, typed animation system.
