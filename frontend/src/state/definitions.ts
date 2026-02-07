@@ -217,6 +217,8 @@ type AppPreviewState = {
   // Draft-only overrides used for live preview while editing App Config.
   // `undefined` means "no override"; `null` means "explicitly cleared".
   previewSpecOverride?: unknown | null;
+  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
+  aiPreviewSpecOverride?: unknown | null;
   previewThemeOverride?: unknown | null;
   previewAssetsOverride?: unknown[] | null;
 };
@@ -227,6 +229,7 @@ export const useAppPreview = withProjectState(
       isPreviewEnabled: false,
       previewConfigId: null,
       previewSpecOverride: undefined,
+      aiPreviewSpecOverride: undefined,
       previewThemeOverride: undefined,
       previewAssetsOverride: undefined,
     })),
@@ -780,6 +783,7 @@ type ZustandLocalStorage = {
   colorMode: ColorModePreference;
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
+  appSpecStreamingEnabled: boolean;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -802,6 +806,7 @@ export const useLocalStorage = createWithEqualityFn(
       colorMode: "dark",
       showMinimap: true,
       projectConfigPreviewEnabled: true,
+      appSpecStreamingEnabled: false,
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,

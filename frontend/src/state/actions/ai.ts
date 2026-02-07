@@ -19,10 +19,15 @@ import {
   useAIStore,
   useAppDefinition,
   useAppPreview,
+  useLocalStorage,
   useProjectState,
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
+import {
+  applyAppSpecPatchPreviewDelta,
+  clearAppSpecPatchStream,
+} from "state/appSpecPatchStreaming";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -740,6 +745,7 @@ export async function submitMessage(
       chatId,
       engineConfigId,
       agentProfileId: agentProfileId ?? null,
+      appSpecStreamingEnabled: useLocalStorage.getState().appSpecStreamingEnabled,
       projectConfigId,
       sectionId: sectionId ?? null,
     });
@@ -1105,6 +1111,7 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
 const APP_DEFINITION_TOOL_NAMES = new Set([
   "setta__set_app_definition",
   "setta__update_app_definition",
+  "setta__stream_app_definition",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1134,6 +1141,10 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
     return;
   }
   if (toolMessage.is_error) {
+    if (toolName === "setta__stream_app_definition") {
+      clearAppSpecPatchStream(toolMessage.tool_call_id);
+      useAppPreview.setState({ aiPreviewSpecOverride: undefined });
+    }
     return;
   }
   const structured = extractToolStructuredContent(toolMessage.result);
@@ -1163,9 +1174,13 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
   }));
   useAppPreview.setState({
     previewSpecOverride: undefined,
+    aiPreviewSpecOverride: undefined,
     previewThemeOverride: undefined,
     previewAssetsOverride: undefined,
   });
+  if (toolName === "setta__stream_app_definition") {
+    clearAppSpecPatchStream(toolMessage.tool_call_id);
+  }
   addTemporaryNotification("App spec updated.");
 }
 
@@ -1218,6 +1233,16 @@ function handleToolArgumentPreviewDelta(
 function applyToolArgumentPreviewDeltaToPreviewStore(
   chunk: ToolArgumentPreviewDeltaEvent,
 ) {
+  if (chunk.preview_kind === "appSpecPatch") {
+    const nextSpec = applyAppSpecPatchPreviewDelta({
+      toolCallId: chunk.tool_call_id,
+      previewValueDelta: chunk.preview_value_delta,
+    });
+    if (nextSpec) {
+      useAppPreview.setState({ aiPreviewSpecOverride: nextSpec });
+    }
+    return;
+  }
   const projectConfigId = getCurrProjectConfigId();
   useToolArgumentPreview.setState((state) => {
     const previewState =

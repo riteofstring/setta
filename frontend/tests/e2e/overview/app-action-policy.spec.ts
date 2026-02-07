@@ -39,7 +39,7 @@ test("app action buttons respect policy gating", async ({ page }) => {
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();
 
-  const specEditor = page.locator("textarea");
+  const specEditor = page.getByRole("textbox", { name: "App Spec JSON" });
   await specEditor.fill(JSON.stringify(appSpec, null, 2));
   const saveButton = page.getByRole("button", { name: "Save" });
   await expect(saveButton).toBeEnabled();

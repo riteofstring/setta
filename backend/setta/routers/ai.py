@@ -160,6 +160,12 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
+    appSpecStreamingEnabled: bool = Field(
+        default=False,
+        description=(
+            "Whether the UI is configured to stream app spec patches for live preview."
+        ),
+    )
 
 
 class GetLLMChatRequest(BaseModel):
@@ -221,6 +227,13 @@ async def route_get_llm_response(
             profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    app_generation_mode_prompt = (
+        "## App spec generation mode\n"
+        f"- streamingPreview: {'enabled' if x.appSpecStreamingEnabled else 'disabled'}\n"
+        "- If you are generating/updating the App spec (json-render):\n"
+        f"  - {'Use `setta__stream_app_definition` and stream patches into its `patches` string arg.' if x.appSpecStreamingEnabled else 'Use `setta__set_app_definition` with {"appSpec": <UITree JSON>}.'}\n"
+    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -231,7 +244,18 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        profile = profile.model_copy(update={"engineConfigId": x.engineConfigId})
+        existing_system_prompt = profile.systemPrompt or ""
+        combined_system_prompt = (
+            f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
+            if existing_system_prompt.strip()
+            else app_generation_mode_prompt.strip()
+        )
+        profile = profile.model_copy(
+            update={
+                "engineConfigId": x.engineConfigId,
+                "systemPrompt": combined_system_prompt,
+            }
+        )
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),

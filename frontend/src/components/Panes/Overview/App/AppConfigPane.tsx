@@ -1,5 +1,4 @@
-import type { Spec } from "@json-render/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
@@ -10,7 +9,6 @@ import {
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { OverviewTabNameEnum } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -22,7 +20,6 @@ import {
 import {
   CodeObjTypeEnum,
   isBaseSectionWithParamsImpl,
-  RouteEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
@@ -31,7 +28,6 @@ import {
   parseDraftAppTheme,
   type AppThemeMode,
 } from "./appDraftPreview";
-import { AppSpecStreamRunner } from "./AppSpecStreamRunner";
 
 type AppSpecPayload = Record<string, unknown>;
 
@@ -321,6 +317,9 @@ export function AppConfigPane() {
   const appSpec = useAppDefinition((x) => x.appSpec);
   const isPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
   const previewConfigId = useAppPreview((x) => x.previewConfigId);
+  const appSpecStreamingEnabled = useLocalStorage(
+    (x) => x.appSpecStreamingEnabled,
+  );
   const { projectMetadata } = useAllProjectMetadata((x) => x);
   const [draftSpec, setDraftSpec] = useState("");
   const [draftTheme, setDraftTheme] = useState("");
@@ -346,33 +345,7 @@ export function AppConfigPane() {
       features: Record<string, boolean>;
     };
   } | null>(null);
-  const streamApi = useMemo(
-    () => `${C_ADDRESSES.BACKEND}${RouteEnum.STREAM_APP_SPEC}`,
-    [],
-  );
-  const [showStreamingPanel, setShowStreamingPanel] = useState(false);
-  const [streamPrompt, setStreamPrompt] = useState(
-    "Build a simple app UI for running the available sections and showing results.",
-  );
-  const [streamRunKey, setStreamRunKey] = useState(0);
-  const [streamRunRequest, setStreamRunRequest] = useState<{
-    prompt: string;
-    context: Record<string, unknown>;
-  } | null>(null);
-  const [streamIsRunning, setStreamIsRunning] = useState(false);
-  const [streamSpec, setStreamSpec] = useState<Spec | null>(null);
-  const [streamError, setStreamError] = useState<string | null>(null);
-
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
-
-  const restorePreviewSpecFromDraft = useCallback(() => {
-    const parsed = parseDraftAppSpec(draftSpec);
-    if (parsed.ok) {
-      useAppPreview.setState({ previewSpecOverride: parsed.value });
-      return;
-    }
-    useAppPreview.setState({ previewSpecOverride: undefined });
-  }, [draftSpec]);
 
   useEffect(() => {
     let isMounted = true;
@@ -382,13 +355,10 @@ export function AppConfigPane() {
       }
       useAppPreview.setState({
         previewSpecOverride: undefined,
+        aiPreviewSpecOverride: undefined,
         previewThemeOverride: undefined,
         previewAssetsOverride: undefined,
       });
-      setStreamIsRunning(false);
-      setStreamRunRequest(null);
-      setStreamSpec(null);
-      setStreamError(null);
       setDraftSpecError(null);
       setDraftThemeError(null);
       setDraftAssetsError(null);
@@ -431,10 +401,12 @@ export function AppConfigPane() {
   }, [projectConfigId]);
 
   useEffect(() => {
-    if (streamIsRunning || streamSpec) {
-      return;
-    }
     const timeoutId = setTimeout(() => {
+      if (draftSpec.trim().length === 0) {
+        setDraftSpecError(null);
+        useAppPreview.setState({ previewSpecOverride: undefined });
+        return;
+      }
       const parsed = parseDraftAppSpec(draftSpec);
       if (parsed.ok) {
         setDraftSpecError(null);
@@ -447,7 +419,7 @@ export function AppConfigPane() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [draftSpec, streamIsRunning, streamSpec]);
+  }, [draftSpec]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -501,100 +473,29 @@ export function AppConfigPane() {
       addTemporaryNotification(detail ?? "Failed to load app catalog.");
     }
     const sections = formatSectionsForAppPrompt(useProjectState.getState());
-    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nGoal:\n- Generate the app spec and save it into this Setta project.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- Do not bind ParamInput to CodeParam params; CodeParam edits are blocked in app deployments.\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run" and set its sectionId.\n\nHow to deliver:\n- DO NOT paste JSON into the chat.\n- Call the MCP tool setta__set_app_definition with { "appSpec": <UITree JSON> }.\n- Optional (recommended): call setta__validate_app_definition first and fix any errors.\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format for appSpec should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
+    const deliveryInstructions = appSpecStreamingEnabled
+      ? [
+          "Streaming mode: ENABLED",
+          "- DO NOT paste JSON into the chat.",
+          '- Call the MCP tool setta__stream_app_definition with { "patches": <JSONL patches string> }.',
+          "- patches must be newline-delimited JSON objects with keys: op, path, value (unless op=remove).",
+          "- Allowed paths: /root and /elements/<key> (and nested paths under /elements/<key>/...).",
+          "- Prefer op 'set'. Ensure /root references an element present in /elements.",
+          "- The tool persists the app spec and will error if the final spec is invalid.",
+        ].join("\n")
+      : [
+          "Streaming mode: DISABLED",
+          "- DO NOT paste JSON into the chat.",
+          '- Call the MCP tool setta__set_app_definition with { "appSpec": <UITree JSON> }.',
+          "- Optional (recommended): call setta__validate_app_definition first and fix any errors.",
+        ].join("\n");
+
+    const prompt = `Generate a JSON Render app spec using the catalog below.\n\nGoal:\n- Generate the app spec and save it into this Setta project.\n\nRules:\n- Use only catalog components.\n- Bind ParamInput with sectionId + paramId (or dataPath -> dataBindings).\n- Do not bind ParamInput to CodeParam params; CodeParam edits are blocked in app deployments.\n- dataPath values must be JSON Pointer strings (example: /params/name).\n- Include one ActionButton with action "run" and set its sectionId.\n\nHow to deliver:\n${deliveryInstructions}\n\n${catalogSummary}\n\nAvailable sections (use ids as sectionId; param ids are paramId):\n${sections || "No sections yet."}\n\nOutput format for appSpec should be a UITree object: { root: UIElement, elements: { [key]: UIElement } }.`;
     useAIStore.setState({ pendingProjectChatPrompt: prompt });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.ProjectAIChat,
       overviewVis: true,
     });
-  }
-
-  const handleStreamingSpecUpdate = useCallback((spec: Spec | null) => {
-    setStreamSpec(spec);
-    if (spec) {
-      useAppPreview.setState({ previewSpecOverride: spec });
-    }
-  }, []);
-
-  const handleStreamingComplete = useCallback((spec: Spec) => {
-    setStreamIsRunning(false);
-    setStreamRunRequest(null);
-    setStreamSpec(spec);
-    useAppPreview.setState({ previewSpecOverride: spec });
-    addTemporaryNotification("Streaming generation finished.");
-  }, []);
-
-  const handleStreamingError = useCallback(
-    (error: Error) => {
-      setStreamIsRunning(false);
-      setStreamRunRequest(null);
-      setStreamError(error.message);
-      restorePreviewSpecFromDraft();
-    },
-    [restorePreviewSpecFromDraft],
-  );
-
-  async function handleStartStreaming() {
-    const trimmedPrompt = streamPrompt.trim();
-    if (!trimmedPrompt) {
-      addTemporaryNotification(
-        "Enter a prompt to generate a streaming app spec.",
-      );
-      return;
-    }
-
-    setStreamError(null);
-    setValidationResult(null);
-
-    let catalogSummary = `Catalog: ${catalogId}`;
-    const catalogRes = await route_get_app_catalog();
-    if (res200(catalogRes)) {
-      const catalog = catalogRes.data;
-      catalogSummary = formatCatalogForPrompt(catalog);
-      if (isRecord(catalog) && typeof catalog.id === "string") {
-        setCatalogId(catalog.id);
-      }
-    } else {
-      const detail = getErrorDetail(catalogRes.data);
-      addTemporaryNotification(detail ?? "Failed to load app catalog.");
-    }
-
-    const sectionsSummary = formatSectionsForAppPrompt(
-      useProjectState.getState(),
-    );
-    const context: Record<string, unknown> = {
-      catalogSummary,
-      sectionsSummary: sectionsSummary || "No sections yet.",
-    };
-
-    setStreamIsRunning(true);
-    setStreamSpec(null);
-    setStreamRunKey((prev) => prev + 1);
-    setStreamRunRequest({ prompt: trimmedPrompt, context });
-  }
-
-  function handleStopStreaming() {
-    setStreamIsRunning(false);
-    setStreamRunRequest(null);
-    addTemporaryNotification("Stopped streaming generation.");
-  }
-
-  function handleDiscardStreaming() {
-    setStreamSpec(null);
-    setStreamError(null);
-    restorePreviewSpecFromDraft();
-    addTemporaryNotification("Discarded streaming result.");
-  }
-
-  function handleApplyStreaming() {
-    if (!streamSpec) {
-      return;
-    }
-    setDraftSpec(JSON.stringify(streamSpec, null, 2));
-    useAppPreview.setState({ previewSpecOverride: streamSpec });
-    setStreamSpec(null);
-    setStreamError(null);
-    addTemporaryNotification("Applied streaming result to App Spec draft.");
   }
 
   function handleCreateDefault() {
@@ -784,96 +685,21 @@ export function AppConfigPane() {
           >
             Generate App
           </button>
-          <button
-            className="rounded-full border border-setta-200 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={() => setShowStreamingPanel((prev) => !prev)}
-            disabled={streamIsRunning}
-          >
-            {showStreamingPanel ? "Hide Streaming" : "Generate (Streaming)"}
-          </button>
+          <label className="flex cursor-pointer select-none items-center gap-2 rounded-full border border-setta-200 bg-white/60 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-300 dark:hover:bg-setta-800">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-blue-600"
+              checked={appSpecStreamingEnabled}
+              onChange={(event) =>
+                useLocalStorage.setState({
+                  appSpecStreamingEnabled: event.target.checked,
+                })
+              }
+            />
+            Streaming mode
+          </label>
         </div>
       </header>
-
-      {showStreamingPanel ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-              Streaming Generation
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {streamIsRunning ? (
-                <button
-                  type="button"
-                  className="rounded-md border border-setta-200 bg-white px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200 dark:hover:bg-setta-900"
-                  onClick={handleStopStreaming}
-                >
-                  Stop
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="rounded-md border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
-                  onClick={handleStartStreaming}
-                  disabled={!streamPrompt.trim().length}
-                >
-                  Start
-                </button>
-              )}
-              <button
-                type="button"
-                className="rounded-md border border-setta-200 bg-white px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200 dark:hover:bg-setta-900"
-                onClick={handleApplyStreaming}
-                disabled={streamIsRunning || !streamSpec}
-              >
-                Apply to Draft
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-setta-200 bg-white px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200 dark:hover:bg-setta-900"
-                onClick={handleDiscardStreaming}
-                disabled={streamIsRunning || (!streamSpec && !streamError)}
-              >
-                Discard
-              </button>
-            </div>
-          </div>
-          <label className="flex flex-col gap-1 text-xs">
-            Prompt
-            <textarea
-              className="min-h-[84px] resize-y rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-              value={streamPrompt}
-              onChange={(event) => setStreamPrompt(event.target.value)}
-              disabled={streamIsRunning}
-            />
-          </label>
-          <div className="text-[11px] text-setta-500 dark:text-setta-400">
-            Preview updates as patch lines stream in. Use{" "}
-            <span className="font-semibold">Apply to Draft</span> to copy the
-            streamed spec into the App Spec JSON editor.
-          </div>
-          {streamIsRunning ? (
-            <div className="text-[11px] font-semibold text-blue-700 dark:text-blue-200">
-              Streaming...
-            </div>
-          ) : null}
-          {streamError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
-              {streamError}
-            </div>
-          ) : null}
-          {streamRunRequest ? (
-            <AppSpecStreamRunner
-              key={streamRunKey}
-              api={streamApi}
-              prompt={streamRunRequest.prompt}
-              context={streamRunRequest.context}
-              onSpec={handleStreamingSpecUpdate}
-              onComplete={handleStreamingComplete}
-              onError={handleStreamingError}
-            />
-          ) : null}
-        </div>
-      ) : null}
 
       {errorMessage && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">

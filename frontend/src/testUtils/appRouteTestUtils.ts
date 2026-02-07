@@ -1,5 +1,5 @@
 import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 
-export { MemoryRouter, React, renderToStaticMarkup };
+export { MemoryRouter, React, createRoot };

@@ -17,6 +17,7 @@ export function AppPreview() {
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const previewConfigId = useAppPreview((x) => x.previewConfigId);
   const previewSpecOverride = useAppPreview((x) => x.previewSpecOverride);
+  const aiPreviewSpecOverride = useAppPreview((x) => x.aiPreviewSpecOverride);
   const previewThemeOverride = useAppPreview((x) => x.previewThemeOverride);
   const previewAssetsOverride = useAppPreview((x) => x.previewAssetsOverride);
   const appConfigs = useAppConfigs((x) => x.configs);
@@ -27,8 +28,13 @@ export function AppPreview() {
     previewConfigId ??
     (activeConfigId !== NULL_PROJECT_CONFIG_ID ? activeConfigId : null);
 
-  const previewSpec =
-    previewSpecOverride !== undefined ? previewSpecOverride : appSpec;
+  let previewSpec = appSpec;
+  if (previewSpecOverride !== undefined) {
+    previewSpec = previewSpecOverride;
+  }
+  if (aiPreviewSpecOverride !== undefined) {
+    previewSpec = aiPreviewSpecOverride;
+  }
 
   const previewDefinition = useMemo(() => {
     const hasOverrides =

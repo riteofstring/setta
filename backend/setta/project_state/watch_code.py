@@ -74,6 +74,7 @@ def _ensure_watch_code_observer_started() -> Observer:
             _WATCH_CODE_OBSERVER_STARTED = True
     return _WATCH_CODE_OBSERVER
 
+
 DEFAULT_WATCH_CODE_IGNORE_DIRS = {
     "node_modules",
     ".venv",

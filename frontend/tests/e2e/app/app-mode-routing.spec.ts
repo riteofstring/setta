@@ -20,10 +20,11 @@ async function renderAppPageMarkup(
     path,
     appSpec,
     routes,
-  }: { path: string; appSpec: AppSpecPayload; routes: AppRoute[] },
+    expectedText,
+  }: { path: string; appSpec: AppSpecPayload; routes: AppRoute[]; expectedText: string },
 ) {
   return page.evaluate(
-    async ({ path, appSpec, routes }) => {
+    async ({ path, appSpec, routes, expectedText }) => {
       const {
         useAppDefinition,
         useShareSession,
@@ -62,21 +63,39 @@ async function renderAppPageMarkup(
       const {
         React,
         MemoryRouter,
-        renderToStaticMarkup,
+        createRoot,
       } = await import("/src/testUtils/appRouteTestUtils.ts");
       const { AppPage } = await import(
         "/src/components/Pages/App/AppPage.tsx"
       );
 
-      return renderToStaticMarkup(
-        React.createElement(
-          MemoryRouter,
-          { initialEntries: [path] },
-          React.createElement(AppPage),
-        ),
-      );
+      const container = document.createElement("div");
+      container.dataset.testid = "app-route-render";
+      document.body.appendChild(container);
+
+      const root = createRoot(container);
+      try {
+        root.render(
+          React.createElement(
+            MemoryRouter,
+            { initialEntries: [path] },
+            React.createElement(AppPage),
+          ),
+        );
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          const html = container.innerHTML;
+          if (html && html.includes(expectedText)) {
+            return html;
+          }
+        }
+        return container.innerHTML;
+      } finally {
+        root.unmount();
+        container.remove();
+      }
     },
-    { path, appSpec, routes },
+    { path, appSpec, routes, expectedText },
   );
 }
 
@@ -119,6 +138,7 @@ test("app routes select the configured UI root", async ({ page }) => {
     path: "/alpha",
     appSpec,
     routes,
+    expectedText: "Alpha view",
   });
   expect(alphaMarkup).toContain("Alpha view");
   expect(alphaMarkup).not.toContain("Beta view");
@@ -127,6 +147,7 @@ test("app routes select the configured UI root", async ({ page }) => {
     path: "/beta",
     appSpec,
     routes,
+    expectedText: "Beta view",
   });
   expect(betaMarkup).toContain("Beta view");
   expect(betaMarkup).not.toContain("Alpha view");
