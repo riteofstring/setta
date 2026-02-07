@@ -85,7 +85,10 @@ function resolvePreferredDarkMode(): boolean {
   if (typeof document !== "undefined") {
     return document.documentElement.classList.contains("dark");
   }
-  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  if (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function"
+  ) {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   }
   return false;
@@ -120,7 +123,8 @@ function resolveThemeColors(
     Boolean((raw as { light?: unknown }).light) ||
     Boolean((raw as { dark?: unknown }).dark);
   if (hasVariants) {
-    const variant = mode === "dark" ? raw.dark ?? raw.light : raw.light ?? raw.dark;
+    const variant =
+      mode === "dark" ? raw.dark ?? raw.light : raw.light ?? raw.dark;
     return extractStringMap<AppThemeColors>(variant);
   }
   return extractStringMap<AppThemeColors>(raw);
@@ -206,7 +210,7 @@ export function resolveAppTheme(
   };
 }
 
-export function getThemeSpacingValue(
+function getThemeSpacingValue(
   value: number | string | undefined,
   fallback: number,
 ): number | string {

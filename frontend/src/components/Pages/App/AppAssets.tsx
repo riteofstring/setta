@@ -39,11 +39,7 @@ function normalizeAsset(raw: unknown, index: number): NormalizedAsset | null {
   const type = resolveString(raw, "type");
   const rel =
     resolveString(raw, "rel") ??
-    (type === "icon"
-      ? "icon"
-      : type === "preload"
-        ? "preload"
-        : "stylesheet");
+    (type === "icon" ? "icon" : type === "preload" ? "preload" : "stylesheet");
   const sizes = resolveString(raw, "sizes");
   const mimeType = resolveString(raw, "mimeType");
   const asValue = resolveString(raw, "as") ?? (type === "font" ? "font" : null);
@@ -73,7 +69,11 @@ function normalizeAssets(assets: unknown): NormalizedAsset[] {
   return output;
 }
 
-export function AppAssets({ assets }: { assets: unknown[] | null | undefined }) {
+export function AppAssets({
+  assets,
+}: {
+  assets: unknown[] | null | undefined;
+}) {
   const normalized = useMemo(() => normalizeAssets(assets), [assets]);
 
   useEffect(() => {
@@ -85,9 +85,7 @@ export function AppAssets({ assets }: { assets: unknown[] | null | undefined }) 
     }
     const created: HTMLLinkElement[] = [];
     for (const asset of normalized) {
-      if (
-        document.querySelector(`link[data-setta-app-asset="${asset.key}"]`)
-      ) {
+      if (document.querySelector(`link[data-setta-app-asset="${asset.key}"]`)) {
         continue;
       }
       const link = document.createElement("link");

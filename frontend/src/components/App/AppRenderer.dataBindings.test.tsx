@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeActionDefinitions,
   resolveActionBinding,
+  resolveActionType,
   resolveImageOutputBinding,
   resolveParamBinding,
-  resolveActionType,
 } from "./appBindings";
 
 describe("AppRenderer data bindings", () => {

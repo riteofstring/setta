@@ -27,7 +27,8 @@ function formatCatalogForPrompt(catalog: unknown): string {
   }
   const record = catalog as Record<string, unknown>;
   const id = typeof record.id === "string" ? record.id : "unknown";
-  const version = typeof record.version === "string" ? record.version : "unknown";
+  const version =
+    typeof record.version === "string" ? record.version : "unknown";
   const components = Array.isArray(record.components) ? record.components : [];
   const actions = Array.isArray(record.actions) ? record.actions : [];
   const componentLines = components
@@ -42,12 +43,8 @@ function formatCatalogForPrompt(catalog: unknown): string {
       }
       const props = componentRecord.props;
       const propNames =
-        props && typeof props === "object"
-          ? Object.keys(props).join(", ")
-          : "";
-      return propNames
-        ? `- ${type} (props: ${propNames})`
-        : `- ${type}`;
+        props && typeof props === "object" ? Object.keys(props).join(", ") : "";
+      return propNames ? `- ${type} (props: ${propNames})` : `- ${type}`;
     })
     .filter(Boolean)
     .join("\n");

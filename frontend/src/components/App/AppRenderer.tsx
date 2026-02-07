@@ -4,8 +4,8 @@ import {
   Renderer,
   VisibilityProvider,
 } from "@json-render/react";
-import { useCallback, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ensureAppProjectConfigLoaded,
   resetAppDeployment,
@@ -530,18 +530,18 @@ export function AppRenderer({
   }
 
   return (
-      <AppRuntimeContext.Provider
-        value={{
-          dataBindings: appDefinition?.dataBindings ?? {},
-          actions: actionDefinitions,
-          policy: resolvedPolicy,
-          canEditParams,
-          allowExternalLinks,
-          allowFileDownloads,
-          defaultConfigId: fallbackConfigId ?? null,
-          theme: resolvedTheme,
-        }}
-      >
+    <AppRuntimeContext.Provider
+      value={{
+        dataBindings: appDefinition?.dataBindings ?? {},
+        actions: actionDefinitions,
+        policy: resolvedPolicy,
+        canEditParams,
+        allowExternalLinks,
+        allowFileDownloads,
+        defaultConfigId: fallbackConfigId ?? null,
+        theme: resolvedTheme,
+      }}
+    >
       <AppActionContext.Provider
         value={{
           canRun,

@@ -58,9 +58,7 @@ def validate_app_action_definitions(
         if not isinstance(action_type, str):
             raise ValueError(f"App action '{name}' type must be a string.")
         if action_type not in allowed:
-            raise ValueError(
-                f"App action '{name}' uses unknown type '{action_type}'."
-            )
+            raise ValueError(f"App action '{name}' uses unknown type '{action_type}'.")
 
 
 def _list_catalog_actions() -> set[str]:
@@ -302,9 +300,7 @@ def _resolve_pointer(value: JSONValue, pointer: str) -> JSONValue | None:
     if not pointer.startswith("/"):
         return None
     current: JSONValue = value
-    segments = [
-        _decode_pointer_segment(segment) for segment in pointer.split("/")[1:]
-    ]
+    segments = [_decode_pointer_segment(segment) for segment in pointer.split("/")[1:]]
     for segment in segments:
         if isinstance(current, list):
             if not segment.isdigit():
@@ -351,8 +347,7 @@ def _validate_param_binding(
     )
     if not section_id or not param_id:
         raise ValueError(
-            "ParamInput requires sectionId and paramId (element "
-            f"'{element_key}')."
+            f"ParamInput requires sectionId and paramId (element '{element_key}')."
         )
 
 
@@ -366,9 +361,9 @@ def _apply_config_scope_guardrail(
     *,
     action_type: str | None = None,
 ) -> None:
-    explicit_config_id = _get_prop_string(element, "configId") or _resolve_binding_string(
-        binding, "configId"
-    )
+    explicit_config_id = _get_prop_string(
+        element, "configId"
+    ) or _resolve_binding_string(binding, "configId")
     effective_config_id = explicit_config_id or scope_config_id
     if effective_config_id:
         used_config_ids.add(effective_config_id)

@@ -160,18 +160,18 @@ function Card({ element, children }: AppComponentProps) {
 
   return (
     <section
-      className={`flex flex-col gap-3 rounded-xl border border-setta-200/80 bg-white/80 p-4 text-[color:var(--app-text)] shadow-sm dark:border-setta-800/80 dark:bg-setta-900/60 border-[color:var(--app-card-border)] bg-[color:var(--app-card-bg)] ${className}`.trim()}
+      className={`flex flex-col gap-3 rounded-xl border border-[color:var(--app-card-border)] border-setta-200/80 bg-[color:var(--app-card-bg)] bg-white/80 p-4 text-[color:var(--app-text)] shadow-sm dark:border-setta-800/80 dark:bg-setta-900/60 ${className}`.trim()}
       style={cardStyle}
     >
       {(title || description) && (
         <header className="flex flex-col gap-1">
           {title && (
-            <h3 className="text-sm font-semibold text-setta-800 text-[color:var(--app-text)] dark:text-setta-100">
+            <h3 className="text-sm font-semibold text-[color:var(--app-text)] text-setta-800 dark:text-setta-100">
               {title}
             </h3>
           )}
           {description && (
-            <p className="text-xs text-setta-500 text-[color:var(--app-muted)] dark:text-setta-400">
+            <p className="text-xs text-[color:var(--app-muted)] text-setta-500 dark:text-setta-400">
               {description}
             </p>
           )}
@@ -238,7 +238,7 @@ function Tabs({ element, children }: AppComponentProps) {
 
   return (
     <div className={`flex flex-col gap-4 ${className}`.trim()}>
-      <div className="flex flex-wrap gap-2 border-b border-setta-200 pb-2 dark:border-setta-700 border-[color:var(--app-border)]">
+      <div className="flex flex-wrap gap-2 border-b border-[color:var(--app-border)] border-setta-200 pb-2 dark:border-setta-700">
         {resolvedTabs.map((tab) => (
           <button
             key={tab.key}
@@ -246,8 +246,8 @@ function Tabs({ element, children }: AppComponentProps) {
             onClick={() => setActiveKey(tab.key)}
             className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
               tab.key === activeKey
-                ? "bg-blue-600 text-white bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)]"
-                : "bg-setta-100 text-setta-600 hover:bg-setta-200 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-800 bg-[color:var(--app-surface)] text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)]"
+                ? "bg-[color:var(--app-accent)] bg-blue-600 text-[color:var(--app-accent-text)] text-white"
+                : "bg-[color:var(--app-surface)] bg-setta-100 text-[color:var(--app-muted)] text-setta-600 hover:bg-[color:var(--app-surface-alt)] hover:bg-setta-200 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-800"
             }`}
           >
             {tab.title}
@@ -289,7 +289,7 @@ function Heading({ element }: AppComponentProps) {
 
   return (
     <HeadingTag
-      className={`font-semibold tracking-tight text-setta-900 dark:text-setta-100 text-[color:var(--app-text)] ${sizeClass} ${className}`.trim()}
+      className={`font-semibold tracking-tight text-[color:var(--app-text)] text-setta-900 dark:text-setta-100 ${sizeClass} ${className}`.trim()}
       style={headingFont ? { fontFamily: headingFont } : undefined}
     >
       {text}
@@ -303,7 +303,7 @@ function Text({ element }: AppComponentProps) {
   const className = typeof props.className === "string" ? props.className : "";
   return (
     <p
-      className={`text-sm text-setta-600 dark:text-setta-300 text-[color:var(--app-muted)] ${className}`.trim()}
+      className={`text-sm text-[color:var(--app-muted)] text-setta-600 dark:text-setta-300 ${className}`.trim()}
     >
       {text}
     </p>
@@ -972,8 +972,8 @@ function ActionButton({ element, onAction }: AppComponentProps) {
       type="button"
       className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
         isDisabled
-          ? "cursor-not-allowed bg-setta-200 text-setta-400 dark:bg-setta-800 dark:text-setta-500 bg-[color:var(--app-surface-alt)] text-[color:var(--app-muted)]"
-          : "bg-blue-600 text-white hover:bg-blue-700 bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)]"
+          ? "cursor-not-allowed bg-[color:var(--app-surface-alt)] bg-setta-200 text-[color:var(--app-muted)] text-setta-400 dark:bg-setta-800 dark:text-setta-500"
+          : "bg-[color:var(--app-accent)] bg-blue-600 text-[color:var(--app-accent-text)] text-white hover:bg-blue-700"
       }`}
       title={isDisabled ? disabledReason ?? undefined : undefined}
       onClick={() => {
@@ -1047,7 +1047,7 @@ function TextOutput({ element }: AppComponentProps) {
 
   if (!resolvedConfigId || !sectionId || !textData) {
     return (
-      <div className="rounded-md border border-dashed border-setta-200 bg-setta-50/80 px-3 py-2 text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400 border-[color:var(--app-border)] bg-[color:var(--app-surface)] text-[color:var(--app-muted)]">
+      <div className="rounded-md border border-dashed border-[color:var(--app-border)] border-setta-200 bg-[color:var(--app-surface)] bg-setta-50/80 px-3 py-2 text-xs text-[color:var(--app-muted)] text-setta-500 dark:border-setta-700 dark:bg-setta-900/60 dark:text-setta-400">
         Missing text output.
       </div>
     );
@@ -1056,9 +1056,9 @@ function TextOutput({ element }: AppComponentProps) {
   const { text, format } = textData;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-setta-200 bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60 border-[color:var(--app-border)] bg-[color:var(--app-surface)]">
+    <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] border-setta-200 bg-[color:var(--app-surface)] bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60">
       {label && (
-        <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400 text-[color:var(--app-muted)]">
+        <div className="text-xs font-semibold uppercase tracking-wide text-[color:var(--app-muted)] text-setta-500 dark:text-setta-400">
           {label}
         </div>
       )}
@@ -1066,13 +1066,13 @@ function TextOutput({ element }: AppComponentProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
-          className="prose prose-sm max-w-none text-setta-700 dark:prose-invert dark:text-setta-200 text-[color:var(--app-text)]"
+          className="prose prose-sm max-w-none text-[color:var(--app-text)] text-setta-700 dark:prose-invert dark:text-setta-200"
           components={{ code: CodeBlock }}
         >
           {text}
         </ReactMarkdown>
       ) : (
-        <pre className="whitespace-pre-wrap text-xs text-setta-700 dark:text-setta-200 text-[color:var(--app-text)]">
+        <pre className="whitespace-pre-wrap text-xs text-[color:var(--app-text)] text-setta-700 dark:text-setta-200">
           {text}
         </pre>
       )}
@@ -1161,7 +1161,7 @@ function ImageOutput({ element }: AppComponentProps) {
   }
 
   return (
-    <figure className="flex min-h-[120px] items-center justify-center rounded-lg border border-setta-200 bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60 border-[color:var(--app-border)] bg-[color:var(--app-surface)]">
+    <figure className="flex min-h-[120px] items-center justify-center rounded-lg border border-[color:var(--app-border)] border-setta-200 bg-[color:var(--app-surface)] bg-white/90 p-3 dark:border-setta-700 dark:bg-setta-900/60">
       {decodedImage ? (
         <img
           src={decodedImage.src}
@@ -1169,7 +1169,7 @@ function ImageOutput({ element }: AppComponentProps) {
           className="h-auto max-h-[320px] w-full object-contain"
         />
       ) : (
-        <div className="text-xs text-setta-400 dark:text-setta-500 text-[color:var(--app-muted)]">
+        <div className="text-xs text-[color:var(--app-muted)] text-setta-400 dark:text-setta-500">
           Waiting for image output…
         </div>
       )}
@@ -1182,7 +1182,7 @@ function Divider({ element }: AppComponentProps) {
   const className = typeof props.className === "string" ? props.className : "";
   return (
     <hr
-      className={`border-setta-200/70 dark:border-setta-700/70 border-[color:var(--app-border)] ${className}`.trim()}
+      className={`border-[color:var(--app-border)] border-setta-200/70 dark:border-setta-700/70 ${className}`.trim()}
     />
   );
 }

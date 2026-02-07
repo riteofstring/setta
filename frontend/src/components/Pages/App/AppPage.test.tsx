@@ -1,5 +1,5 @@
-import { MemoryRouter } from "react-router-dom";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
