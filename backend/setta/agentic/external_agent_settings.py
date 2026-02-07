@@ -13,7 +13,7 @@ from setta.types.external_agents import (
     ExternalAgentSettingsMode,
     ExternalAgentToolType,
 )
-from setta.utils.constants import CWD
+from setta.utils.paths import get_setta_paths
 
 _SETTINGS_ROOT_NAME = "external_agent_settings"
 _CLAUDE_SETTINGS_DIR = ".claude"
@@ -505,7 +505,7 @@ def _dump_inline_toml_table(value: dict[str, Any]) -> str:
 
 
 def _resolve_project_settings_root(project_root: Path | None) -> Path:
-    return (project_root or CWD) / _CLAUDE_SETTINGS_DIR
+    return (project_root or get_setta_paths().workspace_root) / _CLAUDE_SETTINGS_DIR
 
 
 def _parse_opencode_permissions(value: str | None) -> Any | None:

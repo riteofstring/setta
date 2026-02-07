@@ -131,9 +131,41 @@ test("meta control slider only shows width resize handle", async ({ page }) => {
     );
     await expect(sectionNode).toBeVisible();
 
+    await sectionNode.hover();
+
     await expect(sectionNode.locator(".cursor-col-resize")).toHaveCount(1);
     await expect(sectionNode.locator(".cursor-row-resize")).toHaveCount(0);
     await expect(sectionNode.locator(".cursor-nwse-resize")).toHaveCount(0);
+
+    const menuTrigger = sectionNode.locator(
+      'button[class*="group-hover/card-section:pointer-events-auto"]',
+    );
+    await expect(menuTrigger).toHaveCount(1);
+
+    const sectionBox = await sectionNode.boundingBox();
+    const menuBox = await menuTrigger.boundingBox();
+    if (!sectionBox || !menuBox) {
+      throw new Error("Missing section/menu bounds for meta control.");
+    }
+
+    const menuPoint = {
+      x: menuBox.x + menuBox.width / 2,
+      y: menuBox.y + menuBox.height / 2,
+    };
+
+    expect(menuPoint.x).toBeLessThan(sectionBox.x);
+
+    const menuHit = await menuTrigger.evaluate(
+      (el, point) => {
+        const hit = document.elementFromPoint(point.x, point.y);
+        return !!hit && el.contains(hit);
+      },
+      menuPoint,
+    );
+    expect(menuHit).toBe(true);
+
+    const rightHandle = sectionNode.locator(".cursor-col-resize");
+    await expect(rightHandle).toHaveCount(1);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,

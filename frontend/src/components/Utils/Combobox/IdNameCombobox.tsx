@@ -14,12 +14,6 @@ export function IdNameCombobox<T>({
   small,
   outerDivClasses = "",
   inputOuterClasses,
-  inputThemeClassName,
-  rightButtonThemeClassName,
-  listThemeClassName,
-  groupHeaderThemeClassName,
-  itemThemeClassName,
-  itemHighlightedThemeClassName,
   placeholder,
   bg,
   isDisabled,
@@ -34,12 +28,6 @@ export function IdNameCombobox<T>({
   small?: boolean;
   outerDivClasses?: string;
   inputOuterClasses?: string;
-  inputThemeClassName?: string;
-  rightButtonThemeClassName?: string;
-  listThemeClassName?: string;
-  groupHeaderThemeClassName?: string;
-  itemThemeClassName?: string;
-  itemHighlightedThemeClassName?: string;
   placeholder?: string;
   bg?: string;
   isDisabled?: boolean;
@@ -86,8 +74,6 @@ export function IdNameCombobox<T>({
         isDisabled={isDisabled}
         inputRef={inputRef}
         inputOuterClasses={inputOuterClasses}
-        inputThemeClassName={inputThemeClassName}
-        rightButtonThemeClassName={rightButtonThemeClassName}
         variant={variant}
       />
 
@@ -95,16 +81,12 @@ export function IdNameCombobox<T>({
         isOpen={isOpen}
         getMenuProps={getMenuProps}
         inputRef={inputRef}
-        listThemeClassName={listThemeClassName}
       >
         <ComboboxItems
           filteredItems={filteredItems}
           getItemProps={getItemProps}
           highlightedIndex={highlightedIndex}
           itemToString={itemToString}
-          groupHeaderThemeClassName={groupHeaderThemeClassName}
-          itemThemeClassName={itemThemeClassName}
-          itemHighlightedThemeClassName={itemHighlightedThemeClassName}
         />
       </ComboboxList>
     </div>

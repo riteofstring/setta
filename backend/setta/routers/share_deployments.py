@@ -37,16 +37,20 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import (
-    DeploymentType,
     ShareDeploymentListenerConfig,
     ShareDeploymentManifest,
     ShareDeploymentMetadata,
     ShareDeploymentSessionResponse,
     SharePolicy,
 )
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import (
+    get_setta_paths,
+    normalize_state_path,
+    workspace_relative_path,
+)
 from setta.utils.structured_data import write_json_source_payload
-from setta.utils.utils import compute_md5_prefix, normalize_path
+from setta.utils.utils import compute_md5_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +66,6 @@ class SharePolicyOverrides(BaseModel, extra="forbid"):
     allowLayoutChanges: bool | None = None
     allowRun: bool | None = None
     allowLLM: bool | None = None
-    allowExternalLinks: bool | None = None
-    allowFileDownloads: bool | None = None
-    allowMultipleRuns: bool | None = None
     runSnapshotMode: RunSnapshotMode | None = None
 
 
@@ -97,14 +98,16 @@ def _normalize_deployment_name(deployment_name: str) -> str:
 
 def _create_deployment_root(deployment_name: str) -> tuple[str, Path]:
     normalized_name = _normalize_deployment_name(deployment_name)
-    deployment_parent = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / normalized_name)
+    deployment_parent = normalize_state_path(
+        C.SHARE_DEPLOYMENTS_FOLDER / normalized_name
+    )
     deployment_parent.mkdir(parents=True, exist_ok=True)
     version_numbers = [
         number for number, _ in iter_share_deployment_versions(deployment_parent)
     ]
     next_number = max(version_numbers, default=0) + 1
     deployment_version = f"v{next_number}"
-    deployment_root = normalize_path(deployment_parent / deployment_version)
+    deployment_root = normalize_state_path(deployment_parent / deployment_version)
     deployment_root.mkdir(parents=True, exist_ok=False)
     return deployment_version, deployment_root
 
@@ -113,7 +116,7 @@ def _resolve_source_path(path_str: str) -> Path:
     source_path = Path(path_str)
     if source_path.is_absolute():
         return source_path
-    return (CWD / source_path).resolve()
+    return (get_setta_paths().workspace_root / source_path).resolve()
 
 
 def _external_filename(source_path: Path) -> Path:
@@ -123,7 +126,7 @@ def _external_filename(source_path: Path) -> Path:
 
 
 def _artifact_target_path(source_path: Path, artifacts_root: Path) -> Path:
-    artifacts_folder = (CWD / C.ARTIFACTS_FOLDER).resolve()
+    artifacts_folder = C.ARTIFACTS_FOLDER.resolve()
     if source_path.is_relative_to(artifacts_folder):
         return artifacts_root / source_path.relative_to(artifacts_folder)
     return artifacts_root / _external_filename(source_path)
@@ -155,14 +158,14 @@ def _ensure_snapshot_view_modes(
 
 
 def _code_target_path(source_path: Path, code_root: Path) -> Path:
-    code_folder = (CWD / C.CODE_FOLDER).resolve()
+    code_folder = C.CODE_FOLDER.resolve()
     if source_path.is_relative_to(code_folder):
         return code_root / source_path.relative_to(code_folder)
     return code_root / _external_filename(source_path)
 
 
 def _json_source_target_path(source_path: Path, json_root: Path) -> Path:
-    normalized = normalize_path(source_path)
+    normalized = workspace_relative_path(source_path)
     if not normalized.is_absolute():
         return json_root / normalized
     return json_root / _external_filename(source_path)
@@ -248,7 +251,7 @@ def _apply_share_policy_overrides(
 
 
 def _require_share_mode(state: AppStateFromRequest) -> None:
-    if not state.share_mode or state.app_mode:
+    if not state.share_mode:
         raise HTTPException(
             status_code=400,
             detail="Share mode is not enabled for this server.",
@@ -379,8 +382,8 @@ def _metadata_from_manifest(
         defaultProjectConfigId=manifest.defaultProjectConfigId,
         defaultProjectConfigName=default_project_config_name,
         createdAt=manifest.createdAt,
-        deploymentRoot=normalize_path(deployment_root),
-        sharePolicyPath=normalize_path(deployment_root / "share_policy.json"),
+        deploymentRoot=normalize_state_path(deployment_root),
+        sharePolicyPath=normalize_state_path(deployment_root / "share_policy.json"),
     )
 
 
@@ -403,8 +406,6 @@ def route_list_share_deployments(
         for _, version_root in iter_share_deployment_versions(deployment_root):
             manifest = DBE(version_root).read_share_manifest_optional()
             if manifest is None:
-                continue
-            if manifest.deploymentType is not DeploymentType.share:
                 continue
             if not _manifest_matches_root(manifest, version_root):
                 continue
@@ -432,7 +433,7 @@ def route_list_share_deployment_versions(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Share mode does not allow listing deployment versions.",
         )
-    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
+    deployment_root = normalize_state_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
     if not deployment_root.exists():
         return []
     versions = sorted(
@@ -444,8 +445,6 @@ def route_list_share_deployment_versions(
     for _, version_root in versions:
         manifest = DBE(version_root).read_share_manifest_optional()
         if manifest is None:
-            continue
-        if manifest.deploymentType is not DeploymentType.share:
             continue
         if not _manifest_matches_root(manifest, version_root):
             continue
@@ -480,11 +479,6 @@ def route_get_latest_share_deployment(
                 status_code=404,
                 detail=f"Share deployment not found: {deploymentName}",
             )
-        if manifest.deploymentType is not DeploymentType.share:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Share deployment not found: {deploymentName}",
-            )
         if state.share_deployment_root is None:
             raise HTTPException(
                 status_code=404,
@@ -496,7 +490,7 @@ def route_get_latest_share_deployment(
             state.share_runtime_state.default_project_config_name,
             redact_paths=True,
         )
-    deployment_root = normalize_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
+    deployment_root = normalize_state_path(C.SHARE_DEPLOYMENTS_FOLDER / deploymentName)
     if not deployment_root.exists():
         raise HTTPException(
             status_code=404,
@@ -511,11 +505,6 @@ def route_get_latest_share_deployment(
     _, latest_root = max(versions, key=lambda item: item[0])
     manifest = DBE(latest_root).read_share_manifest_optional()
     if manifest is None or not _manifest_matches_root(manifest, latest_root):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Share deployment not found: {deploymentName}",
-        )
-    if manifest.deploymentType is not DeploymentType.share:
         raise HTTPException(
             status_code=404,
             detail=f"Share deployment not found: {deploymentName}",
@@ -697,7 +686,6 @@ async def route_publish_share_deployment(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=x.projectConfigId,
         deploymentVersion=deployment_version,
         listener=listener_config,
@@ -706,16 +694,10 @@ async def route_publish_share_deployment(
     state.dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
     state.dbe.write_json(deployment_root / "share_policy.json", policy.model_dump())
 
-    listener_label = (
-        f"{listener_config.entrypoint} (enabled={listener_config.enabled})"
-        if listener_config is not None
-        else "-"
-    )
     logger.info(
-        "Published share deployment %s for %s (listener=%s)",
+        "Published share deployment %s for %s",
         deployment_version,
         deployment_name,
-        listener_label,
     )
     return ShareDeploymentMetadata(
         deploymentName=deployment_name,
