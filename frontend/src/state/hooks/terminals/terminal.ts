@@ -792,6 +792,84 @@ function patchWrappedFlagsForWidenReflow({
   }
 }
 
+function getDomScrollBarWidth(terminal: Terminal): number {
+  if (terminal.options.scrollback === 0) {
+    return 0;
+  }
+  const element = terminal.element;
+  if (!element) {
+    return 0;
+  }
+  const viewport = element.querySelector(".xterm-viewport");
+  if (!(viewport instanceof HTMLElement)) {
+    return 0;
+  }
+  return Math.max(0, viewport.offsetWidth - viewport.clientWidth);
+}
+
+function proposeDimensionsFallback(terminal: Terminal): {
+  cols: number;
+  rows: number;
+} | null {
+  // Avoid crashing on addon-fit bugs/mismatched versions by computing the
+  // dimensions ourselves using xterm internals + DOM measurements.
+  const element = terminal.element;
+  if (!element || !element.parentElement) {
+    return null;
+  }
+  const anyTerminal = terminal as any;
+  const core = anyTerminal?._core;
+  const dims = core?._renderService?.dimensions;
+  const cellWidth = dims?.css?.cell?.width;
+  const cellHeight = dims?.css?.cell?.height;
+  if (
+    typeof cellWidth !== "number" ||
+    typeof cellHeight !== "number" ||
+    cellWidth === 0 ||
+    cellHeight === 0
+  ) {
+    return null;
+  }
+
+  const parentStyle = window.getComputedStyle(element.parentElement);
+  const parentHeight = parseInt(parentStyle.getPropertyValue("height"), 10);
+  const parentWidth = Math.max(
+    0,
+    parseInt(parentStyle.getPropertyValue("width"), 10),
+  );
+  if (!Number.isFinite(parentHeight) || !Number.isFinite(parentWidth)) {
+    return null;
+  }
+
+  const termStyle = window.getComputedStyle(element);
+  const paddingTop = parseInt(termStyle.getPropertyValue("padding-top"), 10);
+  const paddingBottom = parseInt(
+    termStyle.getPropertyValue("padding-bottom"),
+    10,
+  );
+  const paddingLeft = parseInt(termStyle.getPropertyValue("padding-left"), 10);
+  const paddingRight = parseInt(
+    termStyle.getPropertyValue("padding-right"),
+    10,
+  );
+  if (
+    !Number.isFinite(paddingTop) ||
+    !Number.isFinite(paddingBottom) ||
+    !Number.isFinite(paddingLeft) ||
+    !Number.isFinite(paddingRight)
+  ) {
+    return null;
+  }
+
+  const availableHeight = parentHeight - (paddingTop + paddingBottom);
+  const availableWidth =
+    parentWidth - (paddingLeft + paddingRight) - getDomScrollBarWidth(terminal);
+  return {
+    cols: Math.max(2, Math.floor(availableWidth / cellWidth)),
+    rows: Math.max(1, Math.floor(availableHeight / cellHeight)),
+  };
+}
+
 function fitTerminal({
   container,
   fitAddon,
@@ -826,6 +904,7 @@ function fitTerminal({
     return;
   }
   let proposed: { cols: number; rows: number } | null = null;
+  let proposeSource: "addon_fit" | "fallback" | null = null;
   try {
     const next = fitAddon.proposeDimensions();
     if (
@@ -834,6 +913,7 @@ function fitTerminal({
       typeof next.rows === "number"
     ) {
       proposed = { cols: next.cols, rows: next.rows };
+      proposeSource = "addon_fit";
     }
   } catch (err) {
     terminalDebugLog({
@@ -844,6 +924,12 @@ function fitTerminal({
       error: String(err),
     });
   }
+  if (!proposed) {
+    proposed = proposeDimensionsFallback(terminal);
+    if (proposed) {
+      proposeSource = "fallback";
+    }
+  }
   terminalDebugLog({
     event: "terminal_fit_start",
     sessionKey,
@@ -853,6 +939,7 @@ function fitTerminal({
     heightProp,
     container: getContainerDebugInfo(container),
     proposed,
+    proposeSource,
     terminal: { cols: terminal.cols, rows: terminal.rows },
   });
 
@@ -866,7 +953,21 @@ function fitTerminal({
       reason,
     });
   }
-  fitAddon.fit();
+  let resized = false;
+  if (
+    proposed &&
+    proposed.cols > 0 &&
+    proposed.rows > 0 &&
+    (terminal.cols !== proposed.cols || terminal.rows !== proposed.rows)
+  ) {
+    const anyTerminal = terminal as any;
+    const clear = anyTerminal?._core?._renderService?.clear;
+    if (typeof clear === "function") {
+      clear.call(anyTerminal._core._renderService);
+    }
+    terminal.resize(proposed.cols, proposed.rows);
+    resized = true;
+  }
   terminalDebugLog({
     event: "terminal_fit_end",
     sessionKey,
@@ -876,6 +977,8 @@ function fitTerminal({
     heightProp,
     container: getContainerDebugInfo(container),
     proposed,
+    proposeSource,
     terminal: { cols: terminal.cols, rows: terminal.rows },
+    resized,
   });
 }
