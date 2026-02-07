@@ -11,7 +11,6 @@ import {
 } from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getCodeObjCore,
@@ -105,42 +104,6 @@ function SectionSearchCore({
       return;
     }
     let lastMeasuredHeight: number | null = null;
-    let pendingAgenticHandleFrame: number | null = null;
-    const updateAgenticHandleTop = () => {
-      const reactFlowNode = node.closest(".react-flow__node");
-      if (!(reactFlowNode instanceof HTMLElement)) {
-        return;
-      }
-      let centerY = node.offsetHeight / 2;
-      let el: HTMLElement | null = node;
-      for (let i = 0; i < 20; i += 1) {
-        if (el === reactFlowNode) {
-          break;
-        }
-        centerY += el.offsetTop;
-        const next = el.offsetParent;
-        if (!(next instanceof HTMLElement)) {
-          el = null;
-          break;
-        }
-        el = next;
-      }
-      if (el !== reactFlowNode) {
-        const nodeRect = reactFlowNode.getBoundingClientRect();
-        const searchRect = node.getBoundingClientRect();
-        centerY = searchRect.top - nodeRect.top + searchRect.height / 2;
-      }
-      const nextTopPx = Math.round(centerY);
-      const nextTopCss = `${nextTopPx}px`;
-      const currentTopCss = reactFlowNode.style
-        .getPropertyValue("--agentic-handle-top")
-        .trim();
-      if (currentTopCss === nextTopCss) {
-        return;
-      }
-      reactFlowNode.style.setProperty("--agentic-handle-top", nextTopCss);
-      scheduleEdgeHandlePositionUpdate([sectionId]);
-    };
     const updateHeight = () => {
       const style = window.getComputedStyle(node);
       const marginHeight =
@@ -156,27 +119,12 @@ function SectionSearchCore({
         [heightKey]: nextHeight > 0 ? nextHeight : 0,
       });
     };
-    const updateMeasurements = () => {
-      updateHeight();
-      updateAgenticHandleTop();
-    };
-    updateMeasurements();
-    pendingAgenticHandleFrame = requestAnimationFrame(() => {
-      pendingAgenticHandleFrame = null;
-      updateAgenticHandleTop();
-    });
-    const observer = new ResizeObserver(updateMeasurements);
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
     observer.observe(node);
     return () => {
       observer.disconnect();
-      if (pendingAgenticHandleFrame !== null) {
-        cancelAnimationFrame(pendingAgenticHandleFrame);
-      }
       useTemporaryMiscState.setState({ [heightKey]: 0 });
-      const reactFlowNode = node.closest(".react-flow__node");
-      if (reactFlowNode instanceof HTMLElement) {
-        reactFlowNode.style.removeProperty("--agentic-handle-top");
-      }
     };
   }, [heightKey]);
 

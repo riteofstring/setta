@@ -1,3 +1,5 @@
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from fastapi import Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -14,6 +16,8 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+
+BACKEND_ORIGIN_QUERY_PARAM = "__setta_backend_origin"
 
 BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -386,22 +390,45 @@ def _bearer_token_from_header(
     return extract_bearer_token_value(authorization)
 
 
-def _bootstrap_redirect_url() -> str:
+def _request_origin(request: Request) -> str:
+    return f"{request.url.scheme}://{request.url.netloc}"
+
+
+def _append_query_param(url: str, *, key: str, value: str) -> str:
+    parts = urlsplit(url)
+    query = parse_qsl(parts.query, keep_blank_values=True)
+    query.append((key, value))
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            parts.fragment,
+        )
+    )
+
+
+def _bootstrap_redirect_url(request: Request) -> str:
     if not IS_DEV_MODE:
         return "/"
-    host = format_host_for_url(C.HOST)
-    return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
+    hostname = request.url.hostname or C.HOST
+    host = format_host_for_url(hostname)
+    redirect_url = f"{request.url.scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
+    return _append_query_param(
+        redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
+    )
 
 
-def _render_bootstrap_html() -> str:
+def _render_bootstrap_html(request: Request) -> str:
     return BOOTSTRAP_HTML_TEMPLATE.replace(
-        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url()
+        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
     )
 
 
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)
-async def route_bootstrap_page() -> str:
-    return _render_bootstrap_html()
+async def route_bootstrap_page(request: Request) -> str:
+    return _render_bootstrap_html(request)
 
 
 @router.post(Route.BOOTSTRAP_CONSUME)

@@ -17,11 +17,9 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
   getParamDisplayName,
-  toggleParamSelected,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import {
-  useMisc,
   useProjectState,
   useResizeEvent,
   useSettings,
@@ -362,38 +360,32 @@ function EdgesStrip({
   bgColor: string;
 }) {
   const { canEditStructure } = useShareCapabilities();
-  const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const heightKey = getEdgesStripHeightKey(sectionId);
-  const {
-    inputPorts,
-    outputPorts,
-    shouldRoundBottom,
-    positionAndSizeLocked,
-    selectedParams,
-  } = useProjectState((state) => {
+  const { inputPorts, outputPorts, shouldRoundBottom, positionAndSizeLocked } =
+    useProjectState((state) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
         state,
         sectionId,
         isBaseSectionWithParamsImpl,
       );
-      const selectedParams = impl.selectedParams ?? [];
       const pinned = getCurrShownParamIds(state, sectionId, true, true);
       const unpinned = getCurrShownParamIds(state, sectionId, false, true);
       const requiredParamIdsToPaths = {
         ...pinned.requiredParamIdsToPaths,
         ...unpinned.requiredParamIdsToPaths,
       };
-      const inputPorts = impl.edgeInputParams.map((paramId) => {
-        const path = requiredParamIdsToPaths[paramId];
-        const rawLabel = path
-          ? paramNameFromPathArray(state, sectionId, path)
-          : getParamDisplayName(state, sectionId, paramId);
-        const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
-        return { id: paramId, label };
-      });
+      const inputPorts = impl.edgeInputParams
+        .map((paramId) => {
+          const path = requiredParamIdsToPaths[paramId];
+          const label = path
+            ? paramNameFromPathArray(state, sectionId, path)
+            : getParamDisplayName(state, sectionId, paramId);
+          return { id: paramId, label };
+        })
+        .filter((entry) => entry.label.length > 0);
       const outputPorts = impl.edgeOutputPorts.map((port) => ({
         id: port.id,
         label:
@@ -413,24 +405,10 @@ function EdgesStrip({
         outputPorts,
         shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
         positionAndSizeLocked: impl.positionAndSizeLocked,
-        selectedParams,
       };
     }, _.isEqual);
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
-  const selectedParamIdSet = new Set(selectedParams);
-  const canConnect = canEditStructure && !isSelectingParams;
-
-  const handlePortMouseDownCapture = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isSelectingParams) {
-        return;
-      }
-      e.stopPropagation();
-      e.preventDefault();
-    },
-    [isSelectingParams],
-  );
 
   useLayoutEffect(() => {
     if (!hasEdges) {
@@ -516,12 +494,12 @@ function EdgesStrip({
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b border-white pt-5 dark:border-setta-700/30 ${bgColor} ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-hidden border-b border-white pt-5 dark:border-setta-700/30 ${bgColor} ${roundedBottomClassName}`}
       ref={stripRef}
       data-params-fixed="true"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
-        <div className="flex flex-col pl-2">
+        <div className="flex flex-col pl-3">
           <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             In
           </div>
@@ -529,21 +507,7 @@ function EdgesStrip({
             {inputPorts.map((port) => (
               <div
                 key={port.id}
-                className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${
-                  selectedParamIdSet.has(port.id)
-                    ? "active:!bg-cyan-300 !bg-blue-700 !text-white"
-                    : "text-setta-600 dark:text-setta-200"
-                } ${isSelectingParams ? "cursor-pointer" : ""}`}
-                onMouseDownCapture={handlePortMouseDownCapture}
-                onClick={(e) => {
-                  if (!isSelectingParams) {
-                    return;
-                  }
-                  e.stopPropagation();
-                  toggleParamSelected(sectionId, port.id);
-                }}
-                data-edge-param-id={port.id}
-                data-edge-param-side="in"
+                className="relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-setta-600 transition-colors hover:bg-setta-100/50 dark:text-setta-200 hover:dark:bg-setta-800/70"
               >
                 <Handle
                   id={port.id}
@@ -551,10 +515,9 @@ function EdgesStrip({
                   position={HandlePosition.Left}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={canConnect}
-                  isConnectableStart={canConnect}
-                  isConnectableEnd={canConnect}
-                  className="arg-edge-handle arg-edge-handle--target"
+                  isConnectable={canEditStructure}
+                  isConnectableStart={canEditStructure}
+                  isConnectableEnd={canEditStructure}
                 />
                 <span className="truncate">{port.label}</span>
               </div>
@@ -567,7 +530,7 @@ function EdgesStrip({
         >
           <div className="h-full w-px bg-setta-200/80 dark:bg-setta-700/60" />
         </div>
-        <div className="flex flex-col pr-2">
+        <div className="flex flex-col pr-3">
           <div className="text-right text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
             Out
           </div>
@@ -584,10 +547,9 @@ function EdgesStrip({
                   position={HandlePosition.Right}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={canConnect}
-                  isConnectableStart={canConnect}
-                  isConnectableEnd={canConnect}
-                  className="arg-edge-handle arg-edge-handle--source"
+                  isConnectable={canEditStructure}
+                  isConnectableStart={canEditStructure}
+                  isConnectableEnd={canEditStructure}
                 />
               </div>
             ))}

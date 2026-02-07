@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
 import { HandlePosition } from "forks/xyflow/core/types";
 import {
@@ -7,7 +5,6 @@ import {
   createAgenticEdgeFromConnection,
   isValidAgenticEdgeConnection,
 } from "state/actions/agenticEdges";
-import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -15,29 +12,7 @@ import {
 } from "utils/constants";
 
 export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
-  const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const agenticEdges = useProjectState((state) => state.projectConfig.agenticEdges);
-  const connectionMask = useMemo(() => {
-    if (!sectionId) {
-      return 0;
-    }
-    let mask = 0;
-    for (const edge of agenticEdges) {
-      if (edge.targetSectionId === sectionId) {
-        mask |= 1;
-      }
-      if (edge.sourceSectionId === sectionId) {
-        mask |= 2;
-      }
-      if (mask === 3) {
-        break;
-      }
-    }
-    return mask;
-  }, [agenticEdges, sectionId]);
-  const hasIncomingAgenticEdge = (connectionMask & 1) !== 0;
-  const hasOutgoingAgenticEdge = (connectionMask & 2) !== 0;
 
   if (isUserView) {
     return null;
@@ -49,7 +24,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={AGENTIC_EDGE_HANDLE_IDS.target}
         type="target"
         position={HandlePosition.Left}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle agentic-handle--target${hasIncomingAgenticEdge ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle agentic-handle--target`}
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
@@ -62,7 +37,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         id={AGENTIC_EDGE_HANDLE_IDS.source}
         type="source"
         position={HandlePosition.Right}
-        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle agentic-handle--source${hasOutgoingAgenticEdge ? " agentic-handle--connected" : ""}`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle agentic-handle--source`}
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
