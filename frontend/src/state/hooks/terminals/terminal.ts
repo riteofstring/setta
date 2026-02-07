@@ -1,7 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareSession } from "state/definitions";
 import { C } from "utils/c";
@@ -31,89 +31,6 @@ type TerminalSession = {
   lastSentResizeTs: number | null;
 };
 
-const TERMINAL_DEBUG_TAG = "SETTA_TERMINAL_DEBUG";
-
-function terminalDebugLog(payload: Record<string, unknown>) {
-  // Always-on structured logs (requested). Keep payload JSON-serializable.
-  try {
-    console.log(
-      JSON.stringify({
-        tag: TERMINAL_DEBUG_TAG,
-        ts: Date.now(),
-        ...payload,
-      }),
-    );
-  } catch (err) {
-    console.log(
-      JSON.stringify({
-        tag: TERMINAL_DEBUG_TAG,
-        ts: Date.now(),
-        event: "terminal_debug_log_failed",
-        error: String(err),
-      }),
-    );
-  }
-}
-
-function getContainerDebugInfo(container: HTMLDivElement | null) {
-  if (!container) {
-    return null;
-  }
-  const rect = container.getBoundingClientRect();
-  return {
-    clientWidth: container.clientWidth,
-    clientHeight: container.clientHeight,
-    rectWidth: rect.width,
-    rectHeight: rect.height,
-  };
-}
-
-function getTerminalBufferCursorContext(terminal: Terminal) {
-  try {
-    const buffer = terminal.buffer.active;
-    const absCursorY = buffer.baseY + buffer.cursorY;
-    const start = Math.max(0, absCursorY - 4);
-    const end = Math.min(buffer.length - 1, absCursorY + 4);
-    const lines: Array<{
-      y: number;
-      isWrapped: boolean;
-      len: number;
-      textLen: number;
-      textTail: string;
-    }> = [];
-    for (let y = start; y <= end; y += 1) {
-      const line = buffer.getLine(y);
-      if (!line) {
-        continue;
-      }
-      const text = line.translateToString(true);
-      lines.push({
-        y,
-        isWrapped: line.isWrapped,
-        len: line.length,
-        textLen: text.length,
-        textTail: text.slice(-240),
-      });
-    }
-    return {
-      type: buffer.type,
-      cols: terminal.cols,
-      rows: terminal.rows,
-      baseY: buffer.baseY,
-      viewportY: buffer.viewportY,
-      cursorX: buffer.cursorX,
-      cursorY: buffer.cursorY,
-      absCursorY,
-      length: buffer.length,
-      lines,
-    };
-  } catch (err) {
-    return {
-      error: String(err),
-    };
-  }
-}
-
 // Keyed by `${projectConfigId}::${shareSessionId ?? ""}::${sectionId}`.
 // We keep a single WebSocket per terminal section and re-use it across rapid
 // mount/unmount cycles (StrictMode, attach/detach transitions) to avoid re-sending
@@ -128,18 +45,13 @@ const TERMINAL_RESIZE_THROTTLE_MS = 200;
 
 export function useTerminal({
   sectionId,
-  width,
-  height,
   setHasScrollbar,
 }: {
   sectionId: string;
-  width: number;
-  height: number;
   setHasScrollbar: (value: boolean) => void;
 }) {
   const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
   const terminalReadyRef = useRef(false);
-  const sessionRef = useRef<TerminalSession | null>(null);
   const isShareMode = useShareSession((x) => x.isShareMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
@@ -161,7 +73,6 @@ export function useTerminal({
       isShareMode,
       container,
     });
-    sessionRef.current = session;
     const { terminal, ws, fitAddon } = session;
 
     // Ensure the terminal matches the DOM size on mount/reattach.
@@ -170,30 +81,14 @@ export function useTerminal({
         container,
         fitAddon,
         terminal,
-        sessionKey,
-        sectionId,
-        reason: "layout_effect_mount_raf",
-        widthProp: width,
-        heightProp: height,
       });
     });
 
     const resizeObserver = new ResizeObserver(() => {
-      terminalDebugLog({
-        event: "terminal_resize_observer",
-        sessionKey,
-        sectionId,
-        container: getContainerDebugInfo(container),
-      });
       fitTerminal({
         container,
         fitAddon,
         terminal,
-        sessionKey,
-        sectionId,
-        reason: "resize_observer",
-        widthProp: width,
-        heightProp: height,
       });
     });
     resizeObserver.observe(container);
@@ -244,12 +139,6 @@ export function useTerminal({
     } else {
       onReady = (message: MessageEvent) => {
         if (message.data === C.SETTA_TERMINAL_READY) {
-          terminalDebugLog({
-            event: "terminal_ws_ready",
-            sessionKey,
-            sectionId,
-            wsId: session.wsId,
-          });
           markReady();
           ws.removeEventListener("message", onReady!);
           onReady = null;
@@ -274,28 +163,9 @@ export function useTerminal({
       }
       resizeObserver.disconnect();
       unsub();
-      sessionRef.current = null;
       releaseTerminalSession(sessionKey);
     };
   }, [isShareMode, shareSessionId]);
-
-  useEffect(() => {
-    const session = sessionRef.current;
-    const container = terminalRef.current;
-    if (!session || !container) {
-      return;
-    }
-    fitTerminal({
-      container,
-      fitAddon: session.fitAddon,
-      terminal: session.terminal,
-      sessionKey: getTerminalSessionKey(sectionId, shareSessionId),
-      sectionId,
-      reason: "prop_effect_width_height",
-      widthProp: width,
-      heightProp: height,
-    });
-  }, [width, height]);
 
   return terminalRef;
 }
@@ -324,25 +194,23 @@ function acquireTerminalSession({
 }): TerminalSession {
   const existing = TERMINAL_SESSIONS[sessionKey];
   if (existing) {
-    existing.refCount += 1;
-    if (existing.closeTimeoutId !== null) {
-      window.clearTimeout(existing.closeTimeoutId);
-      existing.closeTimeoutId = null;
+    // If the websocket has already died and nothing is currently mounted,
+    // throw away the stale session so the next mount establishes a fresh one.
+    if (
+      existing.refCount === 0 &&
+      (existing.ws.readyState === 2 || existing.ws.readyState === 3)
+    ) {
+      disposeTerminalSession(sessionKey, existing);
+    } else {
+      existing.refCount += 1;
+      if (existing.closeTimeoutId !== null) {
+        window.clearTimeout(existing.closeTimeoutId);
+        existing.closeTimeoutId = null;
+      }
+      attachTerminalToContainer(existing, container);
+      existing.terminal.options.disableStdin = isShareMode;
+      return existing;
     }
-    attachTerminalToContainer(existing, container);
-    existing.terminal.options.disableStdin = isShareMode;
-    terminalDebugLog({
-      event: "terminal_session_acquire_existing",
-      sessionKey,
-      sectionId,
-      wsId: existing.wsId,
-      refCount: existing.refCount,
-      container: getContainerDebugInfo(container),
-      terminal: { cols: existing.terminal.cols, rows: existing.terminal.rows },
-      shareSessionId,
-      isShareMode,
-    });
-    return existing;
   }
 
   const projectConfigId = getCurrProjectConfigId();
@@ -355,14 +223,6 @@ function acquireTerminalSession({
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.open(container);
-  terminalDebugLog({
-    event: "terminal_session_create",
-    sessionKey,
-    sectionId,
-    shareSessionId,
-    isShareMode,
-    container: getContainerDebugInfo(container),
-  });
   const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
     RouteEnum.TERMINAL,
     { projectConfigId, sectionId, id },
@@ -407,24 +267,6 @@ function acquireTerminalSession({
   // Terminal -> backend resize (debounced, keep only the latest).
   session.resizeDisposable.dispose();
   session.resizeDisposable = terminal.onResize((size) => {
-    const currentContainer =
-      terminal.element?.parentElement instanceof HTMLDivElement
-        ? terminal.element.parentElement
-        : container;
-    terminalDebugLog({
-      event: "terminal_on_resize",
-      sessionKey,
-      sectionId,
-      cols: size.cols,
-      rows: size.rows,
-      container: getContainerDebugInfo(currentContainer),
-      terminal: { cols: terminal.cols, rows: terminal.rows },
-      buffer: getTerminalBufferCursorContext(terminal),
-      reactFlowZoom:
-        typeof window !== "undefined" && "reactFlowZoom" in window
-          ? (window as any).reactFlowZoom
-          : null,
-    });
     const message = JSON.stringify({
       messageType: C.WS_TERMINAL_RESIZE,
       cols: size.cols,
@@ -434,12 +276,6 @@ function acquireTerminalSession({
   });
 
   ws.addEventListener("open", () => {
-    terminalDebugLog({
-      event: "terminal_ws_open",
-      sessionKey,
-      sectionId,
-      wsId: session.wsId,
-    });
     flushTerminalResize(sessionKey);
   });
 
@@ -482,31 +318,6 @@ function acquireTerminalSession({
     }
   });
 
-  const cleanup = () => {
-    delete TERMINAL_SESSIONS[sessionKey];
-  };
-  ws.addEventListener("close", (event) => {
-    terminalDebugLog({
-      event: "terminal_ws_close",
-      sessionKey,
-      sectionId,
-      wsId: session.wsId,
-      code: event.code,
-      reason: event.reason,
-      wasClean: event.wasClean,
-    });
-    cleanup();
-  });
-  ws.addEventListener("error", () => {
-    terminalDebugLog({
-      event: "terminal_ws_error",
-      sessionKey,
-      sectionId,
-      wsId: session.wsId,
-    });
-    cleanup();
-  });
-
   return session;
 }
 
@@ -524,23 +335,8 @@ function queueTerminalResize(sessionKey: string, message: string) {
     session.lastSentResizeMessage === message &&
     !session.pendingResizeMessage
   ) {
-    terminalDebugLog({
-      event: "terminal_resize_queue_skip_duplicate",
-      sessionKey,
-      wsId: session.wsId,
-      readyState: session.ws.readyState,
-      message,
-    });
     return;
   }
-  terminalDebugLog({
-    event: "terminal_resize_queue",
-    sessionKey,
-    wsId: session.wsId,
-    readyState: session.ws.readyState,
-    lastSentResizeTs: session.lastSentResizeTs,
-    message,
-  });
 
   session.pendingResizeMessage = message;
 
@@ -587,25 +383,46 @@ function flushTerminalResize(sessionKey: string) {
     return;
   }
   if (session.ws.readyState === 1) {
-    terminalDebugLog({
-      event: "terminal_resize_flush_send",
-      sessionKey,
-      wsId: session.wsId,
-      message,
-    });
     session.ws.send(message);
     session.lastSentResizeMessage = message;
     session.lastSentResizeTs = Date.now();
     session.pendingResizeMessage = null;
     return;
   }
-  terminalDebugLog({
-    event: "terminal_resize_flush_skip_not_open",
-    sessionKey,
-    wsId: session.wsId,
-    readyState: session.ws.readyState,
-    message,
-  });
+}
+
+function disposeTerminalSession(sessionKey: string, session: TerminalSession) {
+  if (session.closeTimeoutId !== null) {
+    window.clearTimeout(session.closeTimeoutId);
+    session.closeTimeoutId = null;
+  }
+  if (session.pendingResizeTimeoutId !== null) {
+    window.clearTimeout(session.pendingResizeTimeoutId);
+    session.pendingResizeTimeoutId = null;
+  }
+  session.pendingResizeMessage = null;
+  session.lastSentResizeMessage = null;
+  session.lastSentResizeTs = null;
+
+  // If we're disposing while still mounted (e.g. stale ws on remount), remove
+  // the old terminal element so `terminal.open()` doesn't leave duplicates.
+  const element = session.terminal.element;
+  if (element && element.parentElement) {
+    element.remove();
+  }
+
+  if (session.ws.readyState === 1) {
+    session.ws.close();
+  } else if (session.ws.readyState === 0) {
+    session.ws.addEventListener("open", () => {
+      session.ws.close();
+    });
+  }
+
+  session.inputDisposable.dispose();
+  session.resizeDisposable.dispose();
+  deferTerminalDispose(session.terminal);
+  delete TERMINAL_SESSIONS[sessionKey];
 }
 
 function releaseTerminalSession(sessionKey: string) {
@@ -615,12 +432,6 @@ function releaseTerminalSession(sessionKey: string) {
   }
 
   session.refCount = Math.max(0, session.refCount - 1);
-  terminalDebugLog({
-    event: "terminal_session_release",
-    sessionKey,
-    wsId: session.wsId,
-    refCount: session.refCount,
-  });
   if (session.refCount === 0) {
     if (session.closeTimeoutId !== null) {
       window.clearTimeout(session.closeTimeoutId);
@@ -630,29 +441,7 @@ function releaseTerminalSession(sessionKey: string) {
       if (!latest || latest.refCount !== 0) {
         return;
       }
-      if (latest.pendingResizeTimeoutId !== null) {
-        window.clearTimeout(latest.pendingResizeTimeoutId);
-        latest.pendingResizeTimeoutId = null;
-      }
-      latest.pendingResizeMessage = null;
-      latest.lastSentResizeMessage = null;
-      latest.lastSentResizeTs = null;
-      if (latest.ws.readyState === 1) {
-        latest.ws.close();
-      } else {
-        latest.ws.addEventListener("open", () => {
-          latest.ws.close();
-        });
-      }
-      latest.inputDisposable.dispose();
-      latest.resizeDisposable.dispose();
-      deferTerminalDispose(latest.terminal);
-      terminalDebugLog({
-        event: "terminal_session_dispose",
-        sessionKey,
-        wsId: latest.wsId,
-      });
-      delete TERMINAL_SESSIONS[sessionKey];
+      disposeTerminalSession(sessionKey, latest);
     }, TERMINAL_SESSION_CLOSE_DELAY_MS);
   }
 }
@@ -678,39 +467,16 @@ function attachTerminalToContainer(
 ) {
   const element = session.terminal.element;
   if (!element) {
-    terminalDebugLog({
-      event: "terminal_dom_open_missing_element",
-      wsId: session.wsId,
-      terminal: { cols: session.terminal.cols, rows: session.terminal.rows },
-    });
     session.terminal.open(container);
     return;
   }
   if (element.parentElement === container) {
     return;
   }
-  terminalDebugLog({
-    event: "terminal_dom_reparent",
-    wsId: session.wsId,
-  });
   container.replaceChildren(element);
 }
 
-function patchWrappedFlagsForWidenReflow({
-  terminal,
-  sessionKey,
-  sectionId,
-  oldCols,
-  newCols,
-  reason,
-}: {
-  terminal: Terminal;
-  sessionKey: string;
-  sectionId: string;
-  oldCols: number;
-  newCols: number;
-  reason: string;
-}) {
+function patchWrappedFlagsForWidenReflow(terminal: Terminal, oldCols: number) {
   // xterm only reflows lines that are marked as wrapped (`isWrapped=true` on the
   // continuation line). Some shells (notably zsh/ZLE) can redraw long command
   // lines using explicit cursor movement/linefeeds, which results in visually
@@ -766,11 +532,6 @@ function patchWrappedFlagsForWidenReflow({
     return internalLines?.get?.(y) ?? internalBuffer?.getLine?.(y) ?? null;
   };
 
-  let scanned = 0;
-  let candidates = 0;
-  let patched = 0;
-  let internalLineHits = 0;
-  let internalLineMisses = 0;
   for (let y = scanStart; y <= scanEnd; y += 1) {
     const prevView = active.getLine(y - 1) as any;
     const lineView = active.getLine(y) as any;
@@ -778,11 +539,8 @@ function patchWrappedFlagsForWidenReflow({
     const prev = readInternalLine(prevView, y - 1);
     const line = readInternalLine(lineView, y);
     if (!prev || !line) {
-      internalLineMisses += 1;
       continue;
     }
-    internalLineHits += 1;
-    scanned += 1;
 
     if (line.isWrapped) {
       continue;
@@ -811,8 +569,6 @@ function patchWrappedFlagsForWidenReflow({
       continue;
     }
 
-    candidates += 1;
-
     if (prevTrimmedLength === oldCols) {
       // Bail if the last cell is blank/space. (TrimmedLength should already
       // exclude whitespace, but guard anyway.)
@@ -833,36 +589,6 @@ function patchWrappedFlagsForWidenReflow({
       // Can't safely patch unknown line representations.
       continue;
     }
-    patched += 1;
-  }
-
-  if (
-    candidates > 0 ||
-    patched > 0 ||
-    (internalLineMisses > 0 && internalLineHits === 0)
-  ) {
-    terminalDebugLog({
-      event: "terminal_reflow_patch_wrapped_flags",
-      sessionKey,
-      sectionId,
-      reason,
-      oldCols,
-      newCols,
-      absCursorY,
-      scanStart,
-      scanEnd,
-      scanned,
-      candidates,
-      patched,
-      internalLineHits,
-      internalLineMisses,
-      internalPaths: {
-        hasBufferService: Boolean(bufferService),
-        hasInternalBuffer: Boolean(internalBuffer),
-        hasInternalLines: Boolean(internalLines),
-      },
-      buffer: getTerminalBufferCursorContext(terminal),
-    });
   }
 }
 
@@ -948,37 +674,17 @@ function fitTerminal({
   container,
   fitAddon,
   terminal,
-  sessionKey,
-  sectionId,
-  reason,
-  widthProp,
-  heightProp,
 }: {
   container: HTMLDivElement;
   fitAddon: FitAddon;
   terminal: Terminal;
-  sessionKey: string;
-  sectionId: string;
-  reason: string;
-  widthProp: number;
-  heightProp: number;
 }) {
   // Avoid fitting while the container is effectively hidden, which can result
   // in 0x0 proposals and a "blank" terminal until the next resize.
   if (container.clientWidth < 16 || container.clientHeight < 16) {
-    terminalDebugLog({
-      event: "terminal_fit_skip_hidden",
-      sessionKey,
-      sectionId,
-      reason,
-      widthProp,
-      heightProp,
-      container: getContainerDebugInfo(container),
-    });
     return;
   }
   let proposed: { cols: number; rows: number } | null = null;
-  let proposeSource: "addon_fit" | "fallback" | null = null;
   const anyFitAddon = fitAddon as any;
   const proposeDisabled = Boolean(anyFitAddon.__settaProposeDisabled);
   if (!proposeDisabled) {
@@ -990,55 +696,25 @@ function fitTerminal({
         typeof next.rows === "number"
       ) {
         proposed = { cols: next.cols, rows: next.rows };
-        proposeSource = "addon_fit";
       }
     } catch (err) {
       // When addon-fit is mismatched with the xterm major version, proposeDimensions
       // can reliably throw. Disable subsequent propose calls for this instance to
       // avoid spamming logs and keep resizing responsive.
       anyFitAddon.__settaProposeDisabled = true;
-      terminalDebugLog({
-        event: "terminal_fit_propose_error",
-        sessionKey,
-        sectionId,
-        reason,
-        error: String(err),
-        disabledFuturePropose: true,
-      });
     }
   }
   if (!proposed) {
     proposed = proposeDimensionsFallback(terminal);
-    if (proposed) {
-      proposeSource = "fallback";
-    }
   }
-  terminalDebugLog({
-    event: "terminal_fit_start",
-    sessionKey,
-    sectionId,
-    reason,
-    widthProp,
-    heightProp,
-    container: getContainerDebugInfo(container),
-    proposed,
-    proposeSource,
-    terminal: { cols: terminal.cols, rows: terminal.rows },
-  });
+  if (!proposed) {
+    return;
+  }
 
-  if (proposed && proposed.cols > terminal.cols && terminal.cols > 0) {
-    patchWrappedFlagsForWidenReflow({
-      terminal,
-      sessionKey,
-      sectionId,
-      oldCols: terminal.cols,
-      newCols: proposed.cols,
-      reason,
-    });
+  if (proposed.cols > terminal.cols && terminal.cols > 0) {
+    patchWrappedFlagsForWidenReflow(terminal, terminal.cols);
   }
-  let resized = false;
   if (
-    proposed &&
     proposed.cols > 0 &&
     proposed.rows > 0 &&
     (terminal.cols !== proposed.cols || terminal.rows !== proposed.rows)
@@ -1049,19 +725,5 @@ function fitTerminal({
       clear.call(anyTerminal._core._renderService);
     }
     terminal.resize(proposed.cols, proposed.rows);
-    resized = true;
   }
-  terminalDebugLog({
-    event: "terminal_fit_end",
-    sessionKey,
-    sectionId,
-    reason,
-    widthProp,
-    heightProp,
-    container: getContainerDebugInfo(container),
-    proposed,
-    proposeSource,
-    terminal: { cols: terminal.cols, rows: terminal.rows },
-    resized,
-  });
 }

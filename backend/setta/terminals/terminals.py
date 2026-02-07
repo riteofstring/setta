@@ -39,27 +39,6 @@ TERMINAL_PROMPT_READY_FALLBACK_SECONDS = 5.0
 # xterm cannot "un-wrap" on widen because those lines are not marked as wrapped.
 RUN_COMMAND_ECHO_COLS = 512
 
-TERMINAL_DEBUG_TAG = "SETTA_TERMINAL_DEBUG"
-
-
-def terminal_debug_log(payload: dict[str, Any]) -> None:
-    # Always-on structured logs (requested). Keep payload JSON-serializable.
-    try:
-        logger.info(
-            "%s",
-            json.dumps(
-                {
-                    "tag": TERMINAL_DEBUG_TAG,
-                    "ts": time.time(),
-                    **payload,
-                },
-                default=str,
-            ),
-        )
-    except Exception:
-        # Avoid disrupting the terminal loop if logging fails for any reason.
-        logger.exception("terminal_debug_log_failed")
-
 
 if IS_WINDOWS:
     from winpty import PtyProcess  # type: ignore
@@ -125,7 +104,6 @@ class Terminals:
                 "shareSessionId": share_session_id,
                 "process": pty_process,
                 "history": deque(maxlen=1000),
-                "wasJustResized": False,
                 "rows": None,
                 "cols": None,
                 "terminalPromptIsReady": asyncio.Event(),
@@ -281,7 +259,6 @@ class Terminals:
                         )
                     continue
                 history.append(output)
-                pty_info["wasJustResized"] = False
                 await self.send_output_to_sectionId(sectionId, output)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
@@ -318,31 +295,9 @@ class Terminals:
                         requested_cols = json_val["cols"]
                         pty_info["rows"] = requested_rows
                         pty_info["cols"] = requested_cols
-                        terminal_debug_log(
-                            {
-                                "event": "backend_terminal_resize",
-                                "sectionId": sectionId,
-                                "projectConfigId": pty_info.get("projectConfigId"),
-                                "shareSessionId": pty_info.get("shareSessionId"),
-                                "ptyPid": pty_info.get("pid"),
-                                "rows": requested_rows,
-                                "cols": requested_cols,
-                            }
-                        )
                         pty_process.setwinsize(requested_rows, requested_cols)
-                        applied_cols: int | None = None
-                        applied_rows: int | None = None
                         sigwinch_pgid: int | None = None
-                        sigwinch_sent = False
-                        sigwinch_error: str | None = None
                         if not IS_WINDOWS:
-                            try:
-                                winsize = os.get_terminal_size(pty_process.fd)
-                            except OSError:
-                                winsize = None
-                            if winsize is not None:
-                                applied_cols = winsize.columns
-                                applied_rows = winsize.lines
                             try:
                                 sigwinch_pgid = os.tcgetpgrp(pty_process.fd)
                             except OSError:
@@ -352,26 +307,8 @@ class Terminals:
                                     os.killpg(sigwinch_pgid, signal.SIGWINCH)
                                 else:
                                     os.kill(pty_process.pid, signal.SIGWINCH)
-                                sigwinch_sent = True
-                            except OSError as exc:
-                                sigwinch_error = str(exc)
-                        terminal_debug_log(
-                            {
-                                "event": "backend_terminal_resize_applied",
-                                "sectionId": sectionId,
-                                "projectConfigId": pty_info.get("projectConfigId"),
-                                "shareSessionId": pty_info.get("shareSessionId"),
-                                "ptyPid": pty_info.get("pid"),
-                                "requestedRows": requested_rows,
-                                "requestedCols": requested_cols,
-                                "appliedRows": applied_rows,
-                                "appliedCols": applied_cols,
-                                "sigwinchPgid": sigwinch_pgid,
-                                "sigwinchSent": sigwinch_sent,
-                                "sigwinchError": sigwinch_error,
-                            }
-                        )
-                    pty_info["wasJustResized"] = doResize
+                            except OSError:
+                                pass
                     continue
                 if allow_input and input_data:
                     pty_process.write(input_data)
@@ -435,8 +372,6 @@ class Terminals:
             info.get("cols") if isinstance(info.get("cols"), int) else None
         )
         override_cols: int | None = None
-        sigwinch_pgid: int | None = None
-        sigwinch_error: str | None = None
         if not IS_WINDOWS:
             if base_rows is None or base_cols is None:
                 try:
@@ -458,6 +393,7 @@ class Terminals:
         if override_cols is not None and base_rows is not None:
             pty_process.setwinsize(base_rows, override_cols)
             if not IS_WINDOWS:
+                sigwinch_pgid: int | None = None
                 try:
                     sigwinch_pgid = os.tcgetpgrp(pty_process.fd)
                 except OSError:
@@ -467,23 +403,8 @@ class Terminals:
                         os.killpg(sigwinch_pgid, signal.SIGWINCH)
                     else:
                         os.kill(pty_process.pid, signal.SIGWINCH)
-                except OSError as exc:
-                    sigwinch_error = str(exc)
-            terminal_debug_log(
-                {
-                    "event": "backend_terminal_run_command_winsize_override",
-                    "terminalId": terminal_id,
-                    "projectConfigId": info.get("projectConfigId"),
-                    "shareSessionId": info.get("shareSessionId"),
-                    "ptyPid": info.get("pid"),
-                    "commandLen": len(command),
-                    "restoreRows": base_rows,
-                    "restoreCols": base_cols,
-                    "overrideCols": override_cols,
-                    "sigwinchPgid": sigwinch_pgid,
-                    "sigwinchError": sigwinch_error,
-                }
-            )
+                except OSError:
+                    pass
 
         try:
             pty_process.write(f"\x15{command}\n")
@@ -499,9 +420,8 @@ class Terminals:
                     return
 
                 pty_process.setwinsize(desired_rows, desired_cols)
-                sigwinch_restore_pgid: int | None = None
-                sigwinch_restore_error: str | None = None
                 if not IS_WINDOWS:
+                    sigwinch_restore_pgid: int | None = None
                     try:
                         sigwinch_restore_pgid = os.tcgetpgrp(pty_process.fd)
                     except OSError:
@@ -514,21 +434,8 @@ class Terminals:
                             os.killpg(sigwinch_restore_pgid, signal.SIGWINCH)
                         else:
                             os.kill(pty_process.pid, signal.SIGWINCH)
-                    except OSError as exc:
-                        sigwinch_restore_error = str(exc)
-                terminal_debug_log(
-                    {
-                        "event": "backend_terminal_run_command_winsize_restore",
-                        "terminalId": terminal_id,
-                        "projectConfigId": info.get("projectConfigId"),
-                        "shareSessionId": info.get("shareSessionId"),
-                        "ptyPid": info.get("pid"),
-                        "restoreRows": desired_rows,
-                        "restoreCols": desired_cols,
-                        "sigwinchPgid": sigwinch_restore_pgid,
-                        "sigwinchError": sigwinch_restore_error,
-                    }
-                )
+                    except OSError:
+                        pass
         self.set_terminal_start_time(terminal_id)
 
     def kill_processes(self, ids):

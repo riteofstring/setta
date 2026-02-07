@@ -765,13 +765,6 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     "Skipped in CI due to terminal readiness/output flakiness on GitHub Actions.",
   );
   test.setTimeout(90000);
-  const terminalDebugEvents: string[] = [];
-  page.on("console", (msg) => {
-    const text = msg.text();
-    if (text.includes('"tag":"SETTA_TERMINAL_DEBUG"')) {
-      terminalDebugEvents.push(text);
-    }
-  });
   await addTerminalOutputInstrumentation(page);
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
@@ -942,18 +935,10 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
         })
         .toBeLessThan(narrowRowCount);
     } catch (err) {
-      const relevant = terminalDebugEvents
-        .filter((entry) => {
-          return (
-            entry.includes('"event":"terminal_fit_') ||
-            entry.includes('"event":"terminal_reflow_patch_wrapped_flags"') ||
-            entry.includes('"event":"terminal_on_resize"')
-          );
-        })
-        .slice(-60)
-        .join("\n");
+      const rows = await getTerminalRowsSnapshot(page, terminalId);
+      const relevant = rows.slice(-60).join("\n");
       throw new Error(
-        `Command echo reflow assertion failed.\n\nTerminal debug tail:\n${relevant}\n\nOriginal error: ${String(err)}`,
+        `Command echo reflow assertion failed.\n\nTerminal rows tail:\n${relevant}\n\nOriginal error: ${String(err)}`,
       );
     }
   } finally {

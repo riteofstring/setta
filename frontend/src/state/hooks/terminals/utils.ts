@@ -1,5 +1,3 @@
-import { FitAddon } from "@xterm/addon-fit";
-import { useRef } from "react";
 import { useMisc } from "state/definitions";
 
 export const terminalTheme = {
@@ -26,16 +24,6 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
-function useFitAddon() {
-  const fitAddon = useRef(null);
-
-  if (!fitAddon.current) {
-    fitAddon.current = new FitAddon();
-  }
-
-  return fitAddon.current;
-}
-
 export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
   const renderDisposable = terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
@@ -59,18 +47,4 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
     renderDisposable.dispose();
     unsub();
   };
-}
-
-function terminalCleanup(ws, terminal) {
-  if (ws.readyState === 1) {
-    ws.close();
-    terminal.dispose();
-  } else {
-    ws.addEventListener("open", () => {
-      ws.close();
-      // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
-      // https://github.com/xtermjs/xterm.js/issues/4775
-      terminal.dispose();
-    });
-  }
 }
