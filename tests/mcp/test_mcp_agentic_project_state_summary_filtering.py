@@ -33,12 +33,13 @@ from setta.types.project_state import ProjectStateBackend, ProjectStateSingleCon
 from setta.types.section_impls import SectionType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
+from setta.project_state.history import History
 
 
 class _DummyProjectManager:
     def __init__(self, project_state_single: ProjectStateSingleConfig) -> None:
         self._single = project_state_single
-        self.project_state_backend = ProjectStateBackend(
+        backend = ProjectStateBackend(
             sections=project_state_single.sections,
             sectionImpls=project_state_single.sectionImpls,
             sectionVariants=project_state_single.sectionVariants,
@@ -48,7 +49,12 @@ class _DummyProjectManager:
             projectConfigs={project_state_single.projectConfig.id: project_state_single.projectConfig},
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
+        self.history = History(backend)
         self.summary_calls = 0
+
+    @property
+    def project_state_backend(self) -> ProjectStateBackend:
+        return self.history.get_current()
 
     async def get_latest_project_state_summary(self, _request):
         self.summary_calls += 1

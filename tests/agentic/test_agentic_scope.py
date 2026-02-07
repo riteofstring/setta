@@ -257,9 +257,9 @@ class TestAgenticScope:
             settaToolType=SettaToolType.discoverable,
             accessType="write",
             idPathsByType={},
+            defaultTargetSingletonSection="GenPythonCode",
         )
         allowed = check_agentic_scope_for_tool(
-            tool_name="mcp__setta__set_gen_code_prefix",
             tool_args={"projectConfigId": "project-1", "genCodePrefix": "import math"},
             annotations=annotations,
             project_state=project_state,
@@ -269,7 +269,6 @@ class TestAgenticScope:
         assert allowed.target_section_ids == {ID(gen_code_section_id)}
 
         denied = check_agentic_scope_for_tool(
-            tool_name="set_gen_code_prefix",
             tool_args={"projectConfigId": "project-1", "genCodePrefix": "import math"},
             annotations=annotations,
             project_state=project_state,

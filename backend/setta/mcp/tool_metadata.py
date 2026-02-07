@@ -119,6 +119,7 @@ class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
     accessType: ToolAccessType = "structural"
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
+    defaultTargetSingletonSection: str | None = None
     aiFollowToolResult: AIFollowToolResultMetadata | None = None
     aiFollowToolArguments: AIFollowToolArgumentsMetadata | None = None
     toolArgumentPreview: ToolArgumentPreviewMetadata | None = None
@@ -129,6 +130,7 @@ class SettaToolAnnotations(ToolAnnotations):
 class ToolAccessMetadata(BaseModel):
     accessType: ToolAccessType
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
+    defaultTargetSingletonSection: str | None = None
 
 
 def attach_tool_access(

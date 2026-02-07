@@ -633,10 +633,11 @@ function ManagedChatArea({
   useHydrateAgenticState();
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const { hasAnyAgenticEdge, hasWriteScope } = useProjectState((state) => {
+  const agenticEdges = useProjectState((state) => state.projectConfig.agenticEdges);
+  const { hasAnyAgenticEdge, hasWriteScope } = useMemo(() => {
     let hasAny = false;
     let hasWrite = false;
-    for (const edge of state.projectConfig.agenticEdges) {
+    for (const edge of agenticEdges) {
       if (
         edge.kind === AgenticEdgeKindEnum.chat_section &&
         edge.sourceSectionId === sectionId
@@ -653,7 +654,7 @@ function ManagedChatArea({
       }
     }
     return { hasAnyAgenticEdge: hasAny, hasWriteScope: hasWrite };
-  }, shallow);
+  }, [agenticEdges, sectionId]);
   const chatId = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,

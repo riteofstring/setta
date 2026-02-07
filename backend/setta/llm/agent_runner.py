@@ -24,7 +24,7 @@ from setta.agentic.agentic_scope import (
 )
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
-    load_cached_agentic_summary_texts_for_chat_section,
+    resolve_cached_agentic_summaries_for_chat_section,
     write_cached_agentic_summaries,
 )
 from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN
@@ -209,6 +209,7 @@ class AgentRunner:
         self._runs: dict[ID, AgentRun] = {}
         self._chat_states: dict[ID, ChatSectionState] = {}
         self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
+        self._agentic_summary_fill_inflight: set[tuple[ID, ID]] = set()
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
         )
@@ -965,12 +966,22 @@ class AgentRunner:
         (
             summary_text_by_section_id,
             summary_by_section,
+            missing_section_ids,
         ) = await self._resolve_agentic_summary_text_by_section_id(
             project_state,
             chat_section_id=section_id,
             project_config_id=context.project_config_id,
             llm_config=context.llm_config,
         )
+        if missing_section_ids:
+            self._maybe_spawn_agentic_summary_cache_fill(
+                project_state,
+                chat_section_id=section_id,
+                project_config_id=context.project_config_id,
+                llm_config=context.llm_config,
+                summary_by_section=summary_by_section,
+                missing_section_ids=missing_section_ids,
+            )
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
         )
@@ -1005,34 +1016,19 @@ class AgentRunner:
         chat_section_id: ID,
         project_config_id: ID,
         llm_config: LLMConfig,
-    ) -> tuple[dict[ID, str], dict[ID, object] | None]:
-        context_edges = resolve_context_edges(project_state, chat_section_id)
-        summary_section_ids = [
-            section_id
-            for section_id, context_mode in context_edges
-            if context_mode == AgenticEdgeContextMode.summary
-            and section_id in project_state.sections
-        ]
-        if not summary_section_ids:
-            return {}, None
-
-        project_summary = build_project_state_summary(project_state)
-        summary_by_section = {
-            entry.sectionId: entry for entry in project_summary.sections
-        }
-        cached = load_cached_agentic_summary_texts_for_chat_section(
-            self.dbe,
-            project_state=project_state,
-            project_config_id=project_config_id,
-            chat_section_id=chat_section_id,
-            summary_by_section=summary_by_section,
+    ) -> tuple[dict[ID, str], dict[ID, object] | None, list[ID]]:
+        cached, summary_by_section, missing_section_ids = (
+            resolve_cached_agentic_summaries_for_chat_section(
+                self.dbe,
+                project_state=project_state,
+                project_config_id=project_config_id,
+                chat_section_id=chat_section_id,
+            )
         )
-        missing_section_ids: list[ID] = []
-        for section_id in summary_section_ids:
-            if section_id not in cached:
-                missing_section_ids.append(section_id)
-        summary_edge_count = len(summary_section_ids)
+        if summary_by_section is None:
+            return {}, None, []
 
+        summary_edge_count = len(cached) + len(missing_section_ids)
         if summary_edge_count and not missing_section_ids:
             logger.debug(
                 "Agentic summary cache hit (project=%s, chatSection=%s, edges=%s).",
@@ -1040,9 +1036,7 @@ class AgentRunner:
                 chat_section_id,
                 summary_edge_count,
             )
-        if not missing_section_ids:
-            return cached, summary_by_section
-        cache_updates: dict[str, dict[str, Any]] = {}
+            return cached, summary_by_section, []
 
         deferred_due_to_cap = max(
             len(missing_section_ids) - MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN, 0
@@ -1057,10 +1051,71 @@ class AgentRunner:
             deferred_due_to_cap,
             llm_config.id,
         )
+        return cached, summary_by_section, list(missing_section_ids)
 
+    def _maybe_spawn_agentic_summary_cache_fill(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        chat_section_id: ID,
+        project_config_id: ID,
+        llm_config: LLMConfig,
+        summary_by_section: dict[ID, object] | None,
+        missing_section_ids: list[ID],
+    ) -> None:
+        if not missing_section_ids:
+            return
+        key = (project_config_id, chat_section_id)
+        if key in self._agentic_summary_fill_inflight:
+            return
+        self._agentic_summary_fill_inflight.add(key)
+
+        async def _runner() -> None:
+            try:
+                await self._fill_agentic_summary_cache_for_chat_section(
+                    project_state,
+                    chat_section_id=chat_section_id,
+                    project_config_id=project_config_id,
+                    llm_config=llm_config,
+                    summary_by_section=summary_by_section,
+                    missing_section_ids=missing_section_ids,
+                )
+            finally:
+                self._agentic_summary_fill_inflight.discard(key)
+
+        spawn_background_task(
+            _runner,
+            label="agentic-summary-cache-fill",
+            logger=logger,
+            project_config_id=str(project_config_id),
+        )
+
+    async def _fill_agentic_summary_cache_for_chat_section(
+        self,
+        project_state: ProjectStateSingleConfig,
+        *,
+        chat_section_id: ID,
+        project_config_id: ID,
+        llm_config: LLMConfig,
+        summary_by_section: dict[ID, object] | None,
+        missing_section_ids: list[ID],
+    ) -> None:
+        if not missing_section_ids:
+            return
+        resolved_summary_by_section = summary_by_section
+        if resolved_summary_by_section is None:
+            project_summary = build_project_state_summary(project_state)
+            resolved_summary_by_section = {
+                entry.sectionId: entry for entry in project_summary.sections
+            }
+
+        cache_updates: dict[str, dict[str, Any]] = {}
         generated_count = 0
         skipped_empty_count = 0
         attempted_count = 0
+        deferred_due_to_cap = max(
+            len(missing_section_ids) - MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN, 0
+        )
         for section_id in missing_section_ids[:MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN]:
             if section_id not in project_state.projectConfig.sectionVariantMap:
                 raise KeyError(f"Section {section_id} missing variant mapping.")
@@ -1068,7 +1123,7 @@ class AgentRunner:
             source = build_agentic_section_summary_source(
                 project_state,
                 section_id,
-                summary_by_section=summary_by_section,
+                summary_by_section=resolved_summary_by_section,
             )
             if not source.raw_text.strip():
                 skipped_empty_count += 1
@@ -1097,19 +1152,18 @@ class AgentRunner:
                     "model": llm_config.model,
                 },
             }
-            cached[section_id] = normalized
             generated_count += 1
         if cache_updates:
             write_cached_agentic_summaries(self.dbe, updates=cache_updates)
         logger.info(
-            "Agentic summary generation complete (project=%s, chatSection=%s, attempted=%s generated=%s skippedEmpty=%s).",
+            "Agentic summary cache fill complete (project=%s, chatSection=%s, attempted=%s generated=%s skippedEmpty=%s deferred=%s).",
             project_config_id,
             chat_section_id,
             attempted_count,
             generated_count,
             skipped_empty_count,
+            deferred_due_to_cap,
         )
-        return cached, summary_by_section
 
     async def _generate_agentic_section_summary(
         self,
@@ -1297,6 +1351,7 @@ class AgentRunner:
             api_key = self.api_keys.get(api_key_env)
             if api_key:
                 request["api_key"] = api_key
+        self._sanitize_utility_completion_request(request)
         request["messages"] = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -1305,6 +1360,24 @@ class AgentRunner:
         request["max_tokens"] = max_tokens
         response = await litellm.acompletion(**request)
         return self._extract_completion_text(response)
+
+    @staticmethod
+    def _sanitize_utility_completion_request(request: dict[str, Any]) -> None:
+        # Utility completions (titles/summaries) must be deterministic and
+        # provider-agnostic. LLMConfig.other_params can include streaming or tool
+        # options that change the response shape (and can break callers that
+        # expect a single completion object).
+        for key in (
+            "stream",
+            "stream_options",
+            "tools",
+            "tool_choice",
+            "functions",
+            "function_call",
+            "response_format",
+        ):
+            request.pop(key, None)
+        request["stream"] = False
 
     @staticmethod
     def _extract_completion_text(response: Any) -> str | None:

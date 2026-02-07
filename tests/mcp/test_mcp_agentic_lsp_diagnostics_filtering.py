@@ -37,6 +37,7 @@ from setta.types.project_state import ProjectStateBackend, ProjectStateSingleCon
 from setta.types.section_impls import SectionType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
+from setta.project_state.history import History
 
 
 class _DummyProjectManager:
@@ -45,8 +46,12 @@ class _DummyProjectManager:
         project_state_backend: ProjectStateBackend,
         diagnostics_payload: SettaLspDiagnosticsPayload,
     ) -> None:
-        self.project_state_backend = project_state_backend
+        self.history = History(project_state_backend)
         self._diagnostics_payload = diagnostics_payload
+
+    @property
+    def project_state_backend(self) -> ProjectStateBackend:
+        return self.history.get_current()
 
     async def get_latest_lsp_diagnostics(self, _request) -> SettaLspDiagnosticsPayload:
         return self._diagnostics_payload

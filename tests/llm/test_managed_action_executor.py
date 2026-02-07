@@ -24,6 +24,7 @@ from setta.llm.chat_toolkit.managed.actions import (
 )
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
+from setta.project_state.history import History
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -349,7 +350,10 @@ class TestManagedActionExecutor:
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
-            manager = SimpleNamespace(project_state_backend=backend_state)
+            manager = SimpleNamespace(
+                project_state_backend=backend_state,
+                history=History(backend_state),
+            )
 
             def _get_manager(requested_project_config_id: ID, *, share_session_id=None):
                 del share_session_id

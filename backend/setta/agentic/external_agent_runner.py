@@ -11,9 +11,8 @@ from typing import Any
 from mcp.types import TextContent
 
 from setta.agentic.agentic_context import build_agentic_context_payload
-from setta.agentic.agentic_scope import resolve_context_edges
 from setta.agentic.agentic_summary_cache import (
-    load_cached_agentic_summary_texts_for_chat_section,
+    resolve_cached_agentic_summaries_for_chat_section,
 )
 from setta.agentic.chat_titles import (
     build_deterministic_chat_title,
@@ -89,7 +88,6 @@ from setta.types.external_agents import (
     ExternalAgentWorkingDirStrategy,
 )
 from setta.types.helpers_lvl3 import (
-    build_project_state_summary,
     convert_backend_to_single_config,
 )
 from setta.types.id import ID
@@ -475,15 +473,13 @@ class ExternalAgentRunner:
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
         agentic_context_section_ids: tuple[ID, ...] = ()
+        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        map_size_before = len(canonical_to_temporary)
         if section_id is not None:
             project_state_single = convert_backend_to_single_config(
                 project_state,
                 project_config_id,
             )
-            temporary_to_canonical, canonical_to_temporary = (
-                self.dbe.read_temporary_id_map()
-            )
-            map_size_before = len(canonical_to_temporary)
 
             def _format_section_id(entry: ID) -> str:
                 return str(
@@ -494,23 +490,12 @@ class ExternalAgentRunner:
                     )
                 )
 
-            summary_by_section = None
-            context_edges = resolve_context_edges(project_state_single, section_id)
-            if any(
-                context_mode == AgenticEdgeContextMode.summary
-                for _, context_mode in context_edges
-            ):
-                project_summary = build_project_state_summary(project_state_single)
-                summary_by_section = {
-                    entry.sectionId: entry for entry in project_summary.sections
-                }
-            summary_text_by_section_id = (
-                load_cached_agentic_summary_texts_for_chat_section(
-                    self.dbe,
-                    project_state=project_state_single,
-                    project_config_id=project_config_id,
-                    chat_section_id=section_id,
-                    summary_by_section=summary_by_section,
+            summary_text_by_section_id, summary_by_section, _ = (
+                resolve_cached_agentic_summaries_for_chat_section(
+                self.dbe,
+                project_state=project_state_single,
+                project_config_id=project_config_id,
+                chat_section_id=section_id,
                 )
             )
             payload = build_agentic_context_payload(
@@ -520,8 +505,6 @@ class ExternalAgentRunner:
                 summary_text_by_section_id=summary_text_by_section_id,
                 summary_by_section=summary_by_section,
             )
-            if len(canonical_to_temporary) != map_size_before:
-                self.dbe.write_temporary_id_map(canonical_to_temporary)
             if payload.text.strip():
                 system_prompt = f"{system_prompt}\n\n{payload.text.strip()}".strip()
                 agentic_context_section_ids = tuple(payload.section_ids)
@@ -530,7 +513,11 @@ class ExternalAgentRunner:
             chat_id=chat_id,
             section_id=section_id,
             project_config_id=project_config_id,
+            canonical_to_temporary=canonical_to_temporary,
+            temporary_to_canonical=temporary_to_canonical,
         )
+        if len(canonical_to_temporary) != map_size_before:
+            self.dbe.write_temporary_id_map(canonical_to_temporary)
         working_dir = self._resolve_working_dir(config)
         env = self._build_env(config)
         cleanup_paths: list[Path] = []
@@ -888,10 +875,21 @@ class ExternalAgentRunner:
         chat_id: ID | None,
         section_id: ID | None,
         project_config_id: ID,
+        canonical_to_temporary: dict[ID, ID],
+        temporary_to_canonical: dict[ID, ID],
     ) -> str:
-        temporary_chat_id = self._ensure_temporary_id(chat_id)
-        temporary_section_id = self._ensure_temporary_id(section_id)
-        temporary_project_id = self._ensure_temporary_id(project_config_id)
+        def _ensure_temporary_id(value: ID | None) -> ID | None:
+            if value is None:
+                return None
+            return convert_canonical_ids_to_temporary(
+                value,
+                canonical_to_temporary,
+                temporary_to_canonical,
+            )
+
+        temporary_chat_id = _ensure_temporary_id(chat_id)
+        temporary_section_id = _ensure_temporary_id(section_id)
+        temporary_project_id = _ensure_temporary_id(project_config_id)
         lines = [
             "## Agentic Scope Setup",
             "MCP tool calls are scoped to this chat automatically.",
@@ -901,22 +899,6 @@ class ExternalAgentRunner:
             f"- sectionId: {temporary_section_id or 'null'}",
         ]
         return f"{base_prompt}\n\n" + "\n".join(lines)
-
-    def _ensure_temporary_id(self, value: ID | None) -> ID | None:
-        if value is None:
-            return None
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
-        map_size_before = len(canonical_to_temporary)
-        temporary_value = convert_canonical_ids_to_temporary(
-            value,
-            canonical_to_temporary,
-            temporary_to_canonical,
-        )
-        if len(canonical_to_temporary) != map_size_before:
-            self.dbe.write_temporary_id_map(canonical_to_temporary)
-        return temporary_value
 
     @staticmethod
     def _resolve_external_tool_allowlist(

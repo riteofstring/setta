@@ -296,14 +296,17 @@ def build_agentic_section_summary_source(
         project_state, resolved_summary_by_section, section_id
     )
 
-    hashed_payload = f"{section_type}\n{raw_text}".encode("utf-8")
-    content_hash = hashlib.sha256(hashed_payload).hexdigest()
-
     prompt_body = raw_text
     if len(prompt_body) > MAX_SUMMARY_PROMPT_CHARS:
         prompt_body = (
             prompt_body[:MAX_SUMMARY_PROMPT_CHARS].rstrip() + "\n\n[...truncated...]"
         )
+
+    # Cache keys should reflect the *actual* summarization input. The prompt body
+    # is bounded, so edits beyond the truncation window should not thrash the
+    # summary cache.
+    hashed_payload = f"{section_type}\n{prompt_body}".encode("utf-8")
+    content_hash = hashlib.sha256(hashed_payload).hexdigest()
     prompt_text = (
         f"Section: {label}\nType: {section_type}\n\nContent:\n{prompt_body}".strip()
     )

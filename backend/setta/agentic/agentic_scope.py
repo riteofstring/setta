@@ -1,11 +1,9 @@
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from mcp.types import CallToolResult, TextContent
 
 from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
-from setta.mcp.namespacing import split_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, ToolAccessType
 from setta.types.agentic_edges import AgenticEdgeContextMode, AgenticEdgeKind
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -17,8 +15,6 @@ from setta.types.section_impls import (
     MetaControlSectionImpl,
     SectionType,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -117,12 +113,12 @@ def resolve_context_edges(
 
 def check_agentic_scope_for_tool(
     *,
-    tool_name: str | None = None,
     tool_args: dict[str, Any],
     annotations: SettaToolAnnotations | None,
     project_state: ProjectStateSingleConfig,
     scope: AgenticScope,
     temporary_to_canonical: dict[ID, ID] | None = None,
+    code_obj_id_to_section_ids: dict[ID, set[ID]] | None = None,
 ) -> AgenticScopeCheck:
     access_type: ToolAccessType = "structural"
     id_paths_by_type: dict[str, list[str]] = {}
@@ -145,14 +141,19 @@ def check_agentic_scope_for_tool(
     mapped_sections, unmapped_code_objs = _map_code_obj_ids_to_sections(
         project_state,
         code_obj_ids,
+        code_obj_id_to_section_ids=code_obj_id_to_section_ids,
     )
     target_section_ids = section_ids | mapped_sections
     if not target_section_ids and access_type == "write":
-        tool_basename = _normalize_tool_name_for_scope_check(tool_name)
-        if tool_basename in {"set_gen_code_prefix", "set_gen_code_suffix"}:
-            gen_section_id = project_state.singletonSections.GenPythonCode
-            if gen_section_id is not None:
-                target_section_ids = {gen_section_id}
+        default_singleton = (
+            getattr(annotations, "defaultTargetSingletonSection", None)
+            if annotations is not None
+            else None
+        )
+        if isinstance(default_singleton, str) and default_singleton:
+            resolved = getattr(project_state.singletonSections, default_singleton, None)
+            if resolved is not None:
+                target_section_ids = {resolved}
 
     if access_type == "structural":
         allowed = scope.structural_allowed
@@ -212,18 +213,6 @@ def check_agentic_scope_for_tool(
         unmapped_code_obj_ids=unmapped_code_objs,
         reason="allowed" if allowed else "out_of_scope",
     )
-
-
-def _normalize_tool_name_for_scope_check(tool_name: str | None) -> str | None:
-    if tool_name is None:
-        return None
-    normalized = tool_name.strip()
-    if not normalized:
-        return None
-    if normalized.startswith("mcp__"):
-        normalized = normalized[len("mcp__") :]
-    _, base_name = split_namespaced_tool_name(normalized)
-    return base_name
 
 
 def build_missing_edge_hints(
@@ -387,30 +376,37 @@ def _is_chat_section(
 def _map_code_obj_ids_to_sections(
     project_state: ProjectStateSingleConfig,
     code_obj_ids: set[ID],
+    *,
+    code_obj_id_to_section_ids: dict[ID, set[ID]] | None = None,
 ) -> tuple[set[ID], set[ID]]:
     if not code_obj_ids:
         return set(), set()
+    resolved = code_obj_id_to_section_ids or build_code_obj_id_to_section_ids_index(
+        project_state
+    )
+    mapped_sections: set[ID] = set()
+    for code_obj_id in code_obj_ids:
+        sections = resolved.get(code_obj_id)
+        if sections:
+            mapped_sections.update(sections)
+    unmapped = {code_obj_id for code_obj_id in code_obj_ids if code_obj_id not in resolved}
+    return mapped_sections, unmapped
+
+
+def build_code_obj_id_to_section_ids_index(
+    project_state: ProjectStateSingleConfig,
+) -> dict[ID, set[ID]]:
     mapping: dict[ID, set[ID]] = {}
     for section_id in project_state.sections:
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if isinstance(section_impl, BaseSectionWithParamsImpl):
             for code_obj_id in section_impl.codeObjVariantMap:
-                if code_obj_id in code_obj_ids:
-                    mapping.setdefault(code_obj_id, set()).add(section_id)
+                mapping.setdefault(code_obj_id, set()).add(section_id)
         elif isinstance(section_impl, MetaControlSectionImpl):
             for code_obj_id in section_impl.codeObjVariantMap:
-                if code_obj_id in code_obj_ids:
-                    mapping.setdefault(code_obj_id, set()).add(section_id)
+                mapping.setdefault(code_obj_id, set()).add(section_id)
         if isinstance(section_impl, CallableSectionImpl):
-            if (
-                section_impl.callable is not None
-                and section_impl.callable in code_obj_ids
-            ):
-                mapping.setdefault(section_impl.callable, set()).add(section_id)
-    mapped_sections: set[ID] = set()
-    for sections in mapping.values():
-        mapped_sections.update(sections)
-    unmapped = {
-        code_obj_id for code_obj_id in code_obj_ids if code_obj_id not in mapping
-    }
-    return mapped_sections, unmapped
+            callable_id = section_impl.callable
+            if callable_id is not None:
+                mapping.setdefault(callable_id, set()).add(section_id)
+    return mapping

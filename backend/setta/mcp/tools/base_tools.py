@@ -59,7 +59,12 @@ attach_tool_access(
 @setta_init_tool
 def getProjectConfigNamesAndIds(ctx: Context):
     """
-    Return metadata for every known project config so external agents can pick one.
+    Return metadata for every known project config.
+
+    Note: this tool is still subject to agentic scope enforcement when called over
+    MCP transports. If you need an initial projectConfigId, use the HTTP metadata
+    discovery endpoint instead (for example `/loadAllProjectMetadata`) and then
+    set agentic context for MCP calls.
     """
     manager = ctx.fastmcp.state.project_manager_switcher.main
     _, metadata = manager.get_all_project_metadata()

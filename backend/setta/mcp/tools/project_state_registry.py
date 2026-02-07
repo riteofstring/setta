@@ -37,6 +37,7 @@ def project_state_tool(
     tool_argument_preview: ToolArgumentPreviewMetadata | None = None,
     access_type: ToolAccessType | None = None,
     id_paths_by_type: dict[str, list[str]] | None = None,
+    default_target_singleton_section: str | None = None,
     search_tags: list[str] | None = None,
     search_category: str | None = None,
 ):
@@ -61,6 +62,7 @@ def project_state_tool(
                 ToolAccessMetadata(
                     accessType=access_type,
                     idPathsByType=id_paths_by_type or {},
+                    defaultTargetSingletonSection=default_target_singleton_section,
                 ),
             )
         attach_tool_search_tags(tool_fn, search_tags)

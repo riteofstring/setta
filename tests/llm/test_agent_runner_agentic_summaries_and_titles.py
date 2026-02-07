@@ -110,23 +110,46 @@ async def test_agent_runner_generates_and_caches_agentic_section_summaries() -> 
         )
 
         llm_config = _build_llm_config()
-        first, _summary_by_section = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
+        first, summary_by_section, missing = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
             project_state,
             chat_section_id=chat_section_id,
             project_config_id=project_state.projectConfig.id,
             llm_config=llm_config,
         )
-        assert first[context_section_id].startswith("- ")
+        assert first == {}
+        assert missing == [context_section_id]
+        assert runner.summary_calls == 0
+
+        await runner._fill_agentic_summary_cache_for_chat_section(  # type: ignore[attr-defined]
+            project_state,
+            chat_section_id=chat_section_id,
+            project_config_id=project_state.projectConfig.id,
+            llm_config=llm_config,
+            summary_by_section=summary_by_section,
+            missing_section_ids=missing,
+        )
         assert runner.summary_calls == 1
 
         # Second call should be served from cache without generating again.
-        second, _summary_by_section = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
+        second, _summary_by_section, missing2 = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
             project_state,
             chat_section_id=chat_section_id,
             project_config_id=project_state.projectConfig.id,
             llm_config=llm_config,
         )
-        assert second[context_section_id] == first[context_section_id]
+        assert second[context_section_id].startswith("- ")
+        generated_summary = second[context_section_id]
+        assert missing2 == []
+        assert runner.summary_calls == 1
+
+        third, _summary_by_section, missing3 = await runner._resolve_agentic_summary_text_by_section_id(  # type: ignore[attr-defined]
+            project_state,
+            chat_section_id=chat_section_id,
+            project_config_id=project_state.projectConfig.id,
+            llm_config=llm_config,
+        )
+        assert third[context_section_id] == generated_summary
+        assert missing3 == []
         assert runner.summary_calls == 1
 
         cache_payload = read_agentic_summary_cache(dbe)

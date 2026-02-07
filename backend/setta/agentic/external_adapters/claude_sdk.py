@@ -433,9 +433,8 @@ def _build_options(
     if model:
         options["model"] = model
     max_turns = _normalize_max_turns(inputs.get("maxTurns") or inputs.get("max_turns"))
-    if max_turns is None:
-        max_turns = 1
-    options["max_turns"] = max_turns
+    if max_turns is not None:
+        options["max_turns"] = max_turns
     thinking_budget = _extract_thinking_budget(inputs)
     if thinking_budget is not None:
         options["max_thinking_tokens"] = thinking_budget

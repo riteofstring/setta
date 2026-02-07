@@ -207,3 +207,42 @@ def load_cached_agentic_summary_texts_for_chat_section(
         if cached:
             summaries[section_id] = cached
     return summaries
+
+
+def resolve_cached_agentic_summaries_for_chat_section(
+    dbe: DBE,
+    *,
+    project_state: ProjectStateSingleConfig,
+    project_config_id: ID,
+    chat_section_id: ID,
+) -> tuple[dict[ID, str], dict[ID, object] | None, list[ID]]:
+    """Return cached summaries and missing section ids for a chat section.
+
+    This helper is shared between managed LLM runs and external-agent runs to
+    keep cache-key computation (and project summary derivation) consistent.
+    """
+    context_edges = resolve_context_edges(project_state, chat_section_id)
+    summary_section_ids: list[ID] = []
+    for section_id, context_mode in context_edges:
+        if context_mode != AgenticEdgeContextMode.summary:
+            continue
+        if section_id not in project_state.sections:
+            continue
+        summary_section_ids.append(section_id)
+    if not summary_section_ids:
+        return {}, None, []
+
+    project_summary = build_project_state_summary(project_state)
+    summary_by_section = {entry.sectionId: entry for entry in project_summary.sections}
+    cached = load_cached_agentic_summary_texts_for_chat_section(
+        dbe,
+        project_state=project_state,
+        project_config_id=project_config_id,
+        chat_section_id=chat_section_id,
+        summary_by_section=summary_by_section,
+    )
+    missing_section_ids: list[ID] = []
+    for section_id in summary_section_ids:
+        if section_id not in cached:
+            missing_section_ids.append(section_id)
+    return cached, summary_by_section, missing_section_ids

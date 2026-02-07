@@ -50,6 +50,7 @@ from setta.agentic.agentic_scope import (
     AgenticContext,
     AgenticScope,
     AgenticScopeCheck,
+    build_code_obj_id_to_section_ids_index,
     build_missing_edge_hints,
     build_scope_blocked_tool_result,
     check_agentic_scope_for_tool,
@@ -86,9 +87,10 @@ _CATCH_ALL_PATH = "/{full_path:path}"
 
 @dataclass(frozen=True)
 class _CachedAgenticScope:
-    project_state_backend_id: int
+    project_state_revision: int
     project_state_single: object
     scope: AgenticScope
+    code_obj_id_to_section_ids: dict[ID, set[ID]]
 
 
 def _parse_meta_id(value: Any) -> ID | None:
@@ -864,6 +866,7 @@ class SettaFastMCP(FastMCP):
             )
             scope = None
             project_state = None
+            code_obj_id_to_section_ids = None
             if tool_name != "set_agentic_context" and agentic_context is not None:
                 share_session_id = (
                     self._resolve_share_session_id(ctx)
@@ -885,7 +888,7 @@ class SettaFastMCP(FastMCP):
                     share_session_id=share_session_id,
                 )
                 project_state_backend = manager.project_state_backend
-                project_state_backend_id = id(project_state_backend)
+                project_state_revision = manager.history.revision
                 cache_key = (
                     share_session_id,
                     agentic_context.project_config_id,
@@ -899,11 +902,13 @@ class SettaFastMCP(FastMCP):
                     cached_scope = scope_cache.get(cache_key)
                     if (
                         cached_scope is not None
-                        and cached_scope.project_state_backend_id
-                        == project_state_backend_id
+                        and cached_scope.project_state_revision == project_state_revision
                     ):
                         project_state = cached_scope.project_state_single
                         scope = cached_scope.scope
+                        code_obj_id_to_section_ids = (
+                            cached_scope.code_obj_id_to_section_ids
+                        )
                     else:
                         project_state = convert_backend_to_single_config(
                             project_state_backend,
@@ -912,10 +917,14 @@ class SettaFastMCP(FastMCP):
                         scope = resolve_agentic_scope(
                             project_state, agentic_context.section_id
                         )
+                        code_obj_id_to_section_ids = (
+                            build_code_obj_id_to_section_ids_index(project_state)
+                        )
                         scope_cache[cache_key] = _CachedAgenticScope(
-                            project_state_backend_id=project_state_backend_id,
+                            project_state_revision=project_state_revision,
                             project_state_single=project_state,
                             scope=scope,
+                            code_obj_id_to_section_ids=code_obj_id_to_section_ids,
                         )
                         if len(scope_cache) > 8:
                             scope_cache.clear()
@@ -926,6 +935,9 @@ class SettaFastMCP(FastMCP):
                     )
                     scope = resolve_agentic_scope(
                         project_state, agentic_context.section_id
+                    )
+                    code_obj_id_to_section_ids = (
+                        build_code_obj_id_to_section_ids_index(project_state)
                     )
                 logger.debug(
                     "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
@@ -940,12 +952,12 @@ class SettaFastMCP(FastMCP):
                 tool = self._tool_manager.get_tool(tool_name)
                 annotations = tool.annotations if tool else None
                 scope_check = check_agentic_scope_for_tool(
-                    tool_name=tool_name,
                     tool_args=kwargs,
                     annotations=annotations,
                     project_state=project_state,
                     scope=scope,
                     temporary_to_canonical=self.temporary_to_canonical,
+                    code_obj_id_to_section_ids=code_obj_id_to_section_ids,
                 )
                 if not scope_check.allowed:
                     missing_edges = build_missing_edge_hints(

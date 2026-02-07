@@ -172,9 +172,11 @@ def _build_tool_annotations(
     )
     access_type = "structural"
     id_paths_by_type: dict[str, list[str]] = {}
+    default_target_singleton_section: str | None = None
     if tool_access is not None:
         access_type = tool_access.accessType
         id_paths_by_type = dict(tool_access.idPathsByType)
+        default_target_singleton_section = tool_access.defaultTargetSingletonSection
     if not id_paths_by_type and ai_follow_tool_arguments is not None:
         id_paths_by_type = dict(ai_follow_tool_arguments.pathsByIdType)
     return ToolAnnotations.model_validate(
@@ -182,6 +184,7 @@ def _build_tool_annotations(
             settaToolType=tool_type,
             accessType=access_type,
             idPathsByType=id_paths_by_type,
+            defaultTargetSingletonSection=default_target_singleton_section,
             aiFollowToolResult=ai_follow_tool_result,
             aiFollowToolArguments=ai_follow_tool_arguments,
             toolArgumentPreview=tool_argument_preview,
