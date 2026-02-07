@@ -1063,7 +1063,13 @@ function countLongLineRows(rows: string[], marker: string): number {
     if (trimmed.includes(marker)) {
       return true;
     }
-    return /^x+$/.test(trimmed);
+    if (/^x+$/.test(trimmed)) {
+      return true;
+    }
+    // Some terminals (and zsh line editing) can produce wrap continuations that
+    // include prefix characters (digits/underscores) in addition to the x-tail.
+    // Count any row with a sufficiently-long x run as part of the wrapped line.
+    return /x{20,}/.test(trimmed);
   }).length;
 }
 
@@ -1303,7 +1309,14 @@ async function waitForTerminalRowsMarker(
     .poll(
       async () => {
         const rows = await getTerminalRowsSnapshot(page, terminalId);
-        return rows.some((row) => row.includes(marker));
+        // Marker can be split across wrapped rows (no single row contains it).
+        const joined = rows.join("");
+        if (joined.includes(marker)) {
+          return true;
+        }
+        // In some cases the wrapped row ends up with terminal fill whitespace in
+        // the middle of the marker; strip whitespace and try again.
+        return joined.replaceAll(/\s+/g, "").includes(marker);
       },
       { timeout: timeoutMs },
     )
