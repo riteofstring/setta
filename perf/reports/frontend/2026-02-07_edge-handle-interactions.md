@@ -56,3 +56,42 @@ Branch/Commit: style-updates-13-nodes @ 761eb2a1af6fac7f904f0b533ed9216e9ad0f1e9
   - Forced reflow insight reported total reflow time: 429 ms.
 - Raw artifact:
   - `perf/artifacts/2026-02-07_minimize-edge-handles_batch2.trace.json.gz`
+
+## Update (Safe Hover Bridge + Colors)
+
+- Goal:
+  - Make agentic handles easy to "catch" when they render outside the section by
+    providing a trapezoidal safe hover bridge that keeps them visible while the
+    cursor moves from the node to the handle.
+  - Improve light/dark contrast of the handle blue while keeping Tailwind
+    palette alignment (light: `blue-600`, dark: `blue-500`).
+- Measurement method: DevTools Performance trace via `chrome-devtools-mcp`
+  (`performance_start_trace` / `performance_stop_trace`)
+- Scenario:
+  1. Hover a section long enough to enter the exit-animation path.
+  2. Move cursor towards the left/right handle area and back (safe-zone should
+     keep handles visible, without thrashing).
+- Observations:
+  - Forced reflow insight total reflow time: 137 ms (trace includes the broader
+    app; this interaction did not introduce additional obvious layout thrash).
+- Raw artifact:
+  - `perf/artifacts/2026-02-07_agentic-handle-hover-safe-zone.trace.json.gz`
+
+## Update (Bigger Dots + Extra Gap)
+
+- Change:
+  - Agentic handle size: 14px -> 16px (output dot: 10px -> 12px)
+  - Gap from section edge: 6px -> 8px
+  - Safe-zone overhang: 12px -> 16px (safe zone now fully covers the left handle)
+- Measurement method: DevTools Performance trace via `chrome-devtools-mcp`
+  (`performance_start_trace` / `performance_stop_trace`)
+- Scenario:
+  1. Hover multiple sections in quick succession (skim hover + exit).
+  2. Move cursor from node body towards left/right handles (safe-zone path).
+- Observations:
+  - No DevTools insight warnings were emitted for this trace (NO_NAVIGATION set).
+- Raw artifact:
+  - `perf/artifacts/2026-02-07_agentic-handle-hover-safe-zone-v3.trace.json.gz`
+- Visual snapshots:
+  - `perf/artifacts/2026-02-07_agentic-handles-hover-light-v3.png`
+  - `perf/artifacts/2026-02-07_agentic-handles-hover-dark-v3.png`

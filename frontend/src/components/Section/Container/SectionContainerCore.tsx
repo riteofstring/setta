@@ -66,6 +66,11 @@ function _SectionContainerCore({
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const agenticHandleAlign =
+    sectionTypeName === SectionTypeEnum.TextBlock ||
+    sectionTypeName === SectionTypeEnum.Prompt
+      ? "center"
+      : "top";
 
   // const boxShadow = !positionAndSizeLocked
   //   ? isActiveSection
@@ -98,9 +103,12 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`agentic-handle-scope group/card-section relative transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-agentic-handle-align={agenticHandleAlign}
     >
       <AgenticEdgeHandles isUserView={isUserView} />
       <MinimizedDataEdgeHandles sectionId={sectionId} />

@@ -81,5 +81,120 @@ test.describe.serial("agentic handles", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
-});
 
+  test("stays visible while moving through the hover bridge towards the handles", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const sectionId = await createCallableSection(
+        page,
+        projectContext.projectConfigId,
+      );
+
+      const node = page
+        .locator(".react-flow__nodes")
+        .getByTestId(`rf__node-${sectionId}`);
+      await expect(node).toBeVisible();
+
+      await page.getByRole("button", { name: "fit view" }).click();
+
+      const sourceHandle = page.locator(
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+      );
+      const targetHandle = page.locator(
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+      );
+
+      await node.hover();
+      // Ensure we'd normally trigger the exit animation if we actually left the node.
+      await page.waitForTimeout(250);
+
+      await expect
+        .poll(
+          async () => {
+            const [sourceOpacity, targetOpacity] = await Promise.all([
+              sourceHandle.evaluate((el) =>
+                Number.parseFloat(getComputedStyle(el).opacity),
+              ),
+              targetHandle.evaluate((el) =>
+                Number.parseFloat(getComputedStyle(el).opacity),
+              ),
+            ]);
+            return Math.min(sourceOpacity, targetOpacity);
+          },
+          { timeout: 1500 },
+        )
+        .toBeGreaterThanOrEqual(0.95);
+
+      const [nodeBox, sourceBox, targetBox] = await Promise.all([
+        node.boundingBox(),
+        sourceHandle.boundingBox(),
+        targetHandle.boundingBox(),
+      ]);
+      if (!nodeBox || !sourceBox || !targetBox) {
+        throw new Error("Unable to resolve bounding boxes for agentic handles.");
+      }
+
+      const nodeCenterX = nodeBox.x + nodeBox.width / 2;
+      const nodeCenterY = nodeBox.y + nodeBox.height / 2;
+      const targetCenterY = targetBox.y + targetBox.height / 2;
+      const sourceCenterY = sourceBox.y + sourceBox.height / 2;
+
+      // Move into the gap between the node and the handle. The hover bridge
+      // (safe zone) should keep the node in :hover so the handles don't fade.
+      await page.mouse.move(nodeBox.x - 2, targetCenterY);
+      await page.waitForTimeout(80);
+      await expect(
+        node.evaluate((el) => el.classList.contains("agentic-handles--exit")),
+      ).resolves.toBe(false);
+
+      await expect
+        .poll(
+          async () => {
+            const [sourceOpacity, targetOpacity] = await Promise.all([
+              sourceHandle.evaluate((el) =>
+                Number.parseFloat(getComputedStyle(el).opacity),
+              ),
+              targetHandle.evaluate((el) =>
+                Number.parseFloat(getComputedStyle(el).opacity),
+              ),
+            ]);
+            return Math.min(sourceOpacity, targetOpacity);
+          },
+          { timeout: 1000 },
+        )
+        .toBeGreaterThanOrEqual(0.9);
+
+      await page.mouse.move(nodeCenterX, nodeCenterY);
+      await page.waitForTimeout(30);
+
+      await page.mouse.move(nodeBox.x + nodeBox.width + 2, sourceCenterY);
+      await page.waitForTimeout(80);
+      await expect(
+        node.evaluate((el) => el.classList.contains("agentic-handles--exit")),
+      ).resolves.toBe(false);
+
+      await expect
+        .poll(
+          async () => {
+            const [sourceOpacity, targetOpacity] = await Promise.all([
+              sourceHandle.evaluate((el) =>
+                Number.parseFloat(getComputedStyle(el).opacity),
+              ),
+              targetHandle.evaluate((el) =>
+                Number.parseFloat(getComputedStyle(el).opacity),
+              ),
+            ]);
+            return Math.min(sourceOpacity, targetOpacity);
+          },
+          { timeout: 1000 },
+        )
+        .toBeGreaterThanOrEqual(0.9);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+});

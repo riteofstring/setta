@@ -176,7 +176,7 @@ function AreaSwitch({
   bgColor: string;
   isMinimized: boolean;
 }) {
-  if (isMinimized && sectionTypeName !== SectionTypeEnum.Callable) {
+  if (isMinimized) {
     return null;
   }
   switch (sectionTypeName) {

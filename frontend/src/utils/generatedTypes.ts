@@ -7411,6 +7411,8 @@ export const SettingsGUISchema = z.object({
   gridPatternSize: z.int().default(2),
   gridColor: z.string().default("#afbacf" as const),
   gridColorDarkMode: z.string().default("#2b364a" as const),
+  wireColor: z.string().default("#41506c" as const),
+  wireColorDarkMode: z.string().default("#bac2d3" as const),
   defaultZoomLevel: z.number().default(1.0),
   minZoom: z.number().default(0.1),
   maxZoom: z.number().default(10.0),

@@ -107,14 +107,14 @@ function SectionSearchCore({
     let lastMeasuredHeight: number | null = null;
     let pendingAgenticHandleFrame: number | null = null;
     const updateAgenticHandleTop = () => {
-      const reactFlowNode = node.closest(".react-flow__node");
-      if (!(reactFlowNode instanceof HTMLElement)) {
+      const handleScope = node.closest(".agentic-handle-scope");
+      if (!(handleScope instanceof HTMLElement)) {
         return;
       }
       let centerY = node.offsetHeight / 2;
       let el: HTMLElement | null = node;
       for (let i = 0; i < 20; i += 1) {
-        if (el === reactFlowNode) {
+        if (el === handleScope) {
           break;
         }
         centerY += el.offsetTop;
@@ -125,20 +125,20 @@ function SectionSearchCore({
         }
         el = next;
       }
-      if (el !== reactFlowNode) {
-        const nodeRect = reactFlowNode.getBoundingClientRect();
+      if (el !== handleScope) {
+        const nodeRect = handleScope.getBoundingClientRect();
         const searchRect = node.getBoundingClientRect();
         centerY = searchRect.top - nodeRect.top + searchRect.height / 2;
       }
       const nextTopPx = Math.round(centerY);
       const nextTopCss = `${nextTopPx}px`;
-      const currentTopCss = reactFlowNode.style
+      const currentTopCss = handleScope.style
         .getPropertyValue("--agentic-handle-top")
         .trim();
       if (currentTopCss === nextTopCss) {
         return;
       }
-      reactFlowNode.style.setProperty("--agentic-handle-top", nextTopCss);
+      handleScope.style.setProperty("--agentic-handle-top", nextTopCss);
       scheduleEdgeHandlePositionUpdate([sectionId]);
     };
     const updateHeight = () => {
@@ -173,10 +173,6 @@ function SectionSearchCore({
         cancelAnimationFrame(pendingAgenticHandleFrame);
       }
       useTemporaryMiscState.setState({ [heightKey]: 0 });
-      const reactFlowNode = node.closest(".react-flow__node");
-      if (reactFlowNode instanceof HTMLElement) {
-        reactFlowNode.style.removeProperty("--agentic-handle-top");
-      }
     };
   }, [heightKey]);
 

@@ -13,6 +13,19 @@
   }
 }
 
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: var(--setta-wire-color, #b1b1b7);
+}
+
+.react-flow__edge:hover .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path,
+.react-flow__edge.selected .react-flow__edge-path {
+  /* blue-500 */
+  stroke: #3b82f6;
+}
+
 .react-flow__node.selectable {
   &:focus,
   &:focus-visible {
@@ -77,11 +90,17 @@
   box-sizing: border-box;
   width: 10px;
   height: 10px;
+  z-index: 40; /* above resize handles (z-20) */
 
   transition:
     background-color 80ms ease-out,
     border-color 80ms ease-out,
     box-shadow 80ms ease-out;
+}
+
+.react-flow__handle.arg-edge-handle.arg-edge-handle--selecting {
+  pointer-events: all;
+  cursor: pointer;
 }
 
 .react-flow__handle.arg-edge-handle.react-flow__handle-left {
@@ -104,44 +123,51 @@ html.dark .react-flow__handle {
   border-color: hsl(220, 25%, 11%);
 }
 
+.agentic-handle-scope {
+  /* Reset per-section so nested sections don't inherit from their parent. */
+  --agentic-handle-top: 50%;
+}
+
+.agentic-handle-scope[data-agentic-handle-align="top"] {
+  --agentic-handle-top: 32px;
+}
+
+.agentic-handle-metrics {
+  /* blue-600 (more contrast on light backgrounds) */
+  --agentic-handle-accent: #2563eb;
+  --agentic-handle-size: 16px;
+  /* ~ tailwind m-1 */
+  --agentic-handle-gap: 8px;
+  --agentic-handle-safe-overhang: 16px;
+  --agentic-handle-safe-y-pad: 12px;
+  --agentic-handle-ring-width: 2px;
+  --agentic-handle-fade-in-duration: 70ms;
+  --agentic-handle-fade-out-duration: 80ms;
+  --agentic-handle-exit-delay: 220ms;
+}
+
+html.dark .agentic-handle-metrics {
+  /* blue-500 (more vivid on dark backgrounds) */
+  --agentic-handle-accent: #3b82f6;
+}
+
 .react-flow__handle.arg-edge-handle:hover {
   /* blue-500 */
   background-color: #3b82f6;
+  border-color: #3b82f6;
 }
 
 .react-flow__handle.arg-edge-handle:active {
   /* cyan-300 */
   background-color: #67e8f9;
-}
-
-html.dark .react-flow__handle.arg-edge-handle:hover {
-  /* blue-400 */
-  background-color: #60a5fa;
-}
-
-html.dark .react-flow__handle.arg-edge-handle:active {
-  /* cyan-300 */
-  background-color: #67e8f9;
+  border-color: #67e8f9;
 }
 
 .react-flow__handle.agentic-handle {
-  /* blue-500 */
-  --agentic-handle-accent: #3b82f6;
-  --agentic-handle-size: 10px;
-  /* ~ tailwind m-1 */
-  --agentic-handle-gap: 4px;
-  --agentic-handle-ring-width: 2px;
   --agentic-handle-inner-size: calc(
     var(--agentic-handle-size) - (2 * var(--agentic-handle-ring-width))
   );
   --agentic-handle-render-size: var(--agentic-handle-size);
-  --agentic-handle-exit-opacity-from: 1;
-  --agentic-handle-exit-opacity-half: 0.5;
-  --agentic-handle-fade-in-duration: 70ms;
-  --agentic-handle-fade-out-duration: 80ms;
-  --agentic-handle-exit-to-half-duration: 60ms;
-  --agentic-handle-exit-hold-duration: 100ms;
-  --agentic-handle-exit-to-zero-duration: 80ms;
 
   width: var(--agentic-handle-render-size);
   height: var(--agentic-handle-render-size);
@@ -160,12 +186,8 @@ html.dark .react-flow__handle.arg-edge-handle:active {
     visibility 0s linear var(--agentic-handle-fade-out-duration);
 }
 
-.react-flow__handle.agentic-handle:not(.connectable) {
-  --agentic-handle-exit-opacity-from: 0.45;
-  --agentic-handle-exit-opacity-half: 0.25;
-}
-
 .react-flow__node:hover .react-flow__handle.agentic-handle,
+.react-flow__node.agentic-handles--active .react-flow__handle.agentic-handle,
 .react-flow__handle.agentic-handle.agentic-handle--connected {
   opacity: 1;
   visibility: visible;
@@ -177,6 +199,8 @@ html.dark .react-flow__handle.arg-edge-handle:active {
 }
 
 .react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow__node.agentic-handles--active
+  .react-flow__handle.agentic-handle:not(.connectable),
 .react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
   opacity: 0.45;
   pointer-events: none;
@@ -184,58 +208,18 @@ html.dark .react-flow__handle.arg-edge-handle:active {
 
 .react-flow__node.agentic-handles--exit
   .react-flow__handle.agentic-handle:not(.agentic-handle--connected) {
-  opacity: var(--agentic-handle-exit-opacity-from);
-  visibility: visible;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: none;
-  animation:
-    agentic-handle-exit-to-half var(--agentic-handle-exit-to-half-duration)
-      ease-out 0ms forwards,
-    agentic-handle-exit-hold var(--agentic-handle-exit-hold-duration) linear
-      var(--agentic-handle-exit-to-half-duration) forwards,
-    agentic-handle-exit-to-zero var(--agentic-handle-exit-to-zero-duration)
-      ease-out
+  transition:
+    opacity var(--agentic-handle-fade-out-duration) ease-out
+      var(--agentic-handle-exit-delay),
+    visibility 0s linear
       calc(
-        var(--agentic-handle-exit-to-half-duration) +
-          var(--agentic-handle-exit-hold-duration)
-      )
-      forwards;
-}
-
-@keyframes agentic-handle-exit-to-half {
-  from {
-    opacity: var(--agentic-handle-exit-opacity-from);
-    visibility: visible;
-  }
-
-  to {
-    opacity: var(--agentic-handle-exit-opacity-half);
-    visibility: visible;
-  }
-}
-
-@keyframes agentic-handle-exit-hold {
-  from {
-    opacity: var(--agentic-handle-exit-opacity-half);
-    visibility: visible;
-  }
-
-  to {
-    opacity: var(--agentic-handle-exit-opacity-half);
-    visibility: visible;
-  }
-}
-
-@keyframes agentic-handle-exit-to-zero {
-  from {
-    opacity: var(--agentic-handle-exit-opacity-half);
-    visibility: visible;
-  }
-
-  to {
-    opacity: 0;
-    visibility: hidden;
-  }
+        var(--agentic-handle-exit-delay) +
+          var(--agentic-handle-fade-out-duration)
+      );
+  animation: none;
 }
 
 .react-flow__handle.agentic-handle.agentic-handle--target {
@@ -264,9 +248,31 @@ html.dark .react-flow__handle.arg-edge-handle:active {
   top: var(--agentic-handle-top, 50%);
 }
 
-html.dark .react-flow__handle.agentic-handle {
-  /* blue-400 */
-  --agentic-handle-accent: #60a5fa;
+.agentic-handle-safe-zone {
+  position: absolute;
+  top: var(--agentic-handle-top, 50%);
+  transform: translateY(-50%);
+  width: calc(var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang));
+  height: calc(
+    var(--agentic-handle-size) + (2 * var(--agentic-handle-safe-y-pad))
+  );
+  z-index: 159;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.agentic-handle-safe-zone--left {
+  left: calc(
+    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
+  );
+  clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
+}
+
+.agentic-handle-safe-zone--right {
+  right: calc(
+    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
+  );
+  clip-path: polygon(0 0, 100% 35%, 100% 65%, 0 100%);
 }
 
 .react-flow__agentic-edge-path {

@@ -18,6 +18,7 @@ export const arrowKeyDiffs: Record<string, Position> = {
 };
 
 const AGENTIC_HANDLES_EXIT_CLASS = "agentic-handles--exit";
+const AGENTIC_HANDLES_ACTIVE_CLASS = "agentic-handles--active";
 // If the user is just skimming across a node, we skip the linger animation so
 // the handles fade out immediately.
 const AGENTIC_HANDLES_MIN_HOVER_FOR_EXIT_ANIMATION_MS = 200;
@@ -60,6 +61,7 @@ const _NodeWrapper = ({
     <div
       onPointerEnter={() => {
         agenticHandlesHoverStartMsRef.current = performance.now();
+        nodeRef.current?.classList.add(AGENTIC_HANDLES_ACTIVE_CLASS);
         nodeRef.current?.classList.remove(AGENTIC_HANDLES_EXIT_CLASS);
       }}
       onPointerLeave={() => {
@@ -69,6 +71,7 @@ const _NodeWrapper = ({
         if (startMs === null || !nodeEl) {
           return;
         }
+        nodeEl.classList.remove(AGENTIC_HANDLES_ACTIVE_CLASS);
         const hoveredMs = performance.now() - startMs;
         if (hoveredMs < AGENTIC_HANDLES_MIN_HOVER_FOR_EXIT_ANIMATION_MS) {
           nodeEl.classList.remove(AGENTIC_HANDLES_EXIT_CLASS);

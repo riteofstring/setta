@@ -37,6 +37,8 @@ import {
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
   getUnpinnedParamsAreaHeightKey,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+  SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
@@ -420,17 +422,13 @@ function EdgesStrip({
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
   const selectedParamIdSet = new Set(selectedParams);
   const canConnect = canEditStructure && !isSelectingParams;
-
-  const handlePortMouseDownCapture = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isSelectingParams) {
-        return;
-      }
-      e.stopPropagation();
-      e.preventDefault();
-    },
-    [isSelectingParams],
-  );
+  const handlePreventSectionClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
+  const rowPreventSectionClassName = isSelectingParams
+    ? handlePreventSectionClassName
+    : "";
+  const handleSelectableClassName = isSelectingParams
+    ? "arg-edge-handle--selecting"
+    : "";
 
   useLayoutEffect(() => {
     if (!hasEdges) {
@@ -533,8 +531,14 @@ function EdgesStrip({
                   selectedParamIdSet.has(port.id)
                     ? "active:!bg-cyan-300 !bg-blue-700 !text-white"
                     : "text-setta-600 dark:text-setta-200"
-                } ${isSelectingParams ? "cursor-pointer" : ""}`}
-                onMouseDownCapture={handlePortMouseDownCapture}
+                } ${isSelectingParams ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
+                onMouseDown={(e) => {
+                  if (!isSelectingParams) {
+                    return;
+                  }
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
                 onClick={(e) => {
                   if (!isSelectingParams) {
                     return;
@@ -554,7 +558,14 @@ function EdgesStrip({
                   isConnectable={canConnect}
                   isConnectableStart={canConnect}
                   isConnectableEnd={canConnect}
-                  className="arg-edge-handle arg-edge-handle--target"
+                  className={`arg-edge-handle arg-edge-handle--target ${handlePreventSectionClassName} ${handleSelectableClassName}`}
+                  onClick={(e) => {
+                    if (!isSelectingParams) {
+                      return;
+                    }
+                    e.stopPropagation();
+                    toggleParamSelected(sectionId, port.id);
+                  }}
                 />
                 <span className="truncate">{port.label}</span>
               </div>
@@ -587,7 +598,7 @@ function EdgesStrip({
                   isConnectable={canConnect}
                   isConnectableStart={canConnect}
                   isConnectableEnd={canConnect}
-                  className="arg-edge-handle arg-edge-handle--source"
+                  className={`arg-edge-handle arg-edge-handle--source ${handlePreventSectionClassName}`}
                 />
               </div>
             ))}

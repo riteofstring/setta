@@ -229,7 +229,7 @@ test.describe.serial("minimized callable edge handles", () => {
       });
 
       const search = sectionBNode.locator("search.section-search");
-      await expect(search).toBeVisible();
+      await expect(search).toHaveCount(0);
 
       // Minimized view should hide the individual port handles, but keep edges
       // connected by routing all ports to one dot on each side.
@@ -284,30 +284,22 @@ test.describe.serial("minimized callable edge handles", () => {
       await expect(agenticTarget).toBeVisible();
       await expect(agenticSource).toBeVisible();
 
-      // All collapsed connection points should be centered on the callable input.
+      // All collapsed connection points should share a common vertical center.
       await expect
         .poll(
           async () => {
-            const [searchBox, leftBox, rightBox, agenticLeft, agenticRight] =
+            const [leftBox, rightBox, agenticLeft, agenticRight] =
               await Promise.all([
-                search.boundingBox(),
                 minimizedLeftDot.boundingBox(),
                 minimizedRightDot.boundingBox(),
                 agenticTarget.boundingBox(),
                 agenticSource.boundingBox(),
               ]);
-            if (
-              !searchBox ||
-              !leftBox ||
-              !rightBox ||
-              !agenticLeft ||
-              !agenticRight
-            ) {
+            if (!leftBox || !rightBox || !agenticLeft || !agenticRight) {
               return 999;
             }
-            const searchCenterY = searchBox.y + searchBox.height / 2;
+            const searchCenterY = leftBox.y + leftBox.height / 2;
             const centers = [
-              leftBox.y + leftBox.height / 2,
               rightBox.y + rightBox.height / 2,
               agenticLeft.y + agenticLeft.height / 2,
               agenticRight.y + agenticRight.height / 2,

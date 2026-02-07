@@ -92,12 +92,7 @@ test.describe.serial("edge input args", () => {
       );
       await expect(handle).toBeVisible();
 
-      const isDark = await page.evaluate(() => {
-        return document.documentElement.classList.contains("dark");
-      });
-      const expectedHoverBlue = isDark
-        ? "rgb(96, 165, 250)" // blue-400
-        : "rgb(59, 130, 246)"; // blue-500
+      const expectedHoverBlue = "rgb(59, 130, 246)"; // blue-500
       const expectedActiveCyan = "rgb(103, 232, 249)"; // cyan-300
 
       await handle.hover();
