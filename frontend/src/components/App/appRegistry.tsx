@@ -224,6 +224,35 @@ function Grid({ element, children }: AppComponentProps) {
   );
 }
 
+function Container({ element, children }: AppComponentProps) {
+  const props = element.props ?? {};
+  const className = typeof props.className === "string" ? props.className : "";
+  const maxWidth = typeof props.maxWidth === "number" ? props.maxWidth : null;
+  const style: React.CSSProperties = {};
+  if (maxWidth !== null) {
+    style.maxWidth = `${maxWidth}px`;
+  }
+  return (
+    <div className={`mx-auto w-full ${className}`.trim()} style={style}>
+      {children}
+    </div>
+  );
+}
+
+function Spacer({ element }: AppComponentProps) {
+  const props = element.props ?? {};
+  const className = typeof props.className === "string" ? props.className : "";
+  const size = typeof props.size === "number" ? props.size : 16;
+  const axis = props.axis === "x" ? "x" : "y";
+  const style: React.CSSProperties = { flexShrink: 0 };
+  if (axis === "x") {
+    style.width = `${size}px`;
+  } else {
+    style.height = `${size}px`;
+  }
+  return <div className={className} style={style} aria-hidden="true" />;
+}
+
 function Card({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -1338,6 +1367,8 @@ export const appRegistry: Record<
   Stack,
   Box,
   Grid,
+  Container,
+  Spacer,
   Card,
   ConfigScope,
   Tabs,

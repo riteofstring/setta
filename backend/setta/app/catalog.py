@@ -72,6 +72,25 @@ APP_CATALOG: JSONValue = {
             "children": True,
         },
         {
+            "type": "Container",
+            "description": "Center content and constrain its max width.",
+            "props": {
+                "maxWidth": {"type": "number", "min": 320, "max": 1600, "default": 1024},
+                "className": {"type": "string"},
+            },
+            "children": True,
+        },
+        {
+            "type": "Spacer",
+            "description": "Fixed-size spacer for layout.",
+            "props": {
+                "size": {"type": "number", "min": 0, "max": 200, "default": 16},
+                "axis": {"type": "string", "enum": ["x", "y"], "default": "y"},
+                "className": {"type": "string"},
+            },
+            "children": False,
+        },
+        {
             "type": "Card",
             "description": "Framed container for grouping related fields.",
             "props": {
