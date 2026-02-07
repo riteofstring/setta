@@ -18,7 +18,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.artifact import BrushStroke, BrushStrokeArtifact, DrawAreaBrushShape
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketConnectionType
 from tests.utils.runtime_context import runtime_context
 
@@ -30,7 +30,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "deployments"
+        / "share_deployments"
         / project_config_name
         / deployment_version
     )
@@ -52,10 +52,9 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -207,7 +206,7 @@ class TestShareArtifactRoutes:
             )
             dbe = DBE(root)
             dbe.write_json(
-                root / "policy.json",
+                root / "share_policy.json",
                 SharePolicy(allowParamChanges=False).model_dump(),
             )
             state = await self._build_state(root)

@@ -172,17 +172,15 @@ class SettaFastAPIState:
         app,
         *,
         share_mode: bool = False,
-        app_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
-        self.app_mode = app_mode
-        self.share_mode = share_mode or app_mode
+        self.share_mode = share_mode
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
-        self.share_deployment_root = self._resolve_deployment_root(
-            self.share_mode, share_deployment_root
+        self.share_deployment_root = self._resolve_share_deployment_root(
+            share_mode, share_deployment_root
         )
         self.share_runtime_root = self._resolve_share_runtime_root(
             self.share_deployment_root
@@ -275,10 +273,7 @@ class SettaFastAPIState:
         self.run_chain_runner: RunChainRunner = self._defer_attr("run_chain_runner")
 
         self.init_status = BackendInitializationStatus()
-        if self.app_mode:
-            mode_label = "app"
-        else:
-            mode_label = "share" if self.share_mode else "backend"
+        mode_label = "share" if self.share_mode else "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
@@ -503,10 +498,10 @@ class SettaFastAPIState:
             WMHPythonScriptReceiver,
         )
 
-        self.init_status.record("Loading deployment")
+        self.init_status.record("Loading share deployment")
         await self._maybe_delay()
         if self.share_deployment_root is None:
-            raise ValueError("Deployment root must be set in deployment mode")
+            raise ValueError("Share deployment root must be set in share mode")
         self.share_session_store = MemorySessionStore(
             ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
         )
@@ -605,16 +600,16 @@ class SettaFastAPIState:
         await self._initialization_task
         await self._ready_event.wait()
 
-    def _resolve_deployment_root(
-        self, deployment_mode: bool, deployment_root: Path | None
+    def _resolve_share_deployment_root(
+        self, share_mode: bool, share_deployment_root: Path | None
     ) -> Path | None:
-        if not deployment_mode:
+        if not share_mode:
             return None
-        if deployment_root is None:
-            raise ValueError("Deployment mode requires a deployment root")
-        resolved = deployment_root.expanduser().resolve()
+        if share_deployment_root is None:
+            raise ValueError("Share mode requires a share deployment root")
+        resolved = share_deployment_root.expanduser().resolve()
         if not resolved.exists():
-            raise FileNotFoundError(f"Deployment root does not exist: {resolved}")
+            raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
         DBE(resolved).read_project_required()
         return resolved
 
@@ -623,23 +618,24 @@ class SettaFastAPIState:
     ) -> Path | None:
         if not self.share_mode or share_deployment_root is None:
             return None
-        manifest = DBE(share_deployment_root).read_deployment_manifest_optional()
+        manifest = DBE(share_deployment_root).read_share_manifest_optional()
         if manifest is None:
             raise FileNotFoundError(
-                f"Deployment manifest not found: {share_deployment_root / 'manifest.json'}"
+                f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"
             )
         deployment_name = manifest.deploymentName
         deployment_version = manifest.deploymentVersion
-        deployments_root = share_deployment_root.parent.parent
-        if deployments_root.name == "deployments":
-            # For roots like <parent>/deployments/<name>/<version>, store runtime
-            # under <parent>/deployment_runtime/<name>/<version>.
-            base_root = deployments_root.parent
+        share_deployments_root = share_deployment_root.parent.parent
+        if share_deployments_root.name == "share_deployments":
+            default_share_root = C.SHARE_DEPLOYMENTS_FOLDER.resolve()
+            if share_deployments_root.resolve() == default_share_root:
+                base_root = default_share_root.parent
+            else:
+                base_root = share_deployments_root
         else:
-            # For arbitrary roots, store runtime under <deployment_root_parent>/deployment_runtime/...
             base_root = share_deployment_root.parent
         runtime_root = (
-            base_root / "deployment_runtime" / deployment_name / deployment_version
+            base_root / "share_runtime" / deployment_name / deployment_version
         ).resolve()
         runtime_root.mkdir(parents=True, exist_ok=True)
         return runtime_root

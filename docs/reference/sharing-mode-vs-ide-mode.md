@@ -1,6 +1,6 @@
 # Sharing Mode vs IDE Mode
 
-Setta has three runtime modes. IDE mode is the full interactive editor. Share mode serves a read-only deployment snapshot with per-viewer sessions and policy gates. App mode serves a JSON-render app deployment snapshot with the same session + policy model.
+Setta has two runtime modes. IDE mode is the full interactive editor. Share mode serves a read-only deployment snapshot with per-viewer sessions and policy gates.
 
 ## Quick comparison
 - IDE mode: full editing, LSP, settings + project management, auth-protected, writes to `setta_files`.
@@ -8,7 +8,7 @@ Setta has three runtime modes. IDE mode is the full interactive editor. Share mo
 
 ## IDE mode (default)
 - Started with `setta` (CLI group default).
-- Backend uses `setta_files/` for DBE storage (`project.json`, settings, artifacts, code, notifications).
+- Backend uses `setta_files/` for DBE storage (`project.json`, settings, backups, artifacts, code, notifications).
 - AuthMiddleware + bootstrap token flow; CLI and frontend websockets are enabled.
 - LSP servers, MCP server/client, watchers, and LLM config edits are enabled.
 - Project managers use `SessionPersistenceMode.ide_main` and `SessionPersistenceMode.ide_settings`, persisting to disk.
@@ -24,19 +24,19 @@ Setta has three runtime modes. IDE mode is the full interactive editor. Share mo
 - The frontend connects over `/share/frontend`; CLI websockets are disabled.
 
 ## Share deployment anatomy
-- Default location: `setta_files/deployments/<deploymentName>/vN/`.
+- Default location: `setta_files/share_deployments/<deploymentName>/vN/`.
 - Files:
   - `manifest.json` (deploymentName, deploymentVersion, defaultProjectConfigId, optional listener config).
   - `project.json` (project snapshot).
-  - `policy.json` (policy flags; defaults if missing).
+  - `share_policy.json` (share policy flags; defaults if missing).
 - Folders:
   - `artifacts/`, `json_sources/`, `code/`.
   - Optional `listener/app.py` if you publish a listener entrypoint.
 - Publishing a deployment copies referenced artifacts/code/json sources into the deployment root and rewrites project state paths to be deployment-relative.
 
 ## Share runtime root
-- If the deployment is under `.../deployments/<deploymentName>/<version>/`, runtime data is stored in `.../deployment_runtime/<deploymentName>/<version>/`.
-- If you run from a custom deployment root not under a `deployments/` folder, the runtime folder is created at `<deployment_root_parent>/deployment_runtime/<deploymentName>/<version>/`.
+- If the deployment is under `setta_files/share_deployments`, runtime data is stored in `setta_files/share_runtime/<deploymentName>/<version>/`.
+- If you run from a custom deployment root, the runtime folder is created at `<deployment_root_parent>/share_runtime/<deploymentName>/<version>/`.
 - Run snapshots and share runtime DB locks live under this runtime root.
 
 ## Share session lifecycle
@@ -49,7 +49,7 @@ Setta has three runtime modes. IDE mode is the full interactive editor. Share mo
 - Missing/unknown sessions return 400/404 on HTTP or close websockets with codes 4400/4404.
 
 ## Policy and enforcement
-- `policy.json` controls:
+- `share_policy.json` controls:
   - `allowParamChanges`, `allowVariantChanges`, `allowLayoutChanges`.
   - `allowRun`, `allowLLM`.
   - `runSnapshotMode` (`ephemeral` or `always`; `never` is rejected for share deployments).
@@ -59,7 +59,7 @@ Setta has three runtime modes. IDE mode is the full interactive editor. Share mo
 ## Runtime behavior in share mode
 - Per-session state is an in-memory copy of the deployment snapshot; updates are scoped to a session and never written back to `project.json`.
 - Artifact updates are cached in memory and broadcast only to the active share session; filesystem access is restricted to `artifacts/`, `json_sources/`, and `code/` under the deployment root.
-- Runs always use snapshot files under `deployment_runtime/.../share_runs/<shareSessionId>/...`; terminal input is disabled in share mode.
+- Runs always use snapshot files under `share_runtime/.../share_runs/<shareSessionId>/...`; terminal input is disabled in share mode.
 - If `runSnapshotMode=ephemeral`, a cleanup loop deletes old run outputs (30 minute TTL). `always` keeps run outputs.
 - LLM is only available when `allowLLM=true`; share mode uses `ShareChatManager` with an in-memory chat store and no MCP tools.
 - If `manifest.json` defines a listener entrypoint and it is enabled, a listener is started per share session; listener emits are gated by `allowParamChanges`.
@@ -82,5 +82,5 @@ Point your browser or reverse proxy to `http://<host>:8000`.
 
 ### Example 3: Run from a custom deployment root
 ```
-setta share --deployment-root /opt/setta/deployments/demo-share/v5 --host 0.0.0.0 --port 8000
+setta share --deployment-root /opt/setta/share_deployments/demo-share/v5 --host 0.0.0.0 --port 8000
 ```

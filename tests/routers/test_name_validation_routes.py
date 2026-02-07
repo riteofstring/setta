@@ -68,7 +68,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     run_mcp_folder = run_folder / "mcp"
     run_secrets_folder = run_folder / "secrets"
     detached_runs_folder = run_folder / "detached_runs"
-    deployments_folder = setta_root / "deployments"
+    share_deployments_folder = setta_root / "share_deployments"
 
     for path in (
         code_folder,
@@ -79,7 +79,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         run_mcp_folder,
         run_secrets_folder,
         detached_runs_folder,
-        deployments_folder,
+        share_deployments_folder,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -96,7 +96,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
         "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
         "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
+        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
 
     C.SETTA_FILES_FOLDER = setta_root
@@ -109,7 +109,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     C.RUNTIME_MCP_FOLDER = run_mcp_folder
     C.RUNTIME_SECRETS_FOLDER = run_secrets_folder
     C.DETACHED_RUNS_FOLDER = detached_runs_folder
-    C.DEPLOYMENTS_FOLDER = deployments_folder
+    C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
 
     try:
         yield setta_root
@@ -124,7 +124,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         C.RUNTIME_MCP_FOLDER = previous_values["RUNTIME_MCP_FOLDER"]
         C.RUNTIME_SECRETS_FOLDER = previous_values["RUNTIME_SECRETS_FOLDER"]
         C.DETACHED_RUNS_FOLDER = previous_values["DETACHED_RUNS_FOLDER"]
-        C.DEPLOYMENTS_FOLDER = previous_values["DEPLOYMENTS_FOLDER"]
+        C.SHARE_DEPLOYMENTS_FOLDER = previous_values["SHARE_DEPLOYMENTS_FOLDER"]
 
 
 async def _build_state() -> SettaFastAPIState:
