@@ -1,5 +1,3 @@
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
 from fastapi import Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -16,8 +14,6 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
-
-BACKEND_ORIGIN_QUERY_PARAM = "__setta_backend_origin"
 
 BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -315,8 +311,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
       (function () {
         const redirectUrl = "__SETTA_REDIRECT_URL__";
-        const workspaceHistoryKey = "setta.workspaceHistory";
-        const workspaceHistoryLimit = 6;
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");
@@ -328,86 +322,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 
         function setError(message) {
           errorEl.textContent = message || "";
-        }
-
-        function decodeBase64Url(value) {
-          let base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-          while (base64.length % 4) {
-            base64 += "=";
-          }
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let idx = 0; idx < binary.length; idx++) {
-            bytes[idx] = binary.charCodeAt(idx);
-          }
-          if (typeof TextDecoder !== "undefined") {
-            return new TextDecoder().decode(bytes);
-          }
-          let output = "";
-          for (let idx = 0; idx < bytes.length; idx++) {
-            output += String.fromCharCode(bytes[idx]);
-          }
-          return output;
-        }
-
-        function mergeWorkspaceHistory(incoming, existing) {
-          const seen = new Set();
-          const merged = [];
-          const combined = [].concat(incoming || [], existing || []);
-          for (let idx = 0; idx < combined.length; idx++) {
-            const entry = combined[idx];
-            try {
-              const key = JSON.stringify(entry);
-              if (seen.has(key)) {
-                continue;
-              }
-              seen.add(key);
-              merged.push(entry);
-            } catch {
-              /* ignore */
-            }
-          }
-          merged.sort(function (a, b) {
-            const left = a && typeof a.lastUsedAt === "number" ? a.lastUsedAt : 0;
-            const right = b && typeof b.lastUsedAt === "number" ? b.lastUsedAt : 0;
-            return right - left;
-          });
-          return merged.slice(0, workspaceHistoryLimit);
-        }
-
-        function hydrateWorkspaceHistoryFromHash() {
-          try {
-            const hash = window.location.hash.slice(1);
-            if (!hash) {
-              return;
-            }
-            const params = new URLSearchParams(hash);
-            const encoded = params.get("wh");
-            if (!encoded) {
-              return;
-            }
-            const decoded = decodeBase64Url(encoded);
-            const incoming = JSON.parse(decoded);
-            if (!Array.isArray(incoming)) {
-              return;
-            }
-            let existing = null;
-            try {
-              const rawExisting = localStorage.getItem(workspaceHistoryKey);
-              if (rawExisting) {
-                const parsed = JSON.parse(rawExisting);
-                if (Array.isArray(parsed)) {
-                  existing = parsed;
-                }
-              }
-            } catch {
-              /* ignore */
-            }
-            const merged = mergeWorkspaceHistory(incoming, existing);
-            localStorage.setItem(workspaceHistoryKey, JSON.stringify(merged));
-          } catch {
-            /* ignore */
-          }
         }
 
         function readTokenFromUrl() {
@@ -447,8 +361,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           });
         });
 
-        hydrateWorkspaceHistoryFromHash();
-
         const urlToken = readTokenFromUrl();
         if (urlToken) {
           input.value = urlToken;
@@ -474,45 +386,22 @@ def _bearer_token_from_header(
     return extract_bearer_token_value(authorization)
 
 
-def _request_origin(request: Request) -> str:
-    return f"{request.url.scheme}://{request.url.netloc}"
-
-
-def _append_query_param(url: str, *, key: str, value: str) -> str:
-    parts = urlsplit(url)
-    query = parse_qsl(parts.query, keep_blank_values=True)
-    query.append((key, value))
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            parts.path,
-            urlencode(query),
-            parts.fragment,
-        )
-    )
-
-
-def _bootstrap_redirect_url(request: Request) -> str:
+def _bootstrap_redirect_url() -> str:
     if not IS_DEV_MODE:
         return "/"
-    hostname = request.url.hostname or C.HOST
-    host = format_host_for_url(hostname)
-    redirect_url = f"{request.url.scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
-    return _append_query_param(
-        redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
-    )
+    host = format_host_for_url(C.HOST)
+    return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
 
 
-def _render_bootstrap_html(request: Request) -> str:
+def _render_bootstrap_html() -> str:
     return BOOTSTRAP_HTML_TEMPLATE.replace(
-        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url()
     )
 
 
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)
-async def route_bootstrap_page(request: Request) -> str:
-    return _render_bootstrap_html(request)
+async def route_bootstrap_page() -> str:
+    return _render_bootstrap_html()
 
 
 @router.post(Route.BOOTSTRAP_CONSUME)

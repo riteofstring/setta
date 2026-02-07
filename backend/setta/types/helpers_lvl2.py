@@ -144,8 +144,7 @@ from setta.utils.name_validation import (
     validate_project_name,
     validate_section_name,
 )
-from setta.utils.paths import normalize_workspace_path
-from setta.utils.utils import insert_into_array, move_item_in_array
+from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -2099,7 +2098,7 @@ def delete_section_variant_or_ask(
     core = p.sections[sectionId]
     variant, _, impl = get_variant_base_and_effective_section_impl(p, core, variantId)
     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-        return normalize_workspace_path(variant.name)
+        return normalize_path(variant.name)
     delete_section_variant(p, sectionId, variantId)
 
 
@@ -2304,7 +2303,7 @@ def set_code_file_binding(
     p: "ProjectStateSingleConfig", sectionId: ID, binding: CodeFileBinding
 ):
     normalized_binding = CodeFileBinding(
-        canonical_path=normalize_workspace_path(binding.canonical_path),
+        canonical_path=normalize_path(binding.canonical_path),
         access_mode=binding.access_mode,
         autoBinding=binding.autoBinding,
     )
@@ -2917,8 +2916,6 @@ def set_chat_section_state(
             inputText=state.inputText,
             waitingForResponse=state.waitingForResponse,
             toolCallArguments=state.toolCallArguments,
-            activeBranchId=state.activeBranchId,
-            branches=state.branches,
         ),
     )
 
