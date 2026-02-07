@@ -5,19 +5,13 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from setta.agentic.node_runtime import resolve_node_command
 
 
 class TestOpenCodeQuestionMap:
     def test_resolves_question_id_from_tool_call(self) -> None:
-        node_command = resolve_node_command(None)
-        node_path = shutil.which(node_command) or (
-            node_command if Path(node_command).exists() else None
-        )
+        node_path = shutil.which("node")
         if node_path is None:
-            pytest.fail(
-                "node executable not found; ensure it is installed and on PATH."
-            )
+            pytest.skip("node executable not found")
 
         module_path = (
             Path(__file__).resolve().parents[2]

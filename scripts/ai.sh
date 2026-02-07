@@ -102,8 +102,6 @@ export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
 export DEBUG_PORT
 export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
-# Avoid clobbering repo-root backend.log, which start.sh/reset.sh use.
-export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then
