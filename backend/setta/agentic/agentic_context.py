@@ -1,7 +1,6 @@
+import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
-
-import hashlib
 
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.types.agentic_edges import AgenticEdgeContextMode
@@ -173,7 +172,9 @@ def _extract_section_text(
         chart_settings = getattr(section_impl, "chartSettings", None)
         chart_type = getattr(chart_settings, "type", None)
         if chart_type is not None:
-            value = chart_type.value if hasattr(chart_type, "value") else str(chart_type)
+            value = (
+                chart_type.value if hasattr(chart_type, "value") else str(chart_type)
+            )
             value = value.strip()
             if value:
                 lines.append(f"chartType: {value}")
@@ -267,13 +268,10 @@ def build_agentic_section_summary_source(
     prompt_body = raw_text
     if len(prompt_body) > MAX_SUMMARY_PROMPT_CHARS:
         prompt_body = (
-            prompt_body[:MAX_SUMMARY_PROMPT_CHARS].rstrip()
-            + "\n\n[...truncated...]"
+            prompt_body[:MAX_SUMMARY_PROMPT_CHARS].rstrip() + "\n\n[...truncated...]"
         )
     prompt_text = (
-        f"Section: {label}\n"
-        f"Type: {section_type}\n\n"
-        f"Content:\n{prompt_body}".strip()
+        f"Section: {label}\nType: {section_type}\n\nContent:\n{prompt_body}".strip()
     )
     return AgenticSectionSummarySource(
         section_id=section_id,

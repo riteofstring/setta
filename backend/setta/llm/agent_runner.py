@@ -16,16 +16,16 @@ from setta.agentic.agentic_context import (
     build_agentic_context_payload,
     build_agentic_section_summary_source,
 )
+from setta.agentic.agentic_scope import (
+    AgenticContext,
+    AgenticScope,
+    resolve_agentic_scope,
+    resolve_context_edges,
+)
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
     load_cached_agentic_summary_texts_for_chat_section,
     write_cached_agentic_summary,
-)
-from setta.agentic.agentic_scope import (
-    AgenticContext,
-    AgenticScope,
-    resolve_context_edges,
-    resolve_agentic_scope,
 )
 from setta.agentic.chat_titles import (
     build_chat_title_input,
@@ -941,7 +941,9 @@ class AgentRunner:
                 llm_config=context.llm_config,
             )
         )
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
         map_size_before = len(canonical_to_temporary)
 
         def _format_section_id(entry: ID) -> str:
