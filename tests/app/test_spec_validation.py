@@ -4,197 +4,188 @@ from setta.app.catalog import APP_CATALOG_ID
 from setta.app.spec_validation import validate_app_spec
 
 
-def _spec(elements: dict[str, dict], root_key: str = "root") -> dict:
-    return {"root": root_key, "elements": elements}
-
-
-def test_param_input_requires_binding() -> None:
-    spec = _spec(
-        {
+class TestAppSpecValidation:
+    def test_rejects_param_input_without_binding(self) -> None:
+        app_spec = {
             "root": {
-                "key": "root",
-                "type": "Stack",
-                "children": ["param"],
-            },
-            "param": {
                 "key": "param",
                 "type": "ParamInput",
                 "props": {"label": "Missing"},
             },
+            "elements": {},
         }
-    )
 
-    with pytest.raises(ValueError, match="ParamInput requires sectionId"):
-        validate_app_spec(spec, catalog_id=APP_CATALOG_ID)
+        with pytest.raises(ValueError, match="ParamInput requires sectionId and paramId"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
 
-
-def test_param_input_allows_data_path_binding() -> None:
-    spec = _spec(
-        {
+    def test_allows_param_input_binding_from_props(self) -> None:
+        app_spec = {
             "root": {
-                "key": "root",
-                "type": "Stack",
-                "children": ["param"],
-            },
-            "param": {
-                "key": "param",
-                "type": "ParamInput",
-                "props": {"dataPath": "/params", "label": "Bound"},
-            },
-        }
-    )
-    data_bindings = {"params": {"sectionId": "section-1", "paramId": "param-1"}}
-
-    validate_app_spec(
-        spec,
-        catalog_id=APP_CATALOG_ID,
-        data_bindings=data_bindings,
-    )
-
-
-def test_multi_config_requires_scoped_elements() -> None:
-    spec = _spec(
-        {
-            "root": {
-                "key": "root",
-                "type": "Stack",
-                "children": ["scope-a", "scope-b", "param"],
-            },
-            "scope-a": {
-                "key": "scope-a",
-                "type": "ConfigScope",
-                "props": {"configId": "config-a"},
-                "children": [
-                    {
-                        "key": "text-a",
-                        "type": "Text",
-                        "props": {"text": "Alpha"},
-                    }
-                ],
-            },
-            "scope-b": {
-                "key": "scope-b",
-                "type": "ConfigScope",
-                "props": {"configId": "config-b"},
-                "children": [
-                    {
-                        "key": "text-b",
-                        "type": "Text",
-                        "props": {"text": "Beta"},
-                    }
-                ],
-            },
-            "param": {
                 "key": "param",
                 "type": "ParamInput",
                 "props": {
                     "sectionId": "section-1",
                     "paramId": "param-1",
-                    "label": "Unscoped",
+                    "label": "Bound",
                 },
             },
+            "elements": {},
         }
-    )
 
-    with pytest.raises(ValueError, match="uses multiple configs"):
-        validate_app_spec(spec, catalog_id=APP_CATALOG_ID)
+        validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
 
-
-def test_multi_config_all_scoped_ok() -> None:
-    spec = _spec(
-        {
+    def test_rejects_multi_config_without_scope(self) -> None:
+        app_spec = {
             "root": {
                 "key": "root",
                 "type": "Stack",
-                "children": ["scope-a", "scope-b"],
-            },
-            "scope-a": {
-                "key": "scope-a",
-                "type": "ConfigScope",
-                "props": {"configId": "config-a"},
                 "children": [
                     {
-                        "key": "param-a",
-                        "type": "ParamInput",
-                        "props": {
-                            "sectionId": "section-a",
-                            "paramId": "param-a",
-                            "label": "A",
-                        },
-                    }
+                        "key": "scope-a",
+                        "type": "ConfigScope",
+                        "props": {"configId": "config-a"},
+                        "children": [
+                            {
+                                "key": "output-a",
+                                "type": "TextOutput",
+                                "props": {"sectionId": "section-a"},
+                            }
+                        ],
+                    },
+                    {
+                        "key": "scope-b",
+                        "type": "ConfigScope",
+                        "props": {"configId": "config-b"},
+                        "children": [
+                            {
+                                "key": "output-b",
+                                "type": "TextOutput",
+                                "props": {"sectionId": "section-b"},
+                            }
+                        ],
+                    },
+                    # Unscoped element should be rejected once multiple configs are used.
+                    {
+                        "key": "unscoped-output",
+                        "type": "TextOutput",
+                        "props": {"sectionId": "section-unscoped"},
+                    },
                 ],
             },
-            "scope-b": {
-                "key": "scope-b",
-                "type": "ConfigScope",
-                "props": {"configId": "config-b"},
+            "elements": {},
+        }
+
+        with pytest.raises(ValueError, match="multiple configs"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
+    def test_allows_multi_config_when_scoped(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "root",
+                "type": "Stack",
                 "children": [
                     {
-                        "key": "param-b",
-                        "type": "ParamInput",
-                        "props": {
-                            "sectionId": "section-b",
-                            "paramId": "param-b",
-                            "label": "B",
-                        },
-                    }
+                        "key": "scope-a",
+                        "type": "ConfigScope",
+                        "props": {"configId": "config-a"},
+                        "children": [
+                            {
+                                "key": "output-a",
+                                "type": "TextOutput",
+                                "props": {"sectionId": "section-a"},
+                            }
+                        ],
+                    },
+                    {
+                        "key": "scope-b",
+                        "type": "ConfigScope",
+                        "props": {"configId": "config-b"},
+                        "children": [
+                            {
+                                "key": "output-b",
+                                "type": "TextOutput",
+                                "props": {"sectionId": "section-b"},
+                            }
+                        ],
+                    },
                 ],
             },
+            "elements": {},
         }
-    )
 
-    validate_app_spec(spec, catalog_id=APP_CATALOG_ID)
+        validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
 
-
-def test_multiple_run_buttons_require_additional_action() -> None:
-    spec = _spec(
-        {
+    def test_rejects_multiple_run_buttons_without_multiple_run_actions(self) -> None:
+        app_spec = {
             "root": {
                 "key": "root",
                 "type": "Stack",
-                "children": ["run-a", "run-b"],
+                "children": [
+                    {
+                        "key": "run-1",
+                        "type": "ActionButton",
+                        "props": {"label": "Run", "action": "run"},
+                    },
+                    {
+                        "key": "run-2",
+                        "type": "ActionButton",
+                        "props": {"label": "Run again", "action": "run"},
+                    },
+                ],
             },
-            "run-a": {
-                "key": "run-a",
-                "type": "ActionButton",
-                "props": {"label": "Run A", "action": "run"},
-            },
-            "run-b": {
-                "key": "run-b",
-                "type": "ActionButton",
-                "props": {"label": "Run B", "action": "run"},
-            },
+            "elements": {},
         }
-    )
 
-    with pytest.raises(ValueError, match="only include one run action"):
-        validate_app_spec(spec, catalog_id=APP_CATALOG_ID)
+        with pytest.raises(ValueError, match="only include one run action"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
 
-
-def test_multiple_run_buttons_allowed_with_run_action_definition() -> None:
-    spec = _spec(
-        {
+    def test_allows_multiple_run_buttons_with_multiple_run_actions(self) -> None:
+        app_spec = {
             "root": {
                 "key": "root",
                 "type": "Stack",
-                "children": ["run-a", "run-b"],
+                "children": [
+                    {
+                        "key": "run-1",
+                        "type": "ActionButton",
+                        "props": {"label": "Run", "action": "run"},
+                    },
+                    {
+                        "key": "run-2",
+                        "type": "ActionButton",
+                        "props": {"label": "Run extra", "action": "run2"},
+                    },
+                ],
             },
-            "run-a": {
-                "key": "run-a",
-                "type": "ActionButton",
-                "props": {"label": "Run A", "action": "run"},
-            },
-            "run-b": {
-                "key": "run-b",
-                "type": "ActionButton",
-                "props": {"label": "Run B", "action": "runSecondary"},
-            },
+            "elements": {},
         }
-    )
-    action_definitions = {"runSecondary": {"type": "run"}}
 
-    validate_app_spec(
-        spec,
-        catalog_id=APP_CATALOG_ID,
-        action_definitions=action_definitions,
-    )
+        validate_app_spec(
+            app_spec,
+            catalog_id=APP_CATALOG_ID,
+            action_definitions={"run2": {"type": "run"}},
+        )
+
+    def test_allows_param_binding_from_data_bindings(self) -> None:
+        app_spec = {
+            "root": {
+                "key": "param",
+                "type": "ParamInput",
+                "props": {"dataPath": "/params/name"},
+            },
+            "elements": {},
+        }
+        bindings = {
+            "params": {
+                "name": {
+                    "sectionId": "section-1",
+                    "paramId": "param-1",
+                }
+            }
+        }
+
+        validate_app_spec(
+            app_spec,
+            catalog_id=APP_CATALOG_ID,
+            data_bindings=bindings,
+        )

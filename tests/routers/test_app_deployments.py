@@ -31,7 +31,6 @@ def _override_share_deployments_root(root: Path):
 
 async def _set_app_definition(
     project_root: Path,
-    project_config_id: str,
     manager,
     *,
     app_spec_payload: dict,
@@ -46,6 +45,24 @@ async def _set_app_definition(
         update={"appDefinition": AppDefinition(appSpecPath=absolute_path)}
     )
     return absolute_path
+
+
+async def _set_app_definition_relative(
+    project_root: Path,
+    manager,
+    *,
+    app_spec_payload: dict,
+    app_spec_path: str | None = None,
+) -> str:
+    """Simulate the normal IDE storage format: appSpecPath relative to setta_files."""
+    resolved_path = app_spec_path or default_app_spec_path()
+    dbe = DBE(project_root)
+    write_app_spec(dbe, resolved_path, app_spec_payload)
+
+    manager.project_state_backend = manager.project_state_backend.model_copy(
+        update={"appDefinition": AppDefinition(appSpecPath=resolved_path)}
+    )
+    return resolved_path
 
 
 class TestAppDeploymentPublish:
@@ -138,7 +155,6 @@ class TestAppDeploymentPublish:
             }
             await _set_app_definition(
                 project_fixture.setta_root,
-                project_config_id,
                 project_fixture.manager,
                 app_spec_payload=app_spec_payload,
             )
@@ -194,3 +210,53 @@ class TestAppDeploymentPublish:
             )
             assert share_policy.allowRun is False
             assert share_policy.allowParamChanges is True
+
+    async def test_publishes_app_deployment_with_relative_app_spec_path(self) -> None:
+        async with (
+            real_project_manager() as project_fixture,
+            real_settings_manager() as settings_fixture,
+        ):
+            project_config_id = (
+                project_fixture.manager.project_state_backend.defaultProjectConfigId
+            )
+            if project_config_id is None:
+                pytest.fail("Expected a default project config id for publishing.")
+
+            app_spec_payload = {
+                "root": {"key": "root", "type": "Stack"},
+                "elements": {},
+            }
+            stored_path = await _set_app_definition_relative(
+                project_fixture.setta_root,
+                project_fixture.manager,
+                app_spec_payload=app_spec_payload,
+                app_spec_path="app_specs/custom.json",
+            )
+
+            switcher = ProjectManagerSwitcher(
+                main_manager=project_fixture.manager,
+                settings_manager=settings_fixture.manager,
+            )
+            state = SimpleNamespace(
+                dbe=project_fixture.dbe,
+                project_manager_switcher=switcher,
+                share_mode=False,
+            )
+
+            deployments_root = project_fixture.setta_root / "share_deployments"
+            with _override_share_deployments_root(deployments_root):
+                metadata = await route_publish_app_deployment(
+                    PublishAppDeploymentRequest(
+                        deploymentName="app-deployment",
+                        projectConfigId=project_config_id,
+                    ),
+                    state,
+                )
+
+            deployment_dbe = DBE(metadata.deploymentRoot)
+            snapshot = deployment_dbe.read_project_required()
+            assert snapshot.appDefinition is not None
+            assert snapshot.appDefinition.appSpecPath == stored_path
+            deployed_spec_path = metadata.deploymentRoot / stored_path
+            assert deployed_spec_path.exists()
+            assert deployment_dbe.read_json(deployed_spec_path) == app_spec_payload

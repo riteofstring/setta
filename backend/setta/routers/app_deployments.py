@@ -114,16 +114,32 @@ def _resolve_source_path(path_str: str) -> Path:
     return (CWD / source_path).resolve()
 
 
+def _resolve_relative_to_root(path_str: str, root: Path) -> Path:
+    """Resolve a path that is stored relative to a known root.
+
+    App specs are stored relative to the Setta DB root (setta_files) in IDE mode,
+    so publishing needs to resolve them against that root rather than CWD.
+    """
+    source_path = Path(path_str)
+    if source_path.is_absolute():
+        return source_path
+    return (root / source_path).resolve()
+
+
 def _external_filename(source_path: Path) -> Path:
     digest = compute_md5_prefix(str(source_path), 8)
     stem = source_path.stem or "file"
     return Path(f"{stem}_{digest}{source_path.suffix}")
 
 
-def _app_spec_target_path(source_path: Path, app_specs_root: Path) -> Path:
-    app_specs_folder = (CWD / C.APP_SPECS_FOLDER).resolve()
-    if source_path.is_relative_to(app_specs_folder):
-        return app_specs_root / source_path.relative_to(app_specs_folder)
+def _app_spec_target_path(
+    source_path: Path,
+    app_specs_root: Path,
+    *,
+    source_app_specs_root: Path,
+) -> Path:
+    if source_path.is_relative_to(source_app_specs_root):
+        return app_specs_root / source_path.relative_to(source_app_specs_root)
     return app_specs_root / _external_filename(source_path)
 
 
@@ -144,13 +160,20 @@ def _copy_app_spec_path(
     app_specs_root: Path,
     deployment_root: Path,
     path_map: dict[str, str],
+    *,
+    source_root: Path,
 ) -> str:
     if not path_str:
         return path_str
     if path_str in path_map:
         return path_map[path_str]
-    source_path = _resolve_source_path(path_str)
-    target_path = _app_spec_target_path(source_path, app_specs_root)
+    source_path = _resolve_relative_to_root(path_str, source_root)
+    source_app_specs_root = (source_root / "app_specs").resolve()
+    target_path = _app_spec_target_path(
+        source_path,
+        app_specs_root,
+        source_app_specs_root=source_app_specs_root,
+    )
     _copy_file(source_path, target_path)
     rebased = _app_relative_path(target_path, deployment_root)
     path_map[path_str] = rebased
@@ -630,6 +653,7 @@ async def route_publish_app_deployment(
             app_specs_root,
             deployment_root,
             {},
+            source_root=state.dbe.path,
         )
         snapshot.appDefinition = snapshot.appDefinition.model_copy(
             update={"appSpecPath": rebased_path}
