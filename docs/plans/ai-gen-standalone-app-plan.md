@@ -30,7 +30,7 @@ Setta currently has IDE mode (full editor) and Share mode (snapshot + policy gat
 - Add a "Generate App" entry that opens project chat with the app generator prompt.
 - Add a "Publish App Deployment" flow similar to Share deployments.
 - In App mode, the UI loads directly into a standard page layout that does not include Overview, UI Editor, or the ReactFlow canvas.
-- App mode should allow minimal param editing and a single "Run" action out of the box, with richer customization via the app spec.
+- Provide Create Default and Generate App flows to bootstrap a minimal app spec, with richer customization via the app spec.
 - Provide a config selector for preview context when the app spec targets multiple configs.
 
 ## App Definition (Global)
