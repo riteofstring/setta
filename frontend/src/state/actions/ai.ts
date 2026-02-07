@@ -3,6 +3,7 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   clearChatStreamActive,
   isChatStreamActive,
@@ -16,6 +17,8 @@ import {
   ToolArgumentPreviewEntry,
   ToolArgumentPreviewProjectState,
   useAIStore,
+  useAppDefinition,
+  useAppPreview,
   useProjectState,
   useToolArgumentPreview,
   type ZustandProjectState,
@@ -53,6 +56,7 @@ import {
   AgentRunStatusEnum,
   AllLLMConfigs,
   APIKeys,
+  AppDefinition,
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatFileAttachment,
@@ -82,6 +86,7 @@ import {
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
+  ToolChatMessage,
   ToolResultEvent,
   UpdateAgentProfileRequestInput,
   UpdateEngineConfigRequestInput,
@@ -835,6 +840,7 @@ function applyStreamingChunkToSection(
     return;
   }
   if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
+    maybeApplyAppDefinitionToolResult(chunk.result);
     persistChatSectionState({
       sectionId,
       nextState,
@@ -1096,6 +1102,73 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
 }
 
+const APP_DEFINITION_TOOL_NAMES = new Set([
+  "setta__set_app_definition",
+  "setta__update_app_definition",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractToolStructuredContent(
+  toolResult: unknown,
+): Record<string, unknown> | null {
+  if (!isRecord(toolResult)) {
+    return null;
+  }
+  const structured = toolResult.structuredContent;
+  if (!structured) {
+    return null;
+  }
+  if (!isRecord(structured)) {
+    return null;
+  }
+  return structured;
+}
+
+function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
+  const toolName =
+    typeof toolMessage.tool_name === "string" ? toolMessage.tool_name : null;
+  if (!toolName || !APP_DEFINITION_TOOL_NAMES.has(toolName)) {
+    return;
+  }
+  if (toolMessage.is_error) {
+    return;
+  }
+  const structured = extractToolStructuredContent(toolMessage.result);
+  if (!structured) {
+    return;
+  }
+  const hasSpec = Object.prototype.hasOwnProperty.call(structured, "appSpec");
+  const hasDefinition = Object.prototype.hasOwnProperty.call(
+    structured,
+    "appDefinition",
+  );
+  if (!hasSpec && !hasDefinition) {
+    return;
+  }
+
+  const nextSpec = hasSpec ? (structured.appSpec as unknown) : undefined;
+  const nextDefinition = hasDefinition
+    ? (structured.appDefinition as unknown)
+    : undefined;
+
+  useAppDefinition.setState((state) => ({
+    appSpec: nextSpec === undefined ? state.appSpec : (nextSpec ?? null),
+    appDefinition:
+      nextDefinition === undefined
+        ? state.appDefinition
+        : ((nextDefinition ?? null) as AppDefinition | null),
+  }));
+  useAppPreview.setState({
+    previewSpecOverride: undefined,
+    previewThemeOverride: undefined,
+    previewAssetsOverride: undefined,
+  });
+  addTemporaryNotification("App spec updated.");
+}
+
 function handleToolResult(chatId: string, chunk: ToolResultEvent) {
   updateChatDetails(chatId, (details) => {
     return {
@@ -1107,6 +1180,7 @@ function handleToolResult(chatId: string, chunk: ToolResultEvent) {
     getCurrProjectConfigId(),
     chunk.result.tool_call_id,
   );
+  maybeApplyAppDefinitionToolResult(chunk.result);
 }
 
 function handleMessageStop(chatId: string) {
