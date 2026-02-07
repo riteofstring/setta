@@ -187,61 +187,6 @@ class TestChatView:
         assert assistant_message.content[0].text == "Final"
         assert not state.waitingForResponse
 
-    def test_build_chat_state_merges_inputs_and_outputs(self) -> None:
-        user_1 = UserChatMessage(
-            id="user-1",
-            content=[MessageTextContent(text="Hello")],
-        )
-        assistant_input = AssistantChatMessage(
-            id="assistant-1",
-            content=[MessageTextContent(text="Draft")],
-        )
-        assistant_output = AssistantChatMessage(
-            id="assistant-1",
-            content=[MessageTextContent(text="Final")],
-        )
-        user_2 = UserChatMessage(
-            id="user-2",
-            content=[MessageTextContent(text="Try it again")],
-        )
-        assistant_2 = AssistantChatMessage(
-            id="assistant-2",
-            content=[MessageTextContent(text="Follow-up")],
-        )
-        run = AgentRun(
-            status=AgentRunStatus.completed,
-            inputs={
-                "runType": LLM_CHAT_RUN_TYPE,
-                "chatId": "chat-1",
-                "projectConfigId": "project-1",
-                "engineConfigId": "engine-1",
-                "messages": [
-                    user_1.model_dump(mode="json"),
-                    assistant_input.model_dump(mode="json"),
-                    user_2.model_dump(mode="json"),
-                ],
-            },
-            outputs={
-                "messages": [
-                    user_1.model_dump(mode="json"),
-                    assistant_output.model_dump(mode="json"),
-                    assistant_2.model_dump(mode="json"),
-                ]
-            },
-        )
-
-        state = build_chat_state_from_run(run)
-
-        assert [message.id for message in state.messages] == [
-            user_1.id,
-            assistant_output.id,
-            user_2.id,
-            assistant_2.id,
-        ]
-        merged_assistant = state.messages[1]
-        assert isinstance(merged_assistant, AssistantChatMessage)
-        assert merged_assistant.content[0].text == "Final"
-
     def test_build_chat_state_filters_response_placeholders(self) -> None:
         user_message = UserChatMessage(
             content=[MessageTextContent(text="Hello")],

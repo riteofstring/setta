@@ -10,7 +10,7 @@ from setta.llm.agent_runner import AgentRunner
 from setta.llm.config import load_llm_config
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_state_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -41,7 +41,7 @@ class LLMConfigWatcher:
         async def fn(_core_update: FileWatcherCoreUpdate):
             await self._reload_config()
 
-        normalized_path = normalize_path(self.dbe.llm_config)
+        normalized_path = normalize_state_path(self.dbe.llm_config)
         callbacks: CallbacksDict = {normalized_path: fn}
         self.specific_file_watcher.update_callbacks(
             callbacks,
