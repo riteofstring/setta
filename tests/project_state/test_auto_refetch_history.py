@@ -1,5 +1,6 @@
 import asyncio
-from contextlib import ExitStack, suppress
+import os
+from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -34,7 +35,6 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-from tests.utils.setta_paths import temporary_setta_paths
 
 class AutoRefetchHistoryManager(BaseProjectManager):
     def __init__(
@@ -175,18 +175,13 @@ class TestAutoRefetchHistory:
     async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
-        self._stack = ExitStack()
-        self._stack.enter_context(
-            temporary_setta_paths(
-                workspace_root=root,
-                setta_files_root=root / "setta_files",
-            )
-        )
+        self._old_cwd = Path.cwd()
+        os.chdir(root)
 
-        self.setta_root = C.SETTA_FILES_FOLDER
-        self.code_folder = C.CODE_FOLDER
-        self.artifacts_folder = C.ARTIFACTS_FOLDER
-        self.backup_folder = C.DB_BACKUP_FOLDER
+        self.setta_root = (Path.cwd() / C.SETTA_FILES_FOLDER).resolve()
+        self.code_folder = (Path.cwd() / C.CODE_FOLDER).resolve()
+        self.artifacts_folder = (Path.cwd() / C.ARTIFACTS_FOLDER).resolve()
+        self.backup_folder = (Path.cwd() / C.DB_BACKUP_FOLDER).resolve()
 
         for path in (self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
@@ -243,6 +238,8 @@ class TestAutoRefetchHistory:
 
         yield
 
+        if Path.cwd() != self._old_cwd:
+            os.chdir(self._old_cwd)
         self.manager.autosave_debouncer.cancel()
         self.manager.autosave_debouncer.cancel_pending()
         self.manager.queue_task.cancel()
@@ -250,7 +247,6 @@ class TestAutoRefetchHistory:
             await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
-        self._stack.close()
         self._tmpdir.cleanup()
 
     async def test_auto_refetch_skipped_does_not_add_history(self):
