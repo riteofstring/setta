@@ -276,18 +276,33 @@ def _stop_pid(pid: int, *, expected_create_time: float | None = None) -> None:
             return
     try:
         proc.terminate()
-    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.Error):
+    except (
+        psutil.NoSuchProcess,
+        psutil.ZombieProcess,
+        psutil.AccessDenied,
+        psutil.Error,
+    ):
         return
     try:
         proc.wait(timeout=2)
         return
     except psutil.TimeoutExpired:
         pass
-    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.Error):
+    except (
+        psutil.NoSuchProcess,
+        psutil.ZombieProcess,
+        psutil.AccessDenied,
+        psutil.Error,
+    ):
         return
     try:
         proc.kill()
-    except (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied, psutil.Error):
+    except (
+        psutil.NoSuchProcess,
+        psutil.ZombieProcess,
+        psutil.AccessDenied,
+        psutil.Error,
+    ):
         return
     try:
         proc.wait(timeout=2)

@@ -37,7 +37,9 @@ function fromBase64Url(value: string): Uint8Array {
   return bytes;
 }
 
-function parsePendingWorkspaceLaunch(candidate: unknown): PendingWorkspaceLaunch | null {
+function parsePendingWorkspaceLaunch(
+  candidate: unknown,
+): PendingWorkspaceLaunch | null {
   if (!candidate || typeof candidate !== "object") {
     return null;
   }
@@ -73,7 +75,10 @@ export function encodePendingWorkspaceLaunchForUrlHash(
     const encoder = new TextEncoder();
     return toBase64Url(encoder.encode(json));
   } catch (error) {
-    console.warn("Failed to encode pending workspace launch for URL hash", error);
+    console.warn(
+      "Failed to encode pending workspace launch for URL hash",
+      error,
+    );
     return null;
   }
 }
@@ -101,7 +106,10 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
     window.location.hash = params.toString();
     return pending;
   } catch (error) {
-    console.warn("Failed to decode pending workspace launch from URL hash", error);
+    console.warn(
+      "Failed to decode pending workspace launch from URL hash",
+      error,
+    );
     return null;
   }
 }
@@ -213,7 +221,10 @@ export function consumeOpenWorkspaceSwitcherRequest(): boolean {
         return raw === "1" || raw.toLowerCase() === "true";
       }
     } catch (error) {
-      console.warn("Failed to consume workspace switcher request from URL", error);
+      console.warn(
+        "Failed to consume workspace switcher request from URL",
+        error,
+      );
     }
   }
 

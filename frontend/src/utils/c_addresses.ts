@@ -58,8 +58,8 @@ export class C_ADDRESSES {
   static get LAUNCHER_ORIGIN() {
     if (this.DEV_MODE) {
       const fallback =
-        this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE ??
         this.DEV_BACKEND_ORIGIN_OVERRIDE ??
+        this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE ??
         `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
       return getOrInitLauncherOrigin(fallback);
     }

@@ -664,5 +664,7 @@ async def route_bootstrap_consume(
         )
 
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    set_auth_cookie(response, auth_cookie, session_id=session_metadata.id, request=request)
+    set_auth_cookie(
+        response, auth_cookie, session_id=session_metadata.id, request=request
+    )
     return {"status": "ok"}

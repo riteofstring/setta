@@ -147,8 +147,13 @@ export function WorkspaceSwitcherModal() {
         setError("Failed to encode launch request.");
         return;
       }
-      const url = new URL(WORKSPACE_LAUNCH_ROUTER_PATH, C_ADDRESSES.LAUNCHER_ORIGIN);
-      const params = new URLSearchParams(url.hash.startsWith("#") ? url.hash.slice(1) : url.hash);
+      const url = new URL(
+        WORKSPACE_LAUNCH_ROUTER_PATH,
+        C_ADDRESSES.LAUNCHER_ORIGIN,
+      );
+      const params = new URLSearchParams(
+        url.hash.startsWith("#") ? url.hash.slice(1) : url.hash,
+      );
       params.set("pl", encoded);
       url.hash = params.toString();
       closeModal();

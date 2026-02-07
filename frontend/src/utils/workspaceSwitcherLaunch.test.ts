@@ -115,7 +115,8 @@ describe("workspaceSwitcherLaunch", () => {
       "http://localhost/?__setta_open_workspace_switcher=1#hash";
 
     expect(consumeOpenWorkspaceSwitcherRequest()).toBe(true);
-    expect(windowStub.location.href).not.toContain("__setta_open_workspace_switcher");
+    expect(windowStub.location.href).not.toContain(
+      "__setta_open_workspace_switcher",
+    );
   });
 });
-

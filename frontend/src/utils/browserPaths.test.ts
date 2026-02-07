@@ -12,4 +12,3 @@ describe("resolvePathWithinRoot", () => {
     expect(resolvePathWithinRoot("../etc", "/tmp/work")).toBeNull();
   });
 });
-
