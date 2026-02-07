@@ -3895,7 +3895,7 @@ const AgenticEdgeSchema = z.object({
   selected: z.boolean().default(false),
 });
 
-type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
+export type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
 
 export function createAgenticEdge(
   options: Partial<AgenticEdge> = {},
