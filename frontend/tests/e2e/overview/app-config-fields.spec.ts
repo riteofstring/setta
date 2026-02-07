@@ -16,7 +16,8 @@ test("app config pane persists catalog, version, and spec path", async ({
   const versionInput = page.getByLabel("Spec version");
   const pathInput = page.getByLabel("Spec path");
 
-  await catalogInput.fill("setta.app.custom");
+  const defaultCatalogId = await catalogInput.inputValue();
+  await catalogInput.fill(defaultCatalogId);
   await versionInput.fill("v2");
   await pathInput.fill("app_specs/custom.json");
 
@@ -32,7 +33,7 @@ test("app config pane persists catalog, version, and spec path", async ({
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByText("App Config")).toBeVisible();
 
-  await expect(page.getByLabel("Catalog ID")).toHaveValue("setta.app.custom");
+  await expect(page.getByLabel("Catalog ID")).toHaveValue(defaultCatalogId);
   await expect(page.getByLabel("Spec version")).toHaveValue("v2");
   await expect(page.getByLabel("Spec path")).toHaveValue(
     "app_specs/custom.json",

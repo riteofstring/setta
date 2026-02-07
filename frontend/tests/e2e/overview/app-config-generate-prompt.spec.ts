@@ -13,11 +13,25 @@ test("app config generate button seeds project chat prompt", async ({
   const catalogId = await page.getByLabel("Catalog ID").inputValue();
   await page.getByRole("button", { name: "Generate App" }).click();
 
-  const visibleTextareas = page.locator("textarea:visible");
-  await expect(visibleTextareas).toHaveCount(1);
-  const prompt = await visibleTextareas.first().inputValue();
+  await page.waitForFunction(() => {
+    return Array.from(document.querySelectorAll("textarea")).some((node) =>
+      node.value.includes(
+        "Generate a JSON Render app spec using the catalog below.",
+      ),
+    );
+  });
+  const prompt = await page.evaluate(() => {
+    const match = Array.from(document.querySelectorAll("textarea")).find(
+      (node) =>
+        node.value.includes(
+          "Generate a JSON Render app spec using the catalog below.",
+        ),
+    );
+    return match?.value ?? "";
+  });
   expect(prompt).toContain(
-    `Generate a JSON Render app spec using catalog "${catalogId}".`,
+    "Generate a JSON Render app spec using the catalog below.",
   );
+  expect(prompt).toContain(`Catalog: ${catalogId}`);
   expect(prompt).toContain("Output format should be a UITree object");
 });

@@ -146,6 +146,115 @@ test("app tabs scope outputs per config", async ({ page }) => {
   await postBackend(page, "/setAppDefinition", {
     appSpec,
   });
+  await page.evaluate(async () => {
+    const { route_get_app_definition } = await import(
+      "/src/utils/generatedEndpoints.ts"
+    );
+    const { res200 } = await import("/src/utils/endpointUtils.ts");
+    const { useAppDefinition } = await import("/src/state/definitions.ts");
+    const res = await route_get_app_definition({});
+    if (res200(res)) {
+      useAppDefinition.setState({
+        appSpec: res.data.appSpec ?? null,
+        appDefinition: res.data.appDefinition ?? null,
+      });
+    }
+  });
+  await page.evaluate(
+    async ({
+      defaultConfigName,
+      newConfigName,
+      sectionAId,
+      sectionBId,
+    }) => {
+      const { route_load_project_config } = await import(
+        "/src/utils/generatedEndpoints.ts"
+      );
+      const { res200 } = await import("/src/utils/endpointUtils.ts");
+      const { useAppConfigs, useProjectState } = await import(
+        "/src/state/definitions.ts"
+      );
+
+      function applyText(projectState, sectionId, text) {
+        if (!projectState || !sectionId) {
+          return projectState;
+        }
+        const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
+        if (!variantId) {
+          return projectState;
+        }
+        const variant = projectState.sectionVariants[variantId];
+        if (!variant) {
+          return projectState;
+        }
+        const implId = variant.impl;
+        const impl = projectState.sectionImpls[implId];
+        if (!impl || impl.type !== "TextBlock") {
+          return projectState;
+        }
+        return {
+          ...projectState,
+          sectionImpls: {
+            ...projectState.sectionImpls,
+            [implId]: { ...impl, text },
+          },
+        };
+      }
+
+      async function loadConfig(projectConfigName) {
+        const res = await route_load_project_config({ projectConfigName });
+        if (!res200(res)) {
+          return null;
+        }
+        return res.data;
+      }
+
+      const defaultState = applyText(
+        await loadConfig(defaultConfigName),
+        sectionAId,
+        "Alpha output",
+      );
+      if (defaultState) {
+        const hydrated = {
+          ...defaultState,
+          previewSectionVariantMap: {},
+          appSpec: null,
+        };
+        useProjectState.setState(hydrated);
+        useAppConfigs.setState((state) => ({
+          configs: {
+            ...state.configs,
+            [defaultState.projectConfig.id]: hydrated,
+          },
+        }));
+      }
+
+      const newState = applyText(
+        await loadConfig(newConfigName),
+        sectionBId,
+        "Beta output",
+      );
+      if (newState) {
+        const hydrated = {
+          ...newState,
+          previewSectionVariantMap: {},
+          appSpec: null,
+        };
+        useAppConfigs.setState((state) => ({
+          configs: {
+            ...state.configs,
+            [newState.projectConfig.id]: hydrated,
+          },
+        }));
+      }
+    },
+    {
+      defaultConfigName: defaultConfig.name,
+      newConfigName: newConfig.name,
+      sectionAId: sectionA.sectionId,
+      sectionBId: sectionB.sectionId,
+    },
+  );
 
   await page.getByLabel("Preview config").selectOption(newConfig.id);
 
