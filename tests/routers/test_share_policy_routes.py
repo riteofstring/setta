@@ -146,7 +146,7 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockSectionImpl,
 )
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from tests.utils.runtime_context import runtime_context
 
 
@@ -179,7 +179,7 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,
@@ -204,7 +204,7 @@ def _write_share_project_with_configs(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,
@@ -232,7 +232,7 @@ def _write_share_project_with_entry_code(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,
@@ -276,7 +276,7 @@ def _write_share_project_with_section(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,
@@ -308,7 +308,7 @@ def _write_share_project_with_code_param(
     dbe = DBE(root)
     dbe.write_project(backend)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,

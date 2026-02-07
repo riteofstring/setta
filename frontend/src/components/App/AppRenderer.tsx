@@ -279,29 +279,34 @@ export function AppRenderer({
       }
       setIsRunning(true);
       if (sectionVariantOverrides) {
-        for (const [sectionOverrideId, variantId] of Object.entries(
-          sectionVariantOverrides,
-        )) {
-          await route_set_section_variant({
-            projectConfigId: configId,
-            sectionId: sectionOverrideId,
-            variantId,
-          });
-        }
+        await Promise.all(
+          Object.entries(sectionVariantOverrides).map(
+            ([sectionOverrideId, variantId]) =>
+              route_set_section_variant({
+                projectConfigId: configId,
+                sectionId: sectionOverrideId,
+                variantId,
+              }),
+          ),
+        );
       }
       if (paramOverrides) {
+        const overrideCalls: Array<Promise<unknown>> = [];
         for (const [key, value] of Object.entries(paramOverrides)) {
           const [overrideSectionId, paramInfoId] = key.split(":");
           if (!overrideSectionId || !paramInfoId) {
             continue;
           }
-          await route_set_param_entered_value({
-            projectConfigId: configId,
-            sectionId: overrideSectionId,
-            paramInfoId,
-            value,
-          });
+          overrideCalls.push(
+            route_set_param_entered_value({
+              projectConfigId: configId,
+              sectionId: overrideSectionId,
+              paramInfoId,
+              value,
+            }),
+          );
         }
+        await Promise.all(overrideCalls);
       }
       const res = await route_run_code({
         projectConfigId: configId,

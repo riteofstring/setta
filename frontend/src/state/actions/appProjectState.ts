@@ -13,7 +13,6 @@ export function processAppProjectStateUpdateFromBackend(
         [nextState.projectConfig.id]: {
           ...nextState,
           previewSectionVariantMap: existing?.previewSectionVariantMap ?? {},
-          appSpec: existing?.appSpec ?? null,
         },
       },
     };

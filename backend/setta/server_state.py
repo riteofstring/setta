@@ -181,7 +181,7 @@ class SettaFastAPIState:
         self.share_mode = share_mode or app_mode
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
-        self.share_deployment_root = self._resolve_share_deployment_root(
+        self.share_deployment_root = self._resolve_deployment_root(
             self.share_mode, share_deployment_root
         )
         self.share_runtime_root = self._resolve_share_runtime_root(
@@ -605,7 +605,7 @@ class SettaFastAPIState:
         await self._initialization_task
         await self._ready_event.wait()
 
-    def _resolve_share_deployment_root(
+    def _resolve_deployment_root(
         self, share_mode: bool, share_deployment_root: Path | None
     ) -> Path | None:
         if not share_mode:
@@ -623,7 +623,7 @@ class SettaFastAPIState:
     ) -> Path | None:
         if not self.share_mode or share_deployment_root is None:
             return None
-        manifest = DBE(share_deployment_root).read_share_manifest_optional()
+        manifest = DBE(share_deployment_root).read_deployment_manifest_optional()
         if manifest is None:
             raise FileNotFoundError(
                 f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"
@@ -632,7 +632,7 @@ class SettaFastAPIState:
         deployment_version = manifest.deploymentVersion
         share_deployments_root = share_deployment_root.parent.parent
         if share_deployments_root.name == "share_deployments":
-            default_share_root = C.SHARE_DEPLOYMENTS_FOLDER.resolve()
+            default_share_root = C.DEPLOYMENTS_FOLDER.resolve()
             if share_deployments_root.resolve() == default_share_root:
                 base_root = default_share_root.parent
             else:

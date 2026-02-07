@@ -1,6 +1,6 @@
-import { ensureAppSessionFromCurrentDeployment } from "state/actions/app";
-import { ensureShareSessionFromCurrentDeployment } from "state/actions/share";
 import { useServerMode } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_get_server_mode } from "utils/generatedEndpoints";
 
 export async function initializeServerMode(): Promise<"ide" | "share" | "app"> {
   const serverMode = useServerMode.getState();
@@ -8,16 +8,12 @@ export async function initializeServerMode(): Promise<"ide" | "share" | "app"> {
     return serverMode.mode;
   }
 
-  const appSession = await ensureAppSessionFromCurrentDeployment();
-  if (appSession) {
-    return "app";
+  const res = await route_get_server_mode();
+  if (!res200(res)) {
+    useServerMode.setState({ mode: "ide", modeResolved: true });
+    return "ide";
   }
-
-  const shareSession = await ensureShareSessionFromCurrentDeployment();
-  if (shareSession) {
-    return "share";
-  }
-
-  useServerMode.setState({ mode: "ide", modeResolved: true });
-  return "ide";
+  const mode = res.data.mode;
+  useServerMode.setState({ mode, modeResolved: true });
+  return mode;
 }

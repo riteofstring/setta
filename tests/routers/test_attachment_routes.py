@@ -28,7 +28,7 @@ from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import (
     DeploymentType,
-    ShareDeploymentManifest,
+    DeploymentManifest,
     SharePolicy,
 )
 from setta.utils.constants import C, CWD
@@ -67,7 +67,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         "RUN_FOLDER": C.RUN_FOLDER,
         "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
         "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
+        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
     }
 
     C.SETTA_FILES_FOLDER = setta_root
@@ -77,7 +77,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     C.RUN_FOLDER = run_folder
     C.RUN_SESSIONS_FOLDER = run_sessions_folder
     C.RUN_LOGS_FOLDER = run_logs_folder
-    C.SHARE_DEPLOYMENTS_FOLDER = share_deployments_folder
+    C.DEPLOYMENTS_FOLDER = share_deployments_folder
 
     try:
         yield setta_root
@@ -89,7 +89,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
         C.RUN_FOLDER = previous_values["RUN_FOLDER"]
         C.RUN_SESSIONS_FOLDER = previous_values["RUN_SESSIONS_FOLDER"]
         C.RUN_LOGS_FOLDER = previous_values["RUN_LOGS_FOLDER"]
-        C.SHARE_DEPLOYMENTS_FOLDER = previous_values["SHARE_DEPLOYMENTS_FOLDER"]
+        C.DEPLOYMENTS_FOLDER = previous_values["DEPLOYMENTS_FOLDER"]
 
 
 @contextmanager
@@ -157,7 +157,7 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,

@@ -121,7 +121,6 @@ export const useContextMenus = withProjectState(
 
 export type ZustandProjectState = ProjectStateSingleConfig & {
   previewSectionVariantMap: Record<string, string>;
-  appSpec: unknown | null;
 };
 
 export const NULL_PROJECT_CONFIG_ID = "null";
@@ -144,7 +143,6 @@ export const useProjectState = withProjectState(
           shownParamIds: {},
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
-          appSpec: null,
         })),
       ),
     ),

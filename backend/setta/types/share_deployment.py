@@ -10,7 +10,7 @@ from setta.types.settings_state import RunSnapshotMode
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
-class ShareDeploymentListenerConfig(BaseModel, extra="forbid"):
+class DeploymentListenerConfig(BaseModel, extra="forbid"):
     entrypoint: str
     enabled: bool = True
 
@@ -20,14 +20,14 @@ class DeploymentType(str, Enum):
     app = "app"
 
 
-class ShareDeploymentManifest(BaseModel, extra="forbid"):
+class DeploymentManifest(BaseModel, extra="forbid"):
     version: int
     deploymentName: str
     deploymentType: DeploymentType
     defaultProjectConfigId: ID
     deploymentVersion: str
     createdAt: datetime = Field(default_factory=get_now_timestamp)
-    listener: ShareDeploymentListenerConfig | None = None
+    listener: DeploymentListenerConfig | None = None
 
     @field_validator("createdAt", mode="before")
     @classmethod
@@ -60,7 +60,7 @@ class ShareDeploymentMetadata(BaseModel, extra="forbid"):
     defaultProjectConfigName: str
     createdAt: datetime
     deploymentRoot: Path
-    sharePolicyPath: Path
+    policyPath: Path
 
 
 class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
@@ -70,4 +70,4 @@ class ShareDeploymentSessionResponse(BaseModel, extra="forbid"):
     defaultProjectConfigId: ID
     projectMetadata: list[ProjectConfig]
     sharePolicy: SharePolicy
-    manifest: ShareDeploymentManifest | None = None
+    manifest: DeploymentManifest | None = None

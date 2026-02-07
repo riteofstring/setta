@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
+from setta.deployments.deployment_utils import rewrite_project_state_paths
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import (
@@ -19,7 +20,6 @@ from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
 from setta.project_state.project_manager_types import RunCodeRequest
-from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     load_share_policy_from_dbe,
 )
@@ -73,7 +73,7 @@ class ShareRuntimeState:
         self._validate_deployment_root()
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
-        self.manifest = self.dbe.read_share_manifest()
+        self.manifest = self.dbe.read_deployment_manifest()
         self.deployment_type = self.manifest.deploymentType
         self.deployment_name = self._resolve_deployment_name()
         self.deployment_version = self._resolve_deployment_version()

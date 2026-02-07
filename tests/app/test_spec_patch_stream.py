@@ -46,3 +46,20 @@ class TestSpecPatchStream:
         spec = apply_patch_ops(parse_patch_lines(patches))
         assert "app-root" not in spec["elements"]
 
+    def test_apply_patch_ops_does_not_mutate_initial_spec(self) -> None:
+        initial = {
+            "root": "app-root",
+            "elements": {
+                "app-root": {
+                    "key": "app-root",
+                    "type": "Card",
+                    "props": {"title": "Hello"},
+                }
+            },
+        }
+        ops = parse_patch_lines(
+            '{"op":"set","path":"/elements/app-root/props/title","value":"Updated"}'
+        )
+        updated = apply_patch_ops(ops, initial_spec=initial)
+        assert updated["elements"]["app-root"]["props"]["title"] == "Updated"
+        assert initial["elements"]["app-root"]["props"]["title"] == "Hello"

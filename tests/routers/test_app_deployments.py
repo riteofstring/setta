@@ -21,12 +21,12 @@ from tests.utils.manager_fixture import real_project_manager, real_settings_mana
 
 @contextmanager
 def _override_share_deployments_root(root: Path):
-    original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
-    C.SHARE_DEPLOYMENTS_FOLDER = root
+    original_share_root = C.DEPLOYMENTS_FOLDER
+    C.DEPLOYMENTS_FOLDER = root
     try:
         yield
     finally:
-        C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
+        C.DEPLOYMENTS_FOLDER = original_share_root
 
 
 async def _set_app_definition(
@@ -192,7 +192,7 @@ class TestAppDeploymentPublish:
                 )
 
             deployment_dbe = DBE(metadata.deploymentRoot)
-            manifest = deployment_dbe.read_share_manifest()
+            manifest = deployment_dbe.read_deployment_manifest()
             assert manifest.deploymentType is DeploymentType.app
 
             snapshot = deployment_dbe.read_project_required()
@@ -313,7 +313,7 @@ class TestAppDeploymentPublish:
                 )
 
             deployment_dbe = DBE(metadata.deploymentRoot)
-            manifest = deployment_dbe.read_share_manifest()
+            manifest = deployment_dbe.read_deployment_manifest()
             assert manifest.listener is not None
             assert manifest.listener.entrypoint == "listener/app.py"
             assert manifest.listener.enabled is True

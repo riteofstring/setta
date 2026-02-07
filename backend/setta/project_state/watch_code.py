@@ -54,9 +54,28 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # watchdog's native macOS observers have been observed to hard-crash (SIGTRAP)
-# when started repeatedly in the same process (common in test runs). Polling is
-# slower but significantly more stable.
-_WATCH_CODE_OBSERVER = PollingObserver() if sys.platform == "darwin" else Observer()
+# when started repeatedly in the same process (common in test runs). In pytest
+# on macOS we default to polling for stability; otherwise we prefer the native
+# observer for responsiveness.
+#
+# Override with:
+# - SETTA_WATCH_CODE_OBSERVER=native  (force Observer)
+# - SETTA_WATCH_CODE_OBSERVER=polling (force PollingObserver)
+_observer_override = os.environ.get("SETTA_WATCH_CODE_OBSERVER", "").strip().lower()
+_force_native = _observer_override == "native"
+_force_polling = _observer_override == "polling"
+_pytest_mode = bool(os.environ.get("PYTEST_CURRENT_TEST")) or (
+    "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
+)
+if _force_polling:
+    _WATCH_CODE_OBSERVER = PollingObserver()
+elif _force_native:
+    _WATCH_CODE_OBSERVER = Observer()
+else:
+    if sys.platform == "darwin" and _pytest_mode:
+        _WATCH_CODE_OBSERVER = PollingObserver()
+    else:
+        _WATCH_CODE_OBSERVER = Observer()
 _WATCH_CODE_OBSERVER.daemon = True
 _WATCH_CODE_OBSERVER_LOCK = threading.Lock()
 _WATCH_CODE_OBSERVER_STARTED = False

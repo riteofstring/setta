@@ -46,7 +46,7 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
@@ -67,7 +67,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
         "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
         "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
+        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
     }
     C.SETTA_FILES_FOLDER = root / "setta_files"
     C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
@@ -79,7 +79,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
@@ -91,7 +91,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         C.RUNTIME_MCP_FOLDER,
         C.RUNTIME_SECRETS_FOLDER,
         C.DETACHED_RUNS_FOLDER,
-        C.SHARE_DEPLOYMENTS_FOLDER,
+        C.DEPLOYMENTS_FOLDER,
     ):
         path.mkdir(parents=True, exist_ok=True)
     return previous
@@ -108,7 +108,7 @@ def _restore_constants(previous: dict[str, Path]) -> None:
     C.RUNTIME_MCP_FOLDER = previous["RUNTIME_MCP_FOLDER"]
     C.RUNTIME_SECRETS_FOLDER = previous["RUNTIME_SECRETS_FOLDER"]
     C.DETACHED_RUNS_FOLDER = previous["DETACHED_RUNS_FOLDER"]
-    C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
+    C.DEPLOYMENTS_FOLDER = previous["DEPLOYMENTS_FOLDER"]
 
 
 class CodegenTargetsProjectManager(BaseProjectManager):
@@ -701,7 +701,7 @@ class TestShareRuntimeStateCodegenTargets:
             backend.defaultProjectConfigId = project_config.id
             dbe = DBE(root)
             dbe.write_project(backend)
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
                 deploymentType=DeploymentType.share,
@@ -765,7 +765,7 @@ class TestShareRuntimeStateRunCommand:
             backend.defaultProjectConfigId = project_config.id
             dbe = DBE(root)
             dbe.write_project(backend)
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
                 deploymentType=DeploymentType.share,
@@ -864,7 +864,7 @@ class TestShareRuntimeStateRunCommand:
             backend.defaultProjectConfigId = project_config.id
             dbe = DBE(root)
             dbe.write_project(backend)
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=root.parent.name,
                 deploymentType=DeploymentType.share,

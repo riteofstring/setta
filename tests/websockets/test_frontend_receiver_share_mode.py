@@ -23,7 +23,7 @@ from setta.types.websocket import (
     WebsocketMsgRealtimeUIChange,
 )
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -85,7 +85,7 @@ def _build_share_runtime_state(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,

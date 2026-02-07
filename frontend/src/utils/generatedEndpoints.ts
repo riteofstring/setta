@@ -1319,6 +1319,12 @@ export async function route_get_auth_refresh_status(): Promise<
   return await get("/authRefreshStatus");
 }
 
+export async function route_get_server_mode(): Promise<
+  ResponseDataAndStatus<gt.ServerModeResponse>
+> {
+  return await get("/serverMode");
+}
+
 export async function route_list_share_deployments(): Promise<
   ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
 > {

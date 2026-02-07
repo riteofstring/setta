@@ -1,7 +1,38 @@
+import copy
 import json
 from typing import Any
 
-_ALLOWED_OPS = {"set", "add", "replace", "remove"}
+ALLOWED_PATCH_OPS = {"set", "add", "replace", "remove"}
+
+
+def _parse_patch_line_core(line: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Return (payload, error_message). Blank/comment lines return (None, None)."""
+    trimmed = line.strip()
+    if not trimmed or trimmed.startswith("//"):
+        return None, None
+    try:
+        payload = json.loads(trimmed)
+    except json.JSONDecodeError as exc:
+        return None, f"Invalid patch JSON line: {line!r} ({exc})"
+    if not isinstance(payload, dict):
+        return None, "Patch line must be a JSON object."
+    op = payload.get("op")
+    path = payload.get("path")
+    if not isinstance(op, str) or op not in ALLOWED_PATCH_OPS:
+        return None, f"Unsupported patch op: {op!r}"
+    if not isinstance(path, str):
+        return None, "Patch path must be a string."
+    if path != "/root" and not path.startswith("/elements/"):
+        return None, f"Unsupported patch path: {path!r}"
+    if op != "remove" and "value" not in payload:
+        return None, "Patch line missing required 'value'."
+    return payload, None
+
+
+def parse_patch_line(line: str) -> dict[str, Any] | None:
+    """Parse a single JSONL patch line. Returns None for blanks/comments/invalid lines."""
+    payload, _error = _parse_patch_line_core(line)
+    return payload
 
 
 def parse_patch_lines(patches: str) -> list[dict[str, Any]]:
@@ -14,25 +45,11 @@ def parse_patch_lines(patches: str) -> list[dict[str, Any]]:
     """
     ops: list[dict[str, Any]] = []
     for raw_line in patches.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("//"):
-            continue
-        try:
-            payload = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid patch JSON line: {raw_line!r}") from exc
-        if not isinstance(payload, dict):
-            raise ValueError("Patch line must be a JSON object.")
-        op = payload.get("op")
-        path = payload.get("path")
-        if not isinstance(op, str) or op not in _ALLOWED_OPS:
-            raise ValueError(f"Unsupported patch op: {op!r}")
-        if not isinstance(path, str):
-            raise ValueError("Patch path must be a string.")
-        if path != "/root" and not path.startswith("/elements/"):
-            raise ValueError(f"Unsupported patch path: {path!r}")
-        if op != "remove" and "value" not in payload:
-            raise ValueError("Patch line missing required 'value'.")
+        payload, error = _parse_patch_line_core(raw_line)
+        if payload is None:
+            if error is None:
+                continue
+            raise ValueError(error)
         ops.append(payload)
     return ops
 
@@ -43,7 +60,9 @@ def apply_patch_ops(
     initial_spec: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = (
-        {"root": None, "elements": {}} if initial_spec is None else dict(initial_spec)
+        {"root": None, "elements": {}}
+        if initial_spec is None
+        else copy.deepcopy(initial_spec)
     )
     for op in ops:
         apply_patch_op(spec, op)
@@ -53,7 +72,7 @@ def apply_patch_ops(
 def apply_patch_op(spec: dict[str, Any], op: dict[str, Any]) -> None:
     raw_op = op.get("op")
     raw_path = op.get("path")
-    if not isinstance(raw_op, str) or raw_op not in _ALLOWED_OPS:
+    if not isinstance(raw_op, str) or raw_op not in ALLOWED_PATCH_OPS:
         raise ValueError(f"Unsupported patch op: {raw_op!r}")
     if not isinstance(raw_path, str):
         raise ValueError("Patch path must be a string.")

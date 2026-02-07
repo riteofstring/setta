@@ -8,7 +8,7 @@ from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import DeploymentManifest, SharePolicy
 
 
 class AppDeploymentMetadata(BaseModel, extra="forbid"):
@@ -18,7 +18,7 @@ class AppDeploymentMetadata(BaseModel, extra="forbid"):
     defaultProjectConfigName: str
     createdAt: datetime
     deploymentRoot: Path
-    sharePolicyPath: Path
+    policyPath: Path
 
 
 class AppDeploymentSessionResponse(BaseModel, extra="forbid"):
@@ -28,7 +28,7 @@ class AppDeploymentSessionResponse(BaseModel, extra="forbid"):
     defaultProjectConfigId: ID
     projectMetadata: list[ProjectConfig]
     appPolicy: SharePolicy
-    manifest: ShareDeploymentManifest | None = None
+    manifest: DeploymentManifest | None = None
 
 
 class AppDeploymentStateResponse(BaseModel, extra="forbid"):

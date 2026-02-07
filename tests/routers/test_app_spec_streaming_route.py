@@ -69,3 +69,63 @@ class TestAppSpecStreamingRoute:
         assert response.status_code == 400
         payload = json.loads(response.body.decode("utf-8"))
         assert payload["message"] == "Prompt must be non-empty."
+
+    async def test_rejects_non_json_serializable_current_spec(self) -> None:
+        state = _StateStub(
+            agent_runner=_AgentRunnerStub(
+                config=AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                        )
+                    }
+                ),
+                api_keys={},
+            ),
+            wmh_frontend_sender=object(),
+        )
+
+        with runtime_context(state) as ctx:
+            response = await route_stream_app_spec(
+                StreamAppSpecRequest(
+                    prompt="Build a minimal app",
+                    currentSpec={"bad": object()},
+                ),
+                ctx,
+            )
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 400
+        payload = json.loads(response.body.decode("utf-8"))
+        assert payload["message"].startswith("currentSpec must be JSON-serializable:")
+
+    async def test_rejects_large_current_spec(self) -> None:
+        state = _StateStub(
+            agent_runner=_AgentRunnerStub(
+                config=AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                        )
+                    }
+                ),
+                api_keys={},
+            ),
+            wmh_frontend_sender=object(),
+        )
+
+        with runtime_context(state) as ctx:
+            response = await route_stream_app_spec(
+                StreamAppSpecRequest(
+                    prompt="Build a minimal app",
+                    currentSpec="a" * 50_001,
+                ),
+                ctx,
+            )
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 400
+        payload = json.loads(response.body.decode("utf-8"))
+        assert payload["message"] == "currentSpec is too large. Reduce it or omit it."

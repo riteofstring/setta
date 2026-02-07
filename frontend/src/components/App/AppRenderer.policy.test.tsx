@@ -113,7 +113,6 @@ describe("AppRenderer policy enforcement", () => {
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-          appSpec: null,
         },
       },
     });
@@ -239,7 +238,6 @@ describe("AppRenderer policy enforcement", () => {
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-          appSpec: null,
         },
         [configB.id]: {
           projectConfig: configB,
@@ -256,7 +254,6 @@ describe("AppRenderer policy enforcement", () => {
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-          appSpec: null,
         },
       },
     });
@@ -330,7 +327,6 @@ describe("AppRenderer policy enforcement", () => {
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-          appSpec: null,
         },
       },
     });

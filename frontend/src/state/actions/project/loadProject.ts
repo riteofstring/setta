@@ -39,7 +39,6 @@ export async function loadProjectConfig({ projectConfigName }) {
 
 export async function loadProjectState(
   p: ProjectStateSingleConfig,
-  options: { appSpec?: unknown | null } = {},
 ) {
   const { viewport, viewportInitialized } = p.projectConfig;
   if (!viewport || !viewportInitialized) {
@@ -52,7 +51,7 @@ export async function loadProjectState(
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState({ ...p, appSpec: options.appSpec ?? null });
+  useProjectState.setState({ ...p, previewSectionVariantMap: {} });
   applyPendingNameValidationErrors(p.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(

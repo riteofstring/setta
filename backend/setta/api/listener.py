@@ -398,12 +398,31 @@ class SettaListener:
             return
         if self._explicit_host or self._explicit_port:
             return
+        raw_autoconnect = os.environ.get("SETTA_LISTENER_AUTOCONNECT")
+        if raw_autoconnect is not None:
+            normalized = raw_autoconnect.strip().lower()
+            if normalized in {"0", "false", "no"}:
+                return
+            if normalized not in {"1", "true", "yes"}:
+                raw_autoconnect = None
+        if raw_autoconnect is None and (
+            not _hosts_equivalent(self._host, C.DEFAULT_HOST)
+            or self._port != C.DEFAULT_PORT
+        ):
+            return
         # If the caller didn't pass host/port, prefer the latest session recorded in
         # this workspace (dev worktrees use per-worktree ports + cookie names).
         session_info = _load_latest_local_session(Path.cwd())
         if session_info is None:
             return
         metadata, secret = session_info
+        logger.info(
+            "SettaListener autoconnecting to session %s at %s:%s (workspace=%s)",
+            metadata.id,
+            metadata.host,
+            metadata.port,
+            Path(metadata.workspacePath).name,
+        )
         self._auto_session_metadata = metadata
         self._auto_session_secret = secret
         self._host = metadata.host

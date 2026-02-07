@@ -64,7 +64,6 @@ export function AppPreview() {
         [activeConfigId]: {
           ...projectState,
           previewSectionVariantMap: projectState.previewSectionVariantMap ?? {},
-          appSpec: null,
         },
       },
     }));
@@ -102,7 +101,6 @@ export function AppPreview() {
           [nextState.projectConfig.id]: {
             ...nextState,
             previewSectionVariantMap: {},
-            appSpec: null,
           },
         },
       }));

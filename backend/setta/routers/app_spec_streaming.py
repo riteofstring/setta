@@ -10,6 +10,7 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ModelResponseStream
 from pydantic import BaseModel, Field
 
+from setta.app.spec_patch_stream import ALLOWED_PATCH_OPS, parse_patch_line
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.llm_config import AllLLMConfigs
@@ -30,32 +31,6 @@ class StreamAppSpecRequest(BaseModel):
     )
 
 
-_ALLOWED_OPS = {"set", "add", "replace", "remove"}
-
-
-def _parse_patch_line(line: str) -> dict[str, Any] | None:
-    trimmed = line.strip()
-    if not trimmed or trimmed.startswith("//"):
-        return None
-    try:
-        payload = json.loads(trimmed)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    op = payload.get("op")
-    path = payload.get("path")
-    if not isinstance(op, str) or op not in _ALLOWED_OPS:
-        return None
-    if not isinstance(path, str):
-        return None
-    if path != "/root" and not path.startswith("/elements/"):
-        return None
-    if op != "remove" and "value" not in payload:
-        return None
-    return payload
-
-
 def _pick_llm_config_id(config: AllLLMConfigs, context: dict[str, Any] | None) -> str:
     raw = None if not context else context.get("llmConfigId")
     if isinstance(raw, str) and raw.strip():
@@ -71,7 +46,21 @@ def _json_error(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"message": message})
 
 
-def _build_system_prompt(*, catalog_summary: str, sections_summary: str) -> str:
+def _build_system_prompt(
+    *,
+    catalog_summary: str,
+    sections_summary: str,
+    current_spec_json: str | None,
+) -> str:
+    current_spec_lines: list[str] = []
+    if current_spec_json is not None:
+        current_spec_lines = [
+            "Current spec (authoritative):",
+            "- The client supplied a currentSpec. Emit patches that transform the currentSpec into the desired spec.",
+            "- Do not re-emit unchanged elements. Prefer minimal patches.",
+            current_spec_json,
+            "",
+        ]
     return "\n".join(
         [
             "You generate a JSON Render UI spec via JSONL patch operations.",
@@ -80,7 +69,7 @@ def _build_system_prompt(*, catalog_summary: str, sections_summary: str) -> str:
             "- Output ONLY JSON Lines (one JSON object per line).",
             "- No prose, no markdown, no code fences.",
             "- Each line must be a JSON object with keys: op, path, and (unless op=remove) value.",
-            f"- Allowed ops: {sorted(_ALLOWED_OPS)!r}. Prefer 'set'.",
+            f"- Allowed ops: {sorted(ALLOWED_PATCH_OPS)!r}. Prefer 'set'.",
             "- Allowed paths:",
             '  - "/root" (value must be the root element key string)',
             '  - "/elements/<key>" (value must be a full UIElement object)',
@@ -99,6 +88,7 @@ def _build_system_prompt(*, catalog_summary: str, sections_summary: str) -> str:
             "- dataPath values must be JSON Pointer strings (example: /params/name).",
             '- Include one ActionButton with action "run" and set its sectionId.',
             "",
+            *current_spec_lines,
             catalog_summary.strip()
             if catalog_summary.strip()
             else "Catalog unavailable.",
@@ -190,9 +180,28 @@ async def route_stream_app_spec(
         if isinstance(context.get("sectionsSummary"), str)
         else ""
     )
+    current_spec_json: str | None = None
+    if x.currentSpec is not None:
+        try:
+            current_spec_json = json.dumps(
+                x.currentSpec,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+        except TypeError as exc:
+            return _json_error(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message=f"currentSpec must be JSON-serializable: {exc}",
+            )
+        if len(current_spec_json) > 50_000:
+            return _json_error(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message="currentSpec is too large. Reduce it or omit it.",
+            )
     system_prompt = _build_system_prompt(
         catalog_summary=catalog_summary,
         sections_summary=sections_summary,
+        current_spec_json=current_spec_json,
     )
 
     user_prompt = x.prompt.strip()
@@ -234,7 +243,7 @@ async def route_stream_app_spec(
             lines = buffer.split("\n")
             buffer = lines.pop() or ""
             for line in lines:
-                patch = _parse_patch_line(line)
+                patch = parse_patch_line(line)
                 if patch is None:
                     continue
                 encoded = (json.dumps(patch, separators=(",", ":")) + "\n").encode(
@@ -244,7 +253,7 @@ async def route_stream_app_spec(
                 await asyncio.sleep(0)
 
         if buffer.strip():
-            patch = _parse_patch_line(buffer)
+            patch = parse_patch_line(buffer)
             if patch is not None:
                 yield (json.dumps(patch, separators=(",", ":")) + "\n").encode("utf-8")
 

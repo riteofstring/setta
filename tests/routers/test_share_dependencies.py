@@ -15,7 +15,7 @@ from setta.server_state import SettaFastAPIState
 from setta.database.db_objs import DBE
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType
 
 
 def _make_request(
@@ -75,7 +75,7 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,

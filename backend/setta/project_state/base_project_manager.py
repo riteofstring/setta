@@ -826,6 +826,10 @@ class BaseProjectManager(ABC):
         for project_config_id in self.project_state_backend.projectConfigs.keys():
             self._flush_code_files(project_config_id)
 
+    def flush_code_files_for_all_configs(self) -> None:
+        """Write any in-memory code buffers to disk for all configs."""
+        self._flush_code_files_for_all_configs()
+
     @enqueue_method
     async def create_run_command(
         self,

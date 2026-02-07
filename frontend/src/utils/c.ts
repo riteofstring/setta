@@ -11,7 +11,6 @@ export class C {
   };
   static APP_DEPLOYMENT_ROOT = null;
   static APP_MODE = false;
-  static APP_SPECS_FOLDER = "setta_files/app_specs";
   static ARTIFACTS_FOLDER = "setta_files/artifacts";
   static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
   static AUTH_COOKIE_NAME = "setta_auth";
@@ -35,6 +34,7 @@ export class C {
   static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
+  static DEPLOYMENTS_FOLDER = "setta_files/share_deployments";
   static DETACHED_RUNS_FOLDER = "setta_files/runtime/detached_runs";
   static DEV_MODE_FRONTEND_PORT = 3000;
   static DROPZONE_ALLOWED_MIME_PREFIXES = [];
@@ -69,7 +69,6 @@ export class C {
   static SETTA_MCP_PARAM_NAMES = ["setta_state"];
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SETTINGS_PROJECT_NAME = "settings";
-  static SHARE_DEPLOYMENTS_FOLDER = "setta_files/share_deployments";
   static SHARE_DEPLOYMENT_ROOT = null;
   static SHARE_MODE = false;
   static WS_RUN_CODE = "runCode";

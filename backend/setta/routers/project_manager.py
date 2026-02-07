@@ -664,6 +664,14 @@ async def route_update_app_definition(
         raise HTTPException(status_code=404, detail="Project manager not available.")
     try:
         return await manager.update_app_definition(x)
+    except KeyError as exc:
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

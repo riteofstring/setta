@@ -15,7 +15,7 @@ from setta.share.policy import (
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 
 
 def _build_share_deployment_root(
@@ -47,7 +47,7 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
         deploymentType=DeploymentType.share,

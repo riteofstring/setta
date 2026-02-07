@@ -287,7 +287,6 @@ function storeAppConfigState(projectState: ProjectStateSingleConfig) {
       [projectState.projectConfig.id]: {
         ...projectState,
         previewSectionVariantMap: {},
-        appSpec: null,
       },
     },
   }));

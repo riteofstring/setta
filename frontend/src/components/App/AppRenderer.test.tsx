@@ -175,7 +175,6 @@ describe("AppRenderer", () => {
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
           genCodeBinding: null,
-          appSpec: null,
         },
       },
     });
