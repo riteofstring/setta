@@ -284,4 +284,77 @@ describe("AppRenderer policy enforcement", () => {
 
     expect(markup).toContain("Beta");
   });
+
+  it("renders TextBlock output using the section core modifier (not raw impl text)", () => {
+    const sectionId = "section-1";
+    const sectionVariantId = "section-variant-1";
+    const sectionImplId = "section-impl-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      sectionVariantMap: { [sectionId]: sectionVariantId },
+    });
+    const sectionCore = createCore({
+      id: sectionId,
+      name: "Output",
+      variants: [sectionVariantId],
+      defaultVariant: sectionVariantId,
+      sharedModifier: {
+        text: "From core modifier",
+      },
+    });
+    const sectionVariant = createVariant({
+      id: sectionVariantId,
+      name: "Variant",
+      impl: sectionImplId,
+      nonPresetImpls: [],
+    });
+    const sectionImpl = createTextBlockSectionImpl(
+      createUserDefaultTextBlockSectionImpl(),
+      { id: sectionImplId, text: "From impl" },
+    );
+
+    useAppConfigs.setState({
+      configs: {
+        [projectConfig.id]: {
+          projectConfig,
+          sections: { [sectionId]: sectionCore },
+          sectionVariants: { [sectionVariantId]: sectionVariant },
+          sectionImpls: { [sectionImplId]: sectionImpl },
+          codeObjs: {},
+          codeObjVariants: {},
+          codeObjImpls: {},
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: { [sectionId]: null },
+          shownParamIds: {},
+          previewSectionVariantMap: {},
+          requiredDecodedImages: [],
+          genCodeBinding: null,
+          appSpec: null,
+        },
+      },
+    });
+    syncStoreInitialState(useAppConfigs);
+
+    const runtimeValue = {
+      dataBindings: {},
+      actions: {},
+      policy: createSharePolicy({ allowRun: true }),
+      canEditParams: true,
+      allowExternalLinks: true,
+      allowFileDownloads: true,
+      defaultConfigId: projectConfig.id,
+      theme: null,
+    };
+
+    const TextOutput = appRegistry.TextOutput;
+    const markup = renderToStaticMarkup(
+      <AppRuntimeContext.Provider value={runtimeValue}>
+        <TextOutput element={{ props: { sectionId } }} />
+      </AppRuntimeContext.Provider>,
+    );
+
+    expect(markup).toContain("From core modifier");
+    expect(markup).not.toContain("From impl");
+  });
 });

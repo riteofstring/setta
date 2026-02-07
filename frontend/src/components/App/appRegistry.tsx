@@ -1039,10 +1039,22 @@ function TextOutput({ element }: AppComponentProps) {
       return null;
     }
     const impl = configState.sectionImpls[variant.impl];
-    if (!impl || impl.type !== SectionTypeEnum.TextBlock) {
+    if (!impl) {
       return null;
     }
-    return { text: impl.text, format: impl.format };
+    const core = configState.sections[sectionId];
+    if (!core) {
+      return null;
+    }
+    const effectiveImpl: BaseSectionImplUnion = {
+      ...impl,
+      ...core.sharedModifier,
+      ...variant.modifier,
+    };
+    if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
+      return null;
+    }
+    return { text: effectiveImpl.text, format: effectiveImpl.format };
   }, [configState, resolvedConfigId, sectionId]);
 
   if (!resolvedConfigId || !sectionId || !textData) {
