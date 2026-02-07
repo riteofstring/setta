@@ -58,12 +58,14 @@ def resolve_setta_paths(
     files_root: Path | str | None = None,
     files_root_base: Path | str | None = None,
     runtime_root: Path | str | None = None,
+    ignore_env_files_root: bool = False,
 ) -> SettaPaths:
     resolved_workspace = _resolve_workspace_root(workspace_root)
     resolved_files_root = _resolve_files_root(
         resolved_workspace,
         files_root=files_root,
         files_root_base=files_root_base,
+        ignore_env_files_root=ignore_env_files_root,
     )
     resolved_runtime_root = _resolve_runtime_root(
         resolved_files_root, runtime_root=runtime_root
@@ -173,13 +175,43 @@ def _resolve_files_root(
     *,
     files_root: Path | str | None,
     files_root_base: Path | str | None,
+    ignore_env_files_root: bool,
 ) -> Path:
-    raw_files_root = files_root or os.environ.get(_FILES_ROOT_ENV)
-    if raw_files_root:
+    raw_files_root: Path | str | None = files_root
+    if isinstance(raw_files_root, str):
+        raw_files_root = raw_files_root.strip() or None
+
+    raw_files_root_base: Path | str | None = files_root_base
+    if isinstance(raw_files_root_base, str):
+        raw_files_root_base = raw_files_root_base.strip() or None
+
+    raw_env_files_root: str | None = None
+    if not ignore_env_files_root:
+        raw_env_files_root = os.environ.get(_FILES_ROOT_ENV)
+        if raw_env_files_root is not None:
+            raw_env_files_root = raw_env_files_root.strip() or None
+
+    raw_env_files_root_base = os.environ.get(_FILES_ROOT_BASE_ENV)
+    if raw_env_files_root_base is not None:
+        raw_env_files_root_base = raw_env_files_root_base.strip() or None
+
+    # Precedence:
+    # 1. explicit --files-root
+    # 2. explicit --files-root-base
+    # 3. SETTA_FILES_ROOT (unless ignored)
+    # 4. SETTA_FILES_ROOT_BASE
+    # 5. workspace_root/setta_files
+    if raw_files_root is not None:
         return resolve_path(raw_files_root)
-    raw_base = files_root_base or os.environ.get(_FILES_ROOT_BASE_ENV)
-    if raw_base:
-        base_root = resolve_path(raw_base)
+    if raw_files_root_base is not None:
+        base_root = resolve_path(raw_files_root_base)
+        return build_files_root_from_base(base_root, workspace_root).resolve(
+            strict=False
+        )
+    if raw_env_files_root is not None:
+        return resolve_path(raw_env_files_root)
+    if raw_env_files_root_base is not None:
+        base_root = resolve_path(raw_env_files_root_base)
         return build_files_root_from_base(base_root, workspace_root).resolve(
             strict=False
         )

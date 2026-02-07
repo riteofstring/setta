@@ -21,9 +21,7 @@ def test_start_remote_setta_threads_files_root_args(monkeypatch) -> None:
         "",
         files_root=Path("/tmp/state"),
         files_root_base=Path("/tmp/base"),
-        verbose=False,
     )
 
     assert captured["files_root"] == "/tmp/state"
     assert captured["files_root_base"] == "/tmp/base"
-

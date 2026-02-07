@@ -15,7 +15,8 @@ from setta.launch import LaunchError
 from setta.utils.network import format_host_for_ssh_tunnel
 from setta.utils.paths import build_files_root_from_base
 
-_CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
+CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
+_CONNECT_INFO_JSON_PREFIX = CONNECT_INFO_JSON_PREFIX
 _TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
 
 
@@ -487,7 +488,13 @@ def _remote_command_exists(
 
 def _is_safe_remote_path(value: str) -> bool:
     raw = value.strip()
-    return raw.startswith("/") and not any(ch.isspace() for ch in raw)
+    if not raw.startswith("/"):
+        return False
+    if "\x00" in raw:
+        return False
+    if "\n" in raw or "\r" in raw:
+        return False
+    return True
 
 
 def _resolve_remote_logs_dir(
@@ -547,7 +554,7 @@ def start_remote_setta(
         files_root=files_root,
         files_root_base=files_root_base,
     )
-    remote_log_file = f"{remote_logs_dir}/nohup.out"
+    remote_log_file = f"{remote_logs_dir}/nohup-{time.time_ns()}-{os.getpid()}.out"
     root_prefix = f"{files_root_args} " if files_root_args else ""
     start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} {root_prefix}--no-open"
     quoted_start = shlex.quote(start_cmd)

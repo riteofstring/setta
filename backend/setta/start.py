@@ -9,7 +9,7 @@ import sys
 import time
 import webbrowser
 from functools import lru_cache
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import Any
 
 import click
@@ -46,7 +46,6 @@ from setta.utils.paths import (
     validate_workspace_root,
 )
 
-_CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
 _ROUTE_NAMES = {route.value.lstrip("/") for route in Route}
 _MISSING_AUTH_MESSAGE = (
@@ -114,37 +113,8 @@ def _parse_ssh_args(raw: str | None) -> list[str]:
     return ssh_common.parse_ssh_args(raw)
 
 
-def _has_control_socket_option(ssh_args: list[str]) -> bool:
-    return ssh_common.has_control_socket_option(ssh_args)
-
-
 def _apply_control_socket_args(ssh_args: list[str]) -> list[str]:
     return ssh_common.apply_control_socket_args(ssh_args)
-
-
-def _run_ssh_command(
-    ssh_target: str,
-    ssh_args: list[str],
-    remote_command: str,
-    capture_output: bool = True,
-    timeout: float | None = None,
-) -> subprocess.CompletedProcess[str]:
-    return ssh_common.run_ssh_command(
-        ssh_target,
-        ssh_args,
-        remote_command,
-        ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-        timeout=timeout,
-        capture_output=capture_output,
-    )
-
-
-def _build_remote_shell_command(shell: str, inner_command: str) -> str:
-    return ssh_common.build_remote_shell_command(shell, inner_command)
-
-
-def _format_remote_path(path: PurePath) -> str:
-    return path.as_posix()
 
 
 def _resolve_remote_shell(ssh_target: str, ssh_args: list[str]) -> str:
@@ -203,7 +173,6 @@ def _run_remote_setta_command(
     workspace: str,
     setta_command: str,
     setta_args: str,
-    capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     return ssh_common.run_remote_setta_command(
         ssh_target,
@@ -213,7 +182,6 @@ def _run_remote_setta_command(
         setta_command,
         setta_args,
         ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-        timeout=None,
     )
 
 
@@ -306,7 +274,6 @@ def _delete_remote_session(
         workspace,
         setta_command,
         f"{root_prefix}status --delete-session {shlex.quote(session_id)}",
-        capture_output=True,
     )
     if result.returncode != 0:
         raise click.ClickException(
@@ -324,7 +291,6 @@ def _start_remote_setta(
     *,
     files_root: Path | None,
     files_root_base: Path | None,
-    verbose: bool = False,
 ) -> None:
     try:
         ssh_common.start_remote_setta(
@@ -702,7 +668,7 @@ def _select_session_for_connect_info(
 def _emit_connect_info_json(payload: dict) -> None:
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     encoded = base64.b64encode(raw.encode("utf-8")).decode("ascii")
-    click.echo(f"{_CONNECT_INFO_JSON_PREFIX}{encoded}")
+    click.echo(f"{ssh_common.CONNECT_INFO_JSON_PREFIX}{encoded}")
 
 
 def _normalize_base_url(base_url: str) -> str:
@@ -1711,7 +1677,6 @@ def connect(
             files_root_args,
             files_root=params.get("files_root"),
             files_root_base=params.get("files_root_base"),
-            verbose=verbose,
         )
         selected_session = _wait_for_remote_session(
             ssh_target,

@@ -52,7 +52,7 @@ export function applyBackendOriginOverrideFromUrl(): void {
 
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   try {
-    window.history.replaceState({}, "", nextUrl);
+    window.history.replaceState(window.history.state, "", nextUrl);
   } catch (error) {
     console.warn("Failed to clean backend origin override from URL", error);
   }

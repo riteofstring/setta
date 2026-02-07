@@ -136,7 +136,9 @@ export function WorkspaceLaunchPage() {
         loadWorkspaceHistory(),
         nextEntry,
       );
-      writeWorkspaceHistoryToWindowName(nextHistory);
+      if (!import.meta.env?.DEV) {
+        writeWorkspaceHistoryToWindowName(nextHistory);
+      }
 
       clearPendingWorkspaceLaunch();
       window.location.href = res.data.bootstrapUrlFragment;

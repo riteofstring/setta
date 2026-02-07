@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel
 
@@ -11,7 +8,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
-from setta.utils.paths import build_files_root_from_base, resolve_path
+from setta.utils.paths import resolve_path, resolve_setta_paths
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
@@ -85,39 +82,21 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         workspace_root = x.workspaceRoot
         files_root = x.filesRoot
         files_root_base = x.filesRootBase
-        if (
-            workspace_root is not None
-            and workspace_root.strip()
-            and (files_root is None or not files_root.strip())
-            and (files_root_base is not None and files_root_base.strip())
-        ):
-            # The running backend sets SETTA_FILES_ROOT for itself; do not allow that
-            # value to override an explicit filesRootBase selection.
-            resolved_workspace = resolve_path(workspace_root.strip())
-            resolved_base = resolve_path(files_root_base.strip())
-            files_root = str(
-                build_files_root_from_base(resolved_base, resolved_workspace).resolve(
-                    strict=False
-                )
+
+        requested_workspace = None
+        if workspace_root is not None and workspace_root.strip():
+            requested_workspace = resolve_path(workspace_root.strip())
+        ignore_env_files_root = False
+        if requested_workspace is not None:
+            ignore_env_files_root = (
+                requested_workspace != resolve_setta_paths().workspace_root
             )
-        if (
-            workspace_root is not None
-            and workspace_root.strip()
-            and (files_root is None or not files_root.strip())
-            and (files_root_base is None or not files_root_base.strip())
-        ):
-            env_files_root_base = os.environ.get("SETTA_FILES_ROOT_BASE")
-            if env_files_root_base is not None and env_files_root_base.strip():
-                files_root_base = env_files_root_base.strip()
-            else:
-                # The server sets SETTA_FILES_ROOT for itself; avoid inheriting that
-                # value when launching a new workspace unless explicitly requested.
-                files_root = str(Path(workspace_root) / "setta_files")
 
         result = launch_workspace_session(
             workspace_root=workspace_root,
             files_root=files_root,
             files_root_base=files_root_base,
+            ignore_env_files_root=ignore_env_files_root,
         )
     except LaunchError as exc:
         return LaunchResponse(

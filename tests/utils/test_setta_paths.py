@@ -65,6 +65,57 @@ def test_resolve_setta_paths_uses_files_root_base(
     assert paths.setta_files_root == expected
 
 
+def test_resolve_setta_paths_files_root_base_arg_overrides_files_root_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    env_files_root = tmp_path / "env_state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_files_root))
+
+    base_root = tmp_path / "state_base"
+    base_root.mkdir()
+
+    paths = resolve_setta_paths(workspace_root=workspace, files_root_base=base_root)
+
+    assert paths.setta_files_root != env_files_root.resolve()
+    assert paths.setta_files_root.parent == base_root.resolve()
+
+
+def test_resolve_setta_paths_ignore_env_files_root_skips_files_root_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    env_files_root = tmp_path / "env_state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_files_root))
+
+    paths = resolve_setta_paths(workspace_root=workspace, ignore_env_files_root=True)
+
+    assert paths.setta_files_root == workspace.resolve() / "setta_files"
+
+
+def test_resolve_setta_paths_ignore_env_files_root_still_honors_files_root_base_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    env_files_root = tmp_path / "env_state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_files_root))
+
+    base_root = tmp_path / "state_base"
+    base_root.mkdir()
+    monkeypatch.setenv("SETTA_FILES_ROOT_BASE", str(base_root))
+
+    paths = resolve_setta_paths(workspace_root=workspace, ignore_env_files_root=True)
+
+    assert paths.setta_files_root != env_files_root.resolve()
+    assert paths.setta_files_root.parent == base_root.resolve()
+
+
 def test_build_files_root_from_base_sanitizes_leaf(tmp_path: Path) -> None:
     workspace = tmp_path / "___"
     workspace.mkdir()

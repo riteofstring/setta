@@ -1,4 +1,5 @@
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -40,11 +41,13 @@ def launch_workspace_session(
     files_root_base: Path | str | None,
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
+    ignore_env_files_root: bool = False,
 ) -> LaunchResult:
     paths = resolve_setta_paths(
         workspace_root=workspace_root,
         files_root=files_root,
         files_root_base=files_root_base,
+        ignore_env_files_root=ignore_env_files_root,
     )
     try:
         validate_workspace_root(paths.workspace_root)
@@ -123,11 +126,19 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
     log_path = log_dir / f"launch-{time.time_ns()}-{os.getpid()}.log"
     handle = log_path.open("w", encoding="utf-8")
     try:
+        popen_kwargs: dict[str, object] = {
+            "stdout": handle,
+            "stderr": subprocess.STDOUT,
+            "text": True,
+            "stdin": subprocess.DEVNULL,
+        }
+        if os.name == "posix":
+            popen_kwargs["start_new_session"] = True
+        elif sys.platform == "win32":
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         process = subprocess.Popen(
             cmd,
-            stdout=handle,
-            stderr=subprocess.STDOUT,
-            text=True,
+            **popen_kwargs,
         )
     finally:
         handle.close()
@@ -199,6 +210,26 @@ def _terminate_launch_process(
             )
     except OSError:
         pass
+    if os.name == "posix" and process.pid:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except OSError:
+            pass
+        else:
+            try:
+                process.wait(timeout=5.0)
+                return
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except OSError:
+                    return
+                try:
+                    process.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    return
+                return
+
     try:
         process.terminate()
     except OSError:
