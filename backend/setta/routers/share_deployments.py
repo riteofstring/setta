@@ -37,6 +37,7 @@ from setta.types.section_impls import (
 )
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import (
+    DeploymentType,
     ShareDeploymentListenerConfig,
     ShareDeploymentManifest,
     ShareDeploymentMetadata,
@@ -61,6 +62,9 @@ class SharePolicyOverrides(BaseModel, extra="forbid"):
     allowLayoutChanges: bool | None = None
     allowRun: bool | None = None
     allowLLM: bool | None = None
+    allowExternalLinks: bool | None = None
+    allowFileDownloads: bool | None = None
+    allowMultipleRuns: bool | None = None
     runSnapshotMode: RunSnapshotMode | None = None
 
 
@@ -244,7 +248,7 @@ def _apply_share_policy_overrides(
 
 
 def _require_share_mode(state: AppStateFromRequest) -> None:
-    if not state.share_mode:
+    if not state.share_mode or state.app_mode:
         raise HTTPException(
             status_code=400,
             detail="Share mode is not enabled for this server.",
@@ -400,6 +404,8 @@ def route_list_share_deployments(
             manifest = DBE(version_root).read_share_manifest_optional()
             if manifest is None:
                 continue
+            if manifest.deploymentType is not DeploymentType.share:
+                continue
             if not _manifest_matches_root(manifest, version_root):
                 continue
             default_config = _resolve_default_project_config(manifest, version_root)
@@ -439,6 +445,8 @@ def route_list_share_deployment_versions(
         manifest = DBE(version_root).read_share_manifest_optional()
         if manifest is None:
             continue
+        if manifest.deploymentType is not DeploymentType.share:
+            continue
         if not _manifest_matches_root(manifest, version_root):
             continue
         default_config = _resolve_default_project_config(manifest, version_root)
@@ -472,6 +480,11 @@ def route_get_latest_share_deployment(
                 status_code=404,
                 detail=f"Share deployment not found: {deploymentName}",
             )
+        if manifest.deploymentType is not DeploymentType.share:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Share deployment not found: {deploymentName}",
+            )
         if state.share_deployment_root is None:
             raise HTTPException(
                 status_code=404,
@@ -498,6 +511,11 @@ def route_get_latest_share_deployment(
     _, latest_root = max(versions, key=lambda item: item[0])
     manifest = DBE(latest_root).read_share_manifest_optional()
     if manifest is None or not _manifest_matches_root(manifest, latest_root):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Share deployment not found: {deploymentName}",
+        )
+    if manifest.deploymentType is not DeploymentType.share:
         raise HTTPException(
             status_code=404,
             detail=f"Share deployment not found: {deploymentName}",
@@ -679,6 +697,7 @@ async def route_publish_share_deployment(
     manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=x.projectConfigId,
         deploymentVersion=deployment_version,
         listener=listener_config,
@@ -687,10 +706,16 @@ async def route_publish_share_deployment(
     state.dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
     state.dbe.write_json(deployment_root / "share_policy.json", policy.model_dump())
 
+    listener_label = (
+        f"{listener_config.entrypoint} (enabled={listener_config.enabled})"
+        if listener_config is not None
+        else "-"
+    )
     logger.info(
-        "Published share deployment %s for %s",
+        "Published share deployment %s for %s (listener=%s)",
         deployment_version,
         deployment_name,
+        listener_label,
     )
     return ShareDeploymentMetadata(
         deploymentName=deployment_name,

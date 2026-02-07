@@ -1,5 +1,7 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
+import { AppMainContainer } from "components/Pages/App/AppMainContainer";
+import { AppWrapper } from "components/Pages/App/AppWrapper";
 import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
@@ -9,7 +11,7 @@ import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
-import { initializeShareSessionFromCurrentDeployment } from "state/actions/share";
+import { initializeServerMode } from "state/actions/serverMode";
 import {
   useAllProjectMetadata,
   useServerMode,
@@ -84,14 +86,15 @@ function ShareIndexRedirect() {
 type ModeWrapperProps = {
   ide: ReactNode;
   share: ReactNode;
+  app: ReactNode;
 };
 
-function ModeWrapper({ ide, share }: ModeWrapperProps) {
-  const { isShareServer, modeResolved } = useServerMode((x) => x);
+function ModeWrapper({ ide, share, app }: ModeWrapperProps) {
+  const { mode, modeResolved } = useServerMode((x) => x);
 
   useEffect(() => {
     if (!modeResolved) {
-      void initializeShareSessionFromCurrentDeployment();
+      void initializeServerMode();
     }
   }, [modeResolved]);
 
@@ -111,7 +114,13 @@ function ModeWrapper({ ide, share }: ModeWrapperProps) {
     );
   }
 
-  return isShareServer ? share : ide;
+  if (mode === "share") {
+    return share;
+  }
+  if (mode === "app") {
+    return app;
+  }
+  return ide;
 }
 
 const ideHomeRouteElement = (
@@ -155,6 +164,14 @@ const shareProjectRouteElement = (
   </ShareWrapper>
 );
 
+const appRouteElement = (
+  <AppWrapper>
+    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
+      <AppMainContainer doneLoading={doneLoading} is404={is404} />
+    )}
+  </AppWrapper>
+);
+
 const shareHomeRouteElement = (
   <ShareWrapper mode="home">
     {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
@@ -182,17 +199,49 @@ const shareIndexRouteElement = (
   </ShareWrapper>
 );
 
+const ideNotFoundRouteElement = (
+  <GlobalWrapper>
+    <ModalContainer>
+      <HeaderContainer path={HOME_ROUTER_PATH} />
+      <GridContainer>
+        <NotFound />
+      </GridContainer>
+    </ModalContainer>
+  </GlobalWrapper>
+);
+
+const shareNotFoundRouteElement = (
+  <ShareWrapper mode="home">
+    {({ doneLoading }: { doneLoading: boolean; is404: boolean }) => (
+      <ModalContainer>
+        <HeaderContainer path={HOME_ROUTER_PATH} />
+        <GridContainer>
+          {doneLoading ? <NotFound /> : <LoadingSpinner />}
+        </GridContainer>
+      </ModalContainer>
+    )}
+  </ShareWrapper>
+);
+
 const indexRoute = {
   path: INDEX_ROUTER_PATH,
   element: (
-    <ModeWrapper ide={ideIndexRouteElement} share={shareIndexRouteElement} />
+    <ModeWrapper
+      ide={ideIndexRouteElement}
+      share={shareIndexRouteElement}
+      app={appRouteElement}
+    />
   ),
 };
 
 const homeRoute = {
   path: HOME_ROUTER_PATH,
   element: (
-    <ModeWrapper ide={ideHomeRouteElement} share={shareHomeRouteElement} />
+    <ModeWrapper
+      ide={ideHomeRouteElement}
+      share={shareHomeRouteElement}
+      app={appRouteElement}
+    />
   ),
 };
 
@@ -202,6 +251,7 @@ const projectRoute = {
     <ModeWrapper
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
+      app={appRouteElement}
     />
   ),
 };
@@ -212,6 +262,18 @@ const viewModeRoute = {
     <ModeWrapper
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
+      app={appRouteElement}
+    />
+  ),
+};
+
+const catchAllRoute = {
+  path: "*",
+  element: (
+    <ModeWrapper
+      ide={ideNotFoundRouteElement}
+      share={shareNotFoundRouteElement}
+      app={appRouteElement}
     />
   ),
 };
@@ -221,4 +283,5 @@ export const router = createBrowserRouter([
   homeRoute,
   viewModeRoute,
   projectRoute,
+  catchAllRoute,
 ]);
