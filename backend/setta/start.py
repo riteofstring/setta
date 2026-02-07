@@ -1421,6 +1421,21 @@ def tools() -> None:
     help="Request timeout in seconds (0 disables).",
 )
 @click.option("--base-url", default=None, help="Override backend base URL")
+@click.option(
+    "--agentic-project-config-id",
+    default=None,
+    help="Set x-setta-project-config-id for agentic scope enforcement (temporary or canonical id).",
+)
+@click.option(
+    "--agentic-chat-id",
+    default=None,
+    help="Set x-setta-chat-id for agentic scope enforcement (temporary or canonical id).",
+)
+@click.option(
+    "--agentic-section-id",
+    default=None,
+    help="Set x-setta-section-id for agentic scope enforcement (temporary or canonical id).",
+)
 def api(
     tool_name: str,
     json_payload: str | None,
@@ -1433,6 +1448,9 @@ def api(
     auth_stdin: bool,
     timeout: float,
     base_url: str | None,
+    agentic_project_config_id: str | None,
+    agentic_chat_id: str | None,
+    agentic_section_id: str | None,
 ) -> None:
     if auth_stdin and payload_stdin:
         raise click.ClickException("Use --auth-stdin or --stdin, not both.")
@@ -1515,6 +1533,20 @@ def api(
         raise
 
     headers = {"Cookie": cookie_value}
+    if agentic_project_config_id is not None and agentic_project_config_id.strip():
+        from setta.mcp.agentic_context_headers import (
+            AGENTIC_CONTEXT_CHAT_ID_HEADER,
+            AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+            AGENTIC_CONTEXT_SECTION_ID_HEADER,
+        )
+
+        headers[AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER] = (
+            agentic_project_config_id.strip()
+        )
+        if agentic_chat_id is not None and agentic_chat_id.strip():
+            headers[AGENTIC_CONTEXT_CHAT_ID_HEADER] = agentic_chat_id.strip()
+        if agentic_section_id is not None and agentic_section_id.strip():
+            headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = agentic_section_id.strip()
     request_kwargs: dict[str, Any] = {
         "headers": headers,
         "json": {"tool": normalized_tool_name, "arguments": arguments},

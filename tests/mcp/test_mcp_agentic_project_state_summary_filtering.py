@@ -314,6 +314,68 @@ async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_get_latest_project_state_summary_allows_temporary_agentic_context_headers(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+    tmp_chat_section_id = tmp_map[chat_section_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    ctx = _build_context_with_headers(
+        mcp_server=mcp_server,
+        project_config_id=tmp_project_id,
+        chat_id=ID("chat-1"),
+        section_id=tmp_chat_section_id,
+    )
+    tool = mcp_server.get_tool("get_latest_project_state_summary")
+    assert tool is not None
+    result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
+    assert manager.summary_calls == 1
+
+    temporary_to_canonical, _ = dbe.read_temporary_id_map()
+    canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
+
+    allowed_ids = {allowed_section_id, peer_chat_section_id}
+    assert {entry.sectionId for entry in canonical.sections} == allowed_ids
+    assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
+    assert blocked_section_id not in canonical.parentSectionMap
+
+
+@pytest.mark.asyncio
 async def test_mcp_blocks_tool_calls_when_agentic_context_missing(tmp_path) -> None:
     dbe = DBE(tmp_path)
     (

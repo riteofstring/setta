@@ -728,13 +728,19 @@ class SettaFastMCP(FastMCP):
         self._agentic_context_by_session[session_key] = context
 
     def _resolve_agentic_context(self, ctx: Context) -> AgenticContext | None:
+        def _canonicalize(value: ID | None) -> ID | None:
+            if value is None:
+                return None
+            return self.temporary_to_canonical.get(value, value)
+
         meta = ctx.request_context.meta
         if meta is not None:
             payload = meta.model_dump()
             project_config_id = _parse_meta_id(payload.get("projectConfigId"))
             if project_config_id is not None:
-                chat_id = _parse_meta_id(payload.get("chatId"))
-                section_id = _parse_meta_id(payload.get("sectionId"))
+                project_config_id = _canonicalize(project_config_id)
+                chat_id = _canonicalize(_parse_meta_id(payload.get("chatId")))
+                section_id = _canonicalize(_parse_meta_id(payload.get("sectionId")))
                 return AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=chat_id,
@@ -747,9 +753,12 @@ class SettaFastMCP(FastMCP):
                 headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER)
             )
             if project_config_id is not None:
-                chat_id = _parse_meta_id(headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER))
-                section_id = _parse_meta_id(
-                    headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER)
+                project_config_id = _canonicalize(project_config_id)
+                chat_id = _canonicalize(
+                    _parse_meta_id(headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER))
+                )
+                section_id = _canonicalize(
+                    _parse_meta_id(headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER))
                 )
                 return AgenticContext(
                     project_config_id=project_config_id,
