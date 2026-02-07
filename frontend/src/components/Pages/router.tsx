@@ -2,7 +2,6 @@ import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
-import { WorkspaceLaunchPage } from "components/Pages/Launch/WorkspaceLaunchPage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
@@ -21,7 +20,6 @@ import {
   INDEX_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
   VIEW_MODE_ROUTER_PATH,
-  WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
 import type { ProjectConfig } from "utils/generatedTypes";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
@@ -144,12 +142,6 @@ const ideProjectRouteElement = (
   </GlobalWrapper>
 );
 
-const ideWorkspaceLaunchRouteElement = (
-  <GlobalWrapper>
-    <WorkspaceLaunchPage />
-  </GlobalWrapper>
-);
-
 const shareProjectRouteElement = (
   <ShareWrapper>
     {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
@@ -224,20 +216,9 @@ const viewModeRoute = {
   ),
 };
 
-const workspaceLaunchRoute = {
-  path: WORKSPACE_LAUNCH_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideWorkspaceLaunchRouteElement}
-      share={<Navigate to={HOME_ROUTER_PATH} replace />}
-    />
-  ),
-};
-
 export const router = createBrowserRouter([
   indexRoute,
   homeRoute,
-  workspaceLaunchRoute,
   viewModeRoute,
   projectRoute,
 ]);

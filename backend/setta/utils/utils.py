@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from setta.code_gen.utils import sanitize_slug
+from setta.utils.constants import CWD
 
 GEN_CODE_FILENAME = "setta_gen.py"
 GEN_CODE_META_FILENAME = "setta_gen_meta.py"
@@ -138,18 +139,12 @@ def move_item_in_array(array: list[list_generic], from_index: int, to_index: int
     return new_array
 
 
-__all__ = [
-    "GEN_CODE_FILENAME",
-    "GEN_CODE_META_FILENAME",
-    "build_gen_code_path",
-    "build_project_sections_dir",
-    "compute_md5_hex",
-    "compute_md5_prefix",
-    "ensure_str_path",
-    "get_absolute_path",
-    "insert_into_array",
-    "move_item_in_array",
-    "remove_empty",
-    "replace_at_positions",
-    "try_json",
-]
+def normalize_path(path: Path | str):
+    # Resolve to absolute path (handles both relative and absolute inputs)
+    absolute = (CWD / path).resolve()
+
+    try:
+        return absolute.relative_to(CWD.resolve())
+    except ValueError:
+        # Path is outside project
+        return absolute
