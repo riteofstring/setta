@@ -138,6 +138,16 @@ async def route_delete_project_configs(
 ):
     project_manager = state.project_manager_switcher.main
     await project_manager.delete_project_configs(x.ids)
+    # Project config deletes should also reclaim any lingering PTYs, otherwise
+    # repeated config create/delete cycles (like Playwright E2E) leak terminal
+    # processes and eventually cause flaky terminal readiness/output behavior.
+    terminal_ids = [
+        terminal_id
+        for terminal_id, info in list(state.terminals.PTY_PIDS.items())
+        if info.get("projectConfigId") in x.ids
+    ]
+    if terminal_ids:
+        await state.terminals.delete_terminals(terminal_ids)
     project_manager.perform_manual_save()
     return True
 
