@@ -113,11 +113,11 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             lsp_writers = LSPWriters(lsps)
             lsp_readers = LSPReaders(lsps, frontend_sender)
 
-            specific_file_watcher = SpecificFileWatcher()
-            artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
-            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            specific_file_watcher_instance = SpecificFileWatcher()
+            artifacts = Artifacts(frontend_sender, specific_file_watcher_instance, dbe)
+            code_files = CodeFiles(frontend_sender, specific_file_watcher_instance, dbe)
             json_source = JSONSource(
-                frontend_sender, settings_file, specific_file_watcher, dbe
+                frontend_sender, settings_file, specific_file_watcher_instance, dbe
             )
 
             manager = SessionProjectManager(
@@ -125,7 +125,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 frontend_sender=frontend_sender,
                 python_script_sender=python_script_sender,
                 settings_file=settings_file,
-                specific_file_watcher=specific_file_watcher,
+                specific_file_watcher=specific_file_watcher_instance,
                 dbe=dbe,
                 artifacts=artifacts,
                 json_source=json_source,
@@ -149,9 +149,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
-            specific_file_watcher.start()
+            specific_file_watcher_instance.start()
             stack.push_async_callback(
-                _stop_specific_file_watcher, specific_file_watcher
+                _stop_specific_file_watcher, specific_file_watcher_instance
             )
 
             fixture = SettingsManagerFixture(
@@ -208,11 +208,11 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             lsp_writers = LSPWriters(lsps)
             lsp_readers = LSPReaders(lsps, frontend_sender)
 
-            specific_file_watcher = SpecificFileWatcher()
-            artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
-            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
+            specific_file_watcher_instance = SpecificFileWatcher()
+            artifacts = Artifacts(frontend_sender, specific_file_watcher_instance, dbe)
+            code_files = CodeFiles(frontend_sender, specific_file_watcher_instance, dbe)
             json_source = JSONSource(
-                frontend_sender, settings_file, specific_file_watcher, dbe
+                frontend_sender, settings_file, specific_file_watcher_instance, dbe
             )
 
             manager = SessionProjectManager(
@@ -220,7 +220,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 frontend_sender=frontend_sender,
                 python_script_sender=python_script_sender,
                 settings_file=settings_file,
-                specific_file_watcher=specific_file_watcher,
+                specific_file_watcher=specific_file_watcher_instance,
                 dbe=dbe,
                 artifacts=artifacts,
                 json_source=json_source,
@@ -244,9 +244,9 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
-            specific_file_watcher.start()
+            specific_file_watcher_instance.start()
             stack.push_async_callback(
-                _stop_specific_file_watcher, specific_file_watcher
+                _stop_specific_file_watcher, specific_file_watcher_instance
             )
 
             fixture = ProjectManagerFixture(
@@ -340,8 +340,7 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 state = SettaState()
 """
 
-def _populate_project_fixture_files(setta_root: Path) -> None:
-    _seed_minimal_setta_files(setta_root)
+
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")
