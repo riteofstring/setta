@@ -61,6 +61,12 @@ You can force the selection without editing the config:
 
 The `/api/launch` request also supports `settaFilesLocation: auto|local|global`.
 
+## API Helpers
+
+In IDE mode, the launcher UI uses:
+
+- `GET /api/settaHomeInfo` -> `{ "settaHome": "...", "globalSettaFilesBase": "..." }`
+
 ## Examples
 
 Use local state (default):
