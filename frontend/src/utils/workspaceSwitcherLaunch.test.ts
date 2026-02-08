@@ -4,9 +4,7 @@ import {
   consumeOpenWorkspaceSwitcherRequest,
   encodePendingWorkspaceLaunchForUrlHash,
   readPendingWorkspaceLaunch,
-  readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
-  writeWorkspaceSwitcherDraft,
 } from "./workspaceSwitcherLaunch";
 
 describe("workspaceSwitcherLaunch", () => {
@@ -140,25 +138,6 @@ describe("workspaceSwitcherLaunch", () => {
     const stored = memoryStorage.getItem("setta.pendingWorkspaceLaunch");
     expect(stored).toContain("/tmp/fresh");
     expect(stored).not.toContain("/tmp/stale");
-  });
-
-  it("roundtrips the workspace switcher draft payload", () => {
-    const request: LaunchRequestInput = {
-      workspaceRoot: "/tmp/work",
-      settaFilesLocation: "global",
-      sshTarget: "user@host",
-      sshArgs: "-i ~/.ssh/id_ed25519",
-      remoteCmd: "source .venv/bin/activate && setta",
-      localPort: 61000,
-    };
-
-    writeWorkspaceSwitcherDraft(request);
-    expect(memoryStorage.getItem("setta.workspaceSwitcherDraft")).toContain(
-      '"settaFilesLocation":"global"',
-    );
-
-    const draft = readWorkspaceSwitcherDraft();
-    expect(draft).toMatchObject(request);
   });
 
   it("cleans the URL hash even when history state is not cloneable", () => {
