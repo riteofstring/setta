@@ -34,7 +34,7 @@ from setta.types.section_impls import (
     DictSectionImpl,
     SectionSize,
 )
-from setta.utils.paths import normalize_workspace_path
+from setta.utils.utils import normalize_path
 
 _CAMEL_CASE_PATTERN = re.compile(r"[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|[0-9]+")
 _ACRONYM_TOKENS = {
@@ -507,6 +507,166 @@ def ensure_settings_view_modes(project_state: ProjectStateSingleConfig) -> bool:
     return True
 
 
+def _ensure_settings_model_code_objs(
+    project_state: ProjectStateSingleConfig,
+    *,
+    section_id: ID,
+    section_impl: DictSectionImpl,
+    parent_code_obj_id: ID,
+    model_class: type[BaseModel],
+    preset_code_obj_impls: dict[str, BaseCodeObjImplUnion],
+) -> bool:
+    parent_core = project_state.codeObjs[parent_code_obj_id]
+    parent_variant_id = parent_core.defaultVariant
+    if parent_variant_id not in project_state.codeObjVariants:
+        raise KeyError(
+            f"Settings section {section_id} missing code obj variant {parent_variant_id}."
+        )
+    parent_variant = project_state.codeObjVariants[parent_variant_id]
+    if parent_variant.impl not in project_state.codeObjImpls:
+        raise KeyError(
+            f"Settings section {section_id} missing code obj impl {parent_variant.impl}."
+        )
+    parent_base_impl = project_state.codeObjImpls[parent_variant.impl]
+    if not isinstance(parent_base_impl, NestedParamCodeObjImpl):
+        raise TypeError(
+            f"Settings section {section_id} expected NestedParamCodeObjImpl for {parent_code_obj_id}, got {type(parent_base_impl).__name__}."
+        )
+
+    children = list(parent_base_impl.children)
+    child_name_to_id: dict[str, ID] = {}
+    for child_id in children:
+        child_core = project_state.codeObjs.get(child_id, None)
+        if child_core is None:
+            continue
+        if child_core.name:
+            child_name_to_id[child_core.name] = child_id
+
+    changed = False
+    for field_name, field in model_class.model_fields.items():
+        if field_name in child_name_to_id:
+            continue
+
+        annotation = field.annotation
+        code_obj_impl: BaseCodeObjImplUnion | None = None
+        nested_variant_map: dict[ID, ID] = {}
+
+        if isclass(annotation) and issubclass(annotation, BaseModel):
+            nested_children, nested_variant_map = process_model_fields(
+                annotation,
+                project_state.codeObjs,
+                project_state.codeObjImpls,
+                project_state.codeObjVariants,
+                preset_code_obj_impls,
+            )
+            code_obj_impl = NestedParamCodeObjImpl(children=nested_children)
+        elif annotation is bool:
+            code_obj_impl = SwitchParamCodeObjImpl()
+        elif isclass(annotation) and issubclass(annotation, Enum):
+            preset_name = annotation.__name__
+            preset_impl = preset_code_obj_impls.get(preset_name, None)
+            if preset_impl is None:
+                preset_impl = DropdownParamCodeObjImpl(
+                    name=preset_name,
+                    choices=[f'"{b.value}"' for b in annotation],
+                    isPreset=True,
+                )
+                preset_code_obj_impls[preset_name] = preset_impl
+            code_obj_impl = preset_impl
+        elif isinstance(field.default, str) and is_color_hex(field.default):
+            code_obj_impl = ColorPickerParamCodeObjImpl()
+
+        if code_obj_impl is None:
+            continue
+
+        code_obj_id, code_obj_variant_id = add_code_obj_details(
+            field_name,
+            code_obj_impl,
+            project_state.codeObjs,
+            project_state.codeObjImpls,
+            project_state.codeObjVariants,
+            display_name=humanize_settings_identifier(field_name),
+        )
+        children.append(code_obj_id)
+        section_impl.codeObjVariantMap[code_obj_id] = code_obj_variant_id
+        for nested_id, nested_variant_id in nested_variant_map.items():
+            section_impl.codeObjVariantMap[nested_id] = nested_variant_id
+        changed = True
+
+    if changed:
+        parent_base_impl.children = list(children)
+
+    return changed
+
+
+def ensure_settings_code_objs(project_state: ProjectStateSingleConfig) -> bool:
+    """Ensure the settings project includes code objs for new SettingsState fields.
+
+    This is a non-destructive, append-only migration that creates any missing
+    bool/enum/color/nested settings params under their respective sections.
+    """
+
+    section_name_to_id: dict[str, ID] = {}
+    for section_id, section_core in project_state.sections.items():
+        if section_core.name in section_name_to_id:
+            raise ValueError(
+                f"Settings project has duplicate section name {section_core.name}."
+            )
+        section_name_to_id[section_core.name] = section_id
+
+    preset_code_obj_impls: dict[str, BaseCodeObjImplUnion] = {}
+    for impl in project_state.codeObjImpls.values():
+        if isinstance(impl, DropdownParamCodeObjImpl) and impl.isPreset and impl.name:
+            preset_code_obj_impls[impl.name] = impl
+
+    changed = False
+    for section_name in SettingsState.model_fields.keys():
+        if section_name not in section_name_to_id:
+            raise KeyError(f"Missing settings section {section_name}.")
+        section_id = section_name_to_id[section_name]
+
+        if section_id not in project_state.projectConfig.sectionVariantMap:
+            raise KeyError(
+                f"Settings section {section_id} missing sectionVariantMap entry."
+            )
+        section_variant_id = project_state.projectConfig.sectionVariantMap[section_id]
+        if section_variant_id not in project_state.sectionVariants:
+            raise KeyError(
+                f"Settings section {section_id} missing section variant {section_variant_id}."
+            )
+        section_variant = project_state.sectionVariants[section_variant_id]
+        if section_variant.impl not in project_state.sectionImpls:
+            raise KeyError(
+                f"Settings section {section_id} missing section impl {section_variant.impl}."
+            )
+        base_section_impl = project_state.sectionImpls[section_variant.impl]
+        if not isinstance(base_section_impl, DictSectionImpl):
+            raise TypeError(
+                f"Settings section {section_id} expected DictSectionImpl, got {type(base_section_impl).__name__}."
+            )
+
+        if base_section_impl.topLevelParamId is None:
+            raise KeyError(f"Settings section {section_id} has no topLevelParamId.")
+
+        default_factory = SettingsState.model_fields[section_name].default_factory
+        if not isclass(default_factory) or not issubclass(default_factory, BaseModel):
+            continue
+
+        changed = (
+            _ensure_settings_model_code_objs(
+                project_state,
+                section_id=section_id,
+                section_impl=base_section_impl,
+                parent_code_obj_id=base_section_impl.topLevelParamId,
+                model_class=default_factory,
+                preset_code_obj_impls=preset_code_obj_impls,
+            )
+            or changed
+        )
+
+    return changed
+
+
 def create_settings_project_state(settings_path: Path):
     section_names = list(SettingsState.model_fields.keys())
     (
@@ -532,7 +692,7 @@ def create_settings_project_state(settings_path: Path):
             topLevelParamId=sectionToTopLevelId[k],
         )
         sectionVariant = Variant(
-            name=str(normalize_workspace_path(settings_path)),
+            name=str(normalize_path(settings_path)),
             impl=sectionImpl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(sectionImpl),
         )

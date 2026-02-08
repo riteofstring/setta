@@ -1,24 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { C } from "utils/c";
 import {
+  BaseChatMessageUnion,
   ChatRoleEnum,
   createMessageTextContent,
+  createSharePolicy,
   type SharePolicy,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatMessageList } from "./ChatMessages";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
-  return {
-    allowParamChanges: true,
-    allowVariantChanges: true,
-    allowLayoutChanges: true,
-    allowRun: false,
-    allowLLM: false,
-    runSnapshotMode: "ephemeral",
-    ...overrides,
-  };
+  return createSharePolicy(overrides);
 }
 
 function syncStoreInitialState(store: {
@@ -63,7 +58,7 @@ describe("ChatMessageList edit gating", () => {
 
   it("disables edit when parent edit reason is provided", () => {
     useShareSession.setState({
-      isShareMode: false,
+      isDeploymentMode: false,
       sharePolicy: buildSharePolicy(),
     });
     syncStoreInitialState(useShareSession);
@@ -91,3 +86,30 @@ describe("ChatMessageList edit gating", () => {
     expect(editButton).toContain('title="Engine unavailable."');
   });
 });
+
+describe("ChatMessages assistant error rendering", () => {
+  it("renders assistant [Error] text as an explicit error callout", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m1",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: "[Error] Your credit balance is too low.",
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-assistant-error="true"');
+    expect(markup).toContain("AI request failed");
+    expect(markup).toContain("Your credit balance is too low.");
+  });
+});
+

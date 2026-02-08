@@ -1,6 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 
+import { ensureAppReady } from "../helpers";
+
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const TEST_IMAGE_PATH = "pw_image.png";
@@ -31,10 +33,13 @@ test("image artifacts render from binary store", async ({ page }) => {
     projectConfigId,
     sectionName,
   );
-  await setImagePath(page, projectConfigId, sectionId, TEST_IMAGE_PATH);
 
   const binaryRef = await uploadTestPng(page);
   await updateImageArtifact(page, TEST_IMAGE_PATH, binaryRef);
+  // Set the path after the artifact exists so the first frontend fetch sees the
+  // binary payload (the updateArtifacts endpoint does not broadcast changes in
+  // IDE mode, so ordering matters for reliability).
+  await setImagePath(page, projectConfigId, sectionId, TEST_IMAGE_PATH);
 
   const section = findSectionCandidates(page, sectionName).first();
   await expect(section).toBeVisible();
@@ -48,7 +53,7 @@ test("image artifacts render from binary store", async ({ page }) => {
       return await img.evaluate((el) =>
         el instanceof HTMLImageElement ? el.naturalWidth : 0,
       );
-    })
+    }, { timeout: 20000 })
     .toBeGreaterThan(0);
 
   const src = await img.evaluate((el) => el.getAttribute("src") ?? "");

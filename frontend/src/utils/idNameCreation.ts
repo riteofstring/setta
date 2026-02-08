@@ -4,14 +4,14 @@ import {
   uniqueNamesGenerator,
 } from "unique-names-generator";
 import { v4 as uuidv4 } from "uuid";
-export const ARTIFACTS_ROOT = "artifacts";
+import { C } from "./c";
 
 export function createNewId() {
   return uuidv4();
 }
 
 function createArtifactId(extension: string = ".json") {
-  return `${ARTIFACTS_ROOT}/${createNewId()}${extension}`;
+  return `${C.ARTIFACTS_FOLDER}/${createNewId()}${extension}`;
 }
 
 export function createJsonArtifactId() {

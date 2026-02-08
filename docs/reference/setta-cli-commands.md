@@ -1,13 +1,23 @@
 # Setta CLI Commands
 
 This doc covers the commands exposed by the `setta` CLI (implemented in
-`backend/setta/start.py`). Local commands operate on a workspace root (code
-operations) and a `setta_files` root (state/runtime). By default both roots
-follow the current working directory, but you can override them with
-`--workspace`, `--files-root`, `--files-root-base` or the corresponding env vars.
-Run `setta`, `setta status`, or `setta stop` from the workspace you want to manage
-when you are not passing explicit roots. `setta connect` can be run from anywhere
-because it targets a remote workspace via `--workspace`.
+`backend/setta/start.py`). Most local commands read/write `setta_files/` in the
+current working directory, so run them from the workspace you want to manage
+(for example `setta`, `setta backups`, `setta status`, or `setta stop`).
+`setta connect` can be run from anywhere because it targets a remote workspace
+via `--workspace`.
+
+Deployment commands (`setta share`, `setta app`) serve a published deployment
+snapshot:
+- With `--deployment-name`, deployments are resolved under
+  `setta_files/deployments/` relative to the current working directory (so run
+  from the workspace).
+- With `--deployment-root`, you can point at an absolute deployment folder and
+  run from anywhere.
+
+Only IDE mode sessions started via `setta` are recorded in the session
+registry, so `setta status`, `setta auth`, `setta stop`, and `setta connect`
+apply to those sessions (not `setta share` / `setta app` servers).
 
 There are two types of CLI commands: local commands that operate on the
 workspace where they are executed, and remote helpers that use SSH to target
@@ -16,13 +26,15 @@ another host.
 | Command | Local workspace | Remote helper | Notes |
 | --- | --- | --- | --- |
 | `setta` | yes | no | Start the server in the current workspace. |
+| `setta share` | yes | no | Start the server in share deployment mode. |
+| `setta app` | yes | no | Start the server in app deployment mode. |
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Placeholder export command. |
+| `setta backups` | yes | no | List and restore local project backups. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
 | `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
-| `setta launch` | yes | no | Start (or reuse) a local session and emit bootstrap JSON. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -37,16 +49,56 @@ Options:
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
-- `--workspace PATH` sets the workspace root (code operations).
-- `--files-root PATH` sets the `setta_files` root explicitly.
-- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
-Env equivalents:
-`SETTA_WORKSPACE_ROOT`, `SETTA_FILES_ROOT`, and `SETTA_FILES_ROOT_BASE`.
 
 Examples:
 ```sh
 setta
 setta --host 127.0.0.1 --port 8000 --no-open
+```
+
+## `setta share` (serve a share deployment)
+
+Starts the backend server in share deployment mode. In deployment mode, auth is
+disabled and all stateful routes require a `shareSessionId` (created via
+`POST /share/deployments/current/session`).
+
+Options:
+- `--deployment-root PATH` uses an explicit deployment root (must contain
+  `manifest.json` + `project.json` + `policy.json`).
+- `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
+  Pair this with:
+  - `--version vN` or `--latest`.
+- `--reload` is rejected in deployment mode.
+- Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
+  `--no-open`.
+
+Examples:
+```sh
+setta share --deployment-name demo-share --latest
+setta share --deployment-name demo-share --version v3 --host 0.0.0.0 --port 8000 --no-open
+setta share --deployment-root /opt/setta/deployments/demo-share/v5 --host 0.0.0.0 --port 8000
+```
+
+## `setta app` (serve an app deployment)
+
+Starts the backend server in app deployment mode. App mode serves an app
+deployment snapshot (AppSpec + theme + assets) using the same session + policy
+model as share mode.
+
+Options:
+- `--deployment-root PATH` uses an explicit app deployment root.
+- `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
+  Pair this with:
+  - `--version vN` or `--latest`.
+- `--reload` is rejected in deployment mode.
+- Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
+  `--no-open`.
+
+Examples:
+```sh
+setta app --deployment-name demo-app --latest
+setta app --deployment-name demo-app --version v2 --host 0.0.0.0 --port 8000 --no-open
+setta app --deployment-root /opt/setta/deployments/demo-app/v2 --host 0.0.0.0 --port 8000
 ```
 
 ## `setta version`
@@ -67,6 +119,60 @@ Options:
 - `--readable` exports in a human-readable format.
 - `--readable-with-variants` includes variants in the readable export.
 - `--output PATH` writes the readable export to a custom path (default: `setta_files/project.readable.yaml`).
+
+## `setta backups`
+
+Manage local backups stored in `setta_files/backups/`.
+Backups are byte-for-byte copies of `setta_files/project.json` created during project
+saves when `settings.backend.autobackup` is enabled (default: `true`). Frequency and
+retention are controlled by `settings.backend.autobackupFreq` (seconds) and
+`settings.backend.autobackupKeepLastN` (count). Restore stashes created by
+`setta backups restore` are named `restore_stash_*.json` and are not shown by
+`setta backups list`.
+
+### `setta backups list`
+
+Lists backups in descending timestamp order (most recent first).
+
+Options:
+- `--json` emits machine-readable JSON:
+
+  ```json
+  [
+    { "index": 1, "path": "...", "timestamp": "..." }
+  ]
+  ```
+
+- `--limit N` limits output entries (must be `>= 1`).
+
+Examples:
+```sh
+setta backups list
+setta backups list --json
+setta backups list --limit 20
+```
+
+### `setta backups restore`
+
+Restores a backup by overwriting `setta_files/project.json`.
+
+Exactly one selector is required:
+- `--latest` restores the most recent backup.
+- `--index N` restores the Nth item from `setta backups list` (1-based).
+- `--path PATH` restores a specific backup file.
+
+Safety:
+- Refuses to restore if a Setta session appears to be running for the current workspace.
+- Use `--force` to bypass the active-session check.
+- Creates a `restore_stash_*.json` copy of the existing `project.json` before overwriting it (when the file exists).
+- Use `--yes` to skip the confirmation prompt.
+
+Examples:
+```sh
+setta backups restore --latest
+setta backups restore --index 3 --yes
+setta backups restore --path /abs/path/to/backup_20260101_120000_123456.json --force --yes
+```
 
 ## `setta status`
 
@@ -115,7 +221,6 @@ JSON output schema:
   "session": {
     "id": "...",
     "workspacePath": "...",
-    "workspacePathCanonical": "...",
     "host": "127.0.0.1",
     "port": 8000,
     "pid": 12345,
@@ -130,47 +235,6 @@ JSON output schema:
 Example:
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
-```
-
-## `setta launch`
-
-Starts or reuses a local session for a workspace and emits JSON output that the
-frontend can consume. This command requires `--json`.
-
-Options:
-- `--workspace PATH` sets the workspace root (required for detached workspaces).
-- `--files-root PATH` sets the `setta_files` root explicitly.
-- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
-- `--timeout SECONDS` overrides the default launch timeout (30s).
-- `--json` emits strict JSON only (required).
-
-Success payload:
-```json
-{
-  "ok": true,
-  "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
-  "workspaceRoot": "/path/to/workspace",
-  "filesRoot": "/path/to/setta_files",
-  "sessionId": "...",
-  "startedNew": true,
-  "session": {
-    "id": "...",
-    "workspacePath": "...",
-    "workspacePathCanonical": "...",
-    "host": "127.0.0.1",
-    "port": 8000,
-    "pid": 12345,
-    "startedAt": "2025-01-01T12:00:00.000000"
-  }
-}
-```
-
-Error payload:
-```json
-{
-  "ok": false,
-  "error": { "code": "InvalidWorkspace", "message": "..." }
-}
 ```
 
 ## `setta tools`
@@ -201,7 +265,17 @@ Auth sources (highest priority first):
 
 Other options:
 - `--base-url` override backend base URL
+- `--agentic-project-config-id` set `x-setta-project-config-id` (required for most scope-enforced tools; temporary or canonical id).
+- `--agentic-chat-id` set `x-setta-chat-id` (optional; temporary or canonical id).
+- `--agentic-section-id` set `x-setta-section-id` (required for most scope-enforced tools; temporary or canonical id).
 - `--json-output` emit raw JSON only on stdout
+
+Agentic scope notes:
+- Most tools return a `CallToolResult` scope error unless you provide at least
+  `--agentic-project-config-id` and `--agentic-section-id`.
+- A small set of init/utility tools (for example `list_mcp_tools`,
+  `search_mcp_tools`, `getProjectConfigNamesAndIds`) are allowed without agentic
+  context.
 
 Output:
 - MCP `CallToolResult` JSON (includes `content`, `structuredContent`, `isError`).
@@ -209,8 +283,13 @@ Output:
 Examples:
 ```sh
 setta api getProjectConfigNamesAndIds --json-output
-setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
+setta api get_latest_project_state_summary \
+  --agentic-project-config-id "..." \
+  --agentic-section-id "..." \
+  --json '{"projectConfigId":"..."}' --json-output
 setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
+  --agentic-project-config-id "..." \
+  --agentic-section-id "..." \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 

@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
 import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import { processNameValidationErrors } from "state/actions/nameValidation";
@@ -11,7 +12,11 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useServerMode,
+  useShareSession,
+} from "state/definitions";
 import { encodeBinaryFrame } from "utils/binaryWebsocket";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
@@ -59,6 +64,10 @@ import {
   receiveAIFollowToolResultUpdate,
   requestAIFollowSnapshot,
 } from "./aiFollow";
+import {
+  initializeAppSessionFromCurrentDeployment,
+  resetAppSessionState,
+} from "./app";
 import { updateArtifacts } from "./artifacts";
 import {
   applyListenerCoverageSnapshot,
@@ -115,14 +124,14 @@ export const openWebSocket = _.debounce(
     }
     lastPathname = pathname;
     lastShareSessionId = shareSessionId;
-    const isShareMode = Boolean(shareSessionId);
-    if (!isShareMode) {
+    const isDeploymentMode = Boolean(shareSessionId);
+    if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = isShareMode
+    const route = isDeploymentMode
       ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
       : RouteEnum.WEBSOCKET_FRONTEND;
-    const targetUrl = isShareMode
+    const targetUrl = isDeploymentMode
       ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
           shareSessionId ?? "",
         )}`
@@ -151,7 +160,7 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        if (isShareMode) {
+        if (isDeploymentMode) {
           startShareHeartbeat();
           const projectConfigId = getCurrProjectConfigId();
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
@@ -381,20 +390,39 @@ async function handleShareSessionRecovery() {
   if (shareSessionRecoveryInFlight) {
     return;
   }
+  const shareSession = useShareSession.getState();
+  const serverMode = useServerMode.getState();
+  const isAppMode =
+    shareSession.deploymentMode === "app" || serverMode.mode === "app";
+  const expiredMessage = isAppMode
+    ? "App session expired. Refresh to continue."
+    : "Share session expired. Refresh to continue.";
   if (shareSessionRecoveryAttempts >= SHARE_SESSION_RECOVERY_MAX_ATTEMPTS) {
-    resetShareSessionState();
-    addTemporaryNotification("Share session expired. Refresh to continue.");
+    if (isAppMode) {
+      resetAppSessionState();
+    } else {
+      resetShareSessionState();
+    }
+    addTemporaryNotification(expiredMessage);
     return;
   }
   shareSessionRecoveryInFlight = true;
   shareSessionRecoveryAttempts += 1;
-  const recovered = await initializeShareSessionFromCurrentDeployment({
-    forceNewSession: true,
-  });
+  const recovered = isAppMode
+    ? await initializeAppSessionFromCurrentDeployment({
+        forceNewSession: true,
+      })
+    : await initializeShareSessionFromCurrentDeployment({
+        forceNewSession: true,
+      });
   shareSessionRecoveryInFlight = false;
   if (!recovered) {
-    resetShareSessionState();
-    addTemporaryNotification("Share session expired. Refresh to continue.");
+    if (isAppMode) {
+      resetAppSessionState();
+    } else {
+      resetShareSessionState();
+    }
+    addTemporaryNotification(expiredMessage);
     return;
   }
   shareSessionRecoveryAttempts = 0;
@@ -419,6 +447,9 @@ function receiveMessage(message: string) {
       // TODO
       return null;
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
+      if (useServerMode.getState().mode === "app") {
+        return processAppProjectStateUpdateFromBackend(m.content);
+      }
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
@@ -461,8 +492,9 @@ function emitRealtimeDependencyValue(
   dependencyKey: BaseDependencyKeyUnion,
   value: BaseDependencyValueUnion,
   binaryPayload?: ArrayBuffer,
+  projectConfigIdOverride?: string | null,
 ) {
-  const projectConfigId = getCurrProjectConfigId();
+  const projectConfigId = projectConfigIdOverride ?? getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
@@ -494,8 +526,11 @@ type DependencyEventInput = {
   timestampMs?: number;
 };
 
-export function sendRealtimeDependencyEvent(event: DependencyEventInput): void {
-  const projectConfigId = getCurrProjectConfigId();
+export function sendRealtimeDependencyEvent(
+  event: DependencyEventInput,
+  projectConfigIdOverride?: string | null,
+): void {
+  const projectConfigId = projectConfigIdOverride ?? getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
@@ -527,6 +562,7 @@ export function sendRealtimeSectionParamLiteral(
   sectionId: string,
   codeObjId: string,
   value: string,
+  projectConfigIdOverride?: string | null,
 ) {
   const dependencyKey: SectionParamDependencyKey = {
     type: DependencyKeyTypeEnum.SectionParam,
@@ -537,10 +573,19 @@ export function sendRealtimeSectionParamLiteral(
     payload: value,
     type: DependencyValueTypeEnum.Literal,
   };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+  emitRealtimeDependencyValue(
+    dependencyKey,
+    dependencyValue,
+    undefined,
+    projectConfigIdOverride,
+  );
 }
 
-export function sendRealtimeSectionLiteral(sectionId: string, value: string) {
+export function sendRealtimeSectionLiteral(
+  sectionId: string,
+  value: string,
+  projectConfigIdOverride?: string | null,
+) {
   const dependencyKey: SectionDependencyKey = {
     type: DependencyKeyTypeEnum.Section,
     sectionId,
@@ -549,13 +594,19 @@ export function sendRealtimeSectionLiteral(sectionId: string, value: string) {
     payload: value,
     type: DependencyValueTypeEnum.Literal,
   };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue);
+  emitRealtimeDependencyValue(
+    dependencyKey,
+    dependencyValue,
+    undefined,
+    projectConfigIdOverride,
+  );
 }
 
 export function sendRealtimeSectionBinary(
   sectionId: string,
   payload: ArrayBuffer,
   mimeType = "image/png",
+  projectConfigIdOverride?: string | null,
 ) {
   if (
     C.REALTIME_BINARY_MAX_BYTES > 0 &&
@@ -576,7 +627,12 @@ export function sendRealtimeSectionBinary(
     },
     type: DependencyValueTypeEnum.Binary,
   };
-  emitRealtimeDependencyValue(dependencyKey, dependencyValue, payload);
+  emitRealtimeDependencyValue(
+    dependencyKey,
+    dependencyValue,
+    payload,
+    projectConfigIdOverride,
+  );
 }
 
 function sendMessage(message: WebsocketMsg) {

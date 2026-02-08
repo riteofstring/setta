@@ -1,6 +1,6 @@
 const ABSOLUTE_WINDOWS_PATH_REGEX = /^[A-Za-z]:[\\/]/;
 
-function normalizeBrowserPath(path: string): string {
+export function normalizeBrowserPath(path: string): string {
   return path.replaceAll("\\", "/");
 }
 
@@ -39,37 +39,45 @@ function normalizeSegments(path: string): string {
   return isAbsolute ? `/${joined}` : joined;
 }
 
+function startsWithPathPrefix(value: string, prefix: string): boolean {
+  return value === prefix || value.startsWith(`${prefix}/`);
+}
+
 export function resolvePathWithinRoot(
   input: string,
   rootPath: string,
 ): string | null {
-  let normalizedRoot = normalizeBrowserPath(rootPath).trim();
-  if (normalizedRoot !== "/") {
-    normalizedRoot = normalizedRoot.replace(/\/+$/, "");
-  }
+  let normalizedRoot = normalizeBrowserPath(rootPath).replace(/\/+$/, "");
   if (!normalizedRoot) {
     return null;
   }
   let normalizedInput = normalizeBrowserPath(input);
   if (
-    normalizedRoot.startsWith("/private/var/") ||
-    normalizedInput.startsWith("/private/var/")
+    startsWithPathPrefix(normalizedRoot, "/private/var") ||
+    startsWithPathPrefix(normalizedInput, "/private/var")
   ) {
-    if (normalizedRoot.startsWith("/var/")) {
+    if (startsWithPathPrefix(normalizedRoot, "/var")) {
       normalizedRoot = `/private${normalizedRoot}`;
     }
-    if (normalizedInput.startsWith("/var/")) {
+    if (startsWithPathPrefix(normalizedInput, "/var")) {
       normalizedInput = `/private${normalizedInput}`;
     }
   }
-  normalizedRoot = normalizeSegments(normalizedRoot);
+  if (
+    startsWithPathPrefix(normalizedRoot, "/private/tmp") ||
+    startsWithPathPrefix(normalizedInput, "/private/tmp")
+  ) {
+    if (startsWithPathPrefix(normalizedRoot, "/tmp")) {
+      normalizedRoot = `/private${normalizedRoot}`;
+    }
+    if (startsWithPathPrefix(normalizedInput, "/tmp")) {
+      normalizedInput = `/private${normalizedInput}`;
+    }
+  }
   const combined = isAbsoluteBrowserPath(input)
     ? normalizedInput
     : `${normalizedRoot}/${normalizedInput}`;
   const normalizedCombined = normalizeSegments(combined);
-  if (normalizedRoot === "/") {
-    return normalizedCombined.startsWith("/") ? normalizedCombined : null;
-  }
   if (!normalizedCombined.startsWith(normalizedRoot)) {
     return null;
   }
