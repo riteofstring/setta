@@ -748,6 +748,8 @@ export type ColorModePreference = "dark" | "light" | "auto";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
+  showAgenticEdges: boolean;
+  showArgEdges: boolean;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
@@ -770,6 +772,8 @@ export const useLocalStorage = createWithEqualityFn(
   persist<ZustandLocalStorage>(
     () => ({
       snapToGrid: true,
+      showAgenticEdges: true,
+      showArgEdges: true,
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,

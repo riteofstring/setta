@@ -30,7 +30,20 @@ const SCROLL_INIT = 5000;
 
 const ReactFlow = () => {
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
+  const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
+  const showArgEdges = useLocalStorage((x) => x.showArgEdges);
+  const darkMode = useLocalStorage((x) => x.darkMode);
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
+  const wireColor = useSettings((x) => {
+    // If the backend is running an older build, these fields can be missing.
+    const gui = x.gui as unknown as {
+      wireColor?: string;
+      wireColorDarkMode?: string;
+    };
+    const light = gui.wireColor ?? "#41506c";
+    const dark = gui.wireColorDarkMode ?? "#bac2d3";
+    return darkMode ? dark : light;
+  });
   const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
@@ -54,11 +67,18 @@ const ReactFlow = () => {
 
   return (
     <div
-      style={wrapperStyle}
+      style={
+        {
+          ...wrapperStyle,
+          "--setta-wire-color": wireColor,
+        } as CSSProperties
+      }
       className="react-flow setta-light dark:setta-dark"
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
       data-tab-scope="canvas"
+      data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
+      data-show-arg-edges={showArgEdges ? "true" : "false"}
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
