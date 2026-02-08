@@ -235,4 +235,45 @@ describe("ai app spec tool results", () => {
       stale: "ai",
     });
   });
+
+  it("keeps the streamed app preview on stream_app_definition tool errors", () => {
+    useAppDefinition.setState({ appSpec: null, appDefinition: null });
+    useAppPreview.setState({
+      aiPreviewSpecOverride: {
+        root: "root",
+        elements: { root: { key: "root", type: "Stack" } },
+      },
+    });
+
+    receiveLLMResponseChunk({
+      chatId: "chat-ai-apply-stream-err-1",
+      sectionId: null,
+      chunk: {
+        type: StreamingEventTypeEnum.TOOL_RESULT,
+        result: {
+          id: "tool-msg-stream-err-1",
+          role: ChatRoleEnum.tool,
+          tool_call_id: "tool-call-stream-err-1",
+          tool_name: "setta__stream_app_definition",
+          arguments: {},
+          result: {
+            meta: null,
+            content: [],
+            structuredContent: null,
+            isError: true,
+          },
+          content: [],
+          is_error: true,
+          started_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+        },
+      },
+    });
+
+    expect(useAppDefinition.getState().appSpec).toBeNull();
+    expect(useAppPreview.getState().aiPreviewSpecOverride).toMatchObject({
+      root: "root",
+      elements: { root: { key: "root", type: "Stack" } },
+    });
+  });
 });

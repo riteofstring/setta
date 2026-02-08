@@ -157,6 +157,17 @@ type StreamActivitySummary = {
   lastTextIndex: number;
 };
 
+const ASSISTANT_ERROR_PREFIX = "[Error]";
+
+function isAssistantErrorText(text: string): boolean {
+  return text.trimStart().startsWith(ASSISTANT_ERROR_PREFIX);
+}
+
+function stripAssistantErrorPrefix(text: string): string {
+  const next = text.replace(/^\s*\[Error\]\s*/u, "");
+  return next.trim().length > 0 ? next : "The AI request failed.";
+}
+
 function getStreamActivitySummary(
   content: ChatContentItem[],
 ): StreamActivitySummary {
@@ -1014,6 +1025,29 @@ const ToolCallItem = memo(function ToolCallItem({
   );
 });
 
+function AssistantErrorCallout({ content }: { content: string }) {
+  const displayText = stripAssistantErrorPrefix(content);
+  return (
+    <div
+      className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-900 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-50"
+      data-chat-assistant-error="true"
+    >
+      <MdErrorOutline className="mt-0.5 shrink-0 text-red-500 dark:text-red-400" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+          AI request failed
+        </div>
+        <MarkdownContent
+          content={displayText}
+          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-red-900 prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-red-200 [&_*]:break-words [&_*]:marker:text-red-400"
+          role={ChatRoleEnum.assistant}
+          isStreaming={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 function StreamItem({
   item,
   isStreaming,
@@ -1025,6 +1059,9 @@ function StreamItem({
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
+      if (isAssistantErrorText(item.text)) {
+        return <AssistantErrorCallout content={item.text} />;
+      }
       return (
         <MarkdownContent
           content={item.text}

@@ -1145,7 +1145,8 @@ function maybeApplyAppDefinitionToolResult(toolMessage: ToolChatMessage): void {
   if (toolMessage.is_error) {
     if (toolName === "setta__stream_app_definition") {
       clearAppSpecPatchStream(toolMessage.tool_call_id);
-      useAppPreview.setState({ aiPreviewSpecOverride: undefined });
+      // Keep the last streamed preview visible even if the tool call fails validation.
+      // Otherwise the preview disappears while the AI iterates on fixes.
     }
     return;
   }
