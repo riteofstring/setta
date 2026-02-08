@@ -148,32 +148,6 @@ def build_watch_code_snapshot(
     )
 
 
-def _should_ignore_path(path: Path) -> bool:
-    paths = get_setta_paths()
-    workspace_root = paths.workspace_root.resolve(strict=False)
-    resolved = (
-        path.resolve(strict=False)
-        if path.is_absolute()
-        else (workspace_root / path).resolve(strict=False)
-    )
-    state_root = paths.setta_files_root.resolve(strict=False)
-    runtime_root = paths.runtime_root.resolve(strict=False)
-    # If the state roots are inside the workspace, ignore them by path (not by
-    # the literal folder name "setta_files") so detached roots don't get scanned.
-    if state_root.is_relative_to(workspace_root) and resolved.is_relative_to(
-        state_root
-    ):
-        return True
-    if runtime_root.is_relative_to(workspace_root) and resolved.is_relative_to(
-        runtime_root
-    ):
-        return True
-    for part in resolved.parts:
-        if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
-            return True
-    return False
-
-
 def _build_ignore_predicate() -> Callable[[Path], bool]:
     paths = get_setta_paths()
     workspace_root = paths.workspace_root.resolve(strict=False)
@@ -533,6 +507,7 @@ class WatchCodeManager:
         self._config_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
         self._notified_import_failures: set[tuple[ID, str]] = set()
         self._pending_moves: dict[tuple[ID, Path], Path] = {}
+        self._should_ignore_path = _build_ignore_predicate()
         self._started = False
         self._handler = WatchCodeEventHandler(
             self._get_loop,
@@ -794,8 +769,8 @@ class WatchCodeManager:
         if event_type == "moved":
             if dest_path is None:
                 return
-            src_is_py = path.suffix == ".py" and not _should_ignore_path(path)
-            dest_is_py = dest_path.suffix == ".py" and not _should_ignore_path(
+            src_is_py = path.suffix == ".py" and not self._should_ignore_path(path)
+            dest_is_py = dest_path.suffix == ".py" and not self._should_ignore_path(
                 dest_path
             )
             for project_config_id, snapshot in self._config_snapshots.items():
@@ -824,7 +799,7 @@ class WatchCodeManager:
                     self._debounce_delete(project_config_id, path)
             return
 
-        if _should_ignore_path(path):
+        if self._should_ignore_path(path):
             return
         if path.suffix != ".py":
             return

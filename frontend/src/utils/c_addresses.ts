@@ -6,29 +6,47 @@ import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
 export class C_ADDRESSES {
+  private static _devBackendOriginSessionOverrideCached: string | undefined;
+  private static _devBackendOriginSessionOverrideLoaded = false;
+
+  static resetCachesForTests(): void {
+    this._devBackendOriginSessionOverrideCached = undefined;
+    this._devBackendOriginSessionOverrideLoaded = false;
+  }
+
   static get DEV_MODE() {
     return import.meta.env?.DEV;
   }
 
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
+    if (this._devBackendOriginSessionOverrideLoaded) {
+      return this._devBackendOriginSessionOverrideCached;
+    }
+    this._devBackendOriginSessionOverrideLoaded = true;
+
     const storage = safeSessionStorage();
     if (!storage) {
+      this._devBackendOriginSessionOverrideCached = undefined;
       return undefined;
     }
     try {
       const rawOverride = storage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
       if (!rawOverride) {
+        this._devBackendOriginSessionOverrideCached = undefined;
         return undefined;
       }
-      return normalizeOrigin(
+      const normalized = normalizeOrigin(
         rawOverride,
         "backend origin override (sessionStorage)",
       );
+      this._devBackendOriginSessionOverrideCached = normalized;
+      return normalized;
     } catch (error) {
       console.warn(
         "Failed to read backend origin override from sessionStorage",
         error,
       );
+      this._devBackendOriginSessionOverrideCached = undefined;
       return undefined;
     }
   }

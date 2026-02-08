@@ -74,6 +74,7 @@ describe("workspaceSwitcherLaunch", () => {
     memoryStorage.clear();
     windowStub.location.href = "http://localhost/";
     windowStub.location.hash = "";
+    windowStub.history.state = null;
   });
 
   afterAll(() => {
@@ -110,6 +111,70 @@ describe("workspaceSwitcherLaunch", () => {
     const pending = readPendingWorkspaceLaunch();
     expect(pending?.requestedAt).toBe(456);
     expect(windowStub.location.hash).not.toContain("pl=");
+    expect(windowStub.location.href).not.toContain("pl=");
+  });
+
+  it("prefers the URL hash payload over sessionStorage when both exist", () => {
+    writePendingWorkspaceLaunch({
+      request: { workspaceRoot: "/tmp/stale" },
+      returnUrl: "http://localhost/project",
+      requestedAt: 123,
+    });
+
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/fresh" },
+      returnUrl: "http://localhost/project",
+      requestedAt: 456,
+    });
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
+
+    const pending = readPendingWorkspaceLaunch();
+    expect(pending?.request.workspaceRoot).toBe("/tmp/fresh");
+    expect(pending?.requestedAt).toBe(456);
+
+    const stored = memoryStorage.getItem("setta.pendingWorkspaceLaunch");
+    expect(stored).toContain("/tmp/fresh");
+    expect(stored).not.toContain("/tmp/stale");
+  });
+
+  it("cleans the URL hash even when history state is not cloneable", () => {
+    const encoded = encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/work" },
+      returnUrl: "http://localhost/project",
+      requestedAt: 456,
+    });
+    if (!encoded) {
+      throw new Error("Failed to encode pending launch.");
+    }
+    windowStub.location.hash = `#pl=${encoded}`;
+
+    windowStub.history.state = { from: "test" };
+    const originalReplaceState = windowStub.history.replaceState;
+    const seenStates: unknown[] = [];
+    windowStub.history.replaceState = function (
+      state: unknown,
+      title: string,
+      url: string | URL | null | undefined,
+    ) {
+      seenStates.push(state);
+      if (state !== null) {
+        throw new Error("DataCloneError");
+      }
+      return originalReplaceState.call(this, state, title, url);
+    };
+
+    try {
+      const pending = readPendingWorkspaceLaunch();
+      expect(pending?.requestedAt).toBe(456);
+    } finally {
+      windowStub.history.replaceState = originalReplaceState;
+    }
+
+    expect(seenStates[0]).toMatchObject({ from: "test" });
+    expect(seenStates[1]).toBeNull();
     expect(windowStub.location.href).not.toContain("pl=");
   });
 

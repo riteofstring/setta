@@ -313,16 +313,17 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         </p>
       </section>
     </main>
-    <script>
-      (function () {
-	        const redirectUrl = "__SETTA_REDIRECT_URL__";
-	        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
-	        const launcherOriginKey = "setta.launcherOrigin";
-	        const maxHandoffLength = 8192;
-	        const form = document.getElementById("bootstrap-form");
-	        const input = document.getElementById("token-input");
-	        const statusEl = document.getElementById("status");
-	        const errorEl = document.getElementById("error");
+	    <script>
+	      (function () {
+		        const redirectUrl = "__SETTA_REDIRECT_URL__";
+		        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
+		        const launcherOriginKey = "setta.launcherOrigin";
+		        const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
+		        const maxHandoffLength = 8192;
+		        const form = document.getElementById("bootstrap-form");
+		        const input = document.getElementById("token-input");
+		        const statusEl = document.getElementById("status");
+		        const errorEl = document.getElementById("error");
 
         function setStatus(message) {
           statusEl.textContent = message;
@@ -399,17 +400,17 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	            const trimmed = raw.trim();
 	            if (!trimmed || trimmed.length > maxHandoffLength) {
 	              return;
-	            }
-	            const url = new URL(trimmed);
-	            if (isAllowedLauncherOrigin(url)) {
-	              localStorage.setItem(launcherOriginKey, url.origin);
-	            } else {
-	              localStorage.removeItem(launcherOriginKey);
-	            }
-	          } catch {
-	            /* ignore */
-	          }
-	        }
+		            }
+		            const url = new URL(trimmed);
+		            if (isAllowedLauncherOrigin(url)) {
+		              launcherOriginStorage.setItem(launcherOriginKey, url.origin);
+		            } else {
+		              launcherOriginStorage.removeItem(launcherOriginKey);
+		            }
+		          } catch {
+		            /* ignore */
+		          }
+		        }
 
         function readTokenFromUrl() {
           const hashToken = hashParams.get("token");
@@ -478,6 +479,11 @@ def _request_origin(request: Request) -> str:
     return f"{request.url.scheme}://{request.url.netloc}"
 
 
+def _is_local_hostname(hostname: str) -> bool:
+    normalized = hostname.strip().lower()
+    return normalized in {"localhost", "127.0.0.1", "::1"}
+
+
 def _set_query_param(url: str, *, key: str, value: str) -> str:
     parts = urlsplit(url)
     query = [
@@ -500,7 +506,13 @@ def _set_query_param(url: str, *, key: str, value: str) -> str:
 def _bootstrap_redirect_url(request: Request) -> str:
     if not IS_DEV_MODE:
         return "/"
-    hostname = request.url.hostname or C.HOST
+    candidate_hostname = request.url.hostname
+    if candidate_hostname and (
+        candidate_hostname == C.HOST or _is_local_hostname(candidate_hostname)
+    ):
+        hostname = candidate_hostname
+    else:
+        hostname = C.HOST
     host = format_host_for_url(hostname)
     frontend_scheme = os.environ.get("SETTA_DEV_FRONTEND_SCHEME", "http") or "http"
     frontend_scheme = frontend_scheme.strip().lower() or "http"
@@ -513,8 +525,11 @@ def _bootstrap_redirect_url(request: Request) -> str:
 
 
 def _render_bootstrap_html(request: Request) -> str:
-    return BOOTSTRAP_HTML_TEMPLATE.replace(
-        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+    launcher_origin_storage = "sessionStorage" if IS_DEV_MODE else "localStorage"
+    return (
+        BOOTSTRAP_HTML_TEMPLATE.replace(
+            "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+        ).replace("__SETTA_LAUNCHER_ORIGIN_STORAGE__", launcher_origin_storage)
     )
 
 

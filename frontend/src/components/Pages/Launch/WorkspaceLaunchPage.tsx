@@ -155,10 +155,19 @@ export function WorkspaceLaunchPage() {
       if (pending.request.sshTarget) {
         try {
           const url = new URL(res.data.bootstrapUrlFragment);
-          const port = Number(url.port);
-          resolvedLocalPort = Number.isFinite(port) ? port : null;
+          if (url.port) {
+            const port = Number(url.port);
+            if (
+              Number.isFinite(port) &&
+              Number.isInteger(port) &&
+              port >= 1 &&
+              port <= 65535
+            ) {
+              resolvedLocalPort = port;
+            }
+          }
         } catch {
-          resolvedLocalPort = pending.request.localPort ?? null;
+          // Keep the requested local port when URL parsing fails.
         }
       } else {
         resolvedLocalPort = null;

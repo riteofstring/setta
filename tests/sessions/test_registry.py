@@ -110,6 +110,15 @@ def test_load_sessions_prunes_missing_workspace_path_canonical(tmp_path: Path) -
     sessions = registry.load_sessions(prune_stale=True)
     assert sessions == []
     assert not session_dir.exists()
+    invalid_root = sessions_root / "invalid"
+    assert invalid_root.exists()
+    quarantined = [
+        entry
+        for entry in invalid_root.iterdir()
+        if entry.is_dir() and entry.name.startswith(f"{session_id}-")
+    ]
+    assert len(quarantined) == 1
+    assert (quarantined[0] / "session.json").exists()
 
 
 def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:

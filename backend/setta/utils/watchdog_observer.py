@@ -1,12 +1,13 @@
 import os
 
 from watchdog.observers import Observer
+from watchdog.observers.api import BaseObserver
 from watchdog.observers.polling import PollingObserver
 
 _FORCE_POLLING_ENV_VAR = "SETTA_WATCHDOG_FORCE_POLLING"
 
 
-def build_watchdog_observer():
+def build_watchdog_observer() -> BaseObserver:
     """Build a watchdog observer.
 
     Default behavior matches watchdog's platform selection (FSEvents on macOS,

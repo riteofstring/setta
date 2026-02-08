@@ -166,15 +166,19 @@ def _handle_proxy(client: socket.socket, remote_host: str, remote_port: int) -> 
 
 
 def _run_port_forward(local_port: int, remote_host: str, remote_port: int) -> int:
-    disable_forward = os.environ.get("SETTA_SSH_STUB_DISABLE_FORWARD", "").strip()
-    if disable_forward not in {"", "0", "false"}:
+    disable_forward_raw = os.environ.get("SETTA_SSH_STUB_DISABLE_FORWARD", "").strip()
+    disable_forward = disable_forward_raw.lower() not in {"", "0", "false"}
+    if disable_forward:
+        # Tests sometimes want a "running" tunnel without exercising real socket
+        # forwards (some sandboxes disallow binds). Simulate a long-lived tunnel
+        # process that is terminated by SIGTERM/SIGINT.
         _write_pid_file()
         try:
-            select.select([], [], [], 3600)
-        except Exception:
-            pass
-        return 0
-
+            while True:
+                # Sleep until killed.
+                select.select([], [], [], 3600)
+        except KeyboardInterrupt:
+            return 0
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:

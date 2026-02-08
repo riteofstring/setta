@@ -1,19 +1,11 @@
 import { normalizeOrigin } from "utils/origin";
+import { isLocalHostname } from "utils/hostnames";
 import { safeLocalStorage, safeSessionStorage } from "utils/storage";
 
 const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";
 
 function launcherOriginStorage(): Storage | undefined {
   return import.meta.env?.DEV ? safeSessionStorage() : safeLocalStorage();
-}
-
-function isLocalHostname(hostname: string): boolean {
-  const normalized = hostname.trim().toLowerCase();
-  return (
-    normalized === "localhost" ||
-    normalized === "127.0.0.1" ||
-    normalized === "::1"
-  );
 }
 
 function isLauncherOriginAllowed(

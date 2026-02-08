@@ -302,7 +302,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
     def validate_code_file_bindings(self):
-        code_root = normalize_state_path(C.CODE_FOLDER)
+        code_root = C.CODE_FOLDER
         canonical_sections_dir = build_project_sections_dir(
             code_root, self.projectConfig.name
         )

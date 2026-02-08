@@ -86,10 +86,14 @@ def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
     assert "localStorage.setItem(workspaceHistoryHandoffKey, trimmed);" in html
 
     assert 'const launcherOriginKey = "setta.launcherOrigin";' in html
+    assert (
+        "const launcherOriginStorage = localStorage;" in html
+        or "const launcherOriginStorage = sessionStorage;" in html
+    )
     assert 'hashParams.get("lo")' in html
     assert 'url.protocol !== "http:"' in html
     assert 'url.protocol !== "https:"' in html
-    assert "localStorage.setItem(launcherOriginKey, url.origin);" in html
+    assert "launcherOriginStorage.setItem(launcherOriginKey, url.origin);" in html
 
 
 def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:
@@ -116,7 +120,7 @@ def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch, tmp_path) -
         html = response.text
 
     expected_prefix = (
-        f'const redirectUrl = "http://backend.example:{bootstrap_module.C.DEV_MODE_FRONTEND_PORT}/'
+        f'const redirectUrl = "http://127.0.0.1:{bootstrap_module.C.DEV_MODE_FRONTEND_PORT}/'
     )
     assert expected_prefix in html
     assert (

@@ -132,7 +132,10 @@ async function clearLauncherOrigin(page: Page): Promise<void> {
   await scratch.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap`, {
     waitUntil: "domcontentloaded",
   });
-  await scratch.evaluate(() => localStorage.removeItem("setta.launcherOrigin"));
+  await scratch.evaluate(() => {
+    localStorage.removeItem("setta.launcherOrigin");
+    sessionStorage.removeItem("setta.launcherOrigin");
+  });
   await scratch.close();
 }
 
@@ -161,10 +164,12 @@ test("bootstrap launcher origin ignores non-http(s) values", async ({ page }) =>
     waitUntil: "domcontentloaded",
   });
 
-  const stored = await page.evaluate(() =>
-    localStorage.getItem("setta.launcherOrigin"),
-  );
-  expect(stored).toBeNull();
+  const stored = await page.evaluate(() => ({
+    local: localStorage.getItem("setta.launcherOrigin"),
+    session: sessionStorage.getItem("setta.launcherOrigin"),
+  }));
+  expect(stored.local).toBeNull();
+  expect(stored.session).toBeNull();
 });
 
 test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
@@ -192,8 +197,10 @@ test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const stored = await page.evaluate(() =>
-    localStorage.getItem("setta.launcherOrigin"),
-  );
-  expect(stored).toBe("https://127.0.0.1:4242");
+  const stored = await page.evaluate(() => ({
+    local: localStorage.getItem("setta.launcherOrigin"),
+    session: sessionStorage.getItem("setta.launcherOrigin"),
+  }));
+  expect(stored.local ?? stored.session).toBe("https://127.0.0.1:4242");
+  expect(Boolean(stored.local) !== Boolean(stored.session)).toBe(true);
 });

@@ -201,18 +201,24 @@ class SessionRegistry:
 
     def _prune_invalid_session_dir(self, path: Path, *, reason: str) -> None:
         session_dir = path.parent
+        quarantine_root = self._sessions_root / "invalid"
+        quarantine_dir = quarantine_root / f"{session_dir.name}-{time.time_ns()}"
         try:
-            shutil.rmtree(session_dir)
+            quarantine_root.mkdir(parents=True, exist_ok=True)
+            session_dir.replace(quarantine_dir)
         except OSError:
             logger.warning(
-                "Failed to delete invalid session directory %s (%s).",
+                "Failed to quarantine invalid session directory %s (%s).",
                 session_dir,
                 reason,
                 exc_info=True,
             )
             return
         logger.warning(
-            "Deleted invalid session directory %s (%s).", session_dir, reason
+            "Quarantined invalid session directory %s to %s (%s).",
+            session_dir,
+            quarantine_dir,
+            reason,
         )
 
     def _read_metadata_path(

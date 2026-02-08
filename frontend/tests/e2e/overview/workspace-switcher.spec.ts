@@ -183,6 +183,65 @@ test("workspace switcher enforces mutually exclusive files roots", async ({
   await modal.getByRole("button", { name: "Cancel" }).click();
 });
 
+test("workspace launch URL handoff overrides stale sessionStorage", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.evaluate(() => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request: { workspaceRoot: "/tmp/stale" },
+        returnUrl: window.location.href,
+        requestedAt: 111,
+      }),
+    );
+  });
+
+  const encoded = await page.evaluate(async () => {
+    const { encodePendingWorkspaceLaunchForUrlHash } = await import(
+      "/src/utils/workspaceSwitcherLaunch"
+    );
+    return encodePendingWorkspaceLaunchForUrlHash({
+      request: { workspaceRoot: "/tmp/fresh" },
+      returnUrl: window.location.href,
+      requestedAt: 222,
+    });
+  });
+  if (!encoded) {
+    throw new Error("Failed to encode pending workspace launch payload.");
+  }
+
+  await page.route("**/api/launch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: { message: "Intentional failure for handoff test." },
+      }),
+    });
+  });
+
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
+
+  const nextUrl = new URL(page.url());
+  nextUrl.pathname = "/launching";
+  nextUrl.hash = `#pl=${encoded}`;
+  await page.goto(nextUrl.toString(), { waitUntil: "domcontentloaded" });
+
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.workspaceRoot).toBe("/tmp/fresh");
+  expect(page.url()).not.toContain("pl=");
+});
+
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {

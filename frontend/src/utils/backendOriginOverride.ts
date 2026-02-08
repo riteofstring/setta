@@ -1,18 +1,10 @@
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
+import { isLocalHostname } from "utils/hostnames";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
-
-function isLocalHostname(hostname: string): boolean {
-  const normalized = hostname.trim().toLowerCase();
-  return (
-    normalized === "localhost" ||
-    normalized === "127.0.0.1" ||
-    normalized === "::1"
-  );
-}
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;

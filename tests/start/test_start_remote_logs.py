@@ -12,7 +12,7 @@ def test_start_remote_setta_threads_files_root_args(monkeypatch) -> None:
 
     monkeypatch.setattr(start.ssh_common, "start_remote_setta", fake_start_remote_setta)
 
-    start._start_remote_setta(
+    timed_out = start._start_remote_setta(
         "user@host",
         [],
         "bash",
@@ -23,5 +23,6 @@ def test_start_remote_setta_threads_files_root_args(monkeypatch) -> None:
         files_root_base=Path("/tmp/base"),
     )
 
+    assert timed_out is False
     assert captured["files_root"] == "/tmp/state"
     assert captured["files_root_base"] == "/tmp/base"

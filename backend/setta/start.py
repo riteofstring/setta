@@ -314,7 +314,7 @@ def _start_remote_setta(
     *,
     files_root: Path | None,
     files_root_base: Path | None,
-) -> None:
+) -> bool:
     try:
         ssh_common.start_remote_setta(
             ssh_target,
@@ -330,7 +330,10 @@ def _start_remote_setta(
             else None,
         )
     except LaunchError as exc:
+        if exc.code == "SshTimeout":
+            return True
         raise click.ClickException(str(exc)) from exc
+    return False
 
 
 def _wait_for_remote_session(
@@ -610,7 +613,7 @@ def _render_connect_info_message(
     token: str,
 ) -> str:
     bind_label = _format_bind_hint(session.host, session.port)
-    quoted_workspace = shlex.quote(session.workspacePath)
+    quoted_workspace = shlex.quote(session.workspacePathCanonical)
     lines = [
         f"Setta session {session.id}",
         f"Bind: {bind_label}",
@@ -1443,7 +1446,6 @@ def api(
             or auth_stdin
             or cookie_header
             or cookie
-            or (base_url and (cookie_header or cookie))
         )
         payload = _load_json_payload(json_payload, payload_stdin, payload_file)
         if payload is None:
@@ -1763,7 +1765,7 @@ def connect(
             click.echo(
                 f"Starting Setta on {ssh_target} (workspace {remote_workspace})..."
             )
-        _start_remote_setta(
+        start_timed_out = _start_remote_setta(
             ssh_target,
             ssh_args_list,
             shell,
@@ -1773,15 +1775,24 @@ def connect(
             files_root=params.get("files_root"),
             files_root_base=params.get("files_root_base"),
         )
-        selected_session = _wait_for_remote_session(
-            ssh_target,
-            ssh_args_list,
-            shell,
-            remote_workspace,
-            setta_command,
-            files_root_args,
-            verbose=verbose,
-        )
+        try:
+            selected_session = _wait_for_remote_session(
+                ssh_target,
+                ssh_args_list,
+                shell,
+                remote_workspace,
+                setta_command,
+                files_root_args,
+                verbose=verbose,
+            )
+        except click.ClickException as exc:
+            if start_timed_out and str(exc).strip() == (
+                "Timed out waiting for remote Setta session to start."
+            ):
+                raise click.ClickException(
+                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. Check SSH connectivity/auth and try again."
+                ) from exc
+            raise
 
     if not print_only:
         click.echo(
@@ -1977,7 +1988,7 @@ def cli(
                 session.id,
                 resolved_host,
                 resolved_port,
-                Path(str(display_workspace)),
+                Path(session.workspacePathCanonical),
                 bootstrap_url_fragment,
                 bootstrap_url_plain,
                 token,

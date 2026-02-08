@@ -1,5 +1,6 @@
 import base64
 import binascii
+import errno
 import json
 import os
 import re
@@ -607,21 +608,13 @@ def start_remote_setta(
         f"> {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
     )
     remote_command = build_remote_shell_command(shell, launch)
-    try:
-        result = run_ssh_command(
-            ssh_target,
-            ssh_args,
-            remote_command,
-            ssh_prefix=ssh_prefix,
-            timeout=10.0,
-        )
-    except LaunchError as exc:
-        # When the start command is backgrounded (nohup/setsid) some hosts can hang
-        # briefly. We'll rely on the session polling timeout instead, but only for
-        # explicit timeouts (don't hide real SSH failures).
-        if exc.code == "SshTimeout":
-            return
-        raise
+    result = run_ssh_command(
+        ssh_target,
+        ssh_args,
+        remote_command,
+        ssh_prefix=ssh_prefix,
+        timeout=10.0,
+    )
     if result.returncode != 0:
         details = (result.stderr.strip() or result.stdout.strip() or "").strip()
         raise LaunchError(
@@ -661,6 +654,41 @@ def ensure_background_process_started(
             "TunnelStartFailed",
             f"SSH tunnel failed to start (exit {proc.returncode}).",
         )
+
+
+def wait_for_local_port(
+    host: str,
+    port: int,
+    *,
+    timeout_seconds: float = 2.0,
+    poll_interval_seconds: float = 0.05,
+    connect_timeout_seconds: float = 0.1,
+) -> bool:
+    """Return True once a local TCP port accepts a connection.
+
+    This is used to avoid reporting success for background processes (like SSH
+    tunnels) before they have actually bound/listened on the local port.
+    """
+
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            with socket.create_connection(
+                (host, port),
+                timeout=connect_timeout_seconds,
+            ):
+                return True
+        except PermissionError:
+            # Some sandboxed environments forbid socket connect() even for
+            # localhost. In those cases, we can't meaningfully check readiness,
+            # so fall back to the time-based "process is still running" signal.
+            return True
+        except OSError as exc:
+            if exc.errno == errno.EPERM:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(poll_interval_seconds)
 
 
 def select_free_port(host: str) -> int:

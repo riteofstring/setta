@@ -83,7 +83,27 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
     try {
       const url = new URL(window.location.href);
       url.hash = params.toString();
-      window.history.replaceState(window.history.state, "", url.toString());
+      const nextUrl = url.toString();
+      try {
+        window.history.replaceState(window.history.state, "", nextUrl);
+        return pending;
+      } catch {
+        // Some browsers/extensions can leave a non-cloneable state in history.state.
+        // Falling back to null is better than leaving the handoff URL behind.
+      }
+      try {
+        window.history.replaceState(null, "", nextUrl);
+      } catch (error) {
+        console.warn(
+          "Failed to clean pending workspace launch from URL hash",
+          error,
+        );
+        try {
+          window.location.replace(nextUrl);
+        } catch {
+          // ignore
+        }
+      }
     } catch (error) {
       console.warn(
         "Failed to clean pending workspace launch from URL hash",
@@ -148,6 +168,12 @@ export function writePendingWorkspaceLaunch(
 }
 
 export function readPendingWorkspaceLaunch(): PendingWorkspaceLaunch | null {
+  const fromUrl = consumePendingWorkspaceLaunchFromUrlHash();
+  if (fromUrl) {
+    writePendingWorkspaceLaunch(fromUrl);
+    return fromUrl;
+  }
+
   const storage = safeSessionStorage();
   if (storage) {
     try {
@@ -164,12 +190,7 @@ export function readPendingWorkspaceLaunch(): PendingWorkspaceLaunch | null {
     }
   }
 
-  const fromUrl = consumePendingWorkspaceLaunchFromUrlHash();
-  if (!fromUrl) {
-    return null;
-  }
-  writePendingWorkspaceLaunch(fromUrl);
-  return fromUrl;
+  return null;
 }
 
 export function clearPendingWorkspaceLaunch(): void {

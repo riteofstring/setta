@@ -29,6 +29,7 @@ from setta.ssh_common import (
     select_free_port,
     ssh_command_prefix,
     start_remote_setta,
+    wait_for_local_port,
     wait_for_remote_sessions,
 )
 from setta.utils.network import build_bootstrap_urls
@@ -111,29 +112,44 @@ def connect_remote_workspace_session(
         ssh_prefix=ssh_prefix,
     )
     started_new = False
+    start_timed_out = False
     if not sessions:
         started_new = True
-        start_remote_setta(
-            ssh_target,
-            ssh_args_list,
-            shell,
-            remote_workspace,
-            setta_command,
-            files_root_args,
-            ssh_prefix=ssh_prefix,
-            files_root=files_root,
-            files_root_base=files_root_base,
-        )
-        sessions = wait_for_remote_sessions(
-            ssh_target,
-            ssh_args_list,
-            shell,
-            remote_workspace,
-            setta_command,
-            files_root_args,
-            ssh_prefix=ssh_prefix,
-            timeout_seconds=timeout_seconds,
-        )
+        try:
+            start_remote_setta(
+                ssh_target,
+                ssh_args_list,
+                shell,
+                remote_workspace,
+                setta_command,
+                files_root_args,
+                ssh_prefix=ssh_prefix,
+                files_root=files_root,
+                files_root_base=files_root_base,
+            )
+        except LaunchError as exc:
+            if exc.code == "SshTimeout":
+                start_timed_out = True
+            else:
+                raise
+        try:
+            sessions = wait_for_remote_sessions(
+                ssh_target,
+                ssh_args_list,
+                shell,
+                remote_workspace,
+                setta_command,
+                files_root_args,
+                ssh_prefix=ssh_prefix,
+                timeout_seconds=timeout_seconds,
+            )
+        except LaunchError as exc:
+            if start_timed_out and exc.code == "RemoteLaunchTimeout":
+                raise LaunchError(
+                    "RemoteStart",
+                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. Check SSH connectivity/auth and try again.",
+                ) from exc
+            raise
 
     session = max(sessions, key=lambda entry: entry.started_at)
     connect_info = fetch_remote_connect_info(
@@ -432,7 +448,9 @@ def _ensure_ssh_tunnel(
     # caller requested a specific port (it can be grabbed by another process).
     candidate_ports.append(_preferred_local_port(key_hash))
     try:
-        candidate_ports.append(select_free_port("127.0.0.1"))
+        # Multiple attempts reduce the chance of "selected free port" races.
+        for _ in range(3):
+            candidate_ports.append(select_free_port("127.0.0.1"))
     except OSError:
         pass
 
@@ -474,10 +492,26 @@ def _ensure_ssh_tunnel(
                 f"Failed to start SSH tunnel: {exc}",
             ) from exc
         try:
-            ensure_background_process_started(proc)
+            ensure_background_process_started(proc, wait_seconds=0.75)
+            disable_forward_raw = os.environ.get(
+                "SETTA_SSH_STUB_DISABLE_FORWARD", ""
+            ).strip()
+            skip_ready_check = disable_forward_raw.lower() not in {"", "0", "false"}
+            if not skip_ready_check and not wait_for_local_port(
+                "127.0.0.1", candidate_port, timeout_seconds=2.0
+            ):
+                if proc.poll() is not None:
+                    raise LaunchError(
+                        "TunnelStartFailed",
+                        f"SSH tunnel failed to start (exit {proc.returncode}).",
+                    )
+                raise LaunchError(
+                    "TunnelStartFailed",
+                    f"SSH tunnel did not bind local port {candidate_port} within 2 seconds.",
+                )
         except LaunchError as exc:
             stderr = ""
-            if proc.stderr is not None:
+            if proc.stderr is not None and proc.poll() is not None:
                 try:
                     stderr = proc.stderr.read().strip()
                 except Exception:
