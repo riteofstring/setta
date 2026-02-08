@@ -839,9 +839,23 @@ class ExternalAgentRunner:
             if settings_paths.claude_settings is not None:
                 resolved_paths["claude"] = str(settings_paths.claude_settings)
             if settings_paths.codex_config is not None:
-                resolved_paths["codex"] = str(settings_paths.codex_config)
+                codex_path = settings_paths.codex_config
+                if chat_id is not None:
+                    runtime_codex_path = (
+                        codex_path.parent / "sessions" / chat_id / codex_path.name
+                    )
+                    if runtime_codex_path.exists():
+                        codex_path = runtime_codex_path
+                resolved_paths["codex"] = str(codex_path)
             if settings_paths.opencode_config is not None:
-                resolved_paths["opencode"] = str(settings_paths.opencode_config)
+                opencode_path = settings_paths.opencode_config
+                if chat_id is not None:
+                    runtime_opencode_path = (
+                        opencode_path.parent / "sessions" / chat_id / opencode_path.name
+                    )
+                    if runtime_opencode_path.exists():
+                        opencode_path = runtime_opencode_path
+                resolved_paths["opencode"] = str(opencode_path)
             if resolved_paths:
                 metadata["settingsPaths"] = resolved_paths
         if metadata:

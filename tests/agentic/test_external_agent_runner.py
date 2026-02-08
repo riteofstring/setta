@@ -843,6 +843,119 @@ class TestExternalAgentRunner:
             )
             assert settings_paths.get("codex") == str(expected_codex_path)
 
+    def test_run_outputs_prefer_session_settings_paths_when_present(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-123")
+            codex_chat_id = "chat-codex-7"
+            opencode_chat_id = "chat-opencode-7"
+
+            codex_config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            codex_run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": codex_chat_id,
+                    "projectConfigId": "config-7",
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+                run_id=ID(codex_chat_id),
+            )
+            runtime_codex_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / str(codex_config.id)
+                / "sessions"
+                / codex_chat_id
+                / "config.toml"
+            )
+            runtime_codex_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_codex_path.write_text("# test\n", encoding="utf-8")
+            message = AssistantChatMessage(
+                id="m7",
+                content=[MessageTextContent(text="Hello")],
+            )
+            state = runner._apply_stream_chunk_to_state(
+                codex_run,
+                MessageStartEvent(message=AssistantChatMessage(id="m7", content=[])),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                codex_run,
+                MessageDeltaEvent(
+                    message_id="m7",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                codex_run,
+                MessageFinalizedEvent(message=message),
+            )
+            runner._persist_outputs_from_state(codex_run, codex_config, state)
+
+            assert codex_run.outputs is not None
+            metadata = codex_run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            settings_paths = metadata.get("settingsPaths")
+            assert isinstance(settings_paths, dict)
+            assert settings_paths.get("codex") == str(runtime_codex_path)
+
+            opencode_config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            opencode_run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": opencode_chat_id,
+                    "projectConfigId": "config-7",
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+                run_id=ID(opencode_chat_id),
+            )
+            runtime_opencode_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "opencode"
+                / str(opencode_config.id)
+                / "sessions"
+                / opencode_chat_id
+                / "opencode.json"
+            )
+            runtime_opencode_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_opencode_path.write_text('{"test": true}\n', encoding="utf-8")
+            state = runner._apply_stream_chunk_to_state(
+                opencode_run,
+                MessageStartEvent(message=AssistantChatMessage(id="m7", content=[])),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                opencode_run,
+                MessageDeltaEvent(
+                    message_id="m7",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                opencode_run,
+                MessageFinalizedEvent(message=message),
+            )
+            runner._persist_outputs_from_state(opencode_run, opencode_config, state)
+
+            assert opencode_run.outputs is not None
+            metadata = opencode_run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            settings_paths = metadata.get("settingsPaths")
+            assert isinstance(settings_paths, dict)
+            assert settings_paths.get("opencode") == str(runtime_opencode_path)
+
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

@@ -718,6 +718,7 @@ class TestClaudeSdkAdapterIntegration:
                             "after the tool result. Then reply with only OK."
                         ),
                         "allowedTools": ["list_mcp_tools"],
+                        "allowUnscoped": True,
                         "maxTurns": 1,
                     },
                 )
