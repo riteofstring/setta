@@ -220,9 +220,7 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
 
 export function buildGitCommitSearchBlob(commit: GitCommit): string {
   const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
-  return (
-    `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`
-  ).toLowerCase();
+  return `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`.toLowerCase();
 }
 
 export function collectRemoteDecorationPrefixes(
@@ -1268,11 +1266,12 @@ export function GitGraphOverlay() {
             )}
           </div>
 
-          {selectedCommit && graphState.selectedCommitFileDiffResponse?.isTruncated && (
-            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-              Diff output truncated for performance.
-            </div>
-          )}
+          {selectedCommit &&
+            graphState.selectedCommitFileDiffResponse?.isTruncated && (
+              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                Diff output truncated for performance.
+              </div>
+            )}
 
           {selectedCommit && graphState.selectedCommitDetails?.isTruncated && (
             <div
@@ -1487,7 +1486,8 @@ function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
       selectedCommitDetails: state.overlay.graph.selectedCommitDetails,
       selectedCommitDetailsIsLoading:
         state.overlay.graph.selectedCommitDetailsIsLoading,
-      selectedCommitDetailsError: state.overlay.graph.selectedCommitDetailsError,
+      selectedCommitDetailsError:
+        state.overlay.graph.selectedCommitDetailsError,
       selectedFilePath: state.overlay.graph.selectedCommitFilePath,
     };
   });
@@ -1506,7 +1506,10 @@ function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
       </div>
     );
   }
-  if (selectedCommitDetails && selectedCommitDetails.commitHash === commitHash) {
+  if (
+    selectedCommitDetails &&
+    selectedCommitDetails.commitHash === commitHash
+  ) {
     return (
       <ExpandedCommitRow
         details={selectedCommitDetails}

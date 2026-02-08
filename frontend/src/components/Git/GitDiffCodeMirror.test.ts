@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyDiffLine, shouldSyntaxHighlightLine } from "./GitDiffCodeMirror";
+import {
+  classifyDiffLine,
+  shouldSyntaxHighlightLine,
+} from "./GitDiffCodeMirror";
 
 describe("classifyDiffLine", () => {
   it("classifies diff structural lines with stable classes", () => {

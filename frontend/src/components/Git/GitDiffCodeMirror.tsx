@@ -167,8 +167,7 @@ function buildCombinedDecorations({
   parser: ParserLike | null;
   highlighter: Highlighter | null;
   cache: Map<number, SyntaxLineCacheEntry>;
-},
-): DecorationSet {
+}): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const shouldHighlightSyntax =
     parser !== null &&

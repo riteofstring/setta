@@ -18,6 +18,7 @@ class GitCommandOutput:
     stderr_truncated: bool
     timed_out: bool
 
+
 @lru_cache(maxsize=1)
 def _get_git_binary_path() -> str | None:
     return shutil.which("git")

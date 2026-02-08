@@ -570,9 +570,7 @@ def _load_commit_metadata_without_diff(
     return parts
 
 
-def _probe_history_beyond_cap(
-    repo_root: Path, *, all_refs: bool, rev: str
-) -> bool:
+def _probe_history_beyond_cap(repo_root: Path, *, all_refs: bool, rev: str) -> bool:
     cap_probe_args = [
         "log",
         "--topo-order",
@@ -831,9 +829,7 @@ def route_get_git_log(
     head_branch = _get_head_branch(repo_root) if offset == 0 else None
 
     if offset >= _MAX_LOG_COUNT:
-        is_capped = _probe_history_beyond_cap(
-            repo_root, all_refs=x.allRefs, rev=rev
-        )
+        is_capped = _probe_history_beyond_cap(repo_root, all_refs=x.allRefs, rev=rev)
         return GetGitLogResponse(
             repoRoot=str(repo_root),
             headBranch=head_branch,
@@ -1000,10 +996,7 @@ def route_get_git_commit_details(
     repo_root = _get_repo_root_or_400(ctx=ctx)
     commit_hash = _resolve_commit_hash(repo_root, x.commitHash)
 
-    fmt = (
-        "%H%x00%P%x00%an%x00%ae%x00%at%x00"
-        "%cn%x00%ce%x00%ct%x00%s%x00%b%x00"
-    )
+    fmt = "%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%s%x00%b%x00"
     show_res = run_git(
         [
             "show",

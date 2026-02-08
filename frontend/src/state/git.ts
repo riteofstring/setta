@@ -53,7 +53,10 @@ type GitOverlayState =
 
 type GitStatusState = {
   response: GetGitStatusResponse | null;
-  diffAvailabilityByPath: Map<string, { hasStaged: boolean; hasUnstaged: boolean }>;
+  diffAvailabilityByPath: Map<
+    string,
+    { hasStaged: boolean; hasUnstaged: boolean }
+  >;
   isLoading: boolean;
   error: string | null;
 };

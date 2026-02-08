@@ -44,7 +44,7 @@ export function toRepoRelativePath(
   return path.relative(workspaceRoot, targetPath).split(path.sep).join("/");
 }
 
-export type DisposableGitRepo = {
+type DisposableGitRepo = {
   gitDir: string;
   fixtureRoot: string;
 };
@@ -94,7 +94,7 @@ export async function initializeDisposableGitRepo(
   return { gitDir, fixtureRoot };
 }
 
-export type GitOverlayFixture = {
+type GitOverlayFixture = {
   repo: DisposableGitRepo;
   trackedPath: string;
   trackedRepoPath: string;

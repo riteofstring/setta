@@ -91,7 +91,9 @@ function setGraphOverlayState({
       graph: {
         allRefs: true,
         response,
-        seenCommitHashes: new Set(response.commits.map((commit) => commit.hash)),
+        seenCommitHashes: new Set(
+          response.commits.map((commit) => commit.hash),
+        ),
         rows: rowResult.rows,
         rowComputationState: rowResult.rowComputationState,
         filterText,

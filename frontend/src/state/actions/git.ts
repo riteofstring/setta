@@ -125,7 +125,9 @@ export async function refreshGitStatus(): Promise<void> {
 }
 
 function computeDiffAvailability(path: string) {
-  const availability = useGitStore.getState().status.diffAvailabilityByPath.get(path);
+  const availability = useGitStore
+    .getState()
+    .status.diffAvailabilityByPath.get(path);
   if (!availability) {
     return { hasStaged: false, hasUnstaged: false };
   }
@@ -347,7 +349,8 @@ async function refreshGitGraph({
       }
       const selectedCommitHash = state.overlay.graph.selectedCommitHash;
       const shouldClearSelection =
-        selectedCommitHash !== null && !seenCommitHashes.has(selectedCommitHash);
+        selectedCommitHash !== null &&
+        !seenCommitHashes.has(selectedCommitHash);
       return {
         ...state,
         overlay: {
@@ -510,7 +513,9 @@ export async function loadMoreGitGraphCommits({
         };
       }
 
-      const nextSeenCommitHashes = new Set(state.overlay.graph.seenCommitHashes);
+      const nextSeenCommitHashes = new Set(
+        state.overlay.graph.seenCommitHashes,
+      );
       const appendedCommits: typeof nextPage.commits = [];
       for (const commit of nextPage.commits) {
         if (nextSeenCommitHashes.has(commit.hash)) {
