@@ -11,7 +11,6 @@ from setta.types.helpers_lvl1 import get_curr_effective_code_obj_impl
 from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.share_deployment import SharePolicy
-from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.runtime.context import RuntimeContext
@@ -26,8 +25,7 @@ def _resolve_request_path(path: str | Path, deployment_root: Path) -> Path:
     raw_path = Path(path)
     if raw_path.is_absolute():
         return raw_path.resolve()
-    normalized = normalize_path(raw_path)
-    return (deployment_root / normalized).resolve()
+    return (deployment_root / raw_path).resolve()
 
 
 def _share_allowed_roots(deployment_root: Path) -> list[Path]:

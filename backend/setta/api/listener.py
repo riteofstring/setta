@@ -25,6 +25,7 @@ from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.code_gen.dependency_graph import (
@@ -516,30 +517,7 @@ class SettaListener:
             return None
 
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        cookie_names: list[str] = []
-        if C.AUTH_COOKIE_NAME:
-            cookie_names.append(C.AUTH_COOKIE_NAME)
-        # Default cookie name (when not using worktree isolation).
-        cookie_names.append("setta_auth")
-        # Worktree mode cookie (run-dev-instance.sh).
-        workspace_name = _sanitize_cookie_token(
-            Path(session_metadata.workspacePath).name
-        )
-        if workspace_name:
-            cookie_names.append(f"setta_auth_{workspace_name}")
-        # Keep order stable + unique.
-        seen: set[str] = set()
-        resolved_names: list[str] = []
-        for name in cookie_names:
-            if name in seen:
-                continue
-            seen.add(name)
-            resolved_names.append(name)
-
-        cookie_payload = "; ".join(
-            f"{cookie_name}={cookie_value}" for cookie_name in resolved_names
-        )
-        return {"Cookie": cookie_payload}
+        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""

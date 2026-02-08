@@ -110,25 +110,24 @@ async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
     if (!root) {
       return null;
     }
+    // Prefer reading from the CodeMirror EditorView state because the DOM can be
+    // visually truncated (e.g. `truncate`) and doesn't always expose the full value.
     const candidates = [
       root,
+      root.matches(".cm-editor") ? root : root.querySelector(".cm-editor"),
       root.querySelector(".cm-content"),
-      root.querySelector(".cm-editor"),
       root.querySelector("[contenteditable='true']"),
     ].filter(Boolean) as HTMLElement[];
 
     for (const candidate of candidates) {
-      const maybeView = (candidate as HTMLElement & { cmView?: unknown }).cmView;
-      if (
-        maybeView &&
-        typeof maybeView === "object" &&
-        "state" in maybeView &&
-        typeof (maybeView as { state?: unknown }).state === "object" &&
-        (maybeView as { state?: { doc?: unknown } }).state?.doc &&
-        typeof (maybeView as { state: { doc: { toString: () => string } } }).state.doc
-          .toString === "function"
-      ) {
-        return (maybeView as { state: { doc: { toString: () => string } } }).state.doc.toString();
+      const view = (
+        candidate as HTMLElement & {
+          cmView?: { state?: { doc?: { toString: () => string } } };
+        }
+      ).cmView;
+      const doc = view?.state?.doc;
+      if (doc && typeof doc.toString === "function") {
+        return doc.toString();
       }
     }
     const content =

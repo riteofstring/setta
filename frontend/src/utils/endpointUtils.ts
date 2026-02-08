@@ -35,6 +35,9 @@ function resolveBackendUrl(address: string): string {
   if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
+  if (address === RouteEnum.LAUNCH) {
+    return `${C_ADDRESSES.LAUNCHER}${address}`;
+  }
   return `${C_ADDRESSES.BACKEND}${address}`;
 }
 

@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from setta.auth.cookies import set_auth_cookie
+from setta.auth.cookies import auth_cookie_name, set_auth_cookie
 
 
 @pytest.fixture
@@ -13,7 +13,12 @@ def app() -> FastAPI:
     @app.get("/set-cookie")
     async def set_cookie(request: Request):
         response = JSONResponse({"ok": True})
-        set_auth_cookie(response, "token-value", request=request)
+        set_auth_cookie(
+            response,
+            "token-value",
+            session_id="test-session",
+            request=request,
+        )
         return response
 
     return app
@@ -40,3 +45,8 @@ def test_set_auth_cookie_secure_flags(
         assert "Secure" in cookie_header
     else:
         assert "Secure" not in cookie_header
+
+
+def test_auth_cookie_name_requires_non_empty_session_id() -> None:
+    with pytest.raises(ValueError):
+        auth_cookie_name("  ")

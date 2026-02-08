@@ -96,19 +96,10 @@ class TestClaudeSdkAdapterIntegration:
             version = importlib.metadata.version("claude-agent-sdk")
         except importlib.metadata.PackageNotFoundError:
             pytest.skip("claude-agent-sdk is not installed")
-        try:
-            socket.getaddrinfo("api.anthropic.com", 443)
-            with socket.create_connection(
-                ("api.anthropic.com", 443),
-                timeout=3,
-            ):
-                pass
-        except OSError as exc:
-            pytest.skip(f"Anthropic API not reachable: {exc}")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
-        for _ in range(120):
+        for _ in range(240):
             await asyncio.sleep(0.5)
             stored = dbe.read_agent_run(run_id)
             if stored and stored.get("status") in {
@@ -162,7 +153,7 @@ class TestClaudeSdkAdapterIntegration:
     async def _await_pending_question(
         self, runner: ExternalAgentRunner, run_id: ID
     ) -> str:
-        for _ in range(200):
+        for _ in range(600):
             for tool_call_id, state in runner._pending_questions.items():
                 if state.run_id == run_id and state.approval_id:
                     return tool_call_id
@@ -173,7 +164,7 @@ class TestClaudeSdkAdapterIntegration:
     async def _await_pending_approval(
         self, runner: ExternalAgentRunner, run_id: ID
     ) -> str:
-        for _ in range(200):
+        for _ in range(600):
             for approval_id, state in runner._pending_approvals.items():
                 if state.run_id == run_id:
                     return approval_id

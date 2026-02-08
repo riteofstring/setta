@@ -427,15 +427,29 @@ class ShareRuntimeState:
             project_state.projectConfig,
             ProjectCodegenLanguage.python,
         ):
+            if project_state.genCodeBinding is None:
+                return False
             project_state.genCodeBinding = None
-            return False
-        if project_state.genCodeBinding is not None:
+            return True
+
+        # ProjectStateSingleConfig computes genCodeBinding via model validators using
+        # the global code root (derived from setta_files_root). Share mode must always
+        # bind generated code inside the deployment root, regardless of process-level
+        # defaults.
+        fallback_binding = self._build_fallback_gen_code_binding(project_state)
+        existing_binding = project_state.genCodeBinding
+        if existing_binding is not None:
+            try:
+                self._resolve_deployment_path_to_absolute(
+                    existing_binding.canonical_path
+                )
+            except ValueError:
+                project_state.genCodeBinding = fallback_binding
+                return True
             return False
         gen_section_id = project_state.singletonSections.GenPythonCode
         if gen_section_id is None:
-            project_state.genCodeBinding = self._build_fallback_gen_code_binding(
-                project_state
-            )
+            project_state.genCodeBinding = fallback_binding
             return True
         gen_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
@@ -443,9 +457,14 @@ class ShareRuntimeState:
             GenPythonCodeSectionImpl,
         )
         if gen_impl.codeFileBinding is None:
-            project_state.genCodeBinding = self._build_fallback_gen_code_binding(
-                project_state
+            project_state.genCodeBinding = fallback_binding
+            return True
+        try:
+            self._resolve_deployment_path_to_absolute(
+                gen_impl.codeFileBinding.canonical_path
             )
+        except ValueError:
+            project_state.genCodeBinding = fallback_binding
             return True
         project_state.genCodeBinding = gen_impl.codeFileBinding
         return True

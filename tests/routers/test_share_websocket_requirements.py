@@ -9,6 +9,7 @@ import pytest
 from starlette.types import Message, Scope
 from starlette.websockets import WebSocket
 
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -210,10 +211,11 @@ class TestShareFrontendWebsocketRequirements:
             )
             state = await _build_state(root)
             session_id, auth_cookie = _mint_auth_cookie(root / "sessions")
+            cookie_name = auth_cookie_name(session_id)
             headers = [
                 (
                     b"cookie",
-                    f"{C.AUTH_COOKIE_NAME}={auth_cookie}".encode("utf-8"),
+                    f"{cookie_name}={auth_cookie}".encode("utf-8"),
                 )
             ]
             messages: list[Message] = []
@@ -248,10 +250,11 @@ class TestShareFrontendWebsocketRequirements:
             )
             state = await _build_state(root)
             session_id, auth_cookie = _mint_auth_cookie(root / "sessions")
+            cookie_name = auth_cookie_name(session_id)
             headers = [
                 (
                     b"cookie",
-                    f"{C.AUTH_COOKIE_NAME}={auth_cookie}".encode("utf-8"),
+                    f"{cookie_name}={auth_cookie}".encode("utf-8"),
                 ),
                 (b"x-share-session-id", b"missing-session"),
             ]

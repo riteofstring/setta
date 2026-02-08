@@ -24,3 +24,11 @@ Optional overrides:
 ./scripts/run-dev-instance.sh --mode startr
 SETTA_HOST=localhost SETTA_PORT=8100 SETTA_DEV_FRONTEND_PORT=3100 ./scripts/run-dev-instance.sh
 ```
+
+Centralize `setta_files` outside worktrees:
+```sh
+SETTA_FILES_ROOT_BASE=~/setta_state ./scripts/run-dev-instance.sh
+```
+Each worktree gets its own hashed subfolder under `SETTA_FILES_ROOT_BASE`, while
+code operations still point at the worktree root unless `SETTA_WORKSPACE_ROOT`
+is explicitly set.

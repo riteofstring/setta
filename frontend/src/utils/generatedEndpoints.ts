@@ -317,6 +317,12 @@ export async function route_emit_chat_stream_delta(
   return await post("/emitChatStreamDelta", x);
 }
 
+export async function route_launch(
+  x: gt.LaunchRequestInput,
+): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
+  return await post("/launch", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {

@@ -16,7 +16,8 @@ from setta.types.helpers_lvl3 import (
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import CodeFileBinding
 from setta.types.share_deployment import DeploymentListenerConfig, DeploymentManifest
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 if TYPE_CHECKING:
@@ -61,7 +62,7 @@ def resolve_source_path(path_str: str) -> Path:
     source_path = Path(path_str)
     if source_path.is_absolute():
         return source_path
-    return (CWD / source_path).resolve()
+    return (get_setta_paths().workspace_root / source_path).resolve(strict=False)
 
 
 def external_filename(source_path: Path) -> Path:
@@ -83,14 +84,14 @@ def deployment_relative_path(target_path: Path, deployment_root: Path) -> str:
 
 
 def artifact_target_path(source_path: Path, artifacts_root: Path) -> Path:
-    artifacts_folder = (CWD / C.ARTIFACTS_FOLDER).resolve()
+    artifacts_folder = C.ARTIFACTS_FOLDER.resolve(strict=False)
     if source_path.is_relative_to(artifacts_folder):
         return artifacts_root / source_path.relative_to(artifacts_folder)
     return artifacts_root / external_filename(source_path)
 
 
 def code_target_path(source_path: Path, code_root: Path) -> Path:
-    code_folder = (CWD / C.CODE_FOLDER).resolve()
+    code_folder = C.CODE_FOLDER.resolve(strict=False)
     if source_path.is_relative_to(code_folder):
         return code_root / source_path.relative_to(code_folder)
     return code_root / external_filename(source_path)

@@ -12,6 +12,7 @@ export const ModalTypeEnum = {
   PUBLISH_SHARE_DEPLOYMENT: "PUBLISH_SHARE_DEPLOYMENT",
   PUBLISH_APP_DEPLOYMENT: "PUBLISH_APP_DEPLOYMENT",
   DROPZONE_FILE_PICKER: "DROPZONE_FILE_PICKER",
+  WORKSPACE_SWITCHER: "WORKSPACE_SWITCHER",
 } as const;
 
 export type ModalType = ObjectValues<typeof ModalTypeEnum>;
@@ -40,6 +41,7 @@ export type ModalDataMap = {
     remainingSlots: number | null;
     onPickPaths: (paths: string[]) => void;
   };
+  [ModalTypeEnum.WORKSPACE_SWITCHER]: null;
 };
 
 // Then generate the union type from the map

@@ -11,7 +11,6 @@ from setta.utils.timestamps import (
     get_now_timestamp,
     timestamp_to_filename,
 )
-from setta.utils.utils import normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +117,6 @@ def maybe_create_backup(
         # On first save, the file doesn't exist yet, so there's nothing to back up.
         logger.debug("skipping backup; project file missing: %s", project_path)
         return
-    backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
+    backup_dir = C.DB_BACKUP_FOLDER
     if should_create_backup(autobackup, autobackupFreq, backup_dir):
         create_backup(project_path, autobackupKeepLastN, backup_dir)

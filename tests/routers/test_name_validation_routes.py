@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -42,10 +43,45 @@ from setta.types.project_config import (
 from setta.types.section_impls import BaseDictSectionImpl, SectionType
 from setta.server_state import SettaFastAPIState
 from setta.types.id import ID
-
-from tests.utils.manager_fixture import _seed_minimal_setta_files
+from tests.utils.manager_fixture import _populate_project_fixture_files
 from tests.utils.runtime_context import runtime_context
-from tests.utils.setta_test_paths import patched_setta_paths
+from tests.utils.setta_paths import temporary_setta_paths
+
+
+@contextmanager
+def _patched_setta_paths(tmpdir: str) -> Path:
+    root = Path(tmpdir)
+    setta_root = root / "setta_files"
+    code_folder = setta_root / "code"
+    artifacts_folder = setta_root / "artifacts"
+    backup_folder = setta_root / "backups"
+    run_folder = setta_root / "runtime"
+    run_sessions_folder = run_folder / "sessions"
+    run_logs_folder = run_folder / "logs"
+    run_mcp_folder = run_folder / "mcp"
+    run_secrets_folder = run_folder / "secrets"
+    detached_runs_folder = run_folder / "detached_runs"
+    share_deployments_folder = setta_root / "share_deployments"
+
+    for path in (
+        code_folder,
+        artifacts_folder,
+        backup_folder,
+        run_sessions_folder,
+        run_logs_folder,
+        run_mcp_folder,
+        run_secrets_folder,
+        detached_runs_folder,
+        share_deployments_folder,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+
+    _populate_project_fixture_files(setta_root)
+    with temporary_setta_paths(
+        workspace_root=root,
+        setta_files_root=setta_root,
+    ):
+        yield setta_root
 
 
 def _get_default_project_config_id(state: SettaFastAPIState) -> ID:
@@ -118,7 +154,7 @@ async def _create_param_for_rename_test(
 
 @pytest_asyncio.fixture
 async def state_env(tmp_path: Path) -> AsyncIterator[SettaFastAPIState]:
-    with patched_setta_paths(tmp_path, seed_fn=_seed_minimal_setta_files):
+    with _patched_setta_paths(str(tmp_path)):
         state = await _build_state()
         try:
             yield state

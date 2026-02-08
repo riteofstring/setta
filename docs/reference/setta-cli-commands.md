@@ -1,23 +1,20 @@
 # Setta CLI Commands
 
 This doc covers the commands exposed by the `setta` CLI (implemented in
-`backend/setta/start.py`). Most local commands read/write `setta_files/` in the
-current working directory, so run them from the workspace you want to manage
-(for example `setta`, `setta backups`, `setta status`, or `setta stop`).
-`setta connect` can be run from anywhere because it targets a remote workspace
-via `--workspace`.
+`backend/setta/start.py`). Local commands operate on a workspace root (code
+operations) and a `setta_files` root (state/runtime). By default both roots
+follow the current working directory, but you can override them with
+`--workspace`, `--files-root`, `--files-root-base` (or the corresponding env vars).
 
-Deployment commands (`setta share`, `setta app`) serve a published deployment
-snapshot:
-- With `--deployment-name`, deployments are resolved under
-  `setta_files/deployments/` relative to the current working directory (so run
-  from the workspace).
-- With `--deployment-root`, you can point at an absolute deployment folder and
-  run from anywhere.
+Deployment commands (`setta share`, `setta app`) serve published deployment
+snapshots. With `--deployment-name`, deployments are resolved under
+`setta_files/deployments/` (relative to the active `setta_files` root); with
+`--deployment-root`, you can point at an explicit deployment folder and run from
+anywhere.
 
-Only IDE mode sessions started via `setta` are recorded in the session
-registry, so `setta status`, `setta auth`, `setta stop`, and `setta connect`
-apply to those sessions (not `setta share` / `setta app` servers).
+Only IDE mode sessions started via `setta` / `setta launch` are recorded in the
+session registry, so `setta status`, `setta auth`, `setta stop`, and
+`setta connect` apply to those sessions (not `setta share` / `setta app` servers).
 
 There are two types of CLI commands: local commands that operate on the
 workspace where they are executed, and remote helpers that use SSH to target
@@ -35,6 +32,7 @@ another host.
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
 | `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
+| `setta launch` | yes | no | Start (or reuse) a local session and emit bootstrap JSON. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -49,6 +47,11 @@ Options:
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
+- `--workspace PATH` sets the workspace root (code operations).
+- `--files-root PATH` sets the `setta_files` root explicitly.
+- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
+Env equivalents:
+`SETTA_WORKSPACE_ROOT`, `SETTA_FILES_ROOT`, and `SETTA_FILES_ROOT_BASE`.
 
 Examples:
 ```sh
@@ -215,12 +218,13 @@ JSON output schema:
 {
   "baseUrl": "http://127.0.0.1:8000",
   "apiBaseUrl": "http://127.0.0.1:8000/api",
-  "cookieHeader": "Cookie: setta_auth=....",
-  "cookie": "setta_auth=....",
-  "cookieName": "setta_auth",
+  "cookieHeader": "Cookie: setta_auth_<sessionId>=....",
+  "cookie": "setta_auth_<sessionId>=....",
+  "cookieName": "setta_auth_<sessionId>",
   "session": {
     "id": "...",
     "workspacePath": "...",
+    "workspacePathCanonical": "...",
     "host": "127.0.0.1",
     "port": 8000,
     "pid": 12345,
@@ -235,6 +239,47 @@ JSON output schema:
 Example:
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
+```
+
+## `setta launch`
+
+Starts or reuses a local session for a workspace and emits JSON output that the
+frontend can consume. This command requires `--json`.
+
+Options:
+- `--workspace PATH` sets the workspace root (required for detached workspaces).
+- `--files-root PATH` sets the `setta_files` root explicitly.
+- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
+- `--timeout SECONDS` overrides the default launch timeout (30s).
+- `--json` emits strict JSON only (required).
+
+Success payload:
+```json
+{
+  "ok": true,
+  "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
+  "workspaceRoot": "/path/to/workspace",
+  "filesRoot": "/path/to/setta_files",
+  "sessionId": "...",
+  "startedNew": true,
+  "session": {
+    "id": "...",
+    "workspacePath": "...",
+    "workspacePathCanonical": "...",
+    "host": "127.0.0.1",
+    "port": 8000,
+    "pid": 12345,
+    "startedAt": "2025-01-01T12:00:00.000000"
+  }
+}
+```
+
+Error payload:
+```json
+{
+  "ok": false,
+  "error": { "code": "InvalidWorkspace", "message": "..." }
+}
 ```
 
 ## `setta tools`
@@ -316,6 +361,9 @@ Remote stop:
   `setta stop user@host --workspace /path` (or `-w`).
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
+- To control where the remote host stores `setta_files`, pass `--files-root` or
+  `--files-root-base` before the subcommand. Example:
+  `setta --files-root-base '~/setta_state' stop user@host -w '~/work/project' --latest`.
 
 Examples:
 ```sh
@@ -332,13 +380,17 @@ opens the browser to the bootstrap URL.
 Required:
 - `ssh_target` (e.g., `user@host`)
 - `--workspace PATH` (`-w` works too)
-  - Remote paths can use `~` (e.g., `~/work/project`).
+  - Remote paths can use `~`, but quote it so your local shell does not expand it
+    (e.g., `-w '~/work/project'`).
 
 Options:
 - `--session ID` selects a specific session.
 - `--latest` selects the newest session.
 - `--ssh-args` passes extra SSH options.
 - `--remote-cmd` overrides the remote Setta command.
+- To control where the remote host stores `setta_files`, pass `--files-root` or
+  `--files-root-base` before the subcommand (they are forwarded to the remote
+  `setta` invocation).
 - `--local-port` pins the local tunnel port.
 - `--detach` backgrounds the tunnel process.
 - `--print-only` prints the tunnel command and URLs without running them.

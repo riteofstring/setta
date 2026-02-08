@@ -34,7 +34,7 @@ from setta.types.section_impls import (
     DictSectionImpl,
     SectionSize,
 )
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_workspace_path
 
 _CAMEL_CASE_PATTERN = re.compile(r"[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|[0-9]+")
 _ACRONYM_TOKENS = {
@@ -692,7 +692,7 @@ def create_settings_project_state(settings_path: Path):
             topLevelParamId=sectionToTopLevelId[k],
         )
         sectionVariant = Variant(
-            name=str(normalize_path(settings_path)),
+            name=str(normalize_workspace_path(settings_path)),
             impl=sectionImpl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(sectionImpl),
         )

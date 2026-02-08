@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
-const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
+const AUTH_COOKIE_PREFIX = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
@@ -78,7 +78,7 @@ export async function ensureAppReady(page: Page): Promise<void> {
     // In Playwright E2E, auth should already be established via global-setup storageState.
     // Avoid consuming the bootstrap token here; it is one-time and reserved for global-setup.
     throw new Error(
-      `Missing auth cookie (${AUTH_COOKIE_NAME}). Ensure global-setup seeded storageState correctly.`,
+      `Missing auth cookie (${AUTH_COOKIE_PREFIX}). Ensure global-setup seeded storageState correctly.`,
     );
   }
 
@@ -711,7 +711,11 @@ async function waitForProjectUrl(page: Page): Promise<void> {
 
 async function hasAuthCookie(page: Page): Promise<boolean> {
   const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
+  return cookies.some(
+    (cookie) =>
+      cookie.name === AUTH_COOKIE_PREFIX ||
+      cookie.name.startsWith(`${AUTH_COOKIE_PREFIX}_`),
+  );
 }
 
 async function getDefaultConfigNameResult(page: Page): Promise<{

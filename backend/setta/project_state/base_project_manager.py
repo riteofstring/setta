@@ -413,7 +413,7 @@ from setta.utils.name_validation import (
     validate_project_name,
     validate_view_mode_name,
 )
-from setta.utils.utils import normalize_path
+from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -662,16 +662,21 @@ class BaseProjectManager(ABC):
     ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
+        self._raise_queue_task_issue_if_any()
 
-        logger.debug(
-            "Queue task status: cancelled=%s, done=%s, exception=%s",
-            self.queue_task.cancelled(),
-            self.queue_task.done(),
-            self.queue_task.exception() if self.queue_task.done() else None,
-        )
+        if logger.isEnabledFor(logging.DEBUG):
+            queue_exception: BaseException | None = None
+            if self.queue_task.done() and not self.queue_task.cancelled():
+                queue_exception = self.queue_task.exception()
+            logger.debug(
+                "Queue task status: cancelled=%s, done=%s, exception=%s",
+                self.queue_task.cancelled(),
+                self.queue_task.done(),
+                queue_exception,
+            )
 
         # Create a future to hold the result
-        future: asyncio.Future[_T] = asyncio.Future()
+        future: asyncio.Future[_T] = asyncio.get_running_loop().create_future()
         logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
@@ -793,7 +798,11 @@ class BaseProjectManager(ABC):
             self._finalize_frontend_op(frontend_op_id, success=True)
         finally:
             if token is not None:
-                self._current_frontend_op_id.reset(token)
+                try:
+                    self._current_frontend_op_id.reset(token)
+                except ValueError:
+                    # See setta.logging.context.reset_logging_context for rationale.
+                    self._current_frontend_op_id.set(None)
 
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id
@@ -1908,7 +1917,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if project_config_id not in self.project_state_backend.projectConfigs:
             return
-        normalized_path = normalize_path(path)
+        normalized_path = normalize_workspace_path(path)
         project_state = self.get_single_config_state(project_config_id)
         project_config = project_state.projectConfig
         if not baseline_only and not project_config.watchCodeEnabled:
@@ -1936,7 +1945,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if project_config_id not in self.project_state_backend.projectConfigs:
             return
-        normalized_path = normalize_path(path)
+        normalized_path = normalize_workspace_path(path)
         project_state = self.get_single_config_state(project_config_id)
         project_config = project_state.projectConfig
         if not project_config.watchCodeEnabled:
@@ -2251,7 +2260,7 @@ class BaseProjectManager(ABC):
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        canonical_path = normalize_path(x.binding.canonical_path)
+        canonical_path = normalize_workspace_path(x.binding.canonical_path)
         updated_binding = CodeFileBinding(
             canonical_path=canonical_path,
             access_mode=x.binding.access_mode,
@@ -3116,7 +3125,7 @@ class BaseProjectManager(ABC):
                 detail="JSON source key edits are disabled for this project.",
             )
         variant = project_state.sectionVariants[x.variantId]
-        filename = normalize_path(variant.name)
+        filename = normalize_workspace_path(variant.name)
         processed = None
         if filename.exists():
             processed_updates = self.json_source.process_json_source_files([filename])
@@ -3175,7 +3184,14 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = False
         try:
-            Path(x.filepath).unlink()
+            target_path = normalize_workspace_path(x.filepath)
+            workspace_root = get_setta_paths().workspace_root
+            if not target_path.is_relative_to(workspace_root):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="File path must be within the project root.",
+                )
+            target_path.unlink()
             success = True
         except FileNotFoundError:
             await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
