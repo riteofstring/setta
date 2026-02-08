@@ -454,7 +454,11 @@ export function GitGraphOverlay() {
   }
 
   function beginColumnResizeDrag(
-    key: "graph" | "author" | "date" | "hash",
+    boundary:
+      | "graphMessage"
+      | "messageAuthor"
+      | "authorDate"
+      | "dateHash",
     event: React.PointerEvent<HTMLDivElement>,
   ) {
     event.preventDefault();
@@ -514,37 +518,161 @@ export function GitGraphOverlay() {
     const authorPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_AUTHOR, authorColWidthPx);
     const datePx = readCssPx(CSS_VAR_GIT_GRAPH_COL_DATE, dateColWidthPx);
     const hashPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_HASH, hashColWidthPx);
-    const currentByKey = { graph: graphPx, author: authorPx, date: datePx, hash: hashPx };
-
-    const cssVar = cssVarByKey[key];
-    const startWidth = currentByKey[key];
-    const otherSum =
-      graphPx + authorPx + datePx + hashPx - startWidth;
-    const minPx = minPxByKey[key];
-    const maxPxConstant = maxPxByKey[key];
-    const maxFit = Math.max(minPx, contentWidth - otherSum);
-    const maxPx = Math.min(maxPxConstant, maxFit);
-
-    const applyWidth = (widthPx: number) => {
-      root.style.setProperty(cssVar, `${widthPx}px`);
+    const start = {
+      graph: graphPx,
+      author: authorPx,
+      date: datePx,
+      hash: hashPx,
     };
 
-    const persistWidth = (widthPx: number) => {
-      if (key === "graph") {
-        useLocalStorage.setState({ gitGraphColWidthPx: widthPx });
-      } else if (key === "author") {
-        useLocalStorage.setState({ gitGraphAuthorWidthPx: widthPx });
-      } else if (key === "date") {
-        useLocalStorage.setState({ gitGraphDateWidthPx: widthPx });
-      } else {
-        useLocalStorage.setState({ gitGraphHashWidthPx: widthPx });
+    const applyWidths = (next: Partial<typeof start>) => {
+      if (next.graph !== undefined) {
+        root.style.setProperty(cssVarByKey.graph, `${next.graph}px`);
+      }
+      if (next.author !== undefined) {
+        root.style.setProperty(cssVarByKey.author, `${next.author}px`);
+      }
+      if (next.date !== undefined) {
+        root.style.setProperty(cssVarByKey.date, `${next.date}px`);
+      }
+      if (next.hash !== undefined) {
+        root.style.setProperty(cssVarByKey.hash, `${next.hash}px`);
       }
     };
 
+    const persistWidths = (next: Partial<typeof start>) => {
+      const patch: Partial<{
+        gitGraphColWidthPx: number;
+        gitGraphAuthorWidthPx: number;
+        gitGraphDateWidthPx: number;
+        gitGraphHashWidthPx: number;
+      }> = {};
+      if (next.graph !== undefined) {
+        patch.gitGraphColWidthPx = next.graph;
+      }
+      if (next.author !== undefined) {
+        patch.gitGraphAuthorWidthPx = next.author;
+      }
+      if (next.date !== undefined) {
+        patch.gitGraphDateWidthPx = next.date;
+      }
+      if (next.hash !== undefined) {
+        patch.gitGraphHashWidthPx = next.hash;
+      }
+      if (Object.keys(patch).length > 0) {
+        useLocalStorage.setState(patch);
+      }
+    };
+
+    const clampSingleWidth = (
+      key: keyof typeof start,
+      requestedWidth: number,
+    ): number => {
+      const minPx = minPxByKey[key];
+      const maxPxConstant = maxPxByKey[key];
+      const otherSum =
+        start.graph + start.author + start.date + start.hash - start[key];
+      const maxFit = Math.max(minPx, contentWidth - otherSum);
+      const maxPx = Math.min(maxPxConstant, maxFit);
+      return clamp(requestedWidth, minPx, maxPx);
+    };
+
+    const clampAuthorDateDelta = (delta: number): number => {
+      const lower = Math.max(
+        minPxByKey.author - start.author,
+        start.date - maxPxByKey.date,
+      );
+      const upper = Math.min(
+        maxPxByKey.author - start.author,
+        start.date - minPxByKey.date,
+      );
+      if (lower > upper) {
+        return 0;
+      }
+      return clamp(delta, lower, upper);
+    };
+
+    const clampDateHashDelta = (delta: number): number => {
+      const lower = Math.max(
+        minPxByKey.date - start.date,
+        start.hash - maxPxByKey.hash,
+      );
+      const upper = Math.min(
+        maxPxByKey.date - start.date,
+        start.hash - minPxByKey.hash,
+      );
+      if (lower > upper) {
+        return 0;
+      }
+      return clamp(delta, lower, upper);
+    };
+
+    const computeNextFromDelta = (
+      deltaX: number,
+    ): Partial<typeof start> => {
+      if (boundary === "graphMessage") {
+        return {
+          graph: clampSingleWidth("graph", start.graph + deltaX),
+        };
+      }
+      if (boundary === "messageAuthor") {
+        return {
+          author: clampSingleWidth("author", start.author - deltaX),
+        };
+      }
+      if (boundary === "authorDate") {
+        const clampedDelta = clampAuthorDateDelta(deltaX);
+        return {
+          author: start.author + clampedDelta,
+          date: start.date - clampedDelta,
+        };
+      }
+      const clampedDelta = clampDateHashDelta(deltaX);
+      return {
+        date: start.date + clampedDelta,
+        hash: start.hash - clampedDelta,
+      };
+    };
+
+    const changedKeysByBoundary = {
+      graphMessage: ["graph"],
+      messageAuthor: ["author"],
+      authorDate: ["author", "date"],
+      dateHash: ["date", "hash"],
+    } as const;
+
     if (event.detail === 2) {
-      const bounded = clamp(defaultPxByKey[key], minPx, maxPx);
-      applyWidth(bounded);
-      persistWidth(bounded);
+      if (boundary === "graphMessage") {
+        const next = {
+          graph: clampSingleWidth("graph", defaultPxByKey.graph),
+        };
+        applyWidths(next);
+        persistWidths(next);
+      } else if (boundary === "messageAuthor") {
+        const next = {
+          author: clampSingleWidth("author", defaultPxByKey.author),
+        };
+        applyWidths(next);
+        persistWidths(next);
+      } else if (boundary === "authorDate") {
+        const targetDelta = defaultPxByKey.author - start.author;
+        const clampedDelta = clampAuthorDateDelta(targetDelta);
+        const next = {
+          author: start.author + clampedDelta,
+          date: start.date - clampedDelta,
+        };
+        applyWidths(next);
+        persistWidths(next);
+      } else {
+        const targetDelta = defaultPxByKey.date - start.date;
+        const clampedDelta = clampDateHashDelta(targetDelta);
+        const next = {
+          date: start.date + clampedDelta,
+          hash: start.hash - clampedDelta,
+        };
+        applyWidths(next);
+        persistWidths(next);
+      }
       return;
     }
 
@@ -558,12 +686,12 @@ export function GitGraphOverlay() {
         return;
       }
       const deltaX = moveEvent.clientX - startX;
-      const next = clamp(startWidth + deltaX, minPx, maxPx);
+      const next = computeNextFromDelta(deltaX);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
       rafId = requestAnimationFrame(() => {
-        applyWidth(next);
+        applyWidths(next);
         rafId = null;
       });
     };
@@ -580,13 +708,20 @@ export function GitGraphOverlay() {
         rafId = null;
       }
 
-      const raw = root.style.getPropertyValue(cssVar).trim();
-      const parsed = Number.parseFloat(raw);
-      const finalPx = Number.isFinite(parsed)
-        ? clamp(parsed, minPx, maxPx)
-        : clamp(defaultPxByKey[key], minPx, maxPx);
-      applyWidth(finalPx);
-      persistWidth(finalPx);
+      const keys = changedKeysByBoundary[boundary];
+      const persisted: Partial<typeof start> = {};
+      for (const key of keys) {
+        const raw = root.style.getPropertyValue(cssVarByKey[key]).trim();
+        const parsed = Number.parseFloat(raw);
+        const minPx = minPxByKey[key];
+        const maxPx = maxPxByKey[key];
+        const fallback = start[key];
+        persisted[key] = Number.isFinite(parsed)
+          ? clamp(parsed, minPx, maxPx)
+          : clamp(fallback, minPx, maxPx);
+      }
+      applyWidths(persisted);
+      persistWidths(persisted);
     };
 
     window.addEventListener("pointermove", handleMove);
@@ -661,7 +796,7 @@ export function GitGraphOverlay() {
         >
           <div
             ref={commitHeaderRef}
-            className="grid gap-2 border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
+            className="grid gap-2 overflow-hidden border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
             style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
           >
             <div
@@ -670,49 +805,60 @@ export function GitGraphOverlay() {
             >
               <span>Graph</span>
               <ColumnResizeHandle
-                dataTestId="git-graph-col-resize-graph"
-                label="Resize graph column"
-                onPointerDown={(event) => beginColumnResizeDrag("graph", event)}
+                dataTestId="git-graph-col-resize-graph-message"
+                label="Resize graph and message boundary"
+                edge="right"
+                onPointerDown={(event) => beginColumnResizeDrag("graphMessage", event)}
               />
             </div>
-            <div data-testid="git-graph-header-message" className="min-w-0">
+            <div
+              data-testid="git-graph-header-message"
+              className="min-w-0 pl-2"
+            >
               Message
             </div>
             <div
               data-testid="git-graph-header-author"
-              className="relative min-w-0 pr-2"
+              className="relative min-w-0 pl-2"
             >
-              <span>Author</span>
               <ColumnResizeHandle
-                dataTestId="git-graph-col-resize-author"
-                label="Resize author column"
-                onPointerDown={(event) => beginColumnResizeDrag("author", event)}
+                dataTestId="git-graph-col-resize-message-author"
+                label="Resize message and author boundary"
+                edge="left"
+                onPointerDown={(event) => beginColumnResizeDrag("messageAuthor", event)}
               />
+              <span>Author</span>
             </div>
             <div
               data-testid="git-graph-header-date"
-              className="relative min-w-0 pr-2"
+              className="relative min-w-0 pl-2"
             >
-              <span>Date</span>
               <ColumnResizeHandle
-                dataTestId="git-graph-col-resize-date"
-                label="Resize date column"
-                onPointerDown={(event) => beginColumnResizeDrag("date", event)}
+                dataTestId="git-graph-col-resize-author-date"
+                label="Resize author and date boundary"
+                edge="left"
+                onPointerDown={(event) => beginColumnResizeDrag("authorDate", event)}
               />
+              <span>Date</span>
             </div>
             <div
               data-testid="git-graph-header-hash"
-              className="relative min-w-0 pr-2"
+              className="relative min-w-0 pl-2"
             >
-              <span>Hash</span>
               <ColumnResizeHandle
-                dataTestId="git-graph-col-resize-hash"
-                label="Resize hash column"
-                onPointerDown={(event) => beginColumnResizeDrag("hash", event)}
+                dataTestId="git-graph-col-resize-date-hash"
+                label="Resize date and hash boundary"
+                edge="left"
+                onPointerDown={(event) => beginColumnResizeDrag("dateHash", event)}
               />
+              <span>Hash</span>
             </div>
           </div>
-          <div className="min-h-0 flex-1" ref={listWrapperRef}>
+          <div
+            data-testid="git-graph-commit-list-wrapper"
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            ref={listWrapperRef}
+          >
             {graphState.isLoading ? (
               <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
                 Loading commits…
@@ -737,7 +883,11 @@ export function GitGraphOverlay() {
                   graphViewBoxWidth,
                   dynamicRowHeight,
                 }}
-                style={{ height: listSize.height, width: listSize.width }}
+                style={{
+                  height: listSize.height,
+                  width: listSize.width,
+                  overflowX: "hidden",
+                }}
               />
             )}
           </div>
@@ -1234,21 +1384,27 @@ function PathWithMutedDir({ path }: { path: string }) {
 function ColumnResizeHandle({
   dataTestId,
   label,
+  edge,
   onPointerDown,
 }: {
   dataTestId: string;
   label: string;
+  edge: "left" | "right";
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
 }) {
+  const rootPositionClass =
+    edge === "left" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2";
   return (
     <div
       data-testid={dataTestId}
       role="separator"
       aria-label={label}
-      className="group/col-resize absolute -right-2 top-0 z-10 h-full w-4 cursor-col-resize"
+      className={`group/col-resize absolute top-0 z-10 h-full w-6 cursor-col-resize ${rootPositionClass}`}
       onPointerDown={onPointerDown}
     >
-      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-300 dark:bg-setta-700 group-hover/col-resize:bg-blue-400 dark:group-hover/col-resize:bg-blue-400" />
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-300 dark:bg-setta-700 group-hover/col-resize:bg-blue-400 dark:group-hover/col-resize:bg-blue-400"
+      />
     </div>
   );
 }

@@ -165,34 +165,214 @@ test("git diff overlay and git graph overlay render between panes", async ({
     expect(diffAfter).toBeLessThan(diffBefore - 40);
 
     const authorHeader = graphOverlay.getByTestId("git-graph-header-author");
-    const authorResizeHandle = graphOverlay.getByTestId(
-      "git-graph-col-resize-author",
+    const messageAuthorResizeHandle = graphOverlay.getByTestId(
+      "git-graph-col-resize-message-author",
     );
+    const authorDateResizeHandle = graphOverlay.getByTestId(
+      "git-graph-col-resize-author-date",
+    );
+    const dateHashResizeHandle = graphOverlay.getByTestId(
+      "git-graph-col-resize-date-hash",
+    );
+    await expect(messageAuthorResizeHandle).toBeVisible();
+    await expect(authorDateResizeHandle).toBeVisible();
+    await expect(dateHashResizeHandle).toBeVisible();
     const authorBefore = await authorHeader.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    const authorHandleBox = await authorResizeHandle.boundingBox();
-    if (!authorHandleBox) {
+    const messageAuthorHandleBefore = await messageAuthorResizeHandle.boundingBox();
+    const authorDateHandleBefore = await authorDateResizeHandle.boundingBox();
+    const dateHashHandleBefore = await dateHashResizeHandle.boundingBox();
+    if (!messageAuthorHandleBefore) {
       throw new Error(
-        "Expected git graph author column resize handle to have a bounding box.",
+        "Expected git graph message-author resize handle to have a bounding box.",
+      );
+    }
+    if (!authorDateHandleBefore) {
+      throw new Error(
+        "Expected git graph author-date resize handle to have a bounding box.",
+      );
+    }
+    if (!dateHashHandleBefore) {
+      throw new Error(
+        "Expected git graph date-hash resize handle to have a bounding box.",
       );
     }
     await page.mouse.move(
-      authorHandleBox.x + authorHandleBox.width / 2,
-      authorHandleBox.y + authorHandleBox.height / 2,
+      messageAuthorHandleBefore.x + messageAuthorHandleBefore.width / 2,
+      messageAuthorHandleBefore.y + messageAuthorHandleBefore.height / 2,
     );
     await page.mouse.down();
     await page.mouse.move(
-      authorHandleBox.x + authorHandleBox.width / 2 + 70,
-      authorHandleBox.y + authorHandleBox.height / 2,
+      messageAuthorHandleBefore.x + messageAuthorHandleBefore.width / 2 + 70,
+      messageAuthorHandleBefore.y + messageAuthorHandleBefore.height / 2,
       { steps: 8 },
     );
     await page.mouse.up();
 
+    const messageAuthorHandleAfter = await messageAuthorResizeHandle.boundingBox();
+    if (!messageAuthorHandleAfter) {
+      throw new Error(
+        "Expected git graph message-author resize handle to have a bounding box after drag.",
+      );
+    }
+    const authorDateHandleAfterMessageDrag = await authorDateResizeHandle.boundingBox();
+    const dateHashHandleAfterMessageDrag = await dateHashResizeHandle.boundingBox();
+    if (!authorDateHandleAfterMessageDrag || !dateHashHandleAfterMessageDrag) {
+      throw new Error(
+        "Expected git graph non-adjacent resize handles to be measurable after message-author drag.",
+      );
+    }
     const authorAfter = await authorHeader.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    expect(authorAfter).toBeGreaterThan(authorBefore + 20);
+    expect(messageAuthorHandleAfter.x).toBeGreaterThan(
+      messageAuthorHandleBefore.x + 10,
+    );
+    expect(Math.abs(authorAfter - authorBefore)).toBeGreaterThan(10);
+    expect(
+      Math.abs(authorDateHandleAfterMessageDrag.x - authorDateHandleBefore.x),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(dateHashHandleAfterMessageDrag.x - dateHashHandleBefore.x),
+    ).toBeLessThanOrEqual(2);
+
+    const messageAuthorHandleBeforeAuthorDateDrag =
+      await messageAuthorResizeHandle.boundingBox();
+    if (!messageAuthorHandleBeforeAuthorDateDrag) {
+      throw new Error(
+        "Expected git graph message-author resize handle before author-date drag.",
+      );
+    }
+    const authorDateHandleBeforeAuthorDateDrag =
+      await authorDateResizeHandle.boundingBox();
+    const dateHashHandleBeforeAuthorDateDrag = await dateHashResizeHandle.boundingBox();
+    if (!authorDateHandleBeforeAuthorDateDrag || !dateHashHandleBeforeAuthorDateDrag) {
+      throw new Error(
+        "Expected git graph author-date/date-hash resize handles before author-date drag.",
+      );
+    }
+    await page.mouse.move(
+      authorDateHandleBeforeAuthorDateDrag.x +
+        authorDateHandleBeforeAuthorDateDrag.width / 2,
+      authorDateHandleBeforeAuthorDateDrag.y +
+        authorDateHandleBeforeAuthorDateDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      authorDateHandleBeforeAuthorDateDrag.x +
+        authorDateHandleBeforeAuthorDateDrag.width / 2 +
+        50,
+      authorDateHandleBeforeAuthorDateDrag.y +
+        authorDateHandleBeforeAuthorDateDrag.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    const authorDateHandleAfter = await authorDateResizeHandle.boundingBox();
+    if (!authorDateHandleAfter) {
+      throw new Error(
+        "Expected git graph author-date resize handle to have a bounding box after drag.",
+      );
+    }
+    const messageAuthorHandleAfterAuthorDateDrag =
+      await messageAuthorResizeHandle.boundingBox();
+    const dateHashHandleAfterAuthorDateDrag = await dateHashResizeHandle.boundingBox();
+    if (!messageAuthorHandleAfterAuthorDateDrag || !dateHashHandleAfterAuthorDateDrag) {
+      throw new Error(
+        "Expected git graph adjacent resize handles after author-date drag.",
+      );
+    }
+    expect(authorDateHandleAfter.x).toBeGreaterThan(
+      authorDateHandleBeforeAuthorDateDrag.x + 8,
+    );
+    expect(
+      Math.abs(
+        messageAuthorHandleAfterAuthorDateDrag.x -
+          messageAuthorHandleBeforeAuthorDateDrag.x,
+      ),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(
+        dateHashHandleAfterAuthorDateDrag.x - dateHashHandleBeforeAuthorDateDrag.x,
+      ),
+    ).toBeLessThanOrEqual(2);
+
+    const messageAuthorHandleBeforeDateHashDrag =
+      await messageAuthorResizeHandle.boundingBox();
+    const authorDateHandleBeforeDateHashDrag = await authorDateResizeHandle.boundingBox();
+    const dateHashHandleBeforeDateHashDrag = await dateHashResizeHandle.boundingBox();
+    if (
+      !messageAuthorHandleBeforeDateHashDrag ||
+      !authorDateHandleBeforeDateHashDrag ||
+      !dateHashHandleBeforeDateHashDrag
+    ) {
+      throw new Error(
+        "Expected git graph resize handles before date-hash drag.",
+      );
+    }
+    await page.mouse.move(
+      dateHashHandleBeforeDateHashDrag.x +
+        dateHashHandleBeforeDateHashDrag.width / 2,
+      dateHashHandleBeforeDateHashDrag.y +
+        dateHashHandleBeforeDateHashDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      dateHashHandleBeforeDateHashDrag.x +
+        dateHashHandleBeforeDateHashDrag.width / 2 +
+        40,
+      dateHashHandleBeforeDateHashDrag.y +
+        dateHashHandleBeforeDateHashDrag.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    const dateHashHandleAfter = await dateHashResizeHandle.boundingBox();
+    if (!dateHashHandleAfter) {
+      throw new Error(
+        "Expected git graph date-hash resize handle to have a bounding box after drag.",
+      );
+    }
+    const messageAuthorHandleAfterDateHashDrag =
+      await messageAuthorResizeHandle.boundingBox();
+    const authorDateHandleAfterDateHashDrag = await authorDateResizeHandle.boundingBox();
+    if (!messageAuthorHandleAfterDateHashDrag || !authorDateHandleAfterDateHashDrag) {
+      throw new Error(
+        "Expected git graph resize handles after date-hash drag.",
+      );
+    }
+    expect(dateHashHandleAfter.x).toBeGreaterThan(
+      dateHashHandleBeforeDateHashDrag.x + 6,
+    );
+    expect(
+      Math.abs(
+        messageAuthorHandleAfterDateHashDrag.x -
+          messageAuthorHandleBeforeDateHashDrag.x,
+      ),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(
+        authorDateHandleAfterDateHashDrag.x -
+          authorDateHandleBeforeDateHashDrag.x,
+      ),
+    ).toBeLessThanOrEqual(2);
+
+    const commitListWrapper = graphOverlay.getByTestId(
+      "git-graph-commit-list-wrapper",
+    );
+    const commitListOverflow = await commitListWrapper.evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(
+      commitListOverflow.scrollWidth - commitListOverflow.clientWidth,
+    ).toBeLessThanOrEqual(1);
+    const listOverflowX = await commitListWrapper
+      .locator(":scope > div")
+      .first()
+      .evaluate((el) => window.getComputedStyle(el).overflowX);
+    expect(listOverflowX).toBe("hidden");
 
     // Linear history should stay on a single lane (regression guard for log parsing).
     await expect(
