@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import shutil
 import time
@@ -41,7 +42,12 @@ from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.init_status import BackendInitializationStatus
+from setta.utils.paths import (
+    clear_setta_paths_cache,
+    get_setta_paths,
+)
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -51,6 +57,7 @@ from setta.websockets.realtime_event_hub import RealtimeEventHub
 from setta.websockets.websocket_manager import WebsocketManager
 
 _T = TypeVar("_T")
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
@@ -172,51 +179,56 @@ class SettaFastAPIState:
         app,
         *,
         share_mode: bool = False,
-        app_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
-        if share_mode and app_mode:
-            raise ValueError("Server cannot enable both share_mode and app_mode.")
-        self.app_mode = app_mode
         self.share_mode = share_mode
-        self.deployment_mode = share_mode or app_mode
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
-        self.share_deployment_root = self._resolve_deployment_root(
-            self.deployment_mode, share_deployment_root
+        self.paths = get_setta_paths()
+        self.share_deployment_root = self._resolve_share_deployment_root(
+            share_mode, share_deployment_root
         )
         self.share_runtime_root = self._resolve_share_runtime_root(
             self.share_deployment_root
         )
-
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
         self.dbe = DBE(
             self.share_deployment_root
             if self.share_deployment_root is not None
-            else C.SETTA_FILES_FOLDER,
-            runtime_root=self.share_runtime_root,
-            lock_root=self.share_runtime_root,
+            else self.paths.setta_files_root,
+            runtime_root=self.share_runtime_root
+            if self.share_runtime_root is not None
+            else self.paths.runtime_root,
+            lock_root=self.share_runtime_root
+            if self.share_runtime_root is not None
+            else self.paths.runtime_root,
         )
-        os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self.dbe.runtime_root))
-        if not self.deployment_mode:
+        if self.share_runtime_root is not None:
+            # Ensure runtime-root consumers (password store, binary lookups, etc) point at
+            # the active share deployment runtime root even when multiple share states
+            # are constructed in-process (tests).
+            os.environ[RUNTIME_ROOT_ENV] = str(self.dbe.runtime_root)
+            clear_setta_paths_cache()
+            self.paths = get_setta_paths()
+        if not self.share_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
                 seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
-            share_mode=self.deployment_mode,
+            share_mode=self.share_mode,
         )
         self.detached_run_manager = DetachedRunManager(self.dbe)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
-            None if self.deployment_mode else self.dbe,
+            None if self.share_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        if self.deployment_mode:
+        if self.share_mode:
             self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
         else:
@@ -278,10 +290,7 @@ class SettaFastAPIState:
         self.run_chain_runner: RunChainRunner = self._defer_attr("run_chain_runner")
 
         self.init_status = BackendInitializationStatus()
-        if self.app_mode:
-            mode_label = "app"
-        else:
-            mode_label = "share" if self.share_mode else "backend"
+        mode_label = "share" if self.share_mode else "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
@@ -301,8 +310,8 @@ class SettaFastAPIState:
 
     async def _initialize_async(self, app):
         try:
-            if self.deployment_mode:
-                await self._initialize_deployment_async()
+            if self.share_mode:
+                await self._initialize_share_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -340,7 +349,10 @@ class SettaFastAPIState:
             await self._maybe_delay()
             lsp_writers = None
             if self._enable_language_server:
-                self.lsps = LSPServers(self.settings_file.settings.languageServer)
+                self.lsps = LSPServers(
+                    self.settings_file.settings.languageServer,
+                    workspace_root=self.paths.workspace_root,
+                )
                 self.lsp_writers = LSPWriters(self.lsps)
                 lsp_writers = self.lsp_writers
             else:
@@ -415,7 +427,7 @@ class SettaFastAPIState:
                 self.dbe,
                 self.mcp_client,
                 self.wmh_frontend_sender,
-                share_mode=self.deployment_mode,
+                share_mode=self.share_mode,
             )
             self.agent_runner.update_config(llm_config)
             self.agent_runner.update_api_keys(self.dbe.read_dot_env())
@@ -460,7 +472,7 @@ class SettaFastAPIState:
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,
-                share_mode=self.deployment_mode,
+                share_mode=self.share_mode,
                 mcp_client=self.mcp_client,
             )
             self.run_chain_runner = RunChainRunner(
@@ -498,7 +510,7 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_deployment_async(self) -> None:
+    async def _initialize_share_async(self) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -506,10 +518,10 @@ class SettaFastAPIState:
             WMHPythonScriptReceiver,
         )
 
-        self.init_status.record("Loading deployment")
+        self.init_status.record("Loading share deployment")
         await self._maybe_delay()
         if self.share_deployment_root is None:
-            raise ValueError("Deployment root must be set in deployment mode")
+            raise ValueError("Share deployment root must be set in share mode")
         self.share_session_store = MemorySessionStore(
             ttl_seconds=DEFAULT_SHARE_SESSION_TTL_SECONDS
         )
@@ -601,50 +613,49 @@ class SettaFastAPIState:
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._ready_event.set()
-        self.init_status.record(
-            "App backend ready" if self.app_mode else "Share backend ready"
-        )
+        self.init_status.record("Share backend ready")
         self.init_status.mark_ready()
 
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
 
-    def _resolve_deployment_root(
-        self, deployment_mode: bool, deployment_root: Path | None
+    def _resolve_share_deployment_root(
+        self, share_mode: bool, share_deployment_root: Path | None
     ) -> Path | None:
-        if not deployment_mode:
+        if not share_mode:
             return None
-        if deployment_root is None:
-            raise ValueError("Deployment mode requires a deployment root")
-        resolved = deployment_root.expanduser().resolve()
+        if share_deployment_root is None:
+            raise ValueError("Share mode requires a share deployment root")
+        resolved = share_deployment_root.expanduser().resolve()
         if not resolved.exists():
-            raise FileNotFoundError(f"Deployment root does not exist: {resolved}")
+            raise FileNotFoundError(f"Share deployment root does not exist: {resolved}")
         DBE(resolved).read_project_required()
         return resolved
 
     def _resolve_share_runtime_root(
         self, share_deployment_root: Path | None
     ) -> Path | None:
-        if not self.deployment_mode or share_deployment_root is None:
+        if not self.share_mode or share_deployment_root is None:
             return None
-        manifest = DBE(share_deployment_root).read_deployment_manifest_optional()
+        manifest = DBE(share_deployment_root).read_share_manifest_optional()
         if manifest is None:
             raise FileNotFoundError(
-                f"Deployment manifest not found: {share_deployment_root / 'manifest.json'}"
+                f"Share deployment manifest not found: {share_deployment_root / 'manifest.json'}"
             )
         deployment_name = manifest.deploymentName
         deployment_version = manifest.deploymentVersion
-        deployments_root = share_deployment_root.parent.parent
-        if deployments_root.name == "deployments":
-            # For roots like <parent>/deployments/<name>/<version>, store runtime
-            # under <parent>/deployment_runtime/<name>/<version>.
-            base_root = deployments_root.parent
+        share_deployments_root = share_deployment_root.parent.parent
+        if share_deployments_root.name == "share_deployments":
+            default_share_root = C.SHARE_DEPLOYMENTS_FOLDER.resolve()
+            if share_deployments_root.resolve() == default_share_root:
+                base_root = default_share_root.parent
+            else:
+                base_root = share_deployments_root
         else:
-            # For arbitrary roots, store runtime under <deployment_root_parent>/deployment_runtime/...
             base_root = share_deployment_root.parent
         runtime_root = (
-            base_root / "deployment_runtime" / deployment_name / deployment_version
+            base_root / "share_runtime" / deployment_name / deployment_version
         ).resolve()
         runtime_root.mkdir(parents=True, exist_ok=True)
         return runtime_root

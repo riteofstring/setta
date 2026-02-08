@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -52,49 +52,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-
-def _set_temp_constants(root: Path) -> dict[str, Path]:
-    previous = {
-        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-        "CODE_FOLDER": C.CODE_FOLDER,
-        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "RUN_FOLDER": C.RUN_FOLDER,
-        "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
-        "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
-        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
-    }
-    C.SETTA_FILES_FOLDER = root / "setta_files"
-    C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
-    C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
-    C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
-    C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
-    C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
-    C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
-    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "deployments"
-    for path in (
-        C.SETTA_FILES_FOLDER,
-        C.CODE_FOLDER,
-        C.DB_BACKUP_FOLDER,
-        C.ARTIFACTS_FOLDER,
-        C.RUN_FOLDER,
-        C.RUN_SESSIONS_FOLDER,
-        C.RUN_LOGS_FOLDER,
-        C.DEPLOYMENTS_FOLDER,
-    ):
-        path.mkdir(parents=True, exist_ok=True)
-    return previous
-
-
-def _restore_constants(previous: dict[str, Path]) -> None:
-    C.SETTA_FILES_FOLDER = previous["SETTA_FILES_FOLDER"]
-    C.CODE_FOLDER = previous["CODE_FOLDER"]
-    C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
-    C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
-    C.RUN_FOLDER = previous["RUN_FOLDER"]
-    C.RUN_SESSIONS_FOLDER = previous["RUN_SESSIONS_FOLDER"]
-    C.RUN_LOGS_FOLDER = previous["RUN_LOGS_FOLDER"]
-    C.DEPLOYMENTS_FOLDER = previous["DEPLOYMENTS_FOLDER"]
+from tests.utils.setta_paths import temporary_setta_paths
 
 
 class TypeCheckProjectManager(BaseProjectManager):
@@ -277,7 +235,25 @@ async def _seed_gen_code_diagnostics(
 @asynccontextmanager
 async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
     temp_dir = TemporaryDirectory()
-    previous = _set_temp_constants(Path(temp_dir.name))
+    root = Path(temp_dir.name)
+    stack = ExitStack()
+    stack.enter_context(
+        temporary_setta_paths(
+            workspace_root=root,
+            setta_files_root=root / "setta_files",
+        )
+    )
+    for path in (
+        C.SETTA_FILES_FOLDER,
+        C.CODE_FOLDER,
+        C.DB_BACKUP_FOLDER,
+        C.ARTIFACTS_FOLDER,
+        C.RUNTIME_FOLDER,
+        C.RUNTIME_SESSIONS_FOLDER,
+        C.RUNTIME_LOGS_FOLDER,
+        C.SHARE_DEPLOYMENTS_FOLDER,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
     manager = None
     try:
         websocket_manager = WebsocketManager()
@@ -321,7 +297,7 @@ async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
     finally:
         if manager is not None:
             manager.shutdown()
-        _restore_constants(previous)
+        stack.close()
         temp_dir.cleanup()
 
 

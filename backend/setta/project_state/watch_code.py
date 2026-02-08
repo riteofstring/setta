@@ -2,15 +2,11 @@ import ast
 import asyncio
 import logging
 import os
-import sys
-import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
-from watchdog.observers.polling import PollingObserver
 
 from setta.project_state.lsp_response_handlers.signatureHelp import SignatureHelpStatus
 from setta.project_state.utils import convert_path_to_module_path
@@ -44,7 +40,13 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.utils.async_debouncer import AsyncDebouncer
-from setta.utils.utils import compute_md5_hex, normalize_path
+from setta.utils.paths import (
+    get_setta_paths,
+    normalize_workspace_path,
+    workspace_relative_path,
+)
+from setta.utils.utils import compute_md5_hex
+from setta.utils.watchdog_observer import build_watchdog_observer
 
 if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
@@ -52,47 +54,6 @@ if TYPE_CHECKING:
     from setta.project_state.base_project_manager import BaseProjectManager
 
 logger = logging.getLogger(__name__)
-
-# watchdog's native macOS observers have been observed to hard-crash (SIGTRAP)
-# when started repeatedly in the same process (common in test runs). In pytest
-# on macOS we default to polling for stability; otherwise we prefer the native
-# observer for responsiveness.
-#
-# Override with:
-# - SETTA_WATCH_CODE_OBSERVER=native  (force Observer)
-# - SETTA_WATCH_CODE_OBSERVER=polling (force PollingObserver)
-_observer_override = os.environ.get("SETTA_WATCH_CODE_OBSERVER", "").strip().lower()
-_force_native = _observer_override == "native"
-_force_polling = _observer_override == "polling"
-_pytest_mode = bool(os.environ.get("PYTEST_CURRENT_TEST")) or (
-    "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
-)
-if _force_polling:
-    _WATCH_CODE_OBSERVER = PollingObserver()
-elif _force_native:
-    _WATCH_CODE_OBSERVER = Observer()
-else:
-    if sys.platform == "darwin" and _pytest_mode:
-        _WATCH_CODE_OBSERVER = PollingObserver()
-    else:
-        _WATCH_CODE_OBSERVER = Observer()
-_WATCH_CODE_OBSERVER.daemon = True
-_WATCH_CODE_OBSERVER_LOCK = threading.Lock()
-_WATCH_CODE_OBSERVER_STARTED = False
-
-
-def _ensure_watch_code_observer_started() -> Observer:
-    # Watchdog's macOS observers can crash when repeatedly started/stopped in the
-    # same process (notably in test runs). Keep a single shared Observer running.
-    global _WATCH_CODE_OBSERVER_STARTED
-    if _WATCH_CODE_OBSERVER_STARTED:
-        return _WATCH_CODE_OBSERVER
-    with _WATCH_CODE_OBSERVER_LOCK:
-        if not _WATCH_CODE_OBSERVER_STARTED:
-            _WATCH_CODE_OBSERVER.start()
-            _WATCH_CODE_OBSERVER_STARTED = True
-    return _WATCH_CODE_OBSERVER
-
 
 DEFAULT_WATCH_CODE_IGNORE_DIRS = {
     "node_modules",
@@ -188,7 +149,26 @@ def build_watch_code_snapshot(
 
 
 def _should_ignore_path(path: Path) -> bool:
-    for part in path.parts:
+    paths = get_setta_paths()
+    workspace_root = paths.workspace_root.resolve(strict=False)
+    resolved = (
+        path.resolve(strict=False)
+        if path.is_absolute()
+        else (workspace_root / path).resolve(strict=False)
+    )
+    state_root = paths.setta_files_root.resolve(strict=False)
+    runtime_root = paths.runtime_root.resolve(strict=False)
+    # If the state roots are inside the workspace, ignore them by path (not by
+    # the literal folder name "setta_files") so detached roots don't get scanned.
+    if state_root.is_relative_to(workspace_root) and resolved.is_relative_to(
+        state_root
+    ):
+        return True
+    if runtime_root.is_relative_to(workspace_root) and resolved.is_relative_to(
+        runtime_root
+    ):
+        return True
+    for part in resolved.parts:
         if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
             return True
     return False
@@ -196,12 +176,14 @@ def _should_ignore_path(path: Path) -> bool:
 
 def _normalize_watch_code_path(raw: str, label: str) -> Path:
     candidate = Path(raw)
+    workspace_root = get_setta_paths().workspace_root
     if candidate.is_absolute():
-        raise ValueError(f"Watch code {label} paths must be repo-relative: {raw!r}")
-    normalized = normalize_path(raw)
-    if normalized.is_absolute():
+        normalized = candidate.expanduser().resolve(strict=False)
+    else:
+        normalized = normalize_workspace_path(raw)
+    if not normalized.is_relative_to(workspace_root):
         raise ValueError(f"Watch code {label} paths must be inside the repo: {raw!r}")
-    return normalized
+    return normalized.relative_to(workspace_root)
 
 
 def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
@@ -225,7 +207,14 @@ def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
         return output
     output: list[Path] = []
     for current_root, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in DEFAULT_WATCH_CODE_IGNORE_DIRS and d]
+        root_path = Path(current_root)
+        dirs[:] = [
+            d
+            for d in dirs
+            if d
+            and d not in DEFAULT_WATCH_CODE_IGNORE_DIRS
+            and not _should_ignore_path(root_path / d)
+        ]
         for filename in files:
             if not filename.endswith(".py"):
                 continue
@@ -356,7 +345,7 @@ def _build_callable_info(
         kind=kind,
         signature_hash=signature_hash,
         body_hash=body_hash,
-        source_path=str(normalize_path(source_path)),
+        source_path=str(normalize_workspace_path(source_path)),
         param_proposals=param_proposals,
     )
 
@@ -371,10 +360,10 @@ def parse_python_callables(
     except SyntaxError:
         logger.debug(
             "watch_code.parse_python_callables syntax_error source_path=%s",
-            normalize_path(source_path),
+            normalize_workspace_path(source_path),
         )
         return None
-    module_path = convert_path_to_module_path(normalize_path(source_path))
+    module_path = convert_path_to_module_path(workspace_relative_path(source_path))
     output: list[WatchCodeCallableInfo] = []
     build_params = logger.isEnabledFor(logging.DEBUG)
     for node in tree.body:
@@ -510,7 +499,8 @@ class WatchCodeManager:
     ) -> None:
         self._project_manager = project_manager
         self._loop = loop
-        self._observer = _WATCH_CODE_OBSERVER
+        self._observer = build_watchdog_observer()
+        self._observer.daemon = True
         self._watched_dirs: dict[Path, tuple["ObservedWatch", bool]] = {}
         self._pending_dirs: set[Path] = set()
         self._debouncers: dict[tuple[ID, Path], AsyncDebouncer] = {}
@@ -518,6 +508,7 @@ class WatchCodeManager:
         self._config_snapshots: dict[ID, WatchCodeConfigSnapshot] = {}
         self._notified_import_failures: set[tuple[ID, str]] = set()
         self._pending_moves: dict[tuple[ID, Path], Path] = {}
+        self._started = False
         self._handler = WatchCodeEventHandler(
             self._get_loop,
             self._handle_event,
@@ -534,19 +525,22 @@ class WatchCodeManager:
         return self._loop
 
     def start(self) -> None:
-        _ensure_watch_code_observer_started()
+        if self._started:
+            return
+        self._observer.start()
+        self._started = True
 
     def shutdown(self) -> None:
-        # Remove any scheduled directory watches for this manager from the shared
-        # observer. We intentionally do not stop the shared observer.
-        observer = self._observer
-        for watch, _recursive in list(self._watched_dirs.values()):
-            try:
-                observer.unschedule(watch)
-            except KeyError:
-                logger.debug("Watch code watch already unscheduled.")
-        self._watched_dirs.clear()
-        self._pending_dirs.clear()
+        if self._started:
+            observer = self._observer
+            if observer.is_alive():
+                observer.stop()
+                observer.join(timeout=1.0)
+                if observer.is_alive():
+                    logger.warning(
+                        "Watch code observer did not shut down within timeout."
+                    )
+            self._started = False
         for debouncer in self._debouncers.values():
             debouncer.cancel()
         self._debouncers.clear()
@@ -590,10 +584,10 @@ class WatchCodeManager:
             if not snapshot.enabled:
                 continue
             for file_path in snapshot.files:
-                parent = normalize_path(Path(file_path)).parent
+                parent = normalize_workspace_path(Path(file_path)).parent
                 desired_watch_dirs[parent] = desired_watch_dirs.get(parent, False)
             for folder_path, recursive in snapshot.folders:
-                resolved = normalize_path(Path(folder_path))
+                resolved = normalize_workspace_path(Path(folder_path))
                 desired = desired_watch_dirs.get(resolved)
                 if desired is None:
                     desired_watch_dirs[resolved] = recursive
@@ -659,12 +653,6 @@ class WatchCodeManager:
                 dest_path, snapshot.files, snapshot.folders
             ):
                 self._pending_moves.pop(key, None)
-
-        # Starting a watchdog Observer is relatively heavy and can be fragile on
-        # macOS when created many times. Only start it once we actually have
-        # enabled watch inputs.
-        if desired_watch_dirs:
-            _ensure_watch_code_observer_started()
 
         self._sync_watch_dirs(desired_watch_dirs)
 
@@ -750,7 +738,7 @@ class WatchCodeManager:
         binding = section_impl.codeFileBinding
         if binding is None:
             return False
-        source_path = normalize_path(binding.canonical_path)
+        source_path = normalize_workspace_path(binding.canonical_path)
         logger.debug(
             "watch_code.handle_code_section_update section_id=%s source_path=%s code_len=%s",
             section_id,
@@ -767,7 +755,7 @@ class WatchCodeManager:
     def _handle_directory_created(self, path: Path) -> None:
         if not self._pending_dirs:
             return
-        normalized_path = normalize_path(path)
+        normalized_path = normalize_workspace_path(path)
         for pending_dir in list(self._pending_dirs):
             if pending_dir == normalized_path or pending_dir.is_relative_to(
                 normalized_path
@@ -800,8 +788,8 @@ class WatchCodeManager:
                     dest_matches = True
                 if dest_matches:
                     self._pending_moves[
-                        (project_config_id, normalize_path(dest_path))
-                    ] = normalize_path(path)
+                        (project_config_id, normalize_workspace_path(dest_path))
+                    ] = normalize_workspace_path(path)
                     self._debounce_scan(
                         project_config_id,
                         dest_path,
@@ -834,7 +822,7 @@ class WatchCodeManager:
         *,
         baseline_only: bool,
     ) -> None:
-        key = (project_config_id, normalize_path(path))
+        key = (project_config_id, normalize_workspace_path(path))
         if key not in self._debouncers:
             self._debouncers[key] = AsyncDebouncer(
                 self._scan_file,
@@ -842,18 +830,20 @@ class WatchCodeManager:
                 label=f"watch-code-scan-{project_config_id}",
             )
         self._debouncers[key].trigger(
-            project_config_id, normalize_path(path), baseline_only
+            project_config_id, normalize_workspace_path(path), baseline_only
         )
 
     def _debounce_delete(self, project_config_id: ID, path: Path) -> None:
-        key = (project_config_id, normalize_path(path))
+        key = (project_config_id, normalize_workspace_path(path))
         if key not in self._delete_debouncers:
             self._delete_debouncers[key] = AsyncDebouncer(
                 self._handle_deleted_file,
                 wait=0.3,
                 label=f"watch-code-delete-{project_config_id}",
             )
-        self._delete_debouncers[key].trigger(project_config_id, normalize_path(path))
+        self._delete_debouncers[key].trigger(
+            project_config_id, normalize_workspace_path(path)
+        )
 
     async def _scan_file(
         self,
@@ -861,7 +851,7 @@ class WatchCodeManager:
         path: Path,
         baseline_only: bool,
     ) -> None:
-        move_key = (project_config_id, normalize_path(path))
+        move_key = (project_config_id, normalize_workspace_path(path))
         moved_from = self._pending_moves.pop(move_key, None)
         if project_config_id not in self._config_snapshots:
             return
@@ -869,7 +859,7 @@ class WatchCodeManager:
             if moved_from is not None:
                 await self._project_manager.apply_watch_code_file_delete(
                     project_config_id,
-                    normalize_path(moved_from),
+                    normalize_workspace_path(moved_from),
                 )
             return
         raw = self._project_manager.dbe.read(path)
@@ -877,18 +867,18 @@ class WatchCodeManager:
             if moved_from is not None:
                 await self._project_manager.apply_watch_code_file_delete(
                     project_config_id,
-                    normalize_path(moved_from),
+                    normalize_workspace_path(moved_from),
                 )
             return
         logger.debug(
             "watch_code._scan_file project_config_id=%s path=%s baseline_only=%s",
             project_config_id,
-            normalize_path(path),
+            normalize_workspace_path(path),
             baseline_only,
         )
         await self._project_manager.apply_watch_code_file_update(
             project_config_id,
-            normalize_path(path),
+            normalize_workspace_path(path),
             raw,
             baseline_only=baseline_only,
             moved_from=moved_from,
@@ -899,7 +889,7 @@ class WatchCodeManager:
             return
         await self._project_manager.apply_watch_code_file_delete(
             project_config_id,
-            normalize_path(path),
+            normalize_workspace_path(path),
         )
 
     def _path_matches_watch_inputs(
@@ -908,12 +898,12 @@ class WatchCodeManager:
         files: tuple[str, ...],
         folders: tuple[tuple[str, bool], ...],
     ) -> bool:
-        normalized = normalize_path(path).resolve()
+        normalized = normalize_workspace_path(path)
         for file_path in files:
-            if normalized == normalize_path(Path(file_path)).resolve():
+            if normalized == normalize_workspace_path(Path(file_path)):
                 return True
         for folder_path, recursive in folders:
-            folder = normalize_path(Path(folder_path)).resolve()
+            folder = normalize_workspace_path(Path(folder_path))
             if recursive:
                 if normalized.parts[: len(folder.parts)] == folder.parts:
                     return True
@@ -923,7 +913,7 @@ class WatchCodeManager:
         return False
 
     def _find_existing_ancestor(self, path: Path) -> Path | None:
-        current = normalize_path(path)
+        current = normalize_workspace_path(path)
         while True:
             if current.exists():
                 return current
@@ -941,10 +931,10 @@ class WatchCodeManager:
                 if not snapshot.enabled:
                     continue
                 for file_path in snapshot.files:
-                    parent = normalize_path(Path(file_path)).parent
+                    parent = normalize_workspace_path(Path(file_path)).parent
                     desired_watch_dirs[parent] = desired_watch_dirs.get(parent, False)
                 for folder_path, recursive in snapshot.folders:
-                    resolved = normalize_path(Path(folder_path))
+                    resolved = normalize_workspace_path(Path(folder_path))
                     if resolved not in desired_watch_dirs:
                         desired_watch_dirs[resolved] = recursive
                     else:
@@ -1014,8 +1004,8 @@ class WatchCodeManager:
             project_config = project_state.projectConfig
             registry = project_config.watchCodeRegistry
             baseline = project_config.watchCodeBaselineByPath
-            dest_key = str(normalize_path(path))
-            src_key = str(normalize_path(moved_from))
+            dest_key = str(normalize_workspace_path(path))
+            src_key = str(normalize_workspace_path(moved_from))
             dest_known = dest_key in baseline or any(
                 entry.sourcePath == dest_key for entry in registry.values()
             )
@@ -1025,8 +1015,8 @@ class WatchCodeManager:
             logger.debug(
                 "watch_code._scan_file move_detected project_config_id=%s src=%s dest=%s src_tracked=%s dest_known=%s registry_size=%s baseline_paths=%s",
                 project_config.id,
-                normalize_path(moved_from),
-                normalize_path(path),
+                normalize_workspace_path(moved_from),
+                normalize_workspace_path(path),
                 src_tracked,
                 dest_known,
                 len(registry),
@@ -1050,7 +1040,7 @@ class WatchCodeManager:
                 logger.debug(
                     "watch_code._scan_file move_update project_config_id=%s dest=%s parsed_callables=%s moved_registry_entries=%s",
                     project_config.id,
-                    normalize_path(path),
+                    normalize_workspace_path(path),
                     0 if parsed_callables is None else len(parsed_callables),
                     moved_registry_entries,
                 )
@@ -1074,7 +1064,7 @@ class WatchCodeManager:
             return False
         registry = project_config.watchCodeRegistry
         baseline = project_config.watchCodeBaselineByPath
-        source_key = str(normalize_path(path))
+        source_key = str(normalize_workspace_path(path))
         removed_identities = {
             identity
             for identity, entry in registry.items()
@@ -1114,7 +1104,7 @@ class WatchCodeManager:
                 continue
             self._record_baseline(
                 project_state.projectConfig,
-                normalize_path(binding.canonical_path),
+                normalize_workspace_path(binding.canonical_path),
                 callables,
             )
 
@@ -1124,11 +1114,13 @@ class WatchCodeManager:
         folder: Path,
         recursive: bool,
     ) -> None:
-        for file_path in _iter_python_files(normalize_path(folder), recursive):
+        for file_path in _iter_python_files(
+            normalize_workspace_path(folder), recursive
+        ):
             self._baseline_file(project_config, file_path)
 
     def _baseline_file(self, project_config, file_path: Path) -> None:
-        normalized = normalize_path(file_path)
+        normalized = normalize_workspace_path(file_path)
         if not normalized.exists():
             return
         raw = self._project_manager.dbe.read(normalized)
@@ -1146,7 +1138,7 @@ class WatchCodeManager:
         callables: list[WatchCodeCallableInfo],
     ) -> None:
         baseline = project_config.watchCodeBaselineByPath
-        key = str(normalize_path(path))
+        key = str(normalize_workspace_path(path))
         baseline[key] = [entry.identity for entry in callables]
 
     async def _apply_callable_updates(
@@ -1187,7 +1179,7 @@ class WatchCodeManager:
 
         registry = project_config.watchCodeRegistry
         baseline = project_config.watchCodeBaselineByPath
-        source_key = str(normalize_path(source_path))
+        source_key = str(normalize_workspace_path(source_path))
         current_by_identity: dict[str, WatchCodeCallableInfo] = {
             entry.identity: entry for entry in callables
         }

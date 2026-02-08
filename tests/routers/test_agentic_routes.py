@@ -81,7 +81,6 @@ from tests.utils.runtime_context import runtime_context
 class _AgenticTestState:
     dbe: DBE
     share_mode: bool = False
-    deployment_mode: bool = False
     share_runtime_state: None = None
     wmh_frontend_sender: WMHFrontendSender | None = None
     chat_manager: None = None
