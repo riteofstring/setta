@@ -21,6 +21,15 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - Bind inputs with `ParamInput` (props: `sectionId`, `paramId`). Use exactly one `ActionButton`
   with `action: "run"` unless the user explicitly requests more. For run buttons, include `sectionId`
   unless the project config has an `entryCodeBlockId` configured.
+- Sensible defaults:
+  - Default to Setta's look/feel. Do not invent branding or custom themes unless the user provides a style reference (image/palette) or explicitly requests it.
+  - Mobile-first, desktop-friendly: wrap page content in `Container` and use responsive `Grid` (for example columns `{ "base": 1, "md": 2 }`) to avoid ultra-wide layouts.
+  - Prefer shallow, semantic layouts: `Container` + `Stack` + `Grid` + `Card` is the default baseline.
+- Pages:
+  - Treat Setta view modes marked `isTab=true` as pages when building an app. If any view modes are `isUserFacing=true`, prefer those.
+  - Save pages via `routes` on the app definition: a list of `{ path, name, rootKey }`.
+  - `rootKey` must reference an element key that exists in `appSpec.elements`.
+  - Do not add an extra top "Setta App" header inside the app spec; navigation/header chrome is handled by the app shell.
 - Output a valid JSON Render UITree (`{ root: UIElement | string, elements: { [key]: UIElement } }`).
 - UIElement schema:
   Required top-level fields: `key` (string) and `type` (string).

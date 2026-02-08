@@ -16,7 +16,7 @@ test("app config generate button seeds project chat prompt", async ({
   await page.waitForFunction(() => {
     return Array.from(document.querySelectorAll("textarea")).some((node) =>
       node.value.includes(
-        "Generate a JSON Render app spec using the catalog below.",
+        "Generate a JSON Render app definition (appSpec + routes) using the catalog below.",
       ),
     );
   });
@@ -24,16 +24,18 @@ test("app config generate button seeds project chat prompt", async ({
     const match = Array.from(document.querySelectorAll("textarea")).find(
       (node) =>
         node.value.includes(
-          "Generate a JSON Render app spec using the catalog below.",
+          "Generate a JSON Render app definition (appSpec + routes) using the catalog below.",
         ),
     );
     return match?.value ?? "";
   });
   expect(prompt).toContain(
-    "Generate a JSON Render app spec using the catalog below.",
+    "Generate a JSON Render app definition (appSpec + routes) using the catalog below.",
   );
   expect(prompt).toContain("DO NOT paste JSON into the chat.");
   expect(prompt).toContain("setta__set_app_definition");
   expect(prompt).toContain(`Catalog: ${catalogId}`);
-  expect(prompt).toContain("Output format for appSpec should be a UITree object");
+  expect(prompt).toContain("Pages and navigation:");
+  expect(prompt).toContain("- Treat tab view modes as pages.");
+  expect(prompt).toContain("- routes: list of { path, name, rootKey }");
 });
