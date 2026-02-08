@@ -984,6 +984,8 @@ export const RouteEnum = {
   GET_GIT_DIFF: "/git/diff",
   GET_GIT_LOG: "/git/log",
   GET_GIT_COMMIT_DIFF: "/git/commitDiff",
+  GET_GIT_COMMIT_DETAILS: "/git/commitDetails",
+  GET_GIT_COMMIT_FILE_DIFF: "/git/commitFileDiff",
   IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
   DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
@@ -13457,6 +13459,73 @@ export function createUserDefaultBaseSectionWithParamsImpl(
   return UserDefaultBaseSectionWithParamsImplSchema.parse(options);
 }
 
+export const GetGitCommitDetailsRequestSchema = z.object({
+  commitHash: z.string(),
+});
+
+export type GetGitCommitDetailsRequest = z.infer<
+  typeof GetGitCommitDetailsRequestSchema
+>;
+
+export type GetGitCommitDetailsRequestInput = z.input<
+  typeof GetGitCommitDetailsRequestSchema
+>;
+
+export function createGetGitCommitDetailsRequest(
+  options: Partial<GetGitCommitDetailsRequest> = {},
+): GetGitCommitDetailsRequest {
+  return GetGitCommitDetailsRequestSchema.parse(options);
+}
+
+export const GitCommitChangedFileSchema = z.object({
+  path: z.string(),
+  oldPath: z.union([z.string(), z.null()]).default(null),
+  status: z.string(),
+  additions: z.union([z.int(), z.null()]).default(null),
+  deletions: z.union([z.int(), z.null()]).default(null),
+});
+
+export type GitCommitChangedFile = z.infer<typeof GitCommitChangedFileSchema>;
+
+export type GitCommitChangedFileInput = z.input<
+  typeof GitCommitChangedFileSchema
+>;
+
+export function createGitCommitChangedFile(
+  options: Partial<GitCommitChangedFile> = {},
+): GitCommitChangedFile {
+  return GitCommitChangedFileSchema.parse(options);
+}
+
+export const GetGitCommitDetailsResponseSchema = z.object({
+  repoRoot: z.string(),
+  commitHash: z.string(),
+  parents: z.array(z.string()),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authorTimeMs: z.int(),
+  committerName: z.string(),
+  committerEmail: z.string(),
+  committerTimeMs: z.int(),
+  subject: z.string(),
+  body: z.string(),
+  files: z.array(GitCommitChangedFileSchema),
+});
+
+export type GetGitCommitDetailsResponse = z.infer<
+  typeof GetGitCommitDetailsResponseSchema
+>;
+
+export type GetGitCommitDetailsResponseInput = z.input<
+  typeof GetGitCommitDetailsResponseSchema
+>;
+
+export function createGetGitCommitDetailsResponse(
+  options: Partial<GetGitCommitDetailsResponse> = {},
+): GetGitCommitDetailsResponse {
+  return GetGitCommitDetailsResponseSchema.parse(options);
+}
+
 export const GetGitCommitDiffRequestSchema = z.object({
   commitHash: z.string(),
 });
@@ -13494,6 +13563,48 @@ export function createGetGitCommitDiffResponse(
   options: Partial<GetGitCommitDiffResponse> = {},
 ): GetGitCommitDiffResponse {
   return GetGitCommitDiffResponseSchema.parse(options);
+}
+
+export const GetGitCommitFileDiffRequestSchema = z.object({
+  commitHash: z.string(),
+  path: z.string(),
+  oldPath: z.union([z.string(), z.null()]).default(null),
+});
+
+export type GetGitCommitFileDiffRequest = z.infer<
+  typeof GetGitCommitFileDiffRequestSchema
+>;
+
+export type GetGitCommitFileDiffRequestInput = z.input<
+  typeof GetGitCommitFileDiffRequestSchema
+>;
+
+export function createGetGitCommitFileDiffRequest(
+  options: Partial<GetGitCommitFileDiffRequest> = {},
+): GetGitCommitFileDiffRequest {
+  return GetGitCommitFileDiffRequestSchema.parse(options);
+}
+
+export const GetGitCommitFileDiffResponseSchema = z.object({
+  repoRoot: z.string(),
+  commitHash: z.string(),
+  path: z.string(),
+  diff: z.string(),
+  isTruncated: z.boolean(),
+});
+
+export type GetGitCommitFileDiffResponse = z.infer<
+  typeof GetGitCommitFileDiffResponseSchema
+>;
+
+export type GetGitCommitFileDiffResponseInput = z.input<
+  typeof GetGitCommitFileDiffResponseSchema
+>;
+
+export function createGetGitCommitFileDiffResponse(
+  options: Partial<GetGitCommitFileDiffResponse> = {},
+): GetGitCommitFileDiffResponse {
+  return GetGitCommitFileDiffResponseSchema.parse(options);
 }
 
 export const GetGitDiffRequestSchema = z.object({

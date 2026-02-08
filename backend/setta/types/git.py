@@ -71,3 +71,44 @@ class GetGitCommitDiffResponse(BaseModel):
     commitHash: str
     diff: str
     isTruncated: bool
+
+
+class GitCommitChangedFile(BaseModel):
+    path: str
+    oldPath: str | None = None
+    status: str
+    additions: int | None = None
+    deletions: int | None = None
+
+
+class GetGitCommitDetailsRequest(BaseModel):
+    commitHash: str
+
+
+class GetGitCommitDetailsResponse(BaseModel):
+    repoRoot: str
+    commitHash: str
+    parents: list[str]
+    authorName: str
+    authorEmail: str
+    authorTimeMs: int
+    committerName: str
+    committerEmail: str
+    committerTimeMs: int
+    subject: str
+    body: str
+    files: list[GitCommitChangedFile]
+
+
+class GetGitCommitFileDiffRequest(BaseModel):
+    commitHash: str
+    path: str
+    oldPath: str | None = None
+
+
+class GetGitCommitFileDiffResponse(BaseModel):
+    repoRoot: str
+    commitHash: str
+    path: str
+    diff: str
+    isTruncated: bool

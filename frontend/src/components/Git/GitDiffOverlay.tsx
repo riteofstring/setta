@@ -82,6 +82,7 @@ export function GitDiffOverlay() {
         ) : diffText.trim() ? (
           <GitDiffCodeMirror
             value={diffText}
+            filePathForLanguage={diffState.path}
             height="100%"
             className="h-full min-h-0 w-full min-w-0 [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
           />

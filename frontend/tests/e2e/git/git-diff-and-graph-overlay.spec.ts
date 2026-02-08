@@ -35,8 +35,8 @@ test("git diff overlay and git graph overlay render between panes", async ({
 
   const gitDir = path.join(workspaceRoot, ".git");
   const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
-  const trackedPath = path.join(workspaceRoot, "tracked.txt");
-  const untrackedPath = path.join(workspaceRoot, "new.txt");
+  const trackedPath = path.join(workspaceRoot, "tracked.py");
+  const untrackedPath = path.join(workspaceRoot, "new.py");
 
   const createdRepo = !(await pathExists(gitDir));
   try {
@@ -50,15 +50,15 @@ test("git diff overlay and git graph overlay render between panes", async ({
     runGit(workspaceRoot, ["add", ".gitignore"]);
     runGit(workspaceRoot, ["commit", "-m", "init"]);
 
-    await fs.writeFile(trackedPath, "one\n", "utf8");
-    runGit(workspaceRoot, ["add", "tracked.txt"]);
+    await fs.writeFile(trackedPath, "def foo():\n  return 1\n", "utf8");
+    runGit(workspaceRoot, ["add", "tracked.py"]);
     runGit(workspaceRoot, ["commit", "-m", "add tracked"]);
 
     // Create both staged + unstaged changes for the same file.
-    await fs.writeFile(trackedPath, "two\n", "utf8");
-    runGit(workspaceRoot, ["add", "tracked.txt"]);
-    await fs.writeFile(trackedPath, "three\n", "utf8");
-    await fs.writeFile(untrackedPath, "hello\n", "utf8");
+    await fs.writeFile(trackedPath, "def foo():\n  return 2\n", "utf8");
+    runGit(workspaceRoot, ["add", "tracked.py"]);
+    await fs.writeFile(trackedPath, "def foo():\n  return 3\n", "utf8");
+    await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
 
     await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
     await ensureAppReady(page);
@@ -69,7 +69,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
       .getByRole("heading", { name: "Staged Changes" })
       .locator("xpath=ancestor::section[1]");
     const stagedTracked = stagedGroup.getByRole("button", {
-      name: /tracked\.txt/,
+      name: /tracked\.py/,
     });
     await expect(stagedTracked).toBeVisible();
     await stagedTracked.click();
@@ -82,14 +82,15 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const diffOverlay = closeDiffButton.locator("xpath=ancestor::section[1]");
     const diffContent = diffOverlay.locator(".cm-content");
     await expect(diffContent).toContainText(
-      "diff --git a/tracked.txt b/tracked.txt",
+      "diff --git a/tracked.py b/tracked.py",
     );
-    await expect(diffContent).toContainText("-one");
-    await expect(diffContent).toContainText("+two");
+    await expect(diffContent).toContainText("-  return 1");
+    await expect(diffContent).toContainText("+  return 2");
+    await expect(diffOverlay.locator(".cm-gitdiff-syntax").first()).toBeVisible();
 
     await diffOverlay.getByRole("button", { name: "Unstaged" }).click();
-    await expect(diffContent).toContainText("-two");
-    await expect(diffContent).toContainText("+three");
+    await expect(diffContent).toContainText("-  return 2");
+    await expect(diffContent).toContainText("+  return 3");
 
     await page.keyboard.press("Escape");
     await expect(closeDiffButton).toHaveCount(0);
@@ -97,7 +98,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const untrackedGroup = page
       .getByRole("heading", { name: "Untracked" })
       .locator("xpath=ancestor::section[1]");
-    await untrackedGroup.getByRole("button", { name: /new\.txt/ }).click();
+    await untrackedGroup.getByRole("button", { name: /new\.py/ }).click();
 
     const closeDiffButton2 = page.getByRole("button", {
       name: "Close git diff",
@@ -106,7 +107,8 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const diffOverlay2 = closeDiffButton2.locator("xpath=ancestor::section[1]");
     const diffContent2 = diffOverlay2.locator(".cm-content");
     await expect(diffContent2).toContainText("new file mode");
-    await expect(diffContent2).toContainText("+hello");
+    await expect(diffContent2).toContainText("+def bar():");
+    await expect(diffOverlay2.locator(".cm-gitdiff-syntax").first()).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(closeDiffButton2).toHaveCount(0);
@@ -130,7 +132,22 @@ test("git diff overlay and git graph overlay render between panes", async ({
     ).toBeVisible();
     await graphFilter.fill("");
 
-    await expect(graphOverlay.locator(".cm-content")).toContainText("commit");
+    // Selected commit expands and lists files; the right panel shows the per-file patch.
+    await expect(graphOverlay.getByText("Files changed")).toBeVisible();
+    const trackedFileButton = graphOverlay.getByRole("button", {
+      name: /tracked\.py/,
+    });
+    await expect(trackedFileButton).toBeVisible();
+    await trackedFileButton.click();
+
+    const graphDiffContent = graphOverlay.locator(".cm-content");
+    await expect(graphDiffContent).toContainText(
+      "diff --git a/tracked.py b/tracked.py",
+    );
+    await expect(graphDiffContent).toContainText("+def foo():");
+    await expect(
+      graphOverlay.locator(".cm-gitdiff-syntax").first(),
+    ).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);

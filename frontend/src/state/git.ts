@@ -1,5 +1,6 @@
 import type {
-  GetGitCommitDiffResponse,
+  GetGitCommitDetailsResponse,
+  GetGitCommitFileDiffResponse,
   GetGitDiffResponse,
   GetGitLogResponse,
   GetGitStatusResponse,
@@ -30,9 +31,14 @@ export type GitGraphOverlayState = {
   isLoading: boolean;
   error: string | null;
   selectedCommitHash: string | null;
-  selectedCommitResponse: GetGitCommitDiffResponse | null;
-  selectedCommitIsLoading: boolean;
-  selectedCommitError: string | null;
+  selectedCommitDetails: GetGitCommitDetailsResponse | null;
+  selectedCommitDetailsIsLoading: boolean;
+  selectedCommitDetailsError: string | null;
+  selectedCommitFilePath: string | null;
+  selectedCommitFileOldPath: string | null;
+  selectedCommitFileDiffResponse: GetGitCommitFileDiffResponse | null;
+  selectedCommitFileDiffIsLoading: boolean;
+  selectedCommitFileDiffError: string | null;
 };
 
 export type GitOverlayState =

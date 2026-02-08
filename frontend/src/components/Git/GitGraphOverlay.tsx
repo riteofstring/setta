@@ -1,16 +1,18 @@
 import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { List, useListRef } from "react-window";
+import { List, useDynamicRowHeight, useListRef } from "react-window";
 import {
   closeGitOverlay,
   refreshGitGraphOverlay,
   selectGitCommit,
+  selectGitCommitFile,
   setGitGraphFilterText,
   toggleGitGraphAllRefs,
 } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
 import type { GitGraphRow } from "utils/gitGraph";
+import type { GetGitCommitDetailsResponse, GitCommitChangedFile } from "utils/generatedTypes";
 
 const ROW_HEIGHT = 28;
 const GRAPH_CELL_WIDTH = 120;
@@ -271,6 +273,14 @@ export function GitGraphOverlay() {
     return Math.max(GRAPH_CELL_WIDTH, maxLaneCount * LANE_WIDTH);
   }, [rows]);
 
+  const dynamicRowHeight = useDynamicRowHeight({
+    defaultRowHeight: ROW_HEIGHT,
+    // Filter changes and refreshes can change row ordering; reset cached heights.
+    key: `${graphState.response?.commits.length ?? 0}:${filterText
+      .trim()
+      .toLowerCase()}`,
+  });
+
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border border-setta-200 bg-white shadow-sm dark:border-setta-800 dark:bg-setta-950">
       <header className="flex items-center gap-2 border-b border-setta-200/80 bg-white/80 px-3 py-2 backdrop-blur dark:border-setta-800/80 dark:bg-setta-950/70">
@@ -342,14 +352,20 @@ export function GitGraphOverlay() {
                 listRef={listRef}
                 rowComponent={GitCommitRow}
                 rowCount={filteredRows.length}
-                rowHeight={ROW_HEIGHT}
+                rowHeight={dynamicRowHeight}
                 className="nodrag"
                 rowProps={{
                   rows: filteredRows,
                   selectedHash: graphState.selectedCommitHash,
+                  selectedCommitDetails: graphState.selectedCommitDetails,
+                  selectedCommitDetailsIsLoading:
+                    graphState.selectedCommitDetailsIsLoading,
+                  selectedCommitDetailsError: graphState.selectedCommitDetailsError,
+                  selectedFilePath: graphState.selectedCommitFilePath,
                   palette,
                   darkMode,
                   graphViewBoxWidth,
+                  dynamicRowHeight,
                 }}
                 style={{ height: listSize.height, width: listSize.width }}
               />
@@ -373,13 +389,18 @@ export function GitGraphOverlay() {
                       )}{" "}
                       · {selectedCommit.hash.slice(0, 8)}
                     </div>
+                    {graphState.selectedCommitFilePath && (
+                      <div className="truncate font-mono text-[12px] text-setta-700 dark:text-setta-200">
+                        {graphState.selectedCommitFilePath}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"
                     className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
                     onClick={() => void selectGitCommit(selectedCommit.hash)}
                   >
-                    Reload diff
+                    Reload
                   </button>
                 </div>
                 {selectedCommit.decorations.length > 0 && (
@@ -402,26 +423,33 @@ export function GitGraphOverlay() {
             )}
           </div>
 
-          {graphState.selectedCommitError && (
+          {graphState.selectedCommitFileDiffResponse?.isTruncated && (
+            <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+              Diff output truncated for performance.
+            </div>
+          )}
+
+          {graphState.selectedCommitFileDiffError && (
             <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
-              {graphState.selectedCommitError}
+              {graphState.selectedCommitFileDiffError}
             </div>
           )}
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            {graphState.selectedCommitIsLoading ? (
+            {graphState.selectedCommitFileDiffIsLoading ? (
               <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
-                Loading commit diff…
+                Loading file diff…
               </div>
-            ) : graphState.selectedCommitResponse?.diff ? (
+            ) : graphState.selectedCommitFileDiffResponse?.diff ? (
               <GitDiffCodeMirror
-                value={graphState.selectedCommitResponse.diff}
+                value={graphState.selectedCommitFileDiffResponse.diff}
+                filePathForLanguage={graphState.selectedCommitFilePath}
                 height="100%"
                 className="h-full min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
               />
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
-                No diff to display.
+                Select a file to view its diff.
               </div>
             )}
           </div>
@@ -436,9 +464,14 @@ type GitCommitRowProps = {
   style: Record<string, unknown>;
   rows: GitGraphRow[];
   selectedHash: string | null;
+  selectedCommitDetails: GetGitCommitDetailsResponse | null;
+  selectedCommitDetailsIsLoading: boolean;
+  selectedCommitDetailsError: string | null;
+  selectedFilePath: string | null;
   palette: readonly string[];
   darkMode: boolean;
   graphViewBoxWidth: number;
+  dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
 };
 
 function GitCommitRow({
@@ -446,9 +479,14 @@ function GitCommitRow({
   style,
   rows,
   selectedHash,
+  selectedCommitDetails,
+  selectedCommitDetailsIsLoading,
+  selectedCommitDetailsError,
+  selectedFilePath,
   palette,
   darkMode,
   graphViewBoxWidth,
+  dynamicRowHeight,
 }: GitCommitRowProps) {
   const row = rows[index];
   if (!row) {
@@ -456,6 +494,15 @@ function GitCommitRow({
   }
   const commit = row.commit;
   const isSelected = commit.hash === selectedHash;
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) {
+      return;
+    }
+    return dynamicRowHeight.observeRowElements([el]);
+  }, [dynamicRowHeight, index]);
+
   const date = DATE_FORMATTER.format(new Date(commit.authorTimeMs));
   const shortHash = commit.hash.slice(0, 8);
   const laneCount = row.laneColorIds.reduce(
@@ -481,53 +528,251 @@ function GitCommitRow({
     : "bg-transparent hover:bg-setta-50 dark:hover:bg-setta-900/60";
 
   return (
-    <button
-      type="button"
-      className={`grid w-full grid-cols-[120px_1fr_120px_110px_84px] items-center gap-2 px-3 text-left text-xs text-setta-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-100 ${background}`}
+    <div
       style={style as never}
-      onClick={() => void selectGitCommit(commit.hash)}
+      ref={rowRef}
+      data-react-window-index={index}
+      className="w-full"
     >
-      <div className="flex items-center">
-        <GitGraphCell
-          laneIndex={row.laneIndex}
-          laneColorIds={row.laneColorIds}
-          laneStartIndices={row.laneStartIndices}
-          laneEndIndices={row.laneEndIndices}
-          joinFromLaneIndices={row.joinFromLaneIndices}
-          mergeToLaneIndices={row.mergeToLaneIndices}
-          palette={palette}
-          darkMode={darkMode}
-          viewBoxWidth={graphViewBoxWidth}
-        />
-      </div>
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-1 overflow-hidden">
-          {chips.map((chip) => (
-            <DecorationPill
-              key={`${chip.kind}-${chip.label}`}
-              chip={chip}
-              laneColor={commitColor}
+      <button
+        type="button"
+        className={`grid h-[28px] w-full grid-cols-[120px_1fr_120px_110px_84px] items-center gap-2 px-3 text-left text-xs text-setta-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-100 ${background}`}
+        onClick={() => void selectGitCommit(commit.hash)}
+      >
+        <div className="flex items-center">
+          <GitGraphCell
+            laneIndex={row.laneIndex}
+            laneColorIds={row.laneColorIds}
+            laneStartIndices={row.laneStartIndices}
+            laneEndIndices={row.laneEndIndices}
+            joinFromLaneIndices={row.joinFromLaneIndices}
+            mergeToLaneIndices={row.mergeToLaneIndices}
+            palette={palette}
+            darkMode={darkMode}
+            viewBoxWidth={graphViewBoxWidth}
+          />
+        </div>
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+            {chips.map((chip) => (
+              <DecorationPill
+                key={`${chip.kind}-${chip.label}`}
+                chip={chip}
+                laneColor={commitColor}
+              />
+            ))}
+            {extraChipCount > 0 && (
+              <span className="inline-flex shrink-0 items-center rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300">
+                +{extraChipCount}
+              </span>
+            )}
+            <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
+          </div>
+        </div>
+        <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
+          {commit.authorName}
+        </div>
+        <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
+          {date}
+        </div>
+        <div className="min-w-0 truncate font-mono text-[11px] text-setta-500 dark:text-setta-400">
+          {shortHash}
+        </div>
+        <span className="sr-only">lanes {laneCount}</span>
+      </button>
+
+      {isSelected && (
+        <div className="border-b border-setta-200/70 bg-setta-50/60 px-3 py-2 dark:border-setta-800/70 dark:bg-setta-900/20">
+          {selectedCommitDetailsIsLoading ? (
+            <div className="py-2 text-xs text-setta-500 dark:text-setta-300">
+              Loading commit details…
+            </div>
+          ) : selectedCommitDetailsError ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+              {selectedCommitDetailsError}
+            </div>
+          ) : selectedCommitDetails &&
+            selectedCommitDetails.commitHash === commit.hash ? (
+            <ExpandedCommitRow
+              details={selectedCommitDetails}
+              selectedFilePath={selectedFilePath}
             />
-          ))}
-          {extraChipCount > 0 && (
-            <span className="inline-flex shrink-0 items-center rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300">
-              +{extraChipCount}
-            </span>
+          ) : (
+            <div className="py-2 text-xs text-setta-500 dark:text-setta-300">
+              No details available.
+            </div>
           )}
-          <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpandedCommitRow({
+  details,
+  selectedFilePath,
+}: {
+  details: GetGitCommitDetailsResponse;
+  selectedFilePath: string | null;
+}) {
+  const parentsLabel = details.parents.map((p) => p.slice(0, 8)).join(" ");
+  const authorDate = DATE_FORMATTER.format(new Date(details.authorTimeMs));
+  const committerDate = DATE_FORMATTER.format(new Date(details.committerTimeMs));
+  const showCommitter =
+    details.committerName !== details.authorName ||
+    details.committerEmail !== details.authorEmail ||
+    details.committerTimeMs !== details.authorTimeMs;
+
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_340px]">
+      <div className="min-w-0">
+        <div className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-[11px] text-setta-600 dark:text-setta-300">
+          <div className="font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+            Commit
+          </div>
+          <div className="min-w-0 truncate font-mono text-setta-700 dark:text-setta-200">
+            {details.commitHash}
+          </div>
+
+          <div className="font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+            Parents
+          </div>
+          <div className="min-w-0 truncate font-mono text-setta-700 dark:text-setta-200">
+            {parentsLabel || "-"}
+          </div>
+
+          <div className="font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+            Author
+          </div>
+          <div className="min-w-0 truncate text-setta-700 dark:text-setta-200">
+            {details.authorName} · {authorDate}
+          </div>
+
+          {showCommitter && (
+            <>
+              <div className="font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                Committer
+              </div>
+              <div className="min-w-0 truncate text-setta-700 dark:text-setta-200">
+                {details.committerName} · {committerDate}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="mt-2 min-w-0">
+          <div className="text-xs font-semibold text-setta-900 dark:text-setta-50">
+            {details.subject}
+          </div>
+          {details.body.trim() && (
+            <pre className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs text-setta-700 dark:text-setta-200">
+              {details.body}
+            </pre>
+          )}
         </div>
       </div>
-      <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
-        {commit.authorName}
+
+      <div className="min-w-0">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+            Files changed
+          </div>
+          <div className="text-[11px] text-setta-400 dark:text-setta-500">
+            {details.files.length}
+          </div>
+        </div>
+
+        {details.files.length === 0 ? (
+          <div className="rounded-md border border-setta-200 bg-white px-2 py-2 text-[11px] text-setta-500 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-400">
+            None
+          </div>
+        ) : (
+          <ul className="max-h-56 overflow-y-auto rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950">
+            {details.files.map((file) => (
+              <li key={`${file.status}-${file.oldPath ?? ""}-${file.path}`}>
+                <CommitFileRow
+                  file={file}
+                  isSelected={selectedFilePath === file.path}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
-        {date}
-      </div>
-      <div className="min-w-0 truncate font-mono text-[11px] text-setta-500 dark:text-setta-400">
-        {shortHash}
-      </div>
-      <span className="sr-only">lanes {laneCount}</span>
+    </div>
+  );
+}
+
+function CommitFileRow({
+  file,
+  isSelected,
+}: {
+  file: GitCommitChangedFile;
+  isSelected: boolean;
+}) {
+  const additions =
+    file.additions === null || file.additions === undefined
+      ? "-"
+      : file.additions.toString();
+  const deletions =
+    file.deletions === null || file.deletions === undefined
+      ? "-"
+      : file.deletions.toString();
+
+  const base =
+    "flex w-full items-center gap-2 px-2 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300";
+  const background = isSelected
+    ? "bg-blue-50 dark:bg-blue-950/40"
+    : "hover:bg-setta-50 dark:hover:bg-setta-900/60";
+
+  return (
+    <button
+      type="button"
+      className={`${base} ${background}`}
+      onClick={() =>
+        void selectGitCommitFile({
+          path: file.path,
+          oldPath: file.oldPath ?? null,
+        })
+      }
+    >
+      <span className="inline-flex w-10 shrink-0 items-center justify-center rounded-md bg-setta-100 px-1 py-0.5 font-mono text-[11px] font-semibold text-setta-600 dark:bg-setta-900 dark:text-setta-300">
+        {file.status}
+      </span>
+
+      <span className="min-w-0 flex-1 truncate font-mono text-setta-800 dark:text-setta-100">
+        {file.oldPath && file.oldPath !== file.path ? (
+          <>
+            <span className="text-setta-500 dark:text-setta-400">
+              {file.oldPath}
+            </span>
+            <span className="text-setta-400 dark:text-setta-500"> -&gt; </span>
+            <PathWithMutedDir path={file.path} />
+          </>
+        ) : (
+          <PathWithMutedDir path={file.path} />
+        )}
+      </span>
+
+      <span className="shrink-0 font-mono text-[11px] text-setta-400 dark:text-setta-500">
+        +{additions} | -{deletions}
+      </span>
     </button>
+  );
+}
+
+function PathWithMutedDir({ path }: { path: string }) {
+  const idx = path.lastIndexOf("/");
+  if (idx === -1) {
+    return <span>{path}</span>;
+  }
+  const dir = path.slice(0, idx + 1);
+  const base = path.slice(idx + 1);
+  return (
+    <>
+      <span className="text-setta-400 dark:text-setta-500">{dir}</span>
+      <span className="text-setta-800 dark:text-setta-100">{base}</span>
+    </>
   );
 }
 

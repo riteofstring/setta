@@ -8,7 +8,9 @@ import pytest
 import pytest_asyncio
 
 from setta.routers.git import (
+    route_get_git_commit_details,
     route_get_git_commit_diff,
+    route_get_git_commit_file_diff,
     route_get_git_diff,
     route_get_git_log,
     route_get_git_repo_info,
@@ -16,7 +18,9 @@ from setta.routers.git import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.git import (
+    GetGitCommitDetailsRequest,
     GetGitCommitDiffRequest,
+    GetGitCommitFileDiffRequest,
     GetGitDiffRequest,
     GetGitLogRequest,
 )
@@ -184,6 +188,18 @@ class TestGitRoutes:
                 GetGitLogRequest(rev="HEAD", maxCount=20, allRefs=False),
                 ctx,
             )
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+            file_diff = route_get_git_commit_file_diff(
+                GetGitCommitFileDiffRequest(
+                    commitHash=head,
+                    path="tracked.txt",
+                    oldPath=None,
+                ),
+                ctx,
+            )
             show = route_get_git_commit_diff(
                 GetGitCommitDiffRequest(commitHash=head),
                 ctx,
@@ -192,5 +208,15 @@ class TestGitRoutes:
         assert log.repoRoot
         assert len(log.commits) > 0
         assert log.commits[0].hash
+        assert details.repoRoot
+        assert details.commitHash == head
+        assert details.subject == "add tracked"
+        assert len(details.files) == 1
+        assert details.files[0].path == "tracked.txt"
+        assert details.files[0].status == "A"
+        assert file_diff.repoRoot
+        assert file_diff.commitHash == head
+        assert file_diff.path == "tracked.txt"
+        assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
         assert "commit" in show.diff
         assert head[:8] in show.diff

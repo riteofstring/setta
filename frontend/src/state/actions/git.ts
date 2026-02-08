@@ -1,7 +1,8 @@
 import { useGitStore } from "state/git";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_get_git_commit_diff,
+  route_get_git_commit_details,
+  route_get_git_commit_file_diff,
   route_get_git_diff,
   route_get_git_log,
   route_get_git_status,
@@ -12,7 +13,8 @@ import { computeGitGraphRows } from "utils/gitGraph";
 let statusRequestId = 0;
 let diffRequestId = 0;
 let logRequestId = 0;
-let commitDiffRequestId = 0;
+let commitDetailsRequestId = 0;
+let commitFileDiffRequestId = 0;
 
 function normalizeGitCommit(commit: GitCommit): GitCommit {
   // Defensive: backend should already return clean hashes, but whitespace here
@@ -214,9 +216,14 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           isLoading: true,
           error: null,
           selectedCommitHash: null,
-          selectedCommitResponse: null,
-          selectedCommitIsLoading: false,
-          selectedCommitError: null,
+          selectedCommitDetails: null,
+          selectedCommitDetailsIsLoading: false,
+          selectedCommitDetailsError: null,
+          selectedCommitFilePath: null,
+          selectedCommitFileOldPath: null,
+          selectedCommitFileDiffResponse: null,
+          selectedCommitFileDiffIsLoading: false,
+          selectedCommitFileDiffError: null,
         },
       },
     };
@@ -287,9 +294,14 @@ export async function openGitGraphOverlay(): Promise<void> {
         isLoading: true,
         error: null,
         selectedCommitHash: null,
-        selectedCommitResponse: null,
-        selectedCommitIsLoading: false,
-        selectedCommitError: null,
+        selectedCommitDetails: null,
+        selectedCommitDetailsIsLoading: false,
+        selectedCommitDetailsError: null,
+        selectedCommitFilePath: null,
+        selectedCommitFileOldPath: null,
+        selectedCommitFileDiffResponse: null,
+        selectedCommitFileDiffIsLoading: false,
+        selectedCommitFileDiffError: null,
       },
     },
   }));
@@ -317,7 +329,7 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
   if (overlay.kind !== "graph") {
     return;
   }
-  const requestId = (commitDiffRequestId += 1);
+  const requestId = (commitDetailsRequestId += 1);
   useGitStore.setState((state) => {
     if (state.overlay.kind !== "graph") {
       return state;
@@ -329,16 +341,21 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
         graph: {
           ...state.overlay.graph,
           selectedCommitHash: commitHash,
-          selectedCommitResponse: null,
-          selectedCommitIsLoading: true,
-          selectedCommitError: null,
+          selectedCommitDetails: null,
+          selectedCommitDetailsIsLoading: true,
+          selectedCommitDetailsError: null,
+          selectedCommitFilePath: null,
+          selectedCommitFileOldPath: null,
+          selectedCommitFileDiffResponse: null,
+          selectedCommitFileDiffIsLoading: false,
+          selectedCommitFileDiffError: null,
         },
       },
     };
   });
 
-  const res = await route_get_git_commit_diff({ commitHash });
-  if (requestId !== commitDiffRequestId) {
+  const res = await route_get_git_commit_details({ commitHash });
+  if (requestId !== commitDetailsRequestId) {
     return;
   }
   if (res200(res)) {
@@ -355,12 +372,19 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
           kind: "graph",
           graph: {
             ...state.overlay.graph,
-            selectedCommitResponse: res.data,
-            selectedCommitIsLoading: false,
+            selectedCommitDetails: res.data,
+            selectedCommitDetailsIsLoading: false,
           },
         },
       };
     });
+    const first = res.data.files[0] ?? null;
+    if (first) {
+      await selectGitCommitFile({
+        path: first.path,
+        oldPath: first.oldPath ?? null,
+      });
+    }
     return;
   }
 
@@ -377,10 +401,109 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
         kind: "graph",
         graph: {
           ...state.overlay.graph,
-          selectedCommitResponse: null,
-          selectedCommitIsLoading: false,
-          selectedCommitError:
-            getErrorDetail(res.data) ?? "Failed to load commit diff.",
+          selectedCommitDetails: null,
+          selectedCommitDetailsIsLoading: false,
+          selectedCommitDetailsError:
+            getErrorDetail(res.data) ?? "Failed to load commit details.",
+        },
+      },
+    };
+  });
+}
+
+export async function selectGitCommitFile({
+  path,
+  oldPath,
+}: {
+  path: string;
+  oldPath: string | null;
+}): Promise<void> {
+  const overlay = useGitStore.getState().overlay;
+  if (overlay.kind !== "graph") {
+    return;
+  }
+  const commitHash = overlay.graph.selectedCommitHash;
+  if (!commitHash) {
+    return;
+  }
+  const requestId = (commitFileDiffRequestId += 1);
+  useGitStore.setState((state) => {
+    if (state.overlay.kind !== "graph") {
+      return state;
+    }
+    if (state.overlay.graph.selectedCommitHash !== commitHash) {
+      return state;
+    }
+    return {
+      ...state,
+      overlay: {
+        kind: "graph",
+        graph: {
+          ...state.overlay.graph,
+          selectedCommitFilePath: path,
+          selectedCommitFileOldPath: oldPath,
+          selectedCommitFileDiffResponse: null,
+          selectedCommitFileDiffIsLoading: true,
+          selectedCommitFileDiffError: null,
+        },
+      },
+    };
+  });
+
+  const res = await route_get_git_commit_file_diff({
+    commitHash,
+    path,
+    oldPath,
+  });
+  if (requestId !== commitFileDiffRequestId) {
+    return;
+  }
+  if (res200(res)) {
+    useGitStore.setState((state) => {
+      if (state.overlay.kind !== "graph") {
+        return state;
+      }
+      if (state.overlay.graph.selectedCommitHash !== commitHash) {
+        return state;
+      }
+      if (state.overlay.graph.selectedCommitFilePath !== path) {
+        return state;
+      }
+      return {
+        ...state,
+        overlay: {
+          kind: "graph",
+          graph: {
+            ...state.overlay.graph,
+            selectedCommitFileDiffResponse: res.data,
+            selectedCommitFileDiffIsLoading: false,
+          },
+        },
+      };
+    });
+    return;
+  }
+
+  useGitStore.setState((state) => {
+    if (state.overlay.kind !== "graph") {
+      return state;
+    }
+    if (state.overlay.graph.selectedCommitHash !== commitHash) {
+      return state;
+    }
+    if (state.overlay.graph.selectedCommitFilePath !== path) {
+      return state;
+    }
+    return {
+      ...state,
+      overlay: {
+        kind: "graph",
+        graph: {
+          ...state.overlay.graph,
+          selectedCommitFileDiffResponse: null,
+          selectedCommitFileDiffIsLoading: false,
+          selectedCommitFileDiffError:
+            getErrorDetail(res.data) ?? "Failed to load file diff.",
         },
       },
     };

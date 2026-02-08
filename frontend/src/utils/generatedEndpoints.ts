@@ -257,6 +257,18 @@ export async function route_get_git_log(
   return await post("/git/log", x);
 }
 
+export async function route_get_git_commit_details(
+  x: gt.GetGitCommitDetailsRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitCommitDetailsResponse>> {
+  return await post("/git/commitDetails", x);
+}
+
+export async function route_get_git_commit_file_diff(
+  x: gt.GetGitCommitFileDiffRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitCommitFileDiffResponse>> {
+  return await post("/git/commitFileDiff", x);
+}
+
 export async function route_get_git_commit_diff(
   x: gt.GetGitCommitDiffRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetGitCommitDiffResponse>> {

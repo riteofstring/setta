@@ -241,6 +241,8 @@ class Route(str, Enum):
     GET_GIT_DIFF = "/git/diff"
     GET_GIT_LOG = "/git/log"
     GET_GIT_COMMIT_DIFF = "/git/commitDiff"
+    GET_GIT_COMMIT_DETAILS = "/git/commitDetails"
+    GET_GIT_COMMIT_FILE_DIFF = "/git/commitFileDiff"
     IMPORT_FILES_TO_ARTIFACTS = "/importFilesToArtifacts"
     DELETE_ARTIFACTS = "/deleteArtifacts"
     LOAD_CACHED_IMAGE_ARTIFACTS = "/loadCachedImageArtifacts"
