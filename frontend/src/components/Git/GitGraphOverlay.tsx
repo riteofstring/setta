@@ -311,7 +311,7 @@ export function GitGraphOverlay() {
               <GitDiffCodeMirror
                 value={graphState.selectedCommitResponse.diff}
                 height="100%"
-                className="h-full min-h-0 w-full min-w-0 [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
+                className="h-full min-h-0 w-full min-w-0 [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px]"
               />
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
