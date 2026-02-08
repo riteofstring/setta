@@ -317,8 +317,8 @@ function PythonCodeArea({
   sectionId: string;
   language: CodeLanguage;
 }) {
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const canUseLsp = !isShareMode;
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const canUseLsp = !isDeploymentMode;
   const completionsFn = useCallback(
     getPythonCodeAreaCompletionsFn(sectionId, canUseLsp),
     [sectionId, canUseLsp],
@@ -389,9 +389,9 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
 
   const theme = useCodeMirrorStyle();
 
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const canUseLsp = !isShareMode;
-  const isShareReadOnly = isShareMode;
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const canUseLsp = !isDeploymentMode;
+  const isShareReadOnly = isDeploymentMode;
   const unmappedGenCodeDiagnostics = useLspDiagnostics(
     (x) => x.unmappedGenCode,
   );
@@ -517,11 +517,11 @@ function GenPythonCodeAreaContent({ sectionId }: { sectionId: string }) {
     isDisabled: isShareReadOnly,
   });
   const lspLintExtensions = useMemo(() => {
-    if (isShareMode) {
+    if (isDeploymentMode) {
       return [];
     }
     return buildLspDiagnosticsExtensions(unmappedGenCodeDiagnostics);
-  }, [isShareMode, unmappedGenCodeDiagnostics]);
+  }, [isDeploymentMode, unmappedGenCodeDiagnostics]);
   const finalExtensions = extensions.concat(
     readOnlyGeneratedRange,
     readOnlyDecorations,
@@ -651,8 +651,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const isShareReadOnly = isShareMode;
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareReadOnly = isDeploymentMode;
   const isDisabled = variantIsFrozen || isShareReadOnly;
   const codeSectionDiagnostics = useLspDiagnostics((x) => {
     const diagnostics = x.codeSections[sectionId];
@@ -696,11 +696,11 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     useJsx,
   });
   const lspLintExtensions = useMemo(() => {
-    if (isShareMode) {
+    if (isDeploymentMode) {
       return [];
     }
     return buildLspDiagnosticsExtensions(codeSectionDiagnostics);
-  }, [codeSectionDiagnostics, isShareMode]);
+  }, [codeSectionDiagnostics, isDeploymentMode]);
   const finalExtensions = extensions.concat(lspLintExtensions);
   const codeAreaMaxHeight = maxHeight;
   const codeAreaClassName = `${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel} ${disablePointerEvents ? "pointer-events-none select-none" : ""}`;

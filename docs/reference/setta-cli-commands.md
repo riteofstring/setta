@@ -150,17 +150,7 @@ Auth sources (highest priority first):
 
 Other options:
 - `--base-url` override backend base URL
-- `--agentic-project-config-id` set `x-setta-project-config-id` (required for most scope-enforced tools; temporary or canonical id).
-- `--agentic-chat-id` set `x-setta-chat-id` (optional; temporary or canonical id).
-- `--agentic-section-id` set `x-setta-section-id` (required for most scope-enforced tools; temporary or canonical id).
 - `--json-output` emit raw JSON only on stdout
-
-Agentic scope notes:
-- Most tools return a `CallToolResult` scope error unless you provide at least
-  `--agentic-project-config-id` and `--agentic-section-id`.
-- A small set of init/utility tools (for example `list_mcp_tools`,
-  `search_mcp_tools`, `getProjectConfigNamesAndIds`) are allowed without agentic
-  context.
 
 Output:
 - MCP `CallToolResult` JSON (includes `content`, `structuredContent`, `isError`).
@@ -168,13 +158,8 @@ Output:
 Examples:
 ```sh
 setta api getProjectConfigNamesAndIds --json-output
-setta api get_latest_project_state_summary \
-  --agentic-project-config-id "..." \
-  --agentic-section-id "..." \
-  --json '{"projectConfigId":"..."}' --json-output
+setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
 setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
-  --agentic-project-config-id "..." \
-  --agentic-section-id "..." \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 

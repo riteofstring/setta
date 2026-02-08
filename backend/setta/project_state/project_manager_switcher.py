@@ -118,7 +118,7 @@ class ProjectManagerSwitcher:
 
     def get_for_session(self, share_session_id: str) -> BaseProjectManager:
         if self.share_runtime_state is None:
-            raise ValueError("Share mode requires share runtime state")
+            raise ValueError("Deployment mode requires deployment runtime state")
         if not share_session_id:
             raise KeyError("Missing share session id")
         if share_session_id in self._session_managers:

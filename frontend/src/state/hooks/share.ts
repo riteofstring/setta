@@ -123,13 +123,13 @@ type ShareCapabilities = {
 };
 
 export function useShareCapabilities(): ShareCapabilities {
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const sharePolicy = useShareSession((x) => x.sharePolicy);
   const allowParamChanges = sharePolicy?.allowParamChanges ?? true;
   const allowVariantChanges = sharePolicy?.allowVariantChanges ?? true;
   const allowLayoutChanges = sharePolicy?.allowLayoutChanges ?? true;
   const allowRun = sharePolicy?.allowRun ?? false;
-  const canEditStructure = !isShareMode;
+  const canEditStructure = !isDeploymentMode;
 
   return {
     canEditParams: canEditStructure || allowParamChanges,

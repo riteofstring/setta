@@ -87,7 +87,7 @@ describe("ChatInput attachment gating", () => {
 
   it("shows share policy block when param changes are disallowed", () => {
     useShareSession.setState({
-      isShareMode: true,
+      isDeploymentMode: true,
       sharePolicy: buildSharePolicy({ allowParamChanges: false }),
     });
     syncStoreInitialState(useShareSession);
@@ -103,7 +103,7 @@ describe("ChatInput attachment gating", () => {
 
   it("shows slots when param changes are allowed", () => {
     useShareSession.setState({
-      isShareMode: true,
+      isDeploymentMode: true,
       sharePolicy: buildSharePolicy({ allowParamChanges: true }),
     });
     syncStoreInitialState(useShareSession);
@@ -119,7 +119,7 @@ describe("ChatInput attachment gating", () => {
 
   it("renders a full-width textarea for wide layouts", () => {
     useShareSession.setState({
-      isShareMode: false,
+      isDeploymentMode: false,
       sharePolicy: buildSharePolicy(),
     });
     syncStoreInitialState(useShareSession);

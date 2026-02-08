@@ -6,8 +6,9 @@ import pytest
 from setta.share.listener_runtime import ShareListenerRuntime
 from setta.types.id import ID
 from setta.types.share_deployment import (
-    ShareDeploymentListenerConfig,
-    ShareDeploymentManifest,
+    DeploymentListenerConfig,
+    DeploymentType,
+    DeploymentManifest,
 )
 
 def _write_listener_entrypoint(root: Path) -> None:
@@ -28,19 +29,20 @@ def _write_listener_entrypoint(root: Path) -> None:
 
 def _build_manifest(
     project_config_id: ID, *, entrypoint: str
-) -> ShareDeploymentManifest:
-    return ShareDeploymentManifest(
+) -> DeploymentManifest:
+    return DeploymentManifest(
         version=1,
         deploymentName=str(project_config_id),
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config_id,
         deploymentVersion="v1",
-        listener=ShareDeploymentListenerConfig(entrypoint=entrypoint),
+        listener=DeploymentListenerConfig(entrypoint=entrypoint),
     )
 
 
 @pytest.mark.asyncio
 class TestShareListenerRuntime:
-    def test_missing_entrypoint_raises(self) -> None:
+    async def test_missing_entrypoint_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             project_config_id = ID("proj-missing")

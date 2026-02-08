@@ -320,6 +320,6 @@ async function ensureParamsEditable(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const { useMisc, useShareSession } = await import("/src/state/definitions");
     useMisc.setState({ isSelectingParams: false });
-    useShareSession.setState({ isShareMode: false, sharePolicy: null });
+    useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
   });
 }

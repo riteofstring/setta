@@ -116,7 +116,6 @@ describe("chat section state persistence during backend updates", () => {
     };
 
     persistChatSectionState({
-      projectConfigId,
       sectionId,
       nextState,
       reason: "test",
@@ -177,7 +176,6 @@ describe("chat section state persistence during backend updates", () => {
     };
 
     persistChatSectionState({
-      projectConfigId,
       sectionId,
       nextState,
       reason: "test",

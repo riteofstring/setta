@@ -1,8 +1,16 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+
 import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const PROJECT_URL =
+  process.env.SETTA_PROJECT_URL ??
+  (process.env.SETTA_PROJECT_PATH
+    ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
+    : BASE_URL);
+
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
@@ -35,8 +43,7 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
     payload.includes('"binaryPayload"'),
   );
   expect(hasBinaryPayloadField).toBe(false);
-  await page.waitForTimeout(200);
-  const cursor = await getSentFrameCount(page);
+  await resetSentFrames(page);
   const uploadPromise = page.waitForResponse((response) => {
     return (
       response.url().includes("/api/binary/upload") &&
@@ -64,13 +71,9 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
   }
 
   await expect
-    .poll(
-      async () =>
-        (await getSentFrameSummary(page, { startIndex: cursor })).binaryCount,
-      {
+    .poll(async () => (await getSentFrameSummary(page)).binaryCount, {
       timeout: 5000,
-      },
-    )
+    })
     .toBe(0);
 });
 
@@ -199,23 +202,18 @@ async function resetSentFrames(page: Page): Promise<void> {
   });
 }
 
-async function getSentFrameSummary(
-  page: Page,
-  options?: { startIndex?: number },
-): Promise<{
+async function getSentFrameSummary(page: Page): Promise<{
   binaryCount: number;
   textFrames: string[];
 }> {
-  return await page.evaluate(({ startIndex }) => {
+  return await page.evaluate(() => {
     const windowWithFrames = window as typeof window & {
       __sentFrames?: unknown[];
     };
     const frames = windowWithFrames.__sentFrames ?? [];
-    const start = startIndex ?? 0;
-    const slice = start > 0 ? frames.slice(start) : frames;
     let binaryCount = 0;
     const textFrames: string[] = [];
-    slice.forEach((frame) => {
+    frames.forEach((frame) => {
       if (typeof frame === "string") {
         textFrames.push(frame);
         return;
@@ -226,15 +224,6 @@ async function getSentFrameSummary(
       }
     });
     return { binaryCount, textFrames };
-  }, { startIndex: options?.startIndex });
-}
-
-async function getSentFrameCount(page: Page): Promise<number> {
-  return await page.evaluate(() => {
-    const windowWithFrames = window as typeof window & {
-      __sentFrames?: unknown[];
-    };
-    return windowWithFrames.__sentFrames?.length ?? 0;
   });
 }
 

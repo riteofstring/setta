@@ -111,7 +111,7 @@ export function ParamUI({
   maybeErrorMessage,
 }: ParamUIProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
   const {
     codeObjType,
@@ -162,9 +162,9 @@ export function ParamUI({
     isSelectingParams ||
     disabledOrFrozen ||
     !canEditParams ||
-    (isShareMode && isCodeParam);
+    (isDeploymentMode && isCodeParam);
   const showPasswordReveal =
-    !isShareMode &&
+    !isDeploymentMode &&
     shouldShowPasswordReveal({
       value,
       hasSecret: passwordHasSecret,

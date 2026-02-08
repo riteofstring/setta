@@ -87,9 +87,10 @@ def get_run_last_updated(run: AgentRun) -> datetime:
 
 
 def build_chat_state_from_run(run: AgentRun) -> ChatSectionState:
-    input_messages = _parse_input_messages(run)
     output_messages = _parse_output_messages(run)
-    messages = _merge_input_and_output_messages(input_messages, output_messages)
+    messages = (
+        output_messages if output_messages is not None else _parse_input_messages(run)
+    )
     messages = _filter_response_placeholder_messages(messages)
     return build_chat_section_state(
         messages=messages,
@@ -119,21 +120,6 @@ def _parse_output_messages(run: AgentRun) -> list[BaseChatMessageUnion] | None:
     if not isinstance(raw_messages, list):
         return None
     return _parse_raw_messages(raw_messages)
-
-
-def _merge_input_and_output_messages(
-    input_messages: list[BaseChatMessageUnion],
-    output_messages: list[BaseChatMessageUnion] | None,
-) -> list[BaseChatMessageUnion]:
-    if output_messages is None:
-        return input_messages
-    outputs_by_id = {message.id: message for message in output_messages}
-    input_ids = {message.id for message in input_messages}
-    merged = [outputs_by_id.get(message.id, message) for message in input_messages]
-    for message in output_messages:
-        if message.id not in input_ids:
-            merged.append(message)
-    return merged
 
 
 def _parse_raw_messages(raw_messages: list[Any]) -> list[BaseChatMessageUnion]:

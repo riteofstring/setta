@@ -1,24 +1,14 @@
 import asyncio
 from collections.abc import AsyncIterator
-from contextlib import AsyncExitStack, asynccontextmanager, suppress
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from watchdog.observers.polling import PollingObserver
-
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
-import setta.file_watchers.lsp as lsp_file_watcher
-import setta.file_watchers.specific_file_watcher as specific_file_watcher
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.lsp.managers import (
-    LSPReaders,
-    LSPServers,
-    LSPWriters,
-    stop_lsps,
-)
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
@@ -39,10 +29,6 @@ from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
-
-# Avoid watchdog FSEvents crashes during test teardown on macOS.
-specific_file_watcher.Observer = PollingObserver
-lsp_file_watcher.Observer = PollingObserver
 
 __all__ = [
     "ProjectManagerFixture",
@@ -117,10 +103,6 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             dbe = DBE(setta_root)
             settings_file = SettingsFile(dbe, frontend_sender)
 
-            lsps = LSPServers(settings_file.settings.languageServer)
-            lsp_writers = LSPWriters(lsps)
-            lsp_readers = LSPReaders(lsps, frontend_sender)
-
             specific_file_watcher = SpecificFileWatcher()
             artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
             code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
@@ -138,26 +120,11 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 artifacts=artifacts,
                 json_source=json_source,
                 code_files=code_files,
-                lsp_writers=lsp_writers,
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
             await manager._process_queue_task_started.wait()
 
-            try:
-                await lsps.start()
-                await lsp_readers.start()
-                await lsp_writers.start()
-            except FileNotFoundError as exc:  # pragma: no cover - environment dependent
-                raise RuntimeError(
-                    "basedpyright-langserver is required for tests; ensure it is on PATH"
-                ) from exc
-
-            stack.push_async_callback(
-                _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
-            )
-
-            specific_file_watcher.start()
             stack.push_async_callback(
                 _stop_specific_file_watcher, specific_file_watcher
             )
@@ -212,10 +179,6 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             dbe = DBE(setta_root)
             settings_file = SettingsFile(dbe, frontend_sender)
 
-            lsps = LSPServers(settings_file.settings.languageServer)
-            lsp_writers = LSPWriters(lsps)
-            lsp_readers = LSPReaders(lsps, frontend_sender)
-
             specific_file_watcher = SpecificFileWatcher()
             artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
             code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
@@ -233,26 +196,11 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 artifacts=artifacts,
                 json_source=json_source,
                 code_files=code_files,
-                lsp_writers=lsp_writers,
             )
 
             stack.push_async_callback(_shutdown_manager, manager)
             await manager._process_queue_task_started.wait()
 
-            try:
-                await lsps.start()
-                await lsp_readers.start()
-                await lsp_writers.start()
-            except FileNotFoundError as exc:  # pragma: no cover - environment dependent
-                raise RuntimeError(
-                    "basedpyright-langserver is required for tests; ensure it is on PATH"
-                ) from exc
-
-            stack.push_async_callback(
-                _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
-            )
-
-            specific_file_watcher.start()
             stack.push_async_callback(
                 _stop_specific_file_watcher, specific_file_watcher
             )
@@ -276,6 +224,31 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
 
 
 async def _shutdown_manager(manager: BaseProjectManager) -> None:
+    # BaseProjectManager + WatchCodeManager use AsyncDebouncer, which in turn uses
+    # spawn_background_task(). If we just cancel and drop references to those
+    # tasks, they can be GC'd during loop shutdown and raise unraisable
+    # contextvars errors. Capture and await them explicitly.
+    background_tasks: set[asyncio.Task] = set()
+
+    def collect_task(task: asyncio.Task | None) -> None:
+        if task is not None:
+            background_tasks.add(task)
+
+    collect_task(getattr(manager, "queue_task", None))
+    autosave = getattr(manager, "autosave_debouncer", None)
+    if autosave is not None:
+        collect_task(getattr(autosave, "_schedule_task", None))
+        collect_task(getattr(autosave, "_task", None))
+
+    watch_code = getattr(manager, "watch_code_manager", None)
+    if watch_code is not None:
+        for debouncer in getattr(watch_code, "_debouncers", {}).values():
+            collect_task(getattr(debouncer, "_schedule_task", None))
+            collect_task(getattr(debouncer, "_task", None))
+        for debouncer in getattr(watch_code, "_delete_debouncers", {}).values():
+            collect_task(getattr(debouncer, "_schedule_task", None))
+            collect_task(getattr(debouncer, "_task", None))
+
     manager.shutdown()
     manager.autosave_debouncer.cancel_pending()
 
@@ -285,6 +258,9 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
         except asyncio.QueueEmpty:
             break
 
+        # We are tearing down the manager and won't run the queue to completion.
+        # Close the coroutine to avoid "coroutine was never awaited" warnings.
+        coroutine.close()
         if not future.done():
             future.cancel()
         manager._finalize_frontend_op(frontend_op_id, success=False)
@@ -295,46 +271,12 @@ async def _shutdown_manager(manager: BaseProjectManager) -> None:
     except asyncio.CancelledError:
         pass
 
+    if background_tasks:
+        await asyncio.gather(*background_tasks, return_exceptions=True)
+
 
 async def _stop_specific_file_watcher(watcher: SpecificFileWatcher) -> None:
     watcher.stop()
-
-
-async def _stop_lsps_and_file_watcher(
-    lsps: LSPServers, lsp_readers: LSPReaders, lsp_writers: LSPWriters
-) -> None:
-    process = getattr(lsps.full, "server", None)
-    await stop_lsps(lsps, lsp_readers)
-    lsp_writers.file_watcher.stop()
-    await _close_lsp_process(process)
-
-
-async def _close_lsp_process(process) -> None:
-    if process is None:
-        return
-
-    writer = getattr(process, "stdin", None)
-    if writer is not None:
-        writer.close()
-        with suppress(RuntimeError, AttributeError):
-            await writer.wait_closed()
-
-    try:
-        await asyncio.wait_for(process.wait(), timeout=3)
-    except (asyncio.TimeoutError, ProcessLookupError):
-        with suppress(ProcessLookupError):
-            process.kill()
-        with suppress(asyncio.TimeoutError, ProcessLookupError):
-            await asyncio.wait_for(process.wait(), timeout=3)
-
-    for reader in (
-        getattr(process, "stdout", None),
-        getattr(process, "stderr", None),
-    ):
-        if reader is None:
-            continue
-        with suppress(Exception):
-            await asyncio.wait_for(reader.read(), timeout=3)
 
 
 DEFAULT_SAMPLE_PROJECT_NAME = "sample_project"

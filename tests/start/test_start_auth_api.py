@@ -18,14 +18,7 @@ from setta.sessions import SessionRegistry
 from setta.start import api, auth, tools
 from setta.types.routes import Route
 from setta.utils.constants import C
-from setta.mcp.agentic_context_headers import (
-    AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
-    AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
-)
-from tests.utils.manager_fixture import (
-    DEFAULT_SAMPLE_PROJECT_CONFIG_ID,
-    _seed_minimal_setta_files,
-)
+from tests.utils.manager_fixture import _seed_minimal_setta_files
 
 
 TOOLS_CALL_TIMEOUT_SECONDS = 15
@@ -49,7 +42,7 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
         "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
         "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
         "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
+        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
     }
     setta_root = root / "setta_files"
     C.SETTA_FILES_FOLDER = setta_root
@@ -62,7 +55,7 @@ def _apply_fixture_constants(root: Path) -> dict[str, Path]:
     C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
     C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
     C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.SHARE_DEPLOYMENTS_FOLDER = setta_root / "share_deployments"
+    C.DEPLOYMENTS_FOLDER = setta_root / "deployments"
     return originals
 
 
@@ -77,7 +70,7 @@ def _restore_fixture_constants(originals: dict[str, Path]) -> None:
     C.RUNTIME_MCP_FOLDER = originals["RUNTIME_MCP_FOLDER"]
     C.RUNTIME_SECRETS_FOLDER = originals["RUNTIME_SECRETS_FOLDER"]
     C.DETACHED_RUNS_FOLDER = originals["DETACHED_RUNS_FOLDER"]
-    C.SHARE_DEPLOYMENTS_FOLDER = originals["SHARE_DEPLOYMENTS_FOLDER"]
+    C.DEPLOYMENTS_FOLDER = originals["DEPLOYMENTS_FOLDER"]
 
 
 def _write_auth_json(root: Path) -> Path:
@@ -258,8 +251,6 @@ def test_setta_api_tool_call(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--auth-json",
             str(auth_path),
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json-output",
         ],
     )
@@ -720,8 +711,6 @@ def test_setta_api_tool_call_rejects_http_error(api_integration_env) -> None:
             "get_latest_project_state_summary",
             "--auth-json",
             str(auth_path),
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json",
             "{}",
             "--json-output",
@@ -800,16 +789,12 @@ def test_tools_call_endpoint_tool_error_contract(api_integration_env) -> None:
     cookie = auth_payload["cookie"]
     base_url = auth_payload["baseUrl"]
     url = f"{base_url}{Route.TOOLS_CALL.value}"
-    headers = {
-        "Cookie": cookie,
-        AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER: str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
-        AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER: "true",
-    }
+    headers = {"Cookie": cookie}
 
     response = requests.post(
         url,
         headers=headers,
-        json={"tool": "read_file_range", "arguments": {"path": "missing-file.txt"}},
+        json={"tool": "getTerminalOutput", "arguments": {"sectionId": "missing"}},
         timeout=TOOLS_CALL_TIMEOUT_SECONDS,
     )
     assert response.status_code == 500
@@ -828,8 +813,6 @@ def test_setta_api_payload_stdin(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--auth-json",
             str(auth_path),
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--stdin",
             "--json-output",
         ],
@@ -854,8 +837,6 @@ def test_setta_api_payload_file(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--auth-json",
             str(auth_path),
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--file",
             str(payload_path),
             "--json-output",
@@ -879,8 +860,6 @@ def test_setta_api_auth_stdin(api_integration_env) -> None:
         [
             "getProjectConfigNamesAndIds",
             "--auth-stdin",
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json",
             "{}",
             "--json-output",
@@ -905,8 +884,6 @@ def test_setta_api_cookie_header(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--cookie-header",
             cookie_header,
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json-output",
         ],
     )
@@ -928,8 +905,6 @@ def test_setta_api_cookie_value(api_integration_env) -> None:
             "getProjectConfigNamesAndIds",
             "--cookie",
             cookie,
-            "--agentic-project-config-id",
-            str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
             "--json-output",
         ],
     )

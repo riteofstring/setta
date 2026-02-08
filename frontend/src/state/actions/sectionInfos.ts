@@ -353,40 +353,6 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
-export function isManagedChatSection(
-  state: ZustandProjectState,
-  sectionId: string,
-): boolean {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return false;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return false;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return false;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return false;
-  }
-  const effectiveType =
-    (variant.modifier as { type?: unknown } | undefined)?.type ??
-    (core.sharedModifier as { type?: unknown } | undefined)?.type ??
-    (impl as { type?: unknown }).type;
-  if (effectiveType !== SectionTypeEnum.Chat) {
-    return false;
-  }
-  const managed =
-    (variant.modifier as { managed?: unknown } | undefined)?.managed ??
-    (core.sharedModifier as { managed?: unknown } | undefined)?.managed ??
-    (impl as { managed?: unknown }).managed;
-  return Boolean(managed);
-}
-
 export function getVariantBaseAndEffectiveSectionImpl(
   p: ZustandProjectState,
   core: Core,
@@ -1213,7 +1179,7 @@ export function getAncestorSameVisibility(
 
 export function deleteAllActiveSections() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return;
   }
   route_delete_sections({
@@ -1347,7 +1313,7 @@ function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
 export function debounced_route_set_top_level_section_layout() {
   const shareSession = useShareSession.getState();
   if (
-    shareSession.isShareMode &&
+    shareSession.isDeploymentMode &&
     shareSession.sharePolicy?.allowLayoutChanges === false
   ) {
     return;
@@ -1404,7 +1370,7 @@ export function getSectionChildren(
 
 export async function groupActiveSections() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return;
   }
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
@@ -1417,7 +1383,7 @@ export async function groupActiveSections() {
 
 export async function ungroupActiveGroups() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return;
   }
   const groupIds = useProjectState.getState().projectConfig.activeIds;
