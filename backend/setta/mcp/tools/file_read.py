@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp.server import Context
-
 from setta.mcp.tool_setup import setta_init_tool
 
 
@@ -13,7 +11,6 @@ def read_file_range(
     start_line: int | None = None,
     end_line: int | None = None,
     workspace_root: str | Path | None = None,
-    ctx: Context | None = None,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Return the requested line range from a UTF-8 text file."""
     file_path = _resolve_path(path, workspace_root)

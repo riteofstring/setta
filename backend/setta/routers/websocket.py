@@ -57,9 +57,9 @@ async def _authenticate_websocket(websocket: WebSocket) -> bool:
 
 
 async def _maybe_authenticate_websocket(
-    websocket: WebSocket, *, share_mode: bool
+    websocket: WebSocket, *, deployment_mode: bool
 ) -> bool:
-    if share_mode:
+    if deployment_mode:
         return True
     return await _authenticate_websocket(websocket)
 
@@ -179,10 +179,12 @@ async def websocket_route_loop(
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebsocket):
-    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
+    if not await _maybe_authenticate_websocket(
+        websocket, deployment_mode=state.deployment_mode
+    ):
         return
     share_session_id = None
-    if state.share_mode:
+    if state.deployment_mode:
         share_session_id = await require_share_session_id_from_websocket(
             websocket,
             state,
@@ -200,8 +202,10 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
         state.wmh_frontend_sender,
         WebsocketConnectionType.FRONTEND,
         share_session_id=share_session_id,
-        share_session_store=state.share_session_store if state.share_mode else None,
-        broadcast_connections=not state.share_mode,
+        share_session_store=state.share_session_store
+        if state.deployment_mode
+        else None,
+        broadcast_connections=not state.deployment_mode,
     )
 
 
@@ -209,10 +213,12 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebs
 async def route_websocket_share_frontend(
     websocket: WebSocket, state: AppStateFromWebsocket
 ):
-    if not state.share_mode:
+    if not state.deployment_mode:
         await _close_forbidden(websocket)
         return
-    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
+    if not await _maybe_authenticate_websocket(
+        websocket, deployment_mode=state.deployment_mode
+    ):
         return
     share_session_id = await require_share_session_id_from_websocket(
         websocket,
@@ -243,10 +249,12 @@ async def route_websocket_cli(
     state: AppStateFromWebsocket,
     id: str | None = None,
 ):
-    if state.share_mode:
+    if state.deployment_mode:
         await _close_forbidden(websocket)
         return
-    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
+    if not await _maybe_authenticate_websocket(
+        websocket, deployment_mode=state.deployment_mode
+    ):
         return
     await websocket_route_loop(
         websocket,
@@ -255,8 +263,10 @@ async def route_websocket_cli(
         state.wmh_frontend_sender,
         WebsocketConnectionType.CLI,
         id=id,
-        share_session_store=state.share_session_store if state.share_mode else None,
-        broadcast_connections=not state.share_mode,
+        share_session_store=state.share_session_store
+        if state.deployment_mode
+        else None,
+        broadcast_connections=not state.deployment_mode,
     )
 
 
@@ -266,10 +276,12 @@ async def route_websocket_python_script(
     state: AppStateFromWebsocket,
     id: str,
 ):
-    if not await _maybe_authenticate_websocket(websocket, share_mode=state.share_mode):
+    if not await _maybe_authenticate_websocket(
+        websocket, deployment_mode=state.deployment_mode
+    ):
         return
     share_session_id = None
-    if state.share_mode:
+    if state.deployment_mode:
         share_session_id = await require_share_session_id_from_websocket(
             websocket,
             state,
@@ -284,6 +296,8 @@ async def route_websocket_python_script(
         WebsocketConnectionType.PYTHON_SCRIPT,
         id=id,
         share_session_id=share_session_id,
-        share_session_store=state.share_session_store if state.share_mode else None,
-        broadcast_connections=not state.share_mode,
+        share_session_store=state.share_session_store
+        if state.deployment_mode
+        else None,
+        broadcast_connections=not state.deployment_mode,
     )

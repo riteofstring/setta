@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
@@ -32,7 +30,6 @@ from setta.types.agentic import (
     EngineType,
 )
 from setta.types.generated.chat_messages import (
-    BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
@@ -98,13 +95,13 @@ def _ensure_external_chat_id_compatible(
         return
     for run in external_runs:
         existing_engine = get_run_engine_config_id(run)
-        if existing_engine and existing_engine != engine_config_id:
+        if existing_engine != engine_config_id:
             raise HTTPException(
                 status_code=409,
                 detail="Chat engine mismatch; start a new chat.",
             )
         existing_project = get_run_project_config_id(run)
-        if existing_project and existing_project != project_config_id:
+        if existing_project != project_config_id:
             raise HTTPException(
                 status_code=409,
                 detail="Chat project config mismatch; start a new chat.",
@@ -144,28 +141,6 @@ def _get_prior_messages_for_engine(
     return build_chat_state_from_run(latest_run).messages
 
 
-def _get_latest_run_for_engine(
-    *,
-    dbe,
-    engine_type: EngineType,
-    chat_id: ID,
-    project_config_id: ID | None,
-) -> AgentRun | None:
-    if engine_type == EngineType.external_agent:
-        external_runs = _get_external_agent_chat_runs(
-            dbe=dbe,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        return _select_latest_run(external_runs)
-    llm_runs = _get_llm_chat_runs(
-        dbe=dbe,
-        chat_id=chat_id,
-        project_config_id=project_config_id,
-    )
-    return _select_latest_run(llm_runs)
-
-
 def _build_inputs_messages(
     *,
     prior_messages: list[BaseChatMessageUnion],
@@ -177,56 +152,6 @@ def _build_inputs_messages(
     return list(prior_messages) + [message]
 
 
-def _build_branch_messages(
-    *,
-    prior_messages: list[BaseChatMessageUnion],
-    edited_message: BaseChatMessageUnionWithDiscriminator,
-    branch_from_message_id: ID,
-) -> list[BaseChatMessageUnion]:
-    for index, message in enumerate(prior_messages):
-        if message.id != branch_from_message_id:
-            continue
-        updated_message = edited_message.model_copy(
-            update={"id": branch_from_message_id}
-        )
-        return [*prior_messages[:index], updated_message]
-    raise KeyError(f"Message {branch_from_message_id} not found in chat history")
-
-
-def _has_message_id(
-    messages: list[BaseChatMessageUnion],
-    message_id: ID,
-) -> bool:
-    return any(message.id == message_id for message in messages)
-
-
-def _get_run_input_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]:
-    if run is None:
-        return []
-    inputs = run.inputs
-    if not inputs:
-        return []
-    raw_messages = inputs.get("messages")
-    if not isinstance(raw_messages, list):
-        return []
-    return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
-
-
-def _resolve_branch_root_chat_id(
-    *,
-    parent_run: AgentRun | None,
-    parent_chat_id: ID,
-) -> ID:
-    if parent_run and parent_run.inputs:
-        raw_root = parent_run.inputs.get("branchRootChatId")
-        if isinstance(raw_root, str) and raw_root:
-            return ID(raw_root)
-        raw_parent = parent_run.inputs.get("branchParentChatId")
-        if isinstance(raw_parent, str) and raw_parent:
-            return ID(raw_parent)
-    return parent_chat_id
-
-
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -235,9 +160,12 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
-    allowUnscoped: bool = False
-    branchParentChatId: ID | None = None
-    branchFromMessageId: ID | None = None
+    appSpecStreamingEnabled: bool = Field(
+        default=False,
+        description=(
+            "Whether the UI is configured to stream app spec patches for live preview."
+        ),
+    )
 
 
 class GetLLMChatRequest(BaseModel):
@@ -277,73 +205,38 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
-    if x.sectionId is None and not x.allowUnscoped:
-        raise HTTPException(
-            status_code=400,
-            detail="sectionId is required unless allowUnscoped is true.",
-        )
-    if x.sectionId is not None and x.allowUnscoped:
-        raise HTTPException(
-            status_code=400,
-            detail="allowUnscoped requires sectionId to be omitted.",
-        )
-    is_branch_request = (
-        x.branchParentChatId is not None or x.branchFromMessageId is not None
-    )
-    if is_branch_request:
-        if x.branchParentChatId is None or x.branchFromMessageId is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Branch edits require branchParentChatId and branchFromMessageId.",
-            )
-        chat_id = create_new_id()
-    else:
-        chat_id = x.chatId or create_new_id()
+    chat_id = x.chatId or create_new_id()
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
     )
     prior_messages: list[BaseChatMessageUnion] = []
-    parent_run: AgentRun | None = None
-    if is_branch_request:
-        parent_run = _get_latest_run_for_engine(
+    if x.chatId is not None:
+        prior_messages = _get_prior_messages_for_engine(
             dbe=ctx.state.dbe,
             engine_type=resolved.engine_config.engineType,
-            chat_id=x.branchParentChatId,
+            chat_id=chat_id,
             project_config_id=x.projectConfigId,
         )
-        if parent_run is not None:
-            prior_messages = build_chat_state_from_run(parent_run).messages
-            if not _has_message_id(prior_messages, x.branchFromMessageId):
-                prior_messages = _get_run_input_messages(parent_run)
-        try:
-            combined_messages = _build_branch_messages(
-                prior_messages=prior_messages,
-                edited_message=x.message,
-                branch_from_message_id=x.branchFromMessageId,
-            )
-        except KeyError as exc:
-            raise HTTPException(
-                status_code=404,
-                detail=(f"Message {x.branchFromMessageId} not found in chat history"),
-            ) from exc
-    else:
-        if x.chatId is not None:
-            prior_messages = _get_prior_messages_for_engine(
-                dbe=ctx.state.dbe,
-                engine_type=resolved.engine_config.engineType,
-                chat_id=chat_id,
-                project_config_id=x.projectConfigId,
-            )
-        combined_messages = _build_inputs_messages(
-            prior_messages=prior_messages,
-            message=x.message,
-        )
+    combined_messages = _build_inputs_messages(
+        prior_messages=prior_messages,
+        message=x.message,
+    )
     profile: AgentProfile | None = None
     if x.agentProfileId is not None:
         try:
             profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    app_generation_mode_prompt: str | None = None
+    if x.appSpecStreamingEnabled:
+        app_generation_mode_prompt = (
+            "## App spec generation mode\n"
+            "- streamingPreview: enabled\n"
+            "- If you are generating/updating the App spec (json-render):\n"
+            "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
+            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
+        )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -354,7 +247,20 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        profile = profile.model_copy(update={"engineConfigId": x.engineConfigId})
+        existing_system_prompt = profile.systemPrompt or ""
+        combined_system_prompt = existing_system_prompt
+        if app_generation_mode_prompt is not None:
+            combined_system_prompt = (
+                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
+                if existing_system_prompt.strip()
+                else app_generation_mode_prompt.strip()
+            )
+        profile = profile.model_copy(
+            update={
+                "engineConfigId": x.engineConfigId,
+                "systemPrompt": combined_system_prompt,
+            }
+        )
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
@@ -365,21 +271,8 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
-        if is_branch_request:
-            branch_root_chat_id = _resolve_branch_root_chat_id(
-                parent_run=parent_run,
-                parent_chat_id=x.branchParentChatId,
-            )
-            inputs["branchParentChatId"] = str(x.branchParentChatId)
-            inputs["branchFromMessageId"] = str(x.branchFromMessageId)
-            inputs["branchRootChatId"] = str(branch_root_chat_id)
-            inputs["branchCreatedAt"] = int(
-                datetime.now(timezone.utc).timestamp() * 1000
-            )
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
-        if x.allowUnscoped:
-            inputs["allowUnscoped"] = True
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -390,7 +283,7 @@ async def route_get_llm_response(
             )
         _ensure_external_chat_id_compatible(
             dbe=ctx.state.dbe,
-            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
+            chat_id=x.chatId,
             engine_config_id=x.engineConfigId,
             project_config_id=x.projectConfigId,
         )
@@ -422,21 +315,8 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
-        if is_branch_request:
-            branch_root_chat_id = _resolve_branch_root_chat_id(
-                parent_run=parent_run,
-                parent_chat_id=x.branchParentChatId,
-            )
-            inputs["branchParentChatId"] = str(x.branchParentChatId)
-            inputs["branchFromMessageId"] = str(x.branchFromMessageId)
-            inputs["branchRootChatId"] = str(branch_root_chat_id)
-            inputs["branchCreatedAt"] = int(
-                datetime.now(timezone.utc).timestamp() * 1000
-            )
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
-        if x.allowUnscoped:
-            inputs["allowUnscoped"] = True
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:
