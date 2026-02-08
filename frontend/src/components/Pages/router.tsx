@@ -7,7 +7,7 @@ import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
-import { Suspense, lazy, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
 import {
