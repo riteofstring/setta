@@ -431,7 +431,6 @@ class TestRunOverride:
                 project_manager_switcher=switcher,
                 wmh_frontend_sender=self.frontend_sender,
                 share_mode=False,
-                deployment_mode=False,
                 detached_run_manager=DetachedRunManager(self.dbe),
                 terminals=None,
             )

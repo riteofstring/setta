@@ -32,7 +32,7 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.prompt import PromptTemplate
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from tests.utils.runtime_context import runtime_context
 
 
@@ -43,7 +43,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "deployments"
+        / "share_deployments"
         / project_config_name
         / deployment_version
     )
@@ -64,12 +64,10 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -79,7 +77,7 @@ def _write_share_project(
 def _write_share_policy(root: Path, *, allow_llm: bool) -> None:
     dbe = DBE(root)
     policy = SharePolicy(allowLLM=allow_llm)
-    dbe.write_json(root / "policy.json", policy.model_dump())
+    dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
 async def _build_state(root: Path) -> SettaFastAPIState:

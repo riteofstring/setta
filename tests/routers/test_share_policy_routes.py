@@ -146,7 +146,7 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from tests.utils.runtime_context import runtime_context
 
 
@@ -157,7 +157,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "deployments"
+        / "share_deployments"
         / project_config_name
         / deployment_version
     )
@@ -178,12 +178,10 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -204,12 +202,10 @@ def _write_share_project_with_configs(
         defaultProjectConfigId=default_project_config_id,
     )
     dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=default_project_config_id,
         deploymentVersion=deployment_version,
     )
@@ -233,12 +229,10 @@ def _write_share_project_with_entry_code(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -278,12 +272,10 @@ def _write_share_project_with_section(
         sectionVariants={variant_id: variant},
     )
     dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -311,12 +303,10 @@ def _write_share_project_with_code_param(
     backend.defaultProjectConfigId = project_config.id
     dbe = DBE(root)
     dbe.write_project(backend)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -326,7 +316,7 @@ def _write_share_project_with_code_param(
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
-    dbe.write_json(root / "policy.json", policy.model_dump())
+    dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
 class TestSharePolicyRoutes:

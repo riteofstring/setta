@@ -51,24 +51,24 @@ def ensure_share_deployment_path(
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=(
-            "Deployment mode file access is restricted to the deployment "
+            "Share mode file access is restricted to the share deployment "
             "artifacts/json_sources/code paths."
         ),
     )
 
 
 def load_share_policy_from_dbe(dbe: DBE) -> SharePolicy:
-    policy_path = dbe.path / "policy.json"
+    policy_path = dbe.path / "share_policy.json"
     if not policy_path.exists():
-        raise FileNotFoundError(f"Deployment policy not found: {policy_path}")
+        return SharePolicy()
     payload = dbe.read_json(policy_path)
     if not payload:
-        raise ValueError(f"Deployment policy is empty: {policy_path}")
+        return SharePolicy()
     return SharePolicy.model_validate(payload)
 
 
 def _policy_from_state(state: "SettaFastAPIState") -> SharePolicy:
-    if state.deployment_mode:
+    if state.share_mode:
         return state.share_runtime_state.share_policy
     return SharePolicy()
 
@@ -106,14 +106,14 @@ async def _notify_and_close(
     await websocket.close(code=4403)
 
 
-async def deny_in_deployment_mode(
+async def deny_in_share_mode(
     *,
-    deployment_mode: bool,
+    share_mode: bool,
     frontend_sender: "WMHFrontendSender",
     message: str,
     share_session_id: str | None = None,
 ) -> None:
-    if not deployment_mode:
+    if not share_mode:
         return
     await _notify_and_raise(
         frontend_sender,
@@ -132,21 +132,21 @@ async def ensure_share_code_param_allowed(
         return
     await _notify_and_raise(
         frontend_sender,
-        message="Deployment mode disallows CodeParam edits.",
+        message="Share mode disallows CodeParam edits.",
         share_session_id=share_session_id,
     )
 
 
 async def enforce_share_policy(
     *,
-    deployment_mode: bool,
+    share_mode: bool,
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
     policy_flag: str,
     denied_message: str,
     share_session_id: str | None = None,
 ) -> None:
-    if not deployment_mode:
+    if not share_mode:
         return
     if not getattr(policy, policy_flag):
         await _notify_and_raise(
@@ -166,7 +166,7 @@ async def enforce_share_policy_guard(
     ctx: "RuntimeContext",
     guard: SharePolicyGuard,
 ) -> None:
-    if not ctx.deployment_mode:
+    if not ctx.share_mode:
         return
     if guard is SharePolicyGuard.param:
         await ctx.enforce_policy(
@@ -192,14 +192,14 @@ async def enforce_share_policy_guard(
 async def enforce_share_policy_ws(
     websocket: WebSocket,
     *,
-    deployment_mode: bool,
+    share_mode: bool,
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
     policy_flag: str,
     denied_message: str,
     share_session_id: str | None = None,
 ) -> bool:
-    if not deployment_mode:
+    if not share_mode:
         return True
     if not getattr(policy, policy_flag):
         await _notify_and_close(
@@ -218,61 +218,19 @@ async def ensure_share_run_allowed(
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
-        deployment_mode=state.deployment_mode,
+        share_mode=state.share_mode,
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowRun",
         denied_message="Share policy disallows run and terminal access.",
         share_session_id=share_session_id,
     )
-    if state.deployment_mode and not state.terminals:
+    if state.share_mode and not state.terminals:
         await _notify_and_raise(
             state.wmh_frontend_sender,
             message="Share run support is not enabled.",
             share_session_id=share_session_id,
         )
-
-
-async def ensure_share_download_allowed(
-    state: "SettaFastAPIState",
-    *,
-    share_session_id: str | None = None,
-) -> None:
-    await enforce_share_policy(
-        deployment_mode=state.deployment_mode,
-        policy=_policy_from_state(state),
-        frontend_sender=state.wmh_frontend_sender,
-        policy_flag="allowFileDownloads",
-        denied_message="Share policy disallows file downloads.",
-        share_session_id=share_session_id,
-    )
-
-
-async def ensure_share_multiple_runs_allowed(
-    state: "SettaFastAPIState",
-    *,
-    share_session_id: str | None = None,
-) -> bool:
-    if not state.deployment_mode:
-        return False
-    policy = _policy_from_state(state)
-    if policy.allowMultipleRuns:
-        return False
-    if share_session_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing share session id.",
-        )
-    reserved = await state.share_runtime_state.try_reserve_session_run_count(
-        share_session_id
-    )
-    if not reserved:
-        await _notify_and_raise(
-            state.wmh_frontend_sender,
-            message="Share policy allows only one run per session.",
-            share_session_id=share_session_id,
-        )
-    return True
 
 
 async def ensure_share_run_allowed_ws(
@@ -283,7 +241,7 @@ async def ensure_share_run_allowed_ws(
 ) -> bool:
     allowed = await enforce_share_policy_ws(
         websocket,
-        deployment_mode=state.deployment_mode,
+        share_mode=state.share_mode,
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowRun",
@@ -292,7 +250,7 @@ async def ensure_share_run_allowed_ws(
     )
     if not allowed:
         return False
-    if state.deployment_mode and not state.terminals:
+    if state.share_mode and not state.terminals:
         await _notify_and_close(
             state.wmh_frontend_sender,
             websocket,
@@ -313,7 +271,7 @@ async def ensure_share_param_value_allowed(
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
-        deployment_mode=True,
+        share_mode=True,
         policy=policy,
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",
@@ -334,14 +292,14 @@ async def ensure_share_llm_allowed(
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
-        deployment_mode=state.deployment_mode,
+        share_mode=state.share_mode,
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowLLM",
         denied_message="Share policy disallows LLM access.",
         share_session_id=share_session_id,
     )
-    if state.deployment_mode and state.agent_runner.disabled:
+    if state.share_mode and state.agent_runner.disabled:
         await _notify_and_raise(
             state.wmh_frontend_sender,
             message="Share LLM support is not enabled.",
@@ -351,13 +309,13 @@ async def ensure_share_llm_allowed(
 
 async def ensure_share_listener_emit_updates_allowed(
     *,
-    deployment_mode: bool,
+    share_mode: bool,
     policy: SharePolicy,
     frontend_sender: "WMHFrontendSender",
     share_session_id: str | None = None,
 ) -> None:
     await enforce_share_policy(
-        deployment_mode=deployment_mode,
+        share_mode=share_mode,
         policy=policy,
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",

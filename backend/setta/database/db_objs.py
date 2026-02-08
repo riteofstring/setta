@@ -8,7 +8,6 @@ import toml
 import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
-from pydantic import ValidationError
 
 from setta.types.id import (
     ID,
@@ -17,7 +16,7 @@ from setta.types.id import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.share_deployment import DeploymentManifest
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
@@ -50,7 +49,7 @@ class DBE:
         self.agent_run_index = self.path / "agent_run_index.json"
         self.prompts = self.path / "prompts"
         self.prompts_example = self.path / "prompts.example.json"
-        self.deployment_manifest = self.path / "manifest.json"
+        self.share_manifest = self.path / "manifest.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
@@ -172,28 +171,25 @@ class DBE:
             raise ValueError(f"Project file is empty: {self.project}")
         return ProjectStateBackend.model_validate(payload)
 
-    def read_deployment_manifest(self) -> DeploymentManifest:
-        if not self.deployment_manifest.exists():
+    def read_share_manifest(self) -> ShareDeploymentManifest:
+        if not self.share_manifest.exists():
             raise FileNotFoundError(
-                f"Deployment manifest not found: {self.deployment_manifest}"
+                f"Share deployment manifest not found: {self.share_manifest}"
             )
-        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
+        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
         if not payload:
             raise ValueError(
-                f"Deployment manifest is empty: {self.deployment_manifest}"
+                f"Share deployment manifest is empty: {self.share_manifest}"
             )
-        return DeploymentManifest.model_validate(payload)
+        return ShareDeploymentManifest.model_validate(payload)
 
-    def read_deployment_manifest_optional(self) -> DeploymentManifest | None:
-        if not self.deployment_manifest.exists():
+    def read_share_manifest_optional(self) -> ShareDeploymentManifest | None:
+        if not self.share_manifest.exists():
             return None
-        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
+        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
         if not payload:
             return None
-        try:
-            return DeploymentManifest.model_validate(payload)
-        except ValidationError:
-            return None
+        return ShareDeploymentManifest.model_validate(payload)
 
     def read_temporary_id_map(self):
         raw_map = self.read_json(self.temporary_id_map)

@@ -19,7 +19,6 @@ class ToolArgumentPreviewKind(str, Enum):
     code = "code"
     paramValue = "paramValue"
     callableName = "callableName"
-    appSpecPatch = "appSpecPatch"
 
 
 class AIFollowToolResultMetadata(BaseModel):

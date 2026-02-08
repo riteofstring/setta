@@ -257,7 +257,7 @@ class SessionProjectManager(BaseProjectManager):
             )
         )
         await ensure_share_listener_emit_updates_allowed(
-            deployment_mode=True,
+            share_mode=True,
             policy=self.share_runtime_state.share_policy,
             frontend_sender=self.share_runtime_state.frontend_sender,
             share_session_id=share_session_id,
@@ -326,7 +326,7 @@ class SessionProjectManager(BaseProjectManager):
         await self.settings_file.load_and_broadcast_settings()
 
     def _save_project_state(self) -> None:
-        self.flush_code_files_for_all_configs()
+        self._flush_code_files_for_all_configs()
         payload = self.project_state_backend.model_copy(deep=True)
         save_json_source_data(self.dbe, payload)
         remove_json_source_values(payload)
@@ -358,7 +358,7 @@ class SessionProjectManager(BaseProjectManager):
         self.dbe.write(output_path, yaml_payload)
 
     def _save_settings_project(self) -> None:
-        self.flush_code_files_for_all_configs()
+        self._flush_code_files_for_all_configs()
         default_id = self.project_state_backend.defaultProjectConfigId
         if not default_id:
             raise ValueError("Missing default project config id")

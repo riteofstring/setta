@@ -1,16 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-
 import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const PROJECT_URL =
-  process.env.SETTA_PROJECT_URL ??
-  (process.env.SETTA_PROJECT_PATH
-    ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
-    : BASE_URL);
 
 const PROMPT_SECTION_BASE_NAME = "__pw_prompt__";
 
