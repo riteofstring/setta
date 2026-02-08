@@ -3,7 +3,6 @@ import importlib.metadata
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
@@ -47,24 +46,10 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
     return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
 
 
-attach_tool_access(
-    getTerminalOutput,
-    ToolAccessMetadata(
-        accessType="read",
-        idPathsByType={"section": ["sectionId"]},
-    ),
-)
-
-
 @setta_init_tool
 def getProjectConfigNamesAndIds(ctx: Context):
     """
-    Return metadata for every known project config.
-
-    Note: this tool is still subject to agentic scope enforcement when called over
-    MCP transports. If you need an initial projectConfigId, use the HTTP metadata
-    discovery endpoint instead (for example `/loadAllProjectMetadata`) and then
-    set agentic context for MCP calls.
+    Return metadata for every known project config so external agents can pick one.
     """
     manager = ctx.fastmcp.state.project_manager_switcher.main
     _, metadata = manager.get_all_project_metadata()

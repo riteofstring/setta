@@ -36,8 +36,6 @@ class AgentProfile(BaseModel, extra="forbid"):
     name: str
     description: str = ""
     systemPrompt: str = ""
-    enableBackgroundSummaryFill: bool = True
-    enableLlmChatTitles: bool = True
     engineConfigId: ID | None = None
     toolAllowlist: list[str] = Field(default_factory=list)
     memoryScope: str | None = None

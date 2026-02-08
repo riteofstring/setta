@@ -5,14 +5,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
 
 from setta.logging.tasks import spawn_background_task
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
 )
-from setta.utils.utils import ensure_str_path, normalize_path
+from setta.utils.paths import workspace_relative_path
+from setta.utils.utils import ensure_str_path
+from setta.utils.watchdog_observer import build_watchdog_observer
 
 if TYPE_CHECKING:
     from watchdog.observers.api import ObservedWatch
@@ -34,7 +35,7 @@ class MockFileEvent:
 
 class SpecificFileWatcher:
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
-        self.observer = Observer()
+        self.observer = build_watchdog_observer()
         self.observer.daemon = True
         self.watched_dirs: dict[Path, "ObservedWatch"] = {}
         self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
@@ -255,17 +256,17 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         # Get absolute path
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
-        rel_path = normalize_path(abs_path)
+        rel_path = workspace_relative_path(abs_path)
 
         # For moved events, get the content of the destination file
         dest_abs_path = None
         dest_rel_path = None
         if event_type == FileEventType.moved and hasattr(event, "dest_path"):
             dest_abs_path = Path(ensure_str_path(event.dest_path)).resolve()
-            dest_rel_path = normalize_path(dest_abs_path)
+            dest_rel_path = workspace_relative_path(dest_abs_path)
 
         handlers: list[FileWatcherCallback] = []
-        file_to_read = dest_rel_path if dest_rel_path else rel_path
+        file_to_read = dest_abs_path if dest_abs_path else abs_path
         for callbacks in self.callbacks.values():
             c = callbacks.get(file_to_read)
             if c:
@@ -286,7 +287,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         loop.call_soon_threadsafe(
             lambda: spawn_background_task(
-                self.call_handlers(handlers, core_update),
+                lambda: self.call_handlers(handlers, core_update),
                 loop=loop,
                 label="specific-file-watcher-dispatch",
                 extra_values={

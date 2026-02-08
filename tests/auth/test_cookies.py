@@ -13,7 +13,12 @@ def app() -> FastAPI:
     @app.get("/set-cookie")
     async def set_cookie(request: Request):
         response = JSONResponse({"ok": True})
-        set_auth_cookie(response, "token-value", request=request)
+        set_auth_cookie(
+            response,
+            "token-value",
+            session_id="test-session",
+            request=request,
+        )
         return response
 
     return app
