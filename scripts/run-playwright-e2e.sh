@@ -118,13 +118,6 @@ fi
 mkdir -p "${SETTA_WORKSPACE_ROOT}"
 export SETTA_WORKSPACE_ROOT
 export SETTA_DEV_FRONTEND_HOST
-SETTA_HOME="${SETTA_HOME:-}"
-TEMP_SETTA_HOME=""
-if [[ -z "${SETTA_HOME}" ]]; then
-  TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-  SETTA_HOME="${TEMP_SETTA_HOME}"
-fi
-export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
 LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(date +%Y%m%d-%H%M%S)}"
@@ -188,10 +181,6 @@ cleanup() {
   if [[ -n "${TEMP_WORKSPACE_ROOT}" ]] && [[ -d "${TEMP_WORKSPACE_ROOT}" ]]; then
     log "Removing temp workspace ${TEMP_WORKSPACE_ROOT}."
     rm -rf "${TEMP_WORKSPACE_ROOT}"
-  fi
-  if [[ -n "${TEMP_SETTA_HOME}" ]] && [[ -d "${TEMP_SETTA_HOME}" ]]; then
-    log "Removing temp SETTA_HOME ${TEMP_SETTA_HOME}."
-    rm -rf "${TEMP_SETTA_HOME}"
   fi
   exit "${exit_code}"
 }
