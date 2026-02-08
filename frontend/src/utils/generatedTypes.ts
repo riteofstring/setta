@@ -398,6 +398,7 @@ export const RouteEnum = {
   LOAD_SETTINGS: "/loadSettings",
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
+  LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
   TERMINAL: "/{projectConfigId}/{sectionId}/{id}",
@@ -4170,8 +4171,6 @@ const SettingsGUISchema = z.object({
   gridPatternSize: z.int().default(2),
   gridColor: z.string().default("#afbacf" as const),
   gridColorDarkMode: z.string().default("#2b364a" as const),
-  wireColor: z.string().default("#41506c" as const),
-  wireColorDarkMode: z.string().default("#bac2d3" as const),
   defaultZoomLevel: z.number().default(1.0),
   minZoom: z.number().default(0.1),
   maxZoom: z.number().default(10.0),
@@ -6932,6 +6931,47 @@ export type DocstringToMarkdownRequestInput = z.input<
   typeof DocstringToMarkdownRequestSchema
 >;
 
+const LaunchErrorPayloadSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+});
+
+const LaunchRequestSchema = z.object({
+  workspaceRoot: z.union([z.string(), z.null()]).default(null),
+  filesRoot: z.union([z.string(), z.null()]).default(null),
+  filesRootBase: z.union([z.string(), z.null()]).default(null),
+  sshTarget: z.union([z.string(), z.null()]).default(null),
+  sshArgs: z.union([z.string(), z.null()]).default(null),
+  remoteCmd: z.union([z.string(), z.null()]).default(null),
+  localPort: z.union([z.int(), z.null()]).default(null),
+});
+
+export type LaunchRequestInput = z.input<typeof LaunchRequestSchema>;
+
+const LaunchSessionInfoSchema = z.object({
+  id: z.string(),
+  workspacePath: z.string(),
+  workspacePathCanonical: z.string(),
+  host: z.string(),
+  port: z.int(),
+  pid: z.int(),
+  startedAt: z.string(),
+});
+
+const LaunchResponseSchema = z.object({
+  ok: z.boolean(),
+  bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
+  workspaceRoot: z.union([z.string(), z.null()]).default(null),
+  filesRoot: z.union([z.string(), z.null()]).default(null),
+  sessionId: z.union([z.string(), z.null()]).default(null),
+  startedNew: z.union([z.boolean(), z.null()]).default(null),
+  session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
+  remoteCmdResolved: z.union([z.string(), z.null()]).default(null),
+  error: z.union([LaunchErrorPayloadSchema, z.null()]).default(null),
+});
+
+export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
+
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
@@ -8520,7 +8560,6 @@ const BackendInitStatusResponseSchema = z.object({
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
-  worktreeName: z.union([z.string(), z.null()]),
 });
 
 export type BackendInitStatusResponse = z.infer<

@@ -4,12 +4,12 @@ from datetime import datetime
 from pathlib import Path
 
 from setta.utils.constants import C
+from setta.utils.paths import normalize_state_path
 from setta.utils.timestamps import (
     filename_to_datetime,
     get_now_timestamp,
     timestamp_to_filename,
 )
-from setta.utils.utils import normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,6 @@ def should_create_backup(
 def maybe_create_backup(
     db_path: Path, autobackup: bool, autobackupFreq: int, autobackupKeepLastN: int
 ):
-    backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
+    backup_dir = normalize_state_path(C.DB_BACKUP_FOLDER)
     if should_create_backup(autobackup, autobackupFreq, backup_dir):
         create_backup(db_path, autobackupKeepLastN, backup_dir)
