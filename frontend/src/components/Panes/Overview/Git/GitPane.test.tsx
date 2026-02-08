@@ -42,7 +42,7 @@ describe("GitPane", () => {
           entries: [],
           isTruncated: true,
         },
-        diffAvailabilityByPath: {},
+        diffAvailabilityByPath: new Map(),
         isLoading: false,
         error: null,
       },

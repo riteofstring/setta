@@ -40,6 +40,7 @@ _MAX_LOG_PAGE_SIZE = 500
 
 _RECORD_SEP = "\x1e"
 _FIELD_SEP = "\x1f"
+_DECORATION_SEP = "\x1d"
 
 _PATH_CHECK_TIMEOUT_S = 1.5
 
@@ -494,12 +495,26 @@ def route_get_git_status(
 
     entries = _parse_porcelain_status(status_output)
     head_branch = _parse_porcelain_head_branch(status_output)
+    head_commit = None
+    head_commit_res = run_git(
+        ["rev-parse", "--verify", "--short", "HEAD"],
+        cwd=repo_root,
+        timeout_s=1.5,
+        max_stdout_bytes=256,
+        max_stderr_bytes=4096,
+    )
+    if (
+        not head_commit_res.timed_out
+        and head_commit_res.returncode == 0
+        and head_commit_res.stdout.strip()
+    ):
+        head_commit = head_commit_res.stdout.strip()
     return GetGitStatusResponse(
         repo=GitRepoInfoResponse(
             isGitRepo=True,
             repoRoot=str(repo_root),
             headBranch=head_branch,
-            headCommit=None,
+            headCommit=head_commit,
         ),
         entries=entries,
         isTruncated=result.stdout_truncated,
@@ -783,7 +798,11 @@ def route_get_git_log(
                 isCapped=False,
             )
 
-    fmt = f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}%at{_FIELD_SEP}%s{_FIELD_SEP}%D{_RECORD_SEP}"
+    fmt = (
+        f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}"
+        f"%at{_FIELD_SEP}%s{_FIELD_SEP}"
+        f"%(decorate:prefix=,suffix=,separator=%x1d){_RECORD_SEP}"
+    )
 
     args = [
         "log",
@@ -850,7 +869,7 @@ def route_get_git_log(
             author_time_ms = 0
         decorations: list[str] = []
         if decorations_raw.strip():
-            for item in decorations_raw.split(","):
+            for item in decorations_raw.split(_DECORATION_SEP):
                 dec = item.strip()
                 if dec:
                     decorations.append(dec)

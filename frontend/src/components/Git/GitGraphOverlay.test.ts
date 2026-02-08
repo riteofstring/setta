@@ -48,6 +48,33 @@ describe("buildGitGraphRowHeightCacheKey", () => {
 
     expect(branchKey).not.toBe(allRefsKey);
   });
+
+  it("changes when interior commits change with identical length and edge hashes", () => {
+    const firstKey = buildGitGraphRowHeightCacheKey({
+      commits: [
+        commit("a1"),
+        commit("b2"),
+        commit("c3"),
+        commit("d4"),
+        commit("e5"),
+      ],
+      allRefs: false,
+      filterText: "",
+    });
+    const secondKey = buildGitGraphRowHeightCacheKey({
+      commits: [
+        commit("a1"),
+        commit("x9"),
+        commit("c3"),
+        commit("y8"),
+        commit("e5"),
+      ],
+      allRefs: false,
+      filterText: "",
+    });
+
+    expect(firstKey).not.toBe(secondKey);
+  });
 });
 
 describe("buildGitCommitLookupByHash", () => {

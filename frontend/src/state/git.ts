@@ -24,6 +24,7 @@ type GitDiffOverlayState = {
 type GitGraphOverlayState = {
   allRefs: boolean;
   response: GetGitLogResponse | null;
+  seenCommitHashes: Set<string>;
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
   filterText: string;
@@ -52,10 +53,7 @@ type GitOverlayState =
 
 type GitStatusState = {
   response: GetGitStatusResponse | null;
-  diffAvailabilityByPath: Record<
-    string,
-    { hasStaged: boolean; hasUnstaged: boolean }
-  >;
+  diffAvailabilityByPath: Map<string, { hasStaged: boolean; hasUnstaged: boolean }>;
   isLoading: boolean;
   error: string | null;
 };
@@ -69,7 +67,7 @@ export const useGitStore = createWithEqualityFn(
   withResetFn<GitState>(() => ({
     status: {
       response: null,
-      diffAvailabilityByPath: {},
+      diffAvailabilityByPath: new Map(),
       isLoading: false,
       error: null,
     },

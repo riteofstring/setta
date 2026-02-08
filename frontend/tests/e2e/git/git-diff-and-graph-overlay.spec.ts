@@ -666,6 +666,81 @@ test("git graph can open a historical file diff when the current workspace path 
   }
 });
 
+test("git graph clears selected commit diff when selected commit disappears after ref toggle", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
+  const fixtureRoot = repo.fixtureRoot;
+
+  try {
+    const initPath = path.join(fixtureRoot, "init.txt");
+    const initRepoPath = toRepoRelativePath(workspaceRoot, initPath);
+    await fs.writeFile(initPath, "init\n", "utf8");
+    runGit(workspaceRoot, ["add", initRepoPath]);
+    runGit(workspaceRoot, ["commit", "-m", "init"]);
+
+    const branchOnlyPath = path.join(fixtureRoot, "branch-only.txt");
+    const branchOnlyRepoPath = toRepoRelativePath(workspaceRoot, branchOnlyPath);
+    await fs.writeFile(branchOnlyPath, "main branch\n", "utf8");
+    runGit(workspaceRoot, ["add", branchOnlyRepoPath]);
+    runGit(workspaceRoot, ["commit", "-m", "main-branch-commit"]);
+
+    const primaryBranch = runGit(workspaceRoot, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]).trim();
+    runGit(workspaceRoot, ["checkout", "-b", "side-branch"]);
+    const sideOnlyPath = path.join(fixtureRoot, "side-only.txt");
+    const sideOnlyRepoPath = toRepoRelativePath(workspaceRoot, sideOnlyPath);
+    await fs.writeFile(sideOnlyPath, "side branch\n", "utf8");
+    runGit(workspaceRoot, ["add", sideOnlyRepoPath]);
+    runGit(workspaceRoot, ["commit", "-m", "side-only-commit"]);
+    runGit(workspaceRoot, ["checkout", primaryBranch]);
+
+    await openGitOverview(page);
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+
+    await graphOverlay.getByRole("button", { name: "Show all refs" }).click();
+    await expect(
+      graphOverlay.getByRole("button", { name: "Show current branch only" }),
+    ).toBeVisible();
+
+    await graphFilter.fill("side-only-commit");
+    const sideCommit = graphOverlay.getByRole("button", {
+      name: /side-only-commit/,
+    });
+    await expect(sideCommit).toBeVisible();
+    await sideCommit.click();
+
+    const filesList = graphOverlay.getByTestId("git-graph-files-list");
+    await expect(filesList).toBeVisible();
+    await filesList.getByRole("button", { name: /side-only\.txt/ }).click();
+    const diffContent = graphOverlay.locator(".cm-content");
+    await expect(diffContent).toContainText(
+      `diff --git a/${sideOnlyRepoPath} b/${sideOnlyRepoPath}`,
+    );
+
+    await graphOverlay
+      .getByRole("button", { name: "Show current branch only" })
+      .click();
+    await expect(
+      graphOverlay.getByRole("button", { name: "Show all refs" }),
+    ).toBeVisible();
+    await expect(
+      graphOverlay.getByText("Select a commit to view details.").first(),
+    ).toBeVisible();
+    await expect(graphOverlay.locator(".cm-content")).toHaveCount(0);
+  } finally {
+    await fs.rm(repo.fixtureRoot, { recursive: true, force: true });
+    await fs.rm(repo.gitDir, { recursive: true, force: true });
+  }
+});
+
 test("git graph drag listeners are cleaned up when the overlay closes mid-drag", async ({
   page,
 }) => {
@@ -816,7 +891,7 @@ test("git graph paginates, filters, and loads commit file diffs", async ({
       graphOverlay.getByRole("button", { name: "Show all refs" }),
     ).toBeVisible();
     await expect(
-      graphOverlay.getByText("Select a commit to view details."),
+      graphOverlay.getByText("Select a commit to view details.").first(),
     ).toBeVisible();
     await expect(
       graphOverlay.getByRole("button", { name: /history-259/ }),
@@ -926,7 +1001,7 @@ test("git graph paginates, filters, and loads commit file diffs", async ({
     await addTrackedCommit.click();
     await expect(graphOverlay.getByText("Files changed")).toHaveCount(0);
     await expect(
-      graphOverlay.getByText("Select a commit to view details."),
+      graphOverlay.getByText("Select a commit to view details.").first(),
     ).toBeVisible();
 
     await page.keyboard.press("Escape");

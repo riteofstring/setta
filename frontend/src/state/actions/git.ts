@@ -24,13 +24,13 @@ const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
 
 export function buildGitDiffAvailabilityByPath(
   entries: readonly GitStatusEntry[],
-): Record<string, { hasStaged: boolean; hasUnstaged: boolean }> {
-  const availabilityByPath: Record<
+): Map<string, { hasStaged: boolean; hasUnstaged: boolean }> {
+  const availabilityByPath = new Map<
     string,
     { hasStaged: boolean; hasUnstaged: boolean }
-  > = {};
+  >();
   for (const entry of entries) {
-    const existing = availabilityByPath[entry.path];
+    const existing = availabilityByPath.get(entry.path);
     if (existing) {
       if (entry.kind === "staged") {
         existing.hasStaged = true;
@@ -43,13 +43,13 @@ export function buildGitDiffAvailabilityByPath(
       }
       continue;
     }
-    availabilityByPath[entry.path] = {
+    availabilityByPath.set(entry.path, {
       hasStaged: entry.kind === "staged",
       hasUnstaged:
         entry.kind === "unstaged" ||
         entry.kind === "untracked" ||
         entry.kind === "conflict",
-    };
+    });
   }
   return availabilityByPath;
 }
@@ -64,6 +64,7 @@ function createInitialGitGraphOverlayState({
   return {
     allRefs,
     response: null,
+    seenCommitHashes: new Set<string>(),
     rows: [],
     rowComputationState: createEmptyGitGraphRowComputationState(),
     filterText,
@@ -122,8 +123,7 @@ export async function refreshGitStatus(): Promise<void> {
 }
 
 function computeDiffAvailability(path: string) {
-  const availability =
-    useGitStore.getState().status.diffAvailabilityByPath[path];
+  const availability = useGitStore.getState().status.diffAvailabilityByPath.get(path);
   if (!availability) {
     return { hasStaged: false, hasUnstaged: false };
   }
@@ -337,11 +337,15 @@ async function refreshGitGraph({
   if (res200(res)) {
     const responseData = res.data;
     const commits = responseData.commits;
+    const seenCommitHashes = new Set(commits.map((commit) => commit.hash));
     const { rows, rowComputationState } = computeGitGraphRowsWithState(commits);
     useGitStore.setState((state) => {
       if (state.overlay.kind !== "graph") {
         return state;
       }
+      const selectedCommitHash = state.overlay.graph.selectedCommitHash;
+      const shouldClearSelection =
+        selectedCommitHash !== null && !seenCommitHashes.has(selectedCommitHash);
       return {
         ...state,
         overlay: {
@@ -350,6 +354,7 @@ async function refreshGitGraph({
             ...state.overlay.graph,
             allRefs,
             response: responseData,
+            seenCommitHashes,
             rows,
             rowComputationState,
             isLoading: false,
@@ -359,6 +364,18 @@ async function refreshGitGraph({
             nextOffset: responseData.nextOffset,
             pageSize: responseData.pageSize,
             isCapped: responseData.isCapped,
+            ...(shouldClearSelection
+              ? {
+                  selectedCommitHash: null,
+                  selectedCommitDetails: null,
+                  selectedCommitDetailsIsLoading: false,
+                  selectedCommitDetailsError: null,
+                  selectedCommitFilePath: null,
+                  selectedCommitFileDiffResponse: null,
+                  selectedCommitFileDiffIsLoading: false,
+                  selectedCommitFileDiffError: null,
+                }
+              : {}),
           },
         },
       };
@@ -451,6 +468,9 @@ export async function loadMoreGitGraphCommits({
       }
       const existingResponse = state.overlay.graph.response;
       if (!existingResponse) {
+        const initialSeenCommitHashes = new Set(
+          nextPage.commits.map((commit) => commit.hash),
+        );
         const initialRows = computeGitGraphRowsWithState(nextPage.commits);
         return {
           ...state,
@@ -459,6 +479,7 @@ export async function loadMoreGitGraphCommits({
             graph: {
               ...state.overlay.graph,
               response: nextPage,
+              seenCommitHashes: initialSeenCommitHashes,
               rows: initialRows.rows,
               rowComputationState: initialRows.rowComputationState,
               isLoadingMore: false,
@@ -472,12 +493,15 @@ export async function loadMoreGitGraphCommits({
         };
       }
 
-      const seenHashes = new Set(
-        existingResponse.commits.map((commit) => commit.hash),
-      );
-      const appendedCommits = nextPage.commits.filter(
-        (commit) => !seenHashes.has(commit.hash),
-      );
+      const nextSeenCommitHashes = new Set(state.overlay.graph.seenCommitHashes);
+      const appendedCommits: typeof nextPage.commits = [];
+      for (const commit of nextPage.commits) {
+        if (nextSeenCommitHashes.has(commit.hash)) {
+          continue;
+        }
+        nextSeenCommitHashes.add(commit.hash);
+        appendedCommits.push(commit);
+      }
       const mergedCommits = existingResponse.commits.concat(appendedCommits);
       let appendedRows: typeof state.overlay.graph.rows = [];
       let nextRowComputationState = state.overlay.graph.rowComputationState;
@@ -506,6 +530,7 @@ export async function loadMoreGitGraphCommits({
           graph: {
             ...state.overlay.graph,
             response: mergedResponse,
+            seenCommitHashes: nextSeenCommitHashes,
             rows: state.overlay.graph.rows.concat(appendedRows),
             rowComputationState: nextRowComputationState,
             isLoadingMore: false,

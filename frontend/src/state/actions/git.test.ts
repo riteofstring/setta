@@ -91,6 +91,7 @@ function setGraphOverlayState({
       graph: {
         allRefs: true,
         response,
+        seenCommitHashes: new Set(response.commits.map((commit) => commit.hash)),
         rows: rowResult.rows,
         rowComputationState: rowResult.rowComputationState,
         filterText,
@@ -211,6 +212,11 @@ describe("git graph actions", () => {
     ]);
     const expectedRows = computeGitGraphRowsWithState([c3, c2, c1]).rows;
     expect(overlay.graph.rows).toEqual(expectedRows);
+    expect(Array.from(overlay.graph.seenCommitHashes).sort()).toEqual([
+      "c1",
+      "c2",
+      "c3",
+    ]);
     expect(overlay.graph.isLoadingMore).toBe(false);
     expect(overlay.graph.hasMore).toBe(false);
     expect(overlay.graph.nextOffset).toBeNull();
@@ -430,11 +436,39 @@ describe("git graph actions", () => {
       },
     ]);
 
-    expect(availabilityByPath["tracked.py"]).toEqual({
+    expect(availabilityByPath.get("tracked.py")).toEqual({
       hasStaged: true,
       hasUnstaged: true,
     });
-    expect(availabilityByPath["new.py"]).toEqual({
+    expect(availabilityByPath.get("new.py")).toEqual({
+      hasStaged: false,
+      hasUnstaged: true,
+    });
+  });
+
+  it("treats prototype-like file names as normal keys in diff availability map", () => {
+    const availabilityByPath = buildGitDiffAvailabilityByPath([
+      {
+        path: "toString",
+        oldPath: undefined,
+        indexStatus: "M",
+        worktreeStatus: " ",
+        kind: "staged",
+      },
+      {
+        path: "__proto__",
+        oldPath: undefined,
+        indexStatus: " ",
+        worktreeStatus: "M",
+        kind: "unstaged",
+      },
+    ]);
+
+    expect(availabilityByPath.get("toString")).toEqual({
+      hasStaged: true,
+      hasUnstaged: false,
+    });
+    expect(availabilityByPath.get("__proto__")).toEqual({
       hasStaged: false,
       hasUnstaged: true,
     });
@@ -460,7 +494,7 @@ describe("git graph actions", () => {
 
     const status = useGitStore.getState().status;
     expect(status.response?.entries).toHaveLength(1);
-    expect(status.diffAvailabilityByPath["tracked.py"]).toEqual({
+    expect(status.diffAvailabilityByPath.get("tracked.py")).toEqual({
       hasStaged: true,
       hasUnstaged: false,
     });
@@ -783,6 +817,99 @@ describe("git graph actions", () => {
 
     expect(setStateSpy).toHaveBeenCalledTimes(2);
     setStateSpy.mockRestore();
+  });
+
+  it("clears selected commit state when refresh removes the selected commit", async () => {
+    const commitA = commit("a1b2c3", []);
+    const commitB = commit("b4c5d6", ["a1b2c3"]);
+    setGraphOverlayState({
+      response: createLogResponse({
+        commits: [commitB, commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+    useGitStore.setState((state) => {
+      if (state.overlay.kind !== "graph") {
+        return state;
+      }
+      return {
+        ...state,
+        overlay: {
+          kind: "graph",
+          graph: {
+            ...state.overlay.graph,
+            selectedCommitHash: "b4c5d6",
+            selectedCommitDetails: createGetGitCommitDetailsResponse({
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              parents: ["a1b2c3"],
+              authorName: "B",
+              authorEmail: "b@example.com",
+              authorTimeMs: 2,
+              committerName: "B",
+              committerEmail: "b@example.com",
+              committerTimeMs: 2,
+              subject: "B",
+              body: "",
+              isTruncated: false,
+              files: [
+                {
+                  path: "b.txt",
+                  oldPath: null,
+                  status: "M",
+                  additions: 1,
+                  deletions: 1,
+                },
+              ],
+            }),
+            selectedCommitDetailsIsLoading: false,
+            selectedCommitDetailsError: null,
+            selectedCommitFilePath: "b.txt",
+            selectedCommitFileDiffResponse: {
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              path: "b.txt",
+              diff: "stale",
+              isTruncated: false,
+            },
+            selectedCommitFileDiffIsLoading: false,
+            selectedCommitFileDiffError: null,
+          },
+        },
+      };
+    });
+    vi.mocked(route_get_git_log).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createLogResponse({
+        commits: [commitA],
+        offset: 0,
+        pageSize: 250,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    await refreshGitGraphOverlay();
+
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.selectedCommitDetails).toBeNull();
+    expect(overlay.graph.selectedCommitDetailsIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitDetailsError).toBeNull();
+    expect(overlay.graph.selectedCommitFilePath).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitFileDiffError).toBeNull();
   });
 
   it("keeps last successful git graph rows when refresh fails", async () => {

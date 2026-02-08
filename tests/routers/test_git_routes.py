@@ -431,6 +431,15 @@ class TestGitRoutes:
                     stderr_truncated=False,
                     timed_out=False,
                 )
+            if args == ["rev-parse", "--verify", "--short", "HEAD"]:
+                return GitCommandOutput(
+                    returncode=128,
+                    stdout="",
+                    stderr="fatal: Needed a single revision",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
             raise AssertionError(f"unexpected git command: {args}")
 
         monkeypatch.setattr(git_router, "run_git", fake_run_git)
@@ -444,10 +453,10 @@ class TestGitRoutes:
         paths = sorted(entry.path for entry in status_res.entries)
         assert paths == ["complete.txt", "tracked.txt"]
 
-    async def test_status_route_does_not_run_rev_parse_for_repo_info(
+    async def test_status_route_runs_rev_parse_for_head_commit(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Status route should rely on porcelain branch metadata, not rev-parse.
+        # Status should rely on porcelain branch metadata and fetch HEAD hash once.
         original_run_git = git_router.run_git
         captured_args: list[list[str]] = []
 
@@ -474,8 +483,18 @@ class TestGitRoutes:
             status_res = route_get_git_status(ctx)
 
         assert status_res.repo.isGitRepo is True
-        assert any(args and args[0] == "status" and "--branch" in args for args in captured_args)
-        assert not any(args and args[0] == "rev-parse" for args in captured_args)
+        expected_head_commit = _run_git(
+            self._workspace_root, ["rev-parse", "--verify", "--short", "HEAD"]
+        ).strip()
+        assert status_res.repo.headCommit == expected_head_commit
+        assert any(
+            args and args[0] == "status" and "--branch" in args
+            for args in captured_args
+        )
+        assert any(
+            args == ["rev-parse", "--verify", "--short", "HEAD"]
+            for args in captured_args
+        )
 
     async def test_log_rejects_option_like_revision(self) -> None:
         state = await self._build_state()
@@ -583,6 +602,23 @@ class TestGitRoutes:
         assert file_diff.commitHash == head
         assert file_diff.path == "tracked.txt"
         assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
+
+    async def test_log_preserves_decorations_with_commas_in_ref_names(self) -> None:
+        _run_git(self._workspace_root, ["branch", "feature,comma"])
+        _run_git(self._workspace_root, ["tag", "release,1"])
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            log = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=20, offset=0, allRefs=True),
+                ctx,
+            )
+
+        head_commit = next((commit for commit in log.commits if commit.hash == head), None)
+        assert head_commit is not None
+        assert "feature,comma" in head_commit.decorations
+        assert "tag: release,1" in head_commit.decorations
 
     async def test_commit_file_diff_treats_special_characters_as_literal_pathspecs(
         self,

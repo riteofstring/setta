@@ -204,6 +204,11 @@ type DecorationChip = {
   kind: DecorationKind;
 };
 
+type DecorationChipSummary = {
+  chips: DecorationChip[];
+  extraChipCount: number;
+};
+
 const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
   head: 0,
   branch: 1,
@@ -246,6 +251,33 @@ function parseDecorationChip(raw: string): DecorationChip | null {
   return { label: text, kind: "branch" };
 }
 
+function summarizeDecorationChips(
+  decorations: readonly string[],
+): DecorationChipSummary {
+  const allChips = decorations
+    .map(parseDecorationChip)
+    .filter((chip): chip is DecorationChip => chip !== null)
+    .sort(
+      (a, b) =>
+        DECORATION_KIND_PRIORITY[a.kind] - DECORATION_KIND_PRIORITY[b.kind],
+    );
+  const chips = allChips.slice(0, MAX_ROW_DECORATIONS);
+  return {
+    chips,
+    extraChipCount: Math.max(0, allChips.length - chips.length),
+  };
+}
+
+function buildDecorationChipSummaryByHash(
+  commits: readonly GitCommit[],
+): Map<string, DecorationChipSummary> {
+  const chipSummaryByHash = new Map<string, DecorationChipSummary>();
+  for (const commit of commits) {
+    chipSummaryByHash.set(commit.hash, summarizeDecorationChips(commit.decorations));
+  }
+  return chipSummaryByHash;
+}
+
 export function buildGitCommitLookupByHash(
   commits: readonly GitCommit[],
 ): Map<string, GitCommit> {
@@ -270,10 +302,16 @@ export function buildGitGraphRowHeightCacheKey({
   if (commits.length === 0) {
     return `0:${refMode}:${normalizedFilter}`;
   }
-  const firstHash = commits[0]?.hash ?? "";
-  const middleHash = commits[Math.floor(commits.length / 2)]?.hash ?? "";
-  const lastHash = commits[commits.length - 1]?.hash ?? "";
-  return `${commits.length}:${refMode}:${firstHash}:${middleHash}:${lastHash}:${normalizedFilter}`;
+  let digest = 2166136261;
+  for (const commit of commits) {
+    for (let idx = 0; idx < commit.hash.length; idx += 1) {
+      digest ^= commit.hash.charCodeAt(idx);
+      digest = Math.imul(digest, 16777619) >>> 0;
+    }
+    digest ^= 124;
+    digest = Math.imul(digest, 16777619) >>> 0;
+  }
+  return `${commits.length}:${refMode}:${digest.toString(16)}:${normalizedFilter}`;
 }
 
 export function GitGraphOverlay() {
@@ -444,6 +482,9 @@ export function GitGraphOverlay() {
       return false;
     });
   }, [rows, filterText]);
+  const decorationChipSummaryByHash = useMemo(() => {
+    return buildDecorationChipSummaryByHash(commits);
+  }, [commits]);
 
   const maxLaneCount = useMemo(() => {
     return rows.reduce(
@@ -469,8 +510,10 @@ export function GitGraphOverlay() {
       graphViewBoxWidth,
       laneWidth,
       dynamicRowHeight,
+      decorationChipSummaryByHash,
     }),
     [
+      decorationChipSummaryByHash,
       darkMode,
       dynamicRowHeight,
       filteredRows,
@@ -1139,13 +1182,13 @@ export function GitGraphOverlay() {
             )}
           </div>
 
-          {graphState.selectedCommitFileDiffResponse?.isTruncated && (
+          {selectedCommit && graphState.selectedCommitFileDiffResponse?.isTruncated && (
             <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
               Diff output truncated for performance.
             </div>
           )}
 
-          {graphState.selectedCommitDetails?.isTruncated && (
+          {selectedCommit && graphState.selectedCommitDetails?.isTruncated && (
             <div
               data-testid="git-graph-commit-details-truncated-warning"
               className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
@@ -1155,14 +1198,18 @@ export function GitGraphOverlay() {
             </div>
           )}
 
-          {graphState.selectedCommitFileDiffError && (
+          {selectedCommit && graphState.selectedCommitFileDiffError && (
             <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
               {graphState.selectedCommitFileDiffError}
             </div>
           )}
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            {graphState.selectedCommitFileDiffIsLoading ? (
+            {!selectedCommit ? (
+              <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
+                Select a commit to view details.
+              </div>
+            ) : graphState.selectedCommitFileDiffIsLoading ? (
               <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
                 Loading file diff…
               </div>
@@ -1195,6 +1242,7 @@ type GitCommitRowProps = {
   graphViewBoxWidth: number;
   laneWidth: number;
   dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
+  decorationChipSummaryByHash: Map<string, DecorationChipSummary>;
 };
 
 function GitCommitRow({
@@ -1207,6 +1255,7 @@ function GitCommitRow({
   graphViewBoxWidth,
   laneWidth,
   dynamicRowHeight,
+  decorationChipSummaryByHash,
 }: GitCommitRowProps) {
   const row = rows[index];
   if (!row) {
@@ -1233,15 +1282,11 @@ function GitCommitRow({
   const commitColorId = clampNonNegative(rawCommitColorId);
   const commitColor = laneColorForId(commitColorId, palette, darkMode);
 
-  const allChips = commit.decorations
-    .map(parseDecorationChip)
-    .filter((chip): chip is DecorationChip => chip !== null)
-    .sort(
-      (a, b) =>
-        DECORATION_KIND_PRIORITY[a.kind] - DECORATION_KIND_PRIORITY[b.kind],
-    );
-  const chips = allChips.slice(0, MAX_ROW_DECORATIONS);
-  const extraChipCount = Math.max(0, allChips.length - chips.length);
+  const decorationSummary =
+    decorationChipSummaryByHash.get(commit.hash) ??
+    summarizeDecorationChips(commit.decorations);
+  const chips = decorationSummary.chips;
+  const extraChipCount = decorationSummary.extraChipCount;
 
   const background = isSelected
     ? "bg-blue-50 dark:bg-blue-950/40"
