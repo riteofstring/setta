@@ -250,8 +250,7 @@ Use a Python-ecosystem-friendly ID policy while keeping source identity explicit
 - Global uniqueness is not guaranteed without a central registry, so the host should track a canonical source key in plugin status/state:
   - `pypi:setta-rust-tools`
   - `github:acme/SettaRustTools`
-  - `gitlab:team/setta-rust-tools`
-- For GitHub or generic git installs, derive the plugin id from `pyproject.toml` `[project].name` when available; fallback to a source-derived id like `gh.acme.setta-rust-tools` when metadata is missing.
+- For GitHub installs, derive the plugin id from `pyproject.toml` `[project].name` when available; fallback to a source-derived id like `gh.acme.setta-rust-tools` when metadata is missing.
 - Status/installer output should include both `id` (human-facing plugin identity) and canonical source key (provenance identity).
 
 ## Plugin Authoring SDK and Templates (normative MVP)
@@ -471,7 +470,6 @@ Lock write contracts in MVP so frontend, CLI, and MCP integrations all call the 
 - source spec formats:
   - `github:<owner>/<repo>[#ref]`
   - `pypi:<package>[==version]`
-  - `path:<local-path>` (dev/test-only backdoor, not exposed in end-user UI)
 - unsupported schemes fail with `PLUGIN_SOURCE_SCHEME_UNSUPPORTED`.
 - response: `{ pluginId, version, sourceScope, sourceScopeLabel, sourcePath, canonicalSourceKey, sourceDigestSha256, components, state, restartRequired }`
 
@@ -480,6 +478,20 @@ Lock write contracts in MVP so frontend, CLI, and MCP integrations all call the 
 - request: `{ pluginId: string, scope?: "workspace" | "setta_files" | "environment" | "global" }`
 - if `scope` is omitted and the plugin exists in multiple scopes, return `PLUGIN_UNINSTALL_SCOPE_REQUIRED`.
 - response: `{ pluginId, removedFromScope, restartRequired }`
+
+`POST /api/plugins/link` (dev-only):
+
+- request: `{ localPluginRoot: string, scope?: "workspace" | "setta_files" | "environment" | "global", enable?: boolean, force?: boolean }`
+- behavior: validate plugin root manifest, then create filesystem link at `<scope-root>/plugins/<pluginId>`.
+- response: `{ pluginId, version, sourceScope, sourceScopeLabel, sourcePath, canonicalSourceKey, components, state, restartRequired }`
+- availability: IDE mode only; not exposed in end-user UI.
+
+`POST /api/plugins/unlink` (dev-only):
+
+- request: `{ pluginId: string, scope?: "workspace" | "setta_files" | "environment" | "global" }`
+- if `scope` is omitted and the plugin exists in multiple scopes, return `PLUGIN_UNINSTALL_SCOPE_REQUIRED`.
+- response: `{ pluginId, removedFromScope, restartRequired }`
+- availability: IDE mode only; not exposed in end-user UI.
 
 `POST /api/plugins/enable`:
 
@@ -896,7 +908,6 @@ Loading semantics (recommended MVP):
 Implementation note:
 
 - The in-app installer calls the same backend install/update APIs as CLI (`POST /api/plugins/install`, `POST /api/plugins/update`) so behavior is identical across UI/CLI/MCP.
-- The `path:` source spec remains available only for dev/test automation and is intentionally not exposed by in-app UI controls.
 
 ### CLI plugin installer (install from GitHub or PyPI)
 
@@ -928,24 +939,36 @@ Recommended behavior:
 - Source resolution is first-class in MVP:
   - `github:<owner>/<repo>[#ref]`
   - `pypi:<package>[==version]`
-- Dev/test-only source:
-  - `path:<local-path>` is allowed for local integration tests and fixture-driven development but is not documented in end-user help output.
 - For source installs, include canonical source identity in output and status (for example `pypi:setta-rust-tools`, `github:acme/SettaRustTools`), alongside `pluginId`.
 - For `github:` installs, derive `pluginId` from `[project].name` in `pyproject.toml` when present; fallback to a source-derived id (`gh.<owner>.<repo>`) when metadata is missing.
 - For PyPI installs, derive `pluginId` from package metadata (`[project].name` or wheel metadata) and fallback to normalized package name.
 - `setta plugins list` should show canonical scope and user-facing scope label (`workspace`, `environment`, `global`), active/shadowed state, and whether enablement comes from workspace override or global default.
+
+### Developer local iteration workflow (dev-only)
+
+To keep local plugin authoring/debug loops fast without exposing filesystem source schemes in end-user install UX, add explicit dev-only link commands:
+
+- `setta plugins link <local-plugin-root> [--scope workspace|setta_files|environment|global] [--no-enable] [--force]`
+- `setta plugins unlink <pluginId> [--scope workspace|setta_files|environment|global]`
+
+Behavior:
+
+- `link` validates `setta.plugin.json` at `<local-plugin-root>`, then creates a filesystem link at the target scope path (`<scope-root>/plugins/<pluginId>`) pointing to the local plugin root.
+- `link`/`unlink` use the same enablement, status, and restart semantics as install/uninstall:
+  - frontend/content changes activate on rescan
+  - backend changes become `pending_restart` until backend restart
+- `link`/`unlink` are IDE-mode dev workflows and should not be shown in end-user docs/help or in-app installer UI.
+- Local path inputs are accepted only by `link`; `install` remains source-scheme-driven (`github:`/`pypi:`).
 
 Source package contract (normative MVP):
 
 - Supported user-facing source schemes:
   - `github:<owner>/<repo>[#ref]`
   - `pypi:<package>[==version]`
-- Dev/test-only scheme:
-  - `path:<local-path>` (not shown in end-user docs/help)
+- Local filesystem paths are not valid `install` source schemes in MVP. Local development paths are handled by `setta plugins link`.
 - Every source must resolve to exactly one plugin root containing `setta.plugin.json`.
 - GitHub source rule in MVP: resolved repository root must contain `setta.plugin.json`. Missing root manifest fails with `PLUGIN_SOURCE_MANIFEST_NOT_FOUND`.
 - For PyPI artifacts, installer scans wheel/sdist payload for a single `setta.plugin.json`; multiple candidates fail with `PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT`.
-- For `path:` installs, the local path must point directly at plugin root (`setta.plugin.json` at top level).
 - Install fails fast with explicit errors for missing manifest (`PLUGIN_SOURCE_MANIFEST_NOT_FOUND`) or ambiguous roots (`PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT`).
 
 Artifact identity invariants (normative MVP):
@@ -969,6 +992,8 @@ Required lifecycle commands (normative MVP):
 - `setta plugins lock apply [--check]`
 - `setta plugins restart`
 - `setta plugins restart-required`
+- `setta plugins link <local-plugin-root> [--scope workspace|setta_files|environment|global] [--no-enable] [--force]` (dev-only)
+- `setta plugins unlink <pluginId> [--scope workspace|setta_files|environment|global]` (dev-only)
 
 Safety baseline (still assuming trusted plugins):
 
@@ -977,7 +1002,7 @@ Safety baseline (still assuming trusted plugins):
 
 Atomic install semantics (normative MVP):
 
-1. Resolve source into a temp staging directory (git clone, artifact download, or local path copy for dev/test).
+1. Resolve source into a temp staging directory (git clone or artifact download).
 2. Materialize a temp "candidate root" containing exactly one plugin root.
 3. Validate `setta.plugin.json`, referenced paths, schema compatibility, and traversal safety.
 4. If validation passes, atomically move candidate root to the target plugin folder.
@@ -1041,6 +1066,8 @@ CLI command set (MVP):
 - `setta plugins lock apply`
 - `setta plugins restart`
 - `setta plugins restart-required`
+- `setta plugins link <local-plugin-root>` (dev-only)
+- `setta plugins unlink <id>` (dev-only)
 
 ## Versioning and Compatibility
 
@@ -1103,7 +1130,8 @@ Backend:
 - Tests for deterministic load order and proper error reporting.
 - Tests for mode capability gating (IDE vs Share/App) and blocked API errors.
 - Tests for schema migration paths (for example v1 manifests/state accepted and migrated to current).
-- Tests for source-spec parsing and install behavior for `github:` and `pypi:` (plus hidden `path:` dev/test path).
+- Tests for source-spec parsing and install behavior for `github:` and `pypi:`.
+- Tests for dev-only link/unlink behavior (`setta plugins link`, `setta plugins unlink`) including target-scope link creation, manifest validation, and precedence/shadowing visibility.
 - Tests for source root resolution errors (`PLUGIN_SOURCE_MANIFEST_NOT_FOUND`, `PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT`).
 - Tests for artifact identity mismatch errors (`PLUGIN_SOURCE_IDENTITY_MISMATCH`, `PLUGIN_SOURCE_VERSION_MISMATCH`).
 - Tests for enablement resolution order (`disabledPluginIds`, `enabledPluginIds`, `enabledByDefault`).
@@ -1118,7 +1146,7 @@ Backend:
 - Tests for install-time dependency resolution into plugin-scoped runtime env and deterministic worker boot failures.
 - Tests for worker RPC handshake/version negotiation and timeout error mapping (`PLUGIN_BACKEND_STARTUP_TIMEOUT`, `PLUGIN_BACKEND_REGISTER_TIMEOUT`, `PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR`).
 - Tests for restart capability/restart endpoints (`restart-capability`, `restart`) across runtimes with and without programmatic restart support.
-- Golden-path install tests using first-party fixture plugins from `github:` and `pypi:` source specs (plus hidden `path:` for local integration tests).
+- Golden-path install tests using first-party fixture plugins from `github:` and `pypi:` source specs.
 
 Frontend:
 
@@ -1203,8 +1231,8 @@ Frontend:
 
 - Plugin enablement is resolved per workspace in MVP (no per-`ProjectConfig` enablement yet).
 - Global plugins use `<setta_home>/plugins_global_state.json` for auto-enable defaults; workspace-level disable still overrides.
-- Plugin packaging/install is source-driven in MVP: user-facing install supports `github` and `pypi` source specs.
-- `setta plugins install` keeps `path` as a dev/test-only backdoor source spec (not exposed in end-user docs/help).
+- Plugin packaging/install is source-driven in MVP: `setta plugins install` supports only `github` and `pypi` source specs, and all other schemes fail with `PLUGIN_SOURCE_SCHEME_UNSUPPORTED`.
+- Local plugin iteration in MVP uses explicit dev-only link commands (`setta plugins link` / `setta plugins unlink`) instead of `install path:` source schemes.
 - Plugin install defaults to enabled unless `--no-enable` is explicitly provided.
 - User-facing scope language is `workspace | environment | global` (`environment` maps to canonical `setta_files` scope).
 - In-app installer supports `workspace`, `environment`, and `global` scopes in MVP.
