@@ -69,9 +69,30 @@ Proposed search order:
 
 - Workspace plugins: `<workspace>/plugins/*/setta.plugin.json`
 - Setta-files plugins (workspace-scoped, non-shareable): `<setta_files_root>/plugins/*/setta.plugin.json` (optional; `setta_files_root` can be local or global, see `docs/reference/setta-files.md`)
-- User-level plugins: `~/.setta/plugins/*/setta.plugin.json` (optional)
+- Global user-level plugins: `<setta_home>/plugins/*/setta.plugin.json` (optional; typically `~/.setta/plugins`, resolved via `resolve_setta_home()`, override with `SETTA_HOME`)
 
 Workspace `plugins/` is the primary "drop a folder in" mechanism and is the only directory that is expected to be shareable via git.
+
+### Install scopes and precedence
+
+Treat installation location as an explicit scope:
+
+- `workspace`: `<workspace>/plugins/<pluginId>/...`
+- `setta_files`: `<setta_files_root>/plugins/<pluginId>/...` (workspace-scoped but not in git)
+- `global`: `<setta_home>/plugins/<pluginId>/...`
+
+Runtime precedence for duplicate plugin ids:
+
+1. `workspace`
+2. `setta_files`
+3. `global`
+
+If the same `pluginId` exists in multiple scopes, the highest-precedence plugin is the active one; lower-precedence copies are marked as shadowed in plugin status/debug output.
+
+Rationale:
+
+- Keeps behavior deterministic.
+- Lets teams override a globally installed plugin in a specific workspace without mutating the global copy.
 
 ### One plugin folder vs separate frontend/backend folders
 
@@ -482,6 +503,7 @@ Recommended initial model:
 
 - Add a workspace-level file `<setta_files_root>/plugins_state.json` containing enable/disable state and per-plugin config (note `setta_files_root` can be local or global; see `docs/reference/setta-files.md`).
 - Add an optional project-config override in `ProjectConfig` later if plugin enablement needs to vary by config.
+- Keep enablement workspace-local even for globally installed plugins (global install controls availability, not automatic enablement everywhere).
 
 State fields:
 
@@ -493,16 +515,26 @@ Rationale:
 - It allows quick toggling without editing manifests.
 - It keeps enablement local to a workspace, which matches Setta's "workspace server" model.
 
+Implementation notes:
+
+- A globally installed plugin is only active in a workspace if that workspace enables the plugin id in its own `plugins_state.json` (or if first-discovery defaults choose enabled behavior).
+- Plugin status responses should include `sourceScope` and `sourcePath` so users can tell whether a plugin came from workspace/setta_files/global.
+
 ## Installation UX (CLI + Drop-in)
 
 Minimum viable:
 
 - Drop plugin folder into `plugins/` and restart Setta.
+- For global install, drop plugin folder into `<setta_home>/plugins/` and restart Setta.
 - A plugin debug pane shows load status and errors.
 
 ### In-app plugin installer (file browser modal + drag and drop)
 
 Add a "Plugins" modal that reuses `FileBrowserPane`, pinned to the workspace `plugins/` folder.
+
+MVP scope:
+
+- This in-app installer is workspace-scoped. Global installs are CLI-only in the initial implementation.
 
 Behavior:
 
@@ -527,7 +559,7 @@ Implementation note:
 
 ### CLI plugin installer (install from URL or path)
 
-Add a CLI command (exact naming is flexible) that installs a plugin into the workspace `plugins/` folder.
+Add a CLI command (exact naming is flexible) that installs a plugin into either the workspace `plugins/` folder or the global plugin folder.
 
 Examples:
 
@@ -535,6 +567,8 @@ Examples:
 setta plugins install https://example.com/my-plugin.zip
 setta plugins install ./my-plugin.zip
 setta plugins install ./path/to/plugin-folder
+setta plugins install --global https://example.com/my-plugin.zip
+setta plugins install --global ./path/to/plugin-folder
 ```
 
 Recommended behavior:
@@ -544,13 +578,16 @@ Recommended behavior:
   - backend plugin if `backend.entrypoint` exists
   - content plugin if `content.*Dir` exists
 - It prints a clear summary including `pluginId`, `version`, detected components, and whether a restart is required.
-- It is workspace-scoped: it installs into `<workspace>/plugins/<pluginId>/` (not global) unless a `--global` flag is provided.
+- Default install scope is workspace: `<workspace>/plugins/<pluginId>/`.
+- `--global` installs into `<setta_home>/plugins/<pluginId>/` (using `resolve_setta_home()`, honoring `SETTA_HOME`).
+- Output should include both install scope and target path.
 - For URL installs, start with `.zip` bundles. Later, add Git URLs and/or a simple registry format.
+- `setta plugins list` should show scope and whether the plugin is active or shadowed by a higher-precedence scope.
 
 Safety baseline (still assuming trusted plugins):
 
-- Prevent zip-slip/path traversal by ensuring extracted files stay within `<workspace>/plugins/<pluginId>/`.
-- Refuse to overwrite an existing plugin folder unless `--force` is provided.
+- Prevent zip-slip/path traversal by ensuring extracted files stay within the chosen target root (`<workspace>/plugins` or `<setta_home>/plugins`).
+- Refuse to overwrite an existing plugin folder in the target scope unless `--force` is provided.
 
 Restart semantics:
 
@@ -568,7 +605,7 @@ Because Setta already exposes privileged actions via MCP tools, the simplest pat
 
 Suggested MCP tool shape:
 
-- `install_plugin({ sourceUrl?: string, sourcePath?: string, enable?: boolean, force?: boolean }) -> { pluginId, version, components, restartRequired }`
+- `install_plugin({ sourceUrl?: string, sourcePath?: string, scope?: "workspace" | "global", enable?: boolean, force?: boolean }) -> { pluginId, version, components, restartRequired, sourceScope, sourcePath }`
 - `rescan_plugins() -> { installedPlugins, enabledPlugins }`
 
 This lets a user say "install this plugin at this url please" in Project Chat, and the agent can call `install_plugin` and then `rescan_plugins` (and the UI can show "restart required" if needed).
@@ -627,8 +664,9 @@ Frontend:
 ### Phase 1: Backend skeleton (discovery + static serving + registry endpoints)
 
 - Create `backend/setta/plugins/` package with manifest types, plugin directory scanning, enablement state, and status reporting.
+- Resolve `<setta_home>/plugins` using the same Setta-home logic as user config (`resolve_setta_home()`, `SETTA_HOME`) and include it in discovery.
 - Add backend routes `GET /api/plugins/list` and `GET /api/plugins/status`.
-- Serve plugin static assets under `/plugins/<pluginId>/...` from the workspace `plugins/` folder.
+- Serve plugin static assets under `/plugins/<pluginId>/...` from the resolved active plugin source path (workspace/setta_files/global).
 - Built-mode note: ensure `/plugins/...` mounts are registered before the SPA catch-all route (or move the catch-all route to the end after mounting), otherwise requests for plugin JS/CSS can be swallowed by the app's `index.html` handler.
 
 ### Phase 2: Frontend loader + minimal extension points
@@ -661,6 +699,7 @@ Frontend:
 ## Open Questions
 
 - Should plugin enablement be per workspace only, or per `ProjectConfig` as well?
+- Should we support optional global enable defaults (for example `<setta_home>/plugins_state.json`) so newly opened workspaces auto-enable selected global plugins?
 - Do we want to allow any plugin behavior in deployment modes (share/app) at all, or only packaged read-only content assets?
 - For plugin section rendering, should the MVP be imperative mount/unmount (recommended) or a constrained React-based API?
 - How do we want plugin-defined "language" to interact with existing `CodeLanguage` enum and file extension logic (`CODE_LANGUAGE_EXTENSIONS`)?
