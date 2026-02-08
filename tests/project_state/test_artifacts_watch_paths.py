@@ -61,7 +61,10 @@ class TestArtifactWatchPaths:
     def test_includes_valid_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
-            with temporary_setta_paths(setta_files_root=temp_root / "setta_files"):
+            with temporary_setta_paths(
+                workspace_root=temp_root,
+                setta_files_location="local",
+            ):
                 artifacts = _make_artifacts(temp_root)
                 image_path = (C.ARTIFACTS_FOLDER / "test.png").resolve(strict=False)
                 project_state = _make_project_state(

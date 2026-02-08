@@ -23,6 +23,7 @@
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `reference/setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
+- `reference/setta-files.md` – how `setta_files` resolves (local vs global) and how to configure global state under `<setta_home>`.
 - `reference/setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.
 - `reference/setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `reference/setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.

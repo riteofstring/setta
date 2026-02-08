@@ -94,7 +94,7 @@ class TestSetCodeAccessMode:
         self._stack.enter_context(
             temporary_setta_paths(
                 workspace_root=self.workspace_root,
-                setta_files_root=self.setta_root,
+                setta_files_location="local",
             )
         )
 

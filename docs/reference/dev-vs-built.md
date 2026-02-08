@@ -11,10 +11,13 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - The bootstrap page (`/__setta__/bootstrap`) is still available for manual
   auth or non-local clients.
 - CORS is enabled with credentials so the frontend can send cookies.
-- Workspace vs state roots:
-  `--workspace` (or `SETTA_WORKSPACE_ROOT`) controls code operations, while
-  `--files-root` / `--files-root-base` (or env equivalents) control where
-  `setta_files` lives. Defaults still follow the current working directory.
+- Workspace vs `setta_files`:
+  `--workspace` (or `SETTA_WORKSPACE_ROOT`) controls code operations.
+  `setta_files` is either local (`<workspace>/setta_files`) or global (under
+  `<globalSettaFilesBase>/<workspace-name>-<hash>`, defaulting to
+  `<setta_home>/setta_files/<workspace-name>-<hash>`). Local always wins when it
+  exists. Control selection via `--setta-files-location` / `SETTA_FILES_LOCATION`
+  and `<setta_home>/config.json` (see `docs/reference/setta-files.md`).
 
 ## Built (Single Origin)
 - `./build.sh` builds the frontend and copies it to `backend/setta/static/frontend`.
