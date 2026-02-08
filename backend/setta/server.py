@@ -37,7 +37,6 @@ from setta.routers import (
     binary_router,
     bootstrap_router,
     code_info_router,
-    git_router,
     launch_router,
     listener_router,
     llm_router,
@@ -161,7 +160,6 @@ app.include_router(terminals_ws_router, **websocket_router_kwargs)
 app.include_router(code_info_router, **http_router_kwargs)
 app.include_router(settings_router, **http_router_kwargs)
 app.include_router(artifact_router, **http_router_kwargs)
-app.include_router(git_router, **http_router_kwargs)
 app.include_router(attachments_router, **http_router_kwargs)
 app.include_router(binary_router, **http_router_kwargs)
 app.include_router(listener_router, **http_router_kwargs)
