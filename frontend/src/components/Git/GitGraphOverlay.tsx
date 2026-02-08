@@ -1005,7 +1005,9 @@ export function GitGraphOverlay() {
                     type="button"
                     data-testid="git-graph-load-more-retry"
                     className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                    onClick={() => void loadMoreGitGraphCommits({ force: true })}
+                    onClick={() =>
+                      void loadMoreGitGraphCommits({ force: true })
+                    }
                   >
                     Retry
                   </button>
