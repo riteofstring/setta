@@ -13,4 +13,3 @@ describe("isLocalHostname", () => {
     expect(isLocalHostname("192.168.0.1")).toBe(false);
   });
 });
-

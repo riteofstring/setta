@@ -59,7 +59,7 @@ describe("C_ADDRESSES", () => {
   beforeEach(() => {
     sessionStorageStub.clear();
     localStorageStub.clear();
-    C_ADDRESSES.resetCachesForTests();
+    env["DEV"] = previousDev;
     env["VITE_BACKEND_ORIGIN"] = previousBackendOrigin;
   });
 

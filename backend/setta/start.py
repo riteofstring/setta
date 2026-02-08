@@ -1441,12 +1441,7 @@ def api(
     normalized_tool_name: str | None = tool_name.strip() if tool_name else None
     try:
         normalized_tool_name = _normalize_tool_name(tool_name)
-        has_explicit_auth = bool(
-            auth_json
-            or auth_stdin
-            or cookie_header
-            or cookie
-        )
+        has_explicit_auth = bool(auth_json or auth_stdin or cookie_header or cookie)
         payload = _load_json_payload(json_payload, payload_stdin, payload_file)
         if payload is None:
             arguments: dict[str, Any] = {}
