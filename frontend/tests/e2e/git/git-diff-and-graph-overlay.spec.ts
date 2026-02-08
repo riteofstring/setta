@@ -173,6 +173,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
     expect(historyAfter).toBeGreaterThan(historyBefore + 40);
     expect(diffAfter).toBeLessThan(diffBefore - 40);
 
+    const messageHeader = graphOverlay.getByTestId("git-graph-header-message");
     const authorHeader = graphOverlay.getByTestId("git-graph-header-author");
     const graphMessageResizeHandle = graphOverlay.getByTestId(
       "git-graph-col-resize-graph-message",
@@ -190,6 +191,58 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await expect(messageAuthorResizeHandle).toBeVisible();
     await expect(authorDateResizeHandle).toBeVisible();
     await expect(dateHashResizeHandle).toBeVisible();
+    const paneSplitterBoxBeforeNarrowDrag = await paneSplitter.boundingBox();
+    if (!paneSplitterBoxBeforeNarrowDrag) {
+      throw new Error(
+        "Expected git graph pane splitter to have a bounding box before narrow drag.",
+      );
+    }
+    await page.mouse.move(
+      paneSplitterBoxBeforeNarrowDrag.x + paneSplitterBoxBeforeNarrowDrag.width / 2,
+      paneSplitterBoxBeforeNarrowDrag.y + paneSplitterBoxBeforeNarrowDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paneSplitterBoxBeforeNarrowDrag.x +
+        paneSplitterBoxBeforeNarrowDrag.width / 2 -
+        1200,
+      paneSplitterBoxBeforeNarrowDrag.y + paneSplitterBoxBeforeNarrowDrag.height / 2,
+      { steps: 24 },
+    );
+    await page.mouse.up();
+
+    const messageHeaderAfterNarrowPane = await messageHeader.boundingBox();
+    const authorHeaderAfterNarrowPane = await authorHeader.boundingBox();
+    if (!messageHeaderAfterNarrowPane || !authorHeaderAfterNarrowPane) {
+      throw new Error(
+        "Expected message and author headers to have bounding boxes after narrow pane drag.",
+      );
+    }
+    // Regression guard: shrinking the history pane should not cause message
+    // and author header labels/cells to overlap.
+    expect(
+      messageHeaderAfterNarrowPane.x + messageHeaderAfterNarrowPane.width,
+    ).toBeLessThanOrEqual(authorHeaderAfterNarrowPane.x + 1);
+    const paneSplitterBoxAfterNarrowDrag = await paneSplitter.boundingBox();
+    if (!paneSplitterBoxAfterNarrowDrag) {
+      throw new Error(
+        "Expected git graph pane splitter to have a bounding box after narrow drag.",
+      );
+    }
+    await page.mouse.move(
+      paneSplitterBoxAfterNarrowDrag.x + paneSplitterBoxAfterNarrowDrag.width / 2,
+      paneSplitterBoxAfterNarrowDrag.y + paneSplitterBoxAfterNarrowDrag.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paneSplitterBoxAfterNarrowDrag.x +
+        paneSplitterBoxAfterNarrowDrag.width / 2 +
+        320,
+      paneSplitterBoxAfterNarrowDrag.y + paneSplitterBoxAfterNarrowDrag.height / 2,
+      { steps: 12 },
+    );
+    await page.mouse.up();
+
     const historyCommitSvg = graphOverlay
       .getByRole("button", { name: /history-259/ })
       .locator("svg")

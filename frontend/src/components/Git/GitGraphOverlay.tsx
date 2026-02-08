@@ -26,8 +26,10 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
 
 const DEFAULT_GIT_GRAPH_SPLIT_PCT = 56;
 
-const GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX = 320;
-const GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX = 360;
+const COMMIT_GRID_HORIZONTAL_PADDING_PX = 24; // px-3 on both sides
+const COMMIT_GRID_GAP_PX = 8; // gap-2
+const COMMIT_GRID_GAP_COUNT = 4;
+const MESSAGE_COL_MIN_WIDTH_PX = 96;
 
 const GRAPH_COL_MIN_WIDTH_PX = 80;
 const GRAPH_COL_MAX_WIDTH_PX = 240;
@@ -38,13 +40,23 @@ const DATE_COL_MAX_WIDTH_PX = 220;
 const HASH_COL_MIN_WIDTH_PX = 70;
 const HASH_COL_MAX_WIDTH_PX = 160;
 
+const GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX =
+  GRAPH_COL_MIN_WIDTH_PX +
+  AUTHOR_COL_MIN_WIDTH_PX +
+  DATE_COL_MIN_WIDTH_PX +
+  HASH_COL_MIN_WIDTH_PX +
+  MESSAGE_COL_MIN_WIDTH_PX +
+  COMMIT_GRID_HORIZONTAL_PADDING_PX +
+  COMMIT_GRID_GAP_PX * COMMIT_GRID_GAP_COUNT;
+const GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX = 360;
+
 const CSS_VAR_GIT_GRAPH_SPLIT_PCT = "--git-graph-split-pct";
 const CSS_VAR_GIT_GRAPH_COL_GRAPH = "--git-graph-col-graph";
 const CSS_VAR_GIT_GRAPH_COL_AUTHOR = "--git-graph-col-author";
 const CSS_VAR_GIT_GRAPH_COL_DATE = "--git-graph-col-date";
 const CSS_VAR_GIT_GRAPH_COL_HASH = "--git-graph-col-hash";
 
-const COMMIT_GRID_TEMPLATE_COLUMNS = `var(${CSS_VAR_GIT_GRAPH_COL_GRAPH}, 120px) minmax(0, 1fr) var(${CSS_VAR_GIT_GRAPH_COL_AUTHOR}, 120px) var(${CSS_VAR_GIT_GRAPH_COL_DATE}, 110px) var(${CSS_VAR_GIT_GRAPH_COL_HASH}, 84px)`;
+const COMMIT_GRID_TEMPLATE_COLUMNS = `var(${CSS_VAR_GIT_GRAPH_COL_GRAPH}, 120px) minmax(${MESSAGE_COL_MIN_WIDTH_PX}px, 1fr) var(${CSS_VAR_GIT_GRAPH_COL_AUTHOR}, 120px) var(${CSS_VAR_GIT_GRAPH_COL_DATE}, 110px) var(${CSS_VAR_GIT_GRAPH_COL_HASH}, 84px)`;
 
 const LANE_COLORS_LIGHT = [
   "#2563eb",
@@ -587,7 +599,10 @@ export function GitGraphOverlay() {
       const maxPxConstant = maxPxByKey[key];
       const otherSum =
         start.graph + start.author + start.date + start.hash - start[key];
-      const maxFit = Math.max(minPx, contentWidth - otherSum);
+      const maxFit = Math.max(
+        minPx,
+        contentWidth - otherSum - MESSAGE_COL_MIN_WIDTH_PX,
+      );
       const maxPx = Math.min(maxPxConstant, maxFit);
       return clamp(requestedWidth, minPx, maxPx);
     };
@@ -811,8 +826,9 @@ export function GitGraphOverlay() {
         <section
           ref={historyPaneRef}
           data-testid="git-graph-history-pane"
-          className="flex min-h-0 min-w-[320px] flex-col overflow-hidden"
+          className="flex min-h-0 flex-col overflow-hidden"
           style={{
+            minWidth: `${GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX}px`,
             width: `calc(var(${CSS_VAR_GIT_GRAPH_SPLIT_PCT}, ${DEFAULT_GIT_GRAPH_SPLIT_PCT}) * 1%)`,
           }}
         >
@@ -823,7 +839,7 @@ export function GitGraphOverlay() {
           >
             <div
               data-testid="git-graph-header-graph"
-              className="relative min-w-0 pr-2"
+              className="relative min-w-0 truncate pr-2"
             >
               <span>Graph</span>
               <ColumnResizeHandle
@@ -835,13 +851,13 @@ export function GitGraphOverlay() {
             </div>
             <div
               data-testid="git-graph-header-message"
-              className="min-w-0 pl-2"
+              className="min-w-0 truncate pl-2"
             >
               Message
             </div>
             <div
               data-testid="git-graph-header-author"
-              className="relative min-w-0 pl-2"
+              className="relative min-w-0 truncate pl-2"
             >
               <ColumnResizeHandle
                 dataTestId="git-graph-col-resize-message-author"
@@ -853,7 +869,7 @@ export function GitGraphOverlay() {
             </div>
             <div
               data-testid="git-graph-header-date"
-              className="relative min-w-0 pl-2"
+              className="relative min-w-0 truncate pl-2"
             >
               <ColumnResizeHandle
                 dataTestId="git-graph-col-resize-author-date"
@@ -865,7 +881,7 @@ export function GitGraphOverlay() {
             </div>
             <div
               data-testid="git-graph-header-hash"
-              className="relative min-w-0 pl-2"
+              className="relative min-w-0 truncate pl-2"
             >
               <ColumnResizeHandle
                 dataTestId="git-graph-col-resize-date-hash"
