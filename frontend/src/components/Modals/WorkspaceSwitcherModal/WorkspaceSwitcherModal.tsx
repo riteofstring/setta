@@ -4,11 +4,10 @@ import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { route_get_setta_home_info } from "utils/generatedEndpoints";
-import type {
-  LaunchRequestInput,
-  SettaHomeInfoResponse,
+import {
+  RouteEnum,
+  type LaunchRequestInput,
+  type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
 import {
   normalizeSettaFilesLocation,
@@ -33,7 +32,7 @@ export function WorkspaceSwitcherModal() {
   const [sshTarget, setSshTarget] = useState("");
   const [settaFilesLocation, setSettaFilesLocation] =
     useState<SettaFilesLocation>("auto");
-  const [settaHomeInfo, setSettaHomeInfo] =
+  const [launcherSettaHomeInfo, setLauncherSettaHomeInfo] =
     useState<SettaHomeInfoResponse | null>(null);
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
@@ -60,15 +59,35 @@ export function WorkspaceSwitcherModal() {
       );
     }
 
-    async function hydrateSettaHomeInfo() {
-      const res = await route_get_setta_home_info();
-      if (!isMounted || !res200(res)) {
-        return;
+    async function hydrateLauncherSettaHomeInfo() {
+      try {
+        const response = await fetch(
+          `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_SETTA_HOME_INFO}`,
+          {
+            credentials: "include",
+          },
+        );
+        if (!isMounted || response.status !== 200) {
+          return;
+        }
+        const data: unknown = await response.json();
+        if (!data || typeof data !== "object") {
+          return;
+        }
+        const record = data as Record<string, unknown>;
+        if (
+          typeof record.settaHome !== "string" ||
+          typeof record.globalSettaFilesBase !== "string"
+        ) {
+          return;
+        }
+        setLauncherSettaHomeInfo(record as SettaHomeInfoResponse);
+      } catch {
+        // Ignore network errors; the UI will fall back to placeholder strings.
       }
-      setSettaHomeInfo(res.data);
     }
 
-    void hydrateSettaHomeInfo();
+    void hydrateLauncherSettaHomeInfo();
 
     return () => {
       isMounted = false;
@@ -80,6 +99,10 @@ export function WorkspaceSwitcherModal() {
   const trimmedSshArgs = sshArgs.trim();
   const trimmedRemoteCmd = remoteCmd.trim();
   const trimmedLocalPort = localPort.trim();
+  const globalBaseLabel =
+    trimmedSshTarget.length > 0
+      ? "remote Setta home"
+      : launcherSettaHomeInfo?.globalSettaFilesBase ?? "<global_setta_files_base>";
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
@@ -275,12 +298,7 @@ export function WorkspaceSwitcherModal() {
             >
               <option value="auto">Default (auto)</option>
               <option value="local">Local (workspace)</option>
-              <option value="global">
-                Global (
-                {settaHomeInfo?.globalSettaFilesBase ??
-                  "<global_setta_files_base>"}
-                )
-              </option>
+              <option value="global">Global ({globalBaseLabel})</option>
             </select>
             <p className="text-xs text-setta-500 dark:text-setta-400">
               If the workspace already has a local{" "}

@@ -2018,7 +2018,7 @@ def connect(
             click.echo(
                 f"Starting Setta on {ssh_target} (workspace {remote_workspace})..."
             )
-        remote_logs_dir = ssh_common._resolve_remote_logs_dir(
+        remote_logs_dir = ssh_common.resolve_remote_logs_dir(
             workspace=remote_workspace,
             setta_files_location=params.get("setta_files_location") or "auto",
         )

@@ -188,7 +188,7 @@ describe("workspaceHistory", () => {
 
   it("coerces partial entries from localStorage safely", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: " /tmp/work/ ",
@@ -219,7 +219,7 @@ describe("workspaceHistory", () => {
 
   it("coerces invalid settaFilesLocation values to auto", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: "/tmp/work",
@@ -245,7 +245,7 @@ describe("workspaceHistory", () => {
 
   it("normalizes settaFilesLocation case and whitespace", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: "/tmp/work",
@@ -271,7 +271,7 @@ describe("workspaceHistory", () => {
 
   it("coerces localPort values", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: "/tmp/work",
@@ -293,7 +293,7 @@ describe("workspaceHistory", () => {
 
   it("consumes a workspace history handoff payload and merges entries", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: "/tmp/work",
@@ -323,12 +323,12 @@ describe("workspaceHistory", () => {
     const encoded = encodeBase64Url(
       new TextEncoder().encode(JSON.stringify(incoming)),
     );
-    memoryStorage.setItem("setta.workspaceHistoryHandoff.v2", encoded);
+    memoryStorage.setItem("setta.workspaceHistoryHandoff", encoded);
 
     consumeWorkspaceHistoryHandoff();
 
     expect(
-      memoryStorage.getItem("setta.workspaceHistoryHandoff.v2"),
+      memoryStorage.getItem("setta.workspaceHistoryHandoff"),
     ).toBeNull();
     const loaded = loadWorkspaceHistory();
     expect(loaded[0]?.workspaceRoot).toBe("/tmp/work");

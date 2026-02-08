@@ -45,7 +45,7 @@ def route_get_server_mode(state: AppStateFromRequest) -> ServerModeResponse:
 @router.get(Route.GET_SETTA_HOME_INFO, dependencies=[Depends(require_ide_mode)])
 def route_get_setta_home_info() -> SettaHomeInfoResponse:
     home = resolve_setta_home()
-    config = load_setta_user_config(setta_home=home)
+    config = load_setta_user_config()
     return SettaHomeInfoResponse(
         settaHome=str(home),
         globalSettaFilesBase=str(config.global_setta_files_base),

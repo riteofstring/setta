@@ -13,8 +13,8 @@ export type WorkspaceHistoryEntry = {
   lastUsedAt: number;
 };
 
-const HISTORY_KEY = "setta.workspaceHistory.v2";
-const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff.v2";
+const HISTORY_KEY = "setta.workspaceHistory";
+const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff";
 const HISTORY_LIMIT = 6;
 
 function normalizeNullableString(value: unknown): string | null {

@@ -466,7 +466,7 @@ def wait_for_remote_sessions(
     setta_files_location: str,
 ) -> list[RemoteSessionSummary]:
     deadline = time.monotonic() + timeout_seconds
-    remote_logs_dir = _resolve_remote_logs_dir(
+    remote_logs_dir = resolve_remote_logs_dir(
         workspace=workspace, setta_files_location=setta_files_location
     )
     while True:
@@ -551,7 +551,7 @@ def _is_safe_remote_path(value: str) -> bool:
     return True
 
 
-def _resolve_remote_logs_dir(*, workspace: str, setta_files_location: str) -> str:
+def resolve_remote_logs_dir(*, workspace: str, setta_files_location: str) -> str:
     # When remote state lives globally, we don't know the computed runtime path from
     # the launcher side (it depends on remote user config). Prefer /tmp rather than
     # creating a workspace-local setta_files directory (which would change behavior
@@ -587,7 +587,7 @@ def start_remote_setta(
             "Remote host missing nohup/setsid; cannot background Setta automatically. Start it manually or install nohup/setsid.",
         )
 
-    remote_logs_dir = _resolve_remote_logs_dir(
+    remote_logs_dir = resolve_remote_logs_dir(
         workspace=workspace, setta_files_location=setta_files_location
     )
     remote_log_file = f"{remote_logs_dir}/nohup-{time.time_ns()}-{os.getpid()}.out"

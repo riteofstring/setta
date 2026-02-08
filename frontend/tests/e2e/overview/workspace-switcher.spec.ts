@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import * as fs from "node:fs";
+import * as path from "node:path";
 import net from "node:net";
 import { ensureAppReady } from "../helpers";
 
@@ -42,10 +43,10 @@ test("workspace switcher launches a session and persists history", async ({
   await ensureAppReady(page);
   await page.setViewportSize({ width: 1000, height: 560 });
   await page.evaluate(() =>
-    localStorage.removeItem("setta.workspaceHistory.v2"),
+    localStorage.removeItem("setta.workspaceHistory"),
   );
   await page.evaluate(() =>
-    localStorage.removeItem("setta.workspaceHistoryHandoff.v2"),
+    localStorage.removeItem("setta.workspaceHistoryHandoff"),
   );
   await page.evaluate(() =>
     sessionStorage.removeItem("setta.backendOriginOverride"),
@@ -140,12 +141,12 @@ test("workspace switcher launches a session and persists history", async ({
 
   await page.waitForFunction(
     (root) =>
-      (localStorage.getItem("setta.workspaceHistory.v2") ?? "").includes(root),
+      (localStorage.getItem("setta.workspaceHistory") ?? "").includes(root),
     canonicalWorkspaceRoot,
   );
 
   const storedHistory = await page.evaluate(() => {
-    const raw = localStorage.getItem("setta.workspaceHistory.v2");
+    const raw = localStorage.getItem("setta.workspaceHistory");
     return raw ? (JSON.parse(raw) as unknown) : null;
   });
   expect(storedHistory).not.toBeNull();
@@ -185,6 +186,33 @@ test("workspace switcher allows selecting setta files location", async ({
   await expect(location).toHaveValue("auto");
 
   await modal.getByRole("button", { name: "Cancel" }).click();
+});
+
+test("workspace switcher shows launcher global path when backend origin is overridden", async ({
+  page,
+}) => {
+  const settaHome = process.env.SETTA_HOME;
+  if (!settaHome) {
+    throw new Error("Missing SETTA_HOME for workspace switcher global path test.");
+  }
+  const expectedGlobalBase = path.join(settaHome, "setta_files");
+
+  await ensureAppReady(page);
+
+  // Simulate being "inside" a tunneled/remote session where the backend origin is
+  // not the same as the launcher origin.
+  await page.evaluate(() => {
+    sessionStorage.setItem("setta.backendOriginOverride", "http://127.0.0.1:65534");
+  });
+
+  await page.getByRole("menuitem", { name: "Project" }).click();
+  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+
+  const globalOption = modal.locator("option[value='global']");
+  await expect(globalOption).toContainText(expectedGlobalBase);
 });
 
 test("workspace switcher sends local setta files location", async ({
@@ -302,10 +330,10 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
 
   await ensureAppReady(page);
   await page.evaluate(() =>
-    localStorage.removeItem("setta.workspaceHistory.v2"),
+    localStorage.removeItem("setta.workspaceHistory"),
   );
   await page.evaluate(() =>
-    localStorage.removeItem("setta.workspaceHistoryHandoff.v2"),
+    localStorage.removeItem("setta.workspaceHistoryHandoff"),
   );
   await page.evaluate(() =>
     sessionStorage.removeItem("setta.backendOriginOverride"),

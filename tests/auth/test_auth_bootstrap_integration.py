@@ -83,7 +83,7 @@ def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
     html = response.text
 
     assert (
-        'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff.v2";'
+        'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";'
         in html
     )
     assert "localStorage.setItem(workspaceHistoryHandoffKey, trimmed);" in html
