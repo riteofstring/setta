@@ -3,8 +3,14 @@ from functools import lru_cache
 from setta.app.catalog import APP_CATALOG, APP_CATALOG_ID
 from setta.app.spec_utils import (
     get_data_path as _get_data_path,
+)
+from setta.app.spec_utils import (
     is_ui_element as _is_ui_element,
+)
+from setta.app.spec_utils import (
     resolve_binding_record as _resolve_binding_record,
+)
+from setta.app.spec_utils import (
     resolve_binding_string as _resolve_binding_string,
 )
 from setta.types.app_validation import AppValidationIssue
@@ -584,6 +590,7 @@ def _resolve_app_spec(
         raise ValueError("App spec root must be a UI element or element key.")
 
     return root_element, elements
+
 
 def _is_missing_required_value(value: JSONValue) -> bool:
     if value is None:

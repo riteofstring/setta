@@ -67,4 +67,3 @@ def resolve_binding_string(
     if isinstance(value, str):
         return value
     return None
-

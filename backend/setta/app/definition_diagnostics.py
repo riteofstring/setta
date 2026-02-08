@@ -3,8 +3,14 @@ import re
 from setta.app.catalog import APP_CATALOG_ID, APP_CATALOG_VERSION
 from setta.app.spec_utils import (
     get_data_path as _get_data_path,
+)
+from setta.app.spec_utils import (
     is_ui_element as _is_ui_element,
+)
+from setta.app.spec_utils import (
     resolve_binding_record as _resolve_binding_record,
+)
+from setta.app.spec_utils import (
     resolve_binding_string as _resolve_binding_string,
 )
 from setta.app.spec_validation import (
