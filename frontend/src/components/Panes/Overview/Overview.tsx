@@ -14,6 +14,7 @@ import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import {
   useBackendLogEvents,
   useLocalStorage,
+  useProjectState,
   useShareSession,
 } from "state/definitions";
 import {
@@ -49,6 +50,15 @@ export function Overview() {
     scopeId: "overview",
     order: 10,
     rootRef: overviewRef,
+  });
+  const hasViewModeTabs = useProjectState((x) => {
+    const viewModes = x.projectConfig.viewModes;
+    for (const modeId in viewModes) {
+      if (viewModes[modeId]?.isTab) {
+        return true;
+      }
+    }
+    return false;
   });
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
@@ -104,7 +114,13 @@ export function Overview() {
       ref={overviewRef}
       data-tab-scope="overview"
     >
-      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_36px)] w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
+      <div
+        className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        style={{
+          top: "calc(var(--setta-titlebar-height) + 36px)",
+          bottom: hasViewModeTabs ? "36px" : "0px",
+        }}
+      >
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
