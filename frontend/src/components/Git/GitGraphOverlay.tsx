@@ -16,7 +16,6 @@ import type { GitGraphRow } from "utils/gitGraph";
 import type { GetGitCommitDetailsResponse, GitCommitChangedFile } from "utils/generatedTypes";
 
 const ROW_HEIGHT = 28;
-const GRAPH_CELL_WIDTH = 120;
 const LANE_WIDTH = 12;
 const MAX_ROW_DECORATIONS = 3;
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
@@ -24,6 +23,28 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: "2-digit",
   year: "numeric",
 });
+
+const DEFAULT_GIT_GRAPH_SPLIT_PCT = 56;
+
+const GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX = 320;
+const GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX = 360;
+
+const GRAPH_COL_MIN_WIDTH_PX = 80;
+const GRAPH_COL_MAX_WIDTH_PX = 240;
+const AUTHOR_COL_MIN_WIDTH_PX = 90;
+const AUTHOR_COL_MAX_WIDTH_PX = 260;
+const DATE_COL_MIN_WIDTH_PX = 90;
+const DATE_COL_MAX_WIDTH_PX = 220;
+const HASH_COL_MIN_WIDTH_PX = 70;
+const HASH_COL_MAX_WIDTH_PX = 160;
+
+const CSS_VAR_GIT_GRAPH_SPLIT_PCT = "--git-graph-split-pct";
+const CSS_VAR_GIT_GRAPH_COL_GRAPH = "--git-graph-col-graph";
+const CSS_VAR_GIT_GRAPH_COL_AUTHOR = "--git-graph-col-author";
+const CSS_VAR_GIT_GRAPH_COL_DATE = "--git-graph-col-date";
+const CSS_VAR_GIT_GRAPH_COL_HASH = "--git-graph-col-hash";
+
+const COMMIT_GRID_TEMPLATE_COLUMNS = `var(${CSS_VAR_GIT_GRAPH_COL_GRAPH}, 120px) minmax(0, 1fr) var(${CSS_VAR_GIT_GRAPH_COL_AUTHOR}, 120px) var(${CSS_VAR_GIT_GRAPH_COL_DATE}, 110px) var(${CSS_VAR_GIT_GRAPH_COL_HASH}, 84px)`;
 
 const LANE_COLORS_LIGHT = [
   "#2563eb",
@@ -53,6 +74,10 @@ const GENERATED_LANE_COLORS_DARK = new Map<number, string>();
 
 function clampNonNegative(value: number): number {
   return value < 0 ? 0 : value;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function hexByte(value: number): string {
@@ -199,9 +224,27 @@ export function GitGraphOverlay() {
   const graphState = useGitStore((x) =>
     x.overlay.kind === "graph" ? x.overlay.graph : null,
   );
-  const darkMode = useLocalStorage((x) => x.darkMode);
+  const {
+    darkMode,
+    splitPct,
+    graphColWidthPx,
+    authorColWidthPx,
+    dateColWidthPx,
+    hashColWidthPx,
+  } = useLocalStorage((x) => ({
+    darkMode: x.darkMode,
+    splitPct: x.gitGraphSplitPct,
+    graphColWidthPx: x.gitGraphColWidthPx,
+    authorColWidthPx: x.gitGraphAuthorWidthPx,
+    dateColWidthPx: x.gitGraphDateWidthPx,
+    hashColWidthPx: x.gitGraphHashWidthPx,
+  }));
 
   const listRef = useListRef();
+  const overlayRef = useRef<HTMLElement | null>(null);
+  const panesWrapperRef = useRef<HTMLDivElement | null>(null);
+  const historyPaneRef = useRef<HTMLElement | null>(null);
+  const commitHeaderRef = useRef<HTMLDivElement | null>(null);
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
 
@@ -224,6 +267,51 @@ export function GitGraphOverlay() {
       observer.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    const el = overlayRef.current;
+    if (!el) {
+      return;
+    }
+    el.style.setProperty(
+      CSS_VAR_GIT_GRAPH_SPLIT_PCT,
+      clamp(splitPct, 0, 100).toString(),
+    );
+    el.style.setProperty(
+      CSS_VAR_GIT_GRAPH_COL_GRAPH,
+      `${clamp(
+        graphColWidthPx,
+        GRAPH_COL_MIN_WIDTH_PX,
+        GRAPH_COL_MAX_WIDTH_PX,
+      )}px`,
+    );
+    el.style.setProperty(
+      CSS_VAR_GIT_GRAPH_COL_AUTHOR,
+      `${clamp(
+        authorColWidthPx,
+        AUTHOR_COL_MIN_WIDTH_PX,
+        AUTHOR_COL_MAX_WIDTH_PX,
+      )}px`,
+    );
+    el.style.setProperty(
+      CSS_VAR_GIT_GRAPH_COL_DATE,
+      `${clamp(
+        dateColWidthPx,
+        DATE_COL_MIN_WIDTH_PX,
+        DATE_COL_MAX_WIDTH_PX,
+      )}px`,
+    );
+    el.style.setProperty(
+      CSS_VAR_GIT_GRAPH_COL_HASH,
+      `${clamp(hashColWidthPx, HASH_COL_MIN_WIDTH_PX, HASH_COL_MAX_WIDTH_PX)}px`,
+    );
+  }, [
+    authorColWidthPx,
+    dateColWidthPx,
+    graphColWidthPx,
+    hashColWidthPx,
+    splitPct,
+  ]);
 
   const rows = graphState?.rows ?? [];
   const filterText = graphState?.filterText ?? "";
@@ -271,8 +359,8 @@ export function GitGraphOverlay() {
       (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
       1,
     );
-    return Math.max(GRAPH_CELL_WIDTH, maxLaneCount * LANE_WIDTH);
-  }, [rows]);
+    return Math.max(graphColWidthPx, maxLaneCount * LANE_WIDTH);
+  }, [graphColWidthPx, rows]);
 
   const dynamicRowHeight = useDynamicRowHeight({
     defaultRowHeight: ROW_HEIGHT,
@@ -282,8 +370,236 @@ export function GitGraphOverlay() {
       .toLowerCase()}`,
   });
 
+  function beginPaneSplitDrag(event: React.PointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const wrapper = panesWrapperRef.current;
+    if (!wrapper) {
+      return;
+    }
+    const wrapperWidth = wrapper.clientWidth;
+    if (!wrapperWidth) {
+      return;
+    }
+    const handleWidth = event.currentTarget.getBoundingClientRect().width;
+    const minLeft = GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX;
+    const maxLeft = Math.max(
+      minLeft,
+      wrapperWidth - handleWidth - GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX,
+    );
+
+    if (event.detail === 2) {
+      const nextPct = clamp(DEFAULT_GIT_GRAPH_SPLIT_PCT, 0, 100);
+      overlayRef.current?.style.setProperty(
+        CSS_VAR_GIT_GRAPH_SPLIT_PCT,
+        nextPct.toString(),
+      );
+      useLocalStorage.setState({ gitGraphSplitPct: nextPct });
+      return;
+    }
+
+    const startX = event.clientX;
+    const startLeftPx =
+      (wrapperWidth * clamp(splitPct, 0, 100)) / 100;
+    const pointerId = event.pointerId;
+    const root = overlayRef.current;
+    if (!root) {
+      return;
+    }
+
+    let rafId: number | null = null;
+    const setPct = (pct: number) => {
+      root.style.setProperty(CSS_VAR_GIT_GRAPH_SPLIT_PCT, pct.toString());
+    };
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) {
+        return;
+      }
+      const deltaX = moveEvent.clientX - startX;
+      const nextLeftPx = clamp(startLeftPx + deltaX, minLeft, maxLeft);
+      const nextPct = clamp((nextLeftPx / wrapperWidth) * 100, 0, 100);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        setPct(nextPct);
+        rafId = null;
+      });
+    };
+
+    const handleUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) {
+        return;
+      }
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
+      const pctRaw = root.style.getPropertyValue(CSS_VAR_GIT_GRAPH_SPLIT_PCT);
+      const pct = Number.parseFloat(pctRaw);
+      const persisted = Number.isFinite(pct)
+        ? clamp(pct, 0, 100)
+        : DEFAULT_GIT_GRAPH_SPLIT_PCT;
+      useLocalStorage.setState({ gitGraphSplitPct: persisted });
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+  }
+
+  function beginColumnResizeDrag(
+    key: "graph" | "author" | "date" | "hash",
+    event: React.PointerEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const root = overlayRef.current;
+    const header = commitHeaderRef.current;
+    if (!root || !header) {
+      return;
+    }
+
+    const headerStyle = window.getComputedStyle(header);
+    const paddingLeft = Number.parseFloat(headerStyle.paddingLeft) || 0;
+    const paddingRight = Number.parseFloat(headerStyle.paddingRight) || 0;
+    const gridGap = Number.parseFloat(headerStyle.columnGap) || 0;
+    const totalGapWidth = gridGap * 4;
+    const contentWidth = Math.max(
+      1,
+      header.clientWidth - paddingLeft - paddingRight - totalGapWidth,
+    );
+
+    const cssVarByKey = {
+      graph: CSS_VAR_GIT_GRAPH_COL_GRAPH,
+      author: CSS_VAR_GIT_GRAPH_COL_AUTHOR,
+      date: CSS_VAR_GIT_GRAPH_COL_DATE,
+      hash: CSS_VAR_GIT_GRAPH_COL_HASH,
+    } as const;
+    const defaultPxByKey = {
+      graph: 120,
+      author: 120,
+      date: 110,
+      hash: 84,
+    } as const;
+    const minPxByKey = {
+      graph: GRAPH_COL_MIN_WIDTH_PX,
+      author: AUTHOR_COL_MIN_WIDTH_PX,
+      date: DATE_COL_MIN_WIDTH_PX,
+      hash: HASH_COL_MIN_WIDTH_PX,
+    } as const;
+    const maxPxByKey = {
+      graph: GRAPH_COL_MAX_WIDTH_PX,
+      author: AUTHOR_COL_MAX_WIDTH_PX,
+      date: DATE_COL_MAX_WIDTH_PX,
+      hash: HASH_COL_MAX_WIDTH_PX,
+    } as const;
+
+    const readCssPx = (cssVar: string, fallbackPx: number): number => {
+      const raw = window.getComputedStyle(root).getPropertyValue(cssVar).trim();
+      const parsed = Number.parseFloat(raw);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return parsed;
+      }
+      return fallbackPx;
+    };
+
+    const graphPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_GRAPH, graphColWidthPx);
+    const authorPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_AUTHOR, authorColWidthPx);
+    const datePx = readCssPx(CSS_VAR_GIT_GRAPH_COL_DATE, dateColWidthPx);
+    const hashPx = readCssPx(CSS_VAR_GIT_GRAPH_COL_HASH, hashColWidthPx);
+    const currentByKey = { graph: graphPx, author: authorPx, date: datePx, hash: hashPx };
+
+    const cssVar = cssVarByKey[key];
+    const startWidth = currentByKey[key];
+    const otherSum =
+      graphPx + authorPx + datePx + hashPx - startWidth;
+    const minPx = minPxByKey[key];
+    const maxPxConstant = maxPxByKey[key];
+    const maxFit = Math.max(minPx, contentWidth - otherSum);
+    const maxPx = Math.min(maxPxConstant, maxFit);
+
+    const applyWidth = (widthPx: number) => {
+      root.style.setProperty(cssVar, `${widthPx}px`);
+    };
+
+    const persistWidth = (widthPx: number) => {
+      if (key === "graph") {
+        useLocalStorage.setState({ gitGraphColWidthPx: widthPx });
+      } else if (key === "author") {
+        useLocalStorage.setState({ gitGraphAuthorWidthPx: widthPx });
+      } else if (key === "date") {
+        useLocalStorage.setState({ gitGraphDateWidthPx: widthPx });
+      } else {
+        useLocalStorage.setState({ gitGraphHashWidthPx: widthPx });
+      }
+    };
+
+    if (event.detail === 2) {
+      const bounded = clamp(defaultPxByKey[key], minPx, maxPx);
+      applyWidth(bounded);
+      persistWidth(bounded);
+      return;
+    }
+
+    const startX = event.clientX;
+    const pointerId = event.pointerId;
+
+    let rafId: number | null = null;
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) {
+        return;
+      }
+      const deltaX = moveEvent.clientX - startX;
+      const next = clamp(startWidth + deltaX, minPx, maxPx);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(() => {
+        applyWidth(next);
+        rafId = null;
+      });
+    };
+
+    const handleUp = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== pointerId) {
+        return;
+      }
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+
+      const raw = root.style.getPropertyValue(cssVar).trim();
+      const parsed = Number.parseFloat(raw);
+      const finalPx = Number.isFinite(parsed)
+        ? clamp(parsed, minPx, maxPx)
+        : clamp(defaultPxByKey[key], minPx, maxPx);
+      applyWidth(finalPx);
+      persistWidth(finalPx);
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
+  }
+
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border border-setta-200 bg-white shadow-sm dark:border-setta-800 dark:bg-setta-950">
+    <section
+      ref={overlayRef}
+      data-testid="git-graph-overlay"
+      className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border border-setta-200 bg-white shadow-sm dark:border-setta-800 dark:bg-setta-950"
+    >
       <header className="flex items-center gap-2 border-b border-setta-200/80 bg-white/80 px-3 py-2 backdrop-blur dark:border-setta-800/80 dark:bg-setta-950/70">
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-setta-400 dark:text-setta-500">
@@ -334,14 +650,67 @@ export function GitGraphOverlay() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        <section className="flex min-h-0 w-[56%] min-w-[320px] flex-col border-r border-setta-200 dark:border-setta-800">
-          <div className="grid grid-cols-[120px_1fr_120px_110px_84px] gap-2 border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500">
-            <div>Graph</div>
-            <div>Message</div>
-            <div>Author</div>
-            <div>Date</div>
-            <div>Hash</div>
+      <div ref={panesWrapperRef} className="flex min-h-0 flex-1">
+        <section
+          ref={historyPaneRef}
+          data-testid="git-graph-history-pane"
+          className="flex min-h-0 min-w-[320px] flex-col overflow-hidden"
+          style={{
+            width: `calc(var(${CSS_VAR_GIT_GRAPH_SPLIT_PCT}, ${DEFAULT_GIT_GRAPH_SPLIT_PCT}) * 1%)`,
+          }}
+        >
+          <div
+            ref={commitHeaderRef}
+            className="grid gap-2 border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
+            style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
+          >
+            <div
+              data-testid="git-graph-header-graph"
+              className="relative min-w-0 pr-2"
+            >
+              <span>Graph</span>
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-graph"
+                label="Resize graph column"
+                onPointerDown={(event) => beginColumnResizeDrag("graph", event)}
+              />
+            </div>
+            <div data-testid="git-graph-header-message" className="min-w-0">
+              Message
+            </div>
+            <div
+              data-testid="git-graph-header-author"
+              className="relative min-w-0 pr-2"
+            >
+              <span>Author</span>
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-author"
+                label="Resize author column"
+                onPointerDown={(event) => beginColumnResizeDrag("author", event)}
+              />
+            </div>
+            <div
+              data-testid="git-graph-header-date"
+              className="relative min-w-0 pr-2"
+            >
+              <span>Date</span>
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-date"
+                label="Resize date column"
+                onPointerDown={(event) => beginColumnResizeDrag("date", event)}
+              />
+            </div>
+            <div
+              data-testid="git-graph-header-hash"
+              className="relative min-w-0 pr-2"
+            >
+              <span>Hash</span>
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-hash"
+                label="Resize hash column"
+                onPointerDown={(event) => beginColumnResizeDrag("hash", event)}
+              />
+            </div>
           </div>
           <div className="min-h-0 flex-1" ref={listWrapperRef}>
             {graphState.isLoading ? (
@@ -374,7 +743,21 @@ export function GitGraphOverlay() {
           </div>
         </section>
 
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          data-testid="git-graph-pane-splitter"
+          role="separator"
+          aria-label="Resize git graph panes"
+          className="group/resize relative w-3 cursor-col-resize bg-transparent"
+          onPointerDown={beginPaneSplitDrag}
+        >
+          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 dark:bg-setta-800 group-hover/resize:bg-blue-400 dark:group-hover/resize:bg-blue-400" />
+        </div>
+
+        <section
+          data-testid="git-graph-diff-pane"
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          style={{ minWidth: `${GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX}px` }}
+        >
           <div className="border-b border-setta-200/70 px-3 py-2 dark:border-setta-800/70">
             {selectedCommit ? (
               <div className="flex flex-col gap-1">
@@ -537,7 +920,8 @@ function GitCommitRow({
     >
       <button
         type="button"
-        className={`grid h-[28px] w-full grid-cols-[120px_1fr_120px_110px_84px] items-center gap-2 px-3 text-left text-xs text-setta-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-100 ${background}`}
+        className={`grid h-[28px] w-full items-center gap-2 px-3 text-left text-xs text-setta-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-100 ${background}`}
+        style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
         onClick={() => {
           if (isSelected) {
             clearGitGraphSelectedCommit();
@@ -589,28 +973,89 @@ function GitCommitRow({
       </button>
 
       {isSelected && (
-        <div className="border-b border-setta-200/70 bg-setta-50/60 px-3 py-2 dark:border-setta-800/70 dark:bg-setta-900/20">
-          {selectedCommitDetailsIsLoading ? (
-            <div className="py-2 text-xs text-setta-500 dark:text-setta-300">
-              Loading commit details…
-            </div>
-          ) : selectedCommitDetailsError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
-              {selectedCommitDetailsError}
-            </div>
-          ) : selectedCommitDetails &&
-            selectedCommitDetails.commitHash === commit.hash ? (
-            <ExpandedCommitRow
-              details={selectedCommitDetails}
-              selectedFilePath={selectedFilePath}
+        <div className="border-b border-setta-200/70 bg-setta-50/60 px-3 dark:border-setta-800/70 dark:bg-setta-900/20">
+          <div
+            className="grid gap-2"
+            style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
+          >
+            <ExpandedGraphGutter
+              laneColorIds={row.laneColorIds}
+              laneEndIndices={row.laneEndIndices}
+              joinFromLaneIndices={row.joinFromLaneIndices}
+              palette={palette}
+              darkMode={darkMode}
+              viewBoxWidth={graphViewBoxWidth}
             />
-          ) : (
-            <div className="py-2 text-xs text-setta-500 dark:text-setta-300">
-              No details available.
+            <div className="col-span-4 min-w-0 py-3">
+              {selectedCommitDetailsIsLoading ? (
+                <div className="text-xs text-setta-500 dark:text-setta-300">
+                  Loading commit details…
+                </div>
+              ) : selectedCommitDetailsError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+                  {selectedCommitDetailsError}
+                </div>
+              ) : selectedCommitDetails &&
+                selectedCommitDetails.commitHash === commit.hash ? (
+                <ExpandedCommitRow
+                  details={selectedCommitDetails}
+                  selectedFilePath={selectedFilePath}
+                />
+              ) : (
+                <div className="text-xs text-setta-500 dark:text-setta-300">
+                  No details available.
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExpandedGraphGutter({
+  laneColorIds,
+  laneEndIndices,
+  joinFromLaneIndices,
+  palette,
+  darkMode,
+  viewBoxWidth,
+}: {
+  laneColorIds: number[];
+  laneEndIndices: number[];
+  joinFromLaneIndices: number[];
+  palette: readonly string[];
+  darkMode: boolean;
+  viewBoxWidth: number;
+}) {
+  const blockedLaneIndices = new Set<number>([
+    ...laneEndIndices,
+    ...joinFromLaneIndices,
+  ]);
+  const xForLane = (idx: number) => idx * LANE_WIDTH + LANE_WIDTH / 2;
+  const normalizedWidth = Math.max(1, viewBoxWidth);
+
+  return (
+    <div
+      data-testid="git-graph-expanded-gutter"
+      className="pointer-events-none relative min-h-[52px]"
+      aria-hidden="true"
+    >
+      {laneColorIds.map((colorId, idx) => {
+        if (colorId < 0 || blockedLaneIndices.has(idx)) {
+          return null;
+        }
+        const color = laneColorForId(colorId, palette, darkMode);
+        const leftPct = (xForLane(idx) / normalizedWidth) * 100;
+        return (
+          <span
+            key={`expanded-lane-${idx}`}
+            className="absolute bottom-0 top-0 w-[2px] -translate-x-1/2 rounded-full"
+            style={{ left: `${leftPct}%`, backgroundColor: color }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -631,7 +1076,7 @@ function ExpandedCommitRow({
     details.committerTimeMs !== details.authorTimeMs;
 
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_340px]">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(240px,380px)]">
       <div className="min-w-0">
         <div className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-[11px] text-setta-600 dark:text-setta-300">
           <div className="font-bold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
@@ -694,7 +1139,10 @@ function ExpandedCommitRow({
             None
           </div>
         ) : (
-          <ul className="max-h-56 overflow-y-auto rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950">
+          <ul
+            data-testid="git-graph-files-list"
+            className="max-h-56 overflow-x-hidden overflow-y-auto rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
+          >
             {details.files.map((file) => (
               <li key={`${file.status}-${file.oldPath ?? ""}-${file.path}`}>
                 <CommitFileRow
@@ -727,7 +1175,7 @@ function CommitFileRow({
       : file.deletions.toString();
 
   const base =
-    "flex w-full items-center gap-2 px-2 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300";
+    "flex w-full items-center gap-2 overflow-hidden px-2 py-1 text-left text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300";
   const background = isSelected
     ? "bg-blue-50 dark:bg-blue-950/40"
     : "hover:bg-setta-50 dark:hover:bg-setta-900/60";
@@ -747,7 +1195,7 @@ function CommitFileRow({
         {file.status}
       </span>
 
-      <span className="min-w-0 flex-1 truncate font-mono text-setta-800 dark:text-setta-100">
+      <span className="block min-w-0 flex-1 truncate font-mono text-setta-800 dark:text-setta-100">
         {file.oldPath && file.oldPath !== file.path ? (
           <>
             <span className="text-setta-500 dark:text-setta-400">
@@ -780,6 +1228,28 @@ function PathWithMutedDir({ path }: { path: string }) {
       <span className="text-setta-400 dark:text-setta-500">{dir}</span>
       <span className="text-setta-800 dark:text-setta-100">{base}</span>
     </>
+  );
+}
+
+function ColumnResizeHandle({
+  dataTestId,
+  label,
+  onPointerDown,
+}: {
+  dataTestId: string;
+  label: string;
+  onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      data-testid={dataTestId}
+      role="separator"
+      aria-label={label}
+      className="group/col-resize absolute -right-2 top-0 z-10 h-full w-4 cursor-col-resize"
+      onPointerDown={onPointerDown}
+    >
+      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-300 dark:bg-setta-700 group-hover/col-resize:bg-blue-400 dark:group-hover/col-resize:bg-blue-400" />
+    </div>
   );
 }
 
@@ -878,7 +1348,7 @@ function GitGraphCell({
   viewBoxWidth: number;
 }) {
   const height = ROW_HEIGHT;
-  const width = Math.max(GRAPH_CELL_WIDTH, viewBoxWidth);
+  const width = Math.max(1, viewBoxWidth);
   const centerY = height / 2;
   // Keep strokes fully opaque so curves don't blend with underlying lanes and
   // appear to change color when crossing other branches.
@@ -891,9 +1361,10 @@ function GitGraphCell({
 
   return (
     <svg
-      width={GRAPH_CELL_WIDTH}
+      width="100%"
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
       className="block"
       aria-hidden="true"
     >

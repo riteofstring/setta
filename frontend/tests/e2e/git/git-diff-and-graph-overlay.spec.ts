@@ -60,7 +60,15 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.writeFile(trackedPath, "def foo():\n  return 3\n", "utf8");
     await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
 
-    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
+    await seedLocalStorage(page, {
+      overviewTab: "Git",
+      overviewVis: true,
+      gitGraphSplitPct: 56,
+      gitGraphColWidthPx: 120,
+      gitGraphAuthorWidthPx: 120,
+      gitGraphDateWidthPx: 110,
+      gitGraphHashWidthPx: 84,
+    });
     await ensureAppReady(page);
 
     await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
@@ -122,6 +130,70 @@ test("git diff overlay and git graph overlay render between panes", async ({
       graphOverlay.getByRole("button", { name: /add tracked/ }),
     ).toBeVisible();
 
+    const historyPane = graphOverlay.getByTestId("git-graph-history-pane");
+    const diffPane = graphOverlay.getByTestId("git-graph-diff-pane");
+    const paneSplitter = graphOverlay.getByTestId("git-graph-pane-splitter");
+    const historyBefore = await historyPane.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    const diffBefore = await diffPane.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    const paneSplitterBox = await paneSplitter.boundingBox();
+    if (!paneSplitterBox) {
+      throw new Error("Expected git graph pane splitter to have a bounding box.");
+    }
+    await page.mouse.move(
+      paneSplitterBox.x + paneSplitterBox.width / 2,
+      paneSplitterBox.y + paneSplitterBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      paneSplitterBox.x + paneSplitterBox.width / 2 + 120,
+      paneSplitterBox.y + paneSplitterBox.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    const historyAfter = await historyPane.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    const diffAfter = await diffPane.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    expect(historyAfter).toBeGreaterThan(historyBefore + 40);
+    expect(diffAfter).toBeLessThan(diffBefore - 40);
+
+    const authorHeader = graphOverlay.getByTestId("git-graph-header-author");
+    const authorResizeHandle = graphOverlay.getByTestId(
+      "git-graph-col-resize-author",
+    );
+    const authorBefore = await authorHeader.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    const authorHandleBox = await authorResizeHandle.boundingBox();
+    if (!authorHandleBox) {
+      throw new Error(
+        "Expected git graph author column resize handle to have a bounding box.",
+      );
+    }
+    await page.mouse.move(
+      authorHandleBox.x + authorHandleBox.width / 2,
+      authorHandleBox.y + authorHandleBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      authorHandleBox.x + authorHandleBox.width / 2 + 70,
+      authorHandleBox.y + authorHandleBox.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    const authorAfter = await authorHeader.evaluate(
+      (el) => el.getBoundingClientRect().width,
+    );
+    expect(authorAfter).toBeGreaterThan(authorBefore + 20);
+
     // Linear history should stay on a single lane (regression guard for log parsing).
     await expect(
       graphOverlay.getByRole("button", { name: /add tracked.*lanes 1/ }),
@@ -134,6 +206,18 @@ test("git diff overlay and git graph overlay render between panes", async ({
 
     // Selected commit expands and lists files; the right panel shows the per-file patch.
     await expect(graphOverlay.getByText("Files changed")).toBeVisible();
+    await expect(
+      graphOverlay.getByTestId("git-graph-expanded-gutter").first(),
+    ).toBeVisible();
+    const filesList = graphOverlay.getByTestId("git-graph-files-list");
+    await expect(filesList).toBeVisible();
+    const overflowModes = await filesList.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return { overflowX: style.overflowX, overflowY: style.overflowY };
+    });
+    expect(overflowModes.overflowX).toBe("hidden");
+    expect(overflowModes.overflowY).toBe("auto");
+
     const trackedFileButton = graphOverlay.getByRole("button", {
       name: /tracked\.py/,
     });
