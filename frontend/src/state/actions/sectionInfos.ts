@@ -235,7 +235,10 @@ export function getAttachedTerminalParentIdForTerminalSection(
   state: ZustandProjectState,
   terminalSectionId: string,
 ): string | null {
-  const terminalImpl = getEffectiveSectionImplIfPresent(state, terminalSectionId);
+  const terminalImpl = getEffectiveSectionImplIfPresent(
+    state,
+    terminalSectionId,
+  );
   if (!terminalImpl) {
     return null;
   }
@@ -321,7 +324,10 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   if (!isEmbeddedCandidate) {
     return null;
   }
-  const terminalImpl = getEffectiveSectionImplIfPresent(state, attachedTerminalId);
+  const terminalImpl = getEffectiveSectionImplIfPresent(
+    state,
+    attachedTerminalId,
+  );
   if (!terminalImpl) {
     return null;
   }

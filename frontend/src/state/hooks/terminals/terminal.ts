@@ -674,9 +674,7 @@ function proposeDimensionsFallback(terminal: Terminal): {
     termStyle.getPropertyValue("padding-bottom"),
   );
   const paddingLeft = parseFloat(termStyle.getPropertyValue("padding-left"));
-  const paddingRight = parseFloat(
-    termStyle.getPropertyValue("padding-right"),
-  );
+  const paddingRight = parseFloat(termStyle.getPropertyValue("padding-right"));
   if (
     !Number.isFinite(paddingTop) ||
     !Number.isFinite(paddingBottom) ||
