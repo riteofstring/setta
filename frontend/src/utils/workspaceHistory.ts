@@ -1,17 +1,18 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
 import { safeLocalStorage } from "utils/storage";
 
+type SettaFilesLocation = "auto" | "local" | "global";
+
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
   sshTarget: string | null;
   localPort: number | null;
-  filesRoot: string | null;
-  filesRootBase: string | null;
+  settaFilesLocation: SettaFilesLocation;
   lastUsedAt: number;
 };
 
-const HISTORY_KEY = "setta.workspaceHistory";
-const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff";
+const HISTORY_KEY = "setta.workspaceHistory.v2";
+const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff.v2";
 const HISTORY_LIMIT = 6;
 
 function normalizeNullableString(value: unknown): string | null {
@@ -70,17 +71,26 @@ function normalizeNullablePort(value: unknown): number | null {
   return null;
 }
 
+function normalizeSettaFilesLocation(value: unknown): SettaFilesLocation {
+  if (typeof value !== "string") {
+    return "auto";
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === "auto" || trimmed === "local" || trimmed === "global") {
+    return trimmed;
+  }
+  return "auto";
+}
+
 function buildEntryKey(entry: {
   workspaceRoot: string;
   sshTarget: string | null;
-  filesRoot: string | null;
-  filesRootBase: string | null;
+  settaFilesLocation: SettaFilesLocation;
 }) {
   const normalized = {
     workspaceRoot: normalizePathLike(entry.workspaceRoot),
     sshTarget: normalizeNullableString(entry.sshTarget),
-    filesRoot: normalizeNullablePathLike(entry.filesRoot),
-    filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
+    settaFilesLocation: normalizeSettaFilesLocation(entry.settaFilesLocation),
   };
   return JSON.stringify(normalized);
 }
@@ -102,8 +112,7 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot?: unknown;
       sshTarget?: unknown;
       localPort?: unknown;
-      filesRoot?: unknown;
-      filesRootBase?: unknown;
+      settaFilesLocation?: unknown;
       lastUsedAt?: unknown;
     };
     if (typeof record.workspaceRoot !== "string") {
@@ -125,8 +134,9 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot: normalizedWorkspaceRoot,
       sshTarget: normalizeNullableString(record.sshTarget),
       localPort: normalizeNullablePort(record.localPort),
-      filesRoot: normalizeNullablePathLike(record.filesRoot),
-      filesRootBase: normalizeNullablePathLike(record.filesRootBase),
+      settaFilesLocation: normalizeSettaFilesLocation(
+        record.settaFilesLocation,
+      ),
       lastUsedAt: record.lastUsedAt,
     });
   }

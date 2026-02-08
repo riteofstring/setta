@@ -13,11 +13,11 @@ import psutil
 from pydantic import BaseModel, ValidationError
 
 from setta.auth.bootstrap import extract_token_from_bootstrap_url
-from setta.launch import LaunchError, validate_files_root_options
+from setta.launch import LaunchError
 from setta.ssh_common import (
     RemoteSessionSummary,
     apply_control_socket_args,
-    build_remote_files_root_args,
+    build_remote_setta_files_args,
     build_ssh_tunnel_args,
     ensure_background_process_started,
     fetch_remote_connect_info,
@@ -44,7 +44,7 @@ class RemoteConnectResult:
     session: RemoteSessionSummary
     started_new: bool
     remote_cmd_resolved: str
-    files_root: str | None
+    setta_files_location: str
 
 
 class SshTunnelMetadata(BaseModel):
@@ -62,8 +62,7 @@ def connect_remote_workspace_session(
     *,
     ssh_target: str,
     workspace: str,
-    files_root: str | None,
-    files_root_base: str | None,
+    setta_files_location: str,
     ssh_args: str | None = None,
     remote_cmd: str | None = None,
     local_port: int | None = None,
@@ -78,7 +77,12 @@ def connect_remote_workspace_session(
         )
     if local_port is not None and not (1 <= local_port <= 65535):
         raise LaunchError("InvalidLocalPort", f"Invalid local port: {local_port}")
-    validate_files_root_options(files_root=files_root, files_root_base=files_root_base)
+    trimmed_location = (setta_files_location or "").strip().lower()
+    if trimmed_location not in ("auto", "local", "global"):
+        raise LaunchError(
+            "InvalidSettaFilesLocation",
+            "settaFilesLocation must be one of: auto, local, global.",
+        )
 
     ssh_prefix = ssh_command_prefix(batch_mode=True)
     ssh_args_list = apply_control_socket_args(parse_ssh_args(ssh_args))
@@ -98,9 +102,8 @@ def connect_remote_workspace_session(
         remote_cmd,
         ssh_prefix=ssh_prefix,
     )
-    files_root_args = build_remote_files_root_args(
-        files_root=files_root,
-        files_root_base=files_root_base,
+    setta_files_args = build_remote_setta_files_args(
+        setta_files_location=trimmed_location,
     )
     sessions = fetch_remote_sessions(
         ssh_target,
@@ -108,7 +111,7 @@ def connect_remote_workspace_session(
         shell,
         remote_workspace,
         setta_command,
-        files_root_args,
+        setta_files_args,
         ssh_prefix=ssh_prefix,
     )
     started_new = False
@@ -122,10 +125,9 @@ def connect_remote_workspace_session(
                 shell,
                 remote_workspace,
                 setta_command,
-                files_root_args,
+                setta_files_args,
                 ssh_prefix=ssh_prefix,
-                files_root=files_root,
-                files_root_base=files_root_base,
+                setta_files_location=trimmed_location,
             )
         except LaunchError as exc:
             if exc.code == "SshTimeout":
@@ -139,7 +141,7 @@ def connect_remote_workspace_session(
                 shell,
                 remote_workspace,
                 setta_command,
-                files_root_args,
+                setta_files_args,
                 ssh_prefix=ssh_prefix,
                 timeout_seconds=timeout_seconds,
             )
@@ -158,7 +160,7 @@ def connect_remote_workspace_session(
         shell,
         remote_workspace,
         setta_command,
-        files_root_args,
+        setta_files_args,
         session_id=session.id,
         ssh_prefix=ssh_prefix,
     )
@@ -168,12 +170,18 @@ def connect_remote_workspace_session(
             "RemoteConnectInfo",
             "Remote connect info did not include a bootstrapUrlFragment.",
         )
-    remote_files_root: str | None = None
-    files_root_value = connect_info.get("filesRoot")
-    if isinstance(files_root_value, str):
-        trimmed_files_root = files_root_value.strip()
-        if trimmed_files_root:
-            remote_files_root = trimmed_files_root
+    remote_location_value = connect_info.get("settaFilesLocation")
+    if not isinstance(
+        remote_location_value, str
+    ) or remote_location_value.strip() not in (
+        "local",
+        "global",
+    ):
+        raise LaunchError(
+            "RemoteConnectInfo",
+            "Remote connect info did not include a settaFilesLocation.",
+        )
+    remote_setta_files_location = remote_location_value.strip()
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:
@@ -198,7 +206,7 @@ def connect_remote_workspace_session(
         session=session,
         started_new=started_new,
         remote_cmd_resolved=setta_command,
-        files_root=remote_files_root,
+        setta_files_location=remote_setta_files_location,
     )
 
 
