@@ -55,7 +55,6 @@ from setta.utils.network import (
     format_host_for_ssh_tunnel,
     format_host_for_url,
 )
-from setta.utils.utils import normalize_path
 from setta.utils.paths import (
     clear_setta_paths_cache,
     get_optional_dir_validation_error,
@@ -63,6 +62,7 @@ from setta.utils.paths import (
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.utils import normalize_path
 
 _DEFAULT_LOCAL_PORT = 61000
 _ROUTE_NAMES = {route.value.lstrip("/") for route in Route}

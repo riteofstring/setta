@@ -9,6 +9,8 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
+  static APP_DEPLOYMENT_ROOT = null;
+  static APP_MODE = false;
   static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
   static AUTH_COOKIE_REFRESH_WINDOW_SECONDS = 3600;
   static AUTH_COOKIE_SAMESITE = "lax";
