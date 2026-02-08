@@ -13,7 +13,6 @@ scripts/run-playwright-e2e.sh frontend/tests/e2e/params/params-section-scroll.sp
 What this does:
 - Activates the repo's `.venv` so `python` is on PATH.
 - Seeds a temporary `setta_files` workspace.
-- Uses a temporary `SETTA_HOME` by default so tests do not touch your real user config (`~/.setta/config.json`). Override by setting `SETTA_HOME`.
 - Starts backend + frontend on free ports.
 - Mints a bootstrap token automatically.
 - Runs Playwright with the correct host platform override on Apple Silicon.

@@ -64,7 +64,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
 
     with temporary_setta_paths(
         workspace_root=root,
-        setta_files_location="local",
+        setta_files_root=setta_root,
     ):
         yield setta_root
 
