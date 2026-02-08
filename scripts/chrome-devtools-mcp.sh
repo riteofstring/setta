@@ -18,4 +18,5 @@ export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="${CHROME_DEVTOOLS_MCP_NO_USAGE_S
 export NODE_NO_WARNINGS="${NODE_NO_WARNINGS:-1}"
 
 # Pin a known-good version to avoid breaking MCP transport on upstream changes.
+# Note: chrome-devtools-mcp expects `--browserUrl` (camelCase).
 exec npx -y chrome-devtools-mcp@0.17.0 --browserUrl="${BROWSER_URL}" "$@" 2>"${STDERR_LOG}"

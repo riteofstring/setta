@@ -16,6 +16,7 @@ import {
   useLocalStorage,
   useShareSession,
 } from "state/definitions";
+import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   OverviewTabName,
   OverviewTabNameEnum,
@@ -50,6 +51,7 @@ export function Overview() {
     order: 10,
     rootRef: overviewRef,
   });
+  const hasViewModeTabs = useHasViewModeTabs();
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
     vis: x.overviewVis,
@@ -104,7 +106,14 @@ export function Overview() {
       ref={overviewRef}
       data-tab-scope="overview"
     >
-      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_36px)] w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
+      <div
+        data-testid="overview-icon-rail"
+        className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        style={{
+          top: "calc(var(--setta-titlebar-height) + 36px)",
+          bottom: hasViewModeTabs ? "36px" : "0px",
+        }}
+      >
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
