@@ -95,6 +95,7 @@ test("app mode TextOutput renders the effective (modifier) TextBlock text", asyn
     deploymentName,
     deploymentVersion,
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: configId,
     projectMetadata: [
       {
@@ -162,4 +163,3 @@ test("app mode TextOutput renders the effective (modifier) TextBlock text", asyn
   await expect(page.getByText("From core modifier")).toBeVisible();
   await expect(page.getByText("From impl")).not.toBeVisible();
 });
-

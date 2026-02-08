@@ -181,6 +181,7 @@ class TestShareDeploymentPublish:
                     dbe=project_fixture.dbe,
                     project_manager_switcher=switcher,
                     share_mode=False,
+                    deployment_mode=False,
                 )
                 metadata = await route_publish_share_deployment(
                     PublishShareDeploymentRequest(
@@ -220,6 +221,7 @@ class TestShareDeploymentPublish:
                         dbe=project_fixture.dbe,
                         project_manager_switcher=switcher,
                         share_mode=False,
+                        deployment_mode=False,
                     )
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -290,6 +292,7 @@ class TestShareDeploymentPublish:
                         dbe=project_fixture.dbe,
                         project_manager_switcher=switcher,
                         share_mode=False,
+                        deployment_mode=False,
                     )
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -445,6 +448,7 @@ class TestShareDeploymentPublish:
                         dbe=project_fixture.dbe,
                         project_manager_switcher=switcher,
                         share_mode=False,
+                        deployment_mode=False,
                     )
                     metadata = await route_publish_share_deployment(
                         PublishShareDeploymentRequest(
@@ -635,6 +639,7 @@ class TestShareDeploymentPublish:
                         dbe=project_fixture.dbe,
                         project_manager_switcher=switcher,
                         share_mode=False,
+                        deployment_mode=False,
                     )
                     request = PublishShareDeploymentRequest(
                         deploymentName="share-deployment",
@@ -771,6 +776,7 @@ class TestShareDeploymentPublish:
                         dbe=project_fixture.dbe,
                         project_manager_switcher=switcher,
                         share_mode=False,
+                        deployment_mode=False,
                     )
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId

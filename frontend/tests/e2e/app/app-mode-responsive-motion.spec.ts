@@ -64,6 +64,7 @@ test("app mode supports responsive layout props and motion primitives", async ({
     deploymentName: "app-test",
     deploymentVersion: "v1",
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {
@@ -226,6 +227,7 @@ test("app mode can theme motion defaults", async ({ page }) => {
     deploymentName: "app-test",
     deploymentVersion: "v1",
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {
@@ -381,6 +383,7 @@ test("app mode can theme typography tokens", async ({ page }) => {
     deploymentName: "app-test",
     deploymentVersion: "v1",
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {
@@ -505,6 +508,7 @@ test("app mode can theme shadow tokens", async ({ page }) => {
     deploymentName: "app-test",
     deploymentVersion: "v1",
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {

@@ -52,6 +52,9 @@ function isShareSessionResponse(
   if (typeof record.shareSessionId !== "string") {
     return false;
   }
+  if (typeof record.sessionRunCount !== "number") {
+    return false;
+  }
   if (typeof record.defaultProjectConfigId !== "string") {
     return false;
   }
@@ -128,6 +131,7 @@ function getCachedShareSession(): ShareDeploymentSessionResponse | null {
     deploymentName: shareSession.shareDeploymentName,
     deploymentVersion: shareSession.shareDeploymentVersion,
     shareSessionId: shareSession.shareSessionId,
+    sessionRunCount: shareSession.sessionRunCount,
     defaultProjectConfigId: metadata.defaultProjectConfigId,
     projectMetadata: metadata.projectMetadata,
     sharePolicy: shareSession.sharePolicy,
@@ -141,6 +145,7 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   useShareSession.setState({
     isShareMode: true,
     shareSessionId: session.shareSessionId,
+    sessionRunCount: session.sessionRunCount,
     sharePolicy: session.sharePolicy,
     shareDeploymentName: session.deploymentName,
     shareDeploymentVersion: session.deploymentVersion,

@@ -71,6 +71,7 @@ def _write_project(
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -261,6 +262,7 @@ def _write_project_with_state(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -291,6 +293,7 @@ def _write_project_with_states(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 

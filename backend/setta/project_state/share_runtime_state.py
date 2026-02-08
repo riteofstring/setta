@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
@@ -91,6 +92,7 @@ class ShareRuntimeState:
         self._session_backends: dict[str, ProjectStateBackend] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
         self._session_run_counts: dict[str, int] = {}
+        self._session_run_lock = asyncio.Lock()
         self._artifact_watcher = specific_file_watcher or SpecificFileWatcher()
         self._base_backend: ProjectStateBackend | None = None
 
@@ -221,6 +223,30 @@ class ShareRuntimeState:
         self._ensure_session_run_count(session_id)
         self._session_run_counts[session_id] += 1
         return self._session_run_counts[session_id]
+
+    async def try_reserve_session_run_count(self, session_id: str) -> bool:
+        """
+        Atomically reserve a "run slot" for this session.
+
+        Returns True if the run slot was reserved (run count incremented), False if the
+        session already has at least one reserved/started run.
+        """
+        async with self._session_run_lock:
+            self._ensure_session_run_count(session_id)
+            if self._session_run_counts[session_id] > 0:
+                return False
+            self._session_run_counts[session_id] += 1
+            return True
+
+    async def rollback_reserved_session_run_count(self, session_id: str) -> int:
+        """
+        Roll back a previously reserved run slot (for example if the run fails to start).
+        """
+        async with self._session_run_lock:
+            self._ensure_session_run_count(session_id)
+            if self._session_run_counts[session_id] > 0:
+                self._session_run_counts[session_id] -= 1
+            return self._session_run_counts[session_id]
 
     def _ensure_session_run_count(self, session_id: str) -> None:
         if session_id not in self._session_run_counts:

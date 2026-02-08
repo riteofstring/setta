@@ -227,6 +227,7 @@ class _TestState:
     wmh_frontend_sender: WMHFrontendSender
     external_agent_runner: ExternalAgentRunner | None = None
     share_mode: bool = False
+    deployment_mode: bool = False
     share_runtime_state: None = None
     chat_manager: None = None
 

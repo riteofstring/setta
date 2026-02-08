@@ -25,7 +25,7 @@ from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
 from setta.types.id import ID
-from setta.types.share_deployment import DeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 
 
 def _write_share_project(
@@ -51,6 +51,7 @@ def _write_share_project(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
+    dbe.write_json(deployment_root / "policy.json", SharePolicy().model_dump())
     return project_config
 
 
@@ -77,6 +78,7 @@ def _write_share_project_with_configs(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(deployment_root / "manifest.json", manifest.model_dump())
+    dbe.write_json(deployment_root / "policy.json", SharePolicy().model_dump())
 
 
 def _make_request(share_session_id: str | None) -> Request:

@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -8,7 +9,7 @@ from setta.database.db_objs import DBE
 from setta.runtime.context import RuntimeContext
 from setta.server_state import SettaFastAPIState
 from setta.share.policy import (
-    deny_in_share_mode,
+    deny_in_deployment_mode,
     ensure_share_download_allowed,
     ensure_share_multiple_runs_allowed,
 )
@@ -46,6 +47,7 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -152,10 +154,10 @@ class TestSharePolicyEnforcement:
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
             with pytest.raises(HTTPException) as raised:
-                await deny_in_share_mode(
-                    share_mode=runtime_ctx.share_mode,
+                await deny_in_deployment_mode(
+                    deployment_mode=runtime_ctx.deployment_mode,
                     frontend_sender=runtime_ctx.frontend_sender,
-                    message="Share mode disallows structural changes.",
+                    message="Deployment mode disallows structural changes.",
                     share_session_id=runtime_ctx.share_session_id,
                 )
 
@@ -174,10 +176,10 @@ class TestSharePolicyEnforcement:
             runtime_ctx = RuntimeContext(state, share_session_id="session-a")
 
             with pytest.raises(HTTPException) as raised:
-                await deny_in_share_mode(
-                    share_mode=runtime_ctx.share_mode,
+                await deny_in_deployment_mode(
+                    deployment_mode=runtime_ctx.deployment_mode,
                     frontend_sender=runtime_ctx.frontend_sender,
-                    message="Share mode disallows language server features.",
+                    message="Deployment mode disallows language server features.",
                     share_session_id=runtime_ctx.share_session_id,
                 )
 
@@ -224,7 +226,6 @@ class TestSharePolicyEnforcement:
             await ensure_share_multiple_runs_allowed(
                 state, share_session_id=session.id
             )
-            state.share_runtime_state.increment_session_run_count(session.id)
 
             with pytest.raises(HTTPException) as raised:
                 await ensure_share_multiple_runs_allowed(
@@ -232,3 +233,33 @@ class TestSharePolicyEnforcement:
                 )
 
             assert raised.value.status_code == 403
+
+    async def test_multiple_run_reservation_is_atomic(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowRun=True, allowMultipleRuns=False),
+            )
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            results = await asyncio.gather(
+                ensure_share_multiple_runs_allowed(state, share_session_id=session.id),
+                ensure_share_multiple_runs_allowed(state, share_session_id=session.id),
+                return_exceptions=True,
+            )
+            successes = [result for result in results if result is True]
+            failures = [
+                result for result in results if isinstance(result, HTTPException)
+            ]
+            assert len(successes) == 1
+            assert len(failures) == 1
+            assert failures[0].status_code == 403

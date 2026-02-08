@@ -6,6 +6,8 @@ import {
   type Response,
 } from "@playwright/test";
 
+import { ensureAppReady } from "../helpers";
+
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
@@ -172,60 +174,6 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
     await deleteProjectConfigByName(page, projectConfigName);
   }
 });
-
-async function ensureAppReady(page: Page): Promise<void> {
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  if (await isAppReady(page)) {
-    return;
-  }
-
-  const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie && BOOTSTRAP_TOKEN) {
-    await page.goto(
-      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-    );
-    try {
-      await waitForProjectUrl(page);
-    } catch {
-      // Fall through to final readiness check.
-    }
-  }
-
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  if (await isAppReady(page)) {
-    return;
-  }
-
-  if (!BOOTSTRAP_TOKEN && !hasCookie) {
-    throw new Error(
-      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
-    );
-  }
-  throw new Error("Setta UI did not become ready. Check bootstrap auth.");
-}
-
-async function isAppReady(page: Page): Promise<boolean> {
-  try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: 10000 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function waitForProjectUrl(page: Page): Promise<void> {
-  await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
-    timeout: 20000,
-    waitUntil: "domcontentloaded",
-  });
-}
-
-async function hasAuthCookie(page: Page): Promise<boolean> {
-  const cookies = await page
-    .context()
-    .cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
-}
 
 function resolveProjectUrl(): string {
   const configuredUrl = process.env.SETTA_PROJECT_URL;

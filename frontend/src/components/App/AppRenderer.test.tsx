@@ -71,6 +71,7 @@ function renderApp(
     isShareMode: false,
     sharePolicy: null,
     shareSessionId: null,
+    sessionRunCount: 0,
     shareDeploymentName: null,
     shareDeploymentVersion: null,
     deploymentMode: null,
@@ -182,12 +183,8 @@ describe("AppRenderer", () => {
     const runSpy = vi
       .spyOn(endpoints, "route_run_code")
       .mockResolvedValue({ data: null, status: 200, hasResponse: true });
-    const setParamSpy = vi
-      .spyOn(endpoints, "route_set_param_entered_value")
-      .mockResolvedValue({ data: null, status: 200, hasResponse: true });
-    const setVariantSpy = vi
-      .spyOn(endpoints, "route_set_section_variant")
-      .mockResolvedValue({ data: null, status: 200, hasResponse: true });
+    const setParamSpy = vi.spyOn(endpoints, "route_set_param_entered_value");
+    const setVariantSpy = vi.spyOn(endpoints, "route_set_section_variant");
 
     renderApp(appSpec, {
       appDefinition,
@@ -199,20 +196,13 @@ describe("AppRenderer", () => {
     expect(handler).toBeDefined();
     await handler?.();
 
-    expect(setVariantSpy).toHaveBeenCalledWith({
-      projectConfigId: configId,
-      sectionId,
-      variantId: "variant-2",
-    });
-    expect(setParamSpy).toHaveBeenCalledWith({
-      projectConfigId: configId,
-      sectionId,
-      paramInfoId: "param-1",
-      value: "override",
-    });
+    expect(setVariantSpy).not.toHaveBeenCalled();
+    expect(setParamSpy).not.toHaveBeenCalled();
     expect(runSpy).toHaveBeenCalledWith({
       projectConfigId: configId,
       sectionId,
+      sectionVariantOverrides: { [sectionId]: "variant-2" },
+      paramOverrides: { [`${sectionId}:param-1`]: "override" },
     });
   });
 });

@@ -116,7 +116,7 @@ def _apply_share_policy_overrides(
 
 
 def _require_share_mode(state: AppStateFromRequest) -> None:
-    if not state.share_mode or state.app_mode:
+    if not state.share_mode:
         raise HTTPException(
             status_code=400,
             detail="Share mode is not enabled for this server.",
@@ -181,10 +181,10 @@ def _metadata_from_manifest(
 def route_list_share_deployments(
     state: AppStateFromRequest,
 ) -> list[ShareDeploymentMetadata]:
-    if state.share_mode:
+    if state.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Share mode does not allow listing deployments.",
+            detail="Deployment mode does not allow listing deployments.",
         )
     deployments_root = C.DEPLOYMENTS_FOLDER
     if not deployments_root.exists():
@@ -220,10 +220,10 @@ def route_list_share_deployment_versions(
     deploymentName: str,
     state: AppStateFromRequest,
 ) -> list[ShareDeploymentMetadata]:
-    if state.share_mode:
+    if state.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Share mode does not allow listing deployment versions.",
+            detail="Deployment mode does not allow listing deployment versions.",
         )
     deployment_root = normalize_path(C.DEPLOYMENTS_FOLDER / deploymentName)
     if not deployment_root.exists():
@@ -337,6 +337,9 @@ async def route_create_share_session_current(
         deploymentName=state.share_runtime_state.deployment_name,
         deploymentVersion=state.share_runtime_state.deployment_version,
         shareSessionId=share_session_id,
+        sessionRunCount=state.share_runtime_state.get_session_run_count(
+            share_session_id
+        ),
         defaultProjectConfigId=state.share_runtime_state.default_project_config_id,
         projectMetadata=list(
             state.share_runtime_state.project_state_backend.projectConfigs.values()
@@ -360,6 +363,9 @@ async def route_create_share_session(
         deploymentName=state.share_runtime_state.deployment_name,
         deploymentVersion=state.share_runtime_state.deployment_version,
         shareSessionId=share_session_id,
+        sessionRunCount=state.share_runtime_state.get_session_run_count(
+            share_session_id
+        ),
         defaultProjectConfigId=state.share_runtime_state.default_project_config_id,
         projectMetadata=list(
             state.share_runtime_state.project_state_backend.projectConfigs.values()
@@ -446,10 +452,10 @@ async def route_load_share_project_config(
 async def route_publish_share_deployment(
     x: PublishShareDeploymentRequest, state: AppStateFromRequest
 ) -> ShareDeploymentMetadata:
-    if state.share_mode:
+    if state.deployment_mode:
         raise HTTPException(
             status_code=403,
-            detail="Share mode does not allow publishing deployments.",
+            detail="Deployment mode does not allow publishing deployments.",
         )
     project_manager = state.project_manager_switcher.get(x.projectConfigId)
     await project_manager.finish_pending_operations()

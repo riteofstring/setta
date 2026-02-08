@@ -178,6 +178,7 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -203,6 +204,7 @@ def _write_share_project_with_configs(
         defaultProjectConfigId=default_project_config_id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -231,6 +233,7 @@ def _write_share_project_with_entry_code(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -275,6 +278,7 @@ def _write_share_project_with_section(
         sectionVariants={variant_id: variant},
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,
@@ -307,6 +311,7 @@ def _write_share_project_with_code_param(
     backend.defaultProjectConfigId = project_config.id
     dbe = DBE(root)
     dbe.write_project(backend)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
     manifest = DeploymentManifest(
         version=1,

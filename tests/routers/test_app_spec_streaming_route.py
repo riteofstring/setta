@@ -21,6 +21,7 @@ class _StateStub:
     agent_runner: _AgentRunnerStub
     wmh_frontend_sender: object
     share_mode: bool = False
+    deployment_mode: bool = False
 
 
 class TestAppSpecStreamingRoute:

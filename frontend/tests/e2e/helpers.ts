@@ -48,15 +48,12 @@ export async function ensureAppReady(page: Page): Promise<void> {
   }
 
   const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie && BOOTSTRAP_TOKEN) {
-    await page.goto(
-      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
+  if (!hasCookie) {
+    // In Playwright E2E, auth should already be established via global-setup storageState.
+    // Avoid consuming the bootstrap token here; it is one-time and reserved for global-setup.
+    throw new Error(
+      `Missing auth cookie (${AUTH_COOKIE_NAME}). Ensure global-setup seeded storageState correctly.`,
     );
-    try {
-      await waitForProjectUrl(page);
-    } catch {
-      // Fall through to the final readiness check below.
-    }
   }
 
   if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
@@ -68,11 +65,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
     return;
   }
 
-  if (!BOOTSTRAP_TOKEN && !hasCookie) {
-    throw new Error(
-      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
-    );
-  }
   throw new Error("Setta UI did not become ready. Check bootstrap auth.");
 }
 
@@ -300,17 +292,26 @@ async function navigateToDefaultProject(page: Page): Promise<void> {
     if (!metadata) {
       return;
     }
-    const defaultId = metadata.defaultProjectConfigId;
-    const defaultEntry = metadata.projectMetadata.find(
-      (entry) => entry.id === defaultId,
-    );
-    if (!defaultEntry?.name) {
+
+    // Prefer the configured default; otherwise fall back to the first project.
+    let targetName =
+      metadata.projectMetadata.find(
+        (entry) => entry.id === metadata.defaultProjectConfigId,
+      )?.name ?? metadata.projectMetadata[0]?.name;
+
+    // If the workspace has no projects (possible if a prior test deleted them),
+    // create one so IDE-mode tests can proceed.
+    if (!targetName) {
+      targetName = await postBackend<string>(page, "/createProjectConfig", {
+        previewImgColor: "bg-blue-500/60",
+      });
+    }
+
+    if (!targetName) {
       return;
     }
-    const targetUrl = new URL(
-      encodeURIComponent(defaultEntry.name),
-      BASE_URL,
-    ).toString();
+
+    const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
     await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
   } catch {
     // Ignore failures; callers will fall back to readiness checks.

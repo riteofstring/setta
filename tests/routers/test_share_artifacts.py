@@ -60,6 +60,7 @@ def _write_share_project(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
 
 
 async def _build_websocket(messages: list[Message]) -> WebSocket:

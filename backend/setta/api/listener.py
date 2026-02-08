@@ -3,6 +3,7 @@ import contextlib
 import inspect
 import logging
 import os
+import re
 from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
@@ -116,6 +117,14 @@ _RECOVERABLE_SNAPSHOT_ERRORS: tuple[type[Exception], ...] = (
     NameError,
     RuntimeError,
 )
+
+_COOKIE_TOKEN_SANITIZE_RE = re.compile(r"[^A-Za-z0-9_]")
+
+
+def _sanitize_cookie_token(value: str) -> str:
+    sanitized = _COOKIE_TOKEN_SANITIZE_RE.sub("_", value.strip())
+    sanitized = re.sub(r"_+", "_", sanitized).strip("_")
+    return sanitized
 
 
 # Worktree/dev helpers ---------------------------------------------------------
@@ -513,7 +522,9 @@ class SettaListener:
         # Default cookie name (when not using worktree isolation).
         cookie_names.append("setta_auth")
         # Worktree mode cookie (run-dev-instance.sh).
-        workspace_name = Path(session_metadata.workspacePath).name
+        workspace_name = _sanitize_cookie_token(
+            Path(session_metadata.workspacePath).name
+        )
         if workspace_name:
             cookie_names.append(f"setta_auth_{workspace_name}")
         # Keep order stable + unique.

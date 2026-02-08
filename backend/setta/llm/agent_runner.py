@@ -136,10 +136,10 @@ class AIFollowState:
 
 
 class _NoopChatHistory:
-    def append(self, chat_id: ID, messages: list[BaseChatMessageUnion]) -> None:
+    def append(self, _chat_id: ID, _messages: list[BaseChatMessageUnion]) -> None:
         return None
 
-    def set_system_prompt(self, chat_id: ID, system_prompt: str) -> None:
+    def set_system_prompt(self, _chat_id: ID, _system_prompt: str) -> None:
         return None
 
 

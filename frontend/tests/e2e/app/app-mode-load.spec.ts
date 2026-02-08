@@ -56,6 +56,7 @@ test("app deployment loads with run gating", async ({ page }) => {
     deploymentName,
     deploymentVersion,
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {

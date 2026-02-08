@@ -1,7 +1,5 @@
 import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
-import { AppMainContainer } from "components/Pages/App/AppMainContainer";
-import { AppWrapper } from "components/Pages/App/AppWrapper";
 import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
@@ -9,7 +7,7 @@ import { NotFound } from "components/Pages/NotFound/NotFound";
 import { ShareMainContainer } from "components/Pages/Share/ShareMainContainer";
 import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { initializeServerMode } from "state/actions/serverMode";
 import {
@@ -27,7 +25,17 @@ import type { ProjectConfig } from "utils/generatedTypes";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
 import { MainContainer } from "./Project/MainContainer";
 
-function GridContainer({ children }) {
+const LazyAppWrapper = lazy(async () => {
+  const mod = await import("components/Pages/App/AppWrapper");
+  return { default: mod.AppWrapper };
+});
+
+const LazyAppMainContainer = lazy(async () => {
+  const mod = await import("components/Pages/App/AppMainContainer");
+  return { default: mod.AppMainContainer };
+});
+
+function GridContainer({ children }: { children: ReactNode }) {
   return (
     <section className="grid min-h-0 w-screen flex-1 grid-cols-[1fr] grid-rows-[min-content_1fr] overflow-hidden">
       {children}
@@ -198,11 +206,13 @@ const shareProjectRouteElement = (
 );
 
 const appRouteElement = (
-  <AppWrapper>
-    {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
-      <AppMainContainer doneLoading={doneLoading} is404={is404} />
-    )}
-  </AppWrapper>
+  <Suspense fallback={<LoadingSpinner />}>
+    <LazyAppWrapper>
+      {({ doneLoading, is404 }: { doneLoading: boolean; is404: boolean }) => (
+        <LazyAppMainContainer doneLoading={doneLoading} is404={is404} />
+      )}
+    </LazyAppWrapper>
+  </Suspense>
 );
 
 const shareHomeRouteElement = (

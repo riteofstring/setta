@@ -235,6 +235,7 @@ async def route_get_llm_response(
             "- streamingPreview: enabled\n"
             "- If you are generating/updating the App spec (json-render):\n"
             "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
+            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
         )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:

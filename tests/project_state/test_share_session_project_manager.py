@@ -28,7 +28,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -157,6 +157,7 @@ def _write_project_with_state(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -187,6 +188,7 @@ def _write_project_with_states(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 

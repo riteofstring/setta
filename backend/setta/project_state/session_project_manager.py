@@ -257,7 +257,7 @@ class SessionProjectManager(BaseProjectManager):
             )
         )
         await ensure_share_listener_emit_updates_allowed(
-            share_mode=True,
+            deployment_mode=True,
             policy=self.share_runtime_state.share_policy,
             frontend_sender=self.share_runtime_state.frontend_sender,
             share_session_id=share_session_id,

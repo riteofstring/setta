@@ -87,6 +87,7 @@ class TestAppDeploymentPublish:
                 dbe=project_fixture.dbe,
                 project_manager_switcher=switcher,
                 share_mode=False,
+                deployment_mode=False,
             )
 
             with pytest.raises(HTTPException) as raised:
@@ -125,6 +126,7 @@ class TestAppDeploymentPublish:
                 dbe=project_fixture.dbe,
                 project_manager_switcher=switcher,
                 share_mode=False,
+                deployment_mode=False,
             )
 
             with pytest.raises(HTTPException) as raised:
@@ -167,6 +169,7 @@ class TestAppDeploymentPublish:
                 dbe=project_fixture.dbe,
                 project_manager_switcher=switcher,
                 share_mode=False,
+                deployment_mode=False,
             )
 
             deployments_root = project_fixture.setta_root / "deployments"
@@ -241,6 +244,7 @@ class TestAppDeploymentPublish:
                 dbe=project_fixture.dbe,
                 project_manager_switcher=switcher,
                 share_mode=False,
+                deployment_mode=False,
             )
 
             deployments_root = project_fixture.setta_root / "deployments"
@@ -298,6 +302,7 @@ class TestAppDeploymentPublish:
                 dbe=project_fixture.dbe,
                 project_manager_switcher=switcher,
                 share_mode=False,
+                deployment_mode=False,
             )
 
             deployments_root = project_fixture.setta_root / "deployments"

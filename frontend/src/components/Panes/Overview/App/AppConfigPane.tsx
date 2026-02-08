@@ -484,6 +484,7 @@ export function AppConfigPane() {
           "Streaming mode: ENABLED",
           "- DO NOT paste JSON into the chat.",
           '- Call the MCP tool setta__stream_app_definition with { "patches": <JSONL patches string> }.',
+          "- For updates: omit baseAppSpec to patch the currently saved spec (or pass baseAppSpec explicitly).",
           "- patches must be newline-delimited JSON objects with keys: op, path, value (unless op=remove).",
           "- Allowed paths: /root and /elements/<key> (and nested paths under /elements/<key>/...).",
           "- Prefer op 'set'. Ensure /root references an element present in /elements.",

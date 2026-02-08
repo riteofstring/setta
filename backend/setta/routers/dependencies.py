@@ -61,10 +61,10 @@ def maybe_get_share_session_id_from_request(request: Request) -> str | None:
 def require_ide_mode(
     state: SettaFastAPIState = Depends(get_app_state_from_request),
 ) -> None:
-    if state.share_mode:
+    if state.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Share mode does not allow this endpoint.",
+            detail="Deployment mode does not allow this endpoint.",
         )
 
 
@@ -74,7 +74,7 @@ def require_share_session_id(
     *,
     create_session_backend: bool = True,
 ) -> str | None:
-    if not state.share_mode:
+    if not state.deployment_mode:
         return None
     if share_session_id is None:
         raise HTTPException(
@@ -98,7 +98,7 @@ async def require_share_session_id_from_websocket(
     *,
     create_session_backend: bool = True,
 ) -> str | None:
-    if not state.share_mode:
+    if not state.deployment_mode:
         return None
     share_session_id = _extract_share_session_id(
         websocket.headers,
@@ -123,7 +123,7 @@ async def get_runtime_context_from_request(
 ) -> AsyncGenerator[RuntimeContext, None]:
     state = await get_ready_app_state_from_request(request)
     share_session_id = None
-    if state.share_mode:
+    if state.deployment_mode:
         share_session_id = require_share_session_id(
             state,
             maybe_get_share_session_id_from_request(request),
@@ -136,7 +136,7 @@ async def get_runtime_context_from_websocket(
 ) -> AsyncGenerator[RuntimeContext, None]:
     state = await get_ready_app_state_from_websocket(websocket)
     share_session_id = None
-    if state.share_mode:
+    if state.deployment_mode:
         share_session_id = await require_share_session_id_from_websocket(
             websocket,
             state,

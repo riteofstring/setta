@@ -25,7 +25,7 @@ class RuntimeContext:
     ) -> None:
         self.state = state
         self._share_session_id = share_session_id
-        if state.share_mode and share_session_id is None:
+        if state.deployment_mode and share_session_id is None:
             raise KeyError("Missing share session id")
 
     @property
@@ -33,8 +33,12 @@ class RuntimeContext:
         return self.state.share_mode
 
     @property
+    def deployment_mode(self) -> bool:
+        return self.state.deployment_mode
+
+    @property
     def session_id(self) -> str:
-        if self.state.share_mode:
+        if self.state.deployment_mode:
             if self._share_session_id is None:
                 raise KeyError("Missing share session id")
             return self._share_session_id
@@ -46,13 +50,13 @@ class RuntimeContext:
 
     @property
     def policy(self) -> SharePolicy:
-        if self.state.share_mode:
+        if self.state.deployment_mode:
             return self.state.share_runtime_state.share_policy
         return SharePolicy()
 
     @property
     def deployment_root(self) -> Path | None:
-        if self.state.share_mode:
+        if self.state.deployment_mode:
             return self.state.share_deployment_root
         return None
 
@@ -61,14 +65,14 @@ class RuntimeContext:
         return self.state.wmh_frontend_sender
 
     def require_ide_mode(self, message: str) -> None:
-        if self.state.share_mode:
+        if self.state.deployment_mode:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=message,
             )
 
     def get_project_manager(self, project_config_id: "ID"):
-        if self.state.share_mode:
+        if self.state.deployment_mode:
             return self.state.project_manager_switcher.get(
                 project_config_id,
                 share_session_id=self.session_id,
@@ -82,7 +86,7 @@ class RuntimeContext:
         denied_message: str,
     ) -> None:
         await enforce_share_policy(
-            share_mode=self.state.share_mode,
+            deployment_mode=self.state.deployment_mode,
             policy=self.policy,
             frontend_sender=self.state.wmh_frontend_sender,
             policy_flag=policy_flag,
@@ -98,8 +102,8 @@ class RuntimeContext:
             share_session_id=self._share_session_id,
         )
 
-    async def enforce_multiple_runs_allowed(self) -> None:
-        await ensure_share_multiple_runs_allowed(
+    async def enforce_multiple_runs_allowed(self) -> bool:
+        return await ensure_share_multiple_runs_allowed(
             self.state,
             share_session_id=self._share_session_id,
         )

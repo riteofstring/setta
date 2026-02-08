@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -9,13 +10,15 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from litellm.types.utils import ModelResponseStream
 from pydantic import BaseModel, Field
 
-from setta.app.spec_patch_stream import ALLOWED_PATCH_OPS, parse_patch_line
+from setta.app.spec_patch_stream import ALLOWED_PATCH_OPS, parse_patch_line_with_error
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.llm_config import AllLLMConfigs
 from setta.types.routes import Route
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+logger = logging.getLogger(__name__)
+_MAX_STREAM_REMAINDER_CHARS = 256_000
 
 
 class StreamAppSpecRequest(BaseModel):
@@ -233,19 +236,32 @@ async def route_stream_app_spec(
     async def _stream() -> AsyncIterator[bytes]:
         remainder = ""
         patch_count = 0
+        invalid_line_count = 0
         async for chunk in _iterate_stream(stream_result):
             text = _extract_text_from_chunk(chunk)
             if not text:
                 continue
             remainder += text
+            if len(remainder) > _MAX_STREAM_REMAINDER_CHARS and "\n" not in remainder:
+                logger.warning(
+                    "streamAppSpec remainder exceeded %s chars without newline; aborting stream",
+                    _MAX_STREAM_REMAINDER_CHARS,
+                )
+                break
             while True:
                 newline_index = remainder.find("\n")
                 if newline_index == -1:
                     break
                 line = remainder[:newline_index]
                 remainder = remainder[newline_index + 1 :]
-                patch = parse_patch_line(line)
+                patch, error = parse_patch_line_with_error(line)
                 if patch is None:
+                    if error is not None:
+                        invalid_line_count += 1
+                        if invalid_line_count <= 5:
+                            logger.warning(
+                                "streamAppSpec ignored invalid patch line: %s", error
+                            )
                     continue
                 yield (json.dumps(patch, separators=(",", ":")) + "\n").encode("utf-8")
                 patch_count += 1
@@ -253,8 +269,10 @@ async def route_stream_app_spec(
                     await asyncio.sleep(0)
 
         if remainder.strip():
-            patch = parse_patch_line(remainder)
+            patch, error = parse_patch_line_with_error(remainder)
             if patch is not None:
                 yield (json.dumps(patch, separators=(",", ":")) + "\n").encode("utf-8")
+            elif error is not None:
+                logger.warning("streamAppSpec ignored invalid patch line: %s", error)
 
-    return StreamingResponse(_stream(), media_type="text/plain")
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")

@@ -177,12 +177,15 @@ class SettaFastAPIState:
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
+        if share_mode and app_mode:
+            raise ValueError("Server cannot enable both share_mode and app_mode.")
         self.app_mode = app_mode
-        self.share_mode = share_mode or app_mode
+        self.share_mode = share_mode
+        self.deployment_mode = share_mode or app_mode
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
         self.share_deployment_root = self._resolve_deployment_root(
-            self.share_mode, share_deployment_root
+            self.deployment_mode, share_deployment_root
         )
         self.share_runtime_root = self._resolve_share_runtime_root(
             self.share_deployment_root
@@ -198,22 +201,22 @@ class SettaFastAPIState:
             lock_root=self.share_runtime_root,
         )
         os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self.dbe.runtime_root))
-        if not self.share_mode:
+        if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
                 seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
-            share_mode=self.share_mode,
+            share_mode=self.deployment_mode,
         )
         self.detached_run_manager = DetachedRunManager(self.dbe)
         self.wmh_python_script_sender = WMHPythonScriptSender(
             self.websocket_manager,
             self.listener_registry,
-            None if self.share_mode else self.dbe,
+            None if self.deployment_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        if self.share_mode:
+        if self.deployment_mode:
             self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
         else:
@@ -298,8 +301,8 @@ class SettaFastAPIState:
 
     async def _initialize_async(self, app):
         try:
-            if self.share_mode:
-                await self._initialize_share_async()
+            if self.deployment_mode:
+                await self._initialize_deployment_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -412,7 +415,7 @@ class SettaFastAPIState:
                 self.dbe,
                 self.mcp_client,
                 self.wmh_frontend_sender,
-                share_mode=self.share_mode,
+                share_mode=self.deployment_mode,
             )
             self.agent_runner.update_config(llm_config)
             self.agent_runner.update_api_keys(self.dbe.read_dot_env())
@@ -457,7 +460,7 @@ class SettaFastAPIState:
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,
-                share_mode=self.share_mode,
+                share_mode=self.deployment_mode,
                 mcp_client=self.mcp_client,
             )
             self.run_chain_runner = RunChainRunner(
@@ -495,7 +498,7 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_share_async(self) -> None:
+    async def _initialize_deployment_async(self) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -598,7 +601,9 @@ class SettaFastAPIState:
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._ready_event.set()
-        self.init_status.record("Share backend ready")
+        self.init_status.record(
+            "App backend ready" if self.app_mode else "Share backend ready"
+        )
         self.init_status.mark_ready()
 
     async def wait_until_ready(self) -> None:
@@ -621,7 +626,7 @@ class SettaFastAPIState:
     def _resolve_share_runtime_root(
         self, share_deployment_root: Path | None
     ) -> Path | None:
-        if not self.share_mode or share_deployment_root is None:
+        if not self.deployment_mode or share_deployment_root is None:
             return None
         manifest = DBE(share_deployment_root).read_deployment_manifest_optional()
         if manifest is None:

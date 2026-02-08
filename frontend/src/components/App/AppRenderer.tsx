@@ -9,6 +9,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import {
   ensureAppProjectConfigLoaded,
+  incrementAppSessionRunCount,
   resetAppDeployment,
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -18,8 +19,6 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_get_attachment_download_url,
   route_run_code,
-  route_set_param_entered_value,
-  route_set_section_variant,
 } from "utils/generatedEndpoints";
 import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
 import { RouteEnum } from "utils/generatedTypes";
@@ -207,18 +206,21 @@ export function AppRenderer({
     () => normalizeAppSpec(appSpec, rootKeyOverride),
     [appSpec, rootKeyOverride],
   );
-  const [runCount, setRunCount] = useState(0);
+  const deploymentMode = useShareSession((x) => x.isShareMode);
+  const sessionRunCount = useShareSession((x) => x.sessionRunCount);
+  const [localRunCount, setLocalRunCount] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const allowMultipleRuns = resolvedPolicy.allowMultipleRuns ?? true;
+  const effectiveRunCount = deploymentMode ? sessionRunCount : localRunCount;
   const canRun =
-    resolvedPolicy.allowRun && (allowMultipleRuns || runCount === 0);
+    resolvedPolicy.allowRun && (allowMultipleRuns || effectiveRunCount === 0);
   const canEditParams = resolvedPolicy.allowParamChanges ?? true;
   const allowExternalLinks = resolvedPolicy.allowExternalLinks ?? false;
   const allowFileDownloads = resolvedPolicy.allowFileDownloads ?? false;
   let runDisabledReason: string | null = null;
   if (!resolvedPolicy.allowRun) {
     runDisabledReason = "Runs are disabled by policy.";
-  } else if (!allowMultipleRuns && runCount > 0) {
+  } else if (!allowMultipleRuns && effectiveRunCount > 0) {
     runDisabledReason = "This app is limited to one run.";
   }
 
@@ -236,7 +238,7 @@ export function AppRenderer({
         addTemporaryNotification("Runs are disabled by policy.");
         return;
       }
-      if (!allowMultipleRuns && runCount > 0) {
+      if (!allowMultipleRuns && effectiveRunCount > 0) {
         addTemporaryNotification("This app only allows one run.");
         return;
       }
@@ -279,65 +281,18 @@ export function AppRenderer({
       }
       setIsRunning(true);
       try {
-        if (sectionVariantOverrides) {
-          const results = await Promise.allSettled(
-            Object.entries(sectionVariantOverrides).map(
-              ([sectionOverrideId, variantId]) =>
-                route_set_section_variant({
-                  projectConfigId: configId,
-                  sectionId: sectionOverrideId,
-                  variantId,
-                }),
-            ),
-          );
-          const rejectedCount = results.filter(
-            (result) => result.status === "rejected",
-          ).length;
-          const non200Count = results.filter(
-            (result) =>
-              result.status === "fulfilled" &&
-              !res200(result.value as { status: number }),
-          ).length;
-          if (rejectedCount > 0 || non200Count > 0) {
-            addTemporaryNotification("Some variant overrides failed.");
-          }
-        }
-        if (paramOverrides) {
-          const overrideCalls: Array<Promise<unknown>> = [];
-          for (const [key, value] of Object.entries(paramOverrides)) {
-            const [overrideSectionId, paramInfoId] = key.split(":");
-            if (!overrideSectionId || !paramInfoId) {
-              continue;
-            }
-            overrideCalls.push(
-              route_set_param_entered_value({
-                projectConfigId: configId,
-                sectionId: overrideSectionId,
-                paramInfoId,
-                value,
-              }),
-            );
-          }
-          const results = await Promise.allSettled(overrideCalls);
-          const rejectedCount = results.filter(
-            (result) => result.status === "rejected",
-          ).length;
-          const non200Count = results.filter(
-            (result) =>
-              result.status === "fulfilled" &&
-              !res200(result.value as { status: number }),
-          ).length;
-          if (rejectedCount > 0 || non200Count > 0) {
-            addTemporaryNotification("Some parameter overrides failed.");
-          }
-        }
-
         const res = await route_run_code({
           projectConfigId: configId,
           sectionId,
+          ...(sectionVariantOverrides ? { sectionVariantOverrides } : {}),
+          ...(paramOverrides ? { paramOverrides } : {}),
         });
         if (res200(res)) {
-          setRunCount((count) => count + 1);
+          if (deploymentMode) {
+            incrementAppSessionRunCount();
+          } else {
+            setLocalRunCount((count) => count + 1);
+          }
           return;
         }
         addTemporaryNotification("Run failed.");
@@ -352,14 +307,15 @@ export function AppRenderer({
       fallbackConfigId,
       isRunning,
       resolvedPolicy.allowRun,
-      runCount,
+      effectiveRunCount,
+      deploymentMode,
       resolvedPolicy.allowParamChanges,
       resolvedPolicy.allowVariantChanges,
     ],
   );
 
   const handleReset = useCallback(async () => {
-    setRunCount(0);
+    setLocalRunCount(0);
     if (sharePolicy) {
       await resetAppDeployment();
     }

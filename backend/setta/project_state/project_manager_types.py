@@ -123,6 +123,14 @@ class RunCodeRequest(BaseModel):
         default=None,
         description="Optional binary PNG payloads for draw sections keyed by section id.",
     )
+    sectionVariantOverrides: dict[ID, ID] | None = Field(
+        default=None,
+        description="Optional section variant overrides keyed by section id.",
+    )
+    paramOverrides: dict[str, str] | None = Field(
+        default=None,
+        description='Optional parameter overrides keyed by "sectionId:paramId".',
+    )
 
 
 class RunStatus(str, Enum):

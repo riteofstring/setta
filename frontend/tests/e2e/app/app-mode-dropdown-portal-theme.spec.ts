@@ -124,6 +124,7 @@ test("app mode dropdown portal inherits dark mode + theme vars", async ({
     deploymentName,
     deploymentVersion,
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: configId,
     projectMetadata: [
       {

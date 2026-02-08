@@ -60,6 +60,9 @@ function isAppSessionResponse(
   if (typeof record.shareSessionId !== "string") {
     return false;
   }
+  if (typeof record.sessionRunCount !== "number") {
+    return false;
+  }
   if (typeof record.defaultProjectConfigId !== "string") {
     return false;
   }
@@ -133,6 +136,7 @@ function getCachedAppSession(): AppDeploymentSessionResponse | null {
     deploymentName: shareSession.shareDeploymentName,
     deploymentVersion: shareSession.shareDeploymentVersion,
     shareSessionId: shareSession.shareSessionId,
+    sessionRunCount: shareSession.sessionRunCount,
     defaultProjectConfigId: metadata.defaultProjectConfigId,
     projectMetadata: metadata.projectMetadata,
     appPolicy: shareSession.sharePolicy,
@@ -146,6 +150,7 @@ function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
   useShareSession.setState({
     isShareMode: true,
     shareSessionId: session.shareSessionId,
+    sessionRunCount: session.sessionRunCount,
     sharePolicy: session.appPolicy,
     shareDeploymentName: session.deploymentName,
     shareDeploymentVersion: session.deploymentVersion,
@@ -160,6 +165,19 @@ function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
     defaultProjectConfigId: session.defaultProjectConfigId,
     projectMetadata: session.projectMetadata,
   });
+}
+
+export function incrementAppSessionRunCount(): void {
+  const shareSession = useShareSession.getState();
+  if (!shareSession.isShareMode || shareSession.deploymentMode !== "app") {
+    return;
+  }
+  const nextCount = shareSession.sessionRunCount + 1;
+  useShareSession.setState({ sessionRunCount: nextCount });
+  const stored = readAppSessionFromStorage();
+  if (stored) {
+    storeAppSession({ ...stored, sessionRunCount: nextCount });
+  }
 }
 
 export async function ensureAppSessionFromCurrentDeployment(

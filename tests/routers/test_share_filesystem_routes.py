@@ -37,7 +37,7 @@ from setta.routers.sections import (
 from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import DeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from tests.utils.runtime_context import runtime_context
 
 
@@ -78,6 +78,7 @@ def _write_share_project(
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
 
 
 def _seed_share_dirs(root: Path) -> None:
@@ -407,4 +408,3 @@ class TestShareFilesystemRoutes:
                         runtime_ctx,
                     )
             assert ctx.value.status_code == 403
-

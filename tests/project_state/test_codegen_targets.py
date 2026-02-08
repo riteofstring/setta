@@ -46,7 +46,7 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import DeploymentManifest, DeploymentType
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
@@ -709,6 +709,7 @@ class TestShareRuntimeStateCodegenTargets:
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
+            dbe.write_json(root / "policy.json", SharePolicy().model_dump())
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)
@@ -773,6 +774,7 @@ class TestShareRuntimeStateRunCommand:
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
+            dbe.write_json(root / "policy.json", SharePolicy().model_dump())
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)
@@ -872,6 +874,7 @@ class TestShareRuntimeStateRunCommand:
                 deploymentVersion=root.name,
             )
             dbe.write_json(root / "manifest.json", manifest.model_dump())
+            dbe.write_json(root / "policy.json", SharePolicy().model_dump())
 
             frontend_sender = WMHFrontendSender(WebsocketManager())
             manager = ShareRuntimeState(dbe, root, frontend_sender)

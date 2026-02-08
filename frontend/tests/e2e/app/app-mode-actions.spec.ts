@@ -63,6 +63,7 @@ test("app mode ActionButton triggers json-render actions", async ({ page }) => {
     deploymentName: "app-test",
     deploymentVersion: "v1",
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {
@@ -209,6 +210,7 @@ test("app mode Run button recovers after a run failure", async ({ page }) => {
     deploymentName: "app-test",
     deploymentVersion: "v1",
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: projectConfig.id,
     projectMetadata: [
       {

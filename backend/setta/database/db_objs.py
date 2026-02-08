@@ -8,6 +8,7 @@ import toml
 import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
+from pydantic import ValidationError
 
 from setta.types.id import (
     ID,
@@ -189,7 +190,10 @@ class DBE:
         payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
         if not payload:
             return None
-        return DeploymentManifest.model_validate(payload)
+        try:
+            return DeploymentManifest.model_validate(payload)
+        except ValidationError:
+            return None
 
     def read_temporary_id_map(self):
         raw_map = self.read_json(self.temporary_id_map)

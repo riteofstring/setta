@@ -25,6 +25,7 @@ class AppDeploymentSessionResponse(BaseModel, extra="forbid"):
     deploymentName: str
     deploymentVersion: str
     shareSessionId: str
+    sessionRunCount: int
     defaultProjectConfigId: ID
     projectMetadata: list[ProjectConfig]
     appPolicy: SharePolicy

@@ -42,6 +42,7 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     resolved_deployment_name = deployment_name or root.parent.name
     manifest = DeploymentManifest(
         version=1,

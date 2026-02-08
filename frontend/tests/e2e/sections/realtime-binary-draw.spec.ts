@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { ensureAppReady } from "../helpers";
+
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -74,11 +76,6 @@ test("draw realtime updates send binary websocket frames", async ({ page }) => {
     })
     .toBe(0);
 });
-
-async function ensureAppReady(page: Page): Promise<void> {
-  await page.goto(PROJECT_URL);
-  await page.waitForSelector(".react-flow__pane");
-}
 
 async function ensureDrawSection(
   page: Page,

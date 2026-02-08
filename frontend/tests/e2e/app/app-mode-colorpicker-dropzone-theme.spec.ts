@@ -178,6 +178,7 @@ test("app mode param widgets use theme tokens (dropzone + color picker)", async 
     deploymentName,
     deploymentVersion,
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: configId,
     projectMetadata: [{ id: configId, name: projectConfig.name }],
     appPolicy: sharePolicy,

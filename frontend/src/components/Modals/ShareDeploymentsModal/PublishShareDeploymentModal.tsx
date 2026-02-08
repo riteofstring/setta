@@ -33,6 +33,9 @@ function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
     allowLayoutChanges: true,
     allowRun: false,
     allowLLM: false,
+    allowExternalLinks: false,
+    allowFileDownloads: false,
+    allowMultipleRuns: true,
     runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
   };
 }
@@ -253,6 +256,25 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
             onChange={(checked) => setPolicyFlag("allowRun", checked)}
           />
           <ToggleRow
+            label="Multiple runs"
+            description="Allow multiple runs per session."
+            checked={policyOverrides.allowMultipleRuns}
+            onChange={(checked) => setPolicyFlag("allowMultipleRuns", checked)}
+            disabled={!policyOverrides.allowRun}
+          />
+          <ToggleRow
+            label="External links"
+            description="Allow outbound links from the share UI."
+            checked={policyOverrides.allowExternalLinks}
+            onChange={(checked) => setPolicyFlag("allowExternalLinks", checked)}
+          />
+          <ToggleRow
+            label="File downloads"
+            description="Allow file downloads from the share UI."
+            checked={policyOverrides.allowFileDownloads}
+            onChange={(checked) => setPolicyFlag("allowFileDownloads", checked)}
+          />
+          <ToggleRow
             label="LLM access"
             description="Enable chat + AI features."
             checked={policyOverrides.allowLLM}
@@ -405,7 +427,10 @@ type PolicyFlag =
   | "allowVariantChanges"
   | "allowLayoutChanges"
   | "allowRun"
-  | "allowLLM";
+  | "allowLLM"
+  | "allowExternalLinks"
+  | "allowFileDownloads"
+  | "allowMultipleRuns";
 
 function SectionCard({
   title,

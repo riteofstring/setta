@@ -142,7 +142,7 @@ from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.secrets.password_store import get_password_secret
 from setta.share.policy import (
     SharePolicyGuard,
-    deny_in_share_mode,
+    deny_in_deployment_mode,
     enforce_share_policy_guard,
     ensure_share_param_value_allowed,
 )
@@ -167,64 +167,64 @@ router = SettaProjectContextAPIRouter(
 
 
 async def _deny_share_mode_lsp(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows language server features.",
+        message="Deployment mode disallows language server features.",
         share_session_id=ctx.share_session_id,
     )
 
 
 async def _deny_share_mode_structural(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows structural changes.",
+        message="Deployment mode disallows structural changes.",
         share_session_id=ctx.share_session_id,
     )
 
 
 async def _deny_share_mode_code_edit(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows code edits.",
+        message="Deployment mode disallows code edits.",
         share_session_id=ctx.share_session_id,
     )
 
 
 async def _deny_share_mode_param_impl(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows parameter implementation changes.",
+        message="Deployment mode disallows parameter implementation changes.",
         share_session_id=ctx.share_session_id,
     )
 
 
 async def _deny_share_mode_param_metadata(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows parameter metadata changes.",
+        message="Deployment mode disallows parameter metadata changes.",
         share_session_id=ctx.share_session_id,
     )
 
 
 async def _deny_share_mode_view_modes(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows view mode changes.",
+        message="Deployment mode disallows view mode changes.",
         share_session_id=ctx.share_session_id,
     )
 
 
 async def _deny_share_mode_diagnostics(ctx) -> None:
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows diagnostics settings.",
+        message="Deployment mode disallows diagnostics settings.",
         share_session_id=ctx.share_session_id,
     )
 
@@ -760,7 +760,7 @@ async def route_set_param_entered_value(
         len(x.value),
     )
     manager = ctx.get_project_manager(x.projectConfigId)
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         project_state = manager.get_single_config_state(x.projectConfigId)
         await ensure_share_param_value_allowed(
             policy=ctx.policy,
@@ -785,10 +785,10 @@ async def route_get_password_param_value(
     )
     manager = ctx.get_project_manager(x.projectConfigId)
     project_state = manager.get_single_config_state(x.projectConfigId)
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows password reveals.",
+        message="Deployment mode disallows password reveals.",
         share_session_id=ctx.share_session_id,
     )
     impl = get_curr_effective_code_obj_impl_with_type_guard(
@@ -1244,10 +1244,10 @@ async def route_set_chat_section_chat_id(
 
 @router.post(Route.SET_SOCIAL_URL)
 async def route_set_social_url(x: SetSocialUrlRequest, ctx: RuntimeContextFromRequest):
-    await deny_in_share_mode(
-        share_mode=ctx.share_mode,
+    await deny_in_deployment_mode(
+        deployment_mode=ctx.deployment_mode,
         frontend_sender=ctx.frontend_sender,
-        message="Share mode disallows social URL updates.",
+        message="Deployment mode disallows social URL updates.",
         share_session_id=ctx.share_session_id,
     )
     manager = ctx.get_project_manager(x.projectConfigId)

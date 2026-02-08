@@ -51,6 +51,7 @@ test("app mode applies the dark class when the app theme is forced to dark", asy
     deploymentName,
     deploymentVersion,
     shareSessionId: "session-1",
+    sessionRunCount: 0,
     defaultProjectConfigId: configId,
     projectMetadata: [
       {
@@ -117,4 +118,3 @@ test("app mode applies the dark class when the app theme is forced to dark", asy
   await expect(page.getByText("App Mode")).toBeVisible();
   await expect(page.locator("div.dark").first()).toBeVisible();
 });
-
