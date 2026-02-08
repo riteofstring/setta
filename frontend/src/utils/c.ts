@@ -9,6 +9,7 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
+  static ARTIFACTS_FOLDER = "setta_files/artifacts";
   static AUTH_COOKIE_MAX_AGE_SECONDS = 43200;
   static AUTH_COOKIE_NAME = "setta_auth";
   static AUTH_COOKIE_REFRESH_WINDOW_SECONDS = 3600;
@@ -17,6 +18,7 @@ export class C {
   static BACKEND_INIT_DELAY_SECONDS = 0.0;
   static BINARY_CLEANUP_INTERVAL_SECONDS = 60;
   static BINARY_CLEANUP_WRITE_INTERVAL = 50;
+  static BINARY_FOLDER = "setta_files/binary";
   static BINARY_FOLDER_NAME = "binary";
   static BINARY_TTL_SECONDS = 21600;
   static BINARY_UPLOAD_MAX_BYTES = 33554432;
@@ -26,8 +28,11 @@ export class C {
   static CHAT_ATTACHMENTS_MAX_FILE_BYTES = 26214400;
   static CHAT_ATTACHMENTS_MAX_FILE_LABEL = "25 MB";
   static CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS = 600;
+  static CODE_FOLDER = "setta_files/code";
+  static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
+  static DETACHED_RUNS_FOLDER = "setta_files/runtime/detached_runs";
   static DEV_MODE_FRONTEND_PORT = 3000;
   static DROPZONE_ALLOWED_MIME_PREFIXES = [];
   static DROPZONE_STATEFUL_MAX_FILE_BYTES = 26214400;
@@ -47,14 +52,23 @@ export class C {
   static OPEN_BROWSER_ON_START = null;
   static PORT = 8000;
   static REALTIME_BINARY_MAX_BYTES = 10485760;
+  static RUNTIME_FOLDER = "setta_files/runtime";
+  static RUNTIME_LOGS_FOLDER = "setta_files/runtime/logs";
+  static RUNTIME_MCP_FOLDER = "setta_files/runtime/mcp";
+  static RUNTIME_SECRETS_FOLDER = "setta_files/runtime/secrets";
+  static RUNTIME_SESSIONS_FOLDER = "setta_files/runtime/sessions";
+  static RUN_FOLDER = "setta_files/run";
+  static RUN_LOGS_FOLDER = "setta_files/run/logs";
+  static RUN_SESSIONS_FOLDER = "setta_files/run/sessions";
   static SEARCH_MCP_TOOLS_NAME = "search_mcp_tools";
   static SESSION_SECRET_BYTES = 32;
+  static SETTA_FILES_FOLDER = "setta_files";
   static SETTA_MCP_PARAM_NAMES = ["setta_state"];
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SETTINGS_PROJECT_NAME = "settings";
+  static SHARE_DEPLOYMENTS_FOLDER = "setta_files/share_deployments";
   static SHARE_DEPLOYMENT_ROOT = null;
   static SHARE_MODE = false;
   static WS_RUN_CODE = "runCode";
   static WS_TERMINAL_RESIZE = "terminalResize";
-  static _raw_auth_cookie_name = null;
 }

@@ -97,7 +97,18 @@ test("browser path input autocompletes folders", async ({ page }) => {
         return false;
       }
       const postData = response.request().postData() ?? "";
-      return postData.includes(parentDir);
+      try {
+        const payload = JSON.parse(postData) as { folderPath?: unknown };
+        if (typeof payload.folderPath !== "string" || !payload.folderPath) {
+          return false;
+        }
+        return (
+          normalizePathForComparison(payload.folderPath) ===
+          normalizePathForComparison(parentDir)
+        );
+      } catch {
+        return false;
+      }
     });
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
@@ -117,7 +128,18 @@ test("browser path input autocompletes folders", async ({ page }) => {
         return false;
       }
       const postData = response.request().postData() ?? "";
-      return postData.includes(alphaDir);
+      try {
+        const payload = JSON.parse(postData) as { folderPath?: unknown };
+        if (typeof payload.folderPath !== "string" || !payload.folderPath) {
+          return false;
+        }
+        return (
+          normalizePathForComparison(payload.folderPath) ===
+          normalizePathForComparison(alphaDir)
+        );
+      } catch {
+        return false;
+      }
     });
     await alphaOption.click();
     await nestedResponsePromise;

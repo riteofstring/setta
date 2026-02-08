@@ -56,11 +56,6 @@ def spawn_background_task(
             )
 
     task_name = name or label
-    runner = _runner()
-    try:
-        if loop is not None:
-            return loop.create_task(runner, name=task_name)
-        return asyncio.create_task(runner, name=task_name)
-    except RuntimeError:
-        runner.close()
-        raise
+    if loop is not None:
+        return loop.create_task(_runner(), name=task_name)
+    return asyncio.create_task(_runner(), name=task_name)

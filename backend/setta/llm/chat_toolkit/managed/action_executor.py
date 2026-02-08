@@ -153,6 +153,7 @@ class ManagedActionExecutor:
                 arguments["serverIds"] = normalized_server_ids
             elif allowed_server_ids is not None:
                 arguments["serverIds"] = list(allowed_server_ids)
+
         started_at = get_now_timestamp()
         if tool_name == self._search_tool_name:
             call_result = run_local_search_tool(
@@ -185,7 +186,26 @@ class ManagedActionExecutor:
                 else:
                     try:
                         meta = None
-                        if action.share_session_id and is_setta_tool_name(tool_name):
+                        if is_setta_tool_name(tool_name):
+                            meta_payload: dict[str, Any] = {
+                                "projectConfigId": str(
+                                    action.agentic_context.project_config_id
+                                ),
+                                "chatId": (
+                                    str(action.agentic_context.chat_id)
+                                    if action.agentic_context.chat_id is not None
+                                    else None
+                                ),
+                                "sectionId": (
+                                    str(action.agentic_context.section_id)
+                                    if action.agentic_context.section_id is not None
+                                    else None
+                                ),
+                            }
+                            if action.share_session_id:
+                                meta_payload["shareSessionId"] = action.share_session_id
+                            meta = meta_payload
+                        elif action.share_session_id:
                             meta = {"shareSessionId": action.share_session_id}
                         call_result = await self._mcp_client.call_tool(
                             tool_name,
