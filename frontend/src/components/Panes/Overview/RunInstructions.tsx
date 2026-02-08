@@ -592,10 +592,7 @@ export function RunInstructions() {
                     }
 
                     return (
-                      <div
-                        key={sectionType}
-                        className="flex flex-col gap-1"
-                      >
+                      <div key={sectionType} className="flex flex-col gap-1">
                         <label className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300">
                           <input
                             type="checkbox"
