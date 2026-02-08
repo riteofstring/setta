@@ -1351,7 +1351,7 @@ function handleAgenticScopeViolation(
     scopeViolationToastTimeouts.set(projectConfigId, timeoutId);
     return;
   }
-  const notice = `${violation.message} Use Project Chat for full access.`;
+  const notice = `${violation.message} Add the missing agentic edge(s) shown on the canvas. Use Project Chat for full access.`;
   addTemporaryNotification(notice, SettaNotificationTypeEnum.warning);
   const timeoutId = globalThis.setTimeout(() => {
     scopeViolationToastTimeouts.delete(projectConfigId);

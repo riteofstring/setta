@@ -246,3 +246,79 @@ async def test_mcp_agentic_scope_cache_invalidates_on_history_coalesce(tmp_path)
         blocked_section_id,
     }
 
+
+@pytest.mark.asyncio
+async def test_mcp_agentic_scope_cache_does_not_clear_all_entries_when_full(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="scope-cache-eviction")
+    )
+
+    context_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TextBlock,
+        Position(),
+    )
+    chat_section_ids: list[ID] = []
+    for idx in range(9):
+        chat_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Chat,
+            Position(x=idx * 10, y=0),
+        )
+        chat_section_ids.append(chat_section_id)
+        create_agentic_edge(
+            project_state,
+            AgenticEdge(
+                id=ID(f"edge-context-{idx}"),
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
+            ),
+        )
+
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [project_state.projectConfig.id, context_section_id, *chat_section_ids],
+    )
+    tmp_project_id = tmp_map[project_state.projectConfig.id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_state.projectConfig.id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    tool = mcp_server.get_tool("get_latest_project_state_summary")
+    assert tool is not None
+
+    session = _Session()
+    for idx, chat_section_id in enumerate(chat_section_ids):
+        ctx = _build_context_with_meta(
+            mcp_server=mcp_server,
+            session=session,
+            project_config_id=project_state.projectConfig.id,
+            chat_id=ID(f"chat-{idx}"),
+            section_id=chat_section_id,
+        )
+        await tool.run(
+            {"projectConfigId": str(tmp_project_id)},
+            context=ctx,
+        )
+
+    scope_cache = mcp_server._agentic_scope_cache_by_session.get(session)
+    assert scope_cache is not None
+    assert len(scope_cache) == len(chat_section_ids)

@@ -85,6 +85,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _CATCH_ALL_PATH = "/{full_path:path}"
+AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION = 32
 
 
 @dataclass(frozen=True)
@@ -925,6 +926,9 @@ class SettaFastMCP(FastMCP):
                         code_obj_id_to_section_ids = (
                             cached_scope.code_obj_id_to_section_ids
                         )
+                        # Bump insertion order to approximate an LRU cache.
+                        scope_cache.pop(cache_key, None)
+                        scope_cache[cache_key] = cached_scope
                     else:
                         project_state = convert_backend_to_single_config(
                             project_state_backend,
@@ -939,8 +943,8 @@ class SettaFastMCP(FastMCP):
                             scope=scope,
                             code_obj_id_to_section_ids=None,
                         )
-                        if len(scope_cache) > 8:
-                            scope_cache.clear()
+                        if len(scope_cache) > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION:
+                            scope_cache.pop(next(iter(scope_cache)))
                 else:
                     project_state = convert_backend_to_single_config(
                         project_state_backend,

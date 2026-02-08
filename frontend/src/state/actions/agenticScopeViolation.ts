@@ -21,7 +21,6 @@ export function extractAgenticScopeViolation(
     error?: unknown;
     message?: unknown;
     missingEdgesCanonical?: unknown;
-    missingEdges?: unknown;
   };
   if (structuredPayload.error !== "ScopeViolation") {
     return null;
@@ -30,11 +29,9 @@ export function extractAgenticScopeViolation(
     typeof structuredPayload.message === "string"
       ? structuredPayload.message
       : "Tool blocked by agentic scope.";
-  const edgesRaw = Array.isArray(structuredPayload.missingEdgesCanonical)
+  const edgesRaw: unknown[] = Array.isArray(structuredPayload.missingEdgesCanonical)
     ? structuredPayload.missingEdgesCanonical
-    : Array.isArray(structuredPayload.missingEdges)
-      ? structuredPayload.missingEdges
-      : [];
+    : [];
   const edges = edgesRaw
     .map((entry) => {
       if (!entry || typeof entry !== "object") {

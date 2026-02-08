@@ -18,7 +18,7 @@ function buildToolMessage(result: unknown): ToolChatMessage {
 }
 
 describe("extractAgenticScopeViolation", () => {
-  it("prefers missingEdgesCanonical over missingEdges when present", () => {
+  it("uses missingEdgesCanonical when present", () => {
     const message = buildToolMessage({
       structuredContent: {
         error: "ScopeViolation",
@@ -53,7 +53,7 @@ describe("extractAgenticScopeViolation", () => {
     });
   });
 
-  it("falls back to missingEdges when missingEdgesCanonical is absent", () => {
+  it("does not fall back to missingEdges when missingEdgesCanonical is absent", () => {
     const message = buildToolMessage({
       structuredContent: {
         error: "ScopeViolation",
@@ -71,13 +71,7 @@ describe("extractAgenticScopeViolation", () => {
     const violation = extractAgenticScopeViolation(message);
     expect(violation).toEqual({
       message: "blocked",
-      edges: [
-        {
-          sourceSectionId: "source",
-          targetSectionId: "target",
-          kind: AgenticEdgeKindEnum.chat_chat,
-        },
-      ],
+      edges: [],
     });
   });
 

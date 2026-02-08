@@ -177,14 +177,16 @@ export function receiveAgenticScopeViolationEdges({
     const projectEdges =
       state.scopeViolationEdgesByProjectConfigId[projectConfigId] ??
       (state.scopeViolationEdgesByProjectConfigId[projectConfigId] = []);
+    const existingKeys = new Set(
+      projectEdges.map((entry) => buildScopeViolationKey(projectConfigId, entry)),
+    );
     for (const edge of edges) {
       const edgeKey = buildScopeViolationKey(projectConfigId, edge);
-      const existing = projectEdges.some(
-        (entry) => buildScopeViolationKey(projectConfigId, entry) === edgeKey,
-      );
-      if (!existing) {
-        projectEdges.push(edge);
+      if (existingKeys.has(edgeKey)) {
+        continue;
       }
+      existingKeys.add(edgeKey);
+      projectEdges.push(edge);
     }
   });
 

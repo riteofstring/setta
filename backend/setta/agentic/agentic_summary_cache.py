@@ -4,13 +4,65 @@ from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.database.db_objs import DBE
 from setta.types.agentic_edges import AgenticEdgeContextMode
-from setta.types.helpers_lvl3 import build_project_state_summary
+from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 
 AGENTIC_SUMMARY_CACHE_VERSION = 1
 AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_TOTAL = 5000
 AGENTIC_SUMMARY_CACHE_MAX_ENTRIES_PER_PROJECT_CONFIG = 2000
+
+
+def _resolve_summary_section_ids_for_chat_section(
+    project_state: ProjectStateSingleConfig,
+    *,
+    chat_section_id: ID,
+) -> list[ID]:
+    context_edges = resolve_context_edges(project_state, chat_section_id)
+    summary_section_ids: list[ID] = []
+    seen: set[ID] = set()
+    for section_id, context_mode in context_edges:
+        if context_mode != AgenticEdgeContextMode.summary:
+            continue
+        if section_id not in project_state.sections:
+            continue
+        if section_id in seen:
+            continue
+        seen.add(section_id)
+        summary_section_ids.append(section_id)
+    return summary_section_ids
+
+
+def _load_cached_agentic_summary_texts_for_section_ids(
+    *,
+    entries: dict[str, Any],
+    project_state: ProjectStateSingleConfig,
+    project_config_id: ID,
+    section_ids: list[ID],
+    summary_by_section: dict[ID, object],
+) -> dict[ID, str]:
+    summaries: dict[ID, str] = {}
+    for section_id in section_ids:
+        if section_id not in project_state.sections:
+            continue
+        if section_id not in project_state.projectConfig.sectionVariantMap:
+            continue
+        variant_id = project_state.projectConfig.sectionVariantMap[section_id]
+        source = build_agentic_section_summary_source(
+            project_state,
+            section_id,
+            summary_by_section=summary_by_section,
+        )
+        cache_key = build_agentic_summary_cache_key(
+            project_config_id=project_config_id,
+            section_id=section_id,
+            variant_id=variant_id,
+            content_hash=source.content_hash,
+        )
+        cached = get_cached_agentic_summary_from_entries(entries, cache_key=cache_key)
+        if cached:
+            summaries[section_id] = cached
+    return summaries
 
 
 def build_agentic_summary_cache_key(
@@ -134,47 +186,32 @@ def load_cached_agentic_summary_texts_for_chat_section(
     chat_section_id: ID,
     summary_by_section: dict[ID, object] | None = None,
 ) -> dict[ID, str]:
-    summaries: dict[ID, str] = {}
     payload = read_agentic_summary_cache(dbe)
     entries = payload.get("entries")
     if not isinstance(entries, dict):
         entries = {}
-    context_edges = resolve_context_edges(project_state, chat_section_id)
-    if not any(
-        context_mode == AgenticEdgeContextMode.summary
-        for _, context_mode in context_edges
-    ):
-        return summaries
+
+    summary_section_ids = _resolve_summary_section_ids_for_chat_section(
+        project_state,
+        chat_section_id=chat_section_id,
+    )
+    if not summary_section_ids:
+        return {}
 
     resolved_summary_by_section = summary_by_section
     if resolved_summary_by_section is None:
-        summary = build_project_state_summary(project_state)
-        resolved_summary_by_section = {
-            entry.sectionId: entry for entry in summary.sections
-        }
-    for section_id, context_mode in context_edges:
-        if context_mode != AgenticEdgeContextMode.summary:
-            continue
-        if section_id not in project_state.sections:
-            continue
-        if section_id not in project_state.projectConfig.sectionVariantMap:
-            continue
-        variant_id = project_state.projectConfig.sectionVariantMap[section_id]
-        source = build_agentic_section_summary_source(
+        resolved_summary_by_section = build_project_state_summary_section_index(
             project_state,
-            section_id,
-            summary_by_section=resolved_summary_by_section,
+            set(summary_section_ids),
         )
-        cache_key = build_agentic_summary_cache_key(
-            project_config_id=project_config_id,
-            section_id=section_id,
-            variant_id=variant_id,
-            content_hash=source.content_hash,
-        )
-        cached = get_cached_agentic_summary_from_entries(entries, cache_key=cache_key)
-        if cached:
-            summaries[section_id] = cached
-    return summaries
+
+    return _load_cached_agentic_summary_texts_for_section_ids(
+        entries=entries,
+        project_state=project_state,
+        project_config_id=project_config_id,
+        section_ids=summary_section_ids,
+        summary_by_section=resolved_summary_by_section,
+    )
 
 
 def resolve_cached_agentic_summaries_for_chat_section(
@@ -189,24 +226,26 @@ def resolve_cached_agentic_summaries_for_chat_section(
     This helper is shared between managed LLM runs and external-agent runs to
     keep cache-key computation (and project summary derivation) consistent.
     """
-    context_edges = resolve_context_edges(project_state, chat_section_id)
-    summary_section_ids: list[ID] = []
-    for section_id, context_mode in context_edges:
-        if context_mode != AgenticEdgeContextMode.summary:
-            continue
-        if section_id not in project_state.sections:
-            continue
-        summary_section_ids.append(section_id)
+    summary_section_ids = _resolve_summary_section_ids_for_chat_section(
+        project_state,
+        chat_section_id=chat_section_id,
+    )
     if not summary_section_ids:
         return {}, None, []
 
-    project_summary = build_project_state_summary(project_state)
-    summary_by_section = {entry.sectionId: entry for entry in project_summary.sections}
-    cached = load_cached_agentic_summary_texts_for_chat_section(
-        dbe,
+    payload = read_agentic_summary_cache(dbe)
+    entries = payload.get("entries")
+    if not isinstance(entries, dict):
+        entries = {}
+    summary_by_section = build_project_state_summary_section_index(
+        project_state,
+        set(summary_section_ids),
+    )
+    cached = _load_cached_agentic_summary_texts_for_section_ids(
+        entries=entries,
         project_state=project_state,
         project_config_id=project_config_id,
-        chat_section_id=chat_section_id,
+        section_ids=summary_section_ids,
         summary_by_section=summary_by_section,
     )
     missing_section_ids: list[ID] = []

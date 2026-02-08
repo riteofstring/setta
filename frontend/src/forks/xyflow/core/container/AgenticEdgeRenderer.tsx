@@ -125,7 +125,7 @@ const AgenticEdgeRenderer = () => {
       }
     }
     return running;
-  }, [sectionImpls, sectionVariantMap, sectionVariants]);
+  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSections]);
 
   const allowedChatIds = useMemo(
     () =>

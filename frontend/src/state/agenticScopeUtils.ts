@@ -59,12 +59,43 @@ export function resolveAgenticScopeForChatSections(
   const contextSectionIds = new Set<string>();
   const peerChatSectionIds = new Set<string>();
 
-  for (const chatSectionId of chatSectionIds) {
-    const scope = resolveAgenticScopeFromEdges(agenticEdges, chatSectionId);
-    scope.readSectionIds.forEach((id) => readSectionIds.add(id));
-    scope.writeSectionIds.forEach((id) => writeSectionIds.add(id));
-    scope.contextSectionIds.forEach((id) => contextSectionIds.add(id));
-    scope.peerChatSectionIds.forEach((id) => peerChatSectionIds.add(id));
+  const chatSectionIdSet = new Set(chatSectionIds);
+  if (chatSectionIdSet.size === 0) {
+    return {
+      readSectionIds,
+      writeSectionIds,
+      contextSectionIds,
+      peerChatSectionIds,
+    };
+  }
+
+  for (const edge of agenticEdges) {
+    if (edge.kind === AgenticEdgeKindEnum.section_chat) {
+      if (!chatSectionIdSet.has(edge.targetSectionId)) {
+        continue;
+      }
+      readSectionIds.add(edge.sourceSectionId);
+      contextSectionIds.add(edge.sourceSectionId);
+      continue;
+    }
+    if (edge.kind === AgenticEdgeKindEnum.chat_section) {
+      if (!chatSectionIdSet.has(edge.sourceSectionId)) {
+        continue;
+      }
+      readSectionIds.add(edge.targetSectionId);
+      writeSectionIds.add(edge.targetSectionId);
+      continue;
+    }
+    if (edge.kind === AgenticEdgeKindEnum.chat_chat) {
+      const sourceActive = chatSectionIdSet.has(edge.sourceSectionId);
+      const targetActive = chatSectionIdSet.has(edge.targetSectionId);
+      if (sourceActive) {
+        peerChatSectionIds.add(edge.targetSectionId);
+      }
+      if (targetActive) {
+        peerChatSectionIds.add(edge.sourceSectionId);
+      }
+    }
   }
 
   return {

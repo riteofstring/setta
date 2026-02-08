@@ -327,6 +327,7 @@ def build_project_state_summary_section_index(
         singleton_members=singleton_members,
         shown_param_visibility=shown_param_visibility,
         filter_relationships_to_allowed=False,
+        iterate_only_allowed=True,
     )
     return {entry.sectionId: entry for entry in sections}
 
@@ -355,11 +356,25 @@ def _build_project_state_summary_sections(
     singleton_members: set[ID],
     shown_param_visibility: dict[ID, set[ID]],
     filter_relationships_to_allowed: bool = True,
+    iterate_only_allowed: bool = False,
 ) -> tuple[list[ProjectStateSummarySection], set[str]]:
     sections: list[ProjectStateSummarySection] = []
     allowed_draw_asset_paths: set[str] = set()
-    for section_id, core in project_state.sections.items():
-        if allowed_section_ids is not None and section_id not in allowed_section_ids:
+    if allowed_section_ids is not None and iterate_only_allowed:
+        section_iter = (
+            (section_id, project_state.sections[section_id])
+            for section_id in allowed_section_ids
+            if section_id in project_state.sections
+        )
+    else:
+        section_iter = project_state.sections.items()
+
+    for section_id, core in section_iter:
+        if (
+            allowed_section_ids is not None
+            and not iterate_only_allowed
+            and section_id not in allowed_section_ids
+        ):
             continue
         variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
         if variant_id is None:

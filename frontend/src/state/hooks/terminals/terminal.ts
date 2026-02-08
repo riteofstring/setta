@@ -245,12 +245,8 @@ function cleanupTerminalSession(sectionId: string, session: TerminalSession) {
     session.scrollUnsub();
     session.scrollUnsub = null;
   }
-  try {
-    if (session.parkedHost.parentNode) {
-      session.parkedHost.remove();
-    }
-  } catch {
-    // Ignore DOM cleanup issues.
+  if (session.parkedHost.parentNode) {
+    session.parkedHost.remove();
   }
   terminalCleanup(session.ws, session.terminal);
   delete TERMINAL_SESSIONS[sectionId];

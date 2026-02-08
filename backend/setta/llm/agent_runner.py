@@ -124,7 +124,7 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
 )
 from setta.types.helpers_lvl3 import (
-    build_project_state_summary,
+    build_project_state_summary_section_index,
     convert_backend_to_single_config,
 )
 from setta.types.id import ID
@@ -1092,10 +1092,10 @@ class AgentRunner:
             return
         resolved_summary_by_section = summary_by_section
         if resolved_summary_by_section is None:
-            project_summary = build_project_state_summary(project_state)
-            resolved_summary_by_section = {
-                entry.sectionId: entry for entry in project_summary.sections
-            }
+            resolved_summary_by_section = build_project_state_summary_section_index(
+                project_state,
+                {sid for sid in missing_section_ids if sid in project_state.sections},
+            )
 
         cache_updates: dict[str, dict[str, Any]] = {}
         generated_count = 0
