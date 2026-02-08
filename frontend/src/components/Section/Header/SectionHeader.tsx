@@ -8,8 +8,8 @@ import {
   setCodeSectionDiagnosticsMuted,
 } from "state/actions/lspDiagnostics";
 import {
-  getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
+  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import {
   useAIFollow,
@@ -29,6 +29,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
+import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
@@ -45,7 +46,6 @@ type SectionHeaderProps = {
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   isRoot: boolean;
-  hasSectionStyleTheme: boolean;
 };
 
 function _SectionHeader({
@@ -55,7 +55,6 @@ function _SectionHeader({
   isInOtherProjectConfigs,
   isUserView,
   isRoot,
-  hasSectionStyleTheme,
 }: SectionHeaderProps) {
   const headerRef = useRef<HTMLElement | null>(null);
   const heightKey = getSectionHeaderHeightKey(sectionId);
@@ -92,12 +91,6 @@ function _SectionHeader({
   }, [heightKey]);
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const tagColor = useProjectState((x) => {
-    if (!x.sections[sectionId]) {
-      return null;
-    }
-    return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
-  });
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
@@ -162,31 +155,17 @@ function _SectionHeader({
     <header
       className="section-title mx-2 flex flex-row items-center"
       ref={headerRef}
-      style={
-        hasSectionStyleTheme
-          ? { color: "var(--setta-section-style-text)" }
-          : undefined
-      }
     >
       <MenuButton
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
-        hasSectionStyleTheme={hasSectionStyleTheme}
       />
-      {tagColor && (
-        <span
-          className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
-          style={{ backgroundColor: tagColor }}
-          title={`Color tag: ${tagColor}`}
-        />
-      )}
       <MaybeCardTitle
         sectionId={sectionId}
         isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
-        hasSectionStyleTheme={hasSectionStyleTheme}
       />
       <div className="z-10 ml-auto flex items-center">
         {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
@@ -260,6 +239,12 @@ function _SectionHeader({
             />
           </>
         )}
+        {isBaseCodeSectionType(sectionTypeName) && (
+          <AttachedTerminalControls
+            sectionId={sectionId}
+            isUserView={isUserView}
+          />
+        )}
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
@@ -291,24 +276,9 @@ function _SectionHeader({
             <RiFocus2Line className="text-[12px]" />
           </button>
         )}
-        {!isUserView && (
-          <LockPositionButton
-            sectionId={sectionId}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-        {!isUserView && !isRoot && (
-          <MinimizeButton
-            sectionId={sectionId}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
-        {!isUserView && (
-          <DeleteOrHideButton
-            sectionId={sectionId}
-            hasSectionStyleTheme={hasSectionStyleTheme}
-          />
-        )}
+        {!isUserView && <LockPositionButton sectionId={sectionId} />}
+        {!isUserView && !isRoot && <MinimizeButton sectionId={sectionId} />}
+        {!isUserView && <DeleteOrHideButton sectionId={sectionId} />}
       </div>
     </header>
   );
@@ -519,7 +489,6 @@ function MaybeCardTitle({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
-  hasSectionStyleTheme,
 }) {
   return sectionTypeName === SectionTypeEnum.TextBlock ? (
     <TextBlockCardTitle
@@ -527,7 +496,6 @@ function MaybeCardTitle({
       isActiveSection={isActiveSection}
       isInOtherProjectConfigs={isInOtherProjectConfigs}
       sectionTypeName={sectionTypeName}
-      hasSectionStyleTheme={hasSectionStyleTheme}
     />
   ) : (
     <SectionTitle
@@ -536,7 +504,6 @@ function MaybeCardTitle({
         isActiveSection,
         isInOtherProjectConfigs,
         sectionTypeName,
-        hasSectionStyleTheme,
       })}
     />
   );
@@ -547,7 +514,6 @@ function TextBlockCardTitle({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
-  hasSectionStyleTheme,
 }) {
   const { headingAsSectionName, format } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -608,7 +574,6 @@ function TextBlockCardTitle({
           isActiveSection,
           isInOtherProjectConfigs,
           sectionTypeName,
-          hasSectionStyleTheme,
         })}
       />
     )
@@ -627,17 +592,14 @@ function getTitleStyles({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
-  hasSectionStyleTheme,
 }) {
-  const editing = hasSectionStyleTheme
-    ? "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight"
-    : "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
+  const editing =
+    "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full dark:text-white font-bold text-[.7rem] tracking-tight";
 
   const notEditing = getNotEditingStyle({
     isActiveSection,
     isInOtherProjectConfigs,
     sectionTypeName,
-    hasSectionStyleTheme,
   });
 
   if (
@@ -648,9 +610,8 @@ function getTitleStyles({
     return { fixed: notEditing };
   }
 
-  const fixed = hasSectionStyleTheme
-    ? "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5"
-    : "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
+  const fixed =
+    "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs text-setta-400 max-w-full truncate pr-0.5";
 
   return { editing, notEditing, fixed };
 }
@@ -659,29 +620,26 @@ function getNotEditingStyle({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
-  hasSectionStyleTheme,
 }) {
   let textColorClass = "";
   let fontClass = "font-bold";
 
   // Handle text color based on conditions
-  if (!hasSectionStyleTheme) {
-    if (isActiveSection) {
-      if (isInOtherProjectConfigs) {
-        textColorClass = "text-purple-800 dark:text-purple-200";
-      } else if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
-        textColorClass = "text-green-800 dark:text-green-200";
-      } else if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-blue-400";
-      } else {
-        textColorClass = "text-blue-600 dark:text-blue-400";
-      }
+  if (isActiveSection) {
+    if (isInOtherProjectConfigs) {
+      textColorClass = "text-purple-800 dark:text-purple-200";
+    } else if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
+      textColorClass = "text-green-800 dark:text-green-200";
+    } else if (sectionTypeName === SectionTypeEnum.Terminal) {
+      textColorClass = "text-blue-400";
     } else {
-      if (sectionTypeName === SectionTypeEnum.Terminal) {
-        textColorClass = "text-setta-300";
-      } else {
-        textColorClass = "text-setta-700 dark:text-setta-300";
-      }
+      textColorClass = "text-blue-600 dark:text-blue-400";
+    }
+  } else {
+    if (sectionTypeName === SectionTypeEnum.Terminal) {
+      textColorClass = "text-setta-300";
+    } else {
+      textColorClass = "text-setta-700 dark:text-setta-300";
     }
   }
 

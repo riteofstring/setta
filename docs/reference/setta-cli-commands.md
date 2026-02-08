@@ -3,10 +3,8 @@
 This doc covers the commands exposed by the `setta` CLI (implemented in
 `backend/setta/start.py`). Local commands operate on a workspace root (code
 operations) and a `setta_files` root (state/runtime). By default both roots
-follow the current working directory, but you can override the workspace root
-with `--workspace` and control where `setta_files` resolves via
-`--setta-files-location` / `SETTA_FILES_LOCATION` and `<setta_home>/config.json`
-(see `docs/reference/setta-files.md`).
+follow the current working directory, but you can override them with
+`--workspace`, `--files-root`, `--files-root-base` (or the corresponding env vars).
 
 Deployment commands (`setta share`, `setta app`) serve published deployment
 snapshots. With `--deployment-name`, deployments are resolved under
@@ -50,10 +48,10 @@ Options:
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
 - `--workspace PATH` sets the workspace root (code operations).
-- `--setta-files-location {auto,local,global}` controls where `setta_files` is
-  resolved (see `docs/reference/setta-files.md`).
+- `--files-root PATH` sets the `setta_files` root explicitly.
+- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
 Env equivalents:
-`SETTA_WORKSPACE_ROOT`, `SETTA_HOME`, and `SETTA_FILES_LOCATION`.
+`SETTA_WORKSPACE_ROOT`, `SETTA_FILES_ROOT`, and `SETTA_FILES_ROOT_BASE`.
 
 Examples:
 ```sh
@@ -250,8 +248,8 @@ frontend can consume. This command requires `--json`.
 
 Options:
 - `--workspace PATH` sets the workspace root (required for detached workspaces).
-- `--setta-files-location {auto,local,global}` controls where `setta_files` is
-  resolved (see `docs/reference/setta-files.md`).
+- `--files-root PATH` sets the `setta_files` root explicitly.
+- `--files-root-base PATH` sets a base directory for hashed `setta_files` roots.
 - `--timeout SECONDS` overrides the default launch timeout (30s).
 - `--json` emits strict JSON only (required).
 
@@ -261,7 +259,7 @@ Success payload:
   "ok": true,
   "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
   "workspaceRoot": "/path/to/workspace",
-  "settaFilesLocation": "local",
+  "filesRoot": "/path/to/setta_files",
   "sessionId": "...",
   "startedNew": true,
   "session": {
@@ -363,16 +361,14 @@ Remote stop:
   `setta stop user@host --workspace /path` (or `-w`).
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
-- To control whether the remote host uses local or global state, pass
-  `--setta-files-location {auto,local,global}` before the subcommand. The global
-  base directory is controlled by the remote host's `<setta_home>/config.json`
-  (see `docs/reference/setta-files.md`).
+- To control where the remote host stores `setta_files`, pass `--files-root` or
+  `--files-root-base` before the subcommand. Example:
+  `setta --files-root-base '~/setta_state' stop user@host -w '~/work/project' --latest`.
 
 Examples:
 ```sh
 setta stop -w /path/to/project --latest
 setta stop user@host -w /path/to/project --all
-setta --setta-files-location global stop user@host -w '~/work/project' --latest
 ```
 
 ## `setta connect`
@@ -392,9 +388,9 @@ Options:
 - `--latest` selects the newest session.
 - `--ssh-args` passes extra SSH options.
 - `--remote-cmd` overrides the remote Setta command.
-- To control whether the remote host uses local or global state, pass
-  `--setta-files-location {auto,local,global}` before the subcommand (it is
-  forwarded to the remote `setta` invocation).
+- To control where the remote host stores `setta_files`, pass `--files-root` or
+  `--files-root-base` before the subcommand (they are forwarded to the remote
+  `setta` invocation).
 - `--local-port` pins the local tunnel port.
 - `--detach` backgrounds the tunnel process.
 - `--print-only` prints the tunnel command and URLs without running them.
@@ -406,6 +402,5 @@ Examples:
 setta connect user@host --workspace /path/to/project
 setta connect user@host --workspace /path/to/project --local-port 61000 --detach
 setta connect user@host --workspace /path/to/project --print-only
-setta --setta-files-location global connect user@host -w '~/work/project' --latest
 setta c user@host -w /path/to/project
 ```

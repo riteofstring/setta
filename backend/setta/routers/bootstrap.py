@@ -313,25 +313,25 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         </p>
       </section>
     </main>
-    <script>
-      (function () {
-        const redirectUrl = "__SETTA_REDIRECT_URL__";
-        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
-        const launcherOriginKey = "setta.launcherOrigin";
-        const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
-        const maxHandoffLength = 8192;
-        const form = document.getElementById("bootstrap-form");
-        const input = document.getElementById("token-input");
-        const statusEl = document.getElementById("status");
-        const errorEl = document.getElementById("error");
+	    <script>
+	      (function () {
+		        const redirectUrl = "__SETTA_REDIRECT_URL__";
+		        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
+		        const launcherOriginKey = "setta.launcherOrigin";
+		        const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
+		        const maxHandoffLength = 8192;
+		        const form = document.getElementById("bootstrap-form");
+		        const input = document.getElementById("token-input");
+		        const statusEl = document.getElementById("status");
+		        const errorEl = document.getElementById("error");
 
         function setStatus(message) {
           statusEl.textContent = message;
         }
 
-        function setError(message) {
-          errorEl.textContent = message || "";
-        }
+	        function setError(message) {
+	          errorEl.textContent = message || "";
+	        }
 
 	        function isLocalHostname(hostname) {
 	          const normalized = String(hostname || "").trim().toLowerCase();

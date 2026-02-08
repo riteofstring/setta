@@ -103,7 +103,6 @@ describe("SectionHeader diagnostics badges", () => {
     name: "Code",
     isFrozen: false,
     isInOtherProjectConfigs: false,
-    tagColor: null,
     size: { width: 500, height: 300 },
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
@@ -159,7 +158,6 @@ describe("SectionHeader diagnostics badges", () => {
         isInOtherProjectConfigs={false}
         isUserView={true}
         isRoot={false}
-        hasSectionStyleTheme={false}
       />,
     );
   }
@@ -209,17 +207,6 @@ describe("SectionHeader diagnostics badges", () => {
     const markup = renderHeader();
 
     expect(markup).toContain("Suppressed 2");
-  });
-
-  it("renders a color dot when a tag color is set", () => {
-    useProjectState.setState((state) => {
-      state.sections[sectionId].sharedModifier = { tagColor: "#ff0000" };
-    });
-    syncStoreInitialState(useProjectState);
-
-    const markup = renderHeader();
-
-    expect(markup).toContain("Color tag: #ff0000");
   });
 });
 
@@ -286,7 +273,6 @@ describe("SectionHeader follow button", () => {
         isInOtherProjectConfigs={false}
         isUserView={true}
         isRoot={false}
-        hasSectionStyleTheme={false}
       />,
     );
 
