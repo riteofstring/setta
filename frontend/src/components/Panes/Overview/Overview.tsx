@@ -10,7 +10,7 @@ import {
   MdOutlineSmartToy,
 } from "react-icons/md";
 import { RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
-import { TbFolder } from "react-icons/tb";
+import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import {
   useBackendLogEvents,
   useLocalStorage,
@@ -28,6 +28,7 @@ import {
   onOverviewTabClick,
   TabButton,
 } from "../paneFns";
+import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { NotificationsArea } from "./NotificationsArea";
@@ -54,13 +55,14 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
-  const { isShareMode, allowLLM } = useShareSession((x) => ({
-    isShareMode: x.isShareMode,
+  const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
+    isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
-  const showFileBrowserTab = !isShareMode;
-  const showWatchCodeTab = !isShareMode;
-  const showLLMTabs = !isShareMode || allowLLM;
+  const showFileBrowserTab = !isDeploymentMode;
+  const showWatchCodeTab = !isDeploymentMode;
+  const showAppTab = !isDeploymentMode;
+  const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
     if (
@@ -77,6 +79,9 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
+  if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
@@ -120,6 +125,14 @@ export function Overview() {
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Watch Code" })}
             icon={<RiRadarLine size={18} />}
+          />
+        )}
+        {showAppTab && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.App}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "App" })}
+            icon={<TbLayoutDashboard size={18} />}
           />
         )}
         <TabButton<OverviewTabName>
@@ -238,6 +251,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
+    case OverviewTabNameEnum.App:
+      return <AppConfigPane />;
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:

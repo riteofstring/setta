@@ -1,5 +1,10 @@
 import _ from "lodash";
-import { useProjectState, ZustandProjectState } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useProjectState,
+  useServerMode,
+  ZustandProjectState,
+} from "state/definitions";
 import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
@@ -13,14 +18,32 @@ import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 function optimisticActiveIdsUpdate(
   apply: (state: ZustandProjectState) => void,
 ) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    const serverMode = useServerMode.getState();
+    if (serverMode.modeResolved && serverMode.mode === "app") {
+      // App mode can render before the IDE project config is hydrated; active ids are
+      // irrelevant there, so keep this as a local-only update.
+      useProjectState.setState(apply);
+      return;
+    }
+    console.warn(
+      `Skipping route_set_active_ids because projectConfigId is ${String(
+        projectConfigId,
+      )}.`,
+    );
+    useProjectState.setState(apply);
+    return;
+  }
   return dispatchOptimisticProjectStateUpdate({
     apply,
-    send: (frontendOpId) =>
-      route_set_active_ids({
-        projectConfigId: getCurrProjectConfigId(),
+    send: (frontendOpId) => {
+      return route_set_active_ids({
+        projectConfigId,
         activeIds: useProjectState.getState().projectConfig.activeIds,
         frontendOpId,
-      }),
+      });
+    },
   });
 }
 

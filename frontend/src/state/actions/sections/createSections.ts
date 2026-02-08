@@ -54,7 +54,7 @@ export async function createTopLevelSection({
   controlCodeObjType = null,
   position = null,
 }: CreateTopLevelSectionArgs) {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return null;
   }
   const placement = getSmartPlacementContext();
@@ -200,7 +200,7 @@ export async function openFileInCodeSection({
   fileName,
   codeLanguage,
 }: OpenFileInCodeSectionArgs) {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return null;
   }
   const projectState = useProjectState.getState();
@@ -255,7 +255,7 @@ export async function openFileInTextSection({
   format,
   textDisplayMode,
 }: OpenFileInTextSectionArgs) {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return null;
   }
   const newSectionId = await createTopLevelSection({

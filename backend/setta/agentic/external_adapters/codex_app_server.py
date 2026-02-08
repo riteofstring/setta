@@ -117,7 +117,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     supported_run_modes = {ExternalAgentRunMode.app_server}
     _process_states: dict[str, _CodexAppServerState] = {}
     _process_state_by_process: dict[int, _CodexAppServerState] = {}
-    _process_state_by_thread_id: dict[str, _CodexAppServerState] = {}
     _process_lock = asyncio.Lock()
 
     async def start_run(
@@ -150,7 +149,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             if thread_id:
                 state.thread_id = thread_id
                 handle.thread_id = thread_id
-                self._process_state_by_thread_id[thread_id] = state
             else:
                 raise RuntimeError("Codex app-server did not return a threadId")
 
@@ -250,7 +248,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
                         if isinstance(status, str) and status == "failed":
                             handle.return_code = 1
                     break
-            await self._maybe_set_thread_preview(state, handle)
         finally:
             state.lock.release()
 
@@ -295,15 +292,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
     ) -> _CodexAppServerState:
         key = str(context.chat_id)
         async with cls._process_lock:
-            desired_thread_id = _extract_thread_id(context.inputs)
-            if desired_thread_id:
-                state = cls._process_state_by_thread_id.get(desired_thread_id)
-                if state is not None and state.process.returncode is not None:
-                    await cls._cleanup_state(state)
-                    state = None
-                if state is not None and state.config_id == str(context.config.id):
-                    return state
-
             state = cls._process_states.get(key)
             if state is not None and state.process.returncode is not None:
                 await cls._cleanup_state(state)
@@ -406,9 +394,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             with contextlib.suppress(Exception):
                 await state.stderr_task
         cls._process_state_by_process.pop(id(state.process), None)
-        for thread_id, entry in list(cls._process_state_by_thread_id.items()):
-            if entry is state:
-                cls._process_state_by_thread_id.pop(thread_id, None)
 
     @classmethod
     def _state_matches(
@@ -598,29 +583,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
             payload["params"] = params
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
-
-    async def _maybe_set_thread_preview(
-        self,
-        state: _CodexAppServerState,
-        handle: ExternalAgentRunHandle,
-    ) -> None:
-        thread_id = handle.thread_id or state.thread_id
-        if not thread_id:
-            return
-        try:
-            payload = await self._send_request(state, "thread/list", {})
-        except Exception as exc:
-            logger.debug(
-                "Codex app-server thread preview request failed (run_id=%s): %s",
-                handle.run_id,
-                exc,
-            )
-            return
-        preview = _extract_codex_thread_preview(payload, thread_id)
-        if not preview:
-            return
-        handle.external_title = preview
-        handle.external_title_kind = "codex_thread_preview"
 
 
 class _CodexAppServerEventParser:
@@ -1795,61 +1757,6 @@ def _extract_thread_id_from_result(result: dict[str, Any] | None) -> str | None:
     return None
 
 
-def _extract_codex_thread_preview(
-    payload: dict[str, Any] | None, thread_id: str
-) -> str | None:
-    if not payload or not thread_id:
-        return None
-    raw_result: Any = payload
-    if isinstance(payload.get("result"), (dict, list)):
-        raw_result = payload.get("result")
-
-    candidates: list[Any] = []
-    if isinstance(raw_result, list):
-        candidates = raw_result
-    elif isinstance(raw_result, dict):
-        for key in ("threads", "items", "data", "results"):
-            value = raw_result.get(key)
-            if isinstance(value, list):
-                candidates = value
-                break
-        if not candidates:
-            maybe_threads = raw_result.get("threads")
-            if isinstance(maybe_threads, dict):
-                nested_items = maybe_threads.get("items")
-                if isinstance(nested_items, list):
-                    candidates = nested_items
-
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            continue
-        raw_id = (
-            candidate.get("id")
-            or candidate.get("threadId")
-            or candidate.get("thread_id")
-        )
-        if not raw_id and isinstance(candidate.get("thread"), dict):
-            raw_id = candidate["thread"].get("id") or candidate["thread"].get(
-                "threadId"
-            )
-        if raw_id != thread_id:
-            continue
-        raw_preview = (
-            candidate.get("preview") or candidate.get("title") or candidate.get("name")
-        )
-        if raw_preview is None and isinstance(candidate.get("thread"), dict):
-            raw_preview = (
-                candidate["thread"].get("preview")
-                or candidate["thread"].get("title")
-                or candidate["thread"].get("name")
-            )
-        if isinstance(raw_preview, str):
-            normalized = raw_preview.strip()
-            if normalized:
-                return normalized
-    return None
-
-
 def _extract_output_schema(inputs: dict[str, Any] | None) -> dict[str, Any] | None:
     if not inputs:
         return None
@@ -2612,6 +2519,5 @@ def _maybe_set_thread_id(
     if isinstance(thread_id, str) and thread_id:
         handle.thread_id = thread_id
         state.thread_id = thread_id
-        CodexAppServerAdapter._process_state_by_thread_id[thread_id] = state
         return True
     return False

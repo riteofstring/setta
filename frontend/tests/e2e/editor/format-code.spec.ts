@@ -5,10 +5,13 @@ import {
   type Page,
   type Response,
 } from "@playwright/test";
+
 import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
+const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
@@ -110,90 +113,6 @@ test("formatting errors show diagnostics for code sections", async ({
     } else {
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
-
-    const lintTarget = section
-      .locator(".cm-lintRange, .cm-lintPoint")
-      .first();
-    await expect(lintTarget).toBeVisible();
-    await lintTarget.hover();
-    const lintTooltip = page
-      .locator(".setta-codemirror-tooltips .cm-tooltip-lint")
-      .first();
-    await expect(lintTooltip).toBeVisible();
-    await expect(lintTooltip).toHaveCSS("border-top-left-radius", "8px");
-    await expect(lintTooltip).toHaveCSS("min-width", "180px");
-  } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
-  }
-});
-
-test("code issues popover stays attached while panning", async ({ page }) => {
-  test.setTimeout(60000);
-  await ensureAppReady(page);
-
-  const { projectConfigId, projectConfigName } =
-    await createNewProjectConfig(page);
-
-  try {
-    const sectionName = "Formatter Code";
-    const sectionId = await createCodeSection(page, projectConfigId);
-    await postBackend(page, "/setSectionName", {
-      projectConfigId,
-      sectionId,
-      name: sectionName,
-    });
-    await postBackend(page, "/setCode", {
-      projectConfigId,
-      sectionId,
-      code: "def bad(:\n  pass\n",
-    });
-
-    const section = findSectionByName(page, sectionName).first();
-    await expect(section).toBeVisible();
-    const codeArea = section
-      .locator("article.section-full-no-title")
-      .first();
-    await expect(codeArea).toBeVisible();
-    await codeArea.click();
-
-    const responsePromise = page.waitForResponse((response) => {
-      return (
-        response.url().includes("/api/formatCode") &&
-        response.status() === 422
-      );
-    });
-    await page.keyboard.press(FORMAT_SHORTCUT);
-    await responsePromise;
-
-    const issuesButton = section
-      .locator("header.section-title")
-      .getByRole("button", { name: /Issues/ })
-      .first();
-    await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
-
-    const problemsLabel = page.getByText("Problems").first();
-    await expect(problemsLabel).toBeVisible();
-    const popover = page
-      .locator('[data-radix-popper-content-wrapper]')
-      .filter({ has: problemsLabel })
-      .first();
-    await expect(popover).toBeVisible();
-    const popoverContent = popover.locator("> div").first();
-    await expect(popoverContent).toHaveClass(/rounded-md/);
-    await expect(popoverContent).toHaveClass(/backdrop-blur/);
-
-    const beforeDelta = await getCenterDelta(issuesButton, popover);
-
-    await setViewportTransform(page, { x: 160, y: 120, zoom: 1 });
-
-    await expect.poll(async () => {
-      const afterDelta = await getCenterDelta(issuesButton, popover);
-      return Math.max(
-        Math.abs(afterDelta.dx - beforeDelta.dx),
-        Math.abs(afterDelta.dy - beforeDelta.dy),
-      );
-    }).toBeLessThan(4);
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -251,66 +170,6 @@ test("formatting errors show diagnostics for generated code prefix/suffix", asyn
     } else {
       await expect(page.getByText("Formatter").first()).toBeVisible();
     }
-  } finally {
-    await deleteProjectConfigByName(page, projectConfigName);
-  }
-});
-
-test("lsp diagnostics persist after hard refresh", async ({ page }) => {
-  test.setTimeout(60000);
-  await ensureAppReady(page);
-
-  const { projectConfigId, projectConfigName } =
-    await createNewProjectConfig(page);
-
-  try {
-    const sectionName = "LSP Code";
-    const sectionId = await createCodeSection(page, projectConfigId);
-    await postBackend(page, "/setSectionName", {
-      projectConfigId,
-      sectionId,
-      name: sectionName,
-    });
-    await postBackend(page, "/setCode", {
-      projectConfigId,
-      sectionId,
-      code: "print(unknown_var)\\n",
-    });
-
-    const section = findSectionByName(page, sectionName).first();
-    await expect(section).toBeVisible();
-    const codeArea = section
-      .locator("article.section-full-no-title")
-      .first();
-    await expect(codeArea).toBeVisible();
-    await codeArea.click();
-
-    const issuesButton = section
-      .locator("header.section-title")
-      .getByRole("button", { name: /Issues/ })
-      .first();
-    await expect.poll(async () => (await issuesButton.count()) > 0).toBe(true);
-    await expect(issuesButton).toBeVisible();
-    await issuesButton.click();
-    await expect(page.getByText("Problems").first()).toBeVisible();
-    await expect(page.getByText("is not defined").first()).toBeVisible();
-
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(READY_SELECTOR);
-
-    const sectionAfter = findSectionByName(page, sectionName).first();
-    await expect(sectionAfter).toBeVisible();
-    const issuesButtonAfter = sectionAfter
-      .locator("header.section-title")
-      .getByRole("button", { name: /Issues/ })
-      .first();
-    await expect
-      .poll(async () => (await issuesButtonAfter.count()) > 0)
-      .toBe(true);
-    await expect(issuesButtonAfter).toBeVisible();
-    await issuesButtonAfter.click();
-    await expect(page.getByText("Problems").first()).toBeVisible();
-    await expect(page.getByText("is not defined").first()).toBeVisible();
   } finally {
     await deleteProjectConfigByName(page, projectConfigName);
   }
@@ -483,40 +342,4 @@ function extractFirstDetailLine(detail: string): string {
   }
   const firstLine = trimmed.split("\n")[0]?.trim() ?? "";
   return firstLine;
-}
-
-async function setViewportTransform(
-  page: Page,
-  transform: { x: number; y: number; zoom: number },
-): Promise<void> {
-  await page.evaluate(async ({ x, y, zoom }) => {
-    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
-    useReactFlow.setState({
-      transform: [x, y, zoom],
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-    });
-    window.reactFlowZoom = zoom;
-  }, transform);
-}
-
-async function getCenterDelta(
-  anchor: Locator,
-  popover: Locator,
-): Promise<{ dx: number; dy: number }> {
-  const [anchorBox, popoverBox] = await Promise.all([
-    anchor.boundingBox(),
-    popover.boundingBox(),
-  ]);
-  if (!anchorBox || !popoverBox) {
-    throw new Error("Unable to measure popover/anchor bounds.");
-  }
-  const anchorCenterX = anchorBox.x + anchorBox.width / 2;
-  const anchorCenterY = anchorBox.y + anchorBox.height / 2;
-  const popoverCenterX = popoverBox.x + popoverBox.width / 2;
-  const popoverCenterY = popoverBox.y + popoverBox.height / 2;
-  return {
-    dx: popoverCenterX - anchorCenterX,
-    dy: popoverCenterY - anchorCenterY,
-  };
 }

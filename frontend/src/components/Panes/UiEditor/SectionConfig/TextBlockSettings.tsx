@@ -22,11 +22,11 @@ type TextBlockSettingsProps = {
 export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const { format, text, isFrozen, headingAsSectionName, metaControlStyle } =
     useTextBlockTextAndEditability(sectionId);
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
-  const canToggleFormat = !isShareMode || canEditParams;
-  const canToggleHeading = !isShareMode || canEditParams;
-  const canToggleMetaControlStyle = !isShareMode || canEditParams;
+  const canToggleFormat = !isDeploymentMode || canEditParams;
+  const canToggleHeading = !isDeploymentMode || canEditParams;
+  const canToggleMetaControlStyle = !isDeploymentMode || canEditParams;
 
   async function onChangeRenderMarkdown(v: boolean) {
     if (!canToggleFormat) {

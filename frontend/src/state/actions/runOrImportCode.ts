@@ -71,7 +71,7 @@ export async function runCodeBlock(sectionId: string | null) {
   }
   const shareSession = useShareSession.getState();
   let runSnapshotMode = null;
-  if (!shareSession.isShareMode) {
+  if (!shareSession.isDeploymentMode) {
     const overrides =
       useLocalStorage.getState().runSnapshotModeByProjectConfigId;
     const runSnapshotOverride = overrides[projectConfig.id];

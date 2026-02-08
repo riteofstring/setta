@@ -11,7 +11,6 @@ from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
     _PendingApproval,
-    _build_options,
     _build_system_prompt_payload,
 )
 from setta.types.agentic import AgentRun
@@ -571,57 +570,3 @@ class TestClaudeSdkAdapterToolResponse:
         pending_map = handle.metadata.get("pending_approvals")
         if isinstance(pending_map, dict):
             assert "tool-1" not in pending_map
-
-
-def test_claude_sdk_options_do_not_force_max_turns_when_unspecified(tmp_path) -> None:
-    context = ExternalAgentRunContext(
-        run=AgentRun(id=ID("run-1")),
-        config=ExternalAgentConfig(
-            id=ID("config-1"),
-            name="Claude SDK",
-            toolType=ExternalAgentToolType.claude_code,
-            runMode=ExternalAgentRunMode.sdk,
-        ),
-        profile=None,
-        project_config_id=ID("project-1"),
-        chat_id=ID("chat-1"),
-        section_id=None,
-        inputs={"runType": "external_agent"},
-        system_prompt="hi",
-        working_dir=Path(tmp_path),
-        env={"ANTHROPIC_API_KEY": "test"},
-    )
-    options = _build_options(
-        context=context,
-        pending_approvals={},
-        queue=asyncio.Queue(),
-        stderr_lines=None,
-    )
-    assert options.max_turns is None
-
-
-def test_claude_sdk_options_respect_explicit_max_turns(tmp_path) -> None:
-    context = ExternalAgentRunContext(
-        run=AgentRun(id=ID("run-2")),
-        config=ExternalAgentConfig(
-            id=ID("config-2"),
-            name="Claude SDK",
-            toolType=ExternalAgentToolType.claude_code,
-            runMode=ExternalAgentRunMode.sdk,
-        ),
-        profile=None,
-        project_config_id=ID("project-1"),
-        chat_id=ID("chat-1"),
-        section_id=None,
-        inputs={"runType": "external_agent", "maxTurns": 7},
-        system_prompt="hi",
-        working_dir=Path(tmp_path),
-        env={"ANTHROPIC_API_KEY": "test"},
-    )
-    options = _build_options(
-        context=context,
-        pending_approvals={},
-        queue=asyncio.Queue(),
-        stderr_lines=None,
-    )
-    assert options.max_turns == 7

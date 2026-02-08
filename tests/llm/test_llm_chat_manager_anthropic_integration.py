@@ -196,7 +196,6 @@ class TestLLMChatManagerAnthropicIntegration:
                             message.model_dump(mode="json") for message in first_messages
                         ],
                         "thinking": True,
-                        "allowUnscoped": True,
                     },
                     emit_stream=False,
                     emit_ai_follow=False,
@@ -273,7 +272,7 @@ class TestLLMChatManagerAnthropicIntegration:
 
                 second_run = runner.start_run(
                     profile,
-                    {"messages": history, "thinking": True, "allowUnscoped": True},
+                    {"messages": history, "thinking": True},
                     emit_stream=False,
                     emit_ai_follow=False,
                 )
@@ -402,10 +401,7 @@ class TestLLMChatManagerAnthropicIntegration:
                 run = runner.start_run(
                     profile,
                     {
-                        "messages": [
-                            message.model_dump(mode="json") for message in messages
-                        ],
-                        "allowUnscoped": True,
+                        "messages": [message.model_dump(mode="json") for message in messages]
                     },
                     emit_stream=False,
                     emit_ai_follow=False,

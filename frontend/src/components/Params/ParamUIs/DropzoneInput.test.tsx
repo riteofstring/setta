@@ -8,7 +8,7 @@ import { DropzoneInput } from "./DropzoneInput";
 describe("DropzoneInput attachment display", () => {
   beforeEach(() => {
     resetProjectStores();
-    useShareSession.setState({ isShareMode: false });
+    useShareSession.setState({ isDeploymentMode: false });
   });
 
   afterEach(() => {
