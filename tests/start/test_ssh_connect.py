@@ -91,7 +91,7 @@ def test_stop_pid_treats_no_such_process_races_as_success(
 def test_ensure_ssh_tunnel_reports_missing_ssh_binary(tmp_path) -> None:
     workspace_root = tmp_path / "workspace"
     workspace_root.mkdir()
-    setta_files_root = workspace_root / "setta_files"
+    setta_files_root = tmp_path / "setta_files"
     setta_files_root.mkdir()
 
     with temporary_setta_paths(

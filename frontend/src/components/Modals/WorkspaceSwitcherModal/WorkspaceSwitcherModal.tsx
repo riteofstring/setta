@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { route_get_setta_home_info } from "utils/generatedEndpoints";
-import type { LaunchRequestInput, SettaHomeInfoResponse } from "utils/generatedTypes";
+import type { LaunchRequestInput } from "utils/generatedTypes";
 import {
   loadWorkspaceHistory,
   saveWorkspaceHistory,
@@ -24,55 +22,47 @@ export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
-  const [settaFilesLocation, setSettaFilesLocation] = useState<
-    "auto" | "local" | "global"
-  >("auto");
-  const [settaHomeInfo, setSettaHomeInfo] =
-    useState<SettaHomeInfoResponse | null>(null);
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
   const [localPort, setLocalPort] = useState("");
+  const [filesRoot, setFilesRoot] = useState("");
+  const [filesRootBase, setFilesRootBase] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [history, setHistory] = useState<WorkspaceHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
     setHistory(loadWorkspaceHistory());
 
     const draft = readWorkspaceSwitcherDraft();
     if (draft) {
       setWorkspaceRoot(draft.workspaceRoot ?? "");
       setSshTarget(draft.sshTarget ?? "");
-      if (
-        draft.settaFilesLocation === "auto" ||
-        draft.settaFilesLocation === "local" ||
-        draft.settaFilesLocation === "global"
-      ) {
-        setSettaFilesLocation(draft.settaFilesLocation);
-      } else {
-        setSettaFilesLocation("auto");
-      }
       setSshArgs(draft.sshArgs ?? "");
       setRemoteCmd(draft.remoteCmd ?? "");
       setLocalPort(
         typeof draft.localPort === "number" ? String(draft.localPort) : "",
       );
-    }
-
-    async function hydrateSettaHomeInfo() {
-      const res = await route_get_setta_home_info();
-      if (!isMounted || !res200(res)) {
-        return;
+      const draftFilesRoot = draft.filesRoot ?? "";
+      const draftFilesRootBase = draft.filesRootBase ?? "";
+      if (draftFilesRoot.trim() && draftFilesRootBase.trim()) {
+        setFilesRoot(draftFilesRoot);
+        setFilesRootBase("");
+      } else {
+        setFilesRoot(draftFilesRoot);
+        setFilesRootBase(draftFilesRootBase);
       }
-      setSettaHomeInfo(res.data);
+      setShowAdvanced(
+        Boolean(
+          draft.sshArgs ||
+            draft.remoteCmd ||
+            draft.localPort ||
+            draft.filesRoot ||
+            draft.filesRootBase,
+        ),
+      );
     }
-
-    void hydrateSettaHomeInfo();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const trimmedWorkspace = workspaceRoot.trim();
@@ -80,6 +70,8 @@ export function WorkspaceSwitcherModal() {
   const trimmedSshArgs = sshArgs.trim();
   const trimmedRemoteCmd = remoteCmd.trim();
   const trimmedLocalPort = localPort.trim();
+  const trimmedFilesRoot = filesRoot.trim();
+  const trimmedFilesRootBase = filesRootBase.trim();
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
@@ -89,10 +81,22 @@ export function WorkspaceSwitcherModal() {
   function onSelectHistory(entry: WorkspaceHistoryEntry) {
     setWorkspaceRoot(entry.workspaceRoot);
     setSshTarget(entry.sshTarget ?? "");
-    setSettaFilesLocation(entry.settaFilesLocation);
     setSshArgs("");
     setRemoteCmd("");
     setLocalPort(entry.localPort ? String(entry.localPort) : "");
+    if (entry.filesRootBase) {
+      setFilesRoot("");
+      setFilesRootBase(entry.filesRootBase);
+    } else if (entry.filesRoot) {
+      setFilesRoot(entry.filesRoot);
+      setFilesRootBase("");
+    } else {
+      setFilesRoot("");
+      setFilesRootBase("");
+    }
+    setShowAdvanced(
+      Boolean(entry.localPort || entry.filesRoot || entry.filesRootBase),
+    );
     setError(null);
   }
 
@@ -105,6 +109,10 @@ export function WorkspaceSwitcherModal() {
     setError(null);
     if (!trimmedWorkspace) {
       setError("Enter a workspace path to continue.");
+      return;
+    }
+    if (trimmedFilesRoot && trimmedFilesRootBase) {
+      setError("Choose either Files Root or Files Root Base (not both).");
       return;
     }
     let parsedLocalPort: number | undefined = undefined;
@@ -124,11 +132,12 @@ export function WorkspaceSwitcherModal() {
 
     const request: LaunchRequestInput = {
       workspaceRoot: trimmedWorkspace,
-      settaFilesLocation,
       sshTarget: trimmedSshTarget || null,
       sshArgs: trimmedSshArgs || null,
       remoteCmd: trimmedRemoteCmd || null,
       localPort: parsedLocalPort ?? null,
+      filesRoot: trimmedFilesRoot || null,
+      filesRootBase: trimmedFilesRootBase || null,
     };
 
     writeWorkspaceSwitcherDraft(request);
@@ -213,86 +222,103 @@ export function WorkspaceSwitcherModal() {
             </p>
           </div>
 
-          {trimmedSshTarget.length > 0 && (
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+            <span>Advanced Paths</span>
+            <button
+              className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              onClick={() => setShowAdvanced((prev) => !prev)}
+            >
+              {showAdvanced ? "Hide" : "Show"}
+            </button>
+          </div>
+
+          {showAdvanced && (
             <div className="grid gap-3">
+              {trimmedSshTarget.length > 0 && (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                      SSH Args (Optional)
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                      placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
+                      value={sshArgs}
+                      onChange={(event) => setSshArgs(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                      Remote Cmd (Optional)
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                      placeholder="source .venv/bin/activate && setta"
+                      value={remoteCmd}
+                      onChange={(event) => setRemoteCmd(event.target.value)}
+                      spellCheck={false}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                      Local Tunnel Port (Optional)
+                    </label>
+                    <input
+                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                      placeholder="61000"
+                      value={localPort}
+                      onChange={(event) => setLocalPort(event.target.value)}
+                      spellCheck={false}
+                      inputMode="numeric"
+                    />
+                  </div>
+                </>
+              )}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                  SSH Args (Optional)
+                  Files Root (Optional)
                 </label>
                 <input
                   className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                  placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
-                  value={sshArgs}
-                  onChange={(event) => setSshArgs(event.target.value)}
+                  placeholder="/path/to/setta_files"
+                  value={filesRoot}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFilesRoot(next);
+                    if (next.trim()) {
+                      setFilesRootBase("");
+                    }
+                  }}
                   spellCheck={false}
                 />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                  Remote Cmd (Optional)
+                  Files Root Base (Optional)
                 </label>
                 <input
                   className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                  placeholder="source .venv/bin/activate && setta"
-                  value={remoteCmd}
-                  onChange={(event) => setRemoteCmd(event.target.value)}
+                  placeholder="/path/to/setta_state"
+                  value={filesRootBase}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFilesRootBase(next);
+                    if (next.trim()) {
+                      setFilesRoot("");
+                    }
+                  }}
                   spellCheck={false}
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                  Local Tunnel Port (Optional)
-                </label>
-                <input
-                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                  placeholder="61000"
-                  value={localPort}
-                  onChange={(event) => setLocalPort(event.target.value)}
-                  spellCheck={false}
-                  inputMode="numeric"
-                />
-              </div>
+              <p className="text-xs text-setta-500 dark:text-setta-400">
+                Choose either a files root or a files root base. When using a
+                base, Setta will create a per-workspace folder under that base
+                named like{" "}
+                <span className="font-semibold">workspace-name-1a2b3c4d</span>.
+              </p>
             </div>
           )}
-
-          <div className="flex flex-col gap-3">
-            <label
-              htmlFor="setta-files-location"
-              className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400"
-            >
-              Setta Files Location
-            </label>
-            <select
-              id="setta-files-location"
-              aria-label="Setta Files Location"
-              className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-              value={settaFilesLocation}
-              onChange={(event) => {
-                const next = event.target.value;
-                if (
-                  next === "auto" ||
-                  next === "local" ||
-                  next === "global"
-                ) {
-                  setSettaFilesLocation(next);
-                }
-              }}
-            >
-              <option value="auto">Default (auto)</option>
-              <option value="local">Local (workspace)</option>
-              <option value="global">
-                Global ({settaHomeInfo?.settaHome ?? "<setta_home>"})
-              </option>
-            </select>
-            <p className="text-xs text-setta-500 dark:text-setta-400">
-              If the workspace already has a local{" "}
-              <span className="font-semibold">setta_files/</span>, Setta will use
-              it even when Global is selected.
-              {trimmedSshTarget.length > 0
-                ? " For SSH targets, Global refers to the remote machine's Setta home."
-                : null}
-            </p>
-          </div>
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">
@@ -317,9 +343,13 @@ export function WorkspaceSwitcherModal() {
                     <span className="truncate font-medium">
                       {entry.workspaceRoot}
                     </span>
-                    <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                      Setta files: {entry.settaFilesLocation}
-                    </span>
+                    {(entry.filesRoot || entry.filesRootBase) && (
+                      <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                        {entry.filesRootBase
+                          ? `Files base: ${entry.filesRootBase}`
+                          : `Files root: ${entry.filesRoot}`}
+                      </span>
+                    )}
                     {entry.sshTarget && (
                       <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
                         SSH: {entry.sshTarget}

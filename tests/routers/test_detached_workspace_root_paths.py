@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -55,17 +54,10 @@ def _detached_roots(tmpdir: str):
     base = Path(tmpdir)
     env_root = base / "env"
     workspace_root = base / "workspace"
-    setta_home = base / "setta_home"
-    global_setta_files_base = base / "central_state"
+    setta_root = base / "central_state"
 
     env_root.mkdir(parents=True, exist_ok=True)
     workspace_root.mkdir(parents=True, exist_ok=True)
-    setta_home.mkdir(parents=True, exist_ok=True)
-    global_setta_files_base.mkdir(parents=True, exist_ok=True)
-
-    from setta.utils.paths import build_files_root_from_base
-
-    setta_root = build_files_root_from_base(global_setta_files_base, workspace_root)
     setta_root.mkdir(parents=True, exist_ok=True)
 
     for path in (
@@ -76,23 +68,9 @@ def _detached_roots(tmpdir: str):
         path.mkdir(parents=True, exist_ok=True)
 
     _populate_project_fixture_files(setta_root)
-    (setta_home / "config.json").write_text(
-        json.dumps(
-            {
-                "globalSettaFilesBase": str(global_setta_files_base),
-                "openWorkspaceFallback": "create_local",
-                "defaultCreateLocation": "local",
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_home=setta_home,
-        setta_files_location="global",
+        setta_files_root=setta_root,
     ):
         yield workspace_root, env_root, setta_root
 
