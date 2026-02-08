@@ -18,17 +18,21 @@ import {
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
+  useLocalStorage,
   useMisc,
   useProjectSearch,
   useProjectState,
+  useTemporaryMiscState,
   useTypeErrors,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
+import { getSectionStylePreviewColorKey } from "utils/constants";
 import {
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
@@ -144,7 +148,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
+  const { paramIsSelected, isKwarg, paramChildren, isNestedParam, styleColor } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
         x,
@@ -163,8 +167,21 @@ function RealParamSwitch(props: ParamSwitchProps) {
         isKwarg: codeObjImpl.coreNameEditable,
         paramChildren: isNestedParam ? codeObjImpl.children : [],
         isNestedParam,
+        styleColor: impl.styleColor ?? null,
       };
     }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
@@ -226,8 +243,11 @@ function RealParamSwitch(props: ParamSwitchProps) {
   const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
   const onMouseDownAlways = handleParamMouseDown;
 
+  const selectedBgClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
+    : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
   const bg = paramIsSelected
-    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
+    ? `transition-colors rounded-sm ${selectedBgClassName}`
     : "transition-colors rounded-sm";
 
   let border = "";
@@ -244,6 +264,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
       {...props}
       isKwarg={isKwarg}
       isNestedParam={isNestedParam}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
       onClick={handleParamClick}

@@ -2,6 +2,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from setta.types.code_obj_impls import ColorPickerChoice
+
 INFINITE_MAX_HEIGHT = 100000
 INFINITE_MAX_WIDTH = 100000
 DEFAULT_MIN_WIDTH = 200
@@ -133,6 +135,18 @@ class SettingsGUI(BaseModel):
     selectionMode: SelectionMode = SelectionMode.partial
     leftSidePaneShiftsMap: bool = True
     transitionDuration: int = 50
+    sectionTagColorChoices: list[ColorPickerChoice] = Field(
+        default_factory=lambda: [
+            ColorPickerChoice(color="#ef4444", description="Red"),
+            ColorPickerChoice(color="#f97316", description="Orange"),
+            ColorPickerChoice(color="#eab308", description="Yellow"),
+            ColorPickerChoice(color="#22c55e", description="Green"),
+            ColorPickerChoice(color="#06b6d4", description="Cyan"),
+            ColorPickerChoice(color="#3b82f6", description="Blue"),
+            ColorPickerChoice(color="#a855f7", description="Purple"),
+            ColorPickerChoice(color="#64748b", description="Slate"),
+        ]
+    )
 
 
 class SettingsBackend(BaseModel):
