@@ -44,4 +44,33 @@ describe("receiveAgenticScopeViolationEdges", () => {
       ];
     expect(stored).toEqual([edgeA, edgeB]);
   });
+
+  it("dedupes chat_chat edges regardless of direction", () => {
+    const projectConfigId = "project-1";
+    const edgeForward = {
+      sourceSectionId: "chat-a",
+      targetSectionId: "chat-b",
+      kind: AgenticEdgeKindEnum.chat_chat,
+    };
+    const edgeReverse = {
+      sourceSectionId: "chat-b",
+      targetSectionId: "chat-a",
+      kind: AgenticEdgeKindEnum.chat_chat,
+    };
+
+    receiveAgenticScopeViolationEdges({
+      projectConfigId,
+      edges: [edgeForward],
+    });
+    receiveAgenticScopeViolationEdges({
+      projectConfigId,
+      edges: [edgeReverse],
+    });
+
+    const stored =
+      useAIFollow.getState().scopeViolationEdgesByProjectConfigId[
+        projectConfigId
+      ];
+    expect(stored).toEqual([edgeForward]);
+  });
 });

@@ -30,7 +30,10 @@ function buildEdgeKey(
   kind: string,
 ): string {
   if (kind === AgenticEdgeKindEnum.chat_chat) {
-    const [first, second] = [sourceSectionId, targetSectionId].sort();
+    const [first, second] =
+      sourceSectionId < targetSectionId
+        ? [sourceSectionId, targetSectionId]
+        : [targetSectionId, sourceSectionId];
     return `${kind}:${first}:${second}`;
   }
   return `${kind}:${sourceSectionId}:${targetSectionId}`;

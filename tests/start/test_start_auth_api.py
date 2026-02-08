@@ -18,7 +18,10 @@ from setta.sessions import SessionRegistry
 from setta.start import api, auth, tools
 from setta.types.routes import Route
 from setta.utils.constants import C
-from setta.mcp.agentic_context_headers import AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER
+from setta.mcp.agentic_context_headers import (
+    AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
+    AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+)
 from tests.utils.manager_fixture import (
     DEFAULT_SAMPLE_PROJECT_CONFIG_ID,
     _seed_minimal_setta_files,
@@ -800,6 +803,7 @@ def test_tools_call_endpoint_tool_error_contract(api_integration_env) -> None:
     headers = {
         "Cookie": cookie,
         AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER: str(DEFAULT_SAMPLE_PROJECT_CONFIG_ID),
+        AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER: "true",
     }
 
     response = requests.post(

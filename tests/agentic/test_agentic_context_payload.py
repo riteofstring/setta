@@ -16,6 +16,8 @@ from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 
+from tests.types.test_helpers_lvl2 import build_callable_project_state
+
 
 def test_build_agentic_context_payload_uses_formatter_for_ids() -> None:
     settings = SettingsState()
@@ -207,3 +209,33 @@ def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_ava
     assert f"[id: {context_section_id} | summary | cached]" in payload.text
     assert "- cached summary bullet" in payload.text
     assert "... (168 more lines)" not in payload.text
+
+
+def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_is_partial() -> None:
+    project_state, callable_section_id, _ = build_callable_project_state("hello")
+    settings = SettingsState()
+    chat_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    create_agentic_edge(
+        project_state,
+        AgenticEdge(
+            id=create_new_id(),
+            sourceSectionId=callable_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
+            contextMode=AgenticEdgeContextMode.inline_text,
+        ),
+    )
+
+    payload = build_agentic_context_payload(
+        project_state,
+        chat_section_id,
+        summary_by_section={},
+    )
+
+    assert payload.section_ids == [ID(callable_section_id)]
+    assert "- param: hello" in payload.text

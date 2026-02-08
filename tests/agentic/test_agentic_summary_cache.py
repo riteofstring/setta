@@ -7,8 +7,8 @@ from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
     get_cached_agentic_summary_from_entries,
-    load_cached_agentic_summary_texts_for_chat_section,
     read_agentic_summary_cache,
+    resolve_cached_agentic_summaries_for_chat_section,
     write_cached_agentic_summaries,
 )
 from setta.database.db_objs import DBE
@@ -71,7 +71,7 @@ def test_agentic_summary_cache_read_write_roundtrip() -> None:
         assert get_cached_agentic_summary_from_entries(entries, cache_key=cache_key) is None
 
 
-def test_load_cached_agentic_summary_texts_for_chat_section_returns_summary_entries() -> None:
+def test_resolve_cached_agentic_summaries_for_chat_section_returns_summary_entries() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
         settings = SettingsState()
@@ -115,16 +115,17 @@ def test_load_cached_agentic_summary_texts_for_chat_section_returns_summary_entr
             updates={cache_key: {"summary": "- cached", "createdAtMs": 0}},
         )
 
-        summaries = load_cached_agentic_summary_texts_for_chat_section(
+        summaries, _summary_by_section, missing = resolve_cached_agentic_summaries_for_chat_section(
             dbe,
             project_state=project_state,
             project_config_id=project_state.projectConfig.id,
             chat_section_id=chat_section_id,
         )
         assert summaries == {context_section_id: "- cached"}
+        assert missing == []
 
 
-def test_load_cached_agentic_summary_texts_for_chat_section_skips_missing_sections() -> None:
+def test_resolve_cached_agentic_summaries_for_chat_section_skips_missing_sections() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
         settings = SettingsState()
@@ -158,16 +159,18 @@ def test_load_cached_agentic_summary_texts_for_chat_section_skips_missing_sectio
         project_state.sections.pop(context_section_id, None)
         project_state.projectConfig.sectionVariantMap.pop(context_section_id, None)
 
-        summaries = load_cached_agentic_summary_texts_for_chat_section(
+        summaries, summary_by_section, missing = resolve_cached_agentic_summaries_for_chat_section(
             dbe,
             project_state=project_state,
             project_config_id=project_state.projectConfig.id,
             chat_section_id=chat_section_id,
         )
         assert summaries == {}
+        assert summary_by_section is None
+        assert missing == []
 
 
-def test_load_cached_agentic_summary_texts_for_chat_section_raises_when_variant_mapping_missing() -> None:
+def test_resolve_cached_agentic_summaries_for_chat_section_raises_when_variant_mapping_missing() -> None:
     with TemporaryDirectory() as tmpdir:
         dbe = _build_dbe(tmpdir)
         settings = SettingsState()
@@ -201,7 +204,7 @@ def test_load_cached_agentic_summary_texts_for_chat_section_raises_when_variant_
         project_state.projectConfig.sectionVariantMap.pop(context_section_id, None)
 
         with pytest.raises(KeyError, match="missing variant mapping"):
-            load_cached_agentic_summary_texts_for_chat_section(
+            resolve_cached_agentic_summaries_for_chat_section(
                 dbe,
                 project_state=project_state,
                 project_config_id=project_state.projectConfig.id,

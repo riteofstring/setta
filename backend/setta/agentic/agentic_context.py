@@ -59,43 +59,51 @@ def build_agentic_context_payload(
     if not context_edges:
         return AgenticContextPayload(text="", section_ids=[])
 
-    resolved_summary_by_section: dict[ID, object] = summary_by_section or {}
-    if summary_by_section is None:
-        needed_section_ids: set[ID] = set()
-        for section_id, context_mode in context_edges:
-            if section_id not in project_state.sections:
+    resolved_summary_by_section: dict[ID, object] = (
+        dict(summary_by_section) if summary_by_section else {}
+    )
+    needed_section_ids: set[ID] = set()
+    for section_id, context_mode in context_edges:
+        if section_id not in project_state.sections:
+            continue
+        if context_mode == AgenticEdgeContextMode.reference_only:
+            continue
+        if (
+            section_id in resolved_summary_by_section
+            and resolved_summary_by_section.get(section_id) is not None
+        ):
+            continue
+        if context_mode == AgenticEdgeContextMode.summary:
+            cached = (
+                summary_text_by_section_id.get(section_id)
+                if summary_text_by_section_id is not None
+                else None
+            )
+            if isinstance(cached, str) and cached.strip():
                 continue
-            if context_mode == AgenticEdgeContextMode.reference_only:
-                continue
-            if context_mode == AgenticEdgeContextMode.summary:
-                cached = (
-                    summary_text_by_section_id.get(section_id)
-                    if summary_text_by_section_id is not None
-                    else None
-                )
-                if isinstance(cached, str) and cached.strip():
-                    continue
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if isinstance(section_impl, (CallableSectionImpl, DrawSectionImpl)):
-                needed_section_ids.add(section_id)
-            elif not isinstance(
-                section_impl,
-                (
-                    TextBlockSectionImpl,
-                    ImageSectionImpl,
-                    BaseCodeSectionImpl,
-                    ChartSectionImpl,
-                    PromptSectionImpl,
-                    SocialSectionImpl,
-                    BrowserSectionImpl,
-                ),
-            ):
-                needed_section_ids.add(section_id)
-        if needed_section_ids:
-            resolved_summary_by_section = build_project_state_summary_section_index(
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if isinstance(section_impl, (CallableSectionImpl, DrawSectionImpl)):
+            needed_section_ids.add(section_id)
+        elif not isinstance(
+            section_impl,
+            (
+                TextBlockSectionImpl,
+                ImageSectionImpl,
+                BaseCodeSectionImpl,
+                ChartSectionImpl,
+                PromptSectionImpl,
+                SocialSectionImpl,
+                BrowserSectionImpl,
+            ),
+        ):
+            needed_section_ids.add(section_id)
+    if needed_section_ids:
+        resolved_summary_by_section.update(
+            build_project_state_summary_section_index(
                 project_state,
                 needed_section_ids,
             )
+        )
 
     blocks: list[str] = []
     section_ids: list[ID] = []

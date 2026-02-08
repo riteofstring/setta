@@ -29,6 +29,12 @@ function buildScopeViolationKey(
   projectConfigId: string,
   edge: AgenticScopeViolationEdge,
 ): string {
+  if (edge.kind === "chat_chat") {
+    const source = edge.sourceSectionId;
+    const target = edge.targetSectionId;
+    const [a, b] = source < target ? [source, target] : [target, source];
+    return `${projectConfigId}:${edge.kind}:${a}:${b}`;
+  }
   return `${projectConfigId}:${edge.kind}:${edge.sourceSectionId}:${edge.targetSectionId}`;
 }
 

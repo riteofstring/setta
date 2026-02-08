@@ -226,46 +226,6 @@ def write_cached_agentic_summaries(
     dbe.update_json(dbe.agentic_summary_cache, _update)
 
 
-def load_cached_agentic_summary_texts_for_chat_section(
-    dbe: DBE,
-    *,
-    project_state: ProjectStateSingleConfig,
-    project_config_id: ID,
-    chat_section_id: ID,
-    summary_by_section: dict[ID, object] | None = None,
-) -> dict[ID, str]:
-    payload = read_agentic_summary_cache(dbe)
-    entries = payload.get("entries")
-    if not isinstance(entries, dict):
-        entries = {}
-
-    summary_section_ids = resolve_summary_section_ids_for_chat_section(
-        project_state,
-        chat_section_id=chat_section_id,
-    )
-    if not summary_section_ids:
-        return {}
-
-    resolved_summary_by_section = summary_by_section
-    if resolved_summary_by_section is None:
-        needed_section_ids = _resolve_summary_section_ids_needing_project_state_summary(
-            project_state,
-            section_ids=summary_section_ids,
-        )
-        resolved_summary_by_section = build_project_state_summary_section_index(
-            project_state,
-            needed_section_ids,
-        )
-
-    return _load_cached_agentic_summary_texts_for_section_ids(
-        entries=entries,
-        project_state=project_state,
-        project_config_id=project_config_id,
-        section_ids=summary_section_ids,
-        summary_by_section=resolved_summary_by_section,
-    )
-
-
 def resolve_cached_agentic_summaries_for_chat_section(
     dbe: DBE,
     *,

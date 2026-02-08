@@ -1978,6 +1978,7 @@ class AgentRunner:
                         action.chat_id,
                         action.chunk,
                         section_id=context.section_id,
+                        project_config_id=context.project_config_id,
                     )
                 continue
             if isinstance(action, UpdateAIFollowAction):

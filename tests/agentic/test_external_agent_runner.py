@@ -154,11 +154,17 @@ def _build_context_for_test(
     inputs: dict[str, Any] | None = None,
 ):
     resolved_engine_id = engine_config_id or ID("engine-1")
+    resolved_inputs = dict(inputs or {})
+    # External runs require either a chat section id (scoped run) or an explicit
+    # allowUnscoped flag (project-level run). Most unit tests don't care about
+    # section scoping, so default to allowUnscoped=true when omitted.
+    if "sectionId" not in resolved_inputs and "allowUnscoped" not in resolved_inputs:
+        resolved_inputs["allowUnscoped"] = True
     context, _ = runner._build_context(
         resolved_engine_id,
         config,
         profile,
-        inputs,
+        resolved_inputs,
     )
     return context
 
@@ -543,7 +549,7 @@ class TestExternalAgentRunner:
                 engine_config_id,
                 config,
                 profile=None,
-                inputs={"chatId": "chat-4"},
+                inputs={"chatId": "chat-4", "allowUnscoped": True},
             )
             assert is_new
             assert context.run.id == ID("chat-4")
@@ -556,7 +562,7 @@ class TestExternalAgentRunner:
                 engine_config_id,
                 config,
                 profile=None,
-                inputs={"chatId": "chat-4"},
+                inputs={"chatId": "chat-4", "allowUnscoped": True},
             )
             assert not is_new_followup
             assert followup.run.id == context.run.id
@@ -606,6 +612,7 @@ class TestExternalAgentRunner:
                     inputs={
                         "chatId": "chat-5",
                         "projectConfigId": str(project_config_b.id),
+                        "allowUnscoped": True,
                     },
                 )
 
@@ -986,7 +993,8 @@ class TestExternalAgentRunner:
                 / str(context.chat_id)
                 / expected_base_path.name
             )
-            assert expected_base_path.exists()
+            # With agentic headers/session-scoped config we skip the base config write.
+            assert not expected_base_path.exists()
             assert path == expected_path
 
             runner._cleanup_context(context)
@@ -1015,7 +1023,8 @@ class TestExternalAgentRunner:
             assert f"url = \"{C.BACKEND}/mcp/streamable/\"" in content
             expected_dir = dbe.path / "external_agent_settings" / "codex" / "codex-config"
             expected_runtime_dir = expected_dir / "sessions" / str(context.chat_id)
-            assert (expected_dir / "config.toml").exists()
+            # With agentic headers/session-scoped home we skip writing the base config.
+            assert not (expected_dir / "config.toml").exists()
             assert Path(str(codex_home)) == expected_runtime_dir
 
             runner._cleanup_context(context)

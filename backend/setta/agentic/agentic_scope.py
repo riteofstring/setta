@@ -124,6 +124,7 @@ def check_agentic_scope_for_tool(
     scope: AgenticScope,
     temporary_to_canonical: dict[ID, ID] | None = None,
     code_obj_id_to_section_ids: dict[ID, set[ID]] | None = None,
+    precomputed_ids_by_type: dict[str, set[ID]] | None = None,
 ) -> AgenticScopeCheck:
     access_type: ToolAccessType = "structural"
     id_paths_by_type: dict[str, list[str]] = {}
@@ -131,16 +132,19 @@ def check_agentic_scope_for_tool(
         access_type = annotations.accessType
         id_paths_by_type = dict(annotations.idPathsByType or {})
 
-    ids_by_type, _ = collect_ai_follow_ids_from_paths(
-        tool_args,
-        id_paths_by_type,
-        allow_dict_keys=True,
-    )
-    if temporary_to_canonical:
-        ids_by_type = {
-            id_type: {temporary_to_canonical.get(entry, entry) for entry in ids}
-            for id_type, ids in ids_by_type.items()
-        }
+    if precomputed_ids_by_type is None:
+        ids_by_type, _ = collect_ai_follow_ids_from_paths(
+            tool_args,
+            id_paths_by_type,
+            allow_dict_keys=True,
+        )
+        if temporary_to_canonical:
+            ids_by_type = {
+                id_type: {temporary_to_canonical.get(entry, entry) for entry in ids}
+                for id_type, ids in ids_by_type.items()
+            }
+    else:
+        ids_by_type = precomputed_ids_by_type
     section_ids = set(ids_by_type.get("section", set()))
     code_obj_ids = set(ids_by_type.get("codeObj", set()))
     mapped_sections, unmapped_code_objs = _map_code_obj_ids_to_sections(
@@ -347,15 +351,14 @@ def build_scope_blocked_tool_result(
         "unmapped_code_obj",
         "out_of_scope_and_unmapped_code_obj",
     }:
-        unmapped = ", ".join(str(entry) for entry in unmapped_sorted)
         message = (
-            f"Tool '{tool_name}' blocked: unknown code objects (unmapped=[{unmapped}])."
+            f"Tool '{tool_name}' blocked: unknown code objects. "
+            "See structuredContent.unmappedCodeObjIds."
         )
         if blocked_sorted:
-            blocked = ", ".join(str(entry) for entry in blocked_sorted)
             message = (
                 f"{message} Tool is also out of scope "
-                f"(access={scope_check.access_type}, blocked=[{blocked}])."
+                f"(access={scope_check.access_type}). See structuredContent.blockedSectionIds."
             )
     elif scope_check.reason == "write_without_targets":
         message = (
@@ -364,10 +367,10 @@ def build_scope_blocked_tool_result(
             "Include target section/code-object ids in the tool arguments."
         )
     else:
-        blocked = ", ".join(str(entry) for entry in blocked_sorted)
         message = (
             f"Tool '{tool_name}' blocked by agentic scope "
-            f"(access={scope_check.access_type}, blocked=[{blocked}])."
+            f"(access={scope_check.access_type}, reason={scope_check.reason}). "
+            "See structuredContent.blockedSectionIds/targetSectionIds."
         )
     structured = {
         "error": "ScopeViolation",

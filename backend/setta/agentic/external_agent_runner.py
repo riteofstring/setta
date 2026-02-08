@@ -39,6 +39,8 @@ from setta.agentic.external_agent_settings import (
     build_codex_settings_file,
     build_opencode_settings_file,
     build_settings_paths,
+    resolve_codex_settings_path,
+    resolve_opencode_settings_path,
     write_claude_settings_file,
 )
 from setta.agentic.external_tool_allowlist import (
@@ -347,6 +349,7 @@ class ExternalAgentRunner:
                         context.chat_id,
                         event.stream_chunk,
                         section_id=context.section_id,
+                        project_config_id=context.project_config_id,
                         share_session_id=self.share_session_id,
                     )
                     await self._handle_stream_chunk(context, run, event.stream_chunk)
@@ -434,6 +437,16 @@ class ExternalAgentRunner:
             inputs, project_state.defaultProjectConfigId, project_state.projectConfigs
         )
         section_id = self._resolve_id_input(inputs, "sectionId")
+        allow_unscoped = False
+        if inputs and "allowUnscoped" in inputs:
+            raw_allow_unscoped = inputs["allowUnscoped"]
+            if not isinstance(raw_allow_unscoped, bool):
+                raise TypeError("allowUnscoped must be a boolean")
+            allow_unscoped = raw_allow_unscoped
+        if section_id is None and not allow_unscoped:
+            raise ValueError("sectionId is required unless allowUnscoped is true.")
+        if section_id is not None and allow_unscoped:
+            raise ValueError("allowUnscoped requires sectionId to be omitted.")
 
         payload_inputs = dict(inputs or {})
         payload_inputs.setdefault("projectConfigId", str(project_config_id))
@@ -471,6 +484,7 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
+            allow_unscoped=allow_unscoped,
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
         agentic_context_section_ids: tuple[ID, ...] = ()
@@ -509,6 +523,7 @@ class ExternalAgentRunner:
             system_prompt,
             chat_id=chat_id,
             section_id=section_id,
+            allow_unscoped=allow_unscoped,
             project_config_id=project_config_id,
             canonical_to_temporary=canonical_to_temporary,
             temporary_to_canonical=temporary_to_canonical,
@@ -871,6 +886,7 @@ class ExternalAgentRunner:
         *,
         chat_id: ID | None,
         section_id: ID | None,
+        allow_unscoped: bool,
         project_config_id: ID,
         canonical_to_temporary: dict[ID, ID],
         temporary_to_canonical: dict[ID, ID],
@@ -893,8 +909,16 @@ class ExternalAgentRunner:
             "If tool calls fail with a missing-context error, call `set_agentic_context` with:",
             f"- projectConfigId: {temporary_project_id}",
             f"- chatId: {temporary_chat_id or 'null'}",
-            f"- sectionId: {temporary_section_id or 'null'}",
         ]
+        if allow_unscoped:
+            lines.extend(
+                [
+                    "- allowUnscoped: true",
+                    "- sectionId: null",
+                ]
+            )
+        else:
+            lines.append(f"- sectionId: {temporary_section_id or 'null'}")
         return f"{base_prompt}\n\n" + "\n".join(lines)
 
     @staticmethod
@@ -961,15 +985,13 @@ class ExternalAgentRunner:
                 mcp_url,
                 allowlist.tool_names if allowlist is not None else None,
             )
-            base_config_path = build_opencode_settings_file(
-                self.dbe,
-                config,
-                allowlist=allowlist,
-                mcp_url=mcp_url,
-                auth_headers=auth_headers,
-            )
-            config_path = base_config_path
+            config_path: Path
             if agentic_headers and chat_id is not None:
+                base_config_path = resolve_opencode_settings_path(self.dbe, config)
+                if base_config_path is None:
+                    raise ValueError(
+                        "OpenCode settings path unavailable for non-opencode config"
+                    )
                 runtime_config_path = (
                     base_config_path.parent
                     / "sessions"
@@ -985,6 +1007,14 @@ class ExternalAgentRunner:
                     agentic_headers=agentic_headers,
                     output_path=runtime_config_path,
                 )
+            else:
+                config_path = build_opencode_settings_file(
+                    self.dbe,
+                    config,
+                    allowlist=allowlist,
+                    mcp_url=mcp_url,
+                    auth_headers=auth_headers,
+                )
             env["OPENCODE_CONFIG"] = str(config_path)
             return
         if config.toolType == ExternalAgentToolType.codex:
@@ -998,17 +1028,14 @@ class ExternalAgentRunner:
             codex_prompt = self._resolve_codex_developer_instructions(
                 system_prompt, payload_inputs
             )
-            base_home = build_codex_settings_file(
-                self.dbe,
-                config,
-                allowlist=allowlist,
-                mcp_url=mcp_url,
-                auth_headers=auth_headers,
-                system_prompt=None,
-                project_root=working_dir or CWD,
-            )
-            codex_home = base_home
+            codex_home: Path
             if agentic_headers and chat_id is not None:
+                base_config_path = resolve_codex_settings_path(self.dbe, config)
+                if base_config_path is None:
+                    raise ValueError(
+                        "Codex settings path unavailable for non-codex config"
+                    )
+                base_home = base_config_path.parent
                 runtime_home = base_home / "sessions" / str(chat_id)
                 codex_home = build_codex_settings_file(
                     self.dbe,
@@ -1025,6 +1052,16 @@ class ExternalAgentRunner:
                 runtime_auth_path = runtime_home / "auth.json"
                 if base_auth_path.exists() and not runtime_auth_path.exists():
                     runtime_auth_path.write_bytes(base_auth_path.read_bytes())
+            else:
+                codex_home = build_codex_settings_file(
+                    self.dbe,
+                    config,
+                    allowlist=allowlist,
+                    mcp_url=mcp_url,
+                    auth_headers=auth_headers,
+                    system_prompt=None,
+                    project_root=working_dir or CWD,
+                )
             env["CODEX_HOME"] = str(codex_home)
 
     @staticmethod
@@ -1404,6 +1441,7 @@ class ExternalAgentRunner:
             context.chat_id,
             chunk,
             section_id=context.section_id,
+            project_config_id=context.project_config_id,
             share_session_id=self.share_session_id,
         )
         state = self._apply_stream_chunk_to_state(run, chunk)
@@ -1491,6 +1529,7 @@ class ExternalAgentRunner:
             state.chat_id,
             chunk,
             section_id=state.section_id,
+            project_config_id=state.project_config_id,
             share_session_id=self.share_session_id,
         )
         await self._broadcast_ai_follow_update(
@@ -1549,6 +1588,7 @@ class ExternalAgentRunner:
             state.chat_id,
             chunk,
             section_id=state.section_id,
+            project_config_id=state.project_config_id,
             share_session_id=self.share_session_id,
         )
         await self._broadcast_ai_follow_update(

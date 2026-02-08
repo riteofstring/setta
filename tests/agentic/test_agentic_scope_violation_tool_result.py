@@ -38,7 +38,10 @@ def test_build_scope_blocked_tool_result_sorts_ids_in_payload_and_message() -> N
     assert structured["blockedSectionIds"] == [ID("a"), ID("b")]
     assert structured["targetSectionIds"] == [ID("a"), ID("b")]
     assert structured["unmappedCodeObjIds"] == [ID("c"), ID("d")]
-    assert "blocked=[a, b]" in structured["message"]
+    message = structured.get("message")
+    assert isinstance(message, str)
+    assert "blockedSectionIds/targetSectionIds" in message
+    assert "blocked=[" not in message
 
 
 def test_build_scope_blocked_tool_result_missing_context_is_actionable() -> None:

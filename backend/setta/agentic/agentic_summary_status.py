@@ -1,5 +1,6 @@
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
+    _resolve_summary_section_ids_needing_project_state_summary,
     build_agentic_summary_cache_key,
     get_cached_agentic_summary_from_entries,
     read_agentic_summary_cache,
@@ -41,8 +42,13 @@ def build_agentic_summary_cache_status_for_chat_section(
     cached_section_ids: list[ID] = []
     missing_section_ids: list[ID] = []
     empty_source_section_ids: list[ID] = []
+    needed_section_ids = _resolve_summary_section_ids_needing_project_state_summary(
+        project_state,
+        section_ids=summary_section_ids,
+    )
     summary_by_section = build_project_state_summary_section_index(
-        project_state, set(summary_section_ids)
+        project_state,
+        needed_section_ids,
     )
 
     for section_id in summary_section_ids:

@@ -152,7 +152,7 @@ async def route_run_mcp_tools(
         share_session_id=ctx.share_session_id,
         project_config_id=project_config_id,
         chat_id=x.chatId,
-        section_id=None,
+        section_id=x.sectionId,
     )
     return await runner.run(x.toolCalls)
 
@@ -167,5 +167,6 @@ async def route_emit_chat_stream_delta(
         chatId=x.chatId,
         chunk=x.chunk,
         section_id=x.sectionId,
+        project_config_id=x.projectConfigId,
         share_session_id=ctx.share_session_id,
     )
