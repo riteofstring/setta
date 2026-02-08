@@ -1,3 +1,4 @@
+import { GitOverlayLayer } from "components/Git/GitOverlayLayer";
 import { Overview } from "components/Panes/Overview/Overview";
 import { UiEditor } from "components/Panes/UiEditor/UiEditor";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
@@ -46,6 +47,7 @@ export function MainContainerCore({
       <GridWrapper>
         {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
       </GridWrapper>
+      <GitOverlayLayer />
       <FloatingBox />
     </>
   );

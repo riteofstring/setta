@@ -69,7 +69,7 @@ async def test_file_modification_rel_path_is_workspace_relative() -> None:
 
         with temporary_setta_paths(
             workspace_root=root,
-            setta_files_location="local",
+            setta_files_root=root / "setta_files",
         ):
             loop = asyncio.get_running_loop()
             watcher = SpecificFileWatcher(loop=loop)
