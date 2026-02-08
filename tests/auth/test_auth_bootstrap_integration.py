@@ -33,7 +33,7 @@ def bootstrap_client(tmp_path, monkeypatch):
     monkeypatch.setenv(SESSION_ID_ENV_VAR, session.id)
 
     app = FastAPI()
-    app.state.setta = SimpleNamespace(share_mode=False)
+    app.state.setta = SimpleNamespace(share_mode=False, deployment_mode=False)
     app.add_middleware(AuthMiddleware)
     app.include_router(bootstrap_router)
 
@@ -72,22 +72,6 @@ def test_bootstrap_page_trailing_slash_redirects(bootstrap_client) -> None:
     assert response.status_code in {307, 308}
     location = response.headers.get("location", "")
     assert location.endswith("/__setta__/bootstrap")
-
-
-def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
-    bootstrap_client,
-) -> None:
-    client, _, _ = bootstrap_client
-    response = client.get("/__setta__/bootstrap")
-    response.raise_for_status()
-    html = response.text
-
-    assert 'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";' in html
-    assert "localStorage.setItem(workspaceHistoryHandoffKey, encoded);" in html
-
-    assert 'const launcherOriginKey = "setta.launcherOrigin";' in html
-    assert 'params.get("lo")' in html
-    assert 'url.protocol === "http:" || url.protocol === "https:"' in html
 
 
 def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:

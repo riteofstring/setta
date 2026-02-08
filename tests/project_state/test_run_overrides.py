@@ -1,4 +1,3 @@
-from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -36,13 +35,13 @@ from setta.types.section_impls import (
     DictSectionImpl,
 )
 from setta.types.settings_state import RunSnapshotMode
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.runtime_context import runtime_context
-from tests.utils.setta_paths import temporary_setta_paths
 
 class RunOverridesProjectManager(BaseProjectManager):
     def __init__(
@@ -89,9 +88,19 @@ class TestRunOverride:
     def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
+        self._run_folder_original = C.RUNTIME_FOLDER
+        self._run_sessions_folder_original = C.RUNTIME_SESSIONS_FOLDER
+        self._run_logs_folder_original = C.RUNTIME_LOGS_FOLDER
+        self._run_mcp_folder_original = C.RUNTIME_MCP_FOLDER
+        self._run_secrets_folder_original = C.RUNTIME_SECRETS_FOLDER
+        self._detached_runs_folder_original = C.DETACHED_RUNS_FOLDER
         self._run_root = root / "runtime"
-        self._stack = ExitStack()
-        self._stack.enter_context(temporary_setta_paths(runtime_root=self._run_root))
+        C.RUNTIME_FOLDER = self._run_root
+        C.RUNTIME_SESSIONS_FOLDER = self._run_root / "sessions"
+        C.RUNTIME_LOGS_FOLDER = self._run_root / "logs"
+        C.RUNTIME_MCP_FOLDER = self._run_root / "mcp"
+        C.RUNTIME_SECRETS_FOLDER = self._run_root / "secrets"
+        C.DETACHED_RUNS_FOLDER = self._run_root / "detached_runs"
         websocket_manager = WebsocketManager()
         listener_registry = ListenerRegistry()
         self.frontend_sender = WMHFrontendSender(websocket_manager)
@@ -121,7 +130,12 @@ class TestRunOverride:
 
         yield
 
-        self._stack.close()
+        C.RUNTIME_FOLDER = self._run_folder_original
+        C.RUNTIME_SESSIONS_FOLDER = self._run_sessions_folder_original
+        C.RUNTIME_LOGS_FOLDER = self._run_logs_folder_original
+        C.RUNTIME_MCP_FOLDER = self._run_mcp_folder_original
+        C.RUNTIME_SECRETS_FOLDER = self._run_secrets_folder_original
+        C.DETACHED_RUNS_FOLDER = self._detached_runs_folder_original
         self._tmpdir.cleanup()
 
     def _build_manager_and_state(self):
@@ -417,6 +431,7 @@ class TestRunOverride:
                 project_manager_switcher=switcher,
                 wmh_frontend_sender=self.frontend_sender,
                 share_mode=False,
+                deployment_mode=False,
                 detached_run_manager=DetachedRunManager(self.dbe),
                 terminals=None,
             )

@@ -38,7 +38,6 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     get_python_codegen_target_with_type_guard,
 )
-from setta.utils.paths import get_setta_paths
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
     CodeFileAccessMode,
@@ -52,9 +51,8 @@ from setta.types.section_impls import (
 )
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
 from setta.types.settings_state import RunSnapshotMode
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
-from setta.utils.paths import normalize_state_path
-from setta.utils.utils import GEN_CODE_META_FILENAME
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.utils.utils import GEN_CODE_META_FILENAME, normalize_path
 from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -73,6 +71,7 @@ def _write_project(
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -83,7 +82,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -255,13 +254,15 @@ def _write_project_with_state(
     dbe = DBE(root)
     dbe.write_project(backend)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -284,13 +285,15 @@ def _write_project_with_states(
     dbe.write_project(backend)
     default_config = backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -310,9 +313,10 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config_b.name)
             dbe = _write_project(root, [config_a, config_b], config_a.id)
             deployment_name = root.parent.name
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config_b.id,
                 deploymentVersion=root.name,
             )
@@ -332,9 +336,10 @@ class TestShareRuntimeState:
             root = Path(tmpdir) / "relocated" / "deployment_root"
             root.mkdir(parents=True, exist_ok=True)
             dbe = _write_project(root, [config], config.id)
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=config.name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion="v42",
             )
@@ -354,9 +359,10 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             deployment_name = root.parent.name
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -371,9 +377,10 @@ class TestShareRuntimeState:
             dbe = DBE(root)
             dbe.write_project(ProjectStateBackend())
             deployment_name = root.parent.name
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -387,9 +394,10 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, "missing-project-json")
             dbe = DBE(root)
             deployment_name = root.parent.name
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=create_new_id(),
                 deploymentVersion=root.name,
             )
@@ -515,9 +523,9 @@ class TestShareRuntimeState:
                 DrawSectionImpl,
             )
 
-            expected_chart = str(normalize_state_path(root / chart_rel_path))
-            expected_draw = str(normalize_state_path(root / draw_rel_path))
-            expected_transform = str(normalize_state_path(root / transform_rel_path))
+            expected_chart = str(normalize_path(root / chart_rel_path))
+            expected_draw = str(normalize_path(root / draw_rel_path))
+            expected_transform = str(normalize_path(root / transform_rel_path))
             assert expected_chart == chart_session_impl.dataPath
             assert 1 == len(draw_session_impl.layers)
             assert 1 == len(draw_session_impl.layers[0].elements)
@@ -525,10 +533,9 @@ class TestShareRuntimeState:
             assert expected_draw == element.dataPath
             assert expected_transform == element.transformId
 
-    def test_run_command_ephemeral_writes_share_snapshot(self) -> None:
-        with TemporaryDirectory(
-            dir=str(get_setta_paths().workspace_root)
-        ) as tmpdir:
+    def test_run_command_ephemeral_writes_share_snapshot(self, monkeypatch) -> None:
+        with TemporaryDirectory() as tmpdir:
+            monkeypatch.chdir(tmpdir)
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -538,7 +545,7 @@ class TestShareRuntimeState:
             )
             dbe = _write_project_with_state(root, project_state)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
@@ -593,7 +600,7 @@ class TestShareRuntimeState:
             )
             dbe = _write_project_with_state(root, project_state)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(runSnapshotMode=RunSnapshotMode.ephemeral).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
@@ -701,9 +708,7 @@ class TestShareRuntimeState:
             assert "123" == code_impl.value
 
     def test_run_snapshot_mode_never_is_rejected(self) -> None:
-        with TemporaryDirectory(
-            dir=str(get_setta_paths().workspace_root)
-        ) as tmpdir:
+        with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_config_id = ID("share-run-project")
             section_id = ID("code-section")
@@ -713,7 +718,7 @@ class TestShareRuntimeState:
             )
             dbe = _write_project_with_state(root, project_state)
             dbe.write_json(
-                root / "share_policy.json",
+                root / "policy.json",
                 SharePolicy(runSnapshotMode=RunSnapshotMode.never).model_dump(),
             )
             frontend_sender = WMHFrontendSender(WebsocketManager(), share_mode=True)
@@ -726,9 +731,10 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             deployment_name = root.parent.name
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
@@ -805,9 +811,10 @@ class TestShareRuntimeState:
             root = _build_share_deployment_root(tmpdir, config.name)
             dbe = _write_project(root, [config], config.id)
             deployment_name = root.parent.name
-            manifest = ShareDeploymentManifest(
+            manifest = DeploymentManifest(
                 version=1,
                 deploymentName=deployment_name,
+                deploymentType=DeploymentType.share,
                 defaultProjectConfigId=config.id,
                 deploymentVersion=root.name,
             )
