@@ -69,7 +69,7 @@ def apply_patch_ops(
     initial_spec: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     spec: dict[str, Any] = (
-        {"root": None, "elements": {}}
+        {"root": "", "elements": {}}
         if initial_spec is None
         else copy.deepcopy(initial_spec)
     )
@@ -90,13 +90,37 @@ def apply_patch_op(spec: dict[str, Any], op: dict[str, Any]) -> None:
 
     if raw_path == "/root":
         if raw_op == "remove":
-            spec["root"] = None
+            spec["root"] = ""
             return
-        spec["root"] = op.get("value")
+        value = op.get("value")
+        if not isinstance(value, str):
+            raise ValueError("Patch /root value must be a string element key.")
+        spec["root"] = value
         return
 
     tokens = _decode_pointer_tokens(raw_path)
-    parent, key = _resolve_pointer_parent(spec, tokens, create=True)
+    if not tokens or tokens[0] != "elements":
+        raise ValueError(f"Unsupported patch path: {raw_path!r}")
+
+    if len(tokens) == 2:
+        parent: dict[str, Any] | list[Any] = spec["elements"]
+        key = tokens[1]
+    else:
+        elements = spec.get("elements")
+        if not isinstance(elements, dict):
+            raise TypeError("Spec elements must be an object.")
+        element_key = tokens[1]
+        element = elements.get(element_key)
+        if not isinstance(element, dict):
+            raise KeyError(
+                f"Element {element_key!r} must exist before patching nested fields."
+            )
+        parent, key = _resolve_pointer_parent(
+            element,
+            tokens[2:],
+            create=(raw_op != "remove"),
+        )
+
     if raw_op == "remove":
         _remove_at(parent, key)
         return

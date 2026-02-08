@@ -405,8 +405,8 @@ export function DropzoneInput({
   const [isDragActive, setIsDragActive] = useState(false);
   const dragDepth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { isShareMode } = useShareSession((state) => ({
-    isShareMode: state.isShareMode,
+  const { isDeploymentMode } = useShareSession((state) => ({
+    isDeploymentMode: state.isDeploymentMode,
   }));
   const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
 
@@ -482,7 +482,7 @@ export function DropzoneInput({
 
   const remainingSlots = getRemainingSlots(getCurrentCount());
   const canAttachMore = remainingSlots === null || remainingSlots > 0;
-  const canUseServerPicker = !isShareMode && mode === DropzoneModeEnum.STATEFUL;
+  const canUseServerPicker = !isDeploymentMode && mode === DropzoneModeEnum.STATEFUL;
 
   async function commitStatefulValue(
     updatedValue: string,
@@ -686,7 +686,7 @@ export function DropzoneInput({
       if (successfulUploads.length === 0) {
         return;
       }
-      const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
+      const artifactBaseFolder = isDeploymentMode ? "artifacts" : undefined;
       const fileIds = successfulUploads.map(({ file }) =>
         createDropzoneFileArtifactId(file.name, artifactBaseFolder),
       );

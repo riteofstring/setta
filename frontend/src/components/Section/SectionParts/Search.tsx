@@ -47,8 +47,8 @@ export function SectionSearch({
   callable: string | null;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const lspEnabled = !isShareMode;
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const lspEnabled = !isDeploymentMode;
 
   function onEnter(value: string) {
     setCallable(sectionId, value, lspEnabled);

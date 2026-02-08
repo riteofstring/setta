@@ -33,7 +33,7 @@ async function renderAppPageMarkup(
 
       resetProjectStores();
       useShareSession.setState({
-        isShareMode: false,
+        isDeploymentMode: false,
         shareSessionId: null,
         sharePolicy: null,
         shareDeploymentName: null,

@@ -42,19 +42,19 @@ export function useTerminal({
   const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
   const terminalReadyRef = useRef(false);
   const fitAddon = useFitAddon();
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
     terminalReadyRef.current = false;
-    if (isShareMode && !shareSessionId) {
+    if (isDeploymentMode && !shareSessionId) {
       clearPendingSectionTextFocus(sectionId);
       return;
     }
     const terminal = new Terminal({
       cursorBlink: true,
       theme: terminalTheme,
-      disableStdin: isShareMode,
+      disableStdin: isDeploymentMode,
       // fontFamily: fontFamily,
       // letterSpacing: "0",
       // fontSize: "14",
@@ -91,7 +91,7 @@ export function useTerminal({
       }
     };
 
-    if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+    if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
       requestAnimationFrame(() => focusTerminalInput());
     }
 
@@ -115,10 +115,10 @@ export function useTerminal({
       if (message.data === C.SETTA_TERMINAL_READY) {
         terminalReadyRef.current = true;
         const attachAddon = new AttachAddon(ws, {
-          bidirectional: !isShareMode,
+          bidirectional: !isDeploymentMode,
         });
         terminal.loadAddon(attachAddon);
-        if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+        if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
           requestAnimationFrame(() => focusTerminalInput());
         }
         ws.removeEventListener("message", onInitialMessage);
@@ -134,7 +134,7 @@ export function useTerminal({
       terminalCleanup(ws, terminal);
       unsub();
     };
-  }, [isShareMode, shareSessionId]);
+  }, [isDeploymentMode, shareSessionId]);
 
   useEffect(() => {
     fitAddon.fit();

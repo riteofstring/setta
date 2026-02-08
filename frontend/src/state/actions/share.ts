@@ -110,7 +110,7 @@ function hydrateShareSessionFromStorage(): ShareDeploymentSessionResponse | null
 function getCachedShareSession(): ShareDeploymentSessionResponse | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
-  if (!shareSession.isShareMode) {
+  if (!shareSession.isDeploymentMode) {
     return null;
   }
   if (shareSession.deploymentMode !== "share") {
@@ -143,7 +143,7 @@ function setShareSessionFromResponse(session: ShareDeploymentSessionResponse) {
   clearShareSessionCookie();
   storeShareSession(session);
   useShareSession.setState({
-    isShareMode: true,
+    isDeploymentMode: true,
     shareSessionId: session.shareSessionId,
     sessionRunCount: session.sessionRunCount,
     sharePolicy: session.sharePolicy,
@@ -229,7 +229,7 @@ export async function loadShareProjectConfig({
 }: ShareProjectConfigLoadParams): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
-    !shareSession.isShareMode ||
+    !shareSession.isDeploymentMode ||
     !shareSession.shareDeploymentName ||
     !shareSession.shareDeploymentVersion
   ) {

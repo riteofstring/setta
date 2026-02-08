@@ -31,6 +31,11 @@ def normalize_deployment_name(deployment_name: str) -> str:
             status_code=400,
             detail="Deployment name must be a single path segment.",
         )
+    if normalized in {".", ".."}:
+        raise HTTPException(
+            status_code=400,
+            detail="Deployment name must not be '.' or '..'.",
+        )
     return normalized
 
 
@@ -91,7 +96,18 @@ def json_source_target_path(source_path: Path, json_root: Path) -> Path:
     normalized = normalize_path(source_path)
     if not normalized.is_absolute():
         return json_root / normalized
-    return json_root / external_filename(source_path)
+    # JSON sources can be referenced via absolute paths. Prefer a stable filename when
+    # the source file exists by hashing its contents; otherwise fall back to hashing
+    # the (absolute) path string.
+    digest_source: bytes | str = str(source_path)
+    if source_path.exists() and source_path.is_file():
+        try:
+            digest_source = source_path.read_bytes()
+        except OSError:
+            digest_source = str(source_path)
+    digest = compute_md5_prefix(digest_source, 8)
+    stem = source_path.stem or "file"
+    return json_root / Path(f"{stem}_{digest}{source_path.suffix}")
 
 
 def copy_artifact_path(
@@ -112,7 +128,7 @@ def copy_artifact_path(
     return rebased
 
 
-def copy_json_source_path(
+def rebase_json_source_path(
     path_str: str,
     json_root: Path,
     deployment_root: Path,
@@ -176,7 +192,7 @@ def rebase_project_state_paths(
             deployment_root,
             code_path_map,
         ),
-        resolve_json_source_name=lambda path_str: copy_json_source_path(
+        resolve_json_source_name=lambda path_str: rebase_json_source_path(
             path_str,
             json_root,
             deployment_root,
@@ -187,8 +203,18 @@ def rebase_project_state_paths(
 
 def resolve_deployment_relative_path(path: Path, deployment_root: Path) -> Path:
     if path.is_absolute():
-        return path
-    return (deployment_root / path).resolve()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Deployment-relative path must be relative, got: {path}",
+        )
+    resolved_root = deployment_root.resolve()
+    resolved = (resolved_root / path).resolve()
+    if not resolved.is_relative_to(resolved_root):
+        raise HTTPException(
+            status_code=400,
+            detail="Deployment-relative path escaped deployment root.",
+        )
+    return resolved
 
 
 def copy_listener_entrypoint(

@@ -68,7 +68,7 @@ function renderApp(
     defaultConfigId = null,
   } = options;
   useShareSession.setState({
-    isShareMode: false,
+    isDeploymentMode: false,
     sharePolicy: null,
     shareSessionId: null,
     sessionRunCount: 0,
@@ -204,5 +204,71 @@ describe("AppRenderer", () => {
       sectionVariantOverrides: { [sectionId]: "variant-2" },
       paramOverrides: { [`${sectionId}:param-1`]: "override" },
     });
+  });
+
+  it("rejects invalid paramOverrides shape", async () => {
+    const configId = "config-a";
+    const sectionId = "section-1";
+    const appSpec = {
+      root: {
+        key: "root",
+        type: "ActionButton",
+        props: { label: "Run", action: "runCustom" },
+      },
+      elements: {},
+    };
+    const appDefinition = createAppDefinition({
+      actions: {
+        runCustom: {
+          type: "run",
+          configId,
+          sectionId,
+        },
+      },
+    });
+    const policy = createSharePolicy({
+      allowParamChanges: true,
+      allowVariantChanges: true,
+      allowRun: true,
+    });
+
+    useAppConfigs.setState({
+      configs: {
+        [configId]: {
+          projectConfig: createProjectConfig({ id: configId }),
+          sections: {},
+          sectionVariants: {},
+          sectionImpls: {},
+          codeObjs: {},
+          codeObjVariants: {},
+          codeObjImpls: {},
+          artifactGroups: {},
+          singletonSections: createSingletonSections(),
+          parentSectionMap: {},
+          shownParamIds: {},
+          previewSectionVariantMap: {},
+          requiredDecodedImages: [],
+          genCodeBinding: null,
+        },
+      },
+    });
+
+    const runSpy = vi.spyOn(endpoints, "route_run_code");
+
+    renderApp(appSpec, {
+      appDefinition,
+      appPolicy: policy,
+      defaultConfigId: "fallback-config",
+    });
+
+    const handler = latestHandlers.runCustom;
+    expect(handler).toBeDefined();
+    await handler?.({
+      configId,
+      sectionId,
+      paramOverrides: [],
+    });
+
+    expect(runSpy).not.toHaveBeenCalled();
   });
 });

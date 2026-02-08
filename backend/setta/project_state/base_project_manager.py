@@ -839,6 +839,7 @@ class BaseProjectManager(ABC):
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
+        has_overrides = bool(x.sectionVariantOverrides) or bool(x.paramOverrides)
         lock = (
             self._project_state_lock.write_lock()
             if draw_snapshots_by_section_id
@@ -869,10 +870,84 @@ class BaseProjectManager(ABC):
                     )
                     if self.settings_file.settings.backend.autosave:
                         self.autosave_debouncer.trigger()
-            gen_code, code_entries = self._flush_code_files(project_config_id)
             resolved_run_snapshot_mode = (
                 run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
             )
+            if has_overrides and resolved_run_snapshot_mode == RunSnapshotMode.never:
+                # Overrides must be applied to an isolated snapshot.
+                resolved_run_snapshot_mode = RunSnapshotMode.ephemeral
+
+            if has_overrides:
+                base_state = convert_backend_to_single_config(
+                    self.project_state_backend, project_config_id
+                )
+                run_state = base_state.model_copy(deep=True)
+                try:
+                    _apply_run_overrides(
+                        run_state,
+                        section_variant_overrides=x.sectionVariantOverrides,
+                        param_overrides=x.paramOverrides,
+                    )
+                except (KeyError, ValueError) as exc:
+                    detail = exc.args[0] if exc.args else str(exc)
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=str(detail),
+                    ) from exc
+
+                entry_section_id = section_id or run_state.projectConfig.entryCodeBlockId
+                if entry_section_id:
+                    section_impl = get_curr_effective_section_impl(
+                        run_state, entry_section_id
+                    )
+                    if isinstance(
+                        section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
+                    ):
+                        entry_section_id = None
+                    elif isinstance(section_impl, CodeSectionImpl):
+                        if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Run is only available for Python and Bash.",
+                            )
+
+                section_inputs = _build_code_section_inputs(run_state)
+                if not python_codegen_enabled:
+                    if entry_section_id is None:
+                        raise KeyError(
+                            "Python codegen is disabled; select a code section to run."
+                        )
+                    if entry_section_id not in section_inputs:
+                        raise KeyError(
+                            f"Missing code section for run: {entry_section_id}"
+                        )
+                    return create_snapshot_run_command_from_code_sections_only(
+                        dbe=self.dbe,
+                        snapshot_root=self._resolve_run_snapshot_root(
+                            resolved_run_snapshot_mode
+                        ),
+                        entry_section_id=entry_section_id,
+                        section_inputs=section_inputs,
+                    )
+
+                dep_graph = DependencyGraph(run_state)
+                code_generator = build_python_code_generator(run_state, dep_graph)
+                code_generator.generate_code()
+                gen_binding = run_state.genCodeBinding
+                if gen_binding is None:
+                    raise ValueError("Project state missing generated code binding")
+                return create_snapshot_run_command_from_sections(
+                    dbe=self.dbe,
+                    snapshot_root=self._resolve_run_snapshot_root(resolved_run_snapshot_mode),
+                    entry_section_id=entry_section_id,
+                    gen_code=code_generator.code,
+                    gen_meta_code=code_generator.meta_code,
+                    gen_binding=gen_binding,
+                    section_inputs=section_inputs,
+                    gen_command_builder=build_python_module_run_command,
+                )
+
+            gen_code, code_entries = self._flush_code_files(project_config_id)
             if not section_id:
                 section_id = project_config.entryCodeBlockId
             if section_id:

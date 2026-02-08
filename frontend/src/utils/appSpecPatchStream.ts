@@ -58,12 +58,54 @@ export function applyPatchOp(spec: Spec, patch: AppSpecPatchOp): void {
       (spec as unknown as Record<string, unknown>).root = "";
       return;
     }
+    if (typeof patch.value !== "string") {
+      return;
+    }
     (spec as unknown as Record<string, unknown>).root = patch.value as unknown;
     return;
   }
 
   const tokens = decodePointerTokens(patch.path);
-  const resolved = resolvePointerParent(spec as unknown, tokens, true);
+  if (tokens.length < 2 || tokens[0] !== "elements") {
+    return;
+  }
+  if (tokens.length === 2) {
+    const elements = (spec as unknown as Record<string, unknown>)
+      .elements as unknown;
+    if (!elements || typeof elements !== "object" || Array.isArray(elements)) {
+      return;
+    }
+    const key = tokens[1] ?? "";
+    if (!key) {
+      return;
+    }
+    if (patch.op === "remove") {
+      removeAt(elements, key);
+      return;
+    }
+    setAt(elements, key, patch.value, patch.op);
+    return;
+  }
+
+  const elementKey = tokens[1] ?? "";
+  if (!elementKey) {
+    return;
+  }
+  const elements = (spec as unknown as Record<string, unknown>)
+    .elements as unknown;
+  if (!elements || typeof elements !== "object" || Array.isArray(elements)) {
+    return;
+  }
+  const element = (elements as Record<string, unknown>)[elementKey];
+  if (!element || typeof element !== "object" || Array.isArray(element)) {
+    return;
+  }
+
+  const resolved = resolvePointerParent(
+    element,
+    tokens.slice(2),
+    patch.op !== "remove",
+  );
   if (!resolved) {
     return;
   }

@@ -55,14 +55,14 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
-  const { isShareMode, allowLLM } = useShareSession((x) => ({
-    isShareMode: x.isShareMode,
+  const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
+    isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
-  const showFileBrowserTab = !isShareMode;
-  const showWatchCodeTab = !isShareMode;
-  const showAppTab = !isShareMode;
-  const showLLMTabs = !isShareMode || allowLLM;
+  const showFileBrowserTab = !isDeploymentMode;
+  const showWatchCodeTab = !isDeploymentMode;
+  const showAppTab = !isDeploymentMode;
+  const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
     if (

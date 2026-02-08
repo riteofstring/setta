@@ -5,17 +5,21 @@ from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
 from setta.database.db_objs import DBE
-from setta.deployments.deployment_utils import iter_deployment_versions
+from setta.deployments.router_utils import (
+    deployment_metadata_kwargs_from_manifest,
+    get_latest_deployment_metadata_from_disk,
+    get_or_create_share_session_id,
+    list_deployment_versions_metadata,
+    list_deployments_metadata,
+)
 from setta.deployments.publish_utils import (
     copy_file,
     copy_listener_entrypoint,
     create_deployment_root,
     deployment_relative_path,
     external_filename,
-    manifest_matches_root,
     normalize_deployment_name,
     rebase_project_state_paths,
-    resolve_default_project_config,
     resolve_deployment_relative_path,
 )
 from setta.logging.project_id_route import require_project_context
@@ -186,25 +190,13 @@ def _metadata_from_manifest(
     *,
     redact_paths: bool = False,
 ) -> AppDeploymentMetadata:
-    if redact_paths:
-        redacted = Path("redacted")
-        return AppDeploymentMetadata(
-            deploymentName=manifest.deploymentName,
-            deploymentVersion=manifest.deploymentVersion,
-            defaultProjectConfigId=manifest.defaultProjectConfigId,
-            defaultProjectConfigName=default_project_config_name,
-            createdAt=manifest.createdAt,
-            deploymentRoot=redacted,
-            policyPath=redacted,
-        )
     return AppDeploymentMetadata(
-        deploymentName=manifest.deploymentName,
-        deploymentVersion=manifest.deploymentVersion,
-        defaultProjectConfigId=manifest.defaultProjectConfigId,
-        defaultProjectConfigName=default_project_config_name,
-        createdAt=manifest.createdAt,
-        deploymentRoot=normalize_path(deployment_root),
-        policyPath=normalize_path(deployment_root / "policy.json"),
+        **deployment_metadata_kwargs_from_manifest(
+            manifest,
+            deployment_root,
+            default_project_config_name,
+            redact_paths=redact_paths,
+        )
     )
 
 
@@ -217,33 +209,12 @@ def route_list_app_deployments(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Deployment mode does not allow listing deployments.",
         )
-    deployments_root = C.DEPLOYMENTS_FOLDER
-    if not deployments_root.exists():
-        return []
-    deployments: list[AppDeploymentMetadata] = []
-    for deployment_root in sorted(deployments_root.iterdir()):
-        if not deployment_root.is_dir():
-            continue
-        for _, version_root in iter_deployment_versions(deployment_root):
-            manifest = DBE(version_root).read_deployment_manifest_optional()
-            if manifest is None:
-                continue
-            if manifest.deploymentType is not DeploymentType.app:
-                continue
-            if not manifest_matches_root(manifest, version_root):
-                continue
-            default_config = resolve_default_project_config(manifest, version_root)
-            if default_config is None:
-                continue
-            deployments.append(
-                _metadata_from_manifest(
-                    manifest,
-                    version_root,
-                    default_config.name,
-                )
-            )
-    deployments.sort(key=lambda item: item.createdAt, reverse=True)
-    return deployments
+    return list_deployments_metadata(
+        DeploymentType.app,
+        _metadata_from_manifest,
+        sort_key=lambda item: item.createdAt,
+        sort_reverse=True,
+    )
 
 
 @router.get(Route.APP_DEPLOYMENT_VERSIONS)
@@ -256,34 +227,11 @@ def route_list_app_deployment_versions(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Deployment mode does not allow listing deployment versions.",
         )
-    deployment_root = normalize_path(C.DEPLOYMENTS_FOLDER / deploymentName)
-    if not deployment_root.exists():
-        return []
-    versions = sorted(
-        iter_deployment_versions(deployment_root),
-        key=lambda item: item[0],
-        reverse=True,
+    return list_deployment_versions_metadata(
+        deploymentName,
+        DeploymentType.app,
+        _metadata_from_manifest,
     )
-    deployments: list[AppDeploymentMetadata] = []
-    for _, version_root in versions:
-        manifest = DBE(version_root).read_deployment_manifest_optional()
-        if manifest is None:
-            continue
-        if manifest.deploymentType is not DeploymentType.app:
-            continue
-        if not manifest_matches_root(manifest, version_root):
-            continue
-        default_config = resolve_default_project_config(manifest, version_root)
-        if default_config is None:
-            continue
-        deployments.append(
-            _metadata_from_manifest(
-                manifest,
-                version_root,
-                default_config.name,
-            )
-        )
-    return deployments
 
 
 @router.get(Route.APP_DEPLOYMENT_LATEST)
@@ -291,28 +239,29 @@ def route_get_latest_app_deployment(
     deploymentName: str,
     state: AppStateFromRequest,
 ) -> AppDeploymentMetadata:
+    deployment_name = normalize_deployment_name(deploymentName)
     if state.app_mode:
         expected_name = state.share_runtime_state.deployment_name
-        if deploymentName != expected_name:
+        if deployment_name != expected_name:
             raise HTTPException(
                 status_code=404,
-                detail=f"App deployment not found: {deploymentName}",
+                detail=f"App deployment not found: {deployment_name}",
             )
         manifest = state.share_runtime_state.manifest
         if manifest is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"App deployment not found: {deploymentName}",
+                detail=f"App deployment not found: {deployment_name}",
             )
         if manifest.deploymentType is not DeploymentType.app:
             raise HTTPException(
                 status_code=404,
-                detail=f"App deployment not found: {deploymentName}",
+                detail=f"App deployment not found: {deployment_name}",
             )
         if state.share_deployment_root is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"App deployment not found: {deploymentName}",
+                detail=f"App deployment not found: {deployment_name}",
             )
         return _metadata_from_manifest(
             manifest,
@@ -320,40 +269,11 @@ def route_get_latest_app_deployment(
             state.share_runtime_state.default_project_config_name,
             redact_paths=True,
         )
-    deployment_root = normalize_path(C.DEPLOYMENTS_FOLDER / deploymentName)
-    if not deployment_root.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"App deployment not found: {deploymentName}",
-        )
-    versions = iter_deployment_versions(deployment_root)
-    if not versions:
-        raise HTTPException(
-            status_code=404,
-            detail=f"App deployment not found: {deploymentName}",
-        )
-    _, latest_root = max(versions, key=lambda item: item[0])
-    manifest = DBE(latest_root).read_deployment_manifest_optional()
-    if manifest is None or not manifest_matches_root(manifest, latest_root):
-        raise HTTPException(
-            status_code=404,
-            detail=f"App deployment not found: {deploymentName}",
-        )
-    if manifest.deploymentType is not DeploymentType.app:
-        raise HTTPException(
-            status_code=404,
-            detail=f"App deployment not found: {deploymentName}",
-        )
-    default_config = resolve_default_project_config(manifest, latest_root)
-    if default_config is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"App deployment not found: {deploymentName}",
-        )
-    return _metadata_from_manifest(
-        manifest,
-        latest_root,
-        default_config.name,
+    return get_latest_deployment_metadata_from_disk(
+        deployment_name,
+        DeploymentType.app,
+        _metadata_from_manifest,
+        not_found_label="App deployment",
     )
 
 
@@ -363,7 +283,7 @@ async def route_create_app_session_current(
     state: AppStateFromRequest,
 ) -> AppDeploymentSessionResponse:
     _require_app_mode(state)
-    share_session_id = _get_or_create_share_session_id(state, request)
+    share_session_id = get_or_create_share_session_id(state, request)
     return AppDeploymentSessionResponse(
         deploymentName=state.share_runtime_state.deployment_name,
         deploymentVersion=state.share_runtime_state.deployment_version,
@@ -389,7 +309,7 @@ async def route_create_app_session(
 ) -> AppDeploymentSessionResponse:
     _require_app_mode(state)
     _require_matching_deployment(state, deploymentName, version)
-    share_session_id = _get_or_create_share_session_id(state, request)
+    share_session_id = get_or_create_share_session_id(state, request)
     return AppDeploymentSessionResponse(
         deploymentName=state.share_runtime_state.deployment_name,
         deploymentVersion=state.share_runtime_state.deployment_version,
@@ -458,8 +378,12 @@ async def route_load_app_project_config(
         share_session_id,
         x.projectConfigId,
     )
+    app_definition = state.share_runtime_state.project_state_backend.appDefinition
+    app_spec = state.share_runtime_state.get_app_spec()
     return AppDeploymentStateResponse(
         projectState=project_state,
+        appDefinition=app_definition,
+        appSpec=app_spec,
         appPolicy=state.share_runtime_state.share_policy,
     )
 
@@ -570,17 +494,3 @@ async def route_publish_app_deployment(
         deploymentRoot=deployment_root,
         policyPath=deployment_root / "policy.json",
     )
-
-
-def _get_or_create_share_session_id(
-    state: AppStateFromRequest,
-    request: Request,
-) -> str:
-    share_session_id = maybe_get_share_session_id_from_request(request)
-    if share_session_id and state.share_session_store.has_session(share_session_id):
-        state.share_session_store.touch_session(share_session_id)
-        state.share_runtime_state.get_or_create_session_backend(share_session_id)
-        return share_session_id
-    session = state.share_session_store.create_session()
-    state.share_runtime_state.create_session_backend(session.id)
-    return session.id

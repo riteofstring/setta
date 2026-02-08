@@ -18,11 +18,11 @@ export function ProjectNav() {
 
 function ProjectNavSwitch() {
   const { projectConfigName } = useParams();
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canRun } = useShareCapabilities();
 
   let content = null;
-  if (isShareMode) {
+  if (isDeploymentMode) {
     if (canRun) {
       content = (
         <>

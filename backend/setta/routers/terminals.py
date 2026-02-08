@@ -7,8 +7,6 @@ from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.project_manager_types import (
     RunCodeRequest,
-    SetParamEnteredValueRequest,
-    SetSectionVariantRequest,
 )
 from setta.routers.dependencies import (
     RuntimeContextFromRequest,
@@ -39,21 +37,17 @@ class KillSubprocessesRequest(BaseModel):
     projectConfigId: ID
 
 
-async def _apply_run_overrides(
-    x: RunCodeRequest, ctx: RuntimeContextFromRequest, manager
+async def _validate_run_overrides(
+    x: RunCodeRequest,
+    ctx: RuntimeContextFromRequest,
+    manager,
 ) -> None:
+    if not ctx.deployment_mode:
+        return
     if x.sectionVariantOverrides:
         await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
-        for section_id, variant_id in x.sectionVariantOverrides.items():
-            await manager.set_section_variant(
-                SetSectionVariantRequest(
-                    projectConfigId=x.projectConfigId,
-                    sectionId=section_id,
-                    variantId=variant_id,
-                )
-            )
     if x.paramOverrides:
-        for key, value in x.paramOverrides.items():
+        for key in x.paramOverrides.keys():
             section_id_str, param_info_id_str = (key.split(":", 1) + [""])[:2]
             if not section_id_str or not param_info_id_str:
                 raise HTTPException(
@@ -61,23 +55,14 @@ async def _apply_run_overrides(
                 )
             section_id = ID(section_id_str)
             param_info_id = ID(param_info_id_str)
-            if ctx.deployment_mode:
-                project_state = manager.get_single_config_state(x.projectConfigId)
-                await ensure_share_param_value_allowed(
-                    policy=ctx.policy,
-                    frontend_sender=ctx.frontend_sender,
-                    project_state=project_state,
-                    section_id=section_id,
-                    param_info_id=param_info_id,
-                    share_session_id=ctx.share_session_id,
-                )
-            await manager.set_param_entered_value(
-                SetParamEnteredValueRequest(
-                    projectConfigId=x.projectConfigId,
-                    sectionId=section_id,
-                    paramInfoId=param_info_id,
-                    value=value,
-                )
+            project_state = manager.get_single_config_state(x.projectConfigId)
+            await ensure_share_param_value_allowed(
+                policy=ctx.policy,
+                frontend_sender=ctx.frontend_sender,
+                project_state=project_state,
+                section_id=section_id,
+                param_info_id=param_info_id,
+                share_session_id=ctx.share_session_id,
             )
 
 
@@ -199,7 +184,7 @@ async def route_run_code(
     await ctx.enforce_run_allowed()
     reserved_single_run = await ctx.enforce_multiple_runs_allowed()
     try:
-        await _apply_run_overrides(x, ctx, manager)
+        await _validate_run_overrides(x, ctx, manager)
         await run_code(
             x,
             manager,
@@ -207,11 +192,17 @@ async def route_run_code(
             ctx.state.wmh_cli_sender,
             share_session_id=share_session_id,
         )
-    except Exception:
+    except Exception as exc:
         if reserved_single_run and ctx.deployment_mode and share_session_id is not None:
             await ctx.state.share_runtime_state.rollback_reserved_session_run_count(
                 share_session_id
             )
+        if isinstance(exc, (KeyError, ValueError)):
+            detail = exc.args[0] if exc.args else str(exc)
+            raise HTTPException(
+                status_code=400,
+                detail=str(detail),
+            ) from exc
         raise
     if ctx.deployment_mode and share_session_id is not None and not reserved_single_run:
         ctx.state.share_runtime_state.increment_session_run_count(share_session_id)

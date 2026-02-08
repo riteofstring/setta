@@ -42,7 +42,7 @@ def ensure_share_deployment_path(
     if deployment_root is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Share deployment root is not configured.",
+            detail="Deployment root is not configured.",
         )
     resolved = _resolve_request_path(path, deployment_root)
     for root in _share_allowed_roots(deployment_root):
@@ -171,19 +171,19 @@ async def enforce_share_policy_guard(
     if guard is SharePolicyGuard.param:
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
-            denied_message="Share policy disallows parameter changes.",
+            denied_message="Deployment policy disallows parameter changes.",
         )
         return
     if guard is SharePolicyGuard.variant:
         await ctx.enforce_policy(
             policy_flag="allowVariantChanges",
-            denied_message="Share policy disallows variant changes.",
+            denied_message="Deployment policy disallows variant changes.",
         )
         return
     if guard is SharePolicyGuard.layout:
         await ctx.enforce_policy(
             policy_flag="allowLayoutChanges",
-            denied_message="Share policy disallows layout changes.",
+            denied_message="Deployment policy disallows layout changes.",
         )
         return
     raise KeyError(f"Unsupported share policy guard: {guard}")
@@ -222,13 +222,13 @@ async def ensure_share_run_allowed(
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowRun",
-        denied_message="Share policy disallows run and terminal access.",
+        denied_message="Deployment policy disallows run and terminal access.",
         share_session_id=share_session_id,
     )
     if state.deployment_mode and not state.terminals:
         await _notify_and_raise(
             state.wmh_frontend_sender,
-            message="Share run support is not enabled.",
+            message="Deployment run support is not enabled.",
             share_session_id=share_session_id,
         )
 
@@ -243,7 +243,7 @@ async def ensure_share_download_allowed(
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowFileDownloads",
-        denied_message="Share policy disallows file downloads.",
+        denied_message="Deployment policy disallows file downloads.",
         share_session_id=share_session_id,
     )
 
@@ -269,7 +269,7 @@ async def ensure_share_multiple_runs_allowed(
     if not reserved:
         await _notify_and_raise(
             state.wmh_frontend_sender,
-            message="Share policy allows only one run per session.",
+            message="Deployment policy allows only one run per session.",
             share_session_id=share_session_id,
         )
     return True
@@ -287,7 +287,7 @@ async def ensure_share_run_allowed_ws(
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowRun",
-        denied_message="Share policy disallows run and terminal access.",
+        denied_message="Deployment policy disallows run and terminal access.",
         share_session_id=share_session_id,
     )
     if not allowed:
@@ -296,7 +296,7 @@ async def ensure_share_run_allowed_ws(
         await _notify_and_close(
             state.wmh_frontend_sender,
             websocket,
-            message="Share run support is not enabled.",
+            message="Deployment run support is not enabled.",
             share_session_id=share_session_id,
         )
         return False
@@ -317,7 +317,7 @@ async def ensure_share_param_value_allowed(
         policy=policy,
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",
-        denied_message="Share policy disallows parameter changes.",
+        denied_message="Deployment policy disallows parameter changes.",
         share_session_id=share_session_id,
     )
     impl = get_curr_effective_code_obj_impl(project_state, section_id, param_info_id)
@@ -338,13 +338,13 @@ async def ensure_share_llm_allowed(
         policy=_policy_from_state(state),
         frontend_sender=state.wmh_frontend_sender,
         policy_flag="allowLLM",
-        denied_message="Share policy disallows LLM access.",
+        denied_message="Deployment policy disallows LLM access.",
         share_session_id=share_session_id,
     )
     if state.deployment_mode and state.agent_runner.disabled:
         await _notify_and_raise(
             state.wmh_frontend_sender,
-            message="Share LLM support is not enabled.",
+            message="Deployment LLM support is not enabled.",
             share_session_id=share_session_id,
         )
 
@@ -361,6 +361,6 @@ async def ensure_share_listener_emit_updates_allowed(
         policy=policy,
         frontend_sender=frontend_sender,
         policy_flag="allowParamChanges",
-        denied_message="Share policy disallows listener updates.",
+        denied_message="Deployment policy disallows listener updates.",
         share_session_id=share_session_id,
     )

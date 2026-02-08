@@ -20,6 +20,7 @@ from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
+from setta.project_state.base_project_manager import _apply_run_overrides
 from setta.project_state.project_manager_types import RunCodeRequest
 from setta.share.policy import (
     load_share_policy_from_dbe,
@@ -293,17 +294,26 @@ class ShareRuntimeState:
             self.update_session_state(
                 resolved_session_id, project_config_id, project_state
             )
+
+        run_state = project_state
+        if x.sectionVariantOverrides or x.paramOverrides:
+            run_state = project_state.model_copy(deep=True)
+            _apply_run_overrides(
+                run_state,
+                section_variant_overrides=x.sectionVariantOverrides,
+                param_overrides=x.paramOverrides,
+            )
         snapshot_root = self.share_runs_root / resolved_session_id
         python_codegen_enabled = project_config_has_codegen_language(
-            project_state.projectConfig,
+            run_state.projectConfig,
             ProjectCodegenLanguage.python,
         )
-        code_sections = self._collect_code_sections(project_state)
+        code_sections = self._collect_code_sections(run_state)
 
         if not section_id:
-            section_id = project_state.projectConfig.entryCodeBlockId
+            section_id = run_state.projectConfig.entryCodeBlockId
         if section_id:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            section_impl = get_curr_effective_section_impl(run_state, section_id)
             if isinstance(
                 section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
             ):
@@ -341,8 +351,8 @@ class ShareRuntimeState:
                 section_inputs=snapshot_section_inputs,
             )
 
-        gen_binding = self._get_gen_code_binding(project_state)
-        gen_code, gen_meta_code = self._generate_gen_code(project_state)
+        gen_binding = self._get_gen_code_binding(run_state)
+        gen_code, gen_meta_code = self._generate_gen_code(run_state)
 
         def gen_command_builder(path: Path, snapshot_root=snapshot_root) -> str:
             return build_python_snapshot_module_run_command(snapshot_root, path)

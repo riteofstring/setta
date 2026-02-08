@@ -34,7 +34,7 @@ describe("AppPage", () => {
   beforeEach(() => {
     resetProjectStores();
     useShareSession.setState({
-      isShareMode: false,
+      isDeploymentMode: false,
       shareSessionId: null,
       sharePolicy: null,
       shareDeploymentName: null,

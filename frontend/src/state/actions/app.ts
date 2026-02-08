@@ -118,7 +118,7 @@ function hydrateAppSessionFromStorage(): AppDeploymentSessionResponse | null {
 function getCachedAppSession(): AppDeploymentSessionResponse | null {
   const shareSession = useShareSession.getState();
   const metadata = useAllProjectMetadata.getState();
-  if (!shareSession.isShareMode || shareSession.deploymentMode !== "app") {
+  if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
     return null;
   }
   if (
@@ -148,7 +148,7 @@ function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
   clearAppSessionCookie();
   storeAppSession(session);
   useShareSession.setState({
-    isShareMode: true,
+    isDeploymentMode: true,
     shareSessionId: session.shareSessionId,
     sessionRunCount: session.sessionRunCount,
     sharePolicy: session.appPolicy,
@@ -169,7 +169,7 @@ function setAppSessionFromResponse(session: AppDeploymentSessionResponse) {
 
 export function incrementAppSessionRunCount(): void {
   const shareSession = useShareSession.getState();
-  if (!shareSession.isShareMode || shareSession.deploymentMode !== "app") {
+  if (!shareSession.isDeploymentMode || shareSession.deploymentMode !== "app") {
     return;
   }
   const nextCount = shareSession.sessionRunCount + 1;
@@ -243,7 +243,7 @@ export async function loadAppDeploymentState({
 } = {}): Promise<boolean> {
   const shareSession = useShareSession.getState();
   if (
-    !shareSession.isShareMode ||
+    !shareSession.isDeploymentMode ||
     shareSession.deploymentMode !== "app" ||
     !shareSession.shareDeploymentName ||
     !shareSession.shareDeploymentVersion

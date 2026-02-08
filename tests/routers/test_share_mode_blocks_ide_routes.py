@@ -217,7 +217,7 @@ async def test_share_mode_blocks_external_agent_config_mutations() -> None:
                     runtime_ctx,
                 )
         assert exc.value.status_code == 403
-        assert exc.value.detail == "Share LLM support is not enabled."
+        assert exc.value.detail == "Deployment LLM support is not enabled."
 
         config = ExternalAgentConfig(
             name="Codex app-server",
@@ -232,7 +232,7 @@ async def test_share_mode_blocks_external_agent_config_mutations() -> None:
                     runtime_ctx,
                 )
         assert exc.value.status_code == 403
-        assert exc.value.detail == "Share LLM support is not enabled."
+        assert exc.value.detail == "Deployment LLM support is not enabled."
 
         with pytest.raises(HTTPException) as exc:
             with runtime_context(state, session.id) as runtime_ctx:
@@ -241,4 +241,4 @@ async def test_share_mode_blocks_external_agent_config_mutations() -> None:
                     runtime_ctx,
                 )
         assert exc.value.status_code == 403
-        assert exc.value.detail == "Share LLM support is not enabled."
+        assert exc.value.detail == "Deployment LLM support is not enabled."

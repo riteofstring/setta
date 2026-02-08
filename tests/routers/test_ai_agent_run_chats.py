@@ -270,7 +270,7 @@ class TestAgentRunChatRoutes:
                     )
 
             assert ctx.value.status_code == 403
-            assert ctx.value.detail == "Share LLM support is not enabled."
+            assert ctx.value.detail == "Deployment LLM support is not enabled."
 
     async def test_get_llm_chat_from_agent_run(self) -> None:
         with TemporaryDirectory() as tmpdir:

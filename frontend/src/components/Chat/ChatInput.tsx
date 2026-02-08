@@ -85,8 +85,8 @@ export const ChatInput = memo(function ChatInput({
   const dragDepth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const warningTimeoutRef = useRef<number | null>(null);
-  const { isShareMode } = useShareSession((state) => ({
-    isShareMode: state.isShareMode,
+  const { isDeploymentMode } = useShareSession((state) => ({
+    isDeploymentMode: state.isDeploymentMode,
   }));
   const { canEditParams } = useShareCapabilities();
   const isControlled = typeof value === "string" && Boolean(onChange);
@@ -105,7 +105,7 @@ export const ChatInput = memo(function ChatInput({
       ? null
       : Math.max(attachmentLimit - attachments.length, 0);
   const allowedMimeLabel = chatPolicy.allowedMimeLabel;
-  const showSharePolicyMessage = isShareMode && !canEditParams;
+  const showSharePolicyMessage = isDeploymentMode && !canEditParams;
   const showAttachmentDisabledMessage =
     attachmentsDisabled && !showSharePolicyMessage;
   const attachmentCount = attachments.length;
@@ -202,7 +202,7 @@ export const ChatInput = memo(function ChatInput({
         if (successfulUploads.length === 0) {
           return;
         }
-        const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
+        const artifactBaseFolder = isDeploymentMode ? "artifacts" : undefined;
         const fileIds = successfulUploads.map(({ file }) =>
           createDropzoneFileArtifactId(file.name, artifactBaseFolder),
         );
@@ -236,7 +236,7 @@ export const ChatInput = memo(function ChatInput({
         setIsUploading(false);
       }
     },
-    [isShareMode, notifyAttachmentWarning],
+    [isDeploymentMode, notifyAttachmentWarning],
   );
 
   const handleLocalFiles = useCallback(
@@ -641,7 +641,7 @@ export const ChatInput = memo(function ChatInput({
                     <IoAttach />
                     Attach
                   </DropdownMenu.Item>
-                  {!isShareMode ? (
+                  {!isDeploymentMode ? (
                     <DropdownMenu.Item
                       className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
                       onSelect={handlePickFromProject}

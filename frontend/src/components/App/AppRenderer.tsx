@@ -50,6 +50,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function toStringRecord(value: unknown): Record<string, string> | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const output: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry !== "string") {
+      return null;
+    }
+    output[key] = entry;
+  }
+  return output;
+}
+
 function isUIElement(value: unknown): value is RawUIElement {
   if (!value || typeof value !== "object") {
     return false;
@@ -206,7 +220,7 @@ export function AppRenderer({
     () => normalizeAppSpec(appSpec, rootKeyOverride),
     [appSpec, rootKeyOverride],
   );
-  const deploymentMode = useShareSession((x) => x.isShareMode);
+  const deploymentMode = useShareSession((x) => x.isDeploymentMode);
   const sessionRunCount = useShareSession((x) => x.sessionRunCount);
   const [localRunCount, setLocalRunCount] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
@@ -245,19 +259,36 @@ export function AppRenderer({
       if (isRunning) {
         return;
       }
+      const rawSectionVariantOverrides = params?.sectionVariantOverrides;
+      const rawParamOverrides = params?.paramOverrides;
       const sectionVariantOverrides =
-        params && typeof params.sectionVariantOverrides === "object"
-          ? (params.sectionVariantOverrides as Record<string, string>)
-          : null;
+        rawSectionVariantOverrides === undefined
+          ? null
+          : toStringRecord(rawSectionVariantOverrides);
       const paramOverrides =
-        params && typeof params.paramOverrides === "object"
-          ? (params.paramOverrides as Record<string, string>)
-          : null;
-      if (sectionVariantOverrides && !resolvedPolicy.allowVariantChanges) {
+        rawParamOverrides === undefined ? null : toStringRecord(rawParamOverrides);
+      if (rawSectionVariantOverrides !== undefined && !sectionVariantOverrides) {
+        addTemporaryNotification(
+          "Invalid sectionVariantOverrides (expected object of string -> string).",
+        );
+        return;
+      }
+      if (rawParamOverrides !== undefined && !paramOverrides) {
+        addTemporaryNotification(
+          "Invalid paramOverrides (expected object of string -> string).",
+        );
+        return;
+      }
+      const hasSectionVariantOverrides =
+        sectionVariantOverrides != null &&
+        Object.keys(sectionVariantOverrides).length > 0;
+      const hasParamOverrides =
+        paramOverrides != null && Object.keys(paramOverrides).length > 0;
+      if (hasSectionVariantOverrides && !resolvedPolicy.allowVariantChanges) {
         addTemporaryNotification("Variant changes are disabled by policy.");
         return;
       }
-      if (paramOverrides && !resolvedPolicy.allowParamChanges) {
+      if (hasParamOverrides && !resolvedPolicy.allowParamChanges) {
         addTemporaryNotification("Param changes are disabled by policy.");
         return;
       }
@@ -284,8 +315,8 @@ export function AppRenderer({
         const res = await route_run_code({
           projectConfigId: configId,
           sectionId,
-          ...(sectionVariantOverrides ? { sectionVariantOverrides } : {}),
-          ...(paramOverrides ? { paramOverrides } : {}),
+          ...(hasSectionVariantOverrides ? { sectionVariantOverrides } : {}),
+          ...(hasParamOverrides ? { paramOverrides } : {}),
         });
         if (res200(res)) {
           if (deploymentMode) {
@@ -430,30 +461,24 @@ export function AppRenderer({
               ? definition.configId
               : null) ??
             fallbackConfigId;
+          const rawParamOverrides =
+            params?.paramOverrides ?? definition.paramOverrides ?? undefined;
+          const rawSectionVariantOverrides =
+            params?.sectionVariantOverrides ??
+            definition.sectionVariantOverrides ??
+            undefined;
           return handleRun(
             resolvedSectionId
               ? {
                   sectionId: resolvedSectionId,
                   configId: resolvedConfigId ?? undefined,
-                  paramOverrides:
-                    typeof definition.paramOverrides === "object"
-                      ? definition.paramOverrides
-                      : undefined,
-                  sectionVariantOverrides:
-                    typeof definition.sectionVariantOverrides === "object"
-                      ? definition.sectionVariantOverrides
-                      : undefined,
+                  paramOverrides: rawParamOverrides,
+                  sectionVariantOverrides: rawSectionVariantOverrides,
                 }
               : {
                   configId: resolvedConfigId ?? undefined,
-                  paramOverrides:
-                    typeof definition.paramOverrides === "object"
-                      ? definition.paramOverrides
-                      : undefined,
-                  sectionVariantOverrides:
-                    typeof definition.sectionVariantOverrides === "object"
-                      ? definition.sectionVariantOverrides
-                      : undefined,
+                  paramOverrides: rawParamOverrides,
+                  sectionVariantOverrides: rawSectionVariantOverrides,
                 },
           );
         };

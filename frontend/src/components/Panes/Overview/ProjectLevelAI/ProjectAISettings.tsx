@@ -124,8 +124,8 @@ const DEFAULT_CLAUDE_ASK_RULES = [
 
 export function ProjectAISettings() {
   useHydrateAgenticState();
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const canEdit = !isShareMode;
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const canEdit = !isDeploymentMode;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto pb-[15dvh] text-setta-700 dark:text-setta-300">
@@ -133,7 +133,7 @@ export function ProjectAISettings() {
         title="LLM API Keys"
         description="Manage API keys for built-in LLM engines."
       >
-        {isShareMode ? (
+        {isDeploymentMode ? (
           <ShareModeNotice />
         ) : (
           <ProjectLLMSettings className="pb-2" />

@@ -130,3 +130,63 @@ class TestAppSpecStreamingRoute:
         assert response.status_code == 400
         payload = json.loads(response.body.decode("utf-8"))
         assert payload["message"] == "currentSpec is too large. Reduce it or omit it."
+
+    async def test_rejects_large_catalog_summary(self) -> None:
+        state = _StateStub(
+            agent_runner=_AgentRunnerStub(
+                config=AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                        )
+                    }
+                ),
+                api_keys={},
+            ),
+            wmh_frontend_sender=object(),
+        )
+
+        with runtime_context(state) as ctx:
+            response = await route_stream_app_spec(
+                StreamAppSpecRequest(
+                    prompt="Build a minimal app",
+                    context={"catalogSummary": "a" * 100_001},
+                ),
+                ctx,
+            )
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 400
+        payload = json.loads(response.body.decode("utf-8"))
+        assert payload["message"] == "catalogSummary is too large. Reduce it or omit it."
+
+    async def test_rejects_large_sections_summary(self) -> None:
+        state = _StateStub(
+            agent_runner=_AgentRunnerStub(
+                config=AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                        )
+                    }
+                ),
+                api_keys={},
+            ),
+            wmh_frontend_sender=object(),
+        )
+
+        with runtime_context(state) as ctx:
+            response = await route_stream_app_spec(
+                StreamAppSpecRequest(
+                    prompt="Build a minimal app",
+                    context={"sectionsSummary": "a" * 100_001},
+                ),
+                ctx,
+            )
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 400
+        payload = json.loads(response.body.decode("utf-8"))
+        assert payload["message"] == "sectionsSummary is too large. Reduce it or omit it."

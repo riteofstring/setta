@@ -85,12 +85,19 @@ def _ensure_watch_code_observer_started() -> Observer:
     # Watchdog's macOS observers can crash when repeatedly started/stopped in the
     # same process (notably in test runs). Keep a single shared Observer running.
     global _WATCH_CODE_OBSERVER_STARTED
-    if _WATCH_CODE_OBSERVER_STARTED:
+    global _WATCH_CODE_OBSERVER
+    if _WATCH_CODE_OBSERVER_STARTED and _WATCH_CODE_OBSERVER.is_alive():
         return _WATCH_CODE_OBSERVER
     with _WATCH_CODE_OBSERVER_LOCK:
-        if not _WATCH_CODE_OBSERVER_STARTED:
-            _WATCH_CODE_OBSERVER.start()
-            _WATCH_CODE_OBSERVER_STARTED = True
+        if _WATCH_CODE_OBSERVER_STARTED and _WATCH_CODE_OBSERVER.is_alive():
+            return _WATCH_CODE_OBSERVER
+        if _WATCH_CODE_OBSERVER_STARTED and not _WATCH_CODE_OBSERVER.is_alive():
+            # Observer threads cannot be restarted; replace the shared instance.
+            observer_type = type(_WATCH_CODE_OBSERVER)
+            _WATCH_CODE_OBSERVER = observer_type()
+            _WATCH_CODE_OBSERVER.daemon = True
+        _WATCH_CODE_OBSERVER.start()
+        _WATCH_CODE_OBSERVER_STARTED = True
     return _WATCH_CODE_OBSERVER
 
 

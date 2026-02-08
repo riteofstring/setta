@@ -78,7 +78,7 @@ export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   if (connection.source === connection.target) {
     return false;
   }
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return false;
   }
   const types = getConnectionSectionTypes(connection);
@@ -171,7 +171,7 @@ export function toggleAgenticEdgeSelection(
 }
 
 export function deleteSelectedAgenticEdges(): boolean {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return false;
   }
   const state = useProjectState.getState();
@@ -202,7 +202,7 @@ export function deleteSelectedAgenticEdges(): boolean {
 }
 
 export function deleteAgenticEdgesById(edgeIds: string[]): void {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return;
   }
   if (edgeIds.length === 0) {
@@ -235,7 +235,7 @@ export function createAgenticEdgeFromSections({
   kind: AgenticEdgeKindEnum;
   contextMode?: AgenticEdgeContextModeEnum;
 }): void {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return;
   }
   if (sourceSectionId === targetSectionId) {

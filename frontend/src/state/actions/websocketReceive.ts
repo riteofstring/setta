@@ -123,14 +123,14 @@ export const openWebSocket = _.debounce(
     }
     lastPathname = pathname;
     lastShareSessionId = shareSessionId;
-    const isShareMode = Boolean(shareSessionId);
-    if (!isShareMode) {
+    const isDeploymentMode = Boolean(shareSessionId);
+    if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = isShareMode
+    const route = isDeploymentMode
       ? RouteEnum.WEBSOCKET_SHARE_FRONTEND
       : RouteEnum.WEBSOCKET_FRONTEND;
-    const targetUrl = isShareMode
+    const targetUrl = isDeploymentMode
       ? `${C_ADDRESSES.WEBSOCKET}${route}?shareSessionId=${encodeURIComponent(
           shareSessionId ?? "",
         )}`
@@ -159,7 +159,7 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        if (isShareMode) {
+        if (isDeploymentMode) {
           startShareHeartbeat();
           const projectConfigId = getCurrProjectConfigId();
           if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {

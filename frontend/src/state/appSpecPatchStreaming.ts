@@ -50,16 +50,16 @@ export function applyAppSpecPatchPreviewDelta({
   existing.lastUpdatedMs = nowMs;
   cleanupStaleStreams(nowMs);
 
-  existing.remainder += previewValueDelta;
-  if (!existing.remainder.includes("\n")) {
-    return null;
-  }
-
-  const lines = existing.remainder.split("\n");
-  existing.remainder = lines.pop() ?? "";
-
+  const buffer = existing.remainder + previewValueDelta;
+  let cursor = 0;
   let appliedAny = false;
-  for (const line of lines) {
+  while (true) {
+    const newlineIndex = buffer.indexOf("\n", cursor);
+    if (newlineIndex === -1) {
+      break;
+    }
+    const line = buffer.slice(cursor, newlineIndex);
+    cursor = newlineIndex + 1;
     const patch = parsePatchLine(line);
     if (!patch) {
       continue;
@@ -67,6 +67,7 @@ export function applyAppSpecPatchPreviewDelta({
     applyPatchOp(existing.spec, patch);
     appliedAny = true;
   }
+  existing.remainder = buffer.slice(cursor);
   if (!appliedAny) {
     return null;
   }

@@ -64,6 +64,11 @@ class TestSpecPatchStream:
         assert updated["elements"]["app-root"]["props"]["title"] == "Updated"
         assert initial["elements"]["app-root"]["props"]["title"] == "Hello"
 
+    def test_nested_patch_requires_existing_element(self) -> None:
+        patches = '{"op":"set","path":"/elements/missing/props/title","value":"Hello"}'
+        with pytest.raises(KeyError):
+            apply_patch_ops(parse_patch_lines(patches))
+
     def test_list_replace_rejects_index_equal_length(self) -> None:
         patches = "\n".join(
             [

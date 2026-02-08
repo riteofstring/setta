@@ -19,6 +19,7 @@ from setta.types.routes import Route
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 logger = logging.getLogger(__name__)
 _MAX_STREAM_REMAINDER_CHARS = 256_000
+_MAX_CONTEXT_SUMMARY_CHARS = 100_000
 
 
 class StreamAppSpecRequest(BaseModel):
@@ -182,6 +183,16 @@ async def route_stream_app_spec(
         if isinstance(context.get("sectionsSummary"), str)
         else ""
     )
+    if len(catalog_summary) > _MAX_CONTEXT_SUMMARY_CHARS:
+        return _json_error(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message="catalogSummary is too large. Reduce it or omit it.",
+        )
+    if len(sections_summary) > _MAX_CONTEXT_SUMMARY_CHARS:
+        return _json_error(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message="sectionsSummary is too large. Reduce it or omit it.",
+        )
     current_spec_json: str | None = None
     if x.currentSpec is not None:
         try:
