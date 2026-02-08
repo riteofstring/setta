@@ -3,7 +3,6 @@ import _ from "lodash";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -449,9 +448,6 @@ function CustomResizableSuperCore({
   const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
-  const isAttachedTerminalChild = useProjectState(
-    (x) => getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null,
-  );
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );
@@ -509,24 +505,6 @@ function CustomResizableSuperCore({
 
   let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
   let handleClasses = handleBaseClasses;
-  const handleWrapperClassName = isAttachedTerminalChild
-    ? "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30"
-    : "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
-
-  if (isAttachedTerminalChild) {
-    // Keep handles inside the parent code section outline so they don't feel clipped.
-    handleStyles = {
-      right: { right: "-4px", width: 16, top: 0, bottom: 0, height: "100%" },
-      bottom: {
-        bottom: "-4px",
-        height: 16,
-        left: 0,
-        right: 0,
-        width: "100%",
-      },
-      bottomRight: { right: "-4px", bottom: "-4px", width: 24, height: 24 },
-    };
-  }
 
   function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
     if (!onResizePointerDown) {
@@ -617,7 +595,7 @@ function CustomResizableSuperCore({
       lockAspectRatio={aspectRatio}
       lockAspectRatioExtraHeight={aspectRatioExtraHeight}
       lockAspectRatioExtraWidth={aspectRatioExtraWidth}
-      handleWrapperClass={handleWrapperClassName}
+      handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
       enable={enable}
       className={inputClasses}
       handleStyles={handleStyles}
