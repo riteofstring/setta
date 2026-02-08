@@ -144,7 +144,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
   }
 });
 
-test("git graph keeps lanes aligned across join boundaries", async ({ page }) => {
+test("git graph keeps lanes aligned across join boundaries", async ({
+  page,
+}) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
@@ -220,7 +222,13 @@ test("git graph keeps lanes aligned across join boundaries", async ({ page }) =>
       ["commit", "-m", "graph-test C2"],
       commitEnv("2000-01-01T00:03:00Z"),
     );
-    runGit(workspaceRoot, ["merge", "--no-ff", "graph-test-side", "-m", "graph-test M"]);
+    runGit(workspaceRoot, [
+      "merge",
+      "--no-ff",
+      "graph-test-side",
+      "-m",
+      "graph-test M",
+    ]);
     runGit(
       workspaceRoot,
       ["commit", "--amend", "--no-edit"],
@@ -309,6 +317,129 @@ test("git graph keeps lanes aligned across join boundaries", async ({ page }) =>
   } finally {
     await fs.rm(mainPath, { force: true });
     await fs.rm(sidePath, { force: true });
+    if (createdRepo) {
+      await fs.rm(gitDir, { recursive: true, force: true });
+    }
+  }
+});
+
+test("git graph assigns distinct colors to more than 8 lanes", async ({
+  page,
+}) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
+
+  const gitDir = path.join(workspaceRoot, ".git");
+  const basePath = path.join(workspaceRoot, "graph-color-base.txt");
+  const topicPaths = Array.from({ length: 9 }, (_, idx) =>
+    path.join(workspaceRoot, `graph-color-topic-${idx + 1}.txt`),
+  );
+  const commitEnv = (isoTime: string): Record<string, string> => ({
+    GIT_AUTHOR_DATE: isoTime,
+    GIT_COMMITTER_DATE: isoTime,
+  });
+
+  const createdRepo = !(await pathExists(gitDir));
+  try {
+    if (createdRepo) {
+      runGit(workspaceRoot, ["init"]);
+      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
+      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
+    }
+
+    await fs.writeFile(basePath, "base\n", "utf8");
+    runGit(workspaceRoot, ["add", path.basename(basePath)]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-color base"],
+      commitEnv("2000-01-01T00:00:00Z"),
+    );
+
+    const defaultBranch = runGit(workspaceRoot, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]).trim();
+
+    const topicBranches: string[] = [];
+    for (let idx = 0; idx < topicPaths.length; idx += 1) {
+      const branch = `graph-color-topic-${idx + 1}`;
+      topicBranches.push(branch);
+
+      runGit(workspaceRoot, ["checkout", "-b", branch]);
+      await fs.writeFile(topicPaths[idx]!, `topic ${idx + 1}\n`, "utf8");
+      runGit(workspaceRoot, ["add", path.basename(topicPaths[idx]!)]);
+      runGit(
+        workspaceRoot,
+        ["commit", "-m", `graph-color T${idx + 1}`],
+        commitEnv(`2000-01-01T00:0${idx + 1}:00Z`),
+      );
+      runGit(workspaceRoot, ["checkout", defaultBranch]);
+    }
+
+    runGit(
+      workspaceRoot,
+      ["merge", "-m", "graph-color M", ...topicBranches],
+      commitEnv("2000-01-01T00:10:00Z"),
+    );
+    runGit(
+      workspaceRoot,
+      ["commit", "--amend", "--no-edit"],
+      commitEnv("2000-01-01T00:10:00Z"),
+    );
+
+    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
+    await ensureAppReady(page);
+
+    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+
+    await graphFilter.fill("graph-color M");
+    const mergeRow = graphOverlay.getByRole("button", {
+      name: /graph-color M/i,
+    });
+    await expect(mergeRow).toBeVisible();
+
+    const { laneCount, uniqueColors } = await mergeRow.evaluate((row) => {
+      const laneCountMatch = (row.textContent ?? "").match(/lanes\s*(\d+)/);
+      const parsedLaneCount = laneCountMatch ? Number(laneCountMatch[1]) : null;
+      const svg = row.querySelector("svg");
+      if (!svg) {
+        return { laneCount: parsedLaneCount, uniqueColors: null };
+      }
+
+      const colors = new Set<string>();
+      for (const el of svg.querySelectorAll("line,path")) {
+        const stroke = el.getAttribute("stroke");
+        if (stroke) {
+          colors.add(stroke);
+        }
+      }
+      const fill = svg.querySelector("circle")?.getAttribute("fill");
+      if (fill) {
+        colors.add(fill);
+      }
+
+      return { laneCount: parsedLaneCount, uniqueColors: colors.size };
+    });
+
+    expect(laneCount).not.toBeNull();
+    expect(laneCount).toBeGreaterThan(8);
+    expect(uniqueColors).toBe(laneCount);
+
+    await page.keyboard.press("Escape");
+    await expect(graphFilter).toHaveCount(0);
+  } finally {
+    for (const topicPath of topicPaths) {
+      await fs.rm(topicPath, { force: true });
+    }
+    await fs.rm(basePath, { force: true });
     if (createdRepo) {
       await fs.rm(gitDir, { recursive: true, force: true });
     }

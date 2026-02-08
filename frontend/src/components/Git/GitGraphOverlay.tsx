@@ -44,6 +44,99 @@ const LANE_COLORS_DARK = [
   "#22d3ee",
 ];
 
+const GOLDEN_ANGLE_DEG = 137.508;
+const GENERATED_LANE_COLORS_LIGHT = new Map<number, string>();
+const GENERATED_LANE_COLORS_DARK = new Map<number, string>();
+
+function clampNonNegative(value: number): number {
+  return value < 0 ? 0 : value;
+}
+
+function hexByte(value: number): string {
+  const clamped = Math.max(0, Math.min(255, Math.round(value)));
+  return clamped.toString(16).padStart(2, "0");
+}
+
+function hexFromRgb(r: number, g: number, b: number): string {
+  return `#${hexByte(r)}${hexByte(g)}${hexByte(b)}`;
+}
+
+function hslToRgb(
+  hueDeg: number,
+  s: number,
+  l: number,
+): [number, number, number] {
+  const hueNormalized = ((hueDeg % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hueNormalized / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+  if (hueNormalized < 60) {
+    r1 = c;
+    g1 = x;
+  } else if (hueNormalized < 120) {
+    r1 = x;
+    g1 = c;
+  } else if (hueNormalized < 180) {
+    g1 = c;
+    b1 = x;
+  } else if (hueNormalized < 240) {
+    g1 = x;
+    b1 = c;
+  } else if (hueNormalized < 300) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  return [
+    Math.round((r1 + m) * 255),
+    Math.round((g1 + m) * 255),
+    Math.round((b1 + m) * 255),
+  ];
+}
+
+function generatedLaneColor(colorId: number, darkMode: boolean): string {
+  const cache = darkMode
+    ? GENERATED_LANE_COLORS_DARK
+    : GENERATED_LANE_COLORS_LIGHT;
+  const cached = cache.get(colorId);
+  if (cached) {
+    return cached;
+  }
+
+  // Golden-angle hues distribute colors evenly without repeating.
+  const hue = (30 + colorId * GOLDEN_ANGLE_DEG) % 360;
+  const saturation = darkMode ? 0.72 : 0.78;
+  const lightnessBase = darkMode ? 0.66 : 0.44;
+  const lightness = lightnessBase + (colorId % 2 === 0 ? -0.04 : 0.04);
+  const [r, g, b] = hslToRgb(
+    hue,
+    saturation,
+    Math.min(0.78, Math.max(0.3, lightness)),
+  );
+  const color = hexFromRgb(r, g, b);
+
+  cache.set(colorId, color);
+  return color;
+}
+
+function laneColorForId(
+  colorId: number,
+  palette: readonly string[],
+  darkMode: boolean,
+): string {
+  if (colorId < palette.length) {
+    return palette[colorId] ?? palette[0] ?? "#000000";
+  }
+  return generatedLaneColor(colorId, darkMode);
+}
+
 type DecorationKind =
   | "head"
   | "branch"
@@ -255,6 +348,7 @@ export function GitGraphOverlay() {
                   rows: filteredRows,
                   selectedHash: graphState.selectedCommitHash,
                   palette,
+                  darkMode,
                   graphViewBoxWidth,
                 }}
                 style={{ height: listSize.height, width: listSize.width }}
@@ -323,7 +417,7 @@ export function GitGraphOverlay() {
               <GitDiffCodeMirror
                 value={graphState.selectedCommitResponse.diff}
                 height="100%"
-                className="h-full min-h-0 w-full min-w-0 [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px]"
+                className="h-full min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
               />
             ) : (
               <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
@@ -342,7 +436,8 @@ type GitCommitRowProps = {
   style: Record<string, unknown>;
   rows: GitGraphRow[];
   selectedHash: string | null;
-  palette: string[];
+  palette: readonly string[];
+  darkMode: boolean;
   graphViewBoxWidth: number;
 };
 
@@ -352,6 +447,7 @@ function GitCommitRow({
   rows,
   selectedHash,
   palette,
+  darkMode,
   graphViewBoxWidth,
 }: GitCommitRowProps) {
   const row = rows[index];
@@ -367,8 +463,8 @@ function GitCommitRow({
     0,
   );
   const rawCommitColorId = row.laneColorIds[row.laneIndex] ?? 0;
-  const commitColorId = rawCommitColorId < 0 ? 0 : rawCommitColorId;
-  const commitColor = palette[commitColorId % palette.length]!;
+  const commitColorId = clampNonNegative(rawCommitColorId);
+  const commitColor = laneColorForId(commitColorId, palette, darkMode);
 
   const allChips = commit.decorations
     .map(parseDecorationChip)
@@ -400,6 +496,7 @@ function GitCommitRow({
           joinFromLaneIndices={row.joinFromLaneIndices}
           mergeToLaneIndices={row.mergeToLaneIndices}
           palette={palette}
+          darkMode={darkMode}
           viewBoxWidth={graphViewBoxWidth}
         />
       </div>
@@ -515,6 +612,7 @@ function GitGraphCell({
   joinFromLaneIndices,
   mergeToLaneIndices,
   palette,
+  darkMode,
   viewBoxWidth,
 }: {
   laneIndex: number;
@@ -523,7 +621,8 @@ function GitGraphCell({
   laneEndIndices: number[];
   joinFromLaneIndices: number[];
   mergeToLaneIndices: number[];
-  palette: string[];
+  palette: readonly string[];
+  darkMode: boolean;
   viewBoxWidth: number;
 }) {
   const height = ROW_HEIGHT;
@@ -535,8 +634,8 @@ function GitGraphCell({
   const xForLane = (idx: number) => idx * LANE_WIDTH + LANE_WIDTH / 2;
 
   const rawCommitColorId = laneColorIds[laneIndex] ?? 0;
-  const commitColorId = rawCommitColorId < 0 ? 0 : rawCommitColorId;
-  const commitColor = palette[commitColorId % palette.length]!;
+  const commitColorId = clampNonNegative(rawCommitColorId);
+  const commitColor = laneColorForId(commitColorId, palette, darkMode);
 
   return (
     <svg
@@ -567,7 +666,7 @@ function GitGraphCell({
           return null;
         }
         const x = xForLane(idx);
-        const color = palette[colorId % palette.length]!;
+        const color = laneColorForId(colorId, palette, darkMode);
         return (
           <line
             key={`lane-${idx}`}
@@ -590,8 +689,9 @@ function GitGraphCell({
         // both ends (avoids a right-angle join at the commit dot).
         const controlY = centerY / 2;
         const fromColorIdRaw = laneColorIds[fromIdx] ?? commitColorId;
-        const fromColorId = fromColorIdRaw < 0 ? commitColorId : fromColorIdRaw;
-        const fromColor = palette[fromColorId % palette.length]!;
+        const fromColorId =
+          fromColorIdRaw < 0 ? commitColorId : clampNonNegative(fromColorIdRaw);
+        const fromColor = laneColorForId(fromColorId, palette, darkMode);
         return (
           <path
             key={`join-${fromIdx}-to-${laneIndex}`}
@@ -612,8 +712,9 @@ function GitGraphCell({
         // both ends (avoids a right-angle turn at the commit dot).
         const controlY = (centerY + height) / 2;
         const toColorIdRaw = laneColorIds[toIdx] ?? commitColorId;
-        const toColorId = toColorIdRaw < 0 ? commitColorId : toColorIdRaw;
-        const toColor = palette[toColorId % palette.length]!;
+        const toColorId =
+          toColorIdRaw < 0 ? commitColorId : clampNonNegative(toColorIdRaw);
+        const toColor = laneColorForId(toColorId, palette, darkMode);
         return (
           <path
             key={`merge-${laneIndex}-${toIdx}`}
