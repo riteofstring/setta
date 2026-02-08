@@ -172,6 +172,7 @@ async def test_agent_runner_generates_and_reuses_chat_titles_across_runs() -> No
         profile = AgentProfile(
             name="Managed chat",
             engineConfigId=ID("engine-1"),
+            enableLlmChatTitles=True,
         )
         messages = [UserChatMessage(content=[MessageTextContent(text="Hello world")])]
 

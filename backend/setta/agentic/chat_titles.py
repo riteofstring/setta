@@ -35,7 +35,7 @@ def build_chat_title_input(messages: list[BaseChatMessageUnion]) -> str:
 
 
 def compute_chat_title_input_hash(title_input: str) -> str:
-    normalized = title_input.strip().encode("utf-8")
+    normalized = _collapse_whitespace(title_input).encode("utf-8")
     return hashlib.sha256(normalized).hexdigest()
 
 

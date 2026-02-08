@@ -22,6 +22,7 @@ class AgenticContext:
     project_config_id: ID
     chat_id: ID | None
     section_id: ID | None
+    allow_unscoped: bool = False
 
 
 @dataclass(frozen=True)
@@ -49,8 +50,12 @@ class AgenticScopeCheck:
 def resolve_agentic_scope(
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID | None,
+    *,
+    allow_unscoped: bool = False,
 ) -> AgenticScope:
     if chat_section_id is None:
+        if not allow_unscoped:
+            return AgenticScope()
         all_section_ids = set(project_state.sections.keys())
         peer_chat_ids = _collect_chat_section_ids(project_state)
         return AgenticScope(
@@ -204,7 +209,7 @@ def check_agentic_scope_for_tool(
                 allowed=scope.structural_allowed,
                 access_type=access_type,
                 target_section_ids=target_section_ids,
-                blocked_section_ids=set() if scope.structural_allowed else set(),
+                blocked_section_ids=set(),
                 unmapped_code_obj_ids=unmapped_code_objs,
                 reason="write_without_targets"
                 if not scope.structural_allowed
@@ -330,6 +335,14 @@ def build_scope_blocked_tool_result(
             "the /__setta__/tools/call request body (agenticContext), "
             "or call 'set_agentic_context' first."
         )
+    elif scope_check.reason == "missing_section_id":
+        message = (
+            f"Tool '{tool_name}' blocked: missing sectionId in agentic context. "
+            "Provide a chat section id via MCP meta (sectionId) or request headers (x-setta-section-id). "
+            "If you intend an unscoped/project-level run, set allowUnscoped=true "
+            "(MCP meta allowUnscoped, header x-setta-allow-unscoped, /__setta__/tools/call agenticContext.allowUnscoped, "
+            "or call 'set_agentic_context' with allowUnscoped=true)."
+        )
     elif scope_check.reason in {
         "unmapped_code_obj",
         "out_of_scope_and_unmapped_code_obj",
@@ -436,10 +449,9 @@ def build_code_obj_id_to_section_ids_index(
     mapping: dict[ID, set[ID]] = {}
     for section_id in project_state.sections:
         section_impl = get_curr_effective_section_impl(project_state, section_id)
-        if isinstance(section_impl, BaseSectionWithParamsImpl):
-            for code_obj_id in section_impl.codeObjVariantMap:
-                mapping.setdefault(code_obj_id, set()).add(section_id)
-        elif isinstance(section_impl, MetaControlSectionImpl):
+        if isinstance(
+            section_impl, (BaseSectionWithParamsImpl, MetaControlSectionImpl)
+        ):
             for code_obj_id in section_impl.codeObjVariantMap:
                 mapping.setdefault(code_obj_id, set()).add(section_id)
         if isinstance(section_impl, CallableSectionImpl):

@@ -252,13 +252,6 @@ class TestMCPServerToolRegistration:
                 tool_calls=[tool_call],
                 allowed_server_ids={SETTA_MCP_SERVER_ID},
                 share_session_id=None,
-                agentic_scope=AgenticScope(
-                    read_section_ids={scope_section_id},
-                    write_section_ids={scope_section_id},
-                    context_section_ids=set(),
-                    peer_chat_section_ids=set(),
-                    structural_allowed=True,
-                ),
                 agentic_context=AgenticContext(
                     project_config_id=ID(
                         fixture.manager.project_state_backend.defaultProjectConfigId

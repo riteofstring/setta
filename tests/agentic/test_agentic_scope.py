@@ -102,10 +102,15 @@ class TestAgenticScope:
         assert peer_chat_id in scope.peer_chat_section_ids
         assert not scope.structural_allowed
 
-        project_scope = resolve_agentic_scope(project_state, None)
+        project_scope = resolve_agentic_scope(project_state, None, allow_unscoped=True)
         assert project_scope.structural_allowed
         assert context_section_id in project_scope.read_section_ids
         assert writable_section_id in project_scope.write_section_ids
+
+        denied_project_scope = resolve_agentic_scope(project_state, None)
+        assert not denied_project_scope.structural_allowed
+        assert denied_project_scope.read_section_ids == set()
+        assert denied_project_scope.write_section_ids == set()
 
     def test_build_missing_edge_hints_uses_correct_kind_and_direction(self) -> None:
         (

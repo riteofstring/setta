@@ -21,8 +21,8 @@ import { terminalCleanup, terminalTheme } from "./utils";
 // But in case of double renders (basically just StrictMode),
 // this keeps a list of websockets, so we can add the new websocket
 // while the old one gets deleted.
-const TERMINAL_WEBSOCKETS = {};
-const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
+const TERMINAL_WEBSOCKETS: Record<string, Array<WebSocket>> = {};
+const INITIAL_MESSAGES: Record<string, Array<string>> = {}; // maps from sectionId to a list of messages
 
 type TerminalSession = {
   terminal: Terminal;
@@ -255,7 +255,7 @@ function cleanupTerminalSession(sectionId: string, session: TerminalSession) {
 function newTerminalWebsocket(
   sectionId: string,
   shareSessionId: string | null,
-) {
+): { ws: WebSocket; wsId: string } {
   const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
   const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
@@ -310,7 +310,7 @@ function newTerminalWebsocket(
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-function addTerminalInitialMessage(sectionId, msg) {
+function addTerminalInitialMessage(sectionId: string, msg: string): void {
   if (!(sectionId in INITIAL_MESSAGES)) {
     INITIAL_MESSAGES[sectionId] = [];
   }
@@ -319,6 +319,9 @@ function addTerminalInitialMessage(sectionId, msg) {
   }
 }
 
-function removeWsFromArray(x, ws) {
+function removeWsFromArray(
+  x: Array<WebSocket>,
+  ws: WebSocket,
+): Array<WebSocket> {
   return x.filter((w) => w !== ws);
 }

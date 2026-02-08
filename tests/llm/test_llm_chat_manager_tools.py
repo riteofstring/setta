@@ -588,7 +588,6 @@ class TestToolDispatch:
                 tool_calls=[tool_call],
                 allowed_server_ids={SETTA_MCP_SERVER_ID},
                 share_session_id=None,
-                agentic_scope=_build_permissive_agentic_scope(),
                 agentic_context=AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=chat_id,

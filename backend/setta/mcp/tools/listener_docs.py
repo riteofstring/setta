@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
 from setta.mcp.tool_setup import setta_init_tool
@@ -37,6 +38,7 @@ class ListenerDocsBundle(BaseModel):
 def get_setta_docs(
     *,
     doc_ids: list[str] | None = None,
+    ctx: Context | None = None,  # noqa: ARG001
 ) -> ListenerDocsBundle:
     """
     Return docs from the Setta docs directory.

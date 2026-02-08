@@ -1,6 +1,6 @@
 from mcp.types import CallToolResult, TextContent
 
-from setta.agentic.agentic_scope import AgenticContext, AgenticScope
+from setta.agentic.agentic_scope import AgenticContext
 from setta.types.chat_messages import ToolCall
 from setta.types.id import ID
 
@@ -14,7 +14,6 @@ def build_execute_tool_calls_action(
     tool_calls: list[ToolCall],
     allowed_server_ids: set[str] | None,
     share_session_id: str | None,
-    agentic_scope: AgenticScope,
     agentic_context: AgenticContext,
 ) -> ExecuteToolCallsAction | None:
     if not tool_calls:
@@ -28,7 +27,6 @@ def build_execute_tool_calls_action(
         tool_calls=tool_calls,
         allowed_server_ids=resolved_allowed_server_ids,
         share_session_id=share_session_id,
-        agentic_scope=agentic_scope,
         agentic_context=agentic_context,
     )
 

@@ -70,8 +70,8 @@ class CreateAgentProfileRequest(BaseModel):
     name: str
     description: str = ""
     systemPrompt: str = ""
-    enableBackgroundSummaryFill: bool = True
-    enableLlmChatTitles: bool = True
+    enableBackgroundSummaryFill: bool = False
+    enableLlmChatTitles: bool = False
     engineConfigId: ID | None = None
     toolAllowlist: list[str] = Field(default_factory=list)
     memoryScope: str | None = None

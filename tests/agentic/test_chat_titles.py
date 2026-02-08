@@ -22,6 +22,9 @@ def test_build_deterministic_chat_title_collapses_whitespace_and_hashes_input() 
 
     assert result.title == "Hello world"
     assert result.input_hash == compute_chat_title_input_hash("Hello\nworld")
+    assert compute_chat_title_input_hash("Hello\nworld") == compute_chat_title_input_hash(
+        "Hello   world"
+    )
 
 
 def test_build_deterministic_chat_title_falls_back_when_missing_user_text() -> None:

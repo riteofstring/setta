@@ -68,6 +68,7 @@ const AgenticEdgeRenderer = () => {
     sectionVariants,
     sectionImpls,
     projectConfigId,
+    activeIds,
   } = useProjectState(
     (state) => ({
       agenticEdges: state.projectConfig.agenticEdges,
@@ -76,6 +77,7 @@ const AgenticEdgeRenderer = () => {
       sectionVariants: state.sectionVariants,
       sectionImpls: state.sectionImpls,
       projectConfigId: state.projectConfig.id,
+      activeIds: state.projectConfig.activeIds,
     }),
     shallow,
   );
@@ -103,7 +105,15 @@ const AgenticEdgeRenderer = () => {
     shallow,
   );
 
-  useUpdateAgenticScopeHighlights();
+  useUpdateAgenticScopeHighlights({
+    projectConfigId,
+    agenticEdges,
+    activeIds,
+    topLevelSections,
+    sectionVariantMap,
+    sectionVariants,
+    sectionImpls,
+  });
 
   const runningChatSectionIds = useMemo(() => {
     const running = new Set<string>();

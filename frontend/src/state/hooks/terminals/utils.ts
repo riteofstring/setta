@@ -1,3 +1,5 @@
+import type { Terminal } from "xterm";
+
 export const terminalTheme = {
   foreground: "#B8C2D5",
   // background: "#0D1016",
@@ -22,7 +24,7 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
-export function terminalCleanup(ws, terminal) {
+export function terminalCleanup(ws: WebSocket, terminal: Terminal): void {
   if (ws.readyState === 1) {
     ws.close();
     terminal.dispose();

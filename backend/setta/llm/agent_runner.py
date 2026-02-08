@@ -93,7 +93,7 @@ from setta.mcp.namespacing import (
     build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
-from setta.mcp.tool_metadata import FollowIdType
+from setta.mcp.tool_metadata import FollowIdType, SettaToolType
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -704,7 +704,6 @@ class AgentRunner:
                 set(self._resolve_mcp_server_ids(context.llm_config)),
             ),
             share_session_id=self.share_session_id,
-            agentic_scope=context.agentic_scope,
             agentic_context=context.agentic_context,
         )
         if execute_action is not None:
@@ -787,6 +786,16 @@ class AgentRunner:
             section_id = ID(raw_section_id)
         else:
             section_id = None
+        allow_unscoped = False
+        if inputs and "allowUnscoped" in inputs:
+            raw_allow_unscoped = inputs["allowUnscoped"]
+            if not isinstance(raw_allow_unscoped, bool):
+                raise TypeError("allowUnscoped must be a boolean")
+            allow_unscoped = raw_allow_unscoped
+        if section_id is None and not allow_unscoped:
+            raise ValueError("sectionId is required unless allowUnscoped is true.")
+        if section_id is not None and allow_unscoped:
+            raise ValueError("allowUnscoped requires sectionId to be omitted.")
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -808,7 +817,11 @@ class AgentRunner:
         project_state = convert_backend_to_single_config(
             project_state_backend, project_config_id
         )
-        agentic_scope = resolve_agentic_scope(project_state, section_id)
+        agentic_scope = resolve_agentic_scope(
+            project_state,
+            section_id,
+            allow_unscoped=allow_unscoped,
+        )
         resolved_chat_id = chat_id or run.id
         logger.debug(
             "Resolved agentic scope for managed run (project=%s, chat=%s, section=%s, read=%s write=%s context=%s peer=%s structural=%s).",
@@ -825,6 +838,7 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
             section_id=section_id,
+            allow_unscoped=allow_unscoped,
         )
         return AgentRunContext(
             run=run,
@@ -1590,6 +1604,10 @@ class AgentRunner:
                 filtered.append(name)
                 continue
             annotations = self.mcp_client.tool_annotations_by_name.get(name)
+            tool_type = getattr(annotations, "settaToolType", None)
+            if tool_type in (SettaToolType.init, SettaToolType.init.value):
+                filtered.append(name)
+                continue
             access_type = (
                 "structural" if annotations is None else annotations.accessType
             )

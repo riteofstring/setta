@@ -170,3 +170,35 @@ def test_agentic_summary_cache_status_reports_cached_and_empty_sources() -> None
         assert ID(empty_section_id) in status.emptySourceSectionIds
         assert ID(empty_section_id) in status.missingSectionIds
         assert ID(empty_section_id) not in status.wouldAttemptSectionIds
+
+
+def test_agentic_summary_cache_status_dedupes_duplicate_summary_edges() -> None:
+    settings, project_state, chat_section_id = _build_minimal_project()
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        set_text_block_text(project_state, section_id, "hello")
+        _add_summary_edge(
+            project_state,
+            source_section_id=ID(section_id),
+            chat_section_id=chat_section_id,
+        )
+        _add_summary_edge(
+            project_state,
+            source_section_id=ID(section_id),
+            chat_section_id=chat_section_id,
+        )
+
+        status = build_agentic_summary_cache_status_for_chat_section(
+            dbe,
+            project_state,
+            project_config_id=project_state.projectConfig.id,
+            chat_section_id=chat_section_id,
+        )
+        assert status.summarySectionIds == [ID(section_id)]
+        assert status.missingSectionIds == [ID(section_id)]

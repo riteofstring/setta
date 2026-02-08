@@ -1,5 +1,6 @@
 import json
 import tempfile
+from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -109,6 +110,43 @@ class DBE:
             )
 
         self.write(path, json.dumps(data, indent=2, sort_keys=True, default=default))
+
+    def update_json(self, path: Path, update_fn: Callable[[Any], Any]) -> Any:
+        """Atomically update a JSON file under a single file lock.
+
+        This prevents lost updates when multiple writers do a read/modify/write cycle
+        concurrently.
+        """
+
+        def default(obj: Any):
+            if isinstance(obj, Path):
+                return str(obj)
+            raise TypeError(
+                f"Object of type {obj.__class__.__name__} is not JSON serializable"
+            )
+
+        lock = self.get_file_lock(path)
+        with lock:
+            payload: Any
+            if path.exists():
+                raw = path.read_text(encoding="utf-8")
+                payload = json.loads(raw) if raw else {}
+            else:
+                payload = {}
+
+            updated = update_fn(payload)
+
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w", dir=path.parent, delete=False, suffix=".tmp"
+            ) as tmp:
+                tmp.write(
+                    json.dumps(updated, indent=2, sort_keys=True, default=default)
+                )
+                tmp_path = tmp.name
+
+            Path(tmp_path).replace(path)
+            return updated
 
     def read_yaml(self, path: Path) -> Any:
         raw = self.read(path)

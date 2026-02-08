@@ -773,6 +773,7 @@ export async function submitMessage(
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
+      allowUnscoped: sectionId == null,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
@@ -883,6 +884,7 @@ export async function submitEditedMessage({
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
+      allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
     });

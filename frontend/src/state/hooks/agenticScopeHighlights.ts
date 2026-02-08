@@ -3,11 +3,24 @@ import {
   buildSectionIdLookup,
   resolveAgenticScopeForChatSections,
 } from "state/agenticScopeUtils";
-import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
+import type { ZustandProjectState } from "state/definitions";
+import { useAgenticScopeHighlights } from "state/definitions";
+import type { AgenticEdge, TopLevelSectionLayout } from "utils/generatedTypes";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 
-export function useUpdateAgenticScopeHighlights(): void {
+type AgenticScopeHighlightInputs = {
+  projectConfigId: string;
+  agenticEdges: Array<AgenticEdge>;
+  activeIds: Array<string>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  sectionVariantMap: Record<string, string>;
+  sectionVariants: ZustandProjectState["sectionVariants"];
+  sectionImpls: ZustandProjectState["sectionImpls"];
+};
+
+export function useUpdateAgenticScopeHighlights(
+  inputs: AgenticScopeHighlightInputs,
+): void {
   const {
     projectConfigId,
     agenticEdges,
@@ -16,18 +29,7 @@ export function useUpdateAgenticScopeHighlights(): void {
     sectionVariantMap,
     sectionVariants,
     sectionImpls,
-  } = useProjectState(
-    (state) => ({
-      projectConfigId: state.projectConfig.id,
-      agenticEdges: state.projectConfig.agenticEdges,
-      activeIds: state.projectConfig.activeIds,
-      topLevelSections: state.projectConfig.topLevelSections,
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
-    }),
-    shallow,
-  );
+  } = inputs;
 
   const activeChatSectionIds = useMemo(() => {
     const chatSectionIds = new Set<string>();

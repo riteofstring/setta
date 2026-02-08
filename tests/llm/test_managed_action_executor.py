@@ -115,7 +115,6 @@ class TestManagedActionExecutor:
                 tool_calls=[tool_call],
                 allowed_server_ids={SETTA_MCP_SERVER_ID},
                 share_session_id=None,
-                agentic_scope=_build_agentic_scope(),
                 agentic_context=AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
@@ -211,7 +210,6 @@ class TestManagedActionExecutor:
                 tool_calls=[tool_call],
                 allowed_server_ids=set(),
                 share_session_id=None,
-                agentic_scope=_build_agentic_scope(),
                 agentic_context=AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
@@ -268,7 +266,6 @@ class TestManagedActionExecutor:
                 tool_calls=[tool_call],
                 allowed_server_ids=set(),
                 share_session_id=None,
-                agentic_scope=_build_agentic_scope(),
                 agentic_context=AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=ID("chat-1"),
@@ -431,13 +428,6 @@ class TestManagedActionExecutor:
                         tool_calls=[tool_call],
                         allowed_server_ids={SETTA_MCP_SERVER_ID},
                         share_session_id=None,
-                        agentic_scope=AgenticScope(
-                            read_section_ids={allowed_section_id},
-                            write_section_ids={allowed_section_id},
-                            context_section_ids=set(),
-                            peer_chat_section_ids=set(),
-                            structural_allowed=False,
-                        ),
                         agentic_context=AgenticContext(
                             project_config_id=project_config_id,
                             chat_id=ID("chat-1"),

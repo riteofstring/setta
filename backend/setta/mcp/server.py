@@ -59,6 +59,7 @@ from setta.agentic.agentic_scope import (
 from setta.database.db_objs import DBE
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import (
+    AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
@@ -86,6 +87,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _CATCH_ALL_PATH = "/{full_path:path}"
 AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION = 32
+
+# Init/utility tools that are allowed to run without agentic context. Keep this list
+# intentionally small because missing context otherwise represents a fail-open risk.
+MCP_UNSCOPED_TOOL_NAMES: set[str] = {
+    "getInstalledPythonPackages",
+    "getProjectConfigNamesAndIds",
+    "get_setta_docs",
+    "list_mcp_tools",
+    "read_file_range",
+    "search_mcp_tools",
+}
 
 
 @dataclass(frozen=True)
@@ -767,10 +779,17 @@ class SettaFastMCP(FastMCP):
                 project_config_id = _canonicalize(project_config_id)
                 chat_id = _canonicalize(_parse_meta_id(payload.get("chatId")))
                 section_id = _canonicalize(_parse_meta_id(payload.get("sectionId")))
+                allow_unscoped = False
+                raw_allow_unscoped = payload.get("allowUnscoped")
+                if raw_allow_unscoped is not None:
+                    if not isinstance(raw_allow_unscoped, bool):
+                        raise TypeError("allowUnscoped must be a boolean")
+                    allow_unscoped = raw_allow_unscoped
                 return AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=chat_id,
                     section_id=section_id,
+                    allow_unscoped=allow_unscoped,
                 )
         request = ctx.request_context.request
         if request is not None and hasattr(request, "headers"):
@@ -786,10 +805,23 @@ class SettaFastMCP(FastMCP):
                 section_id = _canonicalize(
                     _parse_meta_id(headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER))
                 )
+                allow_unscoped = False
+                raw_allow_unscoped = headers.get(AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER)
+                if raw_allow_unscoped is not None:
+                    normalized = raw_allow_unscoped.strip().lower()
+                    if normalized in {"1", "true", "yes"}:
+                        allow_unscoped = True
+                    elif normalized in {"0", "false", "no", ""}:
+                        allow_unscoped = False
+                    else:
+                        raise TypeError(
+                            f"{AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER} must be a boolean"
+                        )
                 return AgenticContext(
                     project_config_id=project_config_id,
                     chat_id=chat_id,
                     section_id=section_id,
+                    allow_unscoped=allow_unscoped,
                 )
         session = self._resolve_agentic_session(ctx)
         if session is None:
@@ -827,6 +859,9 @@ class SettaFastMCP(FastMCP):
                 kwargs.pop(key)
             ctx = next(iter(context_kwargs.values()), None)
             tool_name = func.__name__
+            tool = self._tool_manager.get_tool(tool_name)
+            annotations = tool.annotations if tool else None
+            allow_unscoped_tool = tool_name in MCP_UNSCOPED_TOOL_NAMES
             agentic_context = None
             has_request_context = False
             if ctx is not None:
@@ -844,7 +879,7 @@ class SettaFastMCP(FastMCP):
                 and ctx is not None
                 and has_request_context
             ):
-                if agentic_context is None:
+                if agentic_context is None and not allow_unscoped_tool:
                     logger.warning(
                         "Blocked MCP tool %s due to missing agentic context.",
                         tool_name,
@@ -872,6 +907,44 @@ class SettaFastMCP(FastMCP):
                     if len(self.canonical_to_temporary) != map_size_before:
                         self.dbe.write_temporary_id_map(self.canonical_to_temporary)
                     return result
+            if (
+                tool_name != "set_agentic_context"
+                and ctx is not None
+                and has_request_context
+                and agentic_context is not None
+                and not allow_unscoped_tool
+            ):
+                if (
+                    agentic_context.section_id is None
+                    and not agentic_context.allow_unscoped
+                ):
+                    logger.warning(
+                        "Blocked MCP tool %s due to missing sectionId in agentic context.",
+                        tool_name,
+                    )
+                    scope_check = AgenticScopeCheck(
+                        allowed=False,
+                        access_type="structural",
+                        target_section_ids=set(),
+                        blocked_section_ids=set(),
+                        unmapped_code_obj_ids=set(),
+                        reason="missing_section_id",
+                    )
+                    result = build_scope_blocked_tool_result(
+                        tool_name=tool_name,
+                        scope_check=scope_check,
+                        agentic_context=agentic_context,
+                        missing_edges=[],
+                    )
+                    map_size_before = len(self.canonical_to_temporary)
+                    result = convert_canonical_ids_to_temporary(
+                        result,
+                        self.canonical_to_temporary,
+                        self.temporary_to_canonical,
+                    )
+                    if len(self.canonical_to_temporary) != map_size_before:
+                        self.dbe.write_temporary_id_map(self.canonical_to_temporary)
+                    return result
             kwargs = convert_temporary_ids_to_canonical(
                 kwargs, self.temporary_to_canonical
             )
@@ -882,8 +955,11 @@ class SettaFastMCP(FastMCP):
             cache_key = None
             session = None
             project_state_revision = None
-            annotations = None
-            if tool_name != "set_agentic_context" and agentic_context is not None:
+            if (
+                tool_name != "set_agentic_context"
+                and agentic_context is not None
+                and not allow_unscoped_tool
+            ):
                 share_session_id = (
                     self._resolve_share_session_id(ctx)
                     if ctx is not None and has_request_context
@@ -935,7 +1011,9 @@ class SettaFastMCP(FastMCP):
                             agentic_context.project_config_id,
                         )
                         scope = resolve_agentic_scope(
-                            project_state, agentic_context.section_id
+                            project_state,
+                            agentic_context.section_id,
+                            allow_unscoped=agentic_context.allow_unscoped,
                         )
                         scope_cache[cache_key] = _CachedAgenticScope(
                             project_state_revision=project_state_revision,
@@ -954,7 +1032,9 @@ class SettaFastMCP(FastMCP):
                         agentic_context.project_config_id,
                     )
                     scope = resolve_agentic_scope(
-                        project_state, agentic_context.section_id
+                        project_state,
+                        agentic_context.section_id,
+                        allow_unscoped=agentic_context.allow_unscoped,
                     )
                 logger.debug(
                     "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
@@ -966,8 +1046,6 @@ class SettaFastMCP(FastMCP):
                     len(scope.context_section_ids),
                     scope.structural_allowed,
                 )
-                tool = self._tool_manager.get_tool(tool_name)
-                annotations = tool.annotations if tool else None
                 if (
                     code_obj_id_to_section_ids is None
                     and annotations is not None

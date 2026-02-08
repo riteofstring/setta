@@ -181,7 +181,9 @@ class TestAgentRunner:
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            default_context = runner._build_context(profile, inputs=None)
+            default_context = runner._build_context(
+                profile, inputs={"allowUnscoped": True}
+            )
             assert default_context.project_config_id == default_id
             assert default_context.chat_id == default_context.run.id
             assert default_context.section_id is None
@@ -243,13 +245,22 @@ class TestAgentRunner:
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             with pytest.raises(TypeError):
-                runner._build_context(profile, inputs={"projectConfigId": 123})
+                runner._build_context(
+                    profile,
+                    inputs={"projectConfigId": 123, "allowUnscoped": True},
+                )
             with pytest.raises(TypeError):
-                runner._build_context(profile, inputs={"chatId": 123})
+                runner._build_context(
+                    profile,
+                    inputs={"chatId": 123, "allowUnscoped": True},
+                )
             with pytest.raises(TypeError):
                 runner._build_context(profile, inputs={"sectionId": 123})
             with pytest.raises(TypeError):
-                runner._build_context(profile, inputs={"thinking": "yes"})
+                runner._build_context(
+                    profile,
+                    inputs={"thinking": "yes", "allowUnscoped": True},
+                )
 
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -275,7 +286,7 @@ class TestAgentRunner:
             with pytest.raises(KeyError):
                 runner._build_context(
                     profile,
-                    inputs={"engineConfigId": "engine-mismatch"},
+                    inputs={"engineConfigId": "engine-mismatch", "allowUnscoped": True},
                 )
 
     def test_system_prompt_includes_profile_and_project(self) -> None:
@@ -413,7 +424,10 @@ class TestAgentRunner:
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            context = runner._build_context(profile, inputs={"prompt": "hello"})
+            context = runner._build_context(
+                profile,
+                inputs={"prompt": "hello", "allowUnscoped": True},
+            )
             run = context.run
             runner._record_event(
                 run,
@@ -462,7 +476,10 @@ class TestAgentRunnerSubAgent:
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            run = await runner.run_sub_agent(profile, inputs={"prompt": "hello"})
+            run = await runner.run_sub_agent(
+                profile,
+                inputs={"prompt": "hello", "allowUnscoped": True},
+            )
 
             assert run.status == AgentRunStatus.completed
             loaded = load_agent_run(dbe, run.id)
@@ -534,7 +551,11 @@ class TestAgentRunnerStreamEvent:
             engine_config_id = ID("engine-primary")
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
-            context = runner._build_context(profile, inputs=None, emit_stream=False)
+            context = runner._build_context(
+                profile,
+                inputs={"allowUnscoped": True},
+                emit_stream=False,
+            )
             assistant_message = AssistantChatMessage(content=[])
 
             await runner._apply_actions(

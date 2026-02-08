@@ -1,13 +1,12 @@
 from setta.agentic.agentic_context import build_agentic_section_summary_source
-from setta.agentic.agentic_scope import resolve_context_edges
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
     get_cached_agentic_summary_from_entries,
     read_agentic_summary_cache,
+    resolve_summary_section_ids_for_chat_section,
 )
 from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN
 from setta.database.db_objs import DBE
-from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.agentic_observability import AgenticSummaryCacheStatus
 from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
@@ -23,14 +22,10 @@ def build_agentic_summary_cache_status_for_chat_section(
 ) -> AgenticSummaryCacheStatus:
     if chat_section_id not in project_state.sections:
         raise KeyError(f"Chat section {chat_section_id} not found in project state.")
-    context_edges = resolve_context_edges(project_state, chat_section_id)
-    summary_section_ids: list[ID] = []
-    for section_id, context_mode in context_edges:
-        if context_mode != AgenticEdgeContextMode.summary:
-            continue
-        if section_id not in project_state.sections:
-            continue
-        summary_section_ids.append(section_id)
+    summary_section_ids = resolve_summary_section_ids_for_chat_section(
+        project_state,
+        chat_section_id=chat_section_id,
+    )
 
     if not summary_section_ids:
         return AgenticSummaryCacheStatus(

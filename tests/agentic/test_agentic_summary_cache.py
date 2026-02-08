@@ -1,6 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
 import setta.agentic.agentic_summary_cache as summary_cache
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
@@ -164,6 +165,48 @@ def test_load_cached_agentic_summary_texts_for_chat_section_skips_missing_sectio
             chat_section_id=chat_section_id,
         )
         assert summaries == {}
+
+
+def test_load_cached_agentic_summary_texts_for_chat_section_raises_when_variant_mapping_missing() -> None:
+    with TemporaryDirectory() as tmpdir:
+        dbe = _build_dbe(tmpdir)
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="agentic-summary-cache-variant-map-test")
+        )
+        chat_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        context_section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+        create_agentic_edge(
+            project_state,
+            AgenticEdge(
+                id=create_new_id(),
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
+                contextMode=AgenticEdgeContextMode.summary,
+            ),
+        )
+
+        # Simulate project state corruption: section exists but variant mapping is missing.
+        project_state.projectConfig.sectionVariantMap.pop(context_section_id, None)
+
+        with pytest.raises(KeyError, match="missing variant mapping"):
+            load_cached_agentic_summary_texts_for_chat_section(
+                dbe,
+                project_state=project_state,
+                project_config_id=project_state.projectConfig.id,
+                chat_section_id=chat_section_id,
+            )
 
 
 def test_write_cached_agentic_summaries_prunes_by_project_config_limit() -> None:

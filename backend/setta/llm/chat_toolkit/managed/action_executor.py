@@ -202,6 +202,8 @@ class ManagedActionExecutor:
                                     else None
                                 ),
                             }
+                            if action.agentic_context.allow_unscoped:
+                                meta_payload["allowUnscoped"] = True
                             if action.share_session_id:
                                 meta_payload["shareSessionId"] = action.share_session_id
                             meta = meta_payload

@@ -23,7 +23,7 @@ class InstalledPythonPackageList(BaseModel):
 
 
 @setta_tool
-def getInstalledPythonPackages():
+def getInstalledPythonPackages(*, ctx: Context | None = None):  # noqa: ARG001
     """
     Returns the available packages and their version numbers in the current python environment.
     """
@@ -34,6 +34,12 @@ def getInstalledPythonPackages():
         packages.append(f"{name}={version}")
     packages.sort(key=lambda entry: entry.lower())
     return InstalledPythonPackageList(packages=packages)
+
+
+attach_tool_access(
+    getInstalledPythonPackages,
+    ToolAccessMetadata(accessType="read"),
+)
 
 
 @setta_tool
@@ -61,10 +67,8 @@ def getProjectConfigNamesAndIds(ctx: Context):
     """
     Return metadata for every known project config.
 
-    Note: this tool is still subject to agentic scope enforcement when called over
-    MCP transports. If you need an initial projectConfigId, use the HTTP metadata
-    discovery endpoint instead (for example `/loadAllProjectMetadata`) and then
-    set agentic context for MCP calls.
+    Note: this tool is an init tool, so it can be called without agentic context
+    to bootstrap a projectConfigId for later scoped calls.
     """
     manager = ctx.fastmcp.state.project_manager_switcher.main
     _, metadata = manager.get_all_project_metadata()

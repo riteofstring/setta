@@ -72,15 +72,26 @@ export async function ensureAppReady(page: Page): Promise<void> {
     return;
   }
 
-  const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie && BOOTSTRAP_TOKEN) {
-    await page.goto(
-      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-    );
+  let defaultConfig = await getDefaultConfigNameResult(page);
+  if (
+    !defaultConfig.name &&
+    (defaultConfig.status === 401 || defaultConfig.status === 403) &&
+    BOOTSTRAP_TOKEN
+  ) {
+    await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
     try {
       await waitForProjectUrl(page);
     } catch {
       // Fall through to the final readiness check below.
+    }
+    defaultConfig = await getDefaultConfigNameResult(page);
+  }
+
+  if (defaultConfig.name) {
+    const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
+    await page.goto(defaultUrl, { waitUntil: "domcontentloaded" });
+    if (await isAppReady(page)) {
+      return;
     }
   }
 
@@ -89,6 +100,7 @@ export async function ensureAppReady(page: Page): Promise<void> {
     return;
   }
 
+  const hasCookie = await hasAuthCookie(page);
   if (!BOOTSTRAP_TOKEN && !hasCookie) {
     throw new Error(
       "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
@@ -625,4 +637,29 @@ async function waitForProjectUrl(page: Page): Promise<void> {
 async function hasAuthCookie(page: Page): Promise<boolean> {
   const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
   return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
+}
+
+async function getDefaultConfigNameResult(page: Page): Promise<{
+  name: string | null;
+  status: number;
+}> {
+  const response = await page.request.post(
+    `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
+    {
+      data: {},
+    },
+  );
+  const status = response.status();
+  if (!response.ok()) {
+    return { name: null, status };
+  }
+  const text = await response.text();
+  if (!text) {
+    return { name: null, status };
+  }
+  const payload = JSON.parse(text) as unknown;
+  if (typeof payload !== "string" || !payload.trim()) {
+    return { name: null, status };
+  }
+  return { name: payload, status };
 }

@@ -172,7 +172,7 @@ class TestAgenticRoutes:
                 run = await route_start_agent_run(
                     StartAgentRunRequest(
                         profileId=profile.id,
-                        inputs={"prompt": "hello"},
+                        inputs={"prompt": "hello", "allowUnscoped": True},
                     ),
                     ctx,
                 )

@@ -165,11 +165,18 @@ def _build_context_with_headers(
     mcp_server: SettaFastMCP,
     project_config_id: ID,
     chat_id: ID,
-    section_id: ID,
+    section_id: ID | None,
 ) -> Context:
     class _DummyRequest:
         def __init__(self, headers: dict[str, str]) -> None:
             self.headers = headers
+
+    headers: dict[str, str] = {
+        AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER: str(project_config_id),
+        AGENTIC_CONTEXT_CHAT_ID_HEADER: str(chat_id),
+    }
+    if section_id is not None:
+        headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = str(section_id)
 
     request_context = RequestContext(
         request_id=1,
@@ -177,11 +184,7 @@ def _build_context_with_headers(
         session=object(),
         lifespan_context=object(),
         request=_DummyRequest(
-            headers={
-                AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER: str(project_config_id),
-                AGENTIC_CONTEXT_CHAT_ID_HEADER: str(chat_id),
-                AGENTIC_CONTEXT_SECTION_ID_HEADER: str(section_id),
-            }
+            headers=headers
         ),
     )
     return Context(fastmcp=mcp_server, request_context=request_context)
@@ -431,6 +434,63 @@ async def test_mcp_blocks_tool_calls_when_agentic_context_missing(tmp_path) -> N
     assert (
         result.structuredContent is not None
         and result.structuredContent.get("reason") == "missing_context"
+    )
+
+
+@pytest.mark.asyncio
+async def test_mcp_blocks_tool_calls_when_section_id_missing(tmp_path) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+    tmp_map = _seed_temporary_ids(
+        dbe,
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+    )
+    tmp_project_id = tmp_map[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+
+    ctx = _build_context_with_headers(
+        mcp_server=mcp_server,
+        project_config_id=project_config_id,
+        chat_id=ID("chat-1"),
+        section_id=None,
+    )
+    tool = mcp_server.get_tool("get_latest_project_state_summary")
+    assert tool is not None
+    result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
+    assert manager.summary_calls == 0
+
+    assert isinstance(result, CallToolResult)
+    assert result.isError
+    assert (
+        result.structuredContent is not None
+        and result.structuredContent.get("reason") == "missing_section_id"
     )
 
 

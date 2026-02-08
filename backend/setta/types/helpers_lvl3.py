@@ -301,7 +301,12 @@ def build_project_state_summary_section_index(
     project_state: ProjectStateSingleConfig,
     section_ids: set[ID],
 ) -> dict[ID, ProjectStateSummarySection]:
-    """Create a lightweight summary section map without copying ProjectConfig."""
+    """Create a lightweight summary section map without copying ProjectConfig.
+
+    Note: relationship fields (for example child section ids) may reference sections
+    outside `section_ids`. Callers should treat this as a per-section summary cache,
+    not as a relationship-traversal helper.
+    """
 
     allowed_ids = {sid for sid in section_ids if sid in project_state.sections}
     if not allowed_ids:

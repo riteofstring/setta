@@ -35,6 +35,7 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
+    allowUnscoped: bool = False
     shareSessionId: str | None = None
 
 

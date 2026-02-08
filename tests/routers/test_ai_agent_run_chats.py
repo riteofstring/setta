@@ -437,6 +437,7 @@ class TestAgentRunChatRoutes:
                             agentProfileId=None,
                             thinking=False,
                             projectConfigId=project_config_id,
+                            allowUnscoped=True,
                         ),
                         ctx,
                     )
@@ -485,6 +486,7 @@ class TestAgentRunChatRoutes:
                             agentProfileId=None,
                             thinking=False,
                             projectConfigId=project_config_id,
+                            allowUnscoped=True,
                             branchParentChatId=parent_chat_id,
                             branchFromMessageId=ID("missing"),
                         ),
@@ -495,6 +497,38 @@ class TestAgentRunChatRoutes:
             assert (
                 exc.value.detail
                 == "Message missing not found in chat history"
+            )
+
+    async def test_get_llm_response_requires_section_or_allow_unscoped(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Hello")],
+                            ),
+                            engineConfigId=ID("engine-1"),
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-1"),
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "sectionId is required unless allowUnscoped is true."
             )
 
     async def test_get_external_agent_chat_from_outputs(self) -> None:
