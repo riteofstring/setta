@@ -943,7 +943,10 @@ class SettaFastMCP(FastMCP):
                             scope=scope,
                             code_obj_id_to_section_ids=None,
                         )
-                        if len(scope_cache) > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION:
+                        if (
+                            len(scope_cache)
+                            > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION
+                        ):
                             scope_cache.pop(next(iter(scope_cache)))
                 else:
                     project_state = convert_backend_to_single_config(

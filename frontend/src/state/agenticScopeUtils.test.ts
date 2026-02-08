@@ -49,13 +49,21 @@ describe("resolveAgenticScopeForChatSections", () => {
       const scope = resolveAgenticScopeFromEdges(edges, chatSectionId);
       scope.readSectionIds.forEach((id) => expected.readSectionIds.add(id));
       scope.writeSectionIds.forEach((id) => expected.writeSectionIds.add(id));
-      scope.contextSectionIds.forEach((id) => expected.contextSectionIds.add(id));
-      scope.peerChatSectionIds.forEach((id) => expected.peerChatSectionIds.add(id));
+      scope.contextSectionIds.forEach((id) =>
+        expected.contextSectionIds.add(id),
+      );
+      scope.peerChatSectionIds.forEach((id) =>
+        expected.peerChatSectionIds.add(id),
+      );
     }
 
     const scope = resolveAgenticScopeForChatSections(edges, chatSectionIds);
-    expect(sortSet(scope.readSectionIds)).toEqual(sortSet(expected.readSectionIds));
-    expect(sortSet(scope.writeSectionIds)).toEqual(sortSet(expected.writeSectionIds));
+    expect(sortSet(scope.readSectionIds)).toEqual(
+      sortSet(expected.readSectionIds),
+    );
+    expect(sortSet(scope.writeSectionIds)).toEqual(
+      sortSet(expected.writeSectionIds),
+    );
     expect(sortSet(scope.contextSectionIds)).toEqual(
       sortSet(expected.contextSectionIds),
     );
@@ -64,4 +72,3 @@ describe("resolveAgenticScopeForChatSections", () => {
     );
   });
 });
-

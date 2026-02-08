@@ -178,7 +178,9 @@ export function receiveAgenticScopeViolationEdges({
       state.scopeViolationEdgesByProjectConfigId[projectConfigId] ??
       (state.scopeViolationEdgesByProjectConfigId[projectConfigId] = []);
     const existingKeys = new Set(
-      projectEdges.map((entry) => buildScopeViolationKey(projectConfigId, entry)),
+      projectEdges.map((entry) =>
+        buildScopeViolationKey(projectConfigId, entry),
+      ),
     );
     for (const edge of edges) {
       const edgeKey = buildScopeViolationKey(projectConfigId, edge);

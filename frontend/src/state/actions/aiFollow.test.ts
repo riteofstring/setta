@@ -39,8 +39,9 @@ describe("receiveAgenticScopeViolationEdges", () => {
     });
 
     const stored =
-      useAIFollow.getState().scopeViolationEdgesByProjectConfigId[projectConfigId];
+      useAIFollow.getState().scopeViolationEdgesByProjectConfigId[
+        projectConfigId
+      ];
     expect(stored).toEqual([edgeA, edgeB]);
   });
 });
-

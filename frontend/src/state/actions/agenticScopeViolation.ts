@@ -29,7 +29,9 @@ export function extractAgenticScopeViolation(
     typeof structuredPayload.message === "string"
       ? structuredPayload.message
       : "Tool blocked by agentic scope.";
-  const edgesRaw: unknown[] = Array.isArray(structuredPayload.missingEdgesCanonical)
+  const edgesRaw: unknown[] = Array.isArray(
+    structuredPayload.missingEdgesCanonical,
+  )
     ? structuredPayload.missingEdgesCanonical
     : [];
   const edges = edgesRaw
