@@ -29,6 +29,10 @@ type ProjectStateResponse = {
       attachedTerminalSectionId?: string | null;
       children?: string[];
       code?: string;
+      size?: {
+        width: number | "auto";
+        height: number | "auto";
+      };
     }
   >;
 };
@@ -1472,6 +1476,514 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
         `Command echo reflow assertion failed.\n\nTerminal rows tail:\n${relevant}\n\nOriginal error: ${String(err)}`,
       );
     }
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
+test("attached terminal text reflows when width increases", async ({ page }) => {
+  test.setTimeout(process.env.CI ? 120000 : 90000);
+  await addTerminalOutputInstrumentation(page);
+  await addTerminalResizeInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    const terminalId = await createTerminalSection(page);
+
+    await postBackend(page, "/setCodeSectionAttachedTerminal", {
+      projectConfigId,
+      sectionId: codeSectionId,
+      terminalSectionId: terminalId,
+    });
+    const attachedId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+    expect(attachedId).toBe(terminalId);
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
+    });
+
+    // Reset counters so we only measure the explicit narrow->wide resize flow.
+    await page.evaluate(() => {
+      window.__terminalResizeCountsBySectionId = {};
+      window.__terminalLastResizeBySectionId = {};
+      window.__terminalResizePhase = "idle";
+    });
+
+    await setSectionSize(page, terminalId, { width: 320, height: 420 });
+    await expect
+      .poll(async () => {
+        const box = await embeddedTerminalHost.boundingBox();
+        return box ? box.width : 0;
+      })
+      .toBeGreaterThan(220);
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    const narrowResize = await getTerminalLastResize(page, terminalId);
+    if (!narrowResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} after narrow sizing.`,
+      );
+    }
+    const narrowCols = narrowResize.cols;
+    if (!Number.isFinite(narrowCols) || narrowCols <= 0) {
+      throw new Error(
+        `Invalid narrow terminal cols observed for ${terminalId}: ${String(narrowCols)}`,
+      );
+    }
+
+    // Write a long line that should unwrap into fewer rows after widening.
+    const marker = `ATTACHED_REFLOW_${Date.now()}`;
+    const xCount = Math.max(120, 3 * narrowCols);
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `python -c "m='${marker}'; print(m, flush=True); print(m + '_' + 'x'*${xCount}, flush=True)"`,
+    );
+    await waitForTerminalOutputMarker(page, terminalId, `${marker}_`, 20000);
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineWrapRows(rows, marker);
+      })
+      .toBeGreaterThan(3);
+    const narrowRowCount = countLongLineWrapRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      marker,
+    );
+    expect(narrowRowCount).toBeGreaterThan(3);
+
+    const resizeCountBeforeWide = await page.evaluate((id) => {
+      const counts = window.__terminalResizeCountsBySectionId?.[id];
+      if (!counts) {
+        return 0;
+      }
+      return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+    }, terminalId);
+
+    await setSectionSize(page, terminalId, { width: 920, height: 420 });
+    await expect
+      .poll(async () => {
+        const box = await embeddedTerminalHost.boundingBox();
+        return box ? box.width : 0;
+      })
+      .toBeGreaterThan(600);
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(resizeCountBeforeWide);
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    const wideResize = await getTerminalLastResize(page, terminalId);
+    if (!wideResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} after wide sizing.`,
+      );
+    }
+    if (wideResize.cols <= narrowCols) {
+      throw new Error(
+        `Expected terminal cols to increase after widening: narrow=${narrowCols} wide=${wideResize.cols}`,
+      );
+    }
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineWrapRows(rows, marker);
+      })
+      .toBeLessThan(narrowRowCount);
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
+test("detached terminal text reflows when width increases", async ({ page }) => {
+  test.setTimeout(process.env.CI ? 120000 : 90000);
+  await addTerminalOutputInstrumentation(page);
+  await addTerminalResizeInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId } = await createNewProjectConfig(page);
+
+  try {
+    const terminalId = await createTerminalSection(page);
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
+    });
+
+    await page.evaluate(() => {
+      window.__terminalResizeCountsBySectionId = {};
+      window.__terminalLastResizeBySectionId = {};
+      window.__terminalResizePhase = "idle";
+    });
+
+    await setSectionSize(page, terminalId, { width: 320, height: 420 });
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    const narrowResize = await getTerminalLastResize(page, terminalId);
+    if (!narrowResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} after narrow sizing.`,
+      );
+    }
+    const narrowCols = narrowResize.cols;
+    if (!Number.isFinite(narrowCols) || narrowCols <= 0) {
+      throw new Error(
+        `Invalid narrow terminal cols observed for ${terminalId}: ${String(narrowCols)}`,
+      );
+    }
+
+    const marker = `DETACHED_REFLOW_${Date.now()}`;
+    const xCount = Math.max(120, 3 * narrowCols);
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `python -c "m='${marker}'; print(m, flush=True); print(m + '_' + 'x'*${xCount}, flush=True)"`,
+    );
+    await waitForTerminalOutputMarker(page, terminalId, `${marker}_`, 20000);
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineWrapRows(rows, marker);
+      })
+      .toBeGreaterThan(3);
+    const narrowRowCount = countLongLineWrapRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      marker,
+    );
+    expect(narrowRowCount).toBeGreaterThan(3);
+
+    await setSectionSize(page, terminalId, { width: 920, height: 420 });
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+
+    const wideResize = await getTerminalLastResize(page, terminalId);
+    if (!wideResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} after wide sizing.`,
+      );
+    }
+    if (wideResize.cols <= narrowCols) {
+      throw new Error(
+        `Expected terminal cols to increase after widening: narrow=${narrowCols} wide=${wideResize.cols}`,
+      );
+    }
+
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineWrapRows(rows, marker);
+      })
+      .toBeLessThan(narrowRowCount);
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
+test("attaching a narrow terminal to a wider code section expands terminal cols", async ({
+  page,
+}) => {
+  test.setTimeout(process.env.CI ? 120000 : 90000);
+  await addTerminalOutputInstrumentation(page);
+  await addTerminalResizeInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    const terminalId = await createTerminalSection(page);
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
+    });
+
+    // Establish a narrow detached baseline first.
+    await setSectionSize(page, terminalId, { width: 320, height: 420 });
+    await expect
+      .poll(async () => {
+        return await page.evaluate((id) => {
+          const counts = window.__terminalResizeCountsBySectionId?.[id];
+          if (!counts) {
+            return 0;
+          }
+          return (counts.drag ?? 0) + (counts.post ?? 0) + (counts.idle ?? 0);
+        }, terminalId);
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+    const narrowResize = await getTerminalLastResize(page, terminalId);
+    if (!narrowResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} before attach.`,
+      );
+    }
+    const narrowCols = narrowResize.cols;
+
+    // Attach to a wider code section and verify cols increase after embed.
+    await setSectionSize(page, codeSectionId, { width: 920, height: 520 });
+    await postBackend(page, "/setCodeSectionAttachedTerminal", {
+      projectConfigId,
+      sectionId: codeSectionId,
+      terminalSectionId: terminalId,
+    });
+
+    const attachedId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+    expect(attachedId).toBe(terminalId);
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+
+    await expect
+      .poll(async () => {
+        const resize = await getTerminalLastResize(page, terminalId);
+        return resize?.cols ?? 0;
+      })
+      .toBeGreaterThan(narrowCols);
+    const wideResize = await getTerminalLastResize(page, terminalId);
+    if (!wideResize || wideResize.cols <= narrowCols) {
+      const wideCols = wideResize ? wideResize.cols : "none";
+      throw new Error(
+        `Expected terminal cols to increase after attach: narrow=${narrowCols} wide=${wideCols}`,
+      );
+    }
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
+test("terminal created as attached reflows while attached and after detach", async ({
+  page,
+}) => {
+  test.setTimeout(process.env.CI ? 120000 : 90000);
+  await addTerminalOutputInstrumentation(page);
+  await addTerminalResizeInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const codeSectionId = await createCodeSection(page);
+    const codeNode = page.locator(`.react-flow__node[data-id="${codeSectionId}"]`);
+    const toggleButton = codeNode.locator("[data-attached-terminal-toggle]");
+    await expect(toggleButton).toHaveCount(1);
+    await toggleButton.click({ force: true });
+
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      codeSectionId,
+    );
+    const embeddedTerminalHost = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
+    });
+
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        const terminalImpl = resolveSectionImpl(state, terminalId);
+        return terminalImpl?.size?.height ?? "missing";
+      })
+      .not.toBe("auto");
+
+    await page.evaluate(() => {
+      window.__terminalResizeCountsBySectionId = {};
+      window.__terminalLastResizeBySectionId = {};
+      window.__terminalResizePhase = "idle";
+    });
+
+    await setSectionSize(page, terminalId, { width: 320, height: 420 });
+    await expect
+      .poll(async () => {
+        const resize = await getTerminalLastResize(page, terminalId);
+        return resize?.cols ?? 0;
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+    const narrowAttachedResize = await getTerminalLastResize(page, terminalId);
+    if (!narrowAttachedResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} in attached narrow state.`,
+      );
+    }
+
+    const attachedMarker = `ATTACHED_INIT_REFLOW_${Date.now()}`;
+    const attachedXCount = Math.max(120, 3 * narrowAttachedResize.cols);
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `python -c "m='${attachedMarker}'; print(m, flush=True); print(m + '_' + 'x'*${attachedXCount}, flush=True)"`,
+    );
+    await waitForTerminalOutputMarker(
+      page,
+      terminalId,
+      `${attachedMarker}_`,
+      20000,
+    );
+    const attachedNarrowRows = countLongLineWrapRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      attachedMarker,
+    );
+    expect(attachedNarrowRows).toBeGreaterThan(3);
+
+    await setSectionSize(page, terminalId, { width: 920, height: 420 });
+    await expect
+      .poll(async () => {
+        const resize = await getTerminalLastResize(page, terminalId);
+        return resize?.cols ?? 0;
+      })
+      .toBeGreaterThan(narrowAttachedResize.cols);
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineWrapRows(rows, attachedMarker);
+      })
+      .toBeLessThan(attachedNarrowRows);
+
+    const codeBox = await codeNode.boundingBox();
+    if (!codeBox) {
+      throw new Error("Missing code section bounding box for detach move.");
+    }
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [terminalId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [terminalId]: {
+          x: Math.round(codeBox.x + codeBox.width + 200),
+          y: Math.round(codeBox.y),
+        },
+      },
+    });
+    const detachedTerminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalId}"]`,
+    );
+    await expect(detachedTerminalNode).toBeVisible();
+
+    await setSectionSize(page, terminalId, { width: 340, height: 420 });
+    await expect
+      .poll(async () => {
+        const resize = await getTerminalLastResize(page, terminalId);
+        return resize?.cols ?? 0;
+      })
+      .toBeGreaterThan(0);
+    await waitForTerminalResizeCountsToStabilize(page, terminalId, {
+      timeoutMs: 20000,
+      stableMs: 750,
+    });
+    const narrowDetachedResize = await getTerminalLastResize(page, terminalId);
+    if (!narrowDetachedResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} in detached narrow state.`,
+      );
+    }
+
+    const detachedMarker = `DETACHED_AFTER_ATTACH_INIT_${Date.now()}`;
+    const detachedXCount = Math.max(120, 3 * narrowDetachedResize.cols);
+    await focusTerminalAndType(
+      page,
+      terminalId,
+      `python -c "m='${detachedMarker}'; print(m, flush=True); print(m + '_' + 'x'*${detachedXCount}, flush=True)"`,
+    );
+    await waitForTerminalOutputMarker(
+      page,
+      terminalId,
+      `${detachedMarker}_`,
+      20000,
+    );
+    const detachedNarrowRows = countLongLineWrapRows(
+      await getTerminalRowsSnapshot(page, terminalId),
+      detachedMarker,
+    );
+    expect(detachedNarrowRows).toBeGreaterThan(3);
+
+    await setSectionSize(page, terminalId, { width: 940, height: 420 });
+    await expect
+      .poll(async () => {
+        const resize = await getTerminalLastResize(page, terminalId);
+        return resize?.cols ?? 0;
+      })
+      .toBeGreaterThan(narrowDetachedResize.cols);
+    await expect
+      .poll(async () => {
+        const rows = await getTerminalRowsSnapshot(page, terminalId);
+        return countLongLineWrapRows(rows, detachedMarker);
+      })
+      .toBeLessThan(detachedNarrowRows);
   } finally {
     await deleteProjectConfigById(page, projectConfigId);
   }
