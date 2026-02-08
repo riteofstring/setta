@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from pathlib import PurePosixPath
 import subprocess
@@ -119,3 +120,30 @@ def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
     assert captured["remote_command"] is not None
     assert "/nohup-" in captured["remote_command"]
     assert "/nohup.out" not in captured["remote_command"]
+
+
+def test_run_ssh_command_reports_missing_ssh_binary() -> None:
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_common.run_ssh_command(
+            "user@host",
+            [],
+            "echo hi",
+            ssh_prefix=["ssh-does-not-exist"],
+            timeout=0.1,
+        )
+    assert excinfo.value.code == "SshMissing"
+
+
+def test_apply_control_socket_args_uses_hashed_control_path() -> None:
+    if os.name != "posix":
+        pytest.skip("Control socket defaults only apply on POSIX.")
+    args = ssh_common.apply_control_socket_args([])
+    assert "ControlPath=/tmp/setta-ctl-%C" in args
+
+
+def test_extract_token_from_bootstrap_url_ignores_extra_fragment_params() -> None:
+    url = (
+        "http://127.0.0.1:8000/__setta__/bootstrap"
+        "#token=abc123&wh=payload&lo=http%3A%2F%2Fexample.com"
+    )
+    assert ssh_common.extract_token_from_bootstrap_url(url) == "abc123"

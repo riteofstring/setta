@@ -6,6 +6,8 @@ import psutil
 import pytest
 
 from setta import ssh_connect
+from setta.launch import LaunchError
+from tests.utils.setta_paths import temporary_setta_paths
 
 
 def _spawn_sleep_process() -> subprocess.Popen[str]:
@@ -84,3 +86,25 @@ def test_stop_pid_treats_no_such_process_races_as_success(
 
     # Should not raise even if the process disappears between checks.
     ssh_connect._stop_pid(99, expected_create_time=123.456)
+
+
+def test_ensure_ssh_tunnel_reports_missing_ssh_binary(tmp_path) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    setta_files_root = tmp_path / "setta_files"
+    setta_files_root.mkdir()
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_root=setta_files_root,
+    ):
+        with pytest.raises(LaunchError) as excinfo:
+            ssh_connect._ensure_ssh_tunnel(
+                ssh_target="user@host",
+                ssh_prefix=["ssh-does-not-exist"],
+                ssh_args=[],
+                remote_host="127.0.0.1",
+                remote_port=61234,
+                requested_local_port=61000,
+            )
+    assert excinfo.value.code == "SshMissing"

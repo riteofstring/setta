@@ -4,12 +4,14 @@ import signal
 from contextlib import suppress
 from pathlib import Path
 import socket
+import subprocess
 import urllib.request
 
 import psutil
 import pytest
 from click.testing import CliRunner
 
+from setta.launch import LaunchError, launch_workspace_session
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.start import cli, launch
@@ -256,6 +258,39 @@ def test_launch_starts_new_session(tmp_path: Path, monkeypatch) -> None:
     psutil.wait_procs(alive, timeout=10)
 
     registry.delete_session(session_id)
+
+
+def test_launch_workspace_session_reports_spawn_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    files_root = tmp_path / "state"
+    files_root.mkdir()
+
+    def fail_popen(*_args, **_kwargs):
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", fail_popen)
+
+    with pytest.raises(LaunchError) as excinfo:
+        launch_workspace_session(
+            workspace_root=workspace,
+            files_root=files_root,
+            files_root_base=None,
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+    assert excinfo.value.code == "LaunchFailed"
+
+    logs_dir = files_root / "runtime" / "logs"
+    log_files = sorted(logs_dir.iterdir())
+    assert len(log_files) == 1
+    log_path = log_files[0]
+    assert str(log_path) in str(excinfo.value)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "failed to spawn setta process" in content
 
 
 def test_launch_reuses_existing_session_with_global_root_options(

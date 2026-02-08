@@ -1,4 +1,5 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+import { safeLocalStorage } from "utils/storage";
 
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
@@ -69,14 +70,12 @@ function normalizeNullablePort(value: unknown): number | null {
 function buildEntryKey(entry: {
   workspaceRoot: string;
   sshTarget: string | null;
-  localPort: number | null;
   filesRoot: string | null;
   filesRootBase: string | null;
 }) {
   const normalized = {
     workspaceRoot: normalizePathLike(entry.workspaceRoot),
     sshTarget: normalizeNullableString(entry.sshTarget),
-    localPort: entry.localPort ?? null,
     filesRoot: normalizeNullablePathLike(entry.filesRoot),
     filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
   };
@@ -132,11 +131,12 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
 }
 
 export function loadWorkspaceHistory(): WorkspaceHistoryEntry[] {
-  if (typeof localStorage === "undefined") {
+  const storage = safeLocalStorage();
+  if (!storage) {
     return [];
   }
   try {
-    const raw = localStorage.getItem(HISTORY_KEY);
+    const raw = storage.getItem(HISTORY_KEY);
     if (!raw) {
       return [];
     }
@@ -148,11 +148,12 @@ export function loadWorkspaceHistory(): WorkspaceHistoryEntry[] {
 }
 
 export function saveWorkspaceHistory(entries: WorkspaceHistoryEntry[]) {
-  if (typeof localStorage === "undefined") {
+  const storage = safeLocalStorage();
+  if (!storage) {
     return;
   }
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
+    storage.setItem(HISTORY_KEY, JSON.stringify(entries));
   } catch (error) {
     console.warn("Failed to save workspace history", error);
   }
@@ -205,13 +206,14 @@ function encodeWorkspaceHistoryForUrlHash(
 }
 
 export function consumeWorkspaceHistoryHandoff(): void {
-  if (typeof localStorage === "undefined") {
+  const storage = safeLocalStorage();
+  if (!storage) {
     return;
   }
 
   let encoded: string | null = null;
   try {
-    encoded = localStorage.getItem(HISTORY_HANDOFF_KEY);
+    encoded = storage.getItem(HISTORY_HANDOFF_KEY);
   } catch {
     return;
   }
@@ -221,7 +223,7 @@ export function consumeWorkspaceHistoryHandoff(): void {
   }
 
   try {
-    localStorage.removeItem(HISTORY_HANDOFF_KEY);
+    storage.removeItem(HISTORY_HANDOFF_KEY);
   } catch {
     // Ignore storage failures.
   }

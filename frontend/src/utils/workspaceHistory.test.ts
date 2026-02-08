@@ -11,10 +11,12 @@ describe("workspaceHistory", () => {
   let memoryStorage: Storage;
   let originalBtoa: unknown;
   let originalAtob: unknown;
+  let originalWindow: unknown;
 
   beforeAll(() => {
     originalBtoa = (globalThis as { btoa?: unknown }).btoa;
     originalAtob = (globalThis as { atob?: unknown }).atob;
+    originalWindow = (globalThis as { window?: unknown }).window;
     (globalThis as { btoa?: unknown }).btoa = (value: string) =>
       Buffer.from(value, "binary").toString("base64");
     (globalThis as { atob?: unknown }).atob = (value: string) =>
@@ -38,6 +40,9 @@ describe("workspaceHistory", () => {
       },
     };
     (globalThis as { localStorage?: Storage }).localStorage = memoryStorage;
+    (globalThis as { window?: unknown }).window = {
+      localStorage: memoryStorage,
+    };
   });
 
   beforeEach(() => {
@@ -46,6 +51,11 @@ describe("workspaceHistory", () => {
 
   afterAll(() => {
     delete (globalThis as { localStorage?: Storage }).localStorage;
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      (globalThis as { window?: unknown }).window = originalWindow;
+    }
     if (originalBtoa === undefined) {
       delete (globalThis as { btoa?: unknown }).btoa;
     } else {
@@ -122,6 +132,28 @@ describe("workspaceHistory", () => {
     expect(workspaceHistoryEntryKey(entryA)).not.toBe(
       workspaceHistoryEntryKey(entryB),
     );
+  });
+
+  it("dedupes entries that only differ by localPort", () => {
+    const existing = [
+      {
+        workspaceRoot: "/tmp/work",
+        sshTarget: "user@host",
+        localPort: 61000,
+        filesRoot: null,
+        filesRootBase: null,
+        lastUsedAt: 1,
+      },
+    ];
+    const nextEntry = {
+      ...existing[0],
+      localPort: 62000,
+      lastUsedAt: 2,
+    };
+
+    const merged = upsertWorkspaceHistoryEntry(existing, nextEntry);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].localPort).toBe(62000);
   });
 
   it("coerces partial entries from localStorage safely", () => {

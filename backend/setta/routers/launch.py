@@ -57,22 +57,13 @@ class LaunchResponse(BaseModel):
     sessionId: str | None = None
     startedNew: bool | None = None
     session: LaunchSessionInfo | None = None
+    remoteCmdResolved: str | None = None
     error: LaunchErrorPayload | None = None
 
 
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
-        if (
-            x.filesRoot is not None
-            and x.filesRoot.strip()
-            and x.filesRootBase is not None
-            and x.filesRootBase.strip()
-        ):
-            raise LaunchError(
-                "FilesRootConflict",
-                "Choose either filesRoot or filesRootBase (not both).",
-            )
         if x.sshTarget:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,
@@ -102,6 +93,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 filesRoot=resolved_files_root,
                 sessionId=remote.session.id,
                 startedNew=remote.started_new,
+                remoteCmdResolved=remote.remote_cmd_resolved,
                 session=LaunchSessionInfo(
                     id=remote.session.id,
                     workspacePath=remote.session.workspace_path,

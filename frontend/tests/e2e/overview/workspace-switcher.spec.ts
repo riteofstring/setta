@@ -96,6 +96,7 @@ test("workspace switcher launches a session and persists history", async ({
   await modal.getByRole("button", { name: "Launch" }).click();
   await page.waitForURL("**/launching");
   await expect(page.getByText("Workspace root does not exist")).toBeVisible();
+  await expect(page.getByTestId("workspace-launch-spinner")).toHaveText("!");
   await page.getByRole("button", { name: "Back to Switcher" }).click();
 
   const modalAfterError = page.getByRole("dialog");

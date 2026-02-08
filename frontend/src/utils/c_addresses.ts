@@ -3,6 +3,7 @@ import { C } from "utils/c";
 import { RouteEnum } from "utils/generatedTypes";
 import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
+import { safeSessionStorage } from "utils/storage";
 
 export class C_ADDRESSES {
   static get DEV_MODE() {
@@ -10,11 +11,12 @@ export class C_ADDRESSES {
   }
 
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
-    if (typeof sessionStorage === "undefined") {
+    const storage = safeSessionStorage();
+    if (!storage) {
       return undefined;
     }
     try {
-      const rawOverride = sessionStorage.getItem(
+      const rawOverride = storage.getItem(
         BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
       );
       if (!rawOverride) {

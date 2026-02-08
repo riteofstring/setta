@@ -142,12 +142,11 @@ class SessionRegistry:
 
     def resolve_secret_path(self, metadata: SessionMetadata) -> Path:
         secret_path = Path(metadata.secretPath)
-        if secret_path.is_absolute():
-            return secret_path
-        workspace_root = self._canonicalize_workspace_path(
-            metadata.workspacePathCanonical
-        )
-        return workspace_root / secret_path
+        if not secret_path.is_absolute():
+            raise ValueError(
+                f"Invalid session metadata for {metadata.id}: secretPath must be absolute."
+            )
+        return secret_path
 
     def load_secret(self, metadata: SessionMetadata) -> bytes:
         secret_path = self.resolve_secret_path(metadata)
@@ -189,10 +188,21 @@ class SessionRegistry:
             logger.warning("Failed to read session metadata at %s", path, exc_info=True)
             return None
         try:
-            return SessionMetadata.model_validate(raw)
+            metadata = SessionMetadata.model_validate(raw)
         except ValidationError:
             logger.warning("Invalid session metadata at %s", path, exc_info=True)
             return None
+        secret_path = Path(metadata.secretPath)
+        if not secret_path.is_absolute():
+            logger.warning(
+                "Invalid session metadata at %s (secretPath must be absolute).", path
+            )
+            try:
+                shutil.rmtree(path.parent)
+            except OSError:
+                pass
+            return None
+        return metadata
 
     def _is_session_stale(self, metadata: SessionMetadata) -> bool:
         if metadata.pid <= 0:

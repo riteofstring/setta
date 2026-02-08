@@ -10,6 +10,7 @@ import {
   loadWorkspaceHistory,
   upsertWorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
+import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import {
   clearPendingWorkspaceLaunch,
   readPendingWorkspaceLaunch,
@@ -32,6 +33,10 @@ type LaunchPhase =
       workspaceRoot: string;
       sshTarget: string | null;
     };
+
+type RouteLaunchResult = Awaited<ReturnType<typeof route_launch>>;
+
+const inFlightLaunchesByKey = new Map<string, Promise<RouteLaunchResult>>();
 
 function formatElapsedMs(ms: number): string {
   const seconds = ms / 1000;
@@ -86,7 +91,11 @@ export function WorkspaceLaunchPage() {
     });
 
     async function runLaunch() {
-      const res = await route_launch(pending.request);
+      const res = await dedupeInFlightJson(
+        inFlightLaunchesByKey,
+        pending.request,
+        route_launch,
+      );
       if (!isMounted) {
         return;
       }
@@ -225,7 +234,19 @@ export function WorkspaceLaunchPage() {
   return (
     <main className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-8">
       <section className="flex w-full max-w-[560px] flex-col items-center gap-5 rounded-2xl border border-setta-200 bg-white/70 p-8 text-center shadow-sm backdrop-blur-sm dark:border-setta-700 dark:bg-setta-900/40">
-        <div className="h-12 w-12 animate-spin rounded-full border-2 border-setta-500/70 border-t-transparent dark:border-setta-600 dark:border-t-transparent" />
+        {phase.status === "error" ? (
+          <div
+            data-testid="workspace-launch-spinner"
+            className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-red-400/70 bg-red-50 text-lg font-semibold text-red-700 dark:border-red-600/70 dark:bg-red-900/30 dark:text-red-200"
+          >
+            !
+          </div>
+        ) : (
+          <div
+            data-testid="workspace-launch-spinner"
+            className="h-12 w-12 animate-spin rounded-full border-2 border-setta-500/70 border-t-transparent dark:border-setta-600 dark:border-t-transparent"
+          />
+        )}
 
         <div className="space-y-2">
           <h1 className="text-sm font-semibold uppercase tracking-[0.3em] text-setta-600 dark:text-setta-100">

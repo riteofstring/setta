@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 import requests
 
+from setta.auth.bootstrap import origin_from_backend_url, select_auth_cookie_name
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
@@ -25,17 +26,6 @@ from setta.types.section_impls import BaseSectionWithParamsImpl
 from setta.types.settings_state import RunSnapshotMode
 from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
-
-
-def _select_auth_cookie_name(cookie_names: list[str]) -> str | None:
-    prefix = f"{C.AUTH_COOKIE_NAME}_"
-    for name in cookie_names:
-        if name.startswith(prefix):
-            return name
-    for name in cookie_names:
-        if name == C.AUTH_COOKIE_NAME:
-            return name
-    return None
 
 
 @dataclass(slots=True)
@@ -331,7 +321,7 @@ class SettaRunner:
         )
 
     def _consume_bootstrap_token(self, token: str) -> str:
-        origin = _origin_from_backend_url(self._base_url)
+        origin = origin_from_backend_url(self._base_url)
         consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
         response = self._session.post(consume_url, json={"token": token})
         response.raise_for_status()
@@ -339,7 +329,7 @@ class SettaRunner:
         cookie_names = list(cookie_map.keys())
         if not cookie_names:
             raise ValueError("Bootstrap response did not include auth cookie.")
-        cookie_name = _select_auth_cookie_name(cookie_names)
+        cookie_name = select_auth_cookie_name(cookie_names)
         if not cookie_name:
             raise ValueError("Bootstrap response did not include auth cookie.")
         cookie_value = cookie_map.get(cookie_name)
@@ -431,13 +421,6 @@ class SettaRunner:
             ProjectConfig(**item) for item in data.get("projectMetadata", [])
         ]
         return self._project_configs
-
-
-def _origin_from_backend_url(backend_url: str) -> str:
-    parsed = urlparse(backend_url)
-    if not parsed.scheme or not parsed.netloc:
-        raise ValueError(f"Invalid backend URL: {backend_url}")
-    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 def _parse_base_url(base_url: str) -> tuple[str | None, int | None]:

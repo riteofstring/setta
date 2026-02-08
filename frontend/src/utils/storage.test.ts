@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { safeSessionStorage } from "./storage";
+import { safeLocalStorage, safeSessionStorage } from "./storage";
 
 function buildMemoryStorage(): Storage {
   const storage = new Map<string, string>();
@@ -59,5 +59,46 @@ describe("safeSessionStorage", () => {
     expect(typeof window).not.toBe("undefined");
 
     expect(safeSessionStorage()).toBe(memory);
+  });
+});
+
+describe("safeLocalStorage", () => {
+  const originalWindow = (globalThis as unknown as { window?: unknown }).window;
+
+  afterEach(() => {
+    if (originalWindow === undefined) {
+      delete (globalThis as unknown as { window?: unknown }).window;
+      return;
+    }
+    (globalThis as unknown as { window?: unknown }).window = originalWindow;
+  });
+
+  it("returns undefined when window is missing", () => {
+    delete (globalThis as unknown as { window?: unknown }).window;
+
+    expect(safeLocalStorage()).toBeUndefined();
+  });
+
+  it("returns undefined when localStorage access throws", () => {
+    (globalThis as unknown as { window?: unknown }).window = {};
+    expect(typeof window).not.toBe("undefined");
+    Object.defineProperty(window, "localStorage", {
+      get() {
+        throw new Error("blocked");
+      },
+      configurable: true,
+    });
+
+    expect(safeLocalStorage()).toBeUndefined();
+  });
+
+  it("returns localStorage when accessible", () => {
+    const memory = buildMemoryStorage();
+    (globalThis as unknown as { window?: unknown }).window = {
+      localStorage: memory,
+    };
+    expect(typeof window).not.toBe("undefined");
+
+    expect(safeLocalStorage()).toBe(memory);
   });
 });

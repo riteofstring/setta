@@ -1786,12 +1786,7 @@ def connect(
     proc.wait()
 
 
-@click.group(
-    invoke_without_command=True,
-    context_settings=dict(
-        ignore_unknown_options=True,
-    ),
-)
+@click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", type=int, default=None, help="backend port (random if omitted)")

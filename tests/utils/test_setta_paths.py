@@ -13,6 +13,9 @@ from setta.utils.paths import (
 
 @pytest.fixture(autouse=True)
 def _clear_runtime_root_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SETTA_WORKSPACE_ROOT", raising=False)
+    monkeypatch.delenv("SETTA_FILES_ROOT", raising=False)
+    monkeypatch.delenv("SETTA_FILES_ROOT_BASE", raising=False)
     monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
 
 
@@ -133,6 +136,18 @@ def test_build_files_root_from_base_sanitizes_leaf(tmp_path: Path) -> None:
     base_root = tmp_path / "state"
     result = build_files_root_from_base(base_root, workspace)
     assert result.name.startswith("workspace-")
+
+
+def test_build_files_root_from_base_truncates_long_workspace_names(tmp_path: Path) -> None:
+    base_root = tmp_path / "state"
+    workspace = tmp_path / ("a" * 200)
+
+    result = build_files_root_from_base(base_root, workspace)
+
+    expected_digest = hashlib.sha256(str(workspace).encode("utf-8")).hexdigest()[:8]
+    assert result.name.endswith(f"-{expected_digest}")
+    leaf = result.name[: -(len(expected_digest) + 1)]
+    assert len(leaf) <= 48
 
 
 def test_runtime_root_env_override(

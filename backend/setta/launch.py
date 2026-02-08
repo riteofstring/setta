@@ -26,6 +26,20 @@ class LaunchError(RuntimeError):
         self.code = code
 
 
+def validate_files_root_options(
+    *,
+    files_root: Path | str | None,
+    files_root_base: Path | str | None,
+) -> None:
+    if _has_explicit_optional_path(files_root) and _has_explicit_optional_path(
+        files_root_base
+    ):
+        raise LaunchError(
+            "FilesRootConflict",
+            "Choose either files root or files root base (not both).",
+        )
+
+
 def _has_explicit_optional_path(value: Path | str | None) -> bool:
     if value is None:
         return False
@@ -51,13 +65,7 @@ def launch_workspace_session(
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
     ignore_env_files_root: bool = False,
 ) -> LaunchResult:
-    if _has_explicit_optional_path(files_root) and _has_explicit_optional_path(
-        files_root_base
-    ):
-        raise LaunchError(
-            "FilesRootConflict",
-            "Choose either files root or files root base (not both).",
-        )
+    validate_files_root_options(files_root=files_root, files_root_base=files_root_base)
 
     paths = resolve_setta_paths(
         workspace_root=workspace_root,
@@ -143,6 +151,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"launch-{time.time_ns()}-{os.getpid()}.log"
     handle = log_path.open("w", encoding="utf-8")
+    process: subprocess.Popen[str] | None = None
     try:
         popen_kwargs: dict[str, object] = {
             "stdout": handle,
@@ -155,12 +164,29 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             popen_kwargs["start_new_session"] = True
         elif sys.platform == "win32":
             popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        process = subprocess.Popen(
-            cmd,
-            **popen_kwargs,
-        )
+        try:
+            process = subprocess.Popen(
+                cmd,
+                **popen_kwargs,
+            )
+        except OSError as exc:
+            try:
+                handle.write(f"[setta] failed to spawn setta process: {exc}\n")
+                handle.write(f"[setta] command: {cmd!r}\n")
+                handle.flush()
+            except OSError:
+                pass
+            raise LaunchError(
+                "LaunchFailed",
+                f"Failed to start Setta. Check logs at: {log_path}",
+            ) from exc
     finally:
         handle.close()
+    if process is None:  # pragma: no cover
+        raise LaunchError(
+            "LaunchFailed",
+            f"Failed to start Setta. Check logs at: {log_path}",
+        )
     return _LaunchProcess(process=process, log_path=log_path)
 
 
@@ -185,7 +211,10 @@ def _wait_for_session(
         if process.poll() is not None:
             details = _read_log_tail(log_path)
             message = details or "Setta exited before session startup completed."
-            raise LaunchError("LaunchFailed", message)
+            raise LaunchError(
+                "LaunchFailed",
+                f"{message}\n\nCheck logs at: {log_path}",
+            )
         if time.monotonic() >= deadline:
             _terminate_launch_process(process, log_path=log_path)
             raise LaunchError(

@@ -10,6 +10,25 @@ logger = logging.getLogger(__name__)
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
 
+_HTTP_TOKEN_SEPARATORS = set("()<>@,;:\\\"/[]?={} \t")
+
+
+def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> str:
+    if raw is None:
+        return default
+    trimmed = raw.strip()
+    if not trimmed:
+        return default
+
+    def is_token_char(ch: str) -> bool:
+        codepoint = ord(ch)
+        if codepoint < 0x21 or codepoint > 0x7E:
+            return False
+        return ch not in _HTTP_TOKEN_SEPARATORS
+
+    sanitized = "".join(ch if is_token_char(ch) else "_" for ch in trimmed)
+    return sanitized or default
+
 
 class classproperty:
     """Descriptor for creating class-level properties"""
@@ -101,7 +120,16 @@ class C:
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None
 
-    AUTH_COOKIE_NAME = os.environ.get("SETTA_AUTH_COOKIE_NAME", "setta_auth")
+    _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
+    AUTH_COOKIE_NAME = normalize_cookie_name(_raw_auth_cookie_name, default="setta_auth")
+    if _raw_auth_cookie_name is not None:
+        _trimmed_auth_cookie_name = _raw_auth_cookie_name.strip()
+        if _trimmed_auth_cookie_name and _trimmed_auth_cookie_name != AUTH_COOKIE_NAME:
+            logger.warning(
+                "Sanitized SETTA_AUTH_COOKIE_NAME=%r to %r",
+                _trimmed_auth_cookie_name,
+                AUTH_COOKIE_NAME,
+            )
     AUTH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 12
     AUTH_COOKIE_REFRESH_WINDOW_SECONDS = 60 * 60
     AUTH_COOKIE_SAMESITE = "lax"

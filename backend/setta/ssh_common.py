@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from setta.launch import LaunchError
 from setta.utils.network import format_host_for_ssh_tunnel
@@ -67,8 +68,16 @@ def run_ssh_command(
             text=True,
             timeout=timeout,
         )
+    except FileNotFoundError as exc:
+        ssh_bin = cmd[0] if cmd else "ssh"
+        raise LaunchError(
+            "SshMissing",
+            f"ssh binary not found ({ssh_bin!r}). Install ssh or set SETTA_SSH_BIN.",
+        ) from exc
     except subprocess.TimeoutExpired as exc:
         raise LaunchError("SshTimeout", f"SSH command timed out: {exc.cmd}") from exc
+    except OSError as exc:
+        raise LaunchError("SshFailed", f"SSH command failed: {exc}") from exc
 
 
 def parse_json_payload(output: str) -> dict[str, Any]:
@@ -223,7 +232,7 @@ def apply_control_socket_args(ssh_args: list[str]) -> list[str]:
         "-o",
         "ControlPersist=5m",
         "-o",
-        "ControlPath=~/.ssh/setta-ctl-%r@%h:%p",
+        "ControlPath=/tmp/setta-ctl-%C",
     ]
     return control_args + ssh_args
 
@@ -604,10 +613,17 @@ def start_remote_setta(
 
 
 def extract_token_from_bootstrap_url(url: str) -> str:
-    marker = "#token="
-    if marker not in url:
-        raise LaunchError("RemoteToken", "Bootstrap URL missing token fragment.")
-    return url.split(marker, 1)[1]
+    parsed = urlparse(url)
+    for candidate in (parsed.fragment, parsed.query):
+        if not candidate:
+            continue
+        params = parse_qs(candidate)
+        token_values = params.get("token")
+        if token_values:
+            token = token_values[0].strip()
+            if token:
+                return token
+    raise LaunchError("RemoteToken", "Bootstrap URL missing token parameter.")
 
 
 def build_ssh_tunnel_args(

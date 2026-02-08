@@ -1,18 +1,7 @@
 import { normalizeOrigin } from "utils/origin";
-import { safeSessionStorage } from "utils/storage";
+import { safeLocalStorage, safeSessionStorage } from "utils/storage";
 
 const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";
-
-function safeLocalStorage(): Storage | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  try {
-    return window.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 
 function launcherOriginStorage(): Storage | undefined {
   return import.meta.env?.DEV ? safeSessionStorage() : safeLocalStorage();

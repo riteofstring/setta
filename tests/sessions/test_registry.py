@@ -113,6 +113,37 @@ def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:
     assert [session.id for session in sessions] == [good_session_id]
 
 
+def test_load_sessions_prunes_relative_secret_paths(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "rel1"
+    session_dir = sessions_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    (session_dir / "secret").write_bytes(b"secret")
+
+    (session_dir / "session.json").write_text(
+        json.dumps(
+            {
+                "id": session_id,
+                "workspacePath": str(workspace),
+                "workspacePathCanonical": str(workspace.resolve()),
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 12345,
+                # Session metadata should always store absolute secret paths.
+                "secretPath": "secret",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.load_sessions(prune_stale=False)
+    assert sessions == []
+    assert not session_dir.exists()
+
+
 def test_find_sessions_by_workspace_resolves_paths() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         root = Path(temp_dir)

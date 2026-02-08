@@ -11,7 +11,7 @@ from pathlib import Path
 import psutil
 from pydantic import BaseModel
 
-from setta.launch import LaunchError
+from setta.launch import LaunchError, validate_files_root_options
 from setta.ssh_common import (
     RemoteSessionSummary,
     apply_control_socket_args,
@@ -39,6 +39,7 @@ class RemoteConnectResult:
     bootstrap_url_fragment: str
     session: RemoteSessionSummary
     started_new: bool
+    remote_cmd_resolved: str
 
 
 class SshTunnelMetadata(BaseModel):
@@ -72,6 +73,7 @@ def connect_remote_workspace_session(
         )
     if local_port is not None and not (1 <= local_port <= 65535):
         raise LaunchError("InvalidLocalPort", f"Invalid local port: {local_port}")
+    validate_files_root_options(files_root=files_root, files_root_base=files_root_base)
 
     ssh_prefix = ssh_command_prefix(batch_mode=True)
     ssh_args_list = apply_control_socket_args(parse_ssh_args(ssh_args))
@@ -166,6 +168,7 @@ def connect_remote_workspace_session(
         bootstrap_url_fragment=local_bootstrap_url,
         session=session,
         started_new=started_new,
+        remote_cmd_resolved=setta_command,
     )
 
 
@@ -412,7 +415,18 @@ def _ensure_ssh_tunnel(
             popen_kwargs["start_new_session"] = True
         elif sys.platform == "win32":
             popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        proc = subprocess.Popen(tunnel_args, **popen_kwargs)
+        try:
+            proc = subprocess.Popen(tunnel_args, **popen_kwargs)
+        except FileNotFoundError as exc:
+            raise LaunchError(
+                "SshMissing",
+                "ssh binary not found. Install ssh or set SETTA_SSH_BIN.",
+            ) from exc
+        except OSError as exc:
+            raise LaunchError(
+                "TunnelStartFailed",
+                f"Failed to start SSH tunnel: {exc}",
+            ) from exc
         try:
             ensure_background_process_started(proc)
         except LaunchError as exc:
