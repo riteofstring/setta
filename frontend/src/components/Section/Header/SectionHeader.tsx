@@ -26,6 +26,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
+import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
@@ -235,6 +236,7 @@ function _SectionHeader({
             />
           </>
         )}
+        <AttachedTerminalControls sectionId={sectionId} isUserView={isUserView} />
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}

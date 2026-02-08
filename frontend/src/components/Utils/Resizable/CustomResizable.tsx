@@ -5,6 +5,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
+  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import {
   adjustSizeToBeAtLeastMin,
@@ -29,7 +30,7 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { route_set_section_sizes } from "utils/generatedEndpoints";
-import { SectionSize } from "utils/generatedTypes";
+import { SectionSize, SectionTypeEnum } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   getChangedSize,
@@ -448,6 +449,21 @@ function CustomResizableSuperCore({
   const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
+  const isAttachedTerminalChild = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.Terminal) {
+      return false;
+    }
+    const parentId = x.parentSectionMap[sectionId] ?? null;
+    if (!parentId) {
+      return false;
+    }
+    const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
+    if (!isBaseCodeSectionType(parentImpl.type)) {
+      return false;
+    }
+    return parentImpl.attachedTerminalSectionId === sectionId;
+  });
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );
@@ -505,6 +521,24 @@ function CustomResizableSuperCore({
 
   let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
   let handleClasses = handleBaseClasses;
+  const handleWrapperClassName = isAttachedTerminalChild
+    ? "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30"
+    : "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
+
+  if (isAttachedTerminalChild) {
+    // Keep handles inside the parent code section outline so they don't feel clipped.
+    handleStyles = {
+      right: { right: "-4px", width: 16, top: 0, bottom: 0, height: "100%" },
+      bottom: {
+        bottom: "-4px",
+        height: 16,
+        left: 0,
+        right: 0,
+        width: "100%",
+      },
+      bottomRight: { right: "-4px", bottom: "-4px", width: 24, height: 24 },
+    };
+  }
 
   function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
     if (!onResizePointerDown) {
@@ -595,7 +629,7 @@ function CustomResizableSuperCore({
       lockAspectRatio={aspectRatio}
       lockAspectRatioExtraHeight={aspectRatioExtraHeight}
       lockAspectRatioExtraWidth={aspectRatioExtraWidth}
-      handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
+      handleWrapperClass={handleWrapperClassName}
       enable={enable}
       className={inputClasses}
       handleStyles={handleStyles}

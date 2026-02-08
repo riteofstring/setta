@@ -71,7 +71,9 @@ export function SectionContainerCoreResizable({
       if (candidateId) {
         const childImpl = getCurrEffectiveSectionImpl(x, candidateId);
         hasEmbeddedTerminal =
-          childImpl?.type === SectionTypeEnum.Terminal && children.length < 2;
+          childImpl?.type === SectionTypeEnum.Terminal &&
+          !childImpl.isMinimized &&
+          children.length < 2;
       }
     }
     return {

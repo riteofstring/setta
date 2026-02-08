@@ -123,7 +123,8 @@ test("terminal text selection stays aligned at react flow zoom", async ({
   await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const terminalId = await createTerminalSection(page);
@@ -187,7 +188,9 @@ test("terminal text selection stays aligned at react flow zoom", async ({
       startOffset,
       endOffset,
     });
-    expect(selectionAtZoomOut.replace(/\r/g, "").trimEnd()).toBe(normalizedZoom1);
+    expect(selectionAtZoomOut.replace(/\r/g, "").trimEnd()).toBe(
+      normalizedZoom1,
+    );
 
     const zoomInButton = page.getByRole("button", { name: "zoom in" });
     await zoomInButton.click();
@@ -212,7 +215,9 @@ test("terminal text selection stays aligned at react flow zoom", async ({
       startOffset,
       endOffset,
     });
-    expect(selectionAtZoomIn.replace(/\r/g, "").trimEnd()).toBe(normalizedZoom1);
+    expect(selectionAtZoomIn.replace(/\r/g, "").trimEnd()).toBe(
+      normalizedZoom1,
+    );
   } finally {
     await deleteProjectConfigById(page, projectConfigId);
   }
@@ -224,7 +229,8 @@ test("attached terminal renders without header and resizes independently", async
   test.setTimeout(90000);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
@@ -244,10 +250,23 @@ test("attached terminal renders without header and resizes independently", async
     await expect(codeEditor).toBeVisible();
     await expect(terminalHost).toBeVisible();
 
-    const terminalSection = terminalHost.locator("xpath=ancestor::section[1]");
+    const terminalSection = codeNode.locator(
+      `section[data-section-id="${terminalId}"]`,
+    );
     await expect(terminalSection).toBeVisible();
     await expect(terminalSection.locator("header.section-title")).toHaveCount(
       0,
+    );
+
+    const codeSection = codeNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const codeHeader = codeSection.locator("header.section-title");
+    await expect(codeHeader.locator("[data-attached-terminal-toggle]")).toHaveCount(
+      1,
+    );
+    await expect(codeHeader.locator("[data-attached-terminal-trash]")).toHaveCount(
+      1,
     );
     await expect(
       terminalSection.locator(".section-resize-handle-bottom"),
@@ -290,7 +309,8 @@ test("embedded terminal code editor scrolls when content overflows", async ({
   test.setTimeout(90000);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
@@ -329,13 +349,231 @@ test("embedded terminal code editor scrolls when content overflows", async ({
   }
 });
 
+test("embedded terminal group renders a single outline + agentic handles and toggling off reverts join styling", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+
+    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const joinedGroup = codeNode.locator("[data-joined-code-terminal-group]");
+    await expect(joinedGroup).toBeVisible();
+
+    const codeSection = codeNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const terminalSection = codeNode.locator(
+      `section[data-section-id="${terminalId}"]`,
+    );
+    await expect(codeSection).toBeVisible();
+    await expect(terminalSection).toBeVisible();
+
+    await expect(codeSection).toHaveClass(/rounded-b-none/);
+    await expect(terminalSection).toHaveClass(/rounded-t-none/);
+
+    const agenticHandles = codeNode.locator(
+      ".react-flow__handle.agentic-handle",
+    );
+    await expect(agenticHandles).toHaveCount(2);
+
+    await expect
+      .poll(async () => {
+        const widths = await Promise.all([
+          joinedGroup.evaluate(
+            (el) => window.getComputedStyle(el).outlineWidth,
+          ),
+          codeSection.evaluate(
+            (el) => window.getComputedStyle(el).outlineWidth,
+          ),
+          terminalSection.evaluate(
+            (el) => window.getComputedStyle(el).outlineWidth,
+          ),
+        ]);
+        return widths.join("|");
+      })
+      .toBe("4px|0px|0px");
+
+    const codeHeader = codeSection.locator("header.section-title");
+    const toggleButton = codeHeader.locator("[data-attached-terminal-toggle]");
+    await expect(toggleButton).toHaveCount(1);
+    await toggleButton.click({ force: true });
+
+    const terminalHost = codeNode.locator(
+      `[data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    await expect(joinedGroup).toHaveCount(0);
+    await expect(terminalHost).toHaveCount(0);
+    await expect(codeSection).not.toHaveClass(/rounded-b-none/);
+    await expect(terminalSection).toHaveCount(0);
+    await expect(agenticHandles).toHaveCount(2);
+
+    await toggleButton.click({ force: true });
+    await expect(joinedGroup).toBeVisible();
+    await expect(terminalHost).toBeVisible();
+    await expect(codeSection).toHaveClass(/rounded-b-none/);
+    await expect(terminalSection).toBeVisible();
+    await expect(terminalSection).toHaveClass(/rounded-t-none/);
+    await expect(agenticHandles).toHaveCount(2);
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
+test("resizing embedded terminal width also resizes the code section", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+
+    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeSection = codeNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const terminalSection = codeNode.locator(
+      `section[data-section-id="${terminalId}"]`,
+    );
+    await expect(codeSection).toBeVisible();
+    await expect(terminalSection).toBeVisible();
+
+    const initialBoxes = await Promise.all([
+      codeSection.boundingBox(),
+      terminalSection.boundingBox(),
+    ]);
+    const initialCodeBox = initialBoxes[0];
+    const initialTerminalBox = initialBoxes[1];
+    if (!initialCodeBox || !initialTerminalBox) {
+      throw new Error("Missing bounding boxes for embedded resize check.");
+    }
+
+    const nextWidth = Math.round(initialTerminalBox.width + 160);
+
+    await setSectionSize(page, terminalId, { width: nextWidth });
+
+    await expect
+      .poll(async () => {
+        const nextBoxes = await Promise.all([
+          codeSection.boundingBox(),
+          terminalSection.boundingBox(),
+        ]);
+        const nextCodeBox = nextBoxes[0];
+        const nextTerminalBox = nextBoxes[1];
+        if (!nextCodeBox || !nextTerminalBox) {
+          return false;
+        }
+        const codeDelta = nextCodeBox.width - initialCodeBox.width;
+        const widthDiff = Math.abs(nextCodeBox.width - nextTerminalBox.width);
+        return codeDelta > 60 && widthDiff < 3;
+      })
+      .toBe(true);
+
+    const finalBoxes = await Promise.all([
+      codeSection.boundingBox(),
+      terminalSection.boundingBox(),
+    ]);
+    const finalCodeBox = finalBoxes[0];
+    const finalTerminalBox = finalBoxes[1];
+    if (!finalCodeBox || !finalTerminalBox) {
+      throw new Error("Missing final bounding boxes for embedded resize check.");
+    }
+    expect(finalCodeBox.width - initialCodeBox.width).toBeGreaterThan(60);
+    expect(Math.abs(finalCodeBox.width - finalTerminalBox.width)).toBeLessThan(
+      3,
+    );
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
+test("embedded terminal code header trash deletes the attached terminal", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    await runCodeBlockInPage(page, sectionId);
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+
+    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeSection = codeNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const codeHeader = codeSection.locator("header.section-title");
+    const toggleButton = codeHeader.locator("[data-attached-terminal-toggle]");
+    const trashButton = codeHeader.locator("[data-attached-terminal-trash]");
+    await expect(toggleButton).toHaveCount(1);
+    await expect(trashButton).toHaveCount(1);
+
+    await toggleButton.click({ force: true });
+    await expect(
+      codeNode.locator(
+        `[data-attached-terminal-section-id="${terminalId}"]`,
+      ),
+    ).toHaveCount(0);
+    await expect(
+      codeNode.locator(`section[data-section-id="${terminalId}"]`),
+    ).toHaveCount(0);
+
+    await trashButton.click({ force: true });
+
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        const impl = resolveSectionImpl(state, sectionId);
+        return impl?.attachedTerminalSectionId ?? null;
+      })
+      .toBeNull();
+    await expect
+      .poll(async () => {
+        const state = await loadProjectState(page, projectConfigName);
+        return resolveSectionImpl(state, terminalId) ? "present" : null;
+      })
+      .toBeNull();
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
 test("embedded terminals only receive runs from their code section", async ({
   page,
 }) => {
   test.setTimeout(90000);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const codeXId = await createCodeSection(page);
@@ -532,7 +770,8 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
   await addTerminalOutputInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const sectionId = await createCodeSection(page);
@@ -594,7 +833,8 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       try {
         await expect
           .poll(
-            async () => await isTerminalDetachedInDom(page, sectionId, terminalId),
+            async () =>
+              await isTerminalDetachedInDom(page, sectionId, terminalId),
             { timeout: 5000 },
           )
           .toBe(true);
@@ -823,7 +1063,8 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
 
   try {
     const codeSectionId = await createCodeSection(page);
@@ -1197,7 +1438,8 @@ test("terminal resize messages are throttled during drag detach", async ({
   await addTerminalResizeInstrumentation(page);
   await ensureAppReady(page);
 
-  const { projectConfigId, projectConfigName } = await createNewProjectConfig(page);
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
   let dragStarted = false;
   let altPressed = false;
 
@@ -1429,7 +1671,9 @@ async function getTerminalRowsSnapshot(
     const candidates: Element[] = Array.from(
       document.querySelectorAll(`[data-attached-terminal-section-id="${id}"]`),
     );
-    const detached = document.querySelector(`.react-flow__node[data-id="${id}"]`);
+    const detached = document.querySelector(
+      `.react-flow__node[data-id="${id}"]`,
+    );
     if (detached) {
       candidates.push(detached);
     }
@@ -1459,8 +1703,10 @@ async function getTerminalRowsSnapshot(
       const nonEmpty = rows.filter((row) => row.trim().length > 0).length;
       const joinedLength = rows.reduce((sum, row) => sum + row.length, 0);
       const inLayout =
-        candidate instanceof HTMLElement && candidate.getClientRects().length > 0;
-      const score = (inLayout ? 1_000_000_000 : 0) + nonEmpty * 10_000 + joinedLength;
+        candidate instanceof HTMLElement &&
+        candidate.getClientRects().length > 0;
+      const score =
+        (inLayout ? 1_000_000_000 : 0) + nonEmpty * 10_000 + joinedLength;
       if (score > bestScore) {
         bestScore = score;
         bestRows = rows;
@@ -1846,7 +2092,12 @@ async function ensureTerminalAcceptsInput(
     attempt += 1;
     await focusTerminalAndType(page, terminalId, `echo ${marker}`);
     try {
-      await waitForTerminalOutputMarker(page, terminalId, marker, attemptTimeoutMs);
+      await waitForTerminalOutputMarker(
+        page,
+        terminalId,
+        marker,
+        attemptTimeoutMs,
+      );
       return;
     } catch {
       await page.waitForTimeout(500);
@@ -1946,7 +2197,10 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
             }
             const counts = window.__terminalResizeCountsBySectionId[sectionId];
             counts[phase] = (counts[phase] ?? 0) + 1;
-            if (typeof parsed.cols === "number" && typeof parsed.rows === "number") {
+            if (
+              typeof parsed.cols === "number" &&
+              typeof parsed.rows === "number"
+            ) {
               window.__terminalLastResizeBySectionId[sectionId] = {
                 cols: parsed.cols,
                 rows: parsed.rows,
@@ -2102,7 +2356,8 @@ async function getTerminalMarkerCharCenter({
         `[data-attached-terminal-section-id="${id}"]`,
       );
       const container =
-        embedded ?? document.querySelector(`.react-flow__node[data-id="${id}"]`);
+        embedded ??
+        document.querySelector(`.react-flow__node[data-id="${id}"]`);
       if (!container) {
         throw new Error(`Missing terminal container for ${id}.`);
       }
@@ -2398,7 +2653,9 @@ async function deleteProjectConfigById(
   }
 
   try {
-    await postBackend(page, "/deleteProjectConfigs", { ids: [projectConfigId] });
+    await postBackend(page, "/deleteProjectConfigs", {
+      ids: [projectConfigId],
+    });
   } catch (error) {
     if (page.isClosed()) {
       return;
