@@ -40,7 +40,7 @@ function resolveBackendUrl(address: string): string {
 
 function buildShareSessionHeaders(): Record<string, string> {
   const shareSession = useShareSession.getState();
-  if (!shareSession.isDeploymentMode || !shareSession.shareSessionId) {
+  if (!shareSession.isShareMode || !shareSession.shareSessionId) {
     return {};
   }
   return { "X-Share-Session-Id": shareSession.shareSessionId };

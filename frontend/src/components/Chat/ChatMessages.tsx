@@ -16,16 +16,26 @@ import {
   useState,
 } from "react";
 import { FaBrain } from "react-icons/fa6";
-import { FiArchive, FiFileText, FiMusic, FiVideo } from "react-icons/fi";
+import {
+  FiArchive,
+  FiCopy,
+  FiEdit3,
+  FiFileText,
+  FiMusic,
+  FiVideo,
+} from "react-icons/fi";
 import { IoMdCheckmark, IoMdClose } from "react-icons/io";
 import { IoImageOutline } from "react-icons/io5";
-import { MdErrorOutline } from "react-icons/md";
+import { MdChevronLeft, MdChevronRight, MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   getAttachmentPreviewKind,
   isImageAttachment,
@@ -57,6 +67,7 @@ import {
   ToolChatMessage,
 } from "utils/generatedTypes";
 import { ApprovalCard } from "./ApprovalCard";
+import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
 import { useTypewriterEffect } from "./useTypewriterEffect";
@@ -102,6 +113,14 @@ type ChatMessageListProps = {
   toolCallArguments?: Record<string, string>;
   className?: string;
   scrollRef?: Ref<HTMLDivElement>;
+  editDisabledReason?: string | null;
+  onEditMessage?: (
+    messageId: string,
+    text: string,
+    attachments: ChatFileAttachment[],
+  ) => Promise<boolean> | boolean;
+  onBranchSwitch?: (nextChatId: string) => void;
+  branchInfoByMessage?: Record<string, ChatMessageBranchInfo>;
 };
 
 type MarkdownContentProps = {
@@ -156,17 +175,6 @@ type StreamActivitySummary = {
   activityKey: string;
   lastTextIndex: number;
 };
-
-const ASSISTANT_ERROR_PREFIX = "[Error]";
-
-function isAssistantErrorText(text: string): boolean {
-  return text.trimStart().startsWith(ASSISTANT_ERROR_PREFIX);
-}
-
-function stripAssistantErrorPrefix(text: string): string {
-  const next = text.replace(/^\s*\[Error\]\s*/u, "");
-  return next.trim().length > 0 ? next : "The AI request failed.";
-}
 
 function getStreamActivitySummary(
   content: ChatContentItem[],
@@ -1025,29 +1033,6 @@ const ToolCallItem = memo(function ToolCallItem({
   );
 });
 
-function AssistantErrorCallout({ content }: { content: string }) {
-  const displayText = stripAssistantErrorPrefix(content);
-  return (
-    <div
-      className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-900 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-50"
-      data-chat-assistant-error="true"
-    >
-      <MdErrorOutline className="mt-0.5 shrink-0 text-red-500 dark:text-red-400" />
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
-          AI request failed
-        </div>
-        <MarkdownContent
-          content={displayText}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-red-900 prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-red-200 [&_*]:break-words [&_*]:marker:text-red-400"
-          role={ChatRoleEnum.assistant}
-          isStreaming={false}
-        />
-      </div>
-    </div>
-  );
-}
-
 function StreamItem({
   item,
   isStreaming,
@@ -1059,9 +1044,6 @@ function StreamItem({
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
-      if (isAssistantErrorText(item.text)) {
-        return <AssistantErrorCallout content={item.text} />;
-      }
       return (
         <MarkdownContent
           content={item.text}
@@ -1087,31 +1069,73 @@ function StreamItem({
   }
 }
 
-function LLMChatBubble({ children }: { children: ReactNode }) {
+function LLMChatBubble({
+  children,
+  actions,
+  messageId,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  messageId?: string;
+}) {
   return (
     <div className="my-4 flex justify-start">
-      <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-[min(85%,800px)] flex-shrink cursor-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
-        {children}
+      <div
+        className="group flex max-w-[min(85%,800px)] flex-col items-start"
+        data-message-id={messageId}
+      >
+        <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-full flex-shrink cursor-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+          {children}
+        </div>
+        {actions}
       </div>
     </div>
   );
 }
 
-function UserChatBubble({ children }: { children: ReactNode }) {
+function UserChatBubble({
+  children,
+  actions,
+  messageId,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  messageId?: string;
+}) {
   return (
     <div className="my-4 flex justify-end">
-      <div className="flex w-fit max-w-[min(85%,800px)] flex-shrink cursor-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700">
-        {children}
+      <div
+        className="group flex max-w-[min(85%,800px)] flex-col items-end"
+        data-message-id={messageId}
+      >
+        <div className="flex w-fit max-w-full flex-shrink cursor-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700">
+          {children}
+        </div>
+        {actions}
       </div>
     </div>
   );
 }
 
-function SystemChatBubble({ children }: { children: ReactNode }) {
+function SystemChatBubble({
+  children,
+  actions,
+  messageId,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  messageId?: string;
+}) {
   return (
     <div className="my-3 flex justify-center">
-      <div className="flex max-w-[min(90%,800px)] cursor-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
-        {children}
+      <div
+        className="group flex max-w-[min(90%,800px)] flex-col items-start"
+        data-message-id={messageId}
+      >
+        <div className="flex max-w-full cursor-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+          {children}
+        </div>
+        {actions}
       </div>
     </div>
   );
@@ -1122,6 +1146,119 @@ const USER_MARKDOWN_CLASS =
 const SYSTEM_MARKDOWN_CLASS =
   "prose prose-sm text-setta-600 dark:prose-invert prose-p:text-xs prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
 
+type ChatMessageActionAlignment = "left" | "right";
+
+function ChatMessageActions({
+  alignment,
+  onCopy,
+  showEdit,
+  editDisabled,
+  editDisabledReason,
+  onEdit,
+  branchInfo,
+  onBranchSwitch,
+}: {
+  alignment: ChatMessageActionAlignment;
+  onCopy: () => void;
+  showEdit: boolean;
+  editDisabled: boolean;
+  editDisabledReason: string | null;
+  onEdit?: () => void;
+  branchInfo?: ChatMessageBranchInfo;
+  onBranchSwitch?: (nextChatId: string) => void;
+}) {
+  const alignmentClass =
+    alignment === "right" ? "justify-end" : "justify-start";
+  const branchCount = branchInfo?.branchChatIds.length ?? 0;
+  const activeIndex = branchInfo?.activeIndex ?? 0;
+  const hasBranches = branchCount > 1 && Boolean(onBranchSwitch);
+  const canGoPrevious = activeIndex > 0;
+  const canGoNext = activeIndex < branchCount - 1;
+
+  return (
+    <div
+      className={`mt-1 flex w-full items-center gap-2 text-xs text-setta-400 opacity-0 transition-opacity group-hover:opacity-100 ${alignmentClass}`}
+    >
+      <button
+        type="button"
+        aria-label="Copy message"
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+        onClick={onCopy}
+      >
+        <FiCopy />
+        Copy
+      </button>
+      {showEdit ? (
+        <button
+          type="button"
+          aria-label="Edit message"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+          onClick={onEdit}
+          disabled={editDisabled}
+          title={editDisabledReason ?? undefined}
+        >
+          <FiEdit3 />
+          Edit
+        </button>
+      ) : null}
+      {hasBranches ? (
+        <div className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-700 dark:text-setta-500">
+          <button
+            type="button"
+            aria-label="Previous branch"
+            className="rounded p-1 text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+            onClick={() => {
+              if (!branchInfo || !onBranchSwitch) {
+                return;
+              }
+              const nextId = branchInfo.branchChatIds[activeIndex - 1];
+              if (nextId) {
+                onBranchSwitch(nextId);
+              }
+            }}
+            disabled={!canGoPrevious}
+          >
+            <MdChevronLeft />
+          </button>
+          <span className="px-1">
+            {activeIndex + 1}/{branchCount}
+          </span>
+          <button
+            type="button"
+            aria-label="Next branch"
+            className="rounded p-1 text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+            onClick={() => {
+              if (!branchInfo || !onBranchSwitch) {
+                return;
+              }
+              const nextId = branchInfo.branchChatIds[activeIndex + 1];
+              if (nextId) {
+                onBranchSwitch(nextId);
+              }
+            }}
+            disabled={!canGoNext}
+          >
+            <MdChevronRight />
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
+  const content = message.content ?? [];
+  const output: string[] = [];
+  for (const item of content) {
+    if (item.type === C.LLM_TEXT) {
+      output.push(item.text);
+    } else if (item.type === C.LLM_THINKING) {
+      output.push(item.thinking);
+    }
+  }
+  return output.join("\n\n").trim();
+}
+
 const ChatMessage = memo(function ChatMessage({
   message,
   toolResultsById,
@@ -1130,6 +1267,14 @@ const ChatMessage = memo(function ChatMessage({
   toolCallContext,
   attachmentUrlMap,
   requestAttachmentUrls,
+  isEditing,
+  canEdit,
+  editDisabledReason,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  branchInfo,
+  onBranchSwitch,
 }: {
   message: BaseChatMessageUnion;
   toolResultsById: Record<string, ToolChatMessage>;
@@ -1141,11 +1286,45 @@ const ChatMessage = memo(function ChatMessage({
     targets: ChatFileAttachment[],
     options?: { force?: boolean },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
+  isEditing: boolean;
+  canEdit: boolean;
+  editDisabledReason: string | null;
+  onStartEdit?: () => void;
+  onCancelEdit?: () => void;
+  onSaveEdit?: (
+    text: string,
+    attachments: ChatFileAttachment[],
+  ) => Promise<boolean> | boolean;
+  branchInfo?: ChatMessageBranchInfo;
+  onBranchSwitch?: (nextChatId: string) => void;
 }) {
   const attachments =
     "attachments" in message && Array.isArray(message.attachments)
       ? message.attachments
       : [];
+  const isUser = message.role === ChatRoleEnum.user;
+  const isSystem = message.role === ChatRoleEnum.system;
+  const actionAlignment: ChatMessageActionAlignment = isUser ? "right" : "left";
+  const showEdit = isUser && canEdit;
+  const editDisabled = Boolean(editDisabledReason);
+  const handleCopy = useCallback(() => {
+    const text = getPlainTextFromMessage(message);
+    void navigator.clipboard.writeText(text).then(() => {
+      addTemporaryNotification("Copied message.");
+    });
+  }, [message]);
+  const actionBar = !isEditing ? (
+    <ChatMessageActions
+      alignment={actionAlignment}
+      onCopy={handleCopy}
+      showEdit={showEdit}
+      editDisabled={editDisabled}
+      editDisabledReason={editDisabledReason}
+      onEdit={onStartEdit}
+      branchInfo={branchInfo}
+      onBranchSwitch={onBranchSwitch}
+    />
+  ) : null;
   const isAssistant = message.role === ChatRoleEnum.assistant;
   const assistantContent = isAssistant
     ? message.content
@@ -1165,7 +1344,7 @@ const ChatMessage = memo(function ChatMessage({
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
     return (
-      <LLMChatBubble>
+      <LLMChatBubble messageId={message.id} actions={actionBar}>
         <ChatAttachmentList
           attachments={attachments}
           isUser={false}
@@ -1269,6 +1448,20 @@ const ChatMessage = memo(function ChatMessage({
     );
   }
 
+  if (isUser && isEditing) {
+    return (
+      <UserChatBubble messageId={message.id}>
+        <ChatMessageEditor
+          initialText={getPlainTextFromMessage(message)}
+          initialAttachments={attachments}
+          disabled={!canEdit || editDisabled}
+          onCancel={onCancelEdit ?? (() => {})}
+          onSave={onSaveEdit ?? (() => false)}
+        />
+      </UserChatBubble>
+    );
+  }
+
   const content = message.content ?? [];
   let textClassName = USER_MARKDOWN_CLASS;
   let imageClassName = "border-white/30";
@@ -1281,7 +1474,7 @@ const ChatMessage = memo(function ChatMessage({
   const resolvedImageClassName = imageClassName || undefined;
 
   return (
-    <Wrapper>
+    <Wrapper messageId={message.id} actions={actionBar}>
       <ChatAttachmentList
         attachments={attachments}
         isUser={message.role === ChatRoleEnum.user}
@@ -1348,12 +1541,26 @@ function ChatMessages({
   waitingForResponse,
   toolCallArguments,
   allMessages,
+  editDisabledReason,
+  onEditMessage,
+  onBranchSwitch,
+  branchInfoByMessage,
 }: {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
   allMessages: Array<BaseChatMessageUnion>;
+  editDisabledReason?: string | null;
+  onEditMessage?: (
+    messageId: string,
+    text: string,
+    attachments: ChatFileAttachment[],
+  ) => Promise<boolean> | boolean;
+  onBranchSwitch?: (nextChatId: string) => void;
+  branchInfoByMessage?: Record<string, ChatMessageBranchInfo>;
 }) {
+  const { canEditParams } = useShareCapabilities();
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [attachmentUrlMap, setAttachmentUrlMap] = useState<
     Record<string, AttachmentUrlEntry>
   >({});
@@ -1384,7 +1591,10 @@ function ChatMessages({
         if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
           return false;
         }
-        if (attachmentUrlRequests.current.has(attachment.id)) {
+        if (
+          attachmentUrlRequests.current.has(attachment.id) &&
+          !options.force
+        ) {
           return false;
         }
         return true;
@@ -1443,6 +1653,12 @@ function ChatMessages({
   );
 
   useEffect(() => {
+    if (waitingForResponse) {
+      setEditingMessageId(null);
+    }
+  }, [waitingForResponse]);
+
+  useEffect(() => {
     if (allAttachments.length === 0) {
       return;
     }
@@ -1459,6 +1675,17 @@ function ChatMessages({
       waitingForResponse &&
       message.role === ChatRoleEnum.assistant &&
       message.id === streamingMessageId;
+    const branchInfo = branchInfoByMessage?.[message.id];
+    let resolvedEditDisabledReason: string | null = null;
+    if (!canEditParams) {
+      resolvedEditDisabledReason = "Editing disabled by share policy.";
+    } else if (waitingForResponse) {
+      resolvedEditDisabledReason = "Wait for response to finish.";
+    } else if (editDisabledReason) {
+      resolvedEditDisabledReason = editDisabledReason;
+    }
+    const canEdit = Boolean(onEditMessage);
+    const isEditing = editingMessageId === message.id;
     output.push(
       <ChatMessage
         key={message.id}
@@ -1469,6 +1696,32 @@ function ChatMessages({
         toolCallContext={toolCallContext}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
+        isEditing={isEditing}
+        canEdit={canEdit}
+        editDisabledReason={resolvedEditDisabledReason}
+        onStartEdit={
+          !canEdit || resolvedEditDisabledReason
+            ? undefined
+            : () => setEditingMessageId(message.id)
+        }
+        onCancelEdit={() => setEditingMessageId(null)}
+        onSaveEdit={
+          !onEditMessage
+            ? undefined
+            : async (text, attachments) => {
+                const result = await onEditMessage(
+                  message.id,
+                  text,
+                  attachments,
+                );
+                if (result === true) {
+                  setEditingMessageId(null);
+                }
+                return result;
+              }
+        }
+        branchInfo={branchInfo}
+        onBranchSwitch={onBranchSwitch}
       />,
     );
   }
@@ -1506,6 +1759,10 @@ export const ChatMessageList = memo(function ChatMessageList({
   toolCallArguments,
   className,
   scrollRef,
+  editDisabledReason,
+  onEditMessage,
+  onBranchSwitch,
+  branchInfoByMessage,
 }: ChatMessageListProps) {
   const filteredMessages = messages.filter(
     (message) => message.role !== ChatRoleEnum.tool,
@@ -1522,6 +1779,10 @@ export const ChatMessageList = memo(function ChatMessageList({
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolArgs}
           allMessages={messages}
+          editDisabledReason={editDisabledReason}
+          onEditMessage={onEditMessage}
+          onBranchSwitch={onBranchSwitch}
+          branchInfoByMessage={branchInfoByMessage}
         />
       </div>
     </div>

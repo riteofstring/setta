@@ -115,6 +115,7 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
+    BrowserSavedSearch,
     BrowserSectionImpl,
     CallableSectionImpl,
     ChatSectionImpl,
@@ -2791,6 +2792,21 @@ def set_browser_hide_column(
     )
 
 
+def set_browser_saved_searches(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    savedSearches: list[BrowserSavedSearch],
+):
+    impl = get_curr_effective_section_impl(p, sectionId)
+    if not isinstance(impl, BrowserSectionImpl):
+        raise TypeError(f"Section {sectionId} does not support browser saved searches")
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BrowserSectionImplArgsWithCallable(savedSearches=savedSearches),
+    )
+
+
 def set_text_block_format(
     p: "ProjectStateSingleConfig", sectionId: ID, format: TextBlockFormat
 ):
@@ -2916,6 +2932,8 @@ def set_chat_section_state(
             inputText=state.inputText,
             waitingForResponse=state.waitingForResponse,
             toolCallArguments=state.toolCallArguments,
+            activeBranchId=state.activeBranchId,
+            branches=state.branches,
         ),
     )
 

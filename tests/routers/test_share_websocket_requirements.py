@@ -20,7 +20,7 @@ from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 from setta.types.websocket import WebsocketMsgCurrentAddressUpdate
 from setta.utils.timestamps import get_now_timestamp
 from setta.terminals.terminals import build_terminal_id
@@ -35,7 +35,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "deployments"
+        / "share_deployments"
         / project_config_name
         / deployment_version
     )
@@ -57,15 +57,13 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
 
 
 async def _build_state(root: Path) -> SettaFastAPIState:
@@ -366,7 +364,7 @@ class TestTerminalWebsocketRequirements:
                 deployment_version=root.name,
             )
             DBE(root).write_json(
-                root / "policy.json",
+                root / "share_policy.json",
                 SharePolicy(allowRun=True).model_dump(),
             )
             state = await _build_state(root)

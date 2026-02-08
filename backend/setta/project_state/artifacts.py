@@ -211,36 +211,25 @@ class Artifacts:
             for v in s.variants:
                 impl = get_variant_effective_section_impl(p, s.id, v)
                 if isinstance(impl, ImageSectionImpl):
-                    if not impl.imagePath:
-                        continue
-                    image_path = self._resolve_path(impl.imagePath)
-                    # Empty / "." paths would resolve to the repo root and crash when read.
-                    if image_path == Path("."):
-                        continue
-                    path_and_types.add((image_path, ArtifactType.Image))
+                    path_and_types.add(
+                        (self._resolve_path(impl.imagePath), ArtifactType.Image)
+                    )
                 elif isinstance(impl, DrawSectionImpl):
                     for layer in impl.layers:
                         for el in layer.elements:
-                            if el.dataPath:
-                                data_path = self._resolve_path(el.dataPath)
-                                if data_path != Path("."):
-                                    path_and_types.add((data_path, el.type))
-                            if el.transformId:
-                                transform_path = self._resolve_path(el.transformId)
-                                if transform_path != Path("."):
-                                    path_and_types.add(
-                                        (
-                                            transform_path,
-                                            ArtifactType.DrawAreaLayerItemTransform,
-                                        )
-                                    )
+                            path_and_types.add(
+                                (self._resolve_path(el.dataPath), el.type)
+                            )
+                            path_and_types.add(
+                                (
+                                    self._resolve_path(el.transformId),
+                                    ArtifactType.DrawAreaLayerItemTransform,
+                                )
+                            )
                 elif isinstance(impl, ChartSectionImpl):
-                    if not impl.dataPath:
-                        continue
-                    chart_path = self._resolve_path(impl.dataPath)
-                    if chart_path == Path("."):
-                        continue
-                    path_and_types.add((chart_path, ArtifactType.ChartData))
+                    path_and_types.add(
+                        (self._resolve_path(impl.dataPath), ArtifactType.ChartData)
+                    )
 
         path_to_types: dict[Path, set[ArtifactType]] = defaultdict(set)
         for path, artifact_type in path_and_types:

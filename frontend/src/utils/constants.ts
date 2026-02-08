@@ -19,7 +19,6 @@ export const OverviewTabNameEnum = {
   Overview: "Overview",
   FileBrowser: "FileBrowser",
   WatchCode: "WatchCode",
-  App: "App",
   RunInstructions: "RunInstructions",
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
@@ -35,7 +34,6 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.WatchCode]: "Watch Code",
-  [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
@@ -107,7 +105,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.IFrame]: [],
   [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Browser]: [],
+  [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
@@ -159,6 +157,7 @@ export const SETTA_PREVENT_SECTION_ACTIVE_CSS =
 export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
   "setta-prevent-section-on-click-trigger";
 export const CODEMIRROR_TOOLTIP_PARENT_ID = "setta-codemirror-tooltips";
+export const SETTA_POPOVER_PORTAL_PARENT_ID = "setta-popover-portals";
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 const EDGES_STRIP_HEIGHT_KEY_PREFIX = "edges-strip-height";

@@ -36,6 +36,8 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    BrowserSavedSearch,
+    ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
@@ -60,12 +62,14 @@ class CoreArgs(TypedDict):
         list[
             Literal[
                 "actionMode",
+                "activeBranchId",
                 "activeLayerIdx",
                 "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
                 "attachedTerminalSectionId",
+                "branches",
                 "brushColor",
                 "brushOpacity",
                 "brushShape",
@@ -140,6 +144,7 @@ class CoreArgs(TypedDict):
                 "requestHeaderValue",
                 "requestMethod",
                 "requestUrl",
+                "savedSearches",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
@@ -606,6 +611,8 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     inputText: NotRequired[str]
     waitingForResponse: NotRequired[bool]
     toolCallArguments: NotRequired[dict[str, str]]
+    activeBranchId: NotRequired[ID | None]
+    branches: NotRequired[dict[ID, ChatSectionBranch]]
 
 
 class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -644,6 +651,11 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     toolCallArguments: NotRequired[
         dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
     ]
+    activeBranchId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    branches: NotRequired[
+        dict[ID, ChatSectionBranch]
+        | Callable[[dict[ID, ChatSectionBranch]], dict[ID, ChatSectionBranch]]
+    ]
 
 
 class BrowserSectionImplArgs(BaseSectionImplArgs):
@@ -653,6 +665,7 @@ class BrowserSectionImplArgs(BaseSectionImplArgs):
     columnWidth: NotRequired[float | None]
     typesColumnWidth: NotRequired[float | None]
     viewMode: NotRequired[BrowserAreaViewMode]
+    savedSearches: NotRequired[list[BrowserSavedSearch]]
 
 
 class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -666,6 +679,10 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     typesColumnWidth: NotRequired[float | None | Callable[[float | None], float | None]]
     viewMode: NotRequired[
         BrowserAreaViewMode | Callable[[BrowserAreaViewMode], BrowserAreaViewMode]
+    ]
+    savedSearches: NotRequired[
+        list[BrowserSavedSearch]
+        | Callable[[list[BrowserSavedSearch]], list[BrowserSavedSearch]]
     ]
 
 
