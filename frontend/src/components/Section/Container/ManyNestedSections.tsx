@@ -1,10 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
-import _ from "lodash";
-import {
-  getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -44,44 +40,14 @@ function ManyNestedSections({
   layoutVariant: "default" | "tight";
 }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
-  const hiddenAttachedTerminalId = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (!isBaseCodeSectionType(impl.type)) {
-      return null;
-    }
-    const attachedTerminalId = impl.attachedTerminalSectionId ?? null;
-    if (!attachedTerminalId || !(attachedTerminalId in x.sections)) {
-      return null;
-    }
-    const candidateChildId =
-      tempChildIds.length > 0 ? tempChildIds[0] : attachedTerminalId;
-    const isEmbeddedCandidate =
-      candidateChildId === attachedTerminalId &&
-      tempChildIds.length < 2 &&
-      x.parentSectionMap[attachedTerminalId] === sectionId;
-    if (!isEmbeddedCandidate) {
-      return null;
-    }
-    const terminalImpl = getCurrEffectiveSectionImpl(x, attachedTerminalId);
-    if (terminalImpl.type !== SectionTypeEnum.Terminal) {
-      return null;
-    }
-    if (!terminalImpl.isMinimized) {
-      return null;
-    }
-    return attachedTerminalId;
-  }, _.isEqual);
-  const childIds = hiddenAttachedTerminalId
-    ? tempChildIds.filter((id) => id !== hiddenAttachedTerminalId)
-    : tempChildIds;
 
   return (
-    <DNDSortable sectionId={sectionId} items={childIds}>
+    <DNDSortable sectionId={sectionId} items={tempChildIds}>
       {layoutVariant === "tight" ? (
-        <NestedSectionsTight childIds={childIds} />
+        <NestedSectionsTight childIds={tempChildIds} />
       ) : (
         <NestedSectionsWithMargin
-          childIds={childIds}
+          childIds={tempChildIds}
           sectionId={sectionId}
           isGroup={isGroup}
         />
