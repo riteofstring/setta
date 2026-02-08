@@ -6,13 +6,24 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import type { GitDiffMode } from "utils/generatedTypes";
+import type { GitCommit, GitDiffMode } from "utils/generatedTypes";
 import { computeGitGraphRows } from "utils/gitGraph";
 
 let statusRequestId = 0;
 let diffRequestId = 0;
 let logRequestId = 0;
 let commitDiffRequestId = 0;
+
+function normalizeGitCommit(commit: GitCommit): GitCommit {
+  // Defensive: backend should already return clean hashes, but whitespace here
+  // breaks lane computation and commit-diff lookups.
+  return {
+    ...commit,
+    hash: commit.hash.trim(),
+    parents: commit.parents.map((parent) => parent.trim()).filter(Boolean),
+    decorations: commit.decorations.map((d) => d.trim()).filter(Boolean),
+  };
+}
 
 export async function refreshGitStatus(): Promise<void> {
   const requestId = (statusRequestId += 1);
@@ -216,7 +227,9 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
     return;
   }
   if (res200(res)) {
-    const rows = computeGitGraphRows(res.data.commits);
+    const commits = res.data.commits.map(normalizeGitCommit);
+    const normalizedResponse = { ...res.data, commits };
+    const rows = computeGitGraphRows(commits);
     useGitStore.setState((state) => {
       if (state.overlay.kind !== "graph") {
         return state;
@@ -227,15 +240,15 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           kind: "graph",
           graph: {
             ...state.overlay.graph,
-            response: res.data,
+            response: normalizedResponse,
             rows,
             isLoading: false,
           },
         },
       };
     });
-    if (res.data.commits.length > 0) {
-      await selectGitCommit(res.data.commits[0]!.hash);
+    if (commits.length > 0) {
+      await selectGitCommit(commits[0]!.hash);
     }
     return;
   }
