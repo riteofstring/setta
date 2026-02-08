@@ -15,8 +15,36 @@ type Lane = {
   colorId: number;
 };
 
-export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
+export type GitGraphRowComputationState = {
+  lanes: Array<Lane | null>;
+  nextColorId: number;
+};
+
+export function createEmptyGitGraphRowComputationState(): GitGraphRowComputationState {
+  return {
+    lanes: [],
+    nextColorId: 0,
+  };
+}
+
+function cloneGitGraphRowComputationState(
+  state: GitGraphRowComputationState,
+): GitGraphRowComputationState {
+  return {
+    lanes: state.lanes.map((lane) => (lane ? { ...lane } : null)),
+    nextColorId: state.nextColorId,
+  };
+}
+
+export function appendGitGraphRows(
+  commits: readonly GitCommit[],
+  rowComputationState: GitGraphRowComputationState,
+): {
+  rows: GitGraphRow[];
+  rowComputationState: GitGraphRowComputationState;
+} {
   const rows: GitGraphRow[] = [];
+  const nextState = cloneGitGraphRowComputationState(rowComputationState);
   // IMPORTANT: lane indices must be stable across rows.
   //
   // If we `splice()` lanes out of the array, every lane to the right shifts
@@ -25,12 +53,12 @@ export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
   //
   // To avoid this, keep a fixed-slot lane array and replace removed lanes with
   // `null` holes. When allocating a new lane, reuse the first `null` slot.
-  const lanes: Array<Lane | null> = [];
-  let nextColorId = 0;
+  const lanes = nextState.lanes;
 
   const allocateLane = (nextHash: string): number => {
     const emptySlot = lanes.findIndex((lane) => lane === null);
-    const lane = { nextHash, colorId: nextColorId++ };
+    const lane = { nextHash, colorId: nextState.nextColorId };
+    nextState.nextColorId += 1;
     if (emptySlot !== -1) {
       lanes[emptySlot] = lane;
       return emptySlot;
@@ -120,5 +148,21 @@ export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
     trimTrailingNulls();
   }
 
-  return rows;
+  return {
+    rows,
+    rowComputationState: nextState,
+  };
+}
+
+export function computeGitGraphRowsWithState(
+  commits: readonly GitCommit[],
+): {
+  rows: GitGraphRow[];
+  rowComputationState: GitGraphRowComputationState;
+} {
+  return appendGitGraphRows(commits, createEmptyGitGraphRowComputationState());
+}
+
+export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
+  return computeGitGraphRowsWithState(commits).rows;
 }

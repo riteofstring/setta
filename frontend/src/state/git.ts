@@ -6,7 +6,10 @@ import type {
   GetGitStatusResponse,
   GitDiffMode,
 } from "utils/generatedTypes";
-import type { GitGraphRow } from "utils/gitGraph";
+import type {
+  GitGraphRow,
+  GitGraphRowComputationState,
+} from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "./utils";
 
@@ -27,6 +30,7 @@ type GitGraphOverlayState = {
   allRefs: boolean;
   response: GetGitLogResponse | null;
   rows: GitGraphRow[];
+  rowComputationState: GitGraphRowComputationState;
   filterText: string;
   isLoading: boolean;
   isLoadingMore: boolean;

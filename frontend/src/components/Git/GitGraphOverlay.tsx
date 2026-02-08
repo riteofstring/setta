@@ -415,14 +415,6 @@ export function GitGraphOverlay() {
     });
   }, [rows, filterText]);
 
-  if (!graphState) {
-    return null;
-  }
-
-  const repoRoot = graphState.response?.repoRoot ?? null;
-  const headBranch = graphState.response?.headBranch ?? null;
-
-  const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
   const maxLaneCount = useMemo(() => {
     return rows.reduce(
       (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
@@ -438,8 +430,17 @@ export function GitGraphOverlay() {
     return graphViewBoxWidth / Math.max(1, maxLaneCount);
   }, [graphViewBoxWidth, maxLaneCount]);
 
+  if (!graphState) {
+    return null;
+  }
+
+  const repoRoot = graphState.response?.repoRoot ?? null;
+  const headBranch = graphState.response?.headBranch ?? null;
+
+  const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
+
   const isFilterActive = filterText.trim().length > 0;
-  const loadedCommitCount = graphState.response?.commits.length ?? 0;
+  const loadedCommitCount = commits.length;
 
   function beginPaneSplitDrag(event: React.PointerEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -1012,6 +1013,8 @@ export function GitGraphOverlay() {
                 <span>Loading more commits…</span>
               ) : isFilterActive ? (
                 <span>Filtering loaded commits only.</span>
+              ) : loadedCommitCount === 0 && !graphState.error ? (
+                <span>No commits yet on this ref.</span>
               ) : graphState.isCapped ? (
                 <span>
                   Showing first {loadedCommitCount.toLocaleString()} commits

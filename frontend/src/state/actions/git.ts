@@ -8,7 +8,11 @@ import {
   route_get_git_status,
 } from "utils/generatedEndpoints";
 import type { GitDiffMode } from "utils/generatedTypes";
-import { computeGitGraphRows } from "utils/gitGraph";
+import {
+  appendGitGraphRows,
+  computeGitGraphRowsWithState,
+  createEmptyGitGraphRowComputationState,
+} from "utils/gitGraph";
 
 let statusRequestId = 0;
 let diffRequestId = 0;
@@ -249,6 +253,7 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           allRefs,
           response: null,
           rows: [],
+          rowComputationState: createEmptyGitGraphRowComputationState(),
           isLoading: true,
           isLoadingMore: false,
           error: null,
@@ -282,7 +287,7 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
   if (res200(res)) {
     const responseData = res.data;
     const commits = responseData.commits;
-    const rows = computeGitGraphRows(commits);
+    const { rows, rowComputationState } = computeGitGraphRowsWithState(commits);
     useGitStore.setState((state) => {
       if (state.overlay.kind !== "graph") {
         return state;
@@ -295,6 +300,7 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
             ...state.overlay.graph,
             response: responseData,
             rows,
+            rowComputationState,
             isLoading: false,
             isLoadingMore: false,
             loadMoreError: null,
@@ -321,6 +327,7 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           ...state.overlay.graph,
           response: null,
           rows: [],
+          rowComputationState: createEmptyGitGraphRowComputationState(),
           isLoading: false,
           error: getErrorDetail(res.data) ?? "Failed to load git log.",
           isLoadingMore: false,
@@ -392,6 +399,7 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
       }
       const existingResponse = state.overlay.graph.response;
       if (!existingResponse) {
+        const initialRows = computeGitGraphRowsWithState(nextPage.commits);
         return {
           ...state,
           overlay: {
@@ -399,7 +407,8 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
             graph: {
               ...state.overlay.graph,
               response: nextPage,
-              rows: computeGitGraphRows(nextPage.commits),
+              rows: initialRows.rows,
+              rowComputationState: initialRows.rowComputationState,
               isLoadingMore: false,
               loadMoreError: null,
               hasMore: nextPage.hasMore,
@@ -418,6 +427,16 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
         (commit) => !seenHashes.has(commit.hash),
       );
       const mergedCommits = existingResponse.commits.concat(appendedCommits);
+      let appendedRows: typeof state.overlay.graph.rows = [];
+      let nextRowComputationState = state.overlay.graph.rowComputationState;
+      if (appendedCommits.length > 0) {
+        const appendedResult = appendGitGraphRows(
+          appendedCommits,
+          state.overlay.graph.rowComputationState,
+        );
+        appendedRows = appendedResult.rows;
+        nextRowComputationState = appendedResult.rowComputationState;
+      }
       const mergedResponse = {
         ...existingResponse,
         commits: mergedCommits,
@@ -435,7 +454,8 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
           graph: {
             ...state.overlay.graph,
             response: mergedResponse,
-            rows: computeGitGraphRows(mergedCommits),
+            rows: state.overlay.graph.rows.concat(appendedRows),
+            rowComputationState: nextRowComputationState,
             isLoadingMore: false,
             loadMoreError: null,
             hasMore: nextPage.hasMore,
@@ -478,6 +498,7 @@ export async function openGitGraphOverlay(): Promise<void> {
         allRefs,
         response: null,
         rows: [],
+        rowComputationState: createEmptyGitGraphRowComputationState(),
         filterText: "",
         isLoading: true,
         isLoadingMore: false,

@@ -134,6 +134,17 @@ def _get_head_branch(repo_root: Path) -> str | None:
     return head_branch
 
 
+def _git_log_error_is_invalid_revision(stderr: str) -> bool:
+    lowered = stderr.lower()
+    return (
+        "ambiguous argument" in lowered
+        or "bad revision" in lowered
+        or "unknown revision or path not in the working tree" in lowered
+        or "invalid object name" in lowered
+        or "needed a single revision" in lowered
+    )
+
+
 def _build_repo_info(repo_root: Path | None) -> GitRepoInfoResponse:
     if repo_root is None:
         return GitRepoInfoResponse(isGitRepo=False)
@@ -557,10 +568,32 @@ def route_get_git_log(
                 detail="Invalid revision.",
             )
 
-    # Use ASCII-safe separators to simplify parsing.
-    record_sep = "\x1e"
-    field_sep = "\x1f"
-    fmt = f"%H{field_sep}%P{field_sep}%an{field_sep}%ae{field_sep}%at{field_sep}%s{field_sep}%D{record_sep}"
+    if not x.allRefs and offset == 0 and rev == "HEAD":
+        verify_head = run_git(
+            ["rev-parse", "--verify", "--quiet", "HEAD"],
+            cwd=repo_root,
+            timeout_s=1.5,
+            max_stdout_bytes=256,
+            max_stderr_bytes=4096,
+        )
+        if verify_head.timed_out:
+            raise HTTPException(
+                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                detail="Timed out verifying HEAD.",
+            )
+        if verify_head.returncode != 0:
+            return GetGitLogResponse(
+                repoRoot=str(repo_root),
+                headBranch=head_branch,
+                commits=[],
+                offset=offset,
+                pageSize=page_size,
+                nextOffset=None,
+                hasMore=False,
+                isCapped=False,
+            )
+
+    fmt = f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}%at{_FIELD_SEP}%s{_FIELD_SEP}%D{_RECORD_SEP}"
 
     args = [
         "log",
@@ -588,20 +621,26 @@ def route_get_git_log(
             detail="Timed out running git log.",
         )
     if result.returncode != 0 and not result.stdout_truncated:
+        stderr = result.stderr.strip() or "unknown error"
+        if not x.allRefs and _git_log_error_is_invalid_revision(stderr):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid revision: {rev}",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"git log failed: {result.stderr.strip() or 'unknown error'}",
+            detail=f"git log failed: {stderr}",
         )
 
     commits: list[GitCommit] = []
-    for raw_record in result.stdout.split(record_sep):
+    for raw_record in result.stdout.split(_RECORD_SEP):
         # git log inserts newlines between records even when using a custom format.
         # Our record separator is ASCII 0x1e, and our field separator is 0x1f; both
         # are treated as whitespace by Python, so avoid `.strip()` here.
         raw_record = raw_record.lstrip("\r\n")
         if not raw_record:
             continue
-        parts = raw_record.split(field_sep)
+        parts = raw_record.split(_FIELD_SEP)
         if len(parts) != 7:
             continue
         (
@@ -641,6 +680,9 @@ def route_get_git_log(
     has_more = len(commits) > page_size or result.stdout_truncated
     if len(commits) > page_size:
         commits = commits[:page_size]
+    if has_more and not commits:
+        # Prevent infinite pagination loops when output is truncated before a full record.
+        has_more = False
 
     # If we reached the backend safety cap, check whether older commits exist
     # beyond the cap so UI can communicate that this is a cap, not true history end.

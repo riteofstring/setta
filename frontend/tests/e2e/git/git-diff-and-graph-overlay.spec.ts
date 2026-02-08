@@ -739,6 +739,34 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
   }
 });
 
+test("git graph shows an explicit empty-history state for unborn HEAD", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
+  const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
+
+  try {
+    await fs.writeFile(gitIgnorePath, "setta_files/\n", "utf8");
+    await openGitOverview(page);
+
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    await expect(
+      graphOverlay.getByTestId("git-graph-load-more-status"),
+    ).toContainText("No commits yet on this ref.");
+    await expect(
+      graphOverlay.getByRole("button", { name: /lanes/i }),
+    ).toHaveCount(0);
+  } finally {
+    await fs.rm(gitIgnorePath, { force: true });
+    await fs.rm(gitDir, { recursive: true, force: true });
+  }
+});
+
 test("git graph paginates, filters, and loads commit file diffs", async ({
   page,
 }) => {

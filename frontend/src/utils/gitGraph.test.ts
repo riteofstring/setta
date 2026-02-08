@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeGitGraphRows } from "./gitGraph";
+import {
+  appendGitGraphRows,
+  computeGitGraphRows,
+  computeGitGraphRowsWithState,
+  createEmptyGitGraphRowComputationState,
+} from "./gitGraph";
 
 function commit(hash: string, parents: string[]) {
   return {
@@ -95,5 +100,40 @@ describe("computeGitGraphRows", () => {
     expect(aRow!.laneColorIds.length).toBe(3);
     expect(aRow!.laneColorIds[1]).toBe(-1);
     expect(aRow!.laneColorIds[2]).toBe(rightmostColorId);
+  });
+
+  it("supports append-only row computation across paginated commit batches", () => {
+    const commits = [
+      commit("M", ["B", "D"]),
+      commit("D", ["C"]),
+      commit("C", ["A"]),
+      commit("B", ["A"]),
+      commit("A", []),
+    ];
+    const firstBatch = commits.slice(0, 2);
+    const secondBatch = commits.slice(2);
+
+    const firstResult = computeGitGraphRowsWithState(firstBatch);
+    const secondResult = appendGitGraphRows(
+      secondBatch,
+      firstResult.rowComputationState,
+    );
+
+    const paginatedRows = firstResult.rows.concat(secondResult.rows);
+    const fullRows = computeGitGraphRows(commits);
+    expect(paginatedRows).toEqual(fullRows);
+  });
+
+  it("does not mutate the input row-computation state when appending rows", () => {
+    const initialState = createEmptyGitGraphRowComputationState();
+    const commits = [commit("B", ["A"]), commit("A", [])];
+
+    const result = appendGitGraphRows(commits, initialState);
+
+    expect(initialState).toEqual({
+      lanes: [],
+      nextColorId: 0,
+    });
+    expect(result.rowComputationState.nextColorId).toBeGreaterThan(0);
   });
 });

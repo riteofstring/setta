@@ -343,6 +343,39 @@ class TestGitRoutes:
         assert exc.value.status_code == 400
         assert "Invalid revision" in str(exc.value.detail)
 
+    async def test_log_returns_client_error_for_unknown_revision(self) -> None:
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_log(
+                    GetGitLogRequest(
+                        rev="does-not-exist",
+                        pageSize=20,
+                        offset=0,
+                        allRefs=False,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Invalid revision" in str(exc.value.detail)
+
+    async def test_log_returns_empty_history_for_unborn_head(self) -> None:
+        _run_git(self._workspace_root, ["checkout", "--orphan", "fresh-history"])
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            log = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=20, offset=0, allRefs=False),
+                ctx,
+            )
+
+        assert log.commits == []
+        assert log.hasMore is False
+        assert log.nextOffset is None
+        assert log.isCapped is False
+
     async def test_log_commit_details_and_file_diff(self) -> None:
         head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
 
@@ -653,3 +686,37 @@ class TestGitRoutes:
         assert beyond.hasMore is False
         assert beyond.nextOffset is None
         assert beyond.isCapped is True
+
+    async def test_log_truncated_without_parsed_commits_does_not_loop_pagination(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            if args and args[0] == "log":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout="partial-record-without-delimiters",
+                    stderr="",
+                    stdout_truncated=True,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(git_router, "run_git", fake_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            page = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=2, offset=1, allRefs=False),
+                ctx,
+            )
+
+        assert page.commits == []
+        assert page.hasMore is False
+        assert page.nextOffset is None

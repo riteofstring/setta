@@ -21,6 +21,10 @@ import { highlightTree, type Highlighter } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useMemo } from "react";
+import {
+  setSyntaxLineCacheEntry,
+  type SyntaxLineCacheEntry,
+} from "./gitDiffSyntaxCache";
 
 const DIFF_LINE_THEME = EditorView.baseTheme({
   ".cm-gitdiff-add": {
@@ -125,6 +129,8 @@ type ParserLike = {
   parse: (input: string) => unknown;
 };
 
+const MAX_SYNTAX_HIGHLIGHT_DOC_LINES = 12000;
+
 function parserForPath(path: string | null | undefined): ParserLike | null {
   if (!path) {
     return null;
@@ -194,9 +200,12 @@ function buildSyntaxDecorations(
   view: EditorView,
   parser: ParserLike,
   highlighter: Highlighter,
-  cache: Map<number, { text: string; marks: Array<[number, number, string]> }>,
+  cache: Map<number, SyntaxLineCacheEntry>,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
+  if (view.state.doc.lines > MAX_SYNTAX_HIGHLIGHT_DOC_LINES) {
+    return builder.finish();
+  }
   // Highlight only visible lines; keep per-line results cached for scroll perf.
   for (const range of view.visibleRanges) {
     let pos = range.from;
@@ -220,6 +229,8 @@ function buildSyntaxDecorations(
       const codeFrom = line.from + 1;
       const cached = cache.get(line.from);
       if (cached && cached.text === lineText) {
+        cache.delete(line.from);
+        cache.set(line.from, cached);
         for (const [from, to, classes] of cached.marks) {
           builder.add(
             codeFrom + from,
@@ -246,7 +257,7 @@ function buildSyntaxDecorations(
             }),
           );
         });
-        cache.set(line.from, { text: lineText, marks });
+        setSyntaxLineCacheEntry(cache, line.from, { text: lineText, marks });
       }
 
       pos = line.to + 1;
@@ -276,10 +287,7 @@ export function GitDiffCodeMirror({
       ? ViewPlugin.fromClass(
           class {
             decorations: DecorationSet;
-            lineCache = new Map<
-              number,
-              { text: string; marks: Array<[number, number, string]> }
-            >();
+            lineCache = new Map<number, SyntaxLineCacheEntry>();
 
             constructor(view: EditorView) {
               const highlighter: Highlighter = {
@@ -340,7 +348,6 @@ export function GitDiffCodeMirror({
       height={height}
       theme={theme}
       extensions={extensions}
-      onChange={() => {}}
       indentWithTab={false}
       basicSetup={{
         lineNumbers: false,

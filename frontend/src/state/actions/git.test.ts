@@ -12,7 +12,7 @@ import {
   type GetGitLogResponse,
   type GitCommit,
 } from "utils/generatedTypes";
-import { computeGitGraphRows } from "utils/gitGraph";
+import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   loadMoreGitGraphCommits,
@@ -77,6 +77,7 @@ function setGraphOverlayState({
   response: GetGitLogResponse;
   filterText?: string;
 }): void {
+  const rowResult = computeGitGraphRowsWithState(response.commits);
   useGitStore.setState((state) => ({
     ...state,
     overlay: {
@@ -84,7 +85,8 @@ function setGraphOverlayState({
       graph: {
         allRefs: true,
         response,
-        rows: computeGitGraphRows(response.commits),
+        rows: rowResult.rows,
+        rowComputationState: rowResult.rowComputationState,
         filterText,
         isLoading: false,
         isLoadingMore: false,
@@ -194,6 +196,8 @@ describe("git graph actions", () => {
       "c2",
       "c1",
     ]);
+    const expectedRows = computeGitGraphRowsWithState([c3, c2, c1]).rows;
+    expect(overlay.graph.rows).toEqual(expectedRows);
     expect(overlay.graph.isLoadingMore).toBe(false);
     expect(overlay.graph.hasMore).toBe(false);
     expect(overlay.graph.nextOffset).toBeNull();
