@@ -646,6 +646,68 @@ describe("git graph actions", () => {
     });
   });
 
+  it("surfaces backend detail when commit file diff path is not part of commit", async () => {
+    const commitA = commit("a1b2c3", []);
+    setGraphOverlayState({
+      response: createLogResponse({
+        commits: [commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+    vi.mocked(route_get_git_commit_details).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createGetGitCommitDetailsResponse({
+        repoRoot: "/repo",
+        commitHash: "a1b2c3",
+        parents: [],
+        authorName: "A",
+        authorEmail: "a@example.com",
+        authorTimeMs: 1,
+        committerName: "A",
+        committerEmail: "a@example.com",
+        committerTimeMs: 1,
+        subject: "A",
+        body: "",
+        isTruncated: false,
+        files: [
+          {
+            path: "a.txt",
+            oldPath: null,
+            status: "M",
+            additions: 1,
+            deletions: 1,
+          },
+        ],
+      }),
+    });
+    vi.mocked(route_get_git_commit_file_diff).mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: { detail: "File is not part of this commit diff." },
+    });
+
+    await selectGitCommit("a1b2c3");
+    await selectGitCommitFile({
+      path: "a.txt",
+      oldPath: null,
+    });
+
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffError).toBe(
+      "File is not part of this commit diff.",
+    );
+  });
+
   it("opens graph on branch-only mode and does not auto-select a commit", async () => {
     vi.mocked(route_get_git_log).mockResolvedValue({
       status: 200,

@@ -10,7 +10,9 @@ import pytest_asyncio
 
 import setta.routers.git as git_router
 from setta.routers.git import (
+    _parse_porcelain_head_branch,
     _parse_porcelain_status,
+    _trim_to_last_complete_nul_record,
     route_get_git_commit_details,
     route_get_git_commit_file_diff,
     route_get_git_diff,
@@ -139,6 +141,29 @@ class TestGitRoutes:
         assert copy.oldPath == "source.txt"
         assert untracked.kind == "untracked"
         assert untracked.path == "loose.txt"
+
+    async def test_trim_to_last_complete_nul_record_discards_partial_tail(
+        self,
+    ) -> None:
+        # Truncated stream parsing must not include partial trailing tokens.
+        trimmed = _trim_to_last_complete_nul_record(
+            "?? a.txt\0 M b.txt\0?? partial"
+        )
+
+        assert trimmed == "?? a.txt\0 M b.txt\0"
+
+    async def test_parse_porcelain_head_branch_parses_normal_and_detached_states(
+        self,
+    ) -> None:
+        assert (
+            _parse_porcelain_head_branch("## main...origin/main [ahead 1]\0")
+            == "main"
+        )
+        assert (
+            _parse_porcelain_head_branch("## No commits yet on feature/new\0")
+            == "feature/new"
+        )
+        assert _parse_porcelain_head_branch("## HEAD (no branch)\0") is None
 
     async def test_status_staged_unstaged_untracked(self) -> None:
         # Stage a change, then modify again to get staged + unstaged on the same file.
@@ -380,6 +405,78 @@ class TestGitRoutes:
 
         assert status_res.isTruncated is True
 
+    async def test_status_trims_partial_records_when_truncated(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Truncated status output should ignore the last incomplete record.
+        def fake_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            if args and args[0] == "status":
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        "## main...origin/main\0"
+                        " M tracked.txt\0"
+                        "?? complete.txt\0"
+                        "?? partial"
+                    ),
+                    stderr="",
+                    stdout_truncated=True,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(git_router, "run_git", fake_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            status_res = route_get_git_status(ctx)
+
+        assert status_res.isTruncated is True
+        assert status_res.repo.headBranch == "main"
+        assert status_res.repo.headCommit is None
+        paths = sorted(entry.path for entry in status_res.entries)
+        assert paths == ["complete.txt", "tracked.txt"]
+
+    async def test_status_route_does_not_run_rev_parse_for_repo_info(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Status route should rely on porcelain branch metadata, not rev-parse.
+        original_run_git = git_router.run_git
+        captured_args: list[list[str]] = []
+
+        def recording_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            captured_args.append(args)
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", recording_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            status_res = route_get_git_status(ctx)
+
+        assert status_res.repo.isGitRepo is True
+        assert any(args and args[0] == "status" and "--branch" in args for args in captured_args)
+        assert not any(args and args[0] == "rev-parse" for args in captured_args)
+
     async def test_log_rejects_option_like_revision(self) -> None:
         state = await self._build_state()
 
@@ -540,6 +637,89 @@ class TestGitRoutes:
 
         assert exc.value.status_code == 400
         assert "Path must point to a file." in str(exc.value.detail)
+
+    async def test_commit_file_diff_allows_historical_file_when_path_is_now_directory(
+        self,
+    ) -> None:
+        # Commit routes should validate path type against the commit, not working tree.
+        replacement_path = self._workspace_root / "swap-path"
+        replacement_path.write_text("v1\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", "swap-path"])
+        _run_git(self._workspace_root, ["commit", "-m", "add swap-path file"])
+        file_commit = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        replacement_path.unlink()
+        replacement_path.mkdir()
+        (replacement_path / "nested.txt").write_text("dir now\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", "-A"])
+        _run_git(self._workspace_root, ["commit", "-m", "replace file with directory"])
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            file_diff = route_get_git_commit_file_diff(
+                GetGitCommitFileDiffRequest(
+                    commitHash=file_commit,
+                    path="swap-path",
+                    oldPath=None,
+                ),
+                ctx,
+            )
+
+        assert file_diff.commitHash == file_commit
+        assert "diff --git a/swap-path b/swap-path" in file_diff.diff
+
+    async def test_commit_file_diff_rejects_whitespace_prefixed_directory_pathspec(
+        self,
+    ) -> None:
+        # Directory checks must preserve exact path bytes for whitespace-prefixed names.
+        spaced_dir = self._workspace_root / " dir"
+        spaced_dir.mkdir()
+        (spaced_dir / "inside.txt").write_text("inside\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", " dir/inside.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "add spaced directory"])
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_commit_file_diff(
+                    GetGitCommitFileDiffRequest(
+                        commitHash=head,
+                        path=" dir",
+                        oldPath=None,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Path must point to a file." in str(exc.value.detail)
+
+    async def test_commit_file_diff_returns_not_found_for_file_not_in_commit_diff(
+        self,
+    ) -> None:
+        # Empty `git show -- <path>` means the file is not part of the commit diff.
+        (self._workspace_root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", "alpha.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "add alpha"])
+        (self._workspace_root / "beta.txt").write_text("beta\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", "beta.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "add beta"])
+        beta_commit = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_commit_file_diff(
+                    GetGitCommitFileDiffRequest(
+                        commitHash=beta_commit,
+                        path="alpha.txt",
+                        oldPath=None,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 404
+        assert "File is not part of this commit diff." in str(exc.value.detail)
 
     async def test_commit_details_parses_paths_with_tabs(self) -> None:
         tab_path = "tab\tname.txt"
@@ -825,6 +1005,66 @@ class TestGitRoutes:
         assert details.isTruncated is True
         assert len(details.files) == 1
         assert details.files[0].path == "tracked.txt"
+
+    async def test_commit_details_falls_back_when_truncated_metadata_is_incomplete(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # If truncated show output cuts metadata, fallback metadata path should avoid a 500.
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        def fallback_metadata_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            if args[:4] == ["rev-parse", "--verify", "--quiet", "--end-of-options"]:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{head}\n",
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "show" and "--raw" in args and "--numstat" in args:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{head}\x1f\x1fA\x1fa@example.com",
+                    stderr="",
+                    stdout_truncated=True,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "show" and "--no-patch" in args:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=(
+                        f"{head}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
+                        "A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e"
+                    ),
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            raise AssertionError(f"unexpected git command: {args}")
+
+        monkeypatch.setattr(git_router, "run_git", fallback_metadata_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+
+        assert details.commitHash == head
+        assert details.subject == "subject"
+        assert details.body == "body"
+        assert details.files == []
+        assert details.isTruncated is True
 
     async def test_log_pagination_offsets_without_overlap(self) -> None:
         # Build enough history to span multiple pages.

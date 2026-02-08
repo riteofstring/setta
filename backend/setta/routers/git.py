@@ -101,6 +101,7 @@ def _git_pathspec_is_directory(
         [
             "--literal-pathspecs",
             "ls-tree",
+            "-z",
             "-d",
             "--name-only",
             commitish,
@@ -114,7 +115,8 @@ def _git_pathspec_is_directory(
     )
     if result.returncode != 0:
         return False
-    return any(line.strip() == rel_path for line in result.stdout.splitlines())
+    tokens = result.stdout.split("\0")
+    return any(token == rel_path for token in tokens if token)
 
 
 def _assert_single_file_pathspec(
@@ -130,13 +132,6 @@ def _assert_single_file_pathspec(
             detail="Path must point to a file.",
         )
 
-    candidate_abs = repo_root / Path(rel_path)
-    if candidate_abs.exists() and candidate_abs.is_dir():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Path must point to a file.",
-        )
-
     if commitish:
         if _git_pathspec_is_directory(
             repo_root, rel_path=rel_path, commitish=commitish
@@ -146,6 +141,13 @@ def _assert_single_file_pathspec(
                 detail="Path must point to a file.",
             )
         return
+
+    candidate_abs = repo_root / Path(rel_path)
+    if candidate_abs.exists() and candidate_abs.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path must point to a file.",
+        )
 
     if _git_pathspec_is_directory(repo_root, rel_path=rel_path, commitish="HEAD"):
         raise HTTPException(
@@ -340,6 +342,33 @@ def _parse_git_show_raw_and_numstat_z(
     return raw_changed_files, stats_by_new_path
 
 
+def _trim_to_last_complete_nul_record(output: str) -> str:
+    if not output:
+        return ""
+    last_nul = output.rfind("\0")
+    if last_nul == -1:
+        return ""
+    return output[: last_nul + 1]
+
+
+def _parse_porcelain_head_branch(output: str) -> str | None:
+    tokens = output.split("\0")
+    for token in tokens:
+        if not token.startswith("## "):
+            continue
+        header = token[3:]
+        branch = (
+            header.removeprefix("No commits yet on ")
+            if header.startswith("No commits yet on ")
+            else header.split("...", 1)[0]
+        )
+        normalized = branch.strip()
+        if normalized in {"", "HEAD", "HEAD (no branch)"}:
+            return None
+        return normalized
+    return None
+
+
 def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
     # `git status --porcelain -z` returns NUL-delimited records.
     # Normal record: "XY <path>"
@@ -354,6 +383,9 @@ def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
         token = tokens[i]
         i += 1
         if not token:
+            continue
+        if token.startswith("## "):
+            # `git status --porcelain -z --branch` prepends one branch header token.
             continue
         if len(token) < 4:
             continue
@@ -439,7 +471,7 @@ def route_get_git_status(
         )
 
     result = run_git(
-        ["status", "--porcelain", "-z", "--untracked-files=all"],
+        ["status", "--porcelain", "-z", "--branch", "--untracked-files=all"],
         cwd=repo_root,
         timeout_s=_STATUS_TIMEOUT_S,
         max_stdout_bytes=_MAX_STATUS_BYTES,
@@ -456,12 +488,76 @@ def route_get_git_status(
             detail=f"git status failed: {result.stderr.strip() or 'unknown error'}",
         )
 
-    entries = _parse_porcelain_status(result.stdout)
+    status_output = result.stdout
+    if result.stdout_truncated or (status_output and not status_output.endswith("\0")):
+        status_output = _trim_to_last_complete_nul_record(status_output)
+
+    entries = _parse_porcelain_status(status_output)
+    head_branch = _parse_porcelain_head_branch(status_output)
     return GetGitStatusResponse(
-        repo=_build_repo_info(repo_root),
+        repo=GitRepoInfoResponse(
+            isGitRepo=True,
+            repoRoot=str(repo_root),
+            headBranch=head_branch,
+            headCommit=None,
+        ),
         entries=entries,
         isTruncated=result.stdout_truncated,
     )
+
+
+def _parse_commit_metadata_parts(
+    raw_record: str,
+) -> tuple[str, str, str, str, str, str, str, str, str, str] | None:
+    parts = raw_record.split(_FIELD_SEP)
+    if len(parts) != 10:
+        return None
+    return (
+        parts[0],
+        parts[1],
+        parts[2],
+        parts[3],
+        parts[4],
+        parts[5],
+        parts[6],
+        parts[7],
+        parts[8],
+        parts[9],
+    )
+
+
+def _load_commit_metadata_without_diff(
+    repo_root: Path, *, commit_hash: str, fmt: str
+) -> tuple[str, str, str, str, str, str, str, str, str, str] | None:
+    metadata_res = run_git(
+        [
+            "show",
+            "--no-color",
+            f"--pretty=format:{fmt}",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-patch",
+            commit_hash,
+            "--",
+        ],
+        cwd=repo_root,
+        timeout_s=_SHOW_TIMEOUT_S,
+        max_stdout_bytes=_MAX_SHOW_BYTES,
+        max_stderr_bytes=200_000,
+    )
+    if metadata_res.timed_out:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out loading commit metadata.",
+        )
+    if metadata_res.returncode != 0 and not metadata_res.stdout_truncated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=metadata_res.stderr.strip() or "Unknown commit hash.",
+        )
+    raw_record, _sep, _rest = metadata_res.stdout.partition(_RECORD_SEP)
+    raw_record = raw_record.lstrip("\r\n")
+    return _parse_commit_metadata_parts(raw_record)
 
 
 def _is_untracked_path(repo_root: Path, rel_path: str) -> bool:
@@ -867,8 +963,15 @@ def route_get_git_commit_details(
 
     raw_record, _sep, diff_payload = show_res.stdout.partition(_RECORD_SEP)
     raw_record = raw_record.lstrip("\r\n")
-    parts = raw_record.split(_FIELD_SEP)
-    if len(parts) != 10:
+    parts = _parse_commit_metadata_parts(raw_record)
+    if parts is None and show_res.stdout_truncated:
+        parts = _load_commit_metadata_without_diff(
+            repo_root,
+            commit_hash=commit_hash,
+            fmt=fmt,
+        )
+        diff_payload = ""
+    if parts is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to parse commit metadata.",
@@ -990,6 +1093,11 @@ def route_get_git_commit_file_diff(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=result.stderr.strip() or "Unknown commit hash.",
+        )
+    if not result.stdout_truncated and not result.stdout.strip():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File is not part of this commit diff.",
         )
 
     return GetGitCommitFileDiffResponse(

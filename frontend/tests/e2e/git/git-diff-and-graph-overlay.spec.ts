@@ -606,6 +606,66 @@ test("git graph panes and columns resize without overlap or geometry drift", asy
   }
 });
 
+test("git graph can open a historical file diff when the current workspace path is a directory", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
+  const fixtureRoot = repo.fixtureRoot;
+
+  try {
+    const initPath = path.join(fixtureRoot, "init.txt");
+    const initRepoPath = toRepoRelativePath(workspaceRoot, initPath);
+    await fs.writeFile(initPath, "init\n", "utf8");
+    runGit(workspaceRoot, ["add", initRepoPath]);
+    runGit(workspaceRoot, ["commit", "-m", "init"]);
+
+    const migratedPath = path.join(fixtureRoot, "migrated-path");
+    const migratedRepoPath = toRepoRelativePath(workspaceRoot, migratedPath);
+    await fs.writeFile(migratedPath, "before\n", "utf8");
+    runGit(workspaceRoot, ["add", migratedRepoPath]);
+    runGit(workspaceRoot, ["commit", "-m", "add migrated file"]);
+
+    await fs.rm(migratedPath, { force: true });
+    await fs.mkdir(migratedPath, { recursive: true });
+    await fs.writeFile(path.join(migratedPath, "inside.txt"), "inside\n", "utf8");
+    runGit(workspaceRoot, ["add", "-A"]);
+    runGit(workspaceRoot, ["commit", "-m", "replace migrated file with dir"]);
+
+    await openGitOverview(page);
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    await graphFilter.fill("add migrated file");
+    const migratedCommit = graphOverlay.getByRole("button", {
+      name: /add migrated file.*lanes 1/,
+    });
+    await expect(migratedCommit).toBeVisible();
+    await migratedCommit.click();
+
+    const filesList = graphOverlay.getByTestId("git-graph-files-list");
+    await expect(filesList).toBeVisible();
+    const migratedFileButton = filesList.getByRole("button", {
+      name: /migrated-path/,
+    });
+    await expect(migratedFileButton).toBeVisible();
+    await migratedFileButton.click();
+
+    const diffContent = graphOverlay.locator(".cm-content");
+    await expect(diffContent).toContainText(
+      `diff --git a/${migratedRepoPath} b/${migratedRepoPath}`,
+    );
+    await expect(
+      graphOverlay.getByText("Path must point to a file."),
+    ).toHaveCount(0);
+  } finally {
+    await fs.rm(repo.fixtureRoot, { recursive: true, force: true });
+    await fs.rm(repo.gitDir, { recursive: true, force: true });
+  }
+});
+
 test("git graph drag listeners are cleaned up when the overlay closes mid-drag", async ({
   page,
 }) => {

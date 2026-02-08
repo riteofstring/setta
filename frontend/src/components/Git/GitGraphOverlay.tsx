@@ -459,6 +459,27 @@ export function GitGraphOverlay() {
   const laneWidth = useMemo(() => {
     return graphViewBoxWidth / Math.max(1, maxLaneCount);
   }, [graphViewBoxWidth, maxLaneCount]);
+  const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
+  const commitRowProps = useMemo(
+    () => ({
+      rows: filteredRows,
+      selectedHash: graphState?.selectedCommitHash ?? null,
+      palette,
+      darkMode,
+      graphViewBoxWidth,
+      laneWidth,
+      dynamicRowHeight,
+    }),
+    [
+      darkMode,
+      dynamicRowHeight,
+      filteredRows,
+      graphState?.selectedCommitHash,
+      graphViewBoxWidth,
+      laneWidth,
+      palette,
+    ],
+  );
 
   if (!graphState) {
     return null;
@@ -466,8 +487,6 @@ export function GitGraphOverlay() {
 
   const repoRoot = graphState.response?.repoRoot ?? null;
   const headBranch = graphState.response?.headBranch ?? null;
-
-  const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
 
   const isFilterActive = filterText.trim().length > 0;
   const loadedCommitCount = commits.length;
@@ -1008,21 +1027,7 @@ export function GitGraphOverlay() {
                     void loadMoreGitGraphCommits();
                   }
                 }}
-                rowProps={{
-                  rows: filteredRows,
-                  selectedHash: graphState.selectedCommitHash,
-                  selectedCommitDetails: graphState.selectedCommitDetails,
-                  selectedCommitDetailsIsLoading:
-                    graphState.selectedCommitDetailsIsLoading,
-                  selectedCommitDetailsError:
-                    graphState.selectedCommitDetailsError,
-                  selectedFilePath: graphState.selectedCommitFilePath,
-                  palette,
-                  darkMode,
-                  graphViewBoxWidth,
-                  laneWidth,
-                  dynamicRowHeight,
-                }}
+                rowProps={commitRowProps}
                 style={{
                   height: listSize.height,
                   width: listSize.width,
@@ -1185,10 +1190,6 @@ type GitCommitRowProps = {
   style: Record<string, unknown>;
   rows: GitGraphRow[];
   selectedHash: string | null;
-  selectedCommitDetails: GetGitCommitDetailsResponse | null;
-  selectedCommitDetailsIsLoading: boolean;
-  selectedCommitDetailsError: string | null;
-  selectedFilePath: string | null;
   palette: readonly string[];
   darkMode: boolean;
   graphViewBoxWidth: number;
@@ -1201,10 +1202,6 @@ function GitCommitRow({
   style,
   rows,
   selectedHash,
-  selectedCommitDetails,
-  selectedCommitDetailsIsLoading,
-  selectedCommitDetailsError,
-  selectedFilePath,
   palette,
   darkMode,
   graphViewBoxWidth,
@@ -1328,29 +1325,67 @@ function GitCommitRow({
               laneWidth={laneWidth}
             />
             <div className="col-span-4 min-w-0 py-3">
-              {selectedCommitDetailsIsLoading ? (
-                <div className="text-xs text-setta-500 dark:text-setta-300">
-                  Loading commit details…
-                </div>
-              ) : selectedCommitDetailsError ? (
-                <div className="rounded-md border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
-                  {selectedCommitDetailsError}
-                </div>
-              ) : selectedCommitDetails &&
-                selectedCommitDetails.commitHash === commit.hash ? (
-                <ExpandedCommitRow
-                  details={selectedCommitDetails}
-                  selectedFilePath={selectedFilePath}
-                />
-              ) : (
-                <div className="text-xs text-setta-500 dark:text-setta-300">
-                  No details available.
-                </div>
-              )}
+              <SelectedCommitDetails commitHash={commit.hash} />
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
+  const {
+    selectedCommitDetails,
+    selectedCommitDetailsIsLoading,
+    selectedCommitDetailsError,
+    selectedFilePath,
+  } = useGitStore((state) => {
+    if (
+      state.overlay.kind !== "graph" ||
+      state.overlay.graph.selectedCommitHash !== commitHash
+    ) {
+      return {
+        selectedCommitDetails: null,
+        selectedCommitDetailsIsLoading: false,
+        selectedCommitDetailsError: null,
+        selectedFilePath: null,
+      };
+    }
+    return {
+      selectedCommitDetails: state.overlay.graph.selectedCommitDetails,
+      selectedCommitDetailsIsLoading:
+        state.overlay.graph.selectedCommitDetailsIsLoading,
+      selectedCommitDetailsError: state.overlay.graph.selectedCommitDetailsError,
+      selectedFilePath: state.overlay.graph.selectedCommitFilePath,
+    };
+  });
+
+  if (selectedCommitDetailsIsLoading) {
+    return (
+      <div className="text-xs text-setta-500 dark:text-setta-300">
+        Loading commit details…
+      </div>
+    );
+  }
+  if (selectedCommitDetailsError) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 px-2 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+        {selectedCommitDetailsError}
+      </div>
+    );
+  }
+  if (selectedCommitDetails && selectedCommitDetails.commitHash === commitHash) {
+    return (
+      <ExpandedCommitRow
+        details={selectedCommitDetails}
+        selectedFilePath={selectedFilePath}
+      />
+    );
+  }
+  return (
+    <div className="text-xs text-setta-500 dark:text-setta-300">
+      No details available.
     </div>
   );
 }

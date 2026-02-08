@@ -53,7 +53,7 @@ const DIFF_LINE_THEME = EditorView.baseTheme({
   },
 });
 
-function classifyDiffLine(text: string): string | null {
+export function classifyDiffLine(text: string): string | null {
   if (!text) {
     return null;
   }
@@ -85,45 +85,6 @@ function classifyDiffLine(text: string): string | null {
   }
   return null;
 }
-
-function buildLineDecorations(view: EditorView): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>();
-  for (const range of view.visibleRanges) {
-    let pos = range.from;
-    while (pos <= range.to) {
-      const line = view.state.doc.lineAt(pos);
-      const cls = classifyDiffLine(line.text);
-      if (cls) {
-        builder.add(
-          line.from,
-          line.from,
-          Decoration.line({ attributes: { class: cls } }),
-        );
-      }
-      pos = line.to + 1;
-    }
-  }
-  return builder.finish();
-}
-
-const DIFF_LINE_DECORATIONS = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-
-    constructor(view: EditorView) {
-      this.decorations = buildLineDecorations(view);
-    }
-
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.viewportChanged) {
-        this.decorations = buildLineDecorations(update.view);
-      }
-    }
-  },
-  {
-    decorations: (v) => v.decorations,
-  },
-);
 
 type ParserLike = {
   parse: (input: string) => unknown;
@@ -164,7 +125,7 @@ function parserForPath(path: string | null | undefined): ParserLike | null {
   return null;
 }
 
-function shouldSyntaxHighlightLine(text: string): boolean {
+export function shouldSyntaxHighlightLine(text: string): boolean {
   if (!text) {
     return false;
   }
@@ -196,22 +157,45 @@ function shouldSyntaxHighlightLine(text: string): boolean {
   );
 }
 
-function buildSyntaxDecorations(
-  view: EditorView,
-  parser: ParserLike,
-  highlighter: Highlighter,
-  cache: Map<number, SyntaxLineCacheEntry>,
+function buildCombinedDecorations({
+  view,
+  parser,
+  highlighter,
+  cache,
+}: {
+  view: EditorView;
+  parser: ParserLike | null;
+  highlighter: Highlighter | null;
+  cache: Map<number, SyntaxLineCacheEntry>;
+},
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
-  if (view.state.doc.lines > MAX_SYNTAX_HIGHLIGHT_DOC_LINES) {
-    return builder.finish();
-  }
-  // Highlight only visible lines; keep per-line results cached for scroll perf.
+  const shouldHighlightSyntax =
+    parser !== null &&
+    highlighter !== null &&
+    view.state.doc.lines <= MAX_SYNTAX_HIGHLIGHT_DOC_LINES;
+
+  // Build line + syntax decorations in one visible-range pass.
   for (const range of view.visibleRanges) {
     let pos = range.from;
     while (pos <= range.to) {
       const line = view.state.doc.lineAt(pos);
       const lineText = line.text;
+      const cls = classifyDiffLine(lineText);
+      if (cls) {
+        builder.add(
+          line.from,
+          line.from,
+          Decoration.line({ attributes: { class: cls } }),
+        );
+      }
+
+      if (!shouldHighlightSyntax) {
+        pos = line.to + 1;
+        continue;
+      }
+      const syntaxParser = parser as ParserLike;
+      const syntaxHighlighter = highlighter as Highlighter;
       if (!shouldSyntaxHighlightLine(lineText)) {
         pos = line.to + 1;
         continue;
@@ -242,8 +226,8 @@ function buildSyntaxDecorations(
         }
       } else {
         const marks: Array<[number, number, string]> = [];
-        const tree = parser.parse(codeText) as never;
-        highlightTree(tree, highlighter, (from, to, classes) => {
+        const tree = syntaxParser.parse(codeText) as never;
+        highlightTree(tree, syntaxHighlighter, (from, to, classes) => {
           if (!classes) {
             return;
           }
@@ -266,6 +250,55 @@ function buildSyntaxDecorations(
   return builder.finish();
 }
 
+function createDiffDecorationsPlugin(parser: ParserLike | null): Extension {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      lineCache = new Map<number, SyntaxLineCacheEntry>();
+
+      constructor(view: EditorView) {
+        const highlighter: Highlighter | null = parser
+          ? {
+              style: (tags) => highlightingFor(view.state, tags),
+            }
+          : null;
+        this.decorations = buildCombinedDecorations({
+          view,
+          parser,
+          highlighter,
+          cache: this.lineCache,
+        });
+      }
+
+      update(update: ViewUpdate) {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.reconfigured
+        ) {
+          if (update.docChanged || update.reconfigured) {
+            this.lineCache.clear();
+          }
+          const highlighter: Highlighter | null = parser
+            ? {
+                style: (tags) => highlightingFor(update.state, tags),
+              }
+            : null;
+          this.decorations = buildCombinedDecorations({
+            view: update.view,
+            parser,
+            highlighter,
+            cache: this.lineCache,
+          });
+        }
+      }
+    },
+    {
+      decorations: (v) => v.decorations,
+    },
+  );
+}
+
 export function GitDiffCodeMirror({
   value,
   filePathForLanguage,
@@ -283,55 +316,11 @@ export function GitDiffCodeMirror({
 
   const extensions: Extension[] = useMemo(() => {
     const parser = parserForPath(filePathForLanguage);
-    const syntaxDecorationsExt = parser
-      ? ViewPlugin.fromClass(
-          class {
-            decorations: DecorationSet;
-            lineCache = new Map<number, SyntaxLineCacheEntry>();
-
-            constructor(view: EditorView) {
-              const highlighter: Highlighter = {
-                style: (tags) => highlightingFor(view.state, tags),
-              };
-              this.decorations = buildSyntaxDecorations(
-                view,
-                parser,
-                highlighter,
-                this.lineCache,
-              );
-            }
-
-            update(update: ViewUpdate) {
-              if (
-                update.docChanged ||
-                update.viewportChanged ||
-                update.reconfigured
-              ) {
-                if (update.docChanged || update.reconfigured) {
-                  this.lineCache.clear();
-                }
-                const highlighter: Highlighter = {
-                  style: (tags) => highlightingFor(update.state, tags),
-                };
-                this.decorations = buildSyntaxDecorations(
-                  update.view,
-                  parser,
-                  highlighter,
-                  this.lineCache,
-                );
-              }
-            }
-          },
-          {
-            decorations: (v) => v.decorations,
-          },
-        )
-      : null;
+    const diffDecorationsExt = createDiffDecorationsPlugin(parser);
 
     const ext: Extension[] = [
       DIFF_LINE_THEME,
-      DIFF_LINE_DECORATIONS,
-      ...(syntaxDecorationsExt ? [syntaxDecorationsExt] : []),
+      diffDecorationsExt,
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
     ];
