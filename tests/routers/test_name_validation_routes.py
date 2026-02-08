@@ -79,7 +79,7 @@ def _patched_setta_paths(tmpdir: str) -> Path:
     _populate_project_fixture_files(setta_root)
     with temporary_setta_paths(
         workspace_root=root,
-        setta_files_root=setta_root,
+        setta_files_location="local",
     ):
         yield setta_root
 

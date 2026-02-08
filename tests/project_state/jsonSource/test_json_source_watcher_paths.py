@@ -20,15 +20,12 @@ def test_json_source_update_matches_relative_variant_paths() -> None:
     with TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
         workspace_root = base / "workspace"
-        setta_root = base / "setta_files"
         workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_root = workspace_root / "setta_files"
         setta_root.mkdir(parents=True, exist_ok=True)
         (workspace_root / "json_sources").mkdir(parents=True, exist_ok=True)
 
-        with temporary_setta_paths(
-            workspace_root=workspace_root,
-            setta_files_root=setta_root,
-        ):
+        with temporary_setta_paths(workspace_root=workspace_root):
             websocket_manager = WebsocketManager()
             sender = WMHFrontendSender(websocket_manager)
             dbe = DBE(setta_root)
@@ -69,4 +66,3 @@ def test_json_source_update_matches_relative_variant_paths() -> None:
                 project_state, update
             )
             assert matches == {(section.id, variant.id)}
-
