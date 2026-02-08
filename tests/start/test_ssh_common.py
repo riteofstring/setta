@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from setta import ssh_common
+from setta.auth.bootstrap import extract_token_from_bootstrap_url
 from setta.launch import LaunchError
 
 
@@ -122,6 +123,54 @@ def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
     assert "/nohup.out" not in captured["remote_command"]
 
 
+def test_start_remote_setta_swallows_ssh_timeout(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ssh_common, "_remote_command_exists", lambda *_args, **_kwargs: True
+    )
+
+    def fake_run_ssh_command(*_args, **_kwargs):
+        raise LaunchError("SshTimeout", "timed out")
+
+    monkeypatch.setattr(ssh_common, "run_ssh_command", fake_run_ssh_command)
+
+    ssh_common.start_remote_setta(
+        "user@host",
+        [],
+        "bash",
+        "/tmp/work",
+        "setta",
+        "",
+        ssh_prefix=["ssh"],
+        files_root="/tmp/state",
+        files_root_base=None,
+    )
+
+
+def test_start_remote_setta_raises_real_ssh_errors(monkeypatch) -> None:
+    monkeypatch.setattr(
+        ssh_common, "_remote_command_exists", lambda *_args, **_kwargs: True
+    )
+
+    def fake_run_ssh_command(*_args, **_kwargs):
+        raise LaunchError("SshMissing", "missing ssh")
+
+    monkeypatch.setattr(ssh_common, "run_ssh_command", fake_run_ssh_command)
+
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_common.start_remote_setta(
+            "user@host",
+            [],
+            "bash",
+            "/tmp/work",
+            "setta",
+            "",
+            ssh_prefix=["ssh"],
+            files_root="/tmp/state",
+            files_root_base=None,
+        )
+    assert excinfo.value.code == "SshMissing"
+
+
 def test_run_ssh_command_reports_missing_ssh_binary() -> None:
     with pytest.raises(LaunchError) as excinfo:
         ssh_common.run_ssh_command(
@@ -146,4 +195,4 @@ def test_extract_token_from_bootstrap_url_ignores_extra_fragment_params() -> Non
         "http://127.0.0.1:8000/__setta__/bootstrap"
         "#token=abc123&wh=payload&lo=http%3A%2F%2Fexample.com"
     )
-    assert ssh_common.extract_token_from_bootstrap_url(url) == "abc123"
+    assert extract_token_from_bootstrap_url(url) == "abc123"

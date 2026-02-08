@@ -248,9 +248,9 @@ async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
         C.CODE_FOLDER,
         C.DB_BACKUP_FOLDER,
         C.ARTIFACTS_FOLDER,
-        C.RUN_FOLDER,
-        C.RUN_SESSIONS_FOLDER,
-        C.RUN_LOGS_FOLDER,
+        C.RUNTIME_FOLDER,
+        C.RUNTIME_SESSIONS_FOLDER,
+        C.RUNTIME_LOGS_FOLDER,
         C.SHARE_DEPLOYMENTS_FOLDER,
     ):
         path.mkdir(parents=True, exist_ok=True)

@@ -102,18 +102,6 @@ class C:
         return cls.SETTA_FILES_FOLDER / cls.BINARY_FOLDER_NAME
 
     @classproperty
-    def RUN_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "run"
-
-    @classproperty
-    def RUN_SESSIONS_FOLDER(cls) -> Path:
-        return cls.RUN_FOLDER / "sessions"
-
-    @classproperty
-    def RUN_LOGS_FOLDER(cls) -> Path:
-        return cls.RUN_FOLDER / "logs"
-
-    @classproperty
     def SHARE_DEPLOYMENTS_FOLDER(cls) -> Path:
         return cls.SETTA_FILES_FOLDER / "share_deployments"
 

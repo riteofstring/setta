@@ -6,7 +6,7 @@ from setta.utils.constants import C
 def auth_cookie_name(session_id: str) -> str:
     trimmed = session_id.strip()
     if not trimmed:
-        return C.AUTH_COOKIE_NAME
+        raise ValueError("session_id must be a non-empty string")
     return f"{C.AUTH_COOKIE_NAME}_{trimmed}"
 
 

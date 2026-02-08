@@ -185,17 +185,38 @@ class SessionRegistry:
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            logger.warning("Failed to read session metadata at %s", path, exc_info=True)
+            logger.warning(
+                "Failed to read session metadata at %s; deleting %s",
+                path,
+                path.parent,
+                exc_info=True,
+            )
+            try:
+                shutil.rmtree(path.parent)
+            except OSError:
+                pass
             return None
         try:
             metadata = SessionMetadata.model_validate(raw)
         except ValidationError:
-            logger.warning("Invalid session metadata at %s", path, exc_info=True)
+            logger.warning(
+                "Invalid session metadata at %s; deleting %s",
+                path,
+                path.parent,
+                exc_info=True,
+            )
+            try:
+                shutil.rmtree(path.parent)
+            except OSError:
+                pass
             return None
         secret_path = Path(metadata.secretPath)
         if not secret_path.is_absolute():
             logger.warning(
-                "Invalid session metadata at %s (secretPath must be absolute).", path
+                "Invalid session metadata for %s at %s (secretPath must be absolute); deleting %s",
+                metadata.id,
+                path,
+                path.parent,
             )
             try:
                 shutil.rmtree(path.parent)

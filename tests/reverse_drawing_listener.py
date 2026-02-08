@@ -202,7 +202,7 @@ def main() -> None:
     parser.add_argument(
         "--sessions-root",
         default=None,
-        help="Override sessions root (defaults to setta_files/run/sessions).",
+        help="Override sessions root (defaults to setta_files/runtime/sessions).",
     )
     args = parser.parse_args()
     sessions_root = Path(args.sessions_root) if args.sessions_root else None

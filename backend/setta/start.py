@@ -17,6 +17,7 @@ import requests
 import yaml
 
 from setta import __version__, ssh_common
+from setta.auth.bootstrap import extract_token_from_bootstrap_url
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
@@ -355,8 +356,8 @@ def _ensure_background_process_started(
 
 def _extract_token_from_bootstrap_url(url: str) -> str:
     try:
-        return ssh_common.extract_token_from_bootstrap_url(url)
-    except LaunchError as exc:
+        return extract_token_from_bootstrap_url(url)
+    except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
 
 

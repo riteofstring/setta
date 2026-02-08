@@ -82,13 +82,12 @@ def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
     response.raise_for_status()
     html = response.text
 
+    assert 'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";' in html
+    assert "localStorage.setItem(workspaceHistoryHandoffKey, encoded);" in html
+
     assert 'const launcherOriginKey = "setta.launcherOrigin";' in html
     assert 'params.get("lo")' in html
-
-    # Regression test: dedupe workspace history entries by a stable identity key,
-    # not by JSON.stringify(entry) (which includes lastUsedAt).
-    assert "function workspaceHistoryEntryKey(entry)" in html
-    assert "JSON.stringify(entry)" not in html
+    assert 'url.protocol === "http:" || url.protocol === "https:"' in html
 
 
 def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:

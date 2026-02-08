@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Any
-from urllib.parse import parse_qs, urlparse
 
 from setta.launch import LaunchError
 from setta.utils.network import format_host_for_ssh_tunnel
@@ -600,30 +599,19 @@ def start_remote_setta(
             ssh_prefix=ssh_prefix,
             timeout=10.0,
         )
-    except LaunchError:
+    except LaunchError as exc:
         # When the start command is backgrounded (nohup/setsid) some hosts can hang
-        # briefly. We'll rely on the session polling timeout instead.
-        return
+        # briefly. We'll rely on the session polling timeout instead, but only for
+        # explicit timeouts (don't hide real SSH failures).
+        if exc.code == "SshTimeout":
+            return
+        raise
     if result.returncode != 0:
         details = (result.stderr.strip() or result.stdout.strip() or "").strip()
         raise LaunchError(
             "RemoteStart",
             f"Failed to start remote Setta. {details}".strip(),
         )
-
-
-def extract_token_from_bootstrap_url(url: str) -> str:
-    parsed = urlparse(url)
-    for candidate in (parsed.fragment, parsed.query):
-        if not candidate:
-            continue
-        params = parse_qs(candidate)
-        token_values = params.get("token")
-        if token_values:
-            token = token_values[0].strip()
-            if token:
-                return token
-    raise LaunchError("RemoteToken", "Bootstrap URL missing token parameter.")
 
 
 def build_ssh_tunnel_args(

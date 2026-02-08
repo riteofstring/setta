@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
@@ -18,6 +19,8 @@ from setta.utils.paths import (
 DEFAULT_LAUNCH_TIMEOUT_SECONDS = 30.0
 DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
 DEFAULT_EXISTING_SESSION_GRACE_SECONDS = 2.0
+DEFAULT_EXISTING_SESSION_EXTENDED_GRACE_SECONDS = 10.0
+DEFAULT_EXISTING_SESSION_RECENT_SECONDS = 15.0
 
 
 class LaunchError(RuntimeError):
@@ -54,6 +57,28 @@ class LaunchResult:
     registry: SessionRegistry
     paths: SettaPaths
     started_new: bool
+
+
+def _existing_session_grace_seconds(
+    session: SessionMetadata, *, timeout_seconds: float
+) -> float:
+    """Return how long we should wait for a newly registered existing session.
+
+    Setta sessions register metadata before uvicorn starts listening. If startup is
+    slower than DEFAULT_EXISTING_SESSION_GRACE_SECONDS, spawning a second backend
+    for the same workspace is confusing and wasteful.
+    """
+
+    base_grace = min(timeout_seconds, DEFAULT_EXISTING_SESSION_GRACE_SECONDS)
+    if session.pid <= 0:
+        return base_grace
+    started_at = session.startedAt
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    age_seconds = (datetime.now(timezone.utc) - started_at).total_seconds()
+    if not (0.0 <= age_seconds <= DEFAULT_EXISTING_SESSION_RECENT_SECONDS):
+        return base_grace
+    return min(timeout_seconds, DEFAULT_EXISTING_SESSION_EXTENDED_GRACE_SECONDS)
 
 
 def launch_workspace_session(
@@ -100,8 +125,8 @@ def launch_workspace_session(
                 )
 
         latest = sessions[0]
-        grace_deadline = time.monotonic() + min(
-            timeout_seconds, DEFAULT_EXISTING_SESSION_GRACE_SECONDS
+        grace_deadline = time.monotonic() + _existing_session_grace_seconds(
+            latest, timeout_seconds=timeout_seconds
         )
         while time.monotonic() < grace_deadline:
             if _can_connect_to_session(latest):

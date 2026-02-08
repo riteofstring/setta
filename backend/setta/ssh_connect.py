@@ -11,6 +11,7 @@ from pathlib import Path
 import psutil
 from pydantic import BaseModel
 
+from setta.auth.bootstrap import extract_token_from_bootstrap_url
 from setta.launch import LaunchError, validate_files_root_options
 from setta.ssh_common import (
     RemoteSessionSummary,
@@ -18,7 +19,6 @@ from setta.ssh_common import (
     build_remote_files_root_args,
     build_ssh_tunnel_args,
     ensure_background_process_started,
-    extract_token_from_bootstrap_url,
     fetch_remote_connect_info,
     fetch_remote_sessions,
     parse_ssh_args,
@@ -148,7 +148,10 @@ def connect_remote_workspace_session(
             "RemoteConnectInfo",
             "Remote connect info did not include a bootstrapUrlFragment.",
         )
-    token = extract_token_from_bootstrap_url(remote_bootstrap_url)
+    try:
+        token = extract_token_from_bootstrap_url(remote_bootstrap_url)
+    except ValueError as exc:
+        raise LaunchError("RemoteToken", str(exc)) from exc
 
     tunnel = _ensure_ssh_tunnel(
         ssh_target=ssh_target,
@@ -194,7 +197,7 @@ def _compute_tunnel_key_hash(
 
 
 def _tunnel_id_for_key_hash(key_hash: str) -> str:
-    return key_hash[:12]
+    return key_hash[:20]
 
 
 def _load_tunnel_metadata(path: Path) -> SshTunnelMetadata | None:

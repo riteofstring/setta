@@ -149,7 +149,24 @@ def build_watch_code_snapshot(
 
 
 def _should_ignore_path(path: Path) -> bool:
-    for part in path.parts:
+    paths = get_setta_paths()
+    workspace_root = paths.workspace_root.resolve(strict=False)
+    resolved = (
+        path.resolve(strict=False)
+        if path.is_absolute()
+        else (workspace_root / path).resolve(strict=False)
+    )
+    state_root = paths.setta_files_root.resolve(strict=False)
+    runtime_root = paths.runtime_root.resolve(strict=False)
+    # If the state roots are inside the workspace, ignore them by path (not by
+    # the literal folder name "setta_files") so detached roots don't get scanned.
+    if state_root.is_relative_to(workspace_root) and resolved.is_relative_to(state_root):
+        return True
+    if runtime_root.is_relative_to(workspace_root) and resolved.is_relative_to(
+        runtime_root
+    ):
+        return True
+    for part in resolved.parts:
         if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
             return True
     return False
@@ -188,7 +205,14 @@ def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
         return output
     output: list[Path] = []
     for current_root, dirs, files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in DEFAULT_WATCH_CODE_IGNORE_DIRS and d]
+        root_path = Path(current_root)
+        dirs[:] = [
+            d
+            for d in dirs
+            if d
+            and d not in DEFAULT_WATCH_CODE_IGNORE_DIRS
+            and not _should_ignore_path(root_path / d)
+        ]
         for filename in files:
             if not filename.endswith(".py"):
                 continue

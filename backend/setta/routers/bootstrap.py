@@ -347,29 +347,29 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	          }
 	        }
 
-        function hydrateLauncherOriginFromHash() {
-          try {
-            const hash = window.location.hash.slice(1);
-            if (!hash) {
-              return;
-            }
-            const params = new URLSearchParams(hash);
-            const raw = params.get("lo");
-            if (!raw) {
-              return;
-            }
-            const trimmed = raw.trim();
-            if (!trimmed) {
-              return;
-            }
-            const url = new URL(trimmed);
-            if (url.origin) {
-              localStorage.setItem(launcherOriginKey, url.origin);
-            }
-          } catch {
-            /* ignore */
-          }
-        }
+	        function hydrateLauncherOriginFromHash() {
+	          try {
+	            const hash = window.location.hash.slice(1);
+	            if (!hash) {
+	              return;
+	            }
+	            const params = new URLSearchParams(hash);
+	            const raw = params.get("lo");
+	            if (!raw) {
+	              return;
+	            }
+	            const trimmed = raw.trim();
+	            if (!trimmed) {
+	              return;
+	            }
+	            const url = new URL(trimmed);
+	            if (url.protocol === "http:" || url.protocol === "https:") {
+	              localStorage.setItem(launcherOriginKey, url.origin);
+	            }
+	          } catch {
+	            /* ignore */
+	          }
+	        }
 
         function readTokenFromUrl() {
           const hash = window.location.hash.slice(1);
@@ -440,9 +440,13 @@ def _request_origin(request: Request) -> str:
     return f"{request.url.scheme}://{request.url.netloc}"
 
 
-def _append_query_param(url: str, *, key: str, value: str) -> str:
+def _set_query_param(url: str, *, key: str, value: str) -> str:
     parts = urlsplit(url)
-    query = parse_qsl(parts.query, keep_blank_values=True)
+    query = [
+        (entry_key, entry_value)
+        for entry_key, entry_value in parse_qsl(parts.query, keep_blank_values=True)
+        if entry_key != key
+    ]
     query.append((key, value))
     return urlunsplit(
         (
@@ -461,7 +465,7 @@ def _bootstrap_redirect_url(request: Request) -> str:
     hostname = request.url.hostname or C.HOST
     host = format_host_for_url(hostname)
     redirect_url = f"{request.url.scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
-    return _append_query_param(
+    return _set_query_param(
         redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
     )
 
