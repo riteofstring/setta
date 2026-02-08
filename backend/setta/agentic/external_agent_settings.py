@@ -110,26 +110,43 @@ def build_codex_settings_file(
     allowlist: ExternalToolAllowlist | None,
     mcp_url: str,
     auth_headers: dict[str, str] | None,
+    agentic_headers: dict[str, str] | None = None,
     system_prompt: str | None,
     project_root: Path | None = None,
+    output_dir: Path | None = None,
 ) -> Path:
     settings_path = resolve_codex_settings_path(dbe, config)
     if settings_path is None:
         raise ValueError("Codex settings path unavailable for non-codex config")
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    base_path = _resolve_settings_base_path(config, settings_path)
+    output_root = output_dir or settings_path.parent
+    output_root.mkdir(parents=True, exist_ok=True)
+    output_path = output_root / _CODEX_CONFIG_NAME
+
+    base_path: Path | None = None
+    if (
+        config.settingsMode == ExternalAgentSettingsMode.explicit_path
+        and config.settingsFilePath
+    ):
+        base_path = Path(config.settingsFilePath)
+    elif output_dir is not None:
+        # Runtime config should treat the shared config (or explicit path) as the base
+        # to avoid accumulating previous dynamic mutations (developer_instructions, etc.).
+        if settings_path.exists():
+            base_path = settings_path
+    else:
+        base_path = _resolve_settings_base_path(config, settings_path)
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
-    _set_codex_mcp_server(payload, mcp_url, auth_headers)
+    _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_codex_managed_settings(payload, config, allowlist)
         _apply_codex_auth_settings(payload, config)
         _apply_codex_reasoning_settings(payload)
     _apply_codex_system_prompt(payload, system_prompt)
     _apply_codex_trusted_project(payload, project_root)
-    settings_path.write_text(_dump_toml(payload), encoding="utf-8")
-    return settings_path.parent
+    output_path.write_text(_dump_toml(payload), encoding="utf-8")
+    return output_root
 
 
 def build_opencode_settings_file(
@@ -139,20 +156,39 @@ def build_opencode_settings_file(
     allowlist: ExternalToolAllowlist | None,
     mcp_url: str,
     auth_headers: dict[str, str] | None,
+    agentic_headers: dict[str, str] | None = None,
+    output_path: Path | None = None,
 ) -> Path:
     settings_path = resolve_opencode_settings_path(dbe, config)
     if settings_path is None:
         raise ValueError("OpenCode settings path unavailable for non-opencode config")
-    settings_path.parent.mkdir(parents=True, exist_ok=True)
-    base_path = _resolve_settings_base_path(config, settings_path)
+    resolved_output_path = output_path or settings_path
+    resolved_output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    base_path: Path | None = None
+    if (
+        config.settingsMode == ExternalAgentSettingsMode.explicit_path
+        and config.settingsFilePath
+    ):
+        base_path = Path(config.settingsFilePath)
+    elif output_path is not None:
+        # Runtime config should treat the shared config (or explicit path) as the base
+        # to avoid accumulating previous dynamic mutations.
+        if settings_path.exists():
+            base_path = settings_path
+    else:
+        base_path = _resolve_settings_base_path(config, settings_path)
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_json(base_path)
-    _set_opencode_mcp_server(payload, mcp_url, auth_headers)
+    _set_opencode_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_opencode_managed_settings(payload, config, allowlist)
-    settings_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    return settings_path
+    resolved_output_path.write_text(
+        json.dumps(payload, indent=2),
+        encoding="utf-8",
+    )
+    return resolved_output_path
 
 
 def _resolve_settings_base_path(
@@ -398,6 +434,7 @@ def _set_codex_mcp_server(
     payload: dict[str, Any],
     mcp_url: str,
     auth_headers: dict[str, str] | None,
+    agentic_headers: dict[str, str] | None,
 ) -> None:
     mcp_servers = payload.get("mcp_servers")
     if not isinstance(mcp_servers, dict):
@@ -406,10 +443,24 @@ def _set_codex_mcp_server(
     if not isinstance(server_entry, dict):
         server_entry = {}
     server_entry["url"] = mcp_url
+    http_headers: dict[str, str] = {}
+    existing_headers = server_entry.get("http_headers")
+    if isinstance(existing_headers, dict):
+        http_headers.update(
+            {
+                str(key): str(value)
+                for key, value in existing_headers.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+        )
     if auth_headers:
         cookie_value = auth_headers.get("Cookie")
         if cookie_value:
-            server_entry["http_headers"] = {"Cookie": cookie_value}
+            http_headers["Cookie"] = cookie_value
+    if agentic_headers:
+        http_headers.update(agentic_headers)
+    if http_headers:
+        server_entry["http_headers"] = http_headers
     mcp_servers[SETTA_MCP_SERVER_ID] = server_entry
     payload["mcp_servers"] = mcp_servers
 
@@ -418,6 +469,7 @@ def _set_opencode_mcp_server(
     payload: dict[str, Any],
     mcp_url: str,
     auth_headers: dict[str, str] | None,
+    agentic_headers: dict[str, str] | None,
 ) -> None:
     mcp = payload.get("mcp")
     if not isinstance(mcp, dict):
@@ -427,8 +479,25 @@ def _set_opencode_mcp_server(
         "url": mcp_url,
         "enabled": True,
     }
+    headers: dict[str, str] = {}
+    existing_headers = None
+    existing_entry = mcp.get(SETTA_MCP_SERVER_ID)
+    if isinstance(existing_entry, dict):
+        existing_headers = existing_entry.get("headers")
+    if isinstance(existing_headers, dict):
+        headers.update(
+            {
+                str(key): str(value)
+                for key, value in existing_headers.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+        )
     if auth_headers:
-        server_entry["headers"] = auth_headers
+        headers.update(auth_headers)
+    if agentic_headers:
+        headers.update(agentic_headers)
+    if headers:
+        server_entry["headers"] = headers
     mcp[SETTA_MCP_SERVER_ID] = server_entry
     payload["mcp"] = mcp
 

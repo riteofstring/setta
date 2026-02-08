@@ -65,6 +65,7 @@ class Route(str, Enum):
     GET_LLM_CHAT = "/getLLMChat"
     GET_EXTERNAL_AGENT_CHAT = "/getExternalAgentChat"
     GET_AI_FOLLOW_SNAPSHOT = "/getAIFollowSnapshot"
+    GET_AGENTIC_SUMMARY_CACHE_STATUS = "/getAgenticSummaryCacheStatus"
     GET_AGENT_PROFILES = "/getAgentProfiles"
     GET_AGENT_PROFILE = "/getAgentProfile"
     CREATE_AGENT_PROFILE = "/createAgentProfile"

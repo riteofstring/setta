@@ -1,12 +1,12 @@
-import _ from "lodash";
 import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
@@ -57,11 +57,27 @@ function _SectionContainerCore({
       projectConfigId: x.projectConfig.id,
       isAttachedTerminalChild,
     };
-  }, _.isEqual);
+  }, shallow);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
     : "";
+  const { scopeReadMap, scopeWriteMap } = useAgenticScopeHighlights(
+    (state) => ({
+      scopeReadMap:
+        state.readSectionIdsByProjectConfigId[projectConfigId] ?? null,
+      scopeWriteMap:
+        state.writeSectionIdsByProjectConfigId[projectConfigId] ?? null,
+    }),
+    shallow,
+  );
+  const isWriteScope = Boolean(scopeWriteMap?.[sectionId]);
+  const isReadScope = !isWriteScope && Boolean(scopeReadMap?.[sectionId]);
+  const scopeHighlightClassName = isWriteScope
+    ? "ring-2 ring-amber-400/70 ring-inset"
+    : isReadScope
+      ? "ring-2 ring-emerald-400/70 ring-inset"
+      : "";
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
@@ -98,7 +114,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`agentic-handle-scope group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`agentic-handle-scope group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}

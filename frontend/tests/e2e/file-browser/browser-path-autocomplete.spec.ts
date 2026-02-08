@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -19,6 +20,7 @@ function normalizePathForComparison(value: string): string {
 }
 
 test("browser path input autocompletes folders", async ({ page }) => {
+  await ensureAppReady(page);
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");

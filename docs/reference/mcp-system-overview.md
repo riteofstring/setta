@@ -22,6 +22,37 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 - Derived metadata comes from the tool name: `_derive_search_tags` expands common synonyms (for example `create` -> `add`, `new`, `insert`) and `_derive_search_category` matches token keywords (for example `terminal`, `chat`, `params`) to a category.
 - During registration we merge explicit and derived tags, normalize them to lowercase, and prefer the explicit category when provided. The final values are stored on the MCP tool annotations and returned in `search_mcp_tools` results.
 
+## Agentic context + scope enforcement
+Most Setta MCP tools are scope-enforced by default. Calls that lack agentic
+context return a `CallToolResult` error with `structuredContent.error="ScopeViolation"`
+instead of executing unscoped.
+
+Agentic context inputs:
+- Required: `projectConfigId`.
+- Required unless unscoped: `sectionId` (the Chat section id).
+- Optional: `chatId` (used to associate follow/highlight state with a specific chat/run).
+- Optional: `allowUnscoped=true` (project-level access; used by Project Chat).
+
+Ways to provide agentic context:
+- MCP meta (`projectConfigId`, `chatId`, `sectionId`, `allowUnscoped`).
+- Request headers (`x-setta-project-config-id`, `x-setta-chat-id`,
+  `x-setta-section-id`, `x-setta-allow-unscoped`).
+- `/__setta__/tools/call` request body (`agenticContext` object).
+- Persistent sessions can also call the init tool `set_agentic_context` once per
+  session.
+
+Tool enforcement details:
+- Tools declare access metadata (`accessType`: `read`/`write`/`structural` and
+  `idPathsByType`) via `backend/setta/mcp/tool_metadata.py`.
+- The server extracts target ids from tool arguments, maps `codeObj` ids to
+  section ids when possible, and blocks out-of-scope calls. Blocked results
+  include `blockedSectionIds`, `targetSectionIds`, and `missingEdgesCanonical`
+  hints so the UI can suggest which agentic edges to create.
+- Some tools are allowed to run without context (for example `list_mcp_tools`
+  and `search_mcp_tools`); keep this set intentionally small.
+- Some tool results are scope-filtered instead of blocked (for example project
+  state summaries and LSP diagnostics).
+
 ## MCP client (`backend/setta/mcp/client.py`)
 - `MultiMCPClient` maintains a `ClientSession` per configured MCP server (SSE, Streamable HTTP, or stdio). Once connected it calls `list_tools()`, converts each tool into an OpenAI-compatible definition, and splits the cache into `init_tool_definitions` and `discoverable_tool_definitions` based on `SettaToolType` when available.
 - Tool names are always namespaced as `<serverId>__<toolName>`. The client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
@@ -55,7 +86,7 @@ Setta exposes its agent surface through the Model Context Protocol (MCP). The ba
 - Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.
 
 ## Third-party access
-- Because Setta speaks standard MCP over SSE, any MCP-compatible client can point at `http://<host>:<port>/mcp` and call `initialize`, `list_tools`, and `call_tool` just like it would against Cursor, Claude, or OpenAI’s tool hosts. Authentication is handled upstream (Setta runs behind whatever protections you configure), so the MCP surface itself simply expects the HTTP socket to be authorized.
+- Because Setta speaks standard MCP over SSE, any MCP-compatible client can point at `http://<host>:<port>/mcp` and call `initialize`, `list_tools`, and `call_tool` just like it would against Cursor, Claude, or OpenAI’s tool hosts. Authentication is handled upstream (Setta runs behind whatever protections you configure), so the MCP surface itself simply expects the HTTP socket to be authorized. Most tools also require agentic context (see above) so tool calls are scope-enforced.
 - The recommended path for outside applications is to run the stdio bridge:
 
   ```bash

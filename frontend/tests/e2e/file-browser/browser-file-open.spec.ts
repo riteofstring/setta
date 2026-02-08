@@ -3,6 +3,8 @@ import path from "node:path";
 import { type Page, expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  ensureAppReady,
+  getCurrentProjectConfigId,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -30,6 +32,9 @@ type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
+
+const SELECT_ALL_SHORTCUT =
+  process.platform === "darwin" ? "Meta+A" : "Control+A";
 
 function normalizePathForComparison(value: string): string {
   const withoutPrivate = value.startsWith("/private")
@@ -154,7 +159,9 @@ async function setBrowserPath(
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
   await cmContent.click();
-  await cmContent.fill(nextValue);
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.press("Backspace");
+  await page.keyboard.insertText(nextValue);
   await page.keyboard.press("Enter");
 
   await expect
@@ -186,6 +193,7 @@ async function waitForTextSection(
 test("browser opens markdown and text files in text sections", async ({
   page,
 }) => {
+  await ensureAppReady(page);
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
@@ -281,6 +289,7 @@ test("browser opens markdown and text files in text sections", async ({
 });
 
 test("browser history buttons navigate folders", async ({ page }) => {
+  await ensureAppReady(page);
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
@@ -383,6 +392,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
 });
 
 test("browser list view opens folders on double click", async ({ page }) => {
+  await ensureAppReady(page);
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");

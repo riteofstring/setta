@@ -206,7 +206,8 @@ class TestLLMChatManagerOpenAIIntegration:
                         "messages": [
                             message.model_dump(mode="json")
                             for message in first_messages
-                        ]
+                        ],
+                        "allowUnscoped": True,
                     },
                     emit_stream=False,
                     emit_ai_follow=False,
@@ -252,7 +253,7 @@ class TestLLMChatManagerOpenAIIntegration:
 
                 second_run = runner.start_run(
                     profile,
-                    {"messages": history},
+                    {"messages": history, "allowUnscoped": True},
                     emit_stream=False,
                     emit_ai_follow=False,
                 )
@@ -384,7 +385,10 @@ class TestLLMChatManagerOpenAIIntegration:
                 run = runner.start_run(
                     profile,
                     {
-                        "messages": [message.model_dump(mode="json") for message in messages]
+                        "messages": [
+                            message.model_dump(mode="json") for message in messages
+                        ],
+                        "allowUnscoped": True,
                     },
                     emit_stream=False,
                     emit_ai_follow=False,

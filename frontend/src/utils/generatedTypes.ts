@@ -443,6 +443,7 @@ export const RouteEnum = {
   GET_LLM_CHAT: "/getLLMChat",
   GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENTIC_SUMMARY_CACHE_STATUS: "/getAgenticSummaryCacheStatus",
   GET_AGENT_PROFILES: "/getAgentProfiles",
   GET_AGENT_PROFILE: "/getAgentProfile",
   CREATE_AGENT_PROFILE: "/createAgentProfile",
@@ -3553,6 +3554,7 @@ const LLMStreamingResponseSchema = z.object({
     MessageFinalizedEventSchema,
   ]),
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
@@ -3941,7 +3943,7 @@ const AgenticEdgeSchema = z.object({
   selected: z.boolean().default(false),
 });
 
-type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
+export type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
 
 export function createAgenticEdge(
   options: Partial<AgenticEdge> = {},
@@ -5575,6 +5577,8 @@ const AgentProfileSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(false),
+  enableLlmChatTitles: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6044,6 +6048,20 @@ const RunChainSpecSchema = z.object({
   stopOnFailure: z.boolean().default(true),
 });
 
+const AgenticSummaryCacheStatusSchema = z.object({
+  maxSummariesPerRun: z.int(),
+  summarySectionIds: z.array(IDSchema).default([]),
+  cachedSectionIds: z.array(IDSchema).default([]),
+  missingSectionIds: z.array(IDSchema).default([]),
+  emptySourceSectionIds: z.array(IDSchema).default([]),
+  consideredSectionIds: z.array(IDSchema).default([]),
+  wouldAttemptSectionIds: z.array(IDSchema).default([]),
+});
+
+export type AgenticSummaryCacheStatus = z.infer<
+  typeof AgenticSummaryCacheStatusSchema
+>;
+
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -6108,6 +6126,7 @@ const DeleteChatRequestSchema = z.object({
 export type DeleteChatRequestInput = z.input<typeof DeleteChatRequestSchema>;
 
 const EmitChatStreamDeltaRequestSchema = z.object({
+  projectConfigId: IDSchema,
   sectionId: IDSchema,
   chatId: IDSchema,
   chunk: z.union([
@@ -6139,6 +6158,7 @@ export type GetChatRequestInput = z.input<typeof GetChatRequestSchema>;
 
 const RunMcpToolsRequestSchema = z.object({
   chatId: IDSchema,
+  sectionId: IDSchema,
   toolCalls: z.array(ToolCallSchema),
 });
 
@@ -6494,6 +6514,8 @@ const CreateAgentProfileRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(false),
+  enableLlmChatTitles: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6605,6 +6627,15 @@ const GetAgentRunRequestSchema = z.object({
 });
 
 export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetAgenticSummaryCacheStatusRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatSectionId: IDSchema,
+});
+
+export type GetAgenticSummaryCacheStatusRequestInput = z.input<
+  typeof GetAgenticSummaryCacheStatusRequestSchema
+>;
 
 const GetEngineConfigRequestSchema = z.object({
   configId: IDSchema,
@@ -6793,6 +6824,7 @@ const GetLLMResponseRequestSchema = z.object({
   thinking: z.boolean(),
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  allowUnscoped: z.boolean().default(false),
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
 });
@@ -6998,6 +7030,7 @@ export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
 const MCPToolCallRequestSchema = z.object({
   tool: z.string(),
   arguments: z.union([z.any(), z.null()]).default(null),
+  agenticContext: z.any().default(null),
 });
 
 export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;

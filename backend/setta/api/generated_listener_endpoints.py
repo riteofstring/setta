@@ -311,6 +311,7 @@ class ListenerDeleteViewModeRequestPayload(TypedDict):
 
 
 class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
+    projectConfigId: NotRequired[ID]
     sectionId: ID
     chatId: ID
     chunk: (
@@ -477,6 +478,7 @@ class ListenerRunCodeRequestPayload(TypedDict):
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):
     chatId: ID
+    sectionId: ID
     toolCalls: list[ToolCall]
 
 
