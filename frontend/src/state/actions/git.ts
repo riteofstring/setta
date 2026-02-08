@@ -198,6 +198,32 @@ export function setGitGraphFilterText(filterText: string): void {
   });
 }
 
+export function clearGitGraphSelectedCommit(): void {
+  useGitStore.setState((state) => {
+    if (state.overlay.kind !== "graph") {
+      return state;
+    }
+    return {
+      ...state,
+      overlay: {
+        kind: "graph",
+        graph: {
+          ...state.overlay.graph,
+          selectedCommitHash: null,
+          selectedCommitDetails: null,
+          selectedCommitDetailsIsLoading: false,
+          selectedCommitDetailsError: null,
+          selectedCommitFilePath: null,
+          selectedCommitFileOldPath: null,
+          selectedCommitFileDiffResponse: null,
+          selectedCommitFileDiffIsLoading: false,
+          selectedCommitFileDiffError: null,
+        },
+      },
+    };
+  });
+}
+
 async function refreshGitGraph(allRefs: boolean): Promise<void> {
   const requestId = (logRequestId += 1);
   useGitStore.setState((state) => {

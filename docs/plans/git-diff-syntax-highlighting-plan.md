@@ -74,6 +74,7 @@ Commit list: expandable rows (recommended):
    - Shows full commit message (subject + body).
    - Shows commit metadata (hash, parents, author/committer, timestamp).
    - Shows a “Files changed (N)” list with per-file +/- line counts.
+   - Clicking the currently-expanded commit again collapses it (deselects).
 3. Only one commit row should be expanded at a time (the selected commit).
 4. The patch viewer lives in a persistent right-side panel:
    - Clicking a file in the expanded row selects it.

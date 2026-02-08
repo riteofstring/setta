@@ -149,6 +149,16 @@ test("git diff overlay and git graph overlay render between panes", async ({
       graphOverlay.locator(".cm-gitdiff-syntax").first(),
     ).toBeVisible();
 
+    // Clicking the expanded commit row again should collapse it.
+    const addTrackedRow = graphOverlay.getByRole("button", {
+      name: /add tracked.*lanes 1/i,
+    });
+    await addTrackedRow.click();
+    await expect(graphOverlay.getByText("Files changed")).toHaveCount(0);
+    await expect(
+      graphOverlay.getByText("Select a commit to view details."),
+    ).toBeVisible();
+
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);
   } finally {

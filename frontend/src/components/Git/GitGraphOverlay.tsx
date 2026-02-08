@@ -2,6 +2,7 @@ import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { List, useDynamicRowHeight, useListRef } from "react-window";
 import {
+  clearGitGraphSelectedCommit,
   closeGitOverlay,
   refreshGitGraphOverlay,
   selectGitCommit,
@@ -537,7 +538,13 @@ function GitCommitRow({
       <button
         type="button"
         className={`grid h-[28px] w-full grid-cols-[120px_1fr_120px_110px_84px] items-center gap-2 px-3 text-left text-xs text-setta-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-100 ${background}`}
-        onClick={() => void selectGitCommit(commit.hash)}
+        onClick={() => {
+          if (isSelected) {
+            clearGitGraphSelectedCommit();
+            return;
+          }
+          void selectGitCommit(commit.hash);
+        }}
       >
         <div className="flex items-center">
           <GitGraphCell
