@@ -97,7 +97,7 @@ function TerminalAreaCore({
 }: TerminalAreaCoreProps) {
   return (
     <div
-      className="relative"
+      className="section-row-search-gutter section-key-value relative"
       style={{ width: `${width - 24}px`, height: `${height - 32}px` }}
     >
       {showAttachedTerminalTrashButton && (
@@ -117,7 +117,7 @@ function TerminalAreaCore({
       )}
       <div
         ref={terminalRef}
-        className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag section-row-search-gutter section-key-value`}
+        className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag`}
         data-section-main-editor
         data-attached-terminal-section-id={dataAttachedTerminalId ?? undefined}
         style={{ height: "100%", width: "100%" }}

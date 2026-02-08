@@ -911,6 +911,18 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
         { timeout: 20000 },
       )
       .toBe(true);
+
+    const detachedTerminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalId}"]`,
+    );
+    await expect(detachedTerminalNode).toBeVisible();
+    await expect(
+      detachedTerminalNode.locator(`section[data-section-id="${terminalId}"]`),
+    ).toBeVisible();
+    await expect(
+      detachedTerminalNode.locator("header.section-title"),
+    ).toBeVisible();
+    await expectDetachedTerminalHeaderLayout(page, terminalId);
   } finally {
     await deleteProjectConfigById(page, projectConfigId);
   }
@@ -1098,6 +1110,11 @@ test("detached terminal accepts input", async ({ page }) => {
       `.react-flow__node[data-id="${terminalId}"]`,
     );
     await expect(terminalNode).toBeVisible();
+    await expect(
+      terminalNode.locator(`section[data-section-id="${terminalId}"]`),
+    ).toBeVisible();
+    await expect(terminalNode.locator("header.section-title")).toBeVisible();
+    await expectDetachedTerminalHeaderLayout(page, terminalId);
 
     const inputMarker = `DETACH_ECHO_${Date.now()}`;
     await ensureTerminalAcceptsInput(page, terminalId, inputMarker, {
@@ -1933,6 +1950,13 @@ test("terminal created as attached reflows while attached and after detach", asy
       `.react-flow__node[data-id="${terminalId}"]`,
     );
     await expect(detachedTerminalNode).toBeVisible();
+    await expect(
+      detachedTerminalNode.locator(`section[data-section-id="${terminalId}"]`),
+    ).toBeVisible();
+    await expect(
+      detachedTerminalNode.locator("header.section-title"),
+    ).toBeVisible();
+    await expectDetachedTerminalHeaderLayout(page, terminalId);
 
     await setSectionSize(page, terminalId, { width: 340, height: 420 });
     await expect
@@ -3006,6 +3030,37 @@ async function copyTerminalSelection(
     target.dispatchEvent(event);
     return clipboardData.getData("text/plain");
   }, terminalId);
+}
+
+async function expectDetachedTerminalHeaderLayout(
+  page: Page,
+  terminalId: string,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      return await page.evaluate((id) => {
+        const node = document.querySelector(
+          `.react-flow__node[data-id="${id}"]`,
+        );
+        if (!node) {
+          return "missing-node";
+        }
+        const header = node.querySelector("header.section-title");
+        if (!header) {
+          return "missing-header";
+        }
+        const editor = node.querySelector("[data-section-main-editor]");
+        if (!editor) {
+          return "missing-editor";
+        }
+        const headerBox = header.getBoundingClientRect();
+        const editorBox = editor.getBoundingClientRect();
+        return editorBox.top >= headerBox.bottom - 1
+          ? "ok"
+          : `overlap:${Math.round(editorBox.top)}:${Math.round(headerBox.bottom)}`;
+      }, terminalId);
+    })
+    .toBe("ok");
 }
 
 function isPointOutsideBox(
