@@ -78,17 +78,14 @@ def build_preview_event(
     )
     if preview_value is None:
         return None
-    if not metadata.targetIdPathsByType:
-        canonical_target_ids_by_type = {}
-    else:
-        target_ids_by_type = extract_preview_target_ids_from_tokens(tokens, metadata)
-        canonical_target_ids_by_type = canonicalize_preview_ids_by_type(
-            dbe,
-            target_ids_by_type,
-            metadata.targetIdPathsByType,
-        )
-        if canonical_target_ids_by_type is None:
-            return None
+    target_ids_by_type = extract_preview_target_ids_from_tokens(tokens, metadata)
+    canonical_target_ids_by_type = canonicalize_preview_ids_by_type(
+        dbe,
+        target_ids_by_type,
+        metadata.targetIdPathsByType,
+    )
+    if canonical_target_ids_by_type is None:
+        return None
     last_value = preview_state.preview_values_by_index.get(tool_call_index, "")
     preview_value = coalesce_preview_value(last_value, preview_value)
     if last_value and not preview_value.startswith(last_value):

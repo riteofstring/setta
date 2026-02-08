@@ -1,4 +1,6 @@
+import gc
 import logging
+import warnings
 from contextlib import contextmanager
 
 import pytest
@@ -131,4 +133,24 @@ async def test_spawn_background_task_can_mark_failures_handled(caplog) -> None:
     assert any(
         "Handled failure in bg-test" in record.getMessage()
         for record in caplog.records
+    )
+
+
+def test_spawn_background_task_closes_runner_when_loop_create_task_fails() -> None:
+    class _FakeLoop:
+        def create_task(self, _coro, *, name: str | None = None):  # noqa: ANN001
+            raise RuntimeError("loop closed")
+
+    async def noop() -> None:
+        return None
+
+    loop = _FakeLoop()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", category=RuntimeWarning)
+        with pytest.raises(RuntimeError):
+            spawn_background_task(lambda: noop(), label="bg-test", loop=loop)
+        gc.collect()
+
+    assert not any(
+        "was never awaited" in str(warning.message) for warning in caught
     )

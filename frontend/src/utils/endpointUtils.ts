@@ -35,12 +35,15 @@ function resolveBackendUrl(address: string): string {
   if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
+  if (address === RouteEnum.LAUNCH) {
+    return `${C_ADDRESSES.LAUNCHER}${address}`;
+  }
   return `${C_ADDRESSES.BACKEND}${address}`;
 }
 
 function buildShareSessionHeaders(): Record<string, string> {
   const shareSession = useShareSession.getState();
-  if (!shareSession.isDeploymentMode || !shareSession.shareSessionId) {
+  if (!shareSession.isShareMode || !shareSession.shareSessionId) {
     return {};
   }
   return { "X-Share-Session-Id": shareSession.shareSessionId };

@@ -33,8 +33,8 @@ import {
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
   const { canEditVariants } = useShareCapabilities();
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const allowVariantDeletion = canEditVariants && !isDeploymentMode;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const allowVariantDeletion = canEditVariants && !isShareMode;
   const isEditingEnabled = canEditVariants && isEditing;
   const actionButtonClasses = `flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${
     canEditVariants

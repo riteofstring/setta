@@ -171,7 +171,7 @@ const RUN_SNAPSHOT_MODE_CHOICES: Array<{
 
 export function RunInstructions() {
   const { canRun } = useShareCapabilities();
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const projectConfig = useProjectState((x) => x.projectConfig);
   const projectConfigId = projectConfig.id;
   const runSnapshotModeOverride = useLocalStorage(
@@ -267,7 +267,7 @@ export function RunInstructions() {
   };
 
   const handleCodegenTargetToggle = (checked: boolean): void => {
-    if (isDeploymentMode) {
+    if (isShareMode) {
       return;
     }
     const nextTargets = checked
@@ -282,7 +282,7 @@ export function RunInstructions() {
   const updatePythonTarget = (
     updater: (target: ProjectCodegenPythonTarget) => ProjectCodegenPythonTarget,
   ): void => {
-    if (isDeploymentMode || !pythonCodegenEnabled) {
+    if (isShareMode || !pythonCodegenEnabled) {
       return;
     }
     const nextTarget = updater(pythonTarget);
@@ -422,7 +422,7 @@ export function RunInstructions() {
         Define custom run types (once or continuous) and choose which ones
         appear in the main Run dropdown.
       </p>
-      {!isDeploymentMode && (
+      {!isShareMode && (
         <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
@@ -449,7 +449,7 @@ export function RunInstructions() {
           </select>
         </div>
       )}
-      {!isDeploymentMode && (
+      {!isShareMode && (
         <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
@@ -464,7 +464,7 @@ export function RunInstructions() {
             <Switch.Root
               className={TOGGLE_ROOT_CLASSES}
               checked={pythonCodegenEnabled}
-              disabled={isDeploymentMode}
+              disabled={isShareMode}
               onCheckedChange={handleCodegenTargetToggle}
             >
               <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
@@ -497,7 +497,7 @@ export function RunInstructions() {
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}
                   checked={pythonTarget.generateMetadata}
-                  disabled={isDeploymentMode}
+                  disabled={isShareMode}
                   onCheckedChange={(checked) =>
                     updatePythonTarget((target) => ({
                       ...target,
@@ -525,7 +525,7 @@ export function RunInstructions() {
                   <Switch.Root
                     className={TOGGLE_ROOT_CLASSES}
                     checked={allowlistEnabled}
-                    disabled={isDeploymentMode}
+                    disabled={isShareMode}
                     onCheckedChange={(checked) => {
                       const nextAllowlist = checked ? allowlist : null;
                       updateSectionPolicy({
@@ -551,7 +551,7 @@ export function RunInstructions() {
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            disabled={isDeploymentMode}
+                            disabled={isShareMode}
                             onChange={(event) => {
                               const nextAllowlist = event.target.checked
                                 ? Array.from(
@@ -581,7 +581,7 @@ export function RunInstructions() {
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            disabled={isDeploymentMode}
+                            disabled={isShareMode}
                             onChange={(event) => {
                               const nextAllowlist = event.target.checked
                                 ? Array.from(
@@ -614,7 +614,7 @@ export function RunInstructions() {
                                   <input
                                     type="checkbox"
                                     checked={isTypeChecked}
-                                    disabled={isDeploymentMode}
+                                    disabled={isShareMode}
                                     onChange={(event) => {
                                       let nextMetaControlAllowlist =
                                         metaControlAllowlist;
@@ -686,7 +686,7 @@ export function RunInstructions() {
                       </div>
                       <select
                         className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-                        disabled={isDeploymentMode}
+                        disabled={isShareMode}
                         value={typePolicy.mode}
                         onChange={(event) => {
                           const nextMode = event.target
@@ -716,7 +716,7 @@ export function RunInstructions() {
                       ) : (
                         <select
                           className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                          disabled={isDeploymentMode || representationDisabled}
+                          disabled={isShareMode || representationDisabled}
                           value={typePolicy.representation}
                           onChange={(event) => {
                             const nextRepresentation = event.target
@@ -758,7 +758,7 @@ export function RunInstructions() {
                 <select
                   className="min-w-0 flex-1 rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
                   disabled={
-                    isDeploymentMode || availableOverrideSections.length === 0
+                    isShareMode || availableOverrideSections.length === 0
                   }
                   value={pendingOverrideId}
                   onChange={(event) => {
@@ -774,7 +774,7 @@ export function RunInstructions() {
                 </select>
                 <button
                   className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
-                  disabled={isDeploymentMode || !pendingOverrideId}
+                  disabled={isShareMode || !pendingOverrideId}
                   onClick={() => {
                     const selected =
                       sectionOptionsById.get(pendingOverrideId) ?? null;
@@ -839,7 +839,7 @@ export function RunInstructions() {
                         </div>
                         <select
                           className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-                          disabled={isDeploymentMode}
+                          disabled={isShareMode}
                           value={entry.override.mode}
                           onChange={(event) => {
                             const nextMode = event.target
@@ -869,9 +869,7 @@ export function RunInstructions() {
                         ) : (
                           <select
                             className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                            disabled={
-                              isDeploymentMode || representationDisabled
-                            }
+                            disabled={isShareMode || representationDisabled}
                             value={entry.override.representation}
                             onChange={(event) => {
                               const nextRepresentation = event.target
@@ -897,7 +895,7 @@ export function RunInstructions() {
                         )}
                         <button
                           className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
-                          disabled={isDeploymentMode}
+                          disabled={isShareMode}
                           onClick={() => {
                             const nextOverrides = {
                               ...sectionPolicy.sectionOverrides,
@@ -956,7 +954,7 @@ export function RunInstructions() {
                       </div>
                       <select
                         className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                        disabled={isDeploymentMode || representationDisabled}
+                        disabled={isShareMode || representationDisabled}
                         value={typePolicy.representation}
                         onChange={(event) => {
                           const nextRepresentation = event.target
@@ -996,7 +994,7 @@ export function RunInstructions() {
                 <select
                   className="min-w-0 flex-1 rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
                   disabled={
-                    isDeploymentMode || availableCodeObjOverrides.length === 0
+                    isShareMode || availableCodeObjOverrides.length === 0
                   }
                   value={pendingCodeObjOverrideId}
                   onChange={(event) => {
@@ -1012,7 +1010,7 @@ export function RunInstructions() {
                 </select>
                 <button
                   className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
-                  disabled={isDeploymentMode || !pendingCodeObjOverrideId}
+                  disabled={isShareMode || !pendingCodeObjOverrideId}
                   onClick={() => {
                     const selected =
                       codeObjOptionsById.get(pendingCodeObjOverrideId) ?? null;
@@ -1074,7 +1072,7 @@ export function RunInstructions() {
                         </div>
                         <select
                           className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                          disabled={isDeploymentMode || representationDisabled}
+                          disabled={isShareMode || representationDisabled}
                           value={entry.override.representation}
                           onChange={(event) => {
                             const nextRepresentation = event.target
@@ -1099,7 +1097,7 @@ export function RunInstructions() {
                         </select>
                         <button
                           className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
-                          disabled={isDeploymentMode}
+                          disabled={isShareMode}
                           onClick={() => {
                             const nextOverrides = {
                               ...codeObjValuePolicy.codeObjOverrides,

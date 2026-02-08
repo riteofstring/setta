@@ -435,7 +435,7 @@ function moveSelectedParamsByOffset(direction: -1 | 1): boolean {
 }
 
 function getParamSelectionBase(): ParamSelectionBase | null {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return null;
   }
   const state = useProjectState.getState();

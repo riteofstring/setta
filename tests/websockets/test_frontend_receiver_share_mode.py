@@ -23,7 +23,7 @@ from setta.types.websocket import (
     WebsocketMsgRealtimeUIChange,
 )
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -72,7 +72,7 @@ def _build_share_runtime_state(
     project_config_id: ID,
     project_config_name: str,
 ) -> ShareRuntimeState:
-    root = Path(tmpdir) / "deployments" / project_config_name / "v1"
+    root = Path(tmpdir) / "share_deployments" / project_config_name / "v1"
     root.mkdir(parents=True, exist_ok=True)
     dbe = DBE(root)
     project_config = ProjectConfig(
@@ -85,15 +85,13 @@ def _build_share_runtime_state(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion="v1",
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
     return ShareRuntimeState(dbe, root, frontend_sender)
 

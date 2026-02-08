@@ -131,7 +131,7 @@ describe("CodeArea LSP diagnostics wiring", () => {
 
     resetProjectStores();
     lastCodeMirrorProps = null;
-    useShareSession.setState({ isDeploymentMode: false });
+    useShareSession.setState({ isShareMode: false });
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
       state.sections = { [sectionId]: sectionCore };
@@ -172,7 +172,7 @@ describe("CodeArea LSP diagnostics wiring", () => {
   });
 
   it("skips lint extensions in share mode", () => {
-    useShareSession.setState({ isDeploymentMode: true });
+    useShareSession.setState({ isShareMode: true });
     syncStoreInitialState(useShareSession);
     useLspDiagnostics.setState({
       codeSections: { [sectionId]: [baseDiagnostic] },

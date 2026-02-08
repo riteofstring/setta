@@ -86,7 +86,7 @@ export function goToSection(sectionId: string) {
 export function autoLayout() {
   const shareSession = useShareSession.getState();
   if (
-    shareSession.isDeploymentMode &&
+    shareSession.isShareMode &&
     !(shareSession.sharePolicy?.allowLayoutChanges ?? true)
   ) {
     return;

@@ -20,7 +20,7 @@ from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl, ConfigLanguage, SectionType
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_workspace_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -106,7 +106,7 @@ class TestJsonSourceMultiSectionKeys:
                 "beta": {"inner": {"three": 3}},
             }
         )
-        json_sources = {normalize_path("sample.json"): processed}
+        json_sources = {normalize_workspace_path("sample.json"): processed}
 
         load_json_sources_into_data_structures(
             self.project_state,
@@ -142,7 +142,7 @@ class TestJsonSourceMultiSectionKeys:
         section_id, variant_id = self._create_json_source_section(["missing"])
 
         processed = self.json_source.process_json_object({"alpha": {"one": 1}})
-        json_sources = {normalize_path("sample.json"): processed}
+        json_sources = {normalize_workspace_path("sample.json"): processed}
 
         load_json_sources_into_data_structures(
             self.project_state,
@@ -158,7 +158,7 @@ class TestJsonSourceMultiSectionKeys:
         section_id, variant_id = self._create_json_source_section(["alpha", "one"])
 
         processed = self.json_source.process_json_object({"alpha": {"one": 1}})
-        json_sources = {normalize_path("sample.json"): processed}
+        json_sources = {normalize_workspace_path("sample.json"): processed}
 
         load_json_sources_into_data_structures(
             self.project_state,
@@ -175,7 +175,7 @@ class TestJsonSourceMultiSectionKeys:
         section_b, variant_b = self._create_json_source_section(["alpha"])
 
         processed = self.json_source.process_json_object({"alpha": {"one": 1}})
-        json_sources = {normalize_path("sample.json"): processed}
+        json_sources = {normalize_workspace_path("sample.json"): processed}
 
         load_json_sources_into_data_structures(
             self.project_state,
@@ -196,7 +196,7 @@ class TestJsonSourceMultiSectionKeys:
         processed_next = self.json_source.process_json_object(
             {"alpha": {"one": 1, "two": 2}}
         )
-        json_sources_next = {normalize_path("sample.json"): processed_next}
+        json_sources_next = {normalize_workspace_path("sample.json"): processed_next}
 
         load_json_sources_into_data_structures(
             self.project_state,
