@@ -68,7 +68,7 @@ describe("ProjectNav", () => {
 
   it("shows project menus when not in share mode", () => {
     useShareSession.setState({
-      isDeploymentMode: false,
+      isShareMode: false,
       sharePolicy: null,
       shareSessionId: null,
       shareDeploymentName: null,
@@ -85,7 +85,7 @@ describe("ProjectNav", () => {
 
   it("shows run controls only when share mode allows running", () => {
     useShareSession.setState({
-      isDeploymentMode: true,
+      isShareMode: true,
       sharePolicy: buildSharePolicy({ allowRun: true }),
       shareSessionId: "share-1",
       shareDeploymentName: null,
