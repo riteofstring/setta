@@ -1,5 +1,5 @@
 export type SettaFilesLocation = "auto" | "local" | "global";
-export type ResolvedSettaFilesLocation = "local" | "global";
+type ResolvedSettaFilesLocation = "local" | "global";
 
 export function normalizeSettaFilesLocation(
   value: unknown,

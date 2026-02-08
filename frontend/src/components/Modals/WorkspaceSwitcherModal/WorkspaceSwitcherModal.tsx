@@ -102,7 +102,8 @@ export function WorkspaceSwitcherModal() {
   const globalBaseLabel =
     trimmedSshTarget.length > 0
       ? "remote Setta home"
-      : launcherSettaHomeInfo?.globalSettaFilesBase ?? "<global_setta_files_base>";
+      : launcherSettaHomeInfo?.globalSettaFilesBase ??
+        "<global_setta_files_base>";
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
