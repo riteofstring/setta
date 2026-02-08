@@ -13,11 +13,10 @@ import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   createAgenticEdgeFromSections,
   deleteAgenticEdgesById,
-  updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
 import {
@@ -26,23 +25,18 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { resolveAgenticScopeFromEdges } from "state/agenticScopeUtils";
 import {
   useAIStore,
   useProjectState,
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_get_agentic_summary_cache_status,
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
 import {
-  AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
-  AgenticSummaryCacheStatus,
   EngineTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -63,7 +57,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams, canEditStructure } = useShareCapabilities();
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareMode = useShareSession((x) => x.isShareMode);
 
   const { managed, engineConfigId, agentProfileId, thinking, isFrozen } =
     useProjectState((state) => {
@@ -143,7 +137,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     );
   }, [agentProfileId, agentProfiles]);
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
-  const canEditSettings = !isDeploymentMode || canEditParams;
+  const canEditSettings = !isShareMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;
@@ -269,18 +263,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     return [{ group: "Chat Sections", items }];
   }, [sectionOptions]);
 
-  const contextModeOptions = useMemo(
-    () => [
-      {
-        id: AgenticEdgeContextModeEnum.reference_only,
-        label: "Reference only",
-      },
-      { id: AgenticEdgeContextModeEnum.inline_text, label: "Inline text" },
-      { id: AgenticEdgeContextModeEnum.summary, label: "Summary" },
-    ],
-    [],
-  );
-
   const contextEdges = useMemo(
     () =>
       agenticEdges.filter(
@@ -289,13 +271,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           edge.targetSectionId === sectionId,
       ),
     [agenticEdges, sectionId],
-  );
-  const summaryContextEdgeCount = useMemo(
-    () =>
-      contextEdges.filter(
-        (edge) => edge.contextMode === AgenticEdgeContextModeEnum.summary,
-      ).length,
-    [contextEdges],
   );
   const scopeEdges = useMemo(
     () =>
@@ -316,85 +291,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       ),
     [agenticEdges, sectionId],
   );
-
-  const agenticScope = useMemo(
-    () => resolveAgenticScopeFromEdges(agenticEdges, sectionId),
-    [agenticEdges, sectionId],
-  );
-
-  const buildScopeEntries = useCallback(
-    (ids: Iterable<string>) => {
-      const entries = Array.from(ids).map((id) => ({
-        id,
-        label: sectionLabelsById[id] ?? id,
-      }));
-      return _.sortBy(entries, (entry) => entry.label.toLowerCase());
-    },
-    [sectionLabelsById],
-  );
-
-  const scopeReadEntries = useMemo(() => {
-    const ids = new Set<string>(agenticScope.readSectionIds);
-    agenticScope.peerChatSectionIds.forEach((id) => ids.add(id));
-    return buildScopeEntries(ids);
-  }, [agenticScope, buildScopeEntries]);
-
-  const scopeWriteEntries = useMemo(
-    () => buildScopeEntries(agenticScope.writeSectionIds),
-    [agenticScope, buildScopeEntries],
-  );
-
-  const scopeContextEntries = useMemo(
-    () => buildScopeEntries(agenticScope.contextSectionIds),
-    [agenticScope, buildScopeEntries],
-  );
-
-  const [summaryCacheStatus, setSummaryCacheStatus] =
-    useState<AgenticSummaryCacheStatus | null>(null);
-  const [summaryCacheStatusLoading, setSummaryCacheStatusLoading] =
-    useState<boolean>(false);
-  const [summaryCacheStatusError, setSummaryCacheStatusError] = useState<
-    string | null
-  >(null);
-
-  const fetchSummaryCacheStatus = useCallback(async () => {
-    if (summaryContextEdgeCount === 0) {
-      setSummaryCacheStatus(null);
-      setSummaryCacheStatusError(null);
-      return;
-    }
-    setSummaryCacheStatusLoading(true);
-    try {
-      const response = await route_get_agentic_summary_cache_status({
-        projectConfigId,
-        chatSectionId: sectionId,
-      });
-      if (!res200(response)) {
-        const detail = getErrorDetail(response.data as unknown);
-        const status =
-          typeof response.status === "number" ? response.status : null;
-        setSummaryCacheStatus(null);
-        setSummaryCacheStatusError(
-          detail ??
-            `Failed to load summary cache status${status ? ` (status ${status}).` : "."}`,
-        );
-        return;
-      }
-      setSummaryCacheStatus(response.data);
-      setSummaryCacheStatusError(null);
-    } catch (err) {
-      console.error("Failed to load agentic summary cache status", err);
-      const message = err instanceof Error ? err.message : String(err);
-      setSummaryCacheStatus(null);
-      setSummaryCacheStatusError(message);
-    } finally {
-      setSummaryCacheStatusLoading(false);
-    }
-  }, [projectConfigId, sectionId, summaryContextEdgeCount]);
-
-  useEffect(() => {
-    void fetchSummaryCacheStatus();
-  }, [fetchSummaryCacheStatus]);
 
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
@@ -577,8 +473,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
   const agentOptionCount = agentItems[0]?.items.length ?? 0;
-  const hasAgenticEdges =
-    contextEdges.length + scopeEdges.length + linkedAgentEdges.length > 0;
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -724,32 +618,12 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 {contextEdges.map((edge) => (
                   <div
                     key={edge.id}
-                    className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
                   >
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className="truncate">
                       {sectionLabelsById[edge.sourceSectionId] ??
                         edge.sourceSectionId}
                     </span>
-                    <select
-                      value={
-                        edge.contextMode ??
-                        AgenticEdgeContextModeEnum.reference_only
-                      }
-                      onChange={(event) =>
-                        updateAgenticEdgeContextMode(
-                          edge.id,
-                          event.target.value as AgenticEdgeContextModeEnum,
-                        )
-                      }
-                      disabled={!canEditLinks}
-                      className="h-6 rounded border border-setta-200 bg-white px-1 text-[10px] text-setta-600 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
-                    >
-                      {contextModeOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
                     <button
                       type="button"
                       className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
@@ -762,62 +636,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                 ))}
               </div>
             )}
-            {summaryContextEdgeCount > 0 ? (
-              <div className="mt-2 rounded-md border border-setta-200/80 bg-white/80 p-2 text-[11px] text-setta-700 shadow-sm dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-setta-600 dark:text-setta-300">
-                    Summary cache
-                  </span>
-                  <button
-                    type="button"
-                    className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
-                    onClick={fetchSummaryCacheStatus}
-                    disabled={summaryCacheStatusLoading}
-                  >
-                    Refresh
-                  </button>
-                </div>
-                {summaryCacheStatusLoading ? (
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Loading summary cache status...
-                  </p>
-                ) : summaryCacheStatusError ? (
-                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-                    Failed to load summary cache status:{" "}
-                    {summaryCacheStatusError}
-                  </p>
-                ) : summaryCacheStatus ? (
-                  <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    <p>
-                      Cached: {summaryCacheStatus.cachedSectionIds.length}/
-                      {summaryCacheStatus.summarySectionIds.length}. Missing:{" "}
-                      {summaryCacheStatus.missingSectionIds.length}. Deferred
-                      due to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
-                      {Math.max(
-                        summaryCacheStatus.missingSectionIds.length -
-                          summaryCacheStatus.consideredSectionIds.length,
-                        0,
-                      )}
-                      .
-                    </p>
-                    {summaryCacheStatus.emptySourceSectionIds.length > 0 ? (
-                      <p>
-                        Empty deterministic sources:{" "}
-                        {summaryCacheStatus.emptySourceSectionIds.length}.
-                      </p>
-                    ) : null}
-                    <p>
-                      Missing summaries fall back to a deterministic excerpt in
-                      the Agentic Context message until cached.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Summary cache status unavailable.
-                  </p>
-                )}
-              </div>
-            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -918,80 +736,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Agentic Scope
-          </p>
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Edges define what this chat can read, write, and use as context.
-          </p>
-        </div>
-
-        <div className="mt-2 flex flex-col gap-1">
-          {!hasAgenticEdges ? (
-            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-              No edges = no access.
-            </p>
-          ) : null}
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            Use Project Chat for full access.
-          </p>
-        </div>
-
-        <div className="mt-3 grid gap-3">
-          {[
-            {
-              label: "Read",
-              entries: scopeReadEntries,
-              labelClassName: "text-emerald-600 dark:text-emerald-300",
-              emptyText: "No readable sections.",
-            },
-            {
-              label: "Write",
-              entries: scopeWriteEntries,
-              labelClassName: "text-amber-600 dark:text-amber-300",
-              emptyText: "No writable sections.",
-            },
-            {
-              label: "Context",
-              entries: scopeContextEntries,
-              labelClassName: "text-sky-600 dark:text-sky-300",
-              emptyText: "No context sections.",
-            },
-          ].map((block) => (
-            <div key={block.label} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={`text-[11px] font-semibold ${block.labelClassName}`}
-                >
-                  {block.label}
-                </span>
-                <span className="text-[10px] text-setta-500 dark:text-setta-400">
-                  {block.entries.length}
-                </span>
-              </div>
-              {block.entries.length === 0 ? (
-                <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                  {block.emptyText}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {block.entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                    >
-                      <span className="truncate">{entry.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       </div>
     </div>

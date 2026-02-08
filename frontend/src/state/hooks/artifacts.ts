@@ -71,7 +71,7 @@ async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
   );
   const shareSession = useShareSession.getState();
   const headers: HeadersInit = {};
-  if (shareSession.isDeploymentMode && shareSession.shareSessionId) {
+  if (shareSession.isShareMode && shareSession.shareSessionId) {
     headers["X-Share-Session-Id"] = shareSession.shareSessionId;
   }
   const res = await fetch(`${C_ADDRESSES.BACKEND}${endpoint}`, {

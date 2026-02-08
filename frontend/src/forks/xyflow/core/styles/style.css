@@ -13,19 +13,6 @@
   }
 }
 
-.react-flow__edge-path,
-.react-flow__connection-path {
-  stroke: var(--setta-wire-color, #b1b1b7);
-}
-
-.react-flow__edge:hover .react-flow__edge-path,
-.react-flow__edge:focus .react-flow__edge-path,
-.react-flow__edge:focus-visible .react-flow__edge-path,
-.react-flow__edge.selected .react-flow__edge-path {
-  /* blue-500 */
-  stroke: #3b82f6;
-}
-
 .react-flow__node.selectable {
   &:focus,
   &:focus-visible {
@@ -84,194 +71,55 @@
   border-radius: 999px;
 }
 
-.react-flow[data-show-agentic-edges="false"] .react-flow__agentic-edges {
-  display: none;
-}
-
-.react-flow[data-show-agentic-edges="false"] .react-flow__handle.agentic-handle,
-.react-flow[data-show-agentic-edges="false"] .agentic-handle-safe-zone {
-  display: none !important;
-}
-
-.react-flow[data-show-arg-edges="false"] .react-flow__edges {
-  display: none;
-}
-
-.react-flow[data-show-arg-edges="false"] .react-flow__handle.arg-edge-handle {
-  display: none !important;
-}
-
-.react-flow__handle.arg-edge-handle {
-  /* These are slightly larger than the default (8px incl. border), and centered
-     on the node edge (half inside, half outside). */
-  box-sizing: border-box;
-  width: 10px;
-  height: 10px;
-  z-index: 40; /* above resize handles (z-20) */
-
-  transition:
-    background-color 80ms ease-out,
-    border-color 80ms ease-out,
-    box-shadow 80ms ease-out;
-}
-
-.react-flow__handle.arg-edge-handle.arg-edge-handle--selecting {
-  pointer-events: all;
-  cursor: pointer;
-}
-
-.react-flow__handle.arg-edge-handle.react-flow__handle-left {
-  left: -6px;
-}
-
-.react-flow__handle.arg-edge-handle.react-flow__handle-right {
-  right: -6px;
-}
-
-/* When a section is minimized, we render a single dot per side and route all
-   data-edge ports to its position. */
-.react-flow__handle.arg-edge-handle.arg-edge-handle--minimized.react-flow__handle-left,
-.react-flow__handle.arg-edge-handle.arg-edge-handle--minimized.react-flow__handle-right {
-  top: var(--agentic-handle-top, 50%);
-}
-
 html.dark .react-flow__handle {
   background: hsl(219, 25%, 77%);
   border-color: hsl(220, 25%, 11%);
 }
 
-.agentic-handle-scope {
-  /* Reset per-section so nested sections don't inherit from their parent. */
-  --agentic-handle-top: 50%;
-}
-
-.agentic-handle-metrics {
-  /* blue-600 (more contrast on light backgrounds) */
-  --agentic-handle-accent: #2563eb;
-  --agentic-handle-size: 18px;
-  /* Gap between the section edge and the handle. */
-  --agentic-handle-gap: 12px;
-  /* Must cover the handle render size to act as a reliable hover bridge. */
-  --agentic-handle-safe-overhang: max(
-    16px,
-    calc(var(--agentic-handle-size) + 2px)
-  );
-  --agentic-handle-safe-y-pad: 12px;
-  --agentic-handle-ring-width: 2px;
-  --agentic-handle-fade-in-duration: 70ms;
-  --agentic-handle-fade-out-duration: 80ms;
-}
-
-html.dark .agentic-handle-metrics {
-  /* blue-500 (more vivid on dark backgrounds) */
-  --agentic-handle-accent: #3b82f6;
-}
-
-.react-flow__handle.arg-edge-handle:hover {
-  /* blue-500 */
-  background-color: #3b82f6;
-  border-color: #3b82f6;
-}
-
-.react-flow__handle.arg-edge-handle:active {
-  /* cyan-300 */
-  background-color: #67e8f9;
-  border-color: #67e8f9;
-}
-
 .react-flow__handle.agentic-handle {
-  --agentic-handle-inner-size: calc(
-    var(--agentic-handle-size) - (2 * var(--agentic-handle-ring-width))
-  );
-  --agentic-handle-render-size: var(--agentic-handle-size);
-
-  width: var(--agentic-handle-render-size);
-  height: var(--agentic-handle-render-size);
+  width: 10px;
+  height: 10px;
   z-index: 160;
-  border-width: var(--agentic-handle-ring-width);
-  border-color: var(--agentic-handle-accent);
-  background: transparent;
-  box-shadow: none;
-  /* Prevent stale hit-testing when the handle is fading out. */
-  pointer-events: none;
-
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity var(--agentic-handle-fade-out-duration) ease-out 0ms,
-    visibility 0s linear var(--agentic-handle-fade-out-duration);
-}
-
-.react-flow__node:hover .react-flow__handle.agentic-handle,
-.react-flow__handle.agentic-handle.agentic-handle--connected {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: all;
-  transition:
-    opacity var(--agentic-handle-fade-in-duration) ease-out 0ms,
-    visibility 0s linear 0ms;
-  animation: none;
-}
-
-.react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
-.react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-.react-flow__handle.agentic-handle.agentic-handle--target {
-  --agentic-handle-render-size: var(--agentic-handle-inner-size);
-
-  background: transparent;
-  border-color: var(--agentic-handle-accent);
+  border-width: 2px;
+  border-color: #0ea5e9;
+  background: #e0f2fe;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.22);
 }
 
 .react-flow__handle.agentic-handle.agentic-handle--source {
-  --agentic-handle-render-size: var(--agentic-handle-inner-size);
+  background: #0ea5e9;
+  border-color: #0369a1;
+}
 
-  background: var(--agentic-handle-accent);
-  border-width: 0;
+.react-flow__handle.agentic-handle.agentic-handle--target {
+  background: #f8fafc;
 }
 
 .react-flow__handle.agentic-handle.react-flow__handle-left {
-  left: calc(
-    -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))
-  );
-  top: var(--agentic-handle-top, 50%);
+  left: -6px;
 }
 
 .react-flow__handle.agentic-handle.react-flow__handle-right {
-  right: calc(
-    -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))
-  );
-  top: var(--agentic-handle-top, 50%);
+  right: -6px;
 }
 
-.agentic-handle-safe-zone {
-  position: absolute;
-  top: var(--agentic-handle-top, 50%);
-  transform: translateY(-50%);
-  width: calc(var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang));
-  height: calc(
-    var(--agentic-handle-size) + (2 * var(--agentic-handle-safe-y-pad))
-  );
-  z-index: 0; /* should never block handles; only fills empty space */
-  background: transparent;
-  pointer-events: auto;
+.react-flow__handle.agentic-handle:not(.connectable) {
+  opacity: 0.45;
 }
 
-.agentic-handle-safe-zone--left {
-  left: calc(
-    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
-  );
-  clip-path: polygon(0 35%, 100% 0, 100% 100%, 0 65%);
+html.dark .react-flow__handle.agentic-handle {
+  border-color: #38bdf8;
+  background: #0b1b2b;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
 }
 
-.agentic-handle-safe-zone--right {
-  right: calc(
-    -1 * (var(--agentic-handle-gap) + var(--agentic-handle-safe-overhang))
-  );
-  clip-path: polygon(0 0, 100% 35%, 100% 65%, 0 100%);
+html.dark .react-flow__handle.agentic-handle.agentic-handle--source {
+  background: #38bdf8;
+  border-color: #0284c7;
+}
+
+html.dark .react-flow__handle.agentic-handle.agentic-handle--target {
+  background: #0f172a;
 }
 
 .react-flow__agentic-edge-path {
@@ -288,8 +136,7 @@ html.dark .agentic-handle-metrics {
 }
 
 .react-flow__agentic-edge-path.agentic-edge--chat-chat {
-  /* blue-500 */
-  stroke: #3b82f6;
+  stroke: #0ea5e9;
 }
 
 .react-flow__agentic-edge-path.agentic-edge--section-chat {
@@ -314,13 +161,6 @@ html.dark .agentic-handle-metrics {
   stroke: #f97316;
 }
 
-.react-flow__agentic-edge-path.agentic-edge--missing {
-  stroke: #ef4444;
-  stroke-width: 2.2;
-  stroke-dasharray: 8 5;
-  filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.35));
-}
-
 .react-flow__agentic-edge-path.agentic-edge--run {
   stroke-width: 2.4;
   filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.35));
@@ -331,8 +171,7 @@ html.dark .react-flow__agentic-edge-path {
 }
 
 html.dark .react-flow__agentic-edge-path.agentic-edge--chat-chat {
-  /* blue-400 */
-  stroke: #60a5fa;
+  stroke: #38bdf8;
 }
 
 html.dark .react-flow__agentic-edge-path.agentic-edge--section-chat {
@@ -349,9 +188,4 @@ html.dark .react-flow__agentic-edge-path.agentic-edge--tool-args {
 
 html.dark .react-flow__agentic-edge-path.agentic-edge--tool-result {
   stroke: #fb923c;
-}
-
-html.dark .react-flow__agentic-edge-path.agentic-edge--missing {
-  stroke: #f87171;
-  filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.4));
 }

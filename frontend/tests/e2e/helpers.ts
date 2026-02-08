@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
-const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
+const AUTH_COOKIE_PREFIX = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
@@ -12,7 +12,6 @@ const PROJECT_URL =
     : BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
-const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -74,34 +73,27 @@ export async function ensureAppReady(page: Page): Promise<void> {
   }
 
   const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie) {
-    // In Playwright E2E, auth should already be established via global-setup storageState.
-    // Avoid consuming the bootstrap token here; it is one-time and reserved for global-setup.
-    throw new Error(
-      `Missing auth cookie (${AUTH_COOKIE_NAME}). Ensure global-setup seeded storageState correctly.`,
+  if (!hasCookie && BOOTSTRAP_TOKEN) {
+    await page.goto(
+      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
     );
+    try {
+      await waitForProjectUrl(page);
+    } catch {
+      // Fall through to the final readiness check below.
+    }
   }
 
-  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-    await navigateToDefaultProject(page);
-  } else {
-    await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  }
+  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
   if (await isAppReady(page)) {
     return;
   }
 
-  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-    const defaultConfig = await getDefaultConfigNameResult(page);
-    if (defaultConfig.name) {
-      const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
-      await page.goto(defaultUrl, { waitUntil: "domcontentloaded" });
-      if (await isAppReady(page)) {
-        return;
-      }
-    }
+  if (!BOOTSTRAP_TOKEN && !hasCookie) {
+    throw new Error(
+      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
+    );
   }
-
   throw new Error("Setta UI did not become ready. Check bootstrap auth.");
 }
 
@@ -312,31 +304,6 @@ export async function createChatSection(
   return { sectionId: created.sectionId, sectionName };
 }
 
-export async function createTextBlockSection(
-  page: Page,
-  projectConfigId: string,
-  baseName: string,
-): Promise<{ sectionId: string; sectionName: string }> {
-  const sectionName = `${baseName}-${Date.now()}`;
-  const created = await postBackend<CreateSectionResponse>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "TextBlock",
-    },
-  );
-  if (!created?.sectionId) {
-    throw new Error("Missing sectionId when creating text block section.");
-  }
-  await postBackend(page, "/setSectionName", {
-    projectConfigId,
-    sectionId: created.sectionId,
-    name: sectionName,
-  });
-  return { sectionId: created.sectionId, sectionName };
-}
-
 export async function setChatSectionState(
   page: Page,
   payload: {
@@ -468,7 +435,15 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (paneRect.width <= 0 || paneRect.height <= 0) {
         return null;
       }
-      const gutter = 16;
+      const overviewPane = document.getElementById("OverviewPane");
+      const overviewDomWidth = overviewPane
+        ? overviewPane.getBoundingClientRect().width
+        : 0;
+      const { useLocalStorage } = await import("/src/state/definitions");
+      const storedOverviewWidth = useLocalStorage.getState().overviewTrueWidth;
+      const overviewWidth = Number.isFinite(storedOverviewWidth)
+        ? storedOverviewWidth
+        : overviewDomWidth;
       const transform = window.getComputedStyle(viewport).transform;
       if (!transform || transform === "none") {
         return null;
@@ -478,64 +453,13 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;
       }
-      const overviewPane = document.getElementById("OverviewPane");
-      const uiEditorPane = document.getElementById("UiEditorPane");
-
-      // These panes use `display: contents`, so the actual hit-testing overlays are the
-      // sidebars (`aside.single-cell-container`) and the icon rails (`div.absolute`).
-      const leftOverlays: HTMLElement[] = [];
-      const rightOverlays: HTMLElement[] = [];
-
-      const overviewAside = overviewPane?.querySelector(
-        "aside.single-cell-container",
-      );
-      if (overviewAside instanceof HTMLElement) {
-        leftOverlays.push(overviewAside);
-      }
-      const overviewRail = overviewPane?.querySelector("div.absolute.left-0");
-      if (overviewRail instanceof HTMLElement) {
-        leftOverlays.push(overviewRail);
-      }
-
-      const uiEditorAside = uiEditorPane?.querySelector(
-        "aside.single-cell-container",
-      );
-      if (uiEditorAside instanceof HTMLElement) {
-        rightOverlays.push(uiEditorAside);
-      }
-      const uiEditorRail = uiEditorPane?.querySelector("div.absolute.right-0");
-      if (uiEditorRail instanceof HTMLElement) {
-        rightOverlays.push(uiEditorRail);
-      }
-
-      let leftPx = gutter;
-      for (const overlay of leftOverlays) {
-        const rect = overlay.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          continue;
-        }
-        leftPx = Math.max(leftPx, rect.right - paneRect.left + gutter);
-      }
-
-      let rightPx = paneRect.width - gutter;
-      for (const overlay of rightOverlays) {
-        const rect = overlay.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          continue;
-        }
-        rightPx = Math.min(rightPx, rect.left - paneRect.left - gutter);
-      }
-
-      const topPx = gutter;
-      const bottomPx = paneRect.height - gutter;
-
-      const x = (-matrix.e + leftPx) / scale;
-      const y = (-matrix.f + topPx) / scale;
+      const x = (-matrix.e + overviewWidth) / scale;
+      const y = -matrix.f / scale;
       return {
         x,
         y,
-        w: Math.max(1, (rightPx - leftPx) / scale),
-        h: Math.max(1, (bottomPx - topPx) / scale),
+        w: paneRect.width / scale,
+        h: paneRect.height / scale,
       };
     });
     if (bounds) {
@@ -666,42 +590,6 @@ async function isAppReady(page: Page): Promise<boolean> {
   }
 }
 
-async function navigateToDefaultProject(page: Page): Promise<void> {
-  try {
-    const metadata = await postBackend<ProjectMetadataResponse>(
-      page,
-      "/loadAllProjectMetadata",
-      {},
-    );
-    if (!metadata) {
-      return;
-    }
-
-    // Prefer the configured default; otherwise fall back to the first project.
-    let targetName =
-      metadata.projectMetadata.find(
-        (entry) => entry.id === metadata.defaultProjectConfigId,
-      )?.name ?? metadata.projectMetadata[0]?.name;
-
-    // If the workspace has no projects (possible if a prior test deleted them),
-    // create one so IDE-mode tests can proceed.
-    if (!targetName) {
-      targetName = await postBackend<string>(page, "/createProjectConfig", {
-        previewImgColor: "bg-blue-500/60",
-      });
-    }
-
-    if (!targetName) {
-      return;
-    }
-
-    const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
-    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-  } catch {
-    // Ignore failures; callers will fall back to readiness checks.
-  }
-}
-
 async function waitForProjectUrl(page: Page): Promise<void> {
   await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
     timeout: READY_TIMEOUT_MS,
@@ -711,30 +599,9 @@ async function waitForProjectUrl(page: Page): Promise<void> {
 
 async function hasAuthCookie(page: Page): Promise<boolean> {
   const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
-}
-
-async function getDefaultConfigNameResult(page: Page): Promise<{
-  name: string | null;
-  status: number;
-}> {
-  const response = await page.request.post(
-    `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
-    {
-      data: {},
-    },
+  return cookies.some(
+    (cookie) =>
+      cookie.name === AUTH_COOKIE_PREFIX ||
+      cookie.name.startsWith(`${AUTH_COOKIE_PREFIX}_`),
   );
-  const status = response.status();
-  if (!response.ok()) {
-    return { name: null, status };
-  }
-  const text = await response.text();
-  if (!text) {
-    return { name: null, status };
-  }
-  const payload = JSON.parse(text) as unknown;
-  if (typeof payload !== "string" || !payload.trim()) {
-    return { name: null, status };
-  }
-  return { name: payload, status };
 }

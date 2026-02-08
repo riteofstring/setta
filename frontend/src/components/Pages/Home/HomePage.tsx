@@ -36,7 +36,7 @@ export function HomePage() {
     (x) => x,
     _.isEqual,
   );
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
 
   useEffect(() => {
@@ -54,7 +54,7 @@ export function HomePage() {
           projects={projectMetadata}
           defaultProjectConfigId={defaultProjectConfigId}
           setIsCreatingConfig={setIsCreatingConfig}
-          isDeploymentMode={isDeploymentMode}
+          isShareMode={isShareMode}
         />
       )}
     </GridWrapper>
@@ -65,22 +65,22 @@ function RightColumn({
   projects,
   defaultProjectConfigId,
   setIsCreatingConfig,
-  isDeploymentMode,
+  isShareMode,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
-  isDeploymentMode: boolean;
+  isShareMode: boolean;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
-  const selectionEnabled = !isDeploymentMode;
+  const selectionEnabled = !isShareMode;
 
   useEffect(() => {
-    if (isDeploymentMode) {
+    if (isShareMode) {
       setSelectedProjects([]);
     }
-  }, [isDeploymentMode]);
+  }, [isShareMode]);
 
   async function handleCreateConfig() {
     setIsCreatingConfig(true);
@@ -131,7 +131,7 @@ function RightColumn({
       onKeyDown={onEscapeClearSelectedProjects}
     >
       <div className="flex justify-between gap-4">
-        {isDeploymentMode ? (
+        {isShareMode ? (
           <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
             Sharing mode is read-only
           </div>
@@ -179,7 +179,7 @@ function RightColumn({
         selectedProjects={selectedProjects}
         onSelectProject={onSelectProject}
         selectionEnabled={selectionEnabled}
-        isDeploymentMode={isDeploymentMode}
+        isShareMode={isShareMode}
       />
     </div>
   );
@@ -191,14 +191,14 @@ function ProjectItems({
   selectedProjects,
   onSelectProject,
   selectionEnabled,
-  isDeploymentMode,
+  isShareMode,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
   onSelectProject: (e: React.MouseEvent, id: string) => void;
   selectionEnabled: boolean;
-  isDeploymentMode: boolean;
+  isShareMode: boolean;
 }) {
   const searchValue = useHomePageSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
@@ -228,7 +228,7 @@ function ProjectItems({
             onSelectProject={onSelectProject}
             inSelectionMode={selectionMode}
             selectionEnabled={selectionEnabled}
-            isDeploymentMode={isDeploymentMode}
+            isShareMode={isShareMode}
           />
         ))
       )}
@@ -244,7 +244,7 @@ function ProjectItem({
   onSelectProject,
   inSelectionMode,
   selectionEnabled,
-  isDeploymentMode,
+  isShareMode,
 }: {
   project: ProjectConfig;
   isDefault: boolean;
@@ -252,11 +252,11 @@ function ProjectItem({
   onSelectProject: (e: React.MouseEvent, id: string) => void;
   inSelectionMode: boolean;
   selectionEnabled: boolean;
-  isDeploymentMode: boolean;
+  isShareMode: boolean;
 }) {
   const itemStyles =
     "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
-  const projectPath = resolveProjectPath(project.name, isDeploymentMode);
+  const projectPath = resolveProjectPath(project.name, isShareMode);
 
   return (
     <div className={itemStyles}>
@@ -385,9 +385,9 @@ function ThumbnailArea({
 
 function resolveProjectPath(
   projectName: string,
-  isDeploymentMode: boolean,
+  isShareMode: boolean,
 ): string | null {
-  if (!isDeploymentMode) {
+  if (!isShareMode) {
     return pathRelativeToProject(projectName);
   }
   return buildSharePath(projectName);

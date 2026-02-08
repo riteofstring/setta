@@ -64,8 +64,8 @@ export function useChatAttachmentManager({
   const dragDepth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const warningTimeoutRef = useRef<number | null>(null);
-  const { isDeploymentMode } = useShareSession((state) => ({
-    isDeploymentMode: state.isDeploymentMode,
+  const { isShareMode } = useShareSession((state) => ({
+    isShareMode: state.isShareMode,
   }));
   const { canEditParams } = useShareCapabilities();
   const chatPolicy = useMemo(() => getAttachmentPolicy("chat"), []);
@@ -80,7 +80,7 @@ export function useChatAttachmentManager({
       ? null
       : Math.max(attachmentLimit - attachments.length, 0);
   const allowedMimeLabel = chatPolicy.allowedMimeLabel;
-  const showSharePolicyMessage = isDeploymentMode && !canEditParams;
+  const showSharePolicyMessage = isShareMode && !canEditParams;
   const showAttachmentDisabledMessage =
     attachmentsDisabled && !showSharePolicyMessage;
   const attachmentCount = attachments.length;
@@ -162,7 +162,7 @@ export function useChatAttachmentManager({
         if (successfulUploads.length === 0) {
           return;
         }
-        const artifactBaseFolder = isDeploymentMode ? "artifacts" : undefined;
+        const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
         const fileIds = successfulUploads.map(({ file }) =>
           createDropzoneFileArtifactId(file.name, artifactBaseFolder),
         );
@@ -196,7 +196,7 @@ export function useChatAttachmentManager({
         setIsUploading(false);
       }
     },
-    [isDeploymentMode, notifyAttachmentWarning],
+    [isShareMode, notifyAttachmentWarning],
   );
 
   const handleLocalFiles = useCallback(
@@ -506,7 +506,7 @@ export function useChatAttachmentManager({
     handleFileInputChange,
     handlePickFromProject,
     handleRemoveAttachment,
-    isDeploymentMode,
+    isShareMode,
     isDragActive,
     isUploading,
     remainingSlots,

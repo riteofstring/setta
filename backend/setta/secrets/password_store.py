@@ -5,22 +5,21 @@ from pathlib import Path
 
 from filelock import FileLock
 
-from setta.utils.constants import C
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
+from setta.utils.paths import get_setta_paths
 
-RUNTIME_ROOT_ENV = "SETTA_RUNTIME_ROOT"
 PASSWORD_STORE_FILENAME = "passwords.json"
-PASSWORD_STORE_SUBDIR = "runtime/secrets"
 
 
-def _runtime_root() -> Path:
-    root = os.environ.get(RUNTIME_ROOT_ENV)
-    if root:
-        return Path(root)
-    return C.SETTA_FILES_FOLDER
+def _runtime_secrets_root() -> Path:
+    runtime_root = os.environ.get(RUNTIME_ROOT_ENV)
+    if runtime_root:
+        return Path(runtime_root) / "secrets"
+    return get_setta_paths().runtime_secrets_root
 
 
 def _password_store_path() -> Path:
-    return _runtime_root() / PASSWORD_STORE_SUBDIR / PASSWORD_STORE_FILENAME
+    return _runtime_secrets_root() / PASSWORD_STORE_FILENAME
 
 
 def _ensure_parent_dir(path: Path) -> None:

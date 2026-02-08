@@ -25,7 +25,6 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.helpers_lvl2 import get_meta_control_param_id, get_top_level_param_ids
 from setta.types.id import ID
-from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
     ProjectConfig,
@@ -37,7 +36,6 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
-    SingletonSections,
 )
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -106,7 +104,6 @@ def merge_single_config_into_backend(
             config.projectConfig.id: config.projectConfig,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
-        appDefinition=x.appDefinition,
     )
 
 
@@ -218,100 +215,10 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
 
 def build_project_state_summary(
     project_state: ProjectStateSingleConfig,
-    *,
-    allowed_section_ids: set[ID] | None = None,
 ) -> ProjectStateSummary:
     """Create a lightweight project summary for agent workflows."""
 
     project_config = project_state.projectConfig
-    allowed_ids = (
-        {sid for sid in allowed_section_ids if sid in project_state.sections}
-        if allowed_section_ids is not None
-        else None
-    )
-    if allowed_ids is not None:
-        project_config = _filter_project_config_for_summary(project_config, allowed_ids)
-    singleton_members = {
-        value
-        for value in project_state.singletonSections.model_dump(
-            exclude_none=True
-        ).values()
-        if value
-    }
-    shown_param_visibility = {
-        variant_id: _collect_visible_top_level_param_ids(shown_ids)
-        for variant_id, shown_ids in project_state.shownParamIds.items()
-    }
-    full_parent_section_map = dict(project_state.parentSectionMap)
-    parent_section_map = (
-        _filter_parent_section_map(
-            full_parent_section_map,
-            allowed_ids,
-        )
-        if allowed_ids is not None
-        else full_parent_section_map
-    )
-    top_level_layouts = project_config.topLevelSections
-    sections, allowed_draw_asset_paths = _build_project_state_summary_sections(
-        project_state,
-        allowed_section_ids=allowed_ids,
-        parent_section_map=parent_section_map,
-        top_level_layouts=top_level_layouts,
-        singleton_members=singleton_members,
-        shown_param_visibility=shown_param_visibility,
-    )
-
-    singleton = project_state.singletonSections
-    singleton_sections = singleton
-    shown_param_variant_ids = list(project_state.shownParamIds.keys())
-    required_decoded_images = list(project_state.requiredDecodedImages)
-    if allowed_ids is not None:
-        singleton_sections = SingletonSections(
-            GlobalVariables=singleton.GlobalVariables
-            if singleton.GlobalVariables in allowed_ids
-            else None,
-            GenPythonCode=singleton.GenPythonCode
-            if singleton.GenPythonCode in allowed_ids
-            else None,
-            GenPythonMetadata=singleton.GenPythonMetadata
-            if singleton.GenPythonMetadata in allowed_ids
-            else None,
-        )
-        allowed_variant_ids = set(project_config.sectionVariantMap.values())
-        shown_param_variant_ids = [
-            variant_id
-            for variant_id in shown_param_variant_ids
-            if variant_id in allowed_variant_ids
-        ]
-        required_decoded_images = [
-            path for path in required_decoded_images if path in allowed_draw_asset_paths
-        ]
-
-    return ProjectStateSummary(
-        projectConfig=project_config,
-        sections=sections,
-        singletonSections=singleton_sections,
-        parentSectionMap=parent_section_map,
-        shownParamVariantIds=shown_param_variant_ids,
-        requiredDecodedImages=required_decoded_images,
-        genCodeBinding=project_state.genCodeBinding,
-    )
-
-
-def build_project_state_summary_section_index(
-    project_state: ProjectStateSingleConfig,
-    section_ids: set[ID],
-) -> dict[ID, ProjectStateSummarySection]:
-    """Create a lightweight summary section map without copying ProjectConfig.
-
-    Note: relationship fields (for example child section ids) may reference sections
-    outside `section_ids`. Callers should treat this as a per-section summary cache,
-    not as a relationship-traversal helper.
-    """
-
-    allowed_ids = {sid for sid in section_ids if sid in project_state.sections}
-    if not allowed_ids:
-        return {}
     singleton_members = {
         value
         for value in project_state.singletonSections.model_dump(
@@ -325,63 +232,9 @@ def build_project_state_summary_section_index(
     }
     parent_section_map = dict(project_state.parentSectionMap)
     top_level_layouts = project_state.projectConfig.topLevelSections
-    sections, _ = _build_project_state_summary_sections(
-        project_state,
-        allowed_section_ids=allowed_ids,
-        parent_section_map=parent_section_map,
-        top_level_layouts=top_level_layouts,
-        singleton_members=singleton_members,
-        shown_param_visibility=shown_param_visibility,
-        filter_relationships_to_allowed=False,
-        iterate_only_allowed=True,
-    )
-    return {entry.sectionId: entry for entry in sections}
-
-
-def _filter_parent_section_map(
-    parent_section_map: dict[ID, ID | None],
-    allowed_section_ids: set[ID] | None,
-) -> dict[ID, ID | None]:
-    if allowed_section_ids is None:
-        return dict(parent_section_map)
-    filtered: dict[ID, ID | None] = {}
-    for section_id in allowed_section_ids:
-        parent_id = parent_section_map.get(section_id)
-        if parent_id is not None and parent_id not in allowed_section_ids:
-            parent_id = None
-        filtered[section_id] = parent_id
-    return filtered
-
-
-def _build_project_state_summary_sections(
-    project_state: ProjectStateSingleConfig,
-    *,
-    allowed_section_ids: set[ID] | None,
-    parent_section_map: dict[ID, ID | None],
-    top_level_layouts: dict[ID, TopLevelSectionLayout],
-    singleton_members: set[ID],
-    shown_param_visibility: dict[ID, set[ID]],
-    filter_relationships_to_allowed: bool = True,
-    iterate_only_allowed: bool = False,
-) -> tuple[list[ProjectStateSummarySection], set[str]]:
     sections: list[ProjectStateSummarySection] = []
-    allowed_draw_asset_paths: set[str] = set()
-    if allowed_section_ids is not None and iterate_only_allowed:
-        section_iter = (
-            (section_id, project_state.sections[section_id])
-            for section_id in allowed_section_ids
-            if section_id in project_state.sections
-        )
-    else:
-        section_iter = project_state.sections.items()
 
-    for section_id, core in section_iter:
-        if (
-            allowed_section_ids is not None
-            and not iterate_only_allowed
-            and section_id not in allowed_section_ids
-        ):
-            continue
+    for section_id, core in project_state.sections.items():
         variant_id = project_state.projectConfig.sectionVariantMap.get(section_id)
         if variant_id is None:
             continue
@@ -406,13 +259,6 @@ def _build_project_state_summary_sections(
         child_section_ids: list[ID] = []
         if isinstance(impl, BaseParentSectionImpl):
             child_section_ids = list(impl.children)
-            if filter_relationships_to_allowed and allowed_section_ids is not None:
-                child_section_ids = [
-                    cid for cid in child_section_ids if cid in allowed_section_ids
-                ]
-
-        draw_layer_asset_paths = _collect_draw_layer_asset_paths(impl)
-        allowed_draw_asset_paths.update(draw_layer_asset_paths)
 
         section_summary = ProjectStateSummarySection(
             sectionId=section_id,
@@ -433,168 +279,19 @@ def _build_project_state_summary_sections(
             codeFileBinding=getattr(impl, "codeFileBinding", None),
             imagePath=getattr(impl, "imagePath", None),
             chartDataPath=getattr(impl, "dataPath", None),
-            drawLayerAssetPaths=draw_layer_asset_paths,
+            drawLayerAssetPaths=_collect_draw_layer_asset_paths(impl),
         )
         sections.append(section_summary)
-    return sections, allowed_draw_asset_paths
 
-
-def filter_project_state_summary(
-    summary: ProjectStateSummary,
-    allowed_section_ids: set[ID],
-) -> ProjectStateSummary:
-    filtered_project_config = _filter_project_config_for_summary(
-        summary.projectConfig, allowed_section_ids
-    )
-    allowed_variant_ids = set(filtered_project_config.sectionVariantMap.values())
-    filtered_parent_map: dict[ID, ID | None] = {}
-    for section_id in allowed_section_ids:
-        parent_id = summary.parentSectionMap.get(section_id)
-        if parent_id is not None and parent_id not in allowed_section_ids:
-            parent_id = None
-        filtered_parent_map[section_id] = parent_id
-
-    filtered_sections: list[ProjectStateSummarySection] = []
-    allowed_draw_asset_paths: set[str] = set()
-    for entry in summary.sections:
-        if entry.sectionId not in allowed_section_ids:
-            continue
-        child_ids = [cid for cid in entry.childSectionIds if cid in allowed_section_ids]
-        parent_id = filtered_parent_map.get(entry.sectionId)
-        allowed_draw_asset_paths.update(entry.drawLayerAssetPaths)
-        filtered_sections.append(
-            ProjectStateSummarySection(
-                sectionId=entry.sectionId,
-                coreName=entry.coreName,
-                variantId=entry.variantId,
-                variantName=entry.variantName,
-                sectionType=entry.sectionType,
-                parentSectionId=parent_id,
-                childSectionIds=child_ids,
-                isFrozen=entry.isFrozen,
-                isMinimized=entry.isMinimized,
-                isSingletonMember=entry.isSingletonMember,
-                hideParams=entry.hideParams,
-                hideUnpinnedParams=entry.hideUnpinnedParams,
-                topLevelLayout=entry.topLevelLayout,
-                layoutLocked=entry.layoutLocked,
-                parameters=entry.parameters,
-                codeFileBinding=entry.codeFileBinding,
-                imagePath=entry.imagePath,
-                chartDataPath=entry.chartDataPath,
-                drawLayerAssetPaths=entry.drawLayerAssetPaths,
-            )
-        )
-
-    singleton = summary.singletonSections
-    filtered_singleton = SingletonSections(
-        GlobalVariables=singleton.GlobalVariables
-        if singleton.GlobalVariables in allowed_section_ids
-        else None,
-        GenPythonCode=singleton.GenPythonCode
-        if singleton.GenPythonCode in allowed_section_ids
-        else None,
-        GenPythonMetadata=singleton.GenPythonMetadata
-        if singleton.GenPythonMetadata in allowed_section_ids
-        else None,
-    )
-    filtered_shown_variant_ids = [
-        variant_id
-        for variant_id in summary.shownParamVariantIds
-        if variant_id in allowed_variant_ids
-    ]
-    filtered_required_decoded_images = [
-        path
-        for path in summary.requiredDecodedImages
-        if path in allowed_draw_asset_paths
-    ]
     return ProjectStateSummary(
-        projectConfig=filtered_project_config,
-        sections=filtered_sections,
-        singletonSections=filtered_singleton,
-        parentSectionMap=filtered_parent_map,
-        shownParamVariantIds=filtered_shown_variant_ids,
-        requiredDecodedImages=filtered_required_decoded_images,
-        genCodeBinding=summary.genCodeBinding,
+        projectConfig=project_config,
+        sections=sections,
+        singletonSections=project_state.singletonSections,
+        parentSectionMap=parent_section_map,
+        shownParamVariantIds=list(project_state.shownParamIds.keys()),
+        requiredDecodedImages=list(project_state.requiredDecodedImages),
+        genCodeBinding=project_state.genCodeBinding,
     )
-
-
-def filter_lsp_diagnostics_payload(
-    payload: SettaLspDiagnosticsPayload,
-    allowed_section_ids: set[ID],
-    *,
-    include_unmapped: bool,
-) -> SettaLspDiagnosticsPayload:
-    """Limit LSP diagnostics payload to section IDs within the allowed scope."""
-
-    filtered_gen_errors = {
-        section_id: errors
-        for section_id, errors in payload.genCode.errors.items()
-        if section_id in allowed_section_ids
-    }
-    filtered_gen_code = payload.genCode.model_copy(
-        update={"errors": filtered_gen_errors},
-        deep=True,
-    )
-    filtered_code_sections = {
-        section_id: diagnostics
-        for section_id, diagnostics in payload.codeSections.items()
-        if section_id in allowed_section_ids
-    }
-    return payload.model_copy(
-        update={
-            "genCode": filtered_gen_code,
-            "codeSections": filtered_code_sections,
-            "unmappedGenCode": list(payload.unmappedGenCode)
-            if include_unmapped
-            else [],
-        },
-        deep=True,
-    )
-
-
-def _filter_project_config_for_summary(
-    project_config: ProjectConfig,
-    allowed_section_ids: set[ID],
-) -> ProjectConfig:
-    cloned = project_config.model_copy(deep=True)
-    cloned.sectionVariantMap = {
-        section_id: variant_id
-        for section_id, variant_id in cloned.sectionVariantMap.items()
-        if section_id in allowed_section_ids
-    }
-    cloned.topLevelSections = {
-        section_id: layout
-        for section_id, layout in cloned.topLevelSections.items()
-        if section_id in allowed_section_ids
-    }
-    cloned.activeIds = [sid for sid in cloned.activeIds if sid in allowed_section_ids]
-    cloned.edges = [
-        edge
-        for edge in cloned.edges
-        if edge.sourceSectionId in allowed_section_ids
-        and edge.targetSectionId in allowed_section_ids
-    ]
-    cloned.agenticEdges = [
-        edge
-        for edge in cloned.agenticEdges
-        if edge.sourceSectionId in allowed_section_ids
-        and edge.targetSectionId in allowed_section_ids
-    ]
-    if cloned.entryCodeBlockId not in allowed_section_ids:
-        cloned.entryCodeBlockId = None
-    for view_mode in cloned.viewModes.values():
-        view_mode.topLevelSections = {
-            section_id: layout
-            for section_id, layout in view_mode.topLevelSections.items()
-            if section_id in allowed_section_ids
-        }
-        view_mode.visibilityBySectionId = {
-            section_id: visible
-            for section_id, visible in view_mode.visibilityBySectionId.items()
-            if section_id in allowed_section_ids
-        }
-    return cloned
 
 
 def _build_section_param_summaries(

@@ -37,7 +37,7 @@ describe("lspDiagnostics actions", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({ id: "project-1" }),
     });
-    useShareSession.setState({ isDeploymentMode: false });
+    useShareSession.setState({ isShareMode: false });
     vi.clearAllMocks();
   });
 
@@ -56,7 +56,7 @@ describe("lspDiagnostics actions", () => {
   });
 
   it("does not send mute toggle in share mode", () => {
-    useShareSession.setState({ isDeploymentMode: true });
+    useShareSession.setState({ isShareMode: true });
 
     setCodeSectionDiagnosticsMuted("section-1", true);
 
@@ -115,7 +115,7 @@ describe("processLspDiagnostics", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({ id: "project-1" }),
     });
-    useShareSession.setState({ isDeploymentMode: false });
+    useShareSession.setState({ isShareMode: false });
     useLspDiagnostics.setState({ codeSections: {}, unmappedGenCode: [] });
     vi.clearAllMocks();
   });
@@ -372,7 +372,7 @@ describe("processLspDiagnostics", () => {
   });
 
   it("ignores diagnostics in share mode", () => {
-    useShareSession.setState({ isDeploymentMode: true });
+    useShareSession.setState({ isShareMode: true });
     const payload: SettaLspDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {

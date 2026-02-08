@@ -10,7 +10,7 @@ from setta.share.session_store import MemorySessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
+from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
 
 
 def _build_share_deployment_root(
@@ -20,7 +20,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "deployments"
+        / "share_deployments"
         / project_config_name
         / deployment_version
     )
@@ -42,12 +42,10 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     resolved_deployment_name = deployment_name or root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=resolved_deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -57,7 +55,7 @@ def _write_share_project(
 
 def _write_share_policy(root: Path, policy: SharePolicy) -> None:
     dbe = DBE(root)
-    dbe.write_json(root / "policy.json", policy.model_dump())
+    dbe.write_json(root / "share_policy.json", policy.model_dump())
 
 
 @pytest.mark.asyncio
@@ -130,7 +128,8 @@ class TestShareState:
             assert runtime_root != deployment_root
             assert (
                 Path(tmpdir).resolve()
-                / "deployment_runtime"
+                / "share_deployments"
+                / "share_runtime"
                 / manifest_name
                 / manifest_version
                 == runtime_root
@@ -153,11 +152,11 @@ class TestShareState:
             state = await self._build_state(root)
 
             expected = (
-                root.parent / "deployment_runtime" / manifest_name / manifest_version
+                root.parent / "share_runtime" / manifest_name / manifest_version
             ).resolve()
             assert expected == state.dbe.runtime_root
 
-    async def test_share_state_requires_project_file(self) -> None:
+    def test_share_state_requires_project_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             app = FastAPI()

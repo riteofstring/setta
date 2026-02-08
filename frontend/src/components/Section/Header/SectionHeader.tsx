@@ -17,7 +17,10 @@ import {
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { getSectionHeaderHeightKey } from "utils/constants";
+import {
+  getSectionHeaderHeightKey,
+  SETTA_POPOVER_PORTAL_PARENT_ID,
+} from "utils/constants";
 import {
   CodeLanguageEnum,
   SectionTypeEnum,
@@ -91,7 +94,7 @@ function _SectionHeader({
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
   );
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
     _.isEqual,
@@ -139,7 +142,7 @@ function _SectionHeader({
     codeDiagnosticsLabel = `Suppressed ${suppressedCodes.length}`;
   }
   const showCodeDiagnosticsPopover =
-    !isDeploymentMode &&
+    !isShareMode &&
     sectionTypeName === SectionTypeEnum.Code &&
     (codeSectionDiagnostics.length > 0 ||
       suppressedCodes.length > 0 ||
@@ -164,7 +167,7 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
       />
       <div className="z-10 ml-auto flex items-center">
-        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
+        {!isShareMode && sectionTypeName === SectionTypeEnum.Code && (
           <button
             className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
             onClick={() =>
@@ -185,7 +188,7 @@ function _SectionHeader({
             )}
           </button>
         )}
-        {!isDeploymentMode && showCodeDiagnosticsPopover && (
+        {!isShareMode && showCodeDiagnosticsPopover && (
           <DiagnosticsPopover
             diagnostics={codeSectionDiagnostics}
             label={codeDiagnosticsLabel}
@@ -202,7 +205,7 @@ function _SectionHeader({
             inlineSuppressionHint={inlineSuppressionHint}
           />
         )}
-        {!isDeploymentMode &&
+        {!isShareMode &&
           sectionTypeName === SectionTypeEnum.GenPythonCode &&
           genCodeDiagnostics.length > 0 && (
             <DiagnosticsPopover
@@ -238,7 +241,7 @@ function _SectionHeader({
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
-        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
+        {!isShareMode && sectionTypeName === SectionTypeEnum.Chat && (
           <button
             aria-label="Follow chat"
             aria-pressed={isFollowSelected}
@@ -303,6 +306,7 @@ function DiagnosticsPopover({
     <StandardPopover
       arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
       contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
+      portalContainerId={SETTA_POPOVER_PORTAL_PARENT_ID}
       trigger={
         <button
           className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}

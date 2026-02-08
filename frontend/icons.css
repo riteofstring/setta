@@ -700,43 +700,6 @@ main {
   right: -6px;
 }
 
-.gg-unlink {
-  box-sizing: border-box;
-  position: relative;
-  display: block;
-  transform: rotate(-45deg) scale(var(--ggs, 1));
-  width: 8px;
-  height: 2px;
-  border-radius: 4px;
-  background:
-    linear-gradient(currentColor, currentColor) 0 50%/3px 2px no-repeat,
-    linear-gradient(currentColor, currentColor) 100% 50%/3px 2px no-repeat;
-}
-.gg-unlink::after,
-.gg-unlink::before {
-  content: "";
-  display: block;
-  box-sizing: border-box;
-  position: absolute;
-  border-radius: 3px;
-  width: 8px;
-  height: 10px;
-  border: 2px solid;
-  top: -4px;
-}
-.gg-unlink::before {
-  border-right: 0;
-  border-top-left-radius: 40px;
-  border-bottom-left-radius: 40px;
-  left: -6px;
-}
-.gg-unlink::after {
-  border-left: 0;
-  border-top-right-radius: 40px;
-  border-bottom-right-radius: 40px;
-  right: -6px;
-}
-
 .gg-pin-alt {
   box-sizing: border-box;
   position: relative;

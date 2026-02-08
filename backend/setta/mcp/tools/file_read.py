@@ -1,9 +1,8 @@
 from pathlib import Path
 from typing import Any
 
-from mcp.server.fastmcp.server import Context
-
 from setta.mcp.tool_setup import setta_init_tool
+from setta.utils.paths import ensure_within_workspace_root, get_setta_paths
 
 
 @setta_init_tool
@@ -13,7 +12,6 @@ def read_file_range(
     start_line: int | None = None,
     end_line: int | None = None,
     workspace_root: str | Path | None = None,
-    ctx: Context | None = None,  # noqa: ARG001
 ) -> dict[str, Any]:
     """Return the requested line range from a UTF-8 text file."""
     file_path = _resolve_path(path, workspace_root)
@@ -76,15 +74,18 @@ def _normalize_end_line(end_line: int | None) -> int | None:
 
 def _workspace_root(workspace_root: str | Path | None) -> Path:
     if workspace_root is None:
-        return Path.cwd()
+        return get_setta_paths().workspace_root
     return Path(workspace_root).resolve()
 
 
 def _resolve_path(path: str, workspace_root: str | Path | None) -> Path:
+    base = _workspace_root(workspace_root)
     candidate = Path(path)
     if candidate.is_absolute():
-        return candidate.resolve()
-    return (_workspace_root(workspace_root) / candidate).resolve()
+        resolved = candidate.resolve()
+    else:
+        resolved = (base / candidate).resolve()
+    return ensure_within_workspace_root(resolved, label="path", workspace_root=base)
 
 
 def _relative_to_workspace(file_path: Path, workspace_root: Path) -> str:

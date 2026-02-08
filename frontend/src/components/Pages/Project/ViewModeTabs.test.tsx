@@ -47,7 +47,7 @@ describe("ViewModeTabs", () => {
         removeItem: memoryStorage.removeItem,
       },
     });
-    useShareSession.setState({ isDeploymentMode: false });
+    useShareSession.setState({ isShareMode: false });
     useLocalStorage.setState({
       overviewTrueWidth: 50,
       uiEditorTrueWidth: 75,

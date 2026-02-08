@@ -11,12 +11,11 @@ run_playwright=1
 
 usage() {
   cat <<'EOF'
-Usage: ./t.sh [--b | --f] [--all]
+Usage: ./t.sh [--b | --f]
 
 Options:
   --b              Run backend pytest only.
   --f              Run frontend Vitest + Playwright only.
-  --all            Enable opt-in external agent integration tests.
   -h, --help       Show this help.
 EOF
 }
@@ -33,10 +32,6 @@ while [[ $# -gt 0 ]]; do
       run_backend=0
       run_frontend=1
       run_playwright=1
-      shift
-      ;;
-    --all)
-      export SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1
       shift
       ;;
     -h|--help)

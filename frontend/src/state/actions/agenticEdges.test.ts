@@ -1,13 +1,8 @@
-import {
-  createAgenticEdgeFromSections,
-  updateAgenticEdgeContextMode,
-} from "state/actions/agenticEdges";
+import { createAgenticEdgeFromSections } from "state/actions/agenticEdges";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
-  createAgenticEdge,
   createChatSectionImpl,
   createCore,
   createProjectConfig,
@@ -23,7 +18,6 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_create_agentic_edge: vi.fn(),
-    route_update_agentic_edge: vi.fn(),
   };
 });
 
@@ -101,7 +95,7 @@ describe("agentic edge optimistic create", () => {
   beforeEach(() => {
     resetProjectStores();
     seedChatSections();
-    useShareSession.setState({ isDeploymentMode: false });
+    useShareSession.setState({ isShareMode: false });
     vi.clearAllMocks();
   });
 
@@ -138,63 +132,6 @@ describe("agentic edge optimistic create", () => {
         sourceSectionId: sectionA,
         targetSectionId: sectionB,
         kind: AgenticEdgeKindEnum.chat_chat,
-        frontendOpId: expect.any(String),
-      }),
-    );
-  });
-});
-
-describe("agentic edge context mode updates", () => {
-  beforeEach(() => {
-    resetProjectStores();
-    seedChatSections();
-    useShareSession.setState({ isDeploymentMode: false });
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-  });
-
-  it("updates context mode and persists the edge", async () => {
-    const route_update_agentic_edge = (await import("utils/generatedEndpoints"))
-      .route_update_agentic_edge as unknown as vi.Mock;
-    route_update_agentic_edge.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-
-    const edge = createAgenticEdge({
-      id: "edge-context",
-      sourceSectionId: sectionA,
-      targetSectionId: sectionB,
-      kind: AgenticEdgeKindEnum.section_chat,
-      contextMode: AgenticEdgeContextModeEnum.reference_only,
-    });
-
-    useProjectState.setState((state) => {
-      state.projectConfig.agenticEdges = [edge];
-    });
-
-    updateAgenticEdgeContextMode(
-      edge.id,
-      AgenticEdgeContextModeEnum.inline_text,
-    );
-
-    const updatedEdge =
-      useProjectState.getState().projectConfig.agenticEdges[0];
-    expect(updatedEdge.contextMode).toBe(
-      AgenticEdgeContextModeEnum.inline_text,
-    );
-    expect(route_update_agentic_edge).toHaveBeenCalledTimes(1);
-    expect(route_update_agentic_edge.mock.calls[0][0]).toEqual(
-      expect.objectContaining({
-        projectConfigId,
-        edge: expect.objectContaining({
-          id: edge.id,
-          contextMode: AgenticEdgeContextModeEnum.inline_text,
-        }),
         frontendOpId: expect.any(String),
       }),
     );
