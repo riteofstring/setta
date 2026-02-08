@@ -233,6 +233,36 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
+export async function route_get_git_repo_info(): Promise<
+  ResponseDataAndStatus<gt.GitRepoInfoResponse>
+> {
+  return await post("/git/repoInfo", null);
+}
+
+export async function route_get_git_status(): Promise<
+  ResponseDataAndStatus<gt.GetGitStatusResponse>
+> {
+  return await post("/git/status", null);
+}
+
+export async function route_get_git_diff(
+  x: gt.GetGitDiffRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitDiffResponse>> {
+  return await post("/git/diff", x);
+}
+
+export async function route_get_git_log(
+  x: gt.GetGitLogRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitLogResponse>> {
+  return await post("/git/log", x);
+}
+
+export async function route_get_git_commit_diff(
+  x: gt.GetGitCommitDiffRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitCommitDiffResponse>> {
+  return await post("/git/commitDiff", x);
+}
+
 export async function route_get_attachment_download_url(
   x: gt.GetAttachmentDownloadUrlRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadUrlResponse>> {
@@ -1347,12 +1377,6 @@ export async function route_get_server_mode(): Promise<
   ResponseDataAndStatus<gt.ServerModeResponse>
 > {
   return await get("/serverMode");
-}
-
-export async function route_get_setta_home_info(): Promise<
-  ResponseDataAndStatus<gt.SettaHomeInfoResponse>
-> {
-  return await get("/settaHomeInfo");
 }
 
 export async function route_list_share_deployments(): Promise<

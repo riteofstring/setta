@@ -1,20 +1,17 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
-import {
-  normalizeSettaFilesLocation,
-  type SettaFilesLocation,
-} from "utils/settaFilesLocation";
 import { safeLocalStorage } from "utils/storage";
 
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
   sshTarget: string | null;
   localPort: number | null;
-  settaFilesLocation: SettaFilesLocation;
+  filesRoot: string | null;
+  filesRootBase: string | null;
   lastUsedAt: number;
 };
 
-const HISTORY_KEY = "setta.workspaceHistory.v2";
-const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff.v2";
+const HISTORY_KEY = "setta.workspaceHistory";
+const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff";
 const HISTORY_LIMIT = 6;
 
 function normalizeNullableString(value: unknown): string | null {
@@ -76,12 +73,14 @@ function normalizeNullablePort(value: unknown): number | null {
 function buildEntryKey(entry: {
   workspaceRoot: string;
   sshTarget: string | null;
-  settaFilesLocation: SettaFilesLocation;
+  filesRoot: string | null;
+  filesRootBase: string | null;
 }) {
   const normalized = {
     workspaceRoot: normalizePathLike(entry.workspaceRoot),
     sshTarget: normalizeNullableString(entry.sshTarget),
-    settaFilesLocation: normalizeSettaFilesLocation(entry.settaFilesLocation),
+    filesRoot: normalizeNullablePathLike(entry.filesRoot),
+    filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
   };
   return JSON.stringify(normalized);
 }
@@ -103,7 +102,8 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot?: unknown;
       sshTarget?: unknown;
       localPort?: unknown;
-      settaFilesLocation?: unknown;
+      filesRoot?: unknown;
+      filesRootBase?: unknown;
       lastUsedAt?: unknown;
     };
     if (typeof record.workspaceRoot !== "string") {
@@ -125,9 +125,8 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot: normalizedWorkspaceRoot,
       sshTarget: normalizeNullableString(record.sshTarget),
       localPort: normalizeNullablePort(record.localPort),
-      settaFilesLocation: normalizeSettaFilesLocation(
-        record.settaFilesLocation,
-      ),
+      filesRoot: normalizeNullablePathLike(record.filesRoot),
+      filesRootBase: normalizeNullablePathLike(record.filesRootBase),
       lastUsedAt: record.lastUsedAt,
     });
   }

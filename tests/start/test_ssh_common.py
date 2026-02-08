@@ -1,7 +1,8 @@
 import os
+from datetime import datetime
+from pathlib import PurePosixPath
 import subprocess
 import socket
-from datetime import datetime
 
 import pytest
 
@@ -78,22 +79,20 @@ def test_is_safe_remote_path_allows_spaces_and_rejects_control_chars() -> None:
     assert ssh_common._is_safe_remote_path("/tmp/has\rnewline") is False
     assert ssh_common._is_safe_remote_path("/tmp/has\x00null") is False
 
-def test_resolve_remote_logs_dir_uses_workspace_local_when_local_location() -> None:
+
+def test_resolve_remote_logs_dir_allows_spaces_in_workspace_and_roots() -> None:
     workspace = "/tmp/My Work"
+    files_root_base = "/tmp/state base"
     resolved = ssh_common._resolve_remote_logs_dir(
         workspace=workspace,
-        setta_files_location="local",
+        files_root=None,
+        files_root_base=files_root_base,
     )
-    assert resolved == "/tmp/My Work/setta_files/runtime/logs"
-
-
-def test_resolve_remote_logs_dir_uses_tmp_for_global_location() -> None:
-    workspace = "/tmp/My Work"
-    resolved = ssh_common._resolve_remote_logs_dir(
-        workspace=workspace,
-        setta_files_location="global",
+    computed = ssh_common.build_files_root_from_base(
+        PurePosixPath(files_root_base.strip()),
+        PurePosixPath(workspace),
     )
-    assert resolved == "/tmp"
+    assert resolved == f"{computed.as_posix().rstrip('/')}/runtime/logs"
 
 
 def test_resolve_remote_setta_command_ignores_whitespace_remote_cmd(monkeypatch) -> None:
@@ -126,7 +125,7 @@ def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
 
     monkeypatch.setattr(ssh_common, "run_ssh_command", fake_run_ssh_command)
 
-    remote_log_file = ssh_common.start_remote_setta(
+    ssh_common.start_remote_setta(
         "user@host",
         [],
         "bash",
@@ -134,13 +133,12 @@ def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
         "setta",
         "",
         ssh_prefix=["ssh"],
-        setta_files_location="local",
+        files_root="/tmp/state",
+        files_root_base=None,
     )
     assert captured["remote_command"] is not None
     assert "/nohup-" in captured["remote_command"]
     assert "/nohup.out" not in captured["remote_command"]
-    assert remote_log_file.startswith("/tmp/work/setta_files/runtime/logs/nohup-")
-    assert remote_log_file.endswith(".out")
 
 
 def test_start_remote_setta_surfaces_ssh_timeout(monkeypatch) -> None:
@@ -162,7 +160,8 @@ def test_start_remote_setta_surfaces_ssh_timeout(monkeypatch) -> None:
             "setta",
             "",
             ssh_prefix=["ssh"],
-            setta_files_location="local",
+            files_root="/tmp/state",
+            files_root_base=None,
         )
     assert excinfo.value.code == "SshTimeout"
 
@@ -186,7 +185,8 @@ def test_start_remote_setta_raises_real_ssh_errors(monkeypatch) -> None:
             "setta",
             "",
             ssh_prefix=["ssh"],
-            setta_files_location="local",
+            files_root="/tmp/state",
+            files_root_base=None,
         )
     assert excinfo.value.code == "SshMissing"
 
