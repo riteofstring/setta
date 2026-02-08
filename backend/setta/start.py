@@ -81,10 +81,14 @@ def _resolve_cli_paths(
     setta_files_location: SettaFilesLocation | None,
     validate: bool,
 ):
-    paths = resolve_setta_paths(
-        workspace_root=workspace,
-        setta_files_location=setta_files_location,
-    )
+    try:
+        paths = resolve_setta_paths(
+            workspace_root=workspace,
+            setta_files_location=setta_files_location,
+        )
+    except ValueError as exc:
+        # Click should render a clean message without an exception traceback.
+        raise click.ClickException(str(exc)) from exc
     if validate:
         try:
             validate_workspace_root(paths.workspace_root)
@@ -2014,6 +2018,12 @@ def connect(
             click.echo(
                 f"Starting Setta on {ssh_target} (workspace {remote_workspace})..."
             )
+        remote_logs_dir = ssh_common._resolve_remote_logs_dir(
+            workspace=remote_workspace,
+            setta_files_location=params.get("setta_files_location") or "auto",
+        )
+        if verbose:
+            click.echo(f"Remote startup logs: {remote_logs_dir} (nohup-*.out)")
         start_timed_out = _start_remote_setta(
             ssh_target,
             ssh_args_list,
@@ -2038,7 +2048,9 @@ def connect(
                 "Timed out waiting for remote Setta session to start."
             ):
                 raise click.ClickException(
-                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. Check SSH connectivity/auth and try again."
+                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. "
+                    "Check SSH connectivity/auth and try again. "
+                    f"Remote startup logs: {remote_logs_dir} (nohup-*.out)"
                 ) from exc
             raise
 
@@ -2176,10 +2188,6 @@ def cli(
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
 
-    config_error = ensure_setta_user_config_exists()
-    if config_error:
-        logging.getLogger(__name__).warning(config_error)
-
     paths_override = None
     if workspace is not None or setta_files_location is not None:
         paths_override = _resolve_cli_paths(
@@ -2189,6 +2197,10 @@ def cli(
         )
         _apply_paths_to_env(paths_override)
     if ctx.invoked_subcommand is None:
+        config_error = ensure_setta_user_config_exists()
+        if config_error:
+            logging.getLogger(__name__).warning(config_error)
+
         logging.getLogger(__name__).info("Starting Setta")
 
         paths = paths_override or _resolve_cli_paths(

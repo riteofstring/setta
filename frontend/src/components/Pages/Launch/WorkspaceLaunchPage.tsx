@@ -6,6 +6,7 @@ import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
+import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
 import {
   appendWorkspaceHistoryToBootstrapUrlFragment,
   loadWorkspaceHistory,
@@ -15,6 +16,7 @@ import {
   clearPendingWorkspaceLaunch,
   readPendingWorkspaceLaunch,
   requestOpenWorkspaceSwitcherOnNextMount,
+  writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
 
 type LaunchPhase =
@@ -168,16 +170,17 @@ export function WorkspaceLaunchPage() {
         resolvedLocalPort = null;
       }
 
+      const historySettaFilesLocation =
+        chooseWorkspaceHistorySettaFilesLocation({
+          requested: pending.request.settaFilesLocation,
+          resolved: res.data.settaFilesLocation,
+        });
+
       const nextEntry = {
         workspaceRoot: resolvedWorkspaceRoot,
         sshTarget: pending.request.sshTarget ?? null,
         localPort: resolvedLocalPort,
-        settaFilesLocation:
-          pending.request.settaFilesLocation === "local" ||
-          pending.request.settaFilesLocation === "global" ||
-          pending.request.settaFilesLocation === "auto"
-            ? pending.request.settaFilesLocation
-            : "auto",
+        settaFilesLocation: historySettaFilesLocation,
         lastUsedAt: Date.now(),
       };
 
@@ -185,6 +188,15 @@ export function WorkspaceLaunchPage() {
         loadWorkspaceHistory(),
         nextEntry,
       );
+
+      // Keep the switcher selection aligned with what actually happened, so
+      // reopening the modal doesn't show a misleading explicit selection.
+      writeWorkspaceSwitcherDraft({
+        ...pending.request,
+        workspaceRoot: resolvedWorkspaceRoot,
+        localPort: resolvedLocalPort,
+        settaFilesLocation: historySettaFilesLocation,
+      });
 
       clearPendingWorkspaceLaunch();
       const bootstrapUrl = import.meta.env?.DEV

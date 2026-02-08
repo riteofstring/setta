@@ -1,7 +1,7 @@
 import os
-from datetime import datetime
 import subprocess
 import socket
+from datetime import datetime
 
 import pytest
 
@@ -126,7 +126,7 @@ def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
 
     monkeypatch.setattr(ssh_common, "run_ssh_command", fake_run_ssh_command)
 
-    ssh_common.start_remote_setta(
+    remote_log_file = ssh_common.start_remote_setta(
         "user@host",
         [],
         "bash",
@@ -139,6 +139,8 @@ def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
     assert captured["remote_command"] is not None
     assert "/nohup-" in captured["remote_command"]
     assert "/nohup.out" not in captured["remote_command"]
+    assert remote_log_file.startswith("/tmp/work/setta_files/runtime/logs/nohup-")
+    assert remote_log_file.endswith(".out")
 
 
 def test_start_remote_setta_surfaces_ssh_timeout(monkeypatch) -> None:

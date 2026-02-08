@@ -53,8 +53,8 @@ class TestLaunchRoutes:
 
                 with temporary_setta_paths(
                     workspace_root=paths.workspace_root,
-                    setta_files_root=paths.setta_files_root,
                     runtime_root=paths.runtime_root,
+                    setta_files_location="local",
                 ):
                     response = route_launch(
                         LaunchRequest(
@@ -128,8 +128,8 @@ class TestLaunchRoutes:
 
                 with temporary_setta_paths(
                     workspace_root=paths.workspace_root,
-                    setta_files_root=paths.setta_files_root,
                     runtime_root=paths.runtime_root,
+                    setta_files_location="local",
                 ):
                     response1 = route_launch(request)
                     assert response1.ok is True

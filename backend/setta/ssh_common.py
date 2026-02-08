@@ -368,18 +368,35 @@ def resolve_remote_setta_command(
 
 def build_remote_setta_files_args(*, setta_files_location: str | None) -> str:
     args: list[str] = []
-    if setta_files_location is None:
+
+    trimmed = normalize_setta_files_location(setta_files_location)
+    if trimmed is None:
         return ""
-    trimmed = setta_files_location.strip().lower()
+    args.append(f"--setta-files-location {shlex.quote(trimmed)}")
+    return " ".join(args)
+
+
+def normalize_setta_files_location(value: str | None) -> str | None:
+    """Normalize and validate settaFilesLocation values.
+
+    Returns:
+      - "auto" | "local" | "global" for valid, non-empty inputs
+      - None for None/empty/whitespace-only values
+
+    Raises LaunchError("InvalidSettaFilesLocation") for invalid values.
+    """
+
+    if value is None:
+        return None
+    trimmed = value.strip().lower()
     if not trimmed:
-        return ""
+        return None
     if trimmed not in ("auto", "local", "global"):
         raise LaunchError(
             "InvalidSettaFilesLocation",
             "settaFilesLocation must be one of: auto, local, global.",
         )
-    args.append(f"--setta-files-location {shlex.quote(trimmed)}")
-    return " ".join(args)
+    return trimmed
 
 
 def run_remote_setta_command(
@@ -446,8 +463,12 @@ def wait_for_remote_sessions(
     *,
     ssh_prefix: list[str],
     timeout_seconds: float,
+    setta_files_location: str,
 ) -> list[RemoteSessionSummary]:
     deadline = time.monotonic() + timeout_seconds
+    remote_logs_dir = _resolve_remote_logs_dir(
+        workspace=workspace, setta_files_location=setta_files_location
+    )
     while True:
         sessions = fetch_remote_sessions(
             ssh_target,
@@ -463,7 +484,7 @@ def wait_for_remote_sessions(
         if time.monotonic() >= deadline:
             raise LaunchError(
                 "RemoteLaunchTimeout",
-                "Timed out waiting for remote Setta session to start.",
+                f"Timed out waiting for remote Setta session to start. Check logs under: {remote_logs_dir}",
             )
         time.sleep(0.5)
 
@@ -535,7 +556,7 @@ def _resolve_remote_logs_dir(*, workspace: str, setta_files_location: str) -> st
     # the launcher side (it depends on remote user config). Prefer /tmp rather than
     # creating a workspace-local setta_files directory (which would change behavior
     # because local always wins when present).
-    trimmed_location = setta_files_location.strip().lower()
+    trimmed_location = normalize_setta_files_location(setta_files_location) or "auto"
     if trimmed_location != "local":
         return "/tmp"
     if not _is_safe_remote_path(workspace):
@@ -554,7 +575,7 @@ def start_remote_setta(
     *,
     ssh_prefix: list[str],
     setta_files_location: str,
-) -> None:
+) -> str:
     runner = None
     if _remote_command_exists(ssh_target, ssh_args, "setsid", ssh_prefix=ssh_prefix):
         runner = "setsid"
@@ -602,8 +623,10 @@ def start_remote_setta(
         details = (result.stderr.strip() or result.stdout.strip() or "").strip()
         raise LaunchError(
             "RemoteStart",
-            f"Failed to start remote Setta. {details}".strip(),
+            f"Failed to start remote Setta. {details} "
+            f"(remote log: {remote_log_file})".strip(),
         )
+    return remote_log_file
 
 
 def build_ssh_tunnel_args(

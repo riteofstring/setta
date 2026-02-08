@@ -1,7 +1,9 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+import {
+  normalizeSettaFilesLocation,
+  type SettaFilesLocation,
+} from "utils/settaFilesLocation";
 import { safeLocalStorage } from "utils/storage";
-
-type SettaFilesLocation = "auto" | "local" | "global";
 
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
@@ -69,17 +71,6 @@ function normalizeNullablePort(value: unknown): number | null {
     return parsed;
   }
   return null;
-}
-
-function normalizeSettaFilesLocation(value: unknown): SettaFilesLocation {
-  if (typeof value !== "string") {
-    return "auto";
-  }
-  const trimmed = value.trim().toLowerCase();
-  if (trimmed === "auto" || trimmed === "local" || trimmed === "global") {
-    return trimmed;
-  }
-  return "auto";
 }
 
 function buildEntryKey(entry: {

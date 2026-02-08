@@ -96,7 +96,7 @@ def test_ensure_ssh_tunnel_reports_missing_ssh_binary(tmp_path) -> None:
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_files_root,
+        setta_files_location="local",
     ):
         with pytest.raises(LaunchError) as excinfo:
             ssh_connect._ensure_ssh_tunnel(

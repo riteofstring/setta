@@ -208,6 +208,19 @@ def _extract_cd_path(command: str) -> str | None:
     return raw
 
 
+def _extract_setta_files_location(command: str) -> str | None:
+    match = re.search(r"--setta-files-location\\s+([^\\s&;]+)", command)
+    if not match:
+        return None
+    raw = match.group(1).strip()
+    if raw.startswith(("'", '"')) and raw.endswith(("'", '"')) and len(raw) >= 2:
+        raw = raw[1:-1]
+    trimmed = raw.strip().lower()
+    if trimmed in {"auto", "local", "global"}:
+        return trimmed
+    return None
+
+
 def _handle_remote_command(command: str) -> int:
     command = command.strip()
 
@@ -263,9 +276,27 @@ def _handle_remote_command(command: str) -> int:
             host, port, token
         )
         runtime_root = os.environ.get("SETTA_RUNTIME_ROOT", "").strip()
-        setta_files_location = os.environ.get("SETTA_FILES_LOCATION", "").strip().lower()
-        if setta_files_location not in ("local", "global"):
-            setta_files_location = "local"
+        requested_location = _extract_setta_files_location(command)
+        env_location = os.environ.get("SETTA_FILES_LOCATION", "").strip().lower()
+        if env_location not in ("auto", "local", "global"):
+            env_location = ""
+        candidate_location = requested_location or env_location or "auto"
+
+        cd_path = _extract_cd_path(command) or os.environ.get("SETTA_WORKSPACE_ROOT", "").strip() or "/tmp"
+        has_local_root = False
+        try:
+            has_local_root = (Path(cd_path) / "setta_files").is_dir()
+        except Exception:
+            has_local_root = False
+
+        if has_local_root:
+            resolved_location = "local"
+        elif candidate_location in ("local", "global"):
+            resolved_location = candidate_location
+        elif env_location in ("local", "global"):
+            resolved_location = env_location
+        else:
+            resolved_location = "local"
         payload = {
             "session": {
                 "id": metadata.get("id", session_id),
@@ -281,7 +312,7 @@ def _handle_remote_command(command: str) -> int:
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": "ssh -N -L ${LOCAL_PORT}:127.0.0.1:1234 user@host -o ExitOnForwardFailure=yes",
-            "settaFilesLocation": setta_files_location,
+            "settaFilesLocation": resolved_location,
             "runtimeRoot": runtime_root or None,
         }
         _emit_json(payload)

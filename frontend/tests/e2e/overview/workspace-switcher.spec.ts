@@ -128,7 +128,8 @@ test("workspace switcher launches a session and persists history", async ({
   expect(requestBody.settaFilesLocation).toBe("auto");
   await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
-    (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
+    (origin) =>
+      sessionStorage.getItem("setta.backendOriginOverride") === origin,
     expectedBackendOrigin,
   );
   const backendOrigin = await page.evaluate(async () => {
@@ -159,9 +160,7 @@ test("workspace switcher launches a session and persists history", async ({
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
   const modalAfterSuccess = page.getByRole("dialog");
   await expect(modalAfterSuccess.getByText("Switch Workspace")).toBeVisible();
-  await expect(
-    modalAfterSuccess.getByText("Setta files: auto"),
-  ).toBeVisible();
+  await expect(modalAfterSuccess.getByText("Setta files: auto")).toBeVisible();
 });
 
 test("workspace switcher allows selecting setta files location", async ({
@@ -188,10 +187,14 @@ test("workspace switcher allows selecting setta files location", async ({
   await modal.getByRole("button", { name: "Cancel" }).click();
 });
 
-test("workspace switcher sends local setta files location", async ({ page }) => {
+test("workspace switcher sends local setta files location", async ({
+  page,
+}) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for workspace switcher test.");
+    throw new Error(
+      "Missing SETTA_WORKSPACE_ROOT for workspace switcher test.",
+    );
   }
   const missingWorkspace = `${workspaceRoot}/does-not-exist-${Date.now()}`;
 
@@ -341,8 +344,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const bootstrapRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
-      url.hostname === "127.0.0.1" &&
-      url.pathname === "/__setta__/bootstrap"
+      url.hostname === "127.0.0.1" && url.pathname === "/__setta__/bootstrap"
     );
   });
   await modal.getByRole("button", { name: "Launch" }).click();
@@ -364,7 +366,8 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await page.waitForSelector(".react-flow__pane");
   const tunnelOrigin = `http://127.0.0.1:${connectedPort}`;
   await page.waitForFunction(
-    (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
+    (origin) =>
+      sessionStorage.getItem("setta.backendOriginOverride") === origin,
     tunnelOrigin,
   );
   const { backendOrigin, launcherOrigin } = await page.evaluate(async () => {
@@ -385,12 +388,10 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     modalAfterReload.getByText(canonicalWorkspaceRoot, { exact: true }),
   ).toBeVisible();
   await expect(modalAfterReload.getByText("SSH: user@host")).toBeVisible();
-  await expect(
-    modalAfterReload.getByText("Setta files: global"),
-  ).toBeVisible();
+  await expect(modalAfterReload.getByText("Setta files: local")).toBeVisible();
   await expect(
     modalAfterReload.getByRole("combobox", { name: "Setta Files Location" }),
-  ).toHaveValue("global");
+  ).toHaveValue("local");
 
   // Regression test: once we are "inside" an SSH session, launching again must
   // still send /api/launch to the original launcher backend (not the tunneled backend).

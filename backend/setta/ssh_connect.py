@@ -22,6 +22,7 @@ from setta.ssh_common import (
     ensure_background_process_started,
     fetch_remote_connect_info,
     fetch_remote_sessions,
+    normalize_setta_files_location,
     parse_ssh_args,
     resolve_remote_setta_command,
     resolve_remote_shell,
@@ -77,8 +78,8 @@ def connect_remote_workspace_session(
         )
     if local_port is not None and not (1 <= local_port <= 65535):
         raise LaunchError("InvalidLocalPort", f"Invalid local port: {local_port}")
-    trimmed_location = (setta_files_location or "").strip().lower()
-    if trimmed_location not in ("auto", "local", "global"):
+    trimmed_location = normalize_setta_files_location(setta_files_location)
+    if trimmed_location is None:
         raise LaunchError(
             "InvalidSettaFilesLocation",
             "settaFilesLocation must be one of: auto, local, global.",
@@ -144,12 +145,15 @@ def connect_remote_workspace_session(
                 setta_files_args,
                 ssh_prefix=ssh_prefix,
                 timeout_seconds=timeout_seconds,
+                setta_files_location=trimmed_location,
             )
         except LaunchError as exc:
             if start_timed_out and exc.code == "RemoteLaunchTimeout":
                 raise LaunchError(
                     "RemoteStart",
-                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. Check SSH connectivity/auth and try again.",
+                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. "
+                    "Check SSH connectivity/auth and try again. "
+                    f"{exc}",
                 ) from exc
             raise
 

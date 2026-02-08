@@ -104,6 +104,23 @@ def test_resolve_setta_paths_rejects_invalid_files_location_override(
         resolve_setta_paths(workspace_root=workspace, setta_files_location="nope")
 
 
+def test_resolve_setta_paths_normalizes_files_location_override_case_and_whitespace(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        setta_files_location="  GLOBAL  ",
+    )
+
+    assert paths.setta_files_location == "global"
+    base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
+    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
+    assert paths.setta_files_root == expected_root.resolve(strict=False)
+
+
 def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()

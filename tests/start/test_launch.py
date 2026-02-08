@@ -43,6 +43,24 @@ def test_launch_reports_invalid_workspace(tmp_path: Path) -> None:
     assert payload["error"]["code"] == "InvalidWorkspace"
 
 
+def test_launch_reports_invalid_local_setta_files_root(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files").write_text("not a directory", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        ["--json", "--workspace", str(workspace), "--setta-files-location", "local"],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidSettaFilesRoot"
+    assert "Local setta_files path is not a directory" in payload["error"]["message"]
+
+
 def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     if not _can_bind_localhost():
         pytest.skip("Socket binds are not permitted in this test environment.")
@@ -339,4 +357,3 @@ def test_launch_rejects_conflicting_setta_files_location_options(tmp_path: Path)
 
     assert result.exit_code != 0
     assert "Conflicting --setta-files-location" in result.output
-

@@ -36,7 +36,7 @@ def status_env(tmp_path):
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=workspace,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER
@@ -93,7 +93,7 @@ def status_workspace_env(tmp_path):
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=workspace,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER

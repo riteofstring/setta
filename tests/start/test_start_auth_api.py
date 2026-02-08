@@ -67,7 +67,7 @@ def auth_env(tmp_path):
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=workspace,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER
@@ -117,7 +117,7 @@ def api_integration_env(
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=root,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
 
@@ -192,7 +192,7 @@ def api_input_env(tmp_path):
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=workspace,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER

@@ -204,6 +204,8 @@ def _resolve_files_root(
         return (local_root, "local")
 
     raw_location = setta_files_location
+    if isinstance(raw_location, str):
+        raw_location = raw_location.strip().lower() or None
     if raw_location is None:
         raw_env = os.environ.get(FILES_LOCATION_ENV)
         if raw_env is not None:

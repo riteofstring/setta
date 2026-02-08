@@ -11,6 +11,10 @@ import type {
   SettaHomeInfoResponse,
 } from "utils/generatedTypes";
 import {
+  normalizeSettaFilesLocation,
+  type SettaFilesLocation,
+} from "utils/settaFilesLocation";
+import {
   loadWorkspaceHistory,
   saveWorkspaceHistory,
   workspaceHistoryEntryKey,
@@ -27,9 +31,8 @@ export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
-  const [settaFilesLocation, setSettaFilesLocation] = useState<
-    "auto" | "local" | "global"
-  >("auto");
+  const [settaFilesLocation, setSettaFilesLocation] =
+    useState<SettaFilesLocation>("auto");
   const [settaHomeInfo, setSettaHomeInfo] =
     useState<SettaHomeInfoResponse | null>(null);
   const [sshArgs, setSshArgs] = useState("");
@@ -47,15 +50,9 @@ export function WorkspaceSwitcherModal() {
     if (draft) {
       setWorkspaceRoot(draft.workspaceRoot ?? "");
       setSshTarget(draft.sshTarget ?? "");
-      if (
-        draft.settaFilesLocation === "auto" ||
-        draft.settaFilesLocation === "local" ||
-        draft.settaFilesLocation === "global"
-      ) {
-        setSettaFilesLocation(draft.settaFilesLocation);
-      } else {
-        setSettaFilesLocation("auto");
-      }
+      setSettaFilesLocation(
+        normalizeSettaFilesLocation(draft.settaFilesLocation),
+      );
       setSshArgs(draft.sshArgs ?? "");
       setRemoteCmd(draft.remoteCmd ?? "");
       setLocalPort(
@@ -271,16 +268,18 @@ export function WorkspaceSwitcherModal() {
               className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
               value={settaFilesLocation}
               onChange={(event) => {
-                const next = event.target.value;
-                if (next === "auto" || next === "local" || next === "global") {
-                  setSettaFilesLocation(next);
-                }
+                setSettaFilesLocation(
+                  normalizeSettaFilesLocation(event.target.value),
+                );
               }}
             >
               <option value="auto">Default (auto)</option>
               <option value="local">Local (workspace)</option>
               <option value="global">
-                Global ({settaHomeInfo?.settaHome ?? "<setta_home>"})
+                Global (
+                {settaHomeInfo?.globalSettaFilesBase ??
+                  "<global_setta_files_base>"}
+                )
               </option>
             </select>
             <p className="text-xs text-setta-500 dark:text-setta-400">

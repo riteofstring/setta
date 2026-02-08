@@ -67,10 +67,19 @@ def launch_workspace_session(
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
 ) -> LaunchResult:
-    paths = resolve_setta_paths(
-        workspace_root=workspace_root,
-        setta_files_location=setta_files_location,
-    )
+    try:
+        paths = resolve_setta_paths(
+            workspace_root=workspace_root,
+            setta_files_location=setta_files_location,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        code = "BadRequest"
+        if "setta_files path is not a directory" in message:
+            code = "InvalidSettaFilesRoot"
+        elif message.startswith("Invalid setta files location:"):
+            code = "InvalidSettaFilesLocation"
+        raise LaunchError(code, message) from exc
     try:
         validate_workspace_root(paths.workspace_root)
     except ValueError as exc:
