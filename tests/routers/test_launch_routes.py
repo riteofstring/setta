@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 import pytest
 
 from setta.routers.launch import LaunchRequest, route_launch
+from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.utils.paths import build_files_root_from_base, resolve_setta_paths
 from tests.utils.setta_paths import temporary_setta_paths
@@ -167,6 +168,8 @@ class TestLaunchRoutes:
             workspace_root = tmp_path / "workspace"
             workspace_root.mkdir(parents=True, exist_ok=True)
 
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
             setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
             global_base = (setta_home / "setta_files").resolve(strict=False)
             global_root = build_files_root_from_base(global_base, workspace_root).resolve(
@@ -219,12 +222,14 @@ class TestLaunchRoutes:
             assert response.sessionId == local_session.id
             assert response.settaFilesLocation == "local"
 
-    def test_launch_local_always_wins_even_when_global_requested(self) -> None:
+    def test_launch_local_always_wins_even_when_global_requested(self, monkeypatch) -> None:
         with TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             workspace_root = tmp_path / "workspace"
             workspace_root.mkdir(parents=True, exist_ok=True)
             (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
+
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
 
             sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
             sessions_root.mkdir(parents=True, exist_ok=True)
@@ -258,4 +263,3 @@ class TestLaunchRoutes:
             assert response.ok is True
             assert response.sessionId == session.id
             assert response.settaFilesLocation == "local"
-
