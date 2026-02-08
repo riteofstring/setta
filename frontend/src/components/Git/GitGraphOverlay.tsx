@@ -656,10 +656,19 @@ function GitGraphCell({
         if (joinFromLaneIndices.includes(idx)) {
           y1 = Math.max(y1, centerY);
         }
-        // Merge curves already occupy the bottom half of the row for the
-        // destination lane; drawing the vertical lane segment here creates the
-        // "tail" artifact (a straight line extending past the curve).
-        if (mergeToLaneIndices.includes(idx)) {
+        // For merge commits, the destination lane might already exist above this
+        // row (e.g., when showing `--all` refs and that branch continues after
+        // being merged). In that case we need to keep the lane continuous
+        // through the row, otherwise it looks like the lane has a "gap".
+        //
+        // However, when the destination lane *starts* at this row, drawing a
+        // vertical segment below the commit dot looks like a "tail" hanging off
+        // the merge curve endpoint. Avoid that by suppressing the vertical
+        // segment only for lanes that start at this row.
+        if (
+          mergeToLaneIndices.includes(idx) &&
+          laneStartIndices.includes(idx)
+        ) {
           y2 = Math.min(y2, centerY);
         }
         if (y1 === y2) {

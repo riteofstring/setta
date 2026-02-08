@@ -445,3 +445,192 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
     }
   }
 });
+
+test("git graph keeps merge-to lanes continuous when the branch continues above the merge", async ({
+  page,
+}) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
+
+  const gitDir = path.join(workspaceRoot, ".git");
+  const mainPath = path.join(workspaceRoot, "graph-gap-main.txt");
+  const sidePath1 = path.join(workspaceRoot, "graph-gap-side-1.txt");
+  const sidePath2 = path.join(workspaceRoot, "graph-gap-side-2.txt");
+  const commitEnv = (isoTime: string): Record<string, string> => ({
+    GIT_AUTHOR_DATE: isoTime,
+    GIT_COMMITTER_DATE: isoTime,
+  });
+
+  const createdRepo = !(await pathExists(gitDir));
+  try {
+    if (createdRepo) {
+      runGit(workspaceRoot, ["init"]);
+      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
+      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
+    }
+
+    await fs.writeFile(mainPath, "A\n", "utf8");
+    runGit(workspaceRoot, ["add", path.basename(mainPath)]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-gap A"],
+      commitEnv("2000-01-01T00:00:00Z"),
+    );
+
+    const defaultBranch = runGit(workspaceRoot, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]).trim();
+
+    runGit(workspaceRoot, ["checkout", "-b", "graph-gap-side"]);
+    await fs.writeFile(sidePath1, "S1\n", "utf8");
+    runGit(workspaceRoot, ["add", path.basename(sidePath1)]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-gap S1"],
+      commitEnv("2000-01-01T00:01:00Z"),
+    );
+
+    // Merge the side branch into main.
+    runGit(workspaceRoot, ["checkout", defaultBranch]);
+    runGit(workspaceRoot, [
+      "merge",
+      "--no-ff",
+      "graph-gap-side",
+      "-m",
+      "graph-gap M",
+    ]);
+    runGit(
+      workspaceRoot,
+      ["commit", "--amend", "--no-edit"],
+      commitEnv("2000-01-01T00:02:00Z"),
+    );
+
+    // Continue the side branch after the merge so the side lane exists above the
+    // merge commit when showing `--all` refs.
+    runGit(workspaceRoot, ["checkout", "graph-gap-side"]);
+    await fs.writeFile(sidePath2, "S2\n", "utf8");
+    runGit(workspaceRoot, ["add", path.basename(sidePath2)]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-gap S2"],
+      commitEnv("2000-01-01T00:03:00Z"),
+    );
+
+    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
+    await ensureAppReady(page);
+
+    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    await expect(
+      graphOverlay.getByRole("button", { name: "Show current branch only" }),
+    ).toBeVisible();
+
+    await expect(
+      graphOverlay.getByRole("button", { name: /graph-gap S2/i }),
+    ).toBeVisible();
+
+    await graphFilter.fill("graph-gap M");
+    const mergeRow = graphOverlay.getByRole("button", {
+      name: /graph-gap M/i,
+    });
+    await expect(mergeRow).toBeVisible();
+
+    const svgGeometry = await mergeRow.locator("svg").evaluate((svg) => {
+      const parseNum = (raw: string | null): number | null => {
+        if (!raw) {
+          return null;
+        }
+        const num = Number(raw);
+        return Number.isFinite(num) ? num : null;
+      };
+
+      const height = parseNum(svg.getAttribute("height"));
+      if (height === null) {
+        return { error: "missing svg height" };
+      }
+      const centerY = height / 2;
+
+      let mergeStroke: string | null = null;
+      for (const path of Array.from(svg.querySelectorAll("path"))) {
+        const stroke = path.getAttribute("stroke");
+        if (!stroke) {
+          continue;
+        }
+        const d = path.getAttribute("d") ?? "";
+        const startMatch = d.match(/^M\s*([-\d.]+)[ ,]+([-\d.]+)\s*C/);
+        const endMatch = d.match(/([-\d.]+)[ ,]+([-\d.]+)\s*$/);
+        if (!startMatch || !endMatch) {
+          continue;
+        }
+        const yStart = Number(startMatch[2]);
+        const yEnd = Number(endMatch[2]);
+        if (!Number.isFinite(yStart) || !Number.isFinite(yEnd)) {
+          continue;
+        }
+        if (
+          Math.abs(yStart - centerY) < 1e-6 &&
+          Math.abs(yEnd - height) < 1e-6
+        ) {
+          mergeStroke = stroke;
+          break;
+        }
+      }
+
+      if (!mergeStroke) {
+        return { error: "missing merge path", height };
+      }
+
+      const matchingLines = Array.from(svg.querySelectorAll("line")).filter(
+        (line) => line.getAttribute("stroke") === mergeStroke,
+      );
+      let best: { minY: number; maxY: number } | null = null;
+      for (const line of matchingLines) {
+        const y1 = parseNum(line.getAttribute("y1"));
+        const y2 = parseNum(line.getAttribute("y2"));
+        if (y1 === null || y2 === null) {
+          continue;
+        }
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+        if (!best || maxY > best.maxY) {
+          best = { minY, maxY };
+        }
+      }
+
+      if (!best) {
+        return { error: "missing lane line", height, mergeStroke };
+      }
+
+      return {
+        height,
+        centerY,
+        mergeStroke,
+        minY: best.minY,
+        maxY: best.maxY,
+      };
+    });
+
+    expect(svgGeometry).not.toHaveProperty("error");
+    expect(svgGeometry.minY).toBeCloseTo(0, 5);
+    expect(svgGeometry.maxY).toBeCloseTo(svgGeometry.height, 5);
+
+    await page.keyboard.press("Escape");
+    await expect(graphFilter).toHaveCount(0);
+  } finally {
+    await fs.rm(mainPath, { force: true });
+    await fs.rm(sidePath1, { force: true });
+    await fs.rm(sidePath2, { force: true });
+    if (createdRepo) {
+      await fs.rm(gitDir, { recursive: true, force: true });
+    }
+  }
+});
