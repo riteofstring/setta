@@ -98,8 +98,7 @@ export function WorkspaceLaunchPage() {
         (request) =>
           JSON.stringify({
             workspaceRoot: request.workspaceRoot ?? null,
-            filesRoot: request.filesRoot ?? null,
-            filesRootBase: request.filesRootBase ?? null,
+            settaFilesLocation: request.settaFilesLocation ?? null,
             sshTarget: request.sshTarget ?? null,
             sshArgs: request.sshArgs ?? null,
             remoteCmd: request.remoteCmd ?? null,
@@ -147,10 +146,6 @@ export function WorkspaceLaunchPage() {
 
       const resolvedWorkspaceRoot =
         res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
-      const requestedFilesRoot = pending.request.filesRoot ?? null;
-      const resolvedFilesRoot =
-        res.data.filesRoot ?? requestedFilesRoot ?? null;
-      const requestedFilesRootBase = pending.request.filesRootBase ?? null;
       let resolvedLocalPort = pending.request.localPort ?? null;
       if (pending.request.sshTarget) {
         try {
@@ -177,8 +172,12 @@ export function WorkspaceLaunchPage() {
         workspaceRoot: resolvedWorkspaceRoot,
         sshTarget: pending.request.sshTarget ?? null,
         localPort: resolvedLocalPort,
-        filesRoot: requestedFilesRoot ? resolvedFilesRoot : null,
-        filesRootBase: requestedFilesRoot ? null : requestedFilesRootBase,
+        settaFilesLocation:
+          pending.request.settaFilesLocation === "local" ||
+          pending.request.settaFilesLocation === "global" ||
+          pending.request.settaFilesLocation === "auto"
+            ? pending.request.settaFilesLocation
+            : "auto",
         lastUsedAt: Date.now(),
       };
 
