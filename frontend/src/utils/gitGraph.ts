@@ -68,10 +68,6 @@ export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
       laneStartIndices.push(laneIndex);
     }
 
-    if (matchingLaneIndices.length === 0) {
-      // allocateLane already inserted the lane + recorded laneStartIndices.
-    }
-
     const mergeToLaneIndices: number[] = [];
     for (const parent of commit.parents.slice(1)) {
       let parentLaneIndex = lanes.findIndex(

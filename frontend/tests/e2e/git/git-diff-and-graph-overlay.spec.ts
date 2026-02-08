@@ -192,6 +192,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
     await expect(
+      graphOverlay.getByRole("button", { name: "Show all refs" }),
+    ).toBeVisible();
+    await expect(
+      graphOverlay.getByText("Select a commit to view details."),
+    ).toBeVisible();
+    await expect(
       graphOverlay.getByRole("button", { name: /history-259/ }),
     ).toBeVisible();
 
@@ -736,6 +742,11 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await graphFilter.fill("add tracked");
     await expect(addTrackedCommit).toBeVisible();
     await addTrackedCommit.click();
+    const trackedFileButtonAfterReselect = graphOverlay.getByRole("button", {
+      name: /tracked\.py/,
+    });
+    await expect(trackedFileButtonAfterReselect).toBeVisible();
+    await trackedFileButtonAfterReselect.click();
 
     const graphDiffContent = graphOverlay.locator(".cm-content");
     await expect(graphDiffContent).toContainText(
@@ -856,6 +867,14 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const showAllRefsButton = graphOverlay.getByRole("button", {
+      name: "Show all refs",
+    });
+    await expect(showAllRefsButton).toBeVisible();
+    await showAllRefsButton.click();
+    await expect(
+      graphOverlay.getByRole("button", { name: "Show current branch only" }),
+    ).toBeVisible();
 
     await expect(
       graphOverlay.getByRole("button", { name: /graph-test D/ }),
@@ -1189,6 +1208,11 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
     await expect(graphFilter).toBeVisible();
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const showAllRefsButton = graphOverlay.getByRole("button", {
+      name: "Show all refs",
+    });
+    await expect(showAllRefsButton).toBeVisible();
+    await showAllRefsButton.click();
     await expect(
       graphOverlay.getByRole("button", { name: "Show current branch only" }),
     ).toBeVisible();

@@ -221,6 +221,45 @@ class TestGitRoutes:
         assert "rename from tracked.txt" not in single_path_diff.diff
         assert "rename to renamed.txt" not in single_path_diff.diff
 
+    async def test_diff_preserves_leading_space_in_repo_relative_paths(self) -> None:
+        # Git allows filenames with leading spaces; preserve exact path identity.
+        leading_space_path = " leading-space.txt"
+        abs_path = self._workspace_root / leading_space_path
+        abs_path.write_text("one\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", leading_space_path])
+        _run_git(self._workspace_root, ["commit", "-m", "add leading-space path"])
+        abs_path.write_text("two\n", encoding="utf-8")
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            diff = route_get_git_diff(
+                GetGitDiffRequest(path=leading_space_path, mode="unstaged"),
+                ctx,
+            )
+
+        assert f"diff --git a/{leading_space_path} b/{leading_space_path}" in diff.diff
+        assert "-one" in diff.diff
+        assert "+two" in diff.diff
+
+    async def test_diff_rejects_untracked_directory_path_for_synthesized_diff(
+        self,
+    ) -> None:
+        # Untracked directories should produce a clear client error, not a 500.
+        untracked_dir = self._workspace_root / "new-dir"
+        untracked_dir.mkdir()
+        (untracked_dir / "inside.txt").write_text("x\n", encoding="utf-8")
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_diff(
+                    GetGitDiffRequest(path="new-dir", mode="unstaged"),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "regular file" in str(exc.value.detail)
+
     async def test_status_marks_truncation_when_output_is_capped(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -289,6 +328,47 @@ class TestGitRoutes:
         assert file_diff.commitHash == head
         assert file_diff.path == "tracked.txt"
         assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
+
+    async def test_commit_details_uses_single_git_show_call(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Commit details should be built from one git subprocess to reduce latency.
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+        original_run_git = git_router.run_git
+        captured_args: list[list[str]] = []
+
+        def recording_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ):
+            captured_args.append(args)
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", recording_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+
+        show_calls = [args for args in captured_args if args and args[0] == "show"]
+        assert len(show_calls) == 1
+        assert "--raw" in show_calls[0]
+        assert "--numstat" in show_calls[0]
+        assert details.commitHash == head
+        assert len(details.files) == 1
+        assert details.files[0].path == "tracked.txt"
 
     async def test_log_pagination_offsets_without_overlap(self) -> None:
         # Build enough history to span multiple pages.

@@ -41,7 +41,6 @@ type GitGraphOverlayState = {
   selectedCommitDetailsIsLoading: boolean;
   selectedCommitDetailsError: string | null;
   selectedCommitFilePath: string | null;
-  selectedCommitFileOldPath: string | null;
   selectedCommitFileDiffResponse: GetGitCommitFileDiffResponse | null;
   selectedCommitFileDiffIsLoading: boolean;
   selectedCommitFileDiffError: string | null;

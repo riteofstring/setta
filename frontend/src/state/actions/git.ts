@@ -221,7 +221,6 @@ export function clearGitGraphSelectedCommit(): void {
           selectedCommitDetailsIsLoading: false,
           selectedCommitDetailsError: null,
           selectedCommitFilePath: null,
-          selectedCommitFileOldPath: null,
           selectedCommitFileDiffResponse: null,
           selectedCommitFileDiffIsLoading: false,
           selectedCommitFileDiffError: null,
@@ -259,7 +258,6 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           selectedCommitDetailsIsLoading: false,
           selectedCommitDetailsError: null,
           selectedCommitFilePath: null,
-          selectedCommitFileOldPath: null,
           selectedCommitFileDiffResponse: null,
           selectedCommitFileDiffIsLoading: false,
           selectedCommitFileDiffError: null,
@@ -304,9 +302,6 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
         },
       };
     });
-    if (commits.length > 0) {
-      await selectGitCommit(commits[0]!.hash);
-    }
     return;
   }
 
@@ -470,7 +465,7 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
 }
 
 export async function openGitGraphOverlay(): Promise<void> {
-  const allRefs = true;
+  const allRefs = false;
   useGitStore.setState((state) => ({
     ...state,
     overlay: {
@@ -493,7 +488,6 @@ export async function openGitGraphOverlay(): Promise<void> {
         selectedCommitDetailsIsLoading: false,
         selectedCommitDetailsError: null,
         selectedCommitFilePath: null,
-        selectedCommitFileOldPath: null,
         selectedCommitFileDiffResponse: null,
         selectedCommitFileDiffIsLoading: false,
         selectedCommitFileDiffError: null,
@@ -540,7 +534,6 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
           selectedCommitDetailsIsLoading: true,
           selectedCommitDetailsError: null,
           selectedCommitFilePath: null,
-          selectedCommitFileOldPath: null,
           selectedCommitFileDiffResponse: null,
           selectedCommitFileDiffIsLoading: false,
           selectedCommitFileDiffError: null,
@@ -573,18 +566,6 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
         },
       };
     });
-    const first = res.data.files[0] ?? null;
-    const latestOverlay = useGitStore.getState().overlay;
-    if (
-      first &&
-      latestOverlay.kind === "graph" &&
-      latestOverlay.graph.selectedCommitHash === commitHash
-    ) {
-      await selectGitCommitFile({
-        path: first.path,
-        oldPath: first.oldPath ?? null,
-      });
-    }
     return;
   }
 
@@ -641,7 +622,6 @@ export async function selectGitCommitFile({
         graph: {
           ...state.overlay.graph,
           selectedCommitFilePath: path,
-          selectedCommitFileOldPath: oldPath,
           selectedCommitFileDiffResponse: null,
           selectedCommitFileDiffIsLoading: true,
           selectedCommitFileDiffError: null,

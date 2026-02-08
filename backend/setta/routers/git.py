@@ -70,13 +70,12 @@ def _get_repo_root_or_400(*, ctx: RuntimeContextFromRequest) -> Path:
 
 
 def _resolve_repo_relative_path(repo_root: Path, raw_path: str) -> tuple[str, Path]:
-    trimmed = raw_path.strip()
-    if not trimmed:
+    if raw_path == "":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing path.",
         )
-    candidate = Path(trimmed)
+    candidate = Path(raw_path)
     if candidate.is_absolute():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -302,6 +301,12 @@ def _is_untracked_path(repo_root: Path, rel_path: str) -> bool:
 
 
 def _synthesize_untracked_diff(*, rel_path: str, abs_path: Path) -> tuple[str, bool]:
+    if not abs_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Path must point to a regular file: {rel_path}",
+        )
+
     # Avoid expensive diffs for huge files.
     try:
         size = abs_path.stat().st_size
@@ -314,7 +319,11 @@ def _synthesize_untracked_diff(*, rel_path: str, abs_path: Path) -> tuple[str, b
     # Limit how much we read when synthesizing.
     max_bytes = _MAX_DIFF_BYTES
     is_truncated = size > max_bytes
-    data = abs_path.read_bytes()[:max_bytes]
+    with abs_path.open("rb") as f:
+        data = f.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        data = data[:max_bytes]
+        is_truncated = True
     if b"\x00" in data:
         return (
             "\n".join(
@@ -590,25 +599,34 @@ def route_get_git_commit_details(
         f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}%at{_FIELD_SEP}"
         f"%cn{_FIELD_SEP}%ce{_FIELD_SEP}%ct{_FIELD_SEP}%s{_FIELD_SEP}%b{_RECORD_SEP}"
     )
-    meta = run_git(
-        ["show", "--no-color", "-s", f"--pretty=format:{fmt}", commit_hash, "--"],
+    show_res = run_git(
+        [
+            "show",
+            "--no-color",
+            f"--pretty=format:{fmt}",
+            "--raw",
+            "--numstat",
+            commit_hash,
+            "--",
+        ],
         cwd=repo_root,
         timeout_s=_SHOW_TIMEOUT_S,
-        max_stdout_bytes=400_000,
+        max_stdout_bytes=_MAX_SHOW_BYTES,
         max_stderr_bytes=200_000,
     )
-    if meta.timed_out:
+    if show_res.timed_out:
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Timed out loading commit details.",
         )
-    if meta.returncode != 0 and not meta.stdout_truncated:
+    if show_res.returncode != 0 and not show_res.stdout_truncated:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=meta.stderr.strip() or "Unknown commit hash.",
+            detail=show_res.stderr.strip() or "Unknown commit hash.",
         )
 
-    raw_record = meta.stdout.split(_RECORD_SEP)[0].lstrip("\r\n")
+    raw_record, _sep, diff_payload = show_res.stdout.partition(_RECORD_SEP)
+    raw_record = raw_record.lstrip("\r\n")
     parts = raw_record.split(_FIELD_SEP)
     if len(parts) != 10:
         raise HTTPException(
@@ -639,84 +657,54 @@ def route_get_git_commit_details(
     except ValueError:
         committer_time_ms = 0
 
-    name_status = run_git(
-        ["show", "--no-color", "--format=", "--name-status", commit_hash, "--"],
-        cwd=repo_root,
-        timeout_s=_SHOW_TIMEOUT_S,
-        max_stdout_bytes=_MAX_SHOW_BYTES,
-        max_stderr_bytes=200_000,
-    )
-    if name_status.timed_out:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Timed out loading changed files.",
-        )
-    if name_status.returncode != 0 and not name_status.stdout_truncated:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=name_status.stderr.strip() or "Unknown commit hash.",
-        )
-
-    numstat = run_git(
-        ["show", "--no-color", "--format=", "--numstat", commit_hash, "--"],
-        cwd=repo_root,
-        timeout_s=_SHOW_TIMEOUT_S,
-        max_stdout_bytes=_MAX_SHOW_BYTES,
-        max_stderr_bytes=200_000,
-    )
-    if numstat.timed_out:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Timed out loading file stats.",
-        )
-    if numstat.returncode != 0 and not numstat.stdout_truncated:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=numstat.stderr.strip() or "Unknown commit hash.",
-        )
-
     stats_by_new_path: dict[str, tuple[int | None, int | None]] = {}
-    for line in numstat.stdout.splitlines():
+    raw_changed_files: list[tuple[str, str | None, str]] = []
+    for line in diff_payload.splitlines():
         if not line.strip():
             continue
+        if line.startswith(":"):
+            raw_parts = line.split("\t")
+            if len(raw_parts) < 2:
+                continue
+            header_parts = raw_parts[0].split()
+            if not header_parts:
+                continue
+            status_code = header_parts[-1].strip()
+            if not status_code:
+                continue
+            old_path: str | None = None
+            new_path: str | None = None
+            if status_code.startswith(("R", "C")):
+                if len(raw_parts) < 3:
+                    continue
+                old_path = raw_parts[1] or None
+                new_path = raw_parts[2] or None
+            else:
+                new_path = raw_parts[1] or None
+            if not new_path:
+                continue
+            raw_changed_files.append((new_path, old_path, status_code))
+            continue
+
         stat_parts = line.split("\t")
         if len(stat_parts) < 3:
             continue
         add_s = stat_parts[0]
         del_s = stat_parts[1]
+        if not (
+            (add_s.isdigit() or add_s == "-") and (del_s.isdigit() or del_s == "-")
+        ):
+            continue
         path_text = stat_parts[2]
         additions = int(add_s) if add_s.isdigit() else None
         deletions = int(del_s) if del_s.isdigit() else None
         new_path, _old_path = _parse_git_numstat_path(path_text)
-        if new_path:
-            stats_by_new_path[new_path] = (additions, deletions)
-
-    changed_files: list[GitCommitChangedFile] = []
-    for line in name_status.stdout.splitlines():
-        if not line.strip():
-            continue
-        ns_parts = line.split("\t")
-        if not ns_parts:
-            continue
-        status_code = ns_parts[0].strip()
-        if not status_code:
-            continue
-
-        old_path: str | None = None
-        new_path: str | None = None
-        if status_code.startswith(("R", "C")):
-            if len(ns_parts) < 3:
-                continue
-            old_path = ns_parts[1].strip() or None
-            new_path = ns_parts[2].strip() or None
-        else:
-            if len(ns_parts) < 2:
-                continue
-            new_path = ns_parts[1].strip() or None
-
         if not new_path:
             continue
+        stats_by_new_path[new_path] = (additions, deletions)
 
+    changed_files: list[GitCommitChangedFile] = []
+    for new_path, old_path, status_code in raw_changed_files:
         additions, deletions = stats_by_new_path.get(new_path, (None, None))
         changed_files.append(
             GitCommitChangedFile(

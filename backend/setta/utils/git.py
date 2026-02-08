@@ -1,9 +1,10 @@
 import os
-import selectors
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
+from typing import BinaryIO, Callable
 from pathlib import Path
 
 
@@ -95,78 +96,95 @@ def _run_git(
     assert proc.stdout is not None
     assert proc.stderr is not None
 
-    selector = selectors.DefaultSelector()
-    selector.register(proc.stdout, selectors.EVENT_READ, data="stdout")
-    selector.register(proc.stderr, selectors.EVENT_READ, data="stderr")
-
     stdout_chunks: list[bytes] = []
     stderr_chunks: list[bytes] = []
-    stdout_size = 0
-    stderr_size = 0
     stdout_truncated = False
     stderr_truncated = False
     timed_out = False
 
-    deadline = time.monotonic() + timeout_s
+    terminate_lock = threading.Lock()
+    terminate_requested = False
 
-    while selector.get_map():
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            timed_out = True
+    def terminate_proc() -> None:
+        nonlocal terminate_requested
+        with terminate_lock:
+            if terminate_requested:
+                return
+            terminate_requested = True
+        if proc.poll() is None:
             proc.terminate()
-            break
 
-        events = selector.select(timeout=min(0.25, remaining))
-        if not events:
-            continue
-
-        for key, _mask in events:
-            stream = key.fileobj
-            which = key.data
-            if hasattr(stream, "read1"):
-                chunk = stream.read1(8192)  # type: ignore[attr-defined]
-            else:
+    def read_stream(
+        stream: BinaryIO,
+        *,
+        max_bytes: int,
+        chunks: list[bytes],
+        set_truncated: Callable[[], None],
+    ) -> None:
+        size = 0
+        try:
+            while True:
                 chunk = stream.read(8192)
-            if not chunk:
-                selector.unregister(stream)
-                try:
-                    stream.close()
-                except Exception:
-                    pass
-                continue
+                if not chunk:
+                    break
+                remaining_bytes = max_bytes - size
+                if remaining_bytes <= 0:
+                    set_truncated()
+                    terminate_proc()
+                    continue
+                if len(chunk) > remaining_bytes:
+                    chunks.append(chunk[:remaining_bytes])
+                    size += remaining_bytes
+                    set_truncated()
+                    terminate_proc()
+                    continue
+                chunks.append(chunk)
+                size += len(chunk)
+        except (OSError, ValueError):
+            # The process can close pipes while reader threads are draining.
+            pass
+        finally:
+            try:
+                stream.close()
+            except OSError:
+                pass
 
-            if which == "stdout":
-                if stdout_truncated:
-                    continue
-                remaining_bytes = max_stdout_bytes - stdout_size
-                if remaining_bytes <= 0:
-                    stdout_truncated = True
-                    proc.terminate()
-                    continue
-                if len(chunk) > remaining_bytes:
-                    stdout_chunks.append(chunk[:remaining_bytes])
-                    stdout_size += remaining_bytes
-                    stdout_truncated = True
-                    proc.terminate()
-                    continue
-                stdout_chunks.append(chunk)
-                stdout_size += len(chunk)
-            else:
-                if stderr_truncated:
-                    continue
-                remaining_bytes = max_stderr_bytes - stderr_size
-                if remaining_bytes <= 0:
-                    stderr_truncated = True
-                    proc.terminate()
-                    continue
-                if len(chunk) > remaining_bytes:
-                    stderr_chunks.append(chunk[:remaining_bytes])
-                    stderr_size += remaining_bytes
-                    stderr_truncated = True
-                    proc.terminate()
-                    continue
-                stderr_chunks.append(chunk)
-                stderr_size += len(chunk)
+    def set_stdout_truncated() -> None:
+        nonlocal stdout_truncated
+        stdout_truncated = True
+
+    def set_stderr_truncated() -> None:
+        nonlocal stderr_truncated
+        stderr_truncated = True
+
+    stdout_thread = threading.Thread(
+        target=read_stream,
+        args=(proc.stdout,),
+        kwargs={
+            "max_bytes": max_stdout_bytes,
+            "chunks": stdout_chunks,
+            "set_truncated": set_stdout_truncated,
+        },
+        daemon=True,
+    )
+    stderr_thread = threading.Thread(
+        target=read_stream,
+        args=(proc.stderr,),
+        kwargs={
+            "max_bytes": max_stderr_bytes,
+            "chunks": stderr_chunks,
+            "set_truncated": set_stderr_truncated,
+        },
+        daemon=True,
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+
+    try:
+        proc.wait(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        terminate_proc()
 
     # Give the process a brief chance to exit cleanly after terminate.
     wait_deadline = time.monotonic() + 0.75
@@ -179,6 +197,13 @@ def _run_git(
         except subprocess.TimeoutExpired:
             # Extremely unlikely after kill, but avoid raising in the router path.
             timed_out = True
+
+    join_deadline = time.monotonic() + 0.75
+    for thread in (stdout_thread, stderr_thread):
+        remaining = join_deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        thread.join(timeout=remaining)
 
     stdout = b"".join(stdout_chunks).decode("utf-8", errors="replace")
     stderr = b"".join(stderr_chunks).decode("utf-8", errors="replace")
