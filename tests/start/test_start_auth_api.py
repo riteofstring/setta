@@ -61,12 +61,13 @@ def _write_auth_json(root: Path) -> Path:
 def auth_env(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_root = tmp_path / "setta_files"
+    setta_root = workspace / "setta_files"
+    setta_root.mkdir(parents=True, exist_ok=True)
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=workspace,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER
@@ -116,7 +117,7 @@ def api_integration_env(
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=root,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
 
@@ -185,12 +186,13 @@ def api_integration_env(
 def api_input_env(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_root = tmp_path / "setta_files"
+    setta_root = workspace / "setta_files"
+    setta_root.mkdir(parents=True, exist_ok=True)
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
             workspace_root=workspace,
-            setta_files_root=setta_root,
+            setta_files_location="local",
         )
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER

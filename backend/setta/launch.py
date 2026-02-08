@@ -10,11 +10,16 @@ from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.paths import (
+    InvalidGlobalSettaFilesRootError,
+    InvalidLocalSettaFilesRootError,
+    InvalidSettaFilesLocationError,
+    SettaFilesLocation,
     SettaPaths,
     get_optional_dir_validation_error,
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.user_config import SettaUserConfigError
 
 DEFAULT_LAUNCH_TIMEOUT_SECONDS = 30.0
 DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
@@ -27,28 +32,6 @@ class LaunchError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
-
-
-def validate_files_root_options(
-    *,
-    files_root: Path | str | None,
-    files_root_base: Path | str | None,
-) -> None:
-    if _has_explicit_optional_path(files_root) and _has_explicit_optional_path(
-        files_root_base
-    ):
-        raise LaunchError(
-            "FilesRootConflict",
-            "Choose either files root or files root base (not both).",
-        )
-
-
-def _has_explicit_optional_path(value: Path | str | None) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, Path):
-        return True
-    return bool(value.strip())
 
 
 @dataclass(frozen=True)
@@ -84,28 +67,29 @@ def _existing_session_grace_seconds(
 def launch_workspace_session(
     *,
     workspace_root: Path | str | None,
-    files_root: Path | str | None,
-    files_root_base: Path | str | None,
+    setta_files_location: SettaFilesLocation | None,
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
-    ignore_env_files_root: bool = False,
 ) -> LaunchResult:
-    validate_files_root_options(files_root=files_root, files_root_base=files_root_base)
-
-    paths = resolve_setta_paths(
-        workspace_root=workspace_root,
-        files_root=files_root,
-        files_root_base=files_root_base,
-        ignore_env_files_root=ignore_env_files_root,
-    )
+    try:
+        paths = resolve_setta_paths(
+            workspace_root=workspace_root,
+            setta_files_location=setta_files_location,
+        )
+    except InvalidSettaFilesLocationError as exc:
+        raise LaunchError("InvalidSettaFilesLocation", str(exc)) from exc
+    except (InvalidLocalSettaFilesRootError, InvalidGlobalSettaFilesRootError) as exc:
+        raise LaunchError("InvalidSettaFilesRoot", str(exc)) from exc
+    except SettaUserConfigError as exc:
+        raise LaunchError("InvalidSettaUserConfig", str(exc)) from exc
+    except ValueError as exc:
+        raise LaunchError("BadRequest", str(exc)) from exc
     try:
         validate_workspace_root(paths.workspace_root)
     except ValueError as exc:
         raise LaunchError("InvalidWorkspace", str(exc)) from exc
     for raw_path, label, code in (
-        (files_root, "files root", "InvalidFilesRoot"),
-        (files_root_base, "files root base", "InvalidFilesRootBase"),
-        (paths.setta_files_root, "files root", "InvalidFilesRoot"),
+        (paths.setta_files_root, "setta files root", "InvalidSettaFilesRoot"),
     ):
         message = get_optional_dir_validation_error(raw_path, label=label)
         if message:
@@ -169,8 +153,8 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
         "--no-open",
         "--workspace",
         str(paths.workspace_root),
-        "--files-root",
-        str(paths.setta_files_root),
+        "--setta-files-location",
+        paths.setta_files_location,
     ]
     log_dir = paths.runtime_logs_root
     log_dir.mkdir(parents=True, exist_ok=True)
