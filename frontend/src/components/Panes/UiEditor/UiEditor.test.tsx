@@ -7,7 +7,9 @@ import { syncStoreInitialState } from "../paneTestUtils";
 import { UiEditor } from "./UiEditor";
 
 function extractRailStyle(markup: string): string {
-  const match = markup.match(/data-testid="ui-editor-icon-rail"[^>]*style="([^"]*)"/);
+  const match = markup.match(
+    /data-testid="ui-editor-icon-rail"[^>]*style="([^"]*)"/,
+  );
   if (!match) {
     throw new Error("Unable to locate UiEditor rail in markup.");
   }

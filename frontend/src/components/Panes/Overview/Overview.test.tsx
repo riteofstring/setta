@@ -14,7 +14,9 @@ import { syncStoreInitialState } from "../paneTestUtils";
 import { Overview } from "./Overview";
 
 function extractRailStyle(markup: string): string {
-  const match = markup.match(/data-testid="overview-icon-rail"[^>]*style="([^"]*)"/);
+  const match = markup.match(
+    /data-testid="overview-icon-rail"[^>]*style="([^"]*)"/,
+  );
   if (!match) {
     throw new Error("Unable to locate Overview rail in markup.");
   }
