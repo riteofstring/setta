@@ -160,7 +160,9 @@ def _should_ignore_path(path: Path) -> bool:
     runtime_root = paths.runtime_root.resolve(strict=False)
     # If the state roots are inside the workspace, ignore them by path (not by
     # the literal folder name "setta_files") so detached roots don't get scanned.
-    if state_root.is_relative_to(workspace_root) and resolved.is_relative_to(state_root):
+    if state_root.is_relative_to(workspace_root) and resolved.is_relative_to(
+        state_root
+    ):
         return True
     if runtime_root.is_relative_to(workspace_root) and resolved.is_relative_to(
         runtime_root
