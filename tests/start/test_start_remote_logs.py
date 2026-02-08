@@ -3,11 +3,12 @@ from pathlib import Path
 import setta.start as start
 
 
-def test_start_remote_setta_threads_setta_files_location(monkeypatch) -> None:
-    captured: dict[str, str | None] = {"setta_files_location": None}
+def test_start_remote_setta_threads_files_root_args(monkeypatch) -> None:
+    captured: dict[str, str | None] = {"files_root": None, "files_root_base": None}
 
     def fake_start_remote_setta(*_args, **kwargs) -> None:
-        captured["setta_files_location"] = kwargs.get("setta_files_location")
+        captured["files_root"] = kwargs.get("files_root")
+        captured["files_root_base"] = kwargs.get("files_root_base")
 
     monkeypatch.setattr(start.ssh_common, "start_remote_setta", fake_start_remote_setta)
 
@@ -18,8 +19,10 @@ def test_start_remote_setta_threads_setta_files_location(monkeypatch) -> None:
         "/tmp/work",
         "setta",
         "",
-        setta_files_location="global",
+        files_root=Path("/tmp/state"),
+        files_root_base=Path("/tmp/base"),
     )
 
     assert timed_out is False
-    assert captured["setta_files_location"] == "global"
+    assert captured["files_root"] == "/tmp/state"
+    assert captured["files_root_base"] == "/tmp/base"
