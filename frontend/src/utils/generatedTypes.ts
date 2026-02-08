@@ -400,7 +400,6 @@ export const RouteEnum = {
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
-  GET_SETTA_HOME_INFO: "/settaHomeInfo",
   LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
@@ -7273,9 +7272,8 @@ const LaunchErrorPayloadSchema = z.object({
 
 const LaunchRequestSchema = z.object({
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  settaFilesLocation: z
-    .union([z.literal(["auto", "local", "global"]), z.null()])
-    .default(null),
+  filesRoot: z.union([z.string(), z.null()]).default(null),
+  filesRootBase: z.union([z.string(), z.null()]).default(null),
   sshTarget: z.union([z.string(), z.null()]).default(null),
   sshArgs: z.union([z.string(), z.null()]).default(null),
   remoteCmd: z.union([z.string(), z.null()]).default(null),
@@ -7298,9 +7296,7 @@ const LaunchResponseSchema = z.object({
   ok: z.boolean(),
   bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  settaFilesLocation: z
-    .union([z.literal(["local", "global"]), z.null()])
-    .default(null),
+  filesRoot: z.union([z.string(), z.null()]).default(null),
   sessionId: z.union([z.string(), z.null()]).default(null),
   startedNew: z.union([z.boolean(), z.null()]).default(null),
   session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
@@ -9146,13 +9142,6 @@ const BackendInitStatusResponseSchema = z.object({
 export type BackendInitStatusResponse = z.infer<
   typeof BackendInitStatusResponseSchema
 >;
-
-const SettaHomeInfoResponseSchema = z.object({
-  settaHome: z.string(),
-  globalSettaFilesBase: z.string(),
-});
-
-export type SettaHomeInfoResponse = z.infer<typeof SettaHomeInfoResponseSchema>;
 
 const DeleteTerminalsRequestSchema = z.object({
   sectionIds: z.array(IDSchema),

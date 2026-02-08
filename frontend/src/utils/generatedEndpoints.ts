@@ -1349,12 +1349,6 @@ export async function route_get_server_mode(): Promise<
   return await get("/serverMode");
 }
 
-export async function route_get_setta_home_info(): Promise<
-  ResponseDataAndStatus<gt.SettaHomeInfoResponse>
-> {
-  return await get("/settaHomeInfo");
-}
-
 export async function route_list_share_deployments(): Promise<
   ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
 > {
