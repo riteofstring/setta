@@ -1737,7 +1737,7 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method(require_serialization=False)
-    @project_state_tool()
+    @project_state_tool(access_type="structural")
     async def get_app_definition(
         self, _x: GetAppDefinitionRequest
     ) -> AppDefinitionResponse:
@@ -1750,7 +1750,7 @@ class BaseProjectManager(ABC):
         return AppDefinitionResponse(appSpec=app_spec, appDefinition=app_definition)
 
     @enqueue_method(require_serialization=False)
-    @project_state_tool()
+    @project_state_tool(access_type="structural")
     async def validate_app_definition(
         self, x: ValidateAppDefinitionRequest
     ) -> ValidateAppDefinitionResponse:
@@ -1785,7 +1785,7 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(access_type="structural")
     async def set_app_definition(
         self, x: SetAppDefinitionRequest
     ) -> AppDefinitionResponse:
@@ -1832,7 +1832,7 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method
-    @project_state_tool()
+    @project_state_tool(access_type="structural")
     async def update_app_definition(
         self, x: UpdateAppDefinitionRequest
     ) -> AppDefinitionResponse:

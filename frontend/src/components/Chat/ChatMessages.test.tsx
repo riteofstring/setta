@@ -112,4 +112,3 @@ describe("ChatMessages assistant error rendering", () => {
     expect(markup).toContain("Your credit balance is too low.");
   });
 });
-

@@ -79,6 +79,7 @@ async def test_route_get_agentic_summary_cache_status() -> None:
             )
             state = SimpleNamespace(
                 share_mode=False,
+                deployment_mode=False,
                 wmh_frontend_sender=project_fixture.manager.websocket_msg_handler,
                 project_manager_switcher=switcher,
                 dbe=project_fixture.dbe,

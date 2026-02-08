@@ -7,8 +7,10 @@ from setta.app.catalog import APP_CATALOG
 from setta.app.catalog import list_app_components as list_catalog_components
 from setta.app.spec_patch_stream import apply_patch_ops, parse_patch_lines
 from setta.mcp.tool_metadata import (
+    ToolAccessMetadata,
     ToolArgumentPreviewKind,
     ToolArgumentPreviewMetadata,
+    attach_tool_access,
     attach_tool_argument_preview,
 )
 from setta.mcp.tool_setup import setta_tool
@@ -35,10 +37,22 @@ def get_app_catalog() -> AppCatalogResponse:
     return AppCatalogResponse(catalog=APP_CATALOG)
 
 
+attach_tool_access(
+    get_app_catalog,
+    ToolAccessMetadata(accessType="structural"),
+)
+
+
 @setta_tool
 def list_app_components() -> AppComponentList:
     """List the allowed component types for app generation."""
     return AppComponentList(components=list_catalog_components())
+
+
+attach_tool_access(
+    list_app_components,
+    ToolAccessMetadata(accessType="structural"),
+)
 
 
 @setta_tool
@@ -89,6 +103,12 @@ async def stream_app_definition(
             appSpecPath=appSpecPath,
         )
     )
+
+
+attach_tool_access(
+    stream_app_definition,
+    ToolAccessMetadata(accessType="structural"),
+)
 
 
 attach_tool_argument_preview(

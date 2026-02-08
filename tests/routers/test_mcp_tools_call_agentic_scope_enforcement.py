@@ -173,6 +173,7 @@ async def test_tools_call_blocks_when_agentic_context_missing(tmp_path) -> None:
             "project_manager_switcher": switcher,
             "dbe": dbe,
             "share_mode": False,
+            "deployment_mode": False,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()
@@ -248,6 +249,7 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
             "project_manager_switcher": switcher,
             "dbe": dbe,
             "share_mode": False,
+            "deployment_mode": False,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()
@@ -341,6 +343,7 @@ async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> 
             "project_manager_switcher": switcher,
             "dbe": dbe,
             "share_mode": False,
+            "deployment_mode": False,
             "wait_until_ready": _noop_wait_until_ready,
         },
     )()

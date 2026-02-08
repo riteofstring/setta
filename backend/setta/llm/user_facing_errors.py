@@ -56,7 +56,9 @@ def get_user_facing_llm_error_message(exc: BaseException) -> str | None:
         return "Your LLM provider credit balance is too low. Please purchase credits and retry."
     if "insufficient_quota" in lowered or ("quota" in lowered and "exceed" in lowered):
         return "Your LLM provider quota has been exceeded. Please check billing/limits and retry."
-    if "invalid api key" in lowered or ("authentication" in lowered and "fail" in lowered):
+    if "invalid api key" in lowered or (
+        "authentication" in lowered and "fail" in lowered
+    ):
         return "Your LLM API key appears invalid. Update it in Settings and retry."
     if "rate limit" in lowered or "too many requests" in lowered:
         return "The LLM provider rate-limited this request. Please wait and retry."
