@@ -33,7 +33,6 @@ from setta.deployments.deployment_utils import (
 from setta.launch import (
     LaunchError,
     launch_workspace_session,
-    validate_files_root_options,
 )
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
@@ -46,8 +45,7 @@ from setta.types.routes import Route
 from setta.types.share_deployment import DeploymentType
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.env_vars import (
-    FILES_ROOT_BASE_ENV,
-    FILES_ROOT_ENV,
+    FILES_LOCATION_ENV,
     WORKSPACE_ROOT_ENV,
 )
 from setta.utils.network import (
@@ -56,12 +54,14 @@ from setta.utils.network import (
     format_host_for_url,
 )
 from setta.utils.paths import (
+    SettaFilesLocation,
     clear_setta_paths_cache,
     get_optional_dir_validation_error,
     get_setta_paths,
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.user_config import ensure_setta_user_config_exists
 from setta.utils.utils import normalize_path
 
 _DEFAULT_LOCAL_PORT = 61000
@@ -78,44 +78,33 @@ RemoteSessionSummary = ssh_common.RemoteSessionSummary
 def _resolve_cli_paths(
     *,
     workspace: str | Path | None,
-    files_root: str | Path | None,
-    files_root_base: str | Path | None,
+    setta_files_location: SettaFilesLocation | None,
     validate: bool,
 ):
     try:
-        validate_files_root_options(
-            files_root=files_root,
-            files_root_base=files_root_base,
+        paths = resolve_setta_paths(
+            workspace_root=workspace,
+            setta_files_location=setta_files_location,
         )
-    except LaunchError as exc:
+    except ValueError as exc:
+        # Click should render a clean message without an exception traceback.
         raise click.ClickException(str(exc)) from exc
-    paths = resolve_setta_paths(
-        workspace_root=workspace,
-        files_root=files_root,
-        files_root_base=files_root_base,
-    )
     if validate:
         try:
             validate_workspace_root(paths.workspace_root)
         except ValueError as exc:
             # Click should render a clean message without an exception traceback.
             raise click.ClickException(str(exc)) from exc
-        for raw_path, label in (
-            (files_root, "files root"),
-            (files_root_base, "files root base"),
-            (paths.setta_files_root, "files root"),
-        ):
+        for raw_path, label in ((paths.setta_files_root, "setta files root"),):
             message = get_optional_dir_validation_error(raw_path, label=label)
             if message:
                 raise click.ClickException(message)
     return paths
 
 
-def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
+def _apply_paths_to_env(paths) -> None:
     os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-    os.environ[FILES_ROOT_ENV] = str(paths.setta_files_root)
-    if files_root_base is not None:
-        os.environ[FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
+    os.environ[FILES_LOCATION_ENV] = paths.setta_files_location
     clear_setta_paths_cache()
 
 
@@ -215,14 +204,9 @@ def _run_remote_setta_command(
     )
 
 
-def _build_remote_files_root_args(
-    *,
-    files_root: Path | None,
-    files_root_base: Path | None,
-) -> str:
-    return ssh_common.build_remote_files_root_args(
-        files_root=str(files_root) if files_root is not None else None,
-        files_root_base=str(files_root_base) if files_root_base is not None else None,
+def _build_remote_setta_files_args(*, setta_files_location: str | None) -> str:
+    return ssh_common.build_remote_setta_files_args(
+        setta_files_location=setta_files_location,
     )
 
 
@@ -232,7 +216,7 @@ def _fetch_remote_sessions(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
 ) -> list[RemoteSessionSummary]:
     try:
         return ssh_common.fetch_remote_sessions(
@@ -241,7 +225,7 @@ def _fetch_remote_sessions(
             shell,
             workspace,
             setta_command,
-            files_root_args,
+            setta_files_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
     except LaunchError as exc:
@@ -254,7 +238,7 @@ def _fetch_remote_connect_info(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     session_id: str | None,
     latest: bool,
 ) -> dict:
@@ -267,7 +251,7 @@ def _fetch_remote_connect_info(
             shell,
             workspace,
             setta_command,
-            files_root_args,
+            setta_files_args,
         )
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")
@@ -279,7 +263,7 @@ def _fetch_remote_connect_info(
             shell,
             workspace,
             setta_command,
-            files_root_args,
+            setta_files_args,
             session_id=session_id,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
@@ -293,10 +277,10 @@ def _delete_remote_session(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     session_id: str,
 ) -> None:
-    root_prefix = f"{files_root_args} " if files_root_args else ""
+    root_prefix = f"{setta_files_args} " if setta_files_args else ""
     result = _run_remote_setta_command(
         ssh_target,
         ssh_args,
@@ -317,10 +301,9 @@ def _start_remote_setta(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     *,
-    files_root: Path | None,
-    files_root_base: Path | None,
+    setta_files_location: str | None,
 ) -> bool:
     try:
         ssh_common.start_remote_setta(
@@ -329,12 +312,9 @@ def _start_remote_setta(
             shell,
             workspace,
             setta_command,
-            files_root_args,
+            setta_files_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-            files_root=str(files_root) if files_root is not None else None,
-            files_root_base=str(files_root_base)
-            if files_root_base is not None
-            else None,
+            setta_files_location=setta_files_location or "auto",
         )
     except LaunchError as exc:
         if exc.code == "SshTimeout":
@@ -349,7 +329,7 @@ def _wait_for_remote_session(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
 ) -> RemoteSessionSummary:
@@ -358,7 +338,7 @@ def _wait_for_remote_session(
     while True:
         attempt += 1
         sessions = _fetch_remote_sessions(
-            ssh_target, ssh_args, shell, workspace, setta_command, files_root_args
+            ssh_target, ssh_args, shell, workspace, setta_command, setta_files_args
         )
         if verbose:
             click.echo(
@@ -1212,8 +1192,10 @@ def share(
 @click.command()
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
 @click.option("-w", "--workspace", type=click.Path(path_type=Path))
-@click.option("--files-root", type=click.Path(path_type=Path))
-@click.option("--files-root-base", type=click.Path(path_type=Path))
+@click.option(
+    "--setta-files-location",
+    type=click.Choice(["auto", "local", "global"], case_sensitive=False),
+)
 @click.option(
     "--timeout",
     type=float,
@@ -1225,8 +1207,7 @@ def launch(
     ctx: click.Context,
     json_output: bool,
     workspace: Path | None,
-    files_root: Path | None,
-    files_root_base: Path | None,
+    setta_files_location: str | None,
     timeout: float | None,
 ) -> None:
     if not json_output:
@@ -1234,11 +1215,10 @@ def launch(
 
     ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
     group_workspace = ctx_obj.get("workspace")
-    group_files_root = ctx_obj.get("files_root")
-    group_files_root_base = ctx_obj.get("files_root_base")
+    group_setta_files_location = ctx_obj.get("setta_files_location")
 
-    def resolve_path_option(
-        *, value: Path | None, group_value: Path | None, label: str
+    def resolve_workspace_option(
+        *, value: Path | None, group_value: Path | None
     ) -> Path | None:
         if value is None:
             return group_value
@@ -1246,28 +1226,39 @@ def launch(
             return value
         if value.resolve(strict=False) != group_value.resolve(strict=False):
             raise click.ClickException(
-                f"Conflicting {label} provided at both the global CLI level and the launch subcommand."
+                "Conflicting --workspace provided at both the global CLI level and the launch subcommand."
             )
         return value
 
-    resolved_workspace = resolve_path_option(
-        value=workspace, group_value=group_workspace, label="--workspace"
+    def resolve_location_option(
+        *, value: str | None, group_value: str | None
+    ) -> str | None:
+        if value is None:
+            return group_value
+        if group_value is None:
+            return value
+        if value.strip().lower() != group_value.strip().lower():
+            raise click.ClickException(
+                "Conflicting --setta-files-location provided at both the global CLI level and the launch subcommand."
+            )
+        return value
+
+    resolved_workspace = resolve_workspace_option(
+        value=workspace,
+        group_value=group_workspace if isinstance(group_workspace, Path) else None,
     )
-    resolved_files_root = resolve_path_option(
-        value=files_root, group_value=group_files_root, label="--files-root"
-    )
-    resolved_files_root_base = resolve_path_option(
-        value=files_root_base,
-        group_value=group_files_root_base,
-        label="--files-root-base",
+    resolved_setta_files_location = resolve_location_option(
+        value=setta_files_location,
+        group_value=group_setta_files_location
+        if isinstance(group_setta_files_location, str)
+        else None,
     )
 
     try:
         timeout_seconds = timeout if timeout is not None else 30.0
         result = launch_workspace_session(
             workspace_root=resolved_workspace,
-            files_root=resolved_files_root,
-            files_root_base=resolved_files_root_base,
+            setta_files_location=resolved_setta_files_location,
             timeout_seconds=timeout_seconds,
         )
     except LaunchError as exc:
@@ -1285,7 +1276,7 @@ def launch(
         "ok": True,
         "bootstrapUrlFragment": bootstrap_url_fragment,
         "workspaceRoot": str(result.paths.workspace_root),
-        "filesRoot": str(result.paths.setta_files_root),
+        "settaFilesLocation": result.paths.setta_files_location,
         "sessionId": result.session.id,
         "startedNew": result.started_new,
         "session": _format_session_payload(result.session),
@@ -1510,7 +1501,7 @@ def status(
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
-            "filesRoot": str(resolved_paths.setta_files_root),
+            "settaFilesLocation": resolved_paths.setta_files_location,
             "runtimeRoot": str(resolved_paths.runtime_root),
         }
         _emit_connect_info_json(payload)
@@ -1871,9 +1862,8 @@ def stop(
         return
 
     params = ctx.obj or {}
-    files_root_args = _build_remote_files_root_args(
-        files_root=params.get("files_root"),
-        files_root_base=params.get("files_root_base"),
+    setta_files_args = _build_remote_setta_files_args(
+        setta_files_location=params.get("setta_files_location"),
     )
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
     shell = _resolve_remote_shell(ssh_target, ssh_args_list)
@@ -1889,7 +1879,7 @@ def stop(
         shell,
         remote_workspace,
         setta_command,
-        files_root_args,
+        setta_files_args,
     )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1901,7 +1891,7 @@ def stop(
             shell,
             remote_workspace,
             setta_command,
-            files_root_args,
+            setta_files_args,
             session.id,
         )
         click.echo(f"Stopped session {session.id}.")
@@ -1940,9 +1930,8 @@ def connect(
         raise click.ClickException("Use either --detach or --print-only, not both.")
 
     params = ctx.obj or {}
-    files_root_args = _build_remote_files_root_args(
-        files_root=params.get("files_root"),
-        files_root_base=params.get("files_root_base"),
+    setta_files_args = _build_remote_setta_files_args(
+        setta_files_location=params.get("setta_files_location"),
     )
 
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
@@ -1970,7 +1959,7 @@ def connect(
         shell,
         remote_workspace,
         setta_command,
-        files_root_args,
+        setta_files_args,
     )
     if verbose:
         click.echo(f"Remote sessions found: {len(sessions)}")
@@ -2003,7 +1992,7 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
-                        files_root_args,
+                        setta_files_args,
                         target.id,
                     )
                     sessions = _fetch_remote_sessions(
@@ -2012,7 +2001,7 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
-                        files_root_args,
+                        setta_files_args,
                     )
                     if not sessions:
                         break
@@ -2029,15 +2018,20 @@ def connect(
             click.echo(
                 f"Starting Setta on {ssh_target} (workspace {remote_workspace})..."
             )
+        remote_logs_dir = ssh_common._resolve_remote_logs_dir(
+            workspace=remote_workspace,
+            setta_files_location=params.get("setta_files_location") or "auto",
+        )
+        if verbose:
+            click.echo(f"Remote startup logs: {remote_logs_dir} (nohup-*.out)")
         start_timed_out = _start_remote_setta(
             ssh_target,
             ssh_args_list,
             shell,
             remote_workspace,
             setta_command,
-            files_root_args,
-            files_root=params.get("files_root"),
-            files_root_base=params.get("files_root_base"),
+            setta_files_args,
+            setta_files_location=params.get("setta_files_location"),
         )
         try:
             selected_session = _wait_for_remote_session(
@@ -2046,7 +2040,7 @@ def connect(
                 shell,
                 remote_workspace,
                 setta_command,
-                files_root_args,
+                setta_files_args,
                 verbose=verbose,
             )
         except click.ClickException as exc:
@@ -2054,7 +2048,9 @@ def connect(
                 "Timed out waiting for remote Setta session to start."
             ):
                 raise click.ClickException(
-                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. Check SSH connectivity/auth and try again."
+                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. "
+                    "Check SSH connectivity/auth and try again. "
+                    f"Remote startup logs: {remote_logs_dir} (nohup-*.out)"
                 ) from exc
             raise
 
@@ -2069,7 +2065,7 @@ def connect(
         shell,
         remote_workspace,
         setta_command,
-        files_root_args,
+        setta_files_args,
         session_id=selected_session.id,
         latest=False,
     )
@@ -2156,16 +2152,10 @@ def connect(
     help="Workspace root for code operations (defaults to CWD).",
 )
 @click.option(
-    "--files-root",
-    type=click.Path(path_type=Path),
+    "--setta-files-location",
+    type=click.Choice(["auto", "local", "global"], case_sensitive=False),
     default=None,
-    help="Root directory for setta_files (overrides --files-root-base).",
-)
-@click.option(
-    "--files-root-base",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Base directory for hashed setta_files roots.",
+    help="Where setta_files live for the workspace (defaults to user config).",
 )
 @click.option(
     "--log-level",
@@ -2183,8 +2173,7 @@ def cli(
     host: str,
     port: int | None,
     workspace: Path | None,
-    files_root: Path | None,
-    files_root_base: Path | None,
+    setta_files_location: str | None,
     log_level: str | None,
     no_open: bool,
 ) -> None:
@@ -2193,32 +2182,34 @@ def cli(
     ctx.obj["host"] = host
     ctx.obj["port"] = port
     ctx.obj["workspace"] = workspace
-    ctx.obj["files_root"] = files_root
-    ctx.obj["files_root_base"] = files_root_base
+    ctx.obj["setta_files_location"] = setta_files_location
     ctx.obj["log_level"] = log_level
     ctx.obj["no_open"] = no_open
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
+
     paths_override = None
-    if workspace is not None or files_root is not None or files_root_base is not None:
+    if workspace is not None or setta_files_location is not None:
         paths_override = _resolve_cli_paths(
             workspace=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
+            setta_files_location=setta_files_location,
             validate=True,
         )
-        _apply_paths_to_env(paths_override, files_root_base=files_root_base)
+        _apply_paths_to_env(paths_override)
     if ctx.invoked_subcommand is None:
+        config_error = ensure_setta_user_config_exists()
+        if config_error:
+            logging.getLogger(__name__).warning(config_error)
+
         logging.getLogger(__name__).info("Starting Setta")
 
         paths = paths_override or _resolve_cli_paths(
             workspace=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
+            setta_files_location=setta_files_location,
             validate=True,
         )
         if paths_override is None:
-            _apply_paths_to_env(paths, files_root_base=files_root_base)
+            _apply_paths_to_env(paths)
 
         resolved_host = host
         resolved_port = _resolve_port(resolved_host, port)
