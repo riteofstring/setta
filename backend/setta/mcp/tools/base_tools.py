@@ -3,6 +3,7 @@ import importlib.metadata
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
+from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
@@ -22,7 +23,7 @@ class InstalledPythonPackageList(BaseModel):
 
 
 @setta_tool
-def getInstalledPythonPackages():
+def getInstalledPythonPackages(*, ctx: Context | None = None):  # noqa: ARG001
     """
     Returns the available packages and their version numbers in the current python environment.
     """
@@ -33,6 +34,12 @@ def getInstalledPythonPackages():
         packages.append(f"{name}={version}")
     packages.sort(key=lambda entry: entry.lower())
     return InstalledPythonPackageList(packages=packages)
+
+
+attach_tool_access(
+    getInstalledPythonPackages,
+    ToolAccessMetadata(accessType="read"),
+)
 
 
 @setta_tool
@@ -46,10 +53,22 @@ def getTerminalOutput(sectionId: ID, ctx: Context):
     return ctx.fastmcp.state.terminals.get_terminal_history(terminal_id)
 
 
+attach_tool_access(
+    getTerminalOutput,
+    ToolAccessMetadata(
+        accessType="read",
+        idPathsByType={"section": ["sectionId"]},
+    ),
+)
+
+
 @setta_init_tool
 def getProjectConfigNamesAndIds(ctx: Context):
     """
-    Return metadata for every known project config so external agents can pick one.
+    Return metadata for every known project config.
+
+    Note: this tool is an init tool, so it can be called without agentic context
+    to bootstrap a projectConfigId for later scoped calls.
     """
     manager = ctx.fastmcp.state.project_manager_switcher.main
     _, metadata = manager.get_all_project_metadata()

@@ -69,15 +69,8 @@ def push_logging_context(
 
 def reset_logging_context(token: LoggingContextToken) -> None:
     """Reset the logging context to a previous token."""
-    try:
-        _LOGGING_CONTEXT_VAR.reset(token)
-    except ValueError:
-        # Contextvars tokens must be reset in the same logical context they were
-        # created in. During interpreter/task teardown (notably in pytest), the
-        # generator owning this context can be finalized in a different context.
-        # In that case the original context is already gone, so best-effort clear
-        # is enough and avoiding unraisable teardown warnings is more valuable.
-        _LOGGING_CONTEXT_VAR.set(_EMPTY_SNAPSHOT)
+
+    _LOGGING_CONTEXT_VAR.reset(token)
 
 
 @contextmanager

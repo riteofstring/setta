@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
 import {
@@ -10,17 +9,32 @@ import {
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import { useShareCapabilities } from "state/hooks/share";
 import {
+  AgenticEdgeKindEnum,
   SectionTypeEnum,
   type TopLevelSectionLayout,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { getBezierPath } from "../components/Edges/BezierEdge";
 import { useReactFlow } from "../store";
 import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
+
+function buildEdgeKey(
+  sourceSectionId: string,
+  targetSectionId: string,
+  kind: string,
+): string {
+  if (kind === AgenticEdgeKindEnum.chat_chat) {
+    const [first, second] = [sourceSectionId, targetSectionId].sort();
+    return `${kind}:${first}:${second}`;
+  }
+  return `${kind}:${sourceSectionId}:${targetSectionId}`;
+}
 
 function resolveNodeAnchor(
   node: Node | undefined,
@@ -54,6 +68,7 @@ const AgenticEdgeRenderer = () => {
     sectionVariants,
     sectionImpls,
     projectConfigId,
+    activeIds,
   } = useProjectState(
     (state) => ({
       agenticEdges: state.projectConfig.agenticEdges,
@@ -62,10 +77,11 @@ const AgenticEdgeRenderer = () => {
       sectionVariants: state.sectionVariants,
       sectionImpls: state.sectionImpls,
       projectConfigId: state.projectConfig.id,
+      activeIds: state.projectConfig.activeIds,
     }),
-    _.isEqual,
+    shallow,
   );
-  const nodes = useNodeInternals((state) => state.x, _.isEqual);
+  const nodes = useNodeInternals((state) => state.x);
   const { canEditStructure } = useShareCapabilities();
   const {
     toolArgumentsIdsByProjectConfigId,
@@ -73,6 +89,7 @@ const AgenticEdgeRenderer = () => {
     mode,
     selectedChatIdsByProjectConfigId,
     selectedSectionIdsByProjectConfigId,
+    scopeViolationEdgesByProjectConfigId,
   } = useAIFollow(
     (state) => ({
       toolArgumentsIdsByProjectConfigId:
@@ -82,13 +99,29 @@ const AgenticEdgeRenderer = () => {
       selectedChatIdsByProjectConfigId: state.selectedChatIdsByProjectConfigId,
       selectedSectionIdsByProjectConfigId:
         state.selectedSectionIdsByProjectConfigId,
+      scopeViolationEdgesByProjectConfigId:
+        state.scopeViolationEdgesByProjectConfigId,
     }),
-    _.isEqual,
+    shallow,
   );
+
+  useUpdateAgenticScopeHighlights({
+    projectConfigId,
+    agenticEdges,
+    activeIds,
+    topLevelSections,
+    sectionVariantMap,
+    sectionVariants,
+    sectionImpls,
+  });
 
   const runningChatSectionIds = useMemo(() => {
     const running = new Set<string>();
-    for (const [sectionId, variantId] of Object.entries(sectionVariantMap)) {
+    for (const sectionId of Object.keys(topLevelSections)) {
+      const variantId = sectionVariantMap[sectionId];
+      if (!variantId) {
+        continue;
+      }
       const variant = sectionVariants[variantId];
       if (!variant) {
         continue;
@@ -102,7 +135,7 @@ const AgenticEdgeRenderer = () => {
       }
     }
     return running;
-  }, [sectionImpls, sectionVariantMap, sectionVariants]);
+  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSections]);
 
   const allowedChatIds = useMemo(
     () =>
@@ -149,11 +182,44 @@ const AgenticEdgeRenderer = () => {
     [allowedChatIds, projectConfigId, toolResultIdsByProjectConfigId],
   );
 
+  const missingEdges = useMemo(() => {
+    const violations =
+      scopeViolationEdgesByProjectConfigId[projectConfigId] ?? [];
+    if (violations.length === 0) {
+      return [];
+    }
+    const existingKeys = new Set(
+      agenticEdges.map((edge) =>
+        buildEdgeKey(edge.sourceSectionId, edge.targetSectionId, edge.kind),
+      ),
+    );
+    return violations
+      .filter((edge) => {
+        const key = buildEdgeKey(
+          edge.sourceSectionId,
+          edge.targetSectionId,
+          edge.kind,
+        );
+        return !existingKeys.has(key);
+      })
+      .map((edge) => ({
+        ...edge,
+        id: `missing:${buildEdgeKey(
+          edge.sourceSectionId,
+          edge.targetSectionId,
+          edge.kind,
+        )}`,
+      }));
+  }, [agenticEdges, projectConfigId, scopeViolationEdgesByProjectConfigId]);
+
+  const sortedEdges = useMemo(
+    () => [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex),
+    [agenticEdges],
+  );
+
   if (!width || !height) {
     return null;
   }
-
-  const sortedEdges = [...agenticEdges].sort((a, b) => a.zIndex - b.zIndex);
 
   return (
     <svg
@@ -245,6 +311,50 @@ const AgenticEdgeRenderer = () => {
                 strokeOpacity={0}
                 strokeWidth={16}
               />
+            </g>
+          );
+        })}
+        {missingEdges.map((edge) => {
+          const sourceCenter = resolveNodeAnchor(
+            nodes.get(edge.sourceSectionId),
+            topLevelSections[edge.sourceSectionId],
+            "right",
+          );
+          const targetCenter = resolveNodeAnchor(
+            nodes.get(edge.targetSectionId),
+            topLevelSections[edge.targetSectionId],
+            "left",
+          );
+          if (!sourceCenter || !targetCenter) {
+            return null;
+          }
+
+          const { x: sourceX, y: sourceY } = sourceCenter;
+          const { x: targetX, y: targetY } = targetCenter;
+          const [path] = getBezierPath({
+            sourceX,
+            sourceY,
+            sourcePosition: HandlePosition.Right,
+            targetX,
+            targetY,
+            targetPosition: HandlePosition.Left,
+          });
+
+          const kindClassName = `agentic-edge--${edge.kind.replaceAll(
+            "_",
+            "-",
+          )}`;
+          const pathClassNames = [
+            "react-flow__agentic-edge-path",
+            kindClassName,
+            "agentic-edge--missing",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <g key={edge.id} className="react-flow__agentic-edge">
+              <path d={path} className={pathClassNames} fill="none" />
             </g>
           );
         })}

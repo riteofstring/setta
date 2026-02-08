@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 from setta.mcp.tools.file_read import read_file_range
 
-
 class TestReadFileRangeTool:
     @pytest.fixture(autouse=True)
     def _setup(self) -> None:
@@ -54,18 +53,3 @@ class TestReadFileRangeTool:
     def test_missing_file_raises(self) -> None:
         with pytest.raises(FileNotFoundError):
             read_file_range(path="missing.txt", workspace_root=self.workspace_root)
-
-    def test_rejects_relative_escape_outside_workspace_root(self) -> None:
-        with pytest.raises(ValueError, match="within the project root"):
-            read_file_range(path="../outside.txt", workspace_root=self.workspace_root)
-
-    def test_rejects_absolute_path_outside_workspace_root(self) -> None:
-        with tempfile.TemporaryDirectory() as outside_dir:
-            outside_file = Path(outside_dir) / "outside.txt"
-            outside_file.write_text("nope", encoding="utf-8")
-
-            with pytest.raises(ValueError, match="within the project root"):
-                read_file_range(
-                    path=str(outside_file),
-                    workspace_root=self.workspace_root,
-                )

@@ -1,4 +1,4 @@
-import { useMisc } from "state/definitions";
+import type { Terminal } from "xterm";
 
 export const terminalTheme = {
   foreground: "#B8C2D5",
@@ -24,32 +24,7 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
-export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
-  const renderDisposable = terminal.onRender(() => {
-    setHasScrollbar(terminal.buffer.active.baseY > 0);
-  });
-
-  // Even though react flow calls preventDefault and stopPropagation when in pan scrolling mode,
-  // xterm still picks up the scrolling. So this sets scrollSensitivity to a small number to disable scrolling when already moving via trackpad.
-  const unsubMisc = useMisc.subscribe(
-    (x) => x.isPanScrolling,
-    (isPanScrolling) => {
-      if (isPanScrolling) {
-        // can't make it 0
-        terminal.options.scrollSensitivity = Number.MIN_VALUE;
-      } else {
-        terminal.options.scrollSensitivity = 1;
-      }
-    },
-  );
-
-  return () => {
-    renderDisposable.dispose();
-    unsubMisc();
-  };
-}
-
-export function terminalCleanup(ws, terminal) {
+export function terminalCleanup(ws: WebSocket, terminal: Terminal): void {
   if (ws.readyState === 1) {
     ws.close();
     terminal.dispose();

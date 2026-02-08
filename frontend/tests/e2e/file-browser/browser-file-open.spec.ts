@@ -108,16 +108,6 @@ async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
     if (!root) {
       return null;
     }
-    // Prefer reading from the CodeMirror EditorView state because the DOM can be
-    // visually truncated (e.g. `truncate`) and doesn't always expose the full value.
-    const editor =
-      root.matches(".cm-editor") ? root : root.querySelector(".cm-editor");
-    const view = editor ? (editor as any).cmView : (root as any).cmView;
-    const doc = view?.state?.doc;
-    if (doc) {
-      return doc.toString();
-    }
-
     const content =
       root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
     return content?.textContent ?? root.textContent ?? "";
@@ -145,7 +135,8 @@ async function setBrowserPath(
 
   await pathInput.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type(nextValue);
+  await page.keyboard.press("Backspace");
+  await page.keyboard.insertText(nextValue);
   await page.keyboard.press("Enter");
 
   await expect
