@@ -1,27 +1,22 @@
 import hashlib
-import json
-import os
 from pathlib import Path
 
 import pytest
 
-from setta.database.db_objs import DBE
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.paths import (
     build_files_root_from_base,
-    clear_setta_paths_cache,
     resolve_setta_paths,
     validate_workspace_root,
 )
 
 
 @pytest.fixture(autouse=True)
-def _setta_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _clear_runtime_root_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SETTA_WORKSPACE_ROOT", raising=False)
-    monkeypatch.delenv("SETTA_FILES_LOCATION", raising=False)
+    monkeypatch.delenv("SETTA_FILES_ROOT", raising=False)
+    monkeypatch.delenv("SETTA_FILES_ROOT_BASE", raising=False)
     monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
-    monkeypatch.setenv("SETTA_HOME", str(tmp_path / "setta_home"))
-    clear_setta_paths_cache()
 
 
 def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
@@ -31,7 +26,6 @@ def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
     paths = resolve_setta_paths(workspace_root=workspace)
 
     assert paths.workspace_root == workspace.resolve()
-    assert paths.setta_files_location == "local"
     assert paths.setta_files_root == workspace.resolve() / "setta_files"
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
@@ -49,220 +43,91 @@ def test_resolve_setta_paths_strips_workspace_root_env(
     assert paths.workspace_root == workspace.resolve()
 
 
-def test_resolve_setta_paths_honors_files_location_env_global(
+def test_resolve_setta_paths_honors_files_root_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    files_root = tmp_path / "state"
 
-    monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(files_root))
 
     paths = resolve_setta_paths(workspace_root=workspace)
 
-    assert paths.setta_files_location == "global"
-    base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
-    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
-    assert paths.setta_files_root == expected_root.resolve(strict=False)
-    assert paths.runtime_root == paths.setta_files_root / "runtime"
+    assert paths.setta_files_root == files_root.resolve()
+    assert paths.runtime_root == files_root.resolve() / "runtime"
 
 
-def test_resolve_setta_paths_rejects_invalid_files_location_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    monkeypatch.setenv("SETTA_FILES_LOCATION", "nope")
-
-    with pytest.raises(ValueError, match=r"Invalid setta files location"):
-        resolve_setta_paths(workspace_root=workspace)
-
-
-def test_resolve_setta_paths_rejects_invalid_files_location_override(
-    tmp_path: Path,
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    with pytest.raises(ValueError, match=r"Invalid setta files location"):
-        resolve_setta_paths(workspace_root=workspace, setta_files_location="nope")
-
-
-def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    (workspace / "setta_files").write_text("nope", encoding="utf-8")
-
-    with pytest.raises(ValueError, match=r"Local setta_files path is not a directory"):
-        resolve_setta_paths(workspace_root=workspace)
-
-
-def test_resolve_setta_paths_rejects_global_root_that_is_file(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    global_base = (setta_home / "setta_files").resolve(strict=False)
-    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
-    global_root.parent.mkdir(parents=True, exist_ok=True)
-    global_root.write_text("nope", encoding="utf-8")
-
-    with pytest.raises(ValueError, match=r"Global setta_files path is not a directory"):
-        resolve_setta_paths(workspace_root=workspace, setta_files_location="global")
-
-
-def test_resolve_setta_paths_auto_uses_global_if_present(
+def test_resolve_setta_paths_uses_files_root_base(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "My Work"
     workspace.mkdir()
+    base_root = tmp_path / "state"
+    base_root.mkdir()
 
-    setta_home = tmp_path / "setta_home"
-    config_path = setta_home / "config.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(
-        json.dumps(
-            {
-                "globalSettaFilesBase": str((setta_home / "setta_files").resolve()),
-                "autoMode": "use_global_if_present",
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        files_root_base=base_root,
     )
 
-    global_base = (setta_home / "setta_files").resolve()
-    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
-    global_root.mkdir(parents=True, exist_ok=True)
-
-    paths = resolve_setta_paths(workspace_root=workspace)
-
-    assert paths.setta_files_location == "global"
-    assert paths.setta_files_root == global_root
+    expected_hash = hashlib.sha256(
+        str(workspace.resolve()).encode("utf-8")
+    ).hexdigest()[:8]
+    expected_leaf = "My_Work"
+    expected = base_root.resolve() / f"{expected_leaf}-{expected_hash}"
+    assert paths.setta_files_root == expected
 
 
-def test_resolve_setta_paths_auto_uses_local_when_global_missing(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    config_path = setta_home / "config.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(
-        json.dumps(
-            {
-                "globalSettaFilesBase": str((setta_home / "setta_files").resolve()),
-                "autoMode": "use_global_if_present",
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    global_base = (setta_home / "setta_files").resolve()
-    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
-    assert not global_root.exists()
-
-    paths = resolve_setta_paths(workspace_root=workspace)
-
-    assert paths.setta_files_location == "local"
-    assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
-    assert not paths.setta_files_root.exists()
-
-
-def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    config_path = setta_home / "config.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(
-        json.dumps(
-            {
-                "globalSettaFilesBase": str((setta_home / "setta_files").resolve()),
-                "autoMode": "create_global",
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    global_base = (setta_home / "setta_files").resolve()
-    expected_global_root = build_files_root_from_base(global_base, workspace).resolve(
-        strict=False
-    )
-    assert not expected_global_root.exists()
-
-    paths = resolve_setta_paths(workspace_root=workspace)
-
-    assert paths.setta_files_location == "global"
-    assert paths.setta_files_root == expected_global_root
-    assert not paths.setta_files_root.exists()
-
-    DBE(paths.setta_files_root)
-    assert paths.setta_files_root.is_dir()
-
-
-def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    paths = resolve_setta_paths(workspace_root=workspace, setta_files_location="local")
-
-    assert paths.setta_files_location == "local"
-    assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
-    assert not paths.setta_files_root.exists()
-
-    DBE(paths.setta_files_root)
-    assert paths.setta_files_root.is_dir()
-
-
-def test_resolve_setta_paths_explicit_global_creates_root_with_dbe(
-    tmp_path: Path,
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    global_base = (setta_home / "setta_files").resolve(strict=False)
-    expected_global_root = build_files_root_from_base(global_base, workspace).resolve(
-        strict=False
-    )
-    assert not expected_global_root.exists()
-
-    paths = resolve_setta_paths(workspace_root=workspace, setta_files_location="global")
-
-    assert paths.setta_files_location == "global"
-    assert paths.setta_files_root == expected_global_root
-    assert not (workspace / "setta_files").exists()
-
-    DBE(paths.setta_files_root)
-    assert paths.setta_files_root.is_dir()
-    assert not (workspace / "setta_files").exists()
-
-
-def test_local_always_wins_even_when_global_requested(
+def test_resolve_setta_paths_files_root_base_arg_overrides_files_root_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    local_root = workspace / "setta_files"
-    local_root.mkdir(parents=True, exist_ok=True)
 
-    monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
+    env_files_root = tmp_path / "env_state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_files_root))
 
-    paths = resolve_setta_paths(workspace_root=workspace)
+    base_root = tmp_path / "state_base"
+    base_root.mkdir()
 
-    assert paths.setta_files_location == "local"
-    assert paths.setta_files_root == local_root.resolve(strict=False)
+    paths = resolve_setta_paths(workspace_root=workspace, files_root_base=base_root)
+
+    assert paths.setta_files_root != env_files_root.resolve()
+    assert paths.setta_files_root.parent == base_root.resolve()
+
+
+def test_resolve_setta_paths_ignore_env_files_root_skips_files_root_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    env_files_root = tmp_path / "env_state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_files_root))
+
+    paths = resolve_setta_paths(workspace_root=workspace, ignore_env_files_root=True)
+
+    assert paths.setta_files_root == workspace.resolve() / "setta_files"
+
+
+def test_resolve_setta_paths_ignore_env_files_root_still_honors_files_root_base_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    env_files_root = tmp_path / "env_state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_files_root))
+
+    base_root = tmp_path / "state_base"
+    base_root.mkdir()
+    monkeypatch.setenv("SETTA_FILES_ROOT_BASE", str(base_root))
+
+    paths = resolve_setta_paths(workspace_root=workspace, ignore_env_files_root=True)
+
+    assert paths.setta_files_root != env_files_root.resolve()
+    assert paths.setta_files_root.parent == base_root.resolve()
 
 
 def test_build_files_root_from_base_sanitizes_leaf(tmp_path: Path) -> None:
@@ -323,10 +188,9 @@ def test_resolve_sessions_root_uses_setta_files_root_env(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
+    files_root = tmp_path / "state"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(files_root))
 
     sessions_root = resolve_sessions_root(workspace)
 
-    base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
-    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
-    assert sessions_root == expected_root.resolve(strict=False) / "runtime" / "sessions"
+    assert sessions_root == files_root.resolve() / "runtime" / "sessions"
