@@ -29,7 +29,7 @@
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
-- Avoid div soup: keep markup shallow and semantic, minimize unnecessary wrappers, and avoid deep nesting of divs when it is not required.
+- Avoid div soup: keep markup shallow and semantic, minimize unnecessary wrappers, and avoid deep nesting when it is not required.
 - Prefer semantic elements in JSX (`section`, `header`, `nav`, `main`, `article`, `button`, `ul/li`) over generic `div`/`span` when appropriate.
 - Frontend code must prioritize performance, assuming very large DOMs (for example, hundreds of complex sections on the React Flow canvas).
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
@@ -63,8 +63,6 @@
 - Backend tests live under `tests/` mirroring `backend/setta`; run them with `./scripts/run_backend_tests.sh` (pytest).
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace.
 - Backend and frontend tests must not rely on existing files in `setta_files`. If a test needs to mimic `setta_files`, create it under a temporary directory (for example `/tmp`) and point the test there (see existing tests for patterns).
-- Tests must never mutate real git history in this repo (or any non-disposable developer repo/worktree).
-- Any test that runs git write/history commands (for example `git commit`, `git checkout`, `git reset`, `git rebase`, `git merge`, `git tag`, `git branch`) must run in a disposable temporary repo and fail fast if the target workspace already contains a real `.git` directory.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
 
