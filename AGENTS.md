@@ -63,6 +63,8 @@
 - Backend tests live under `tests/` mirroring `backend/setta`; run them with `./scripts/run_backend_tests.sh` (pytest).
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace.
 - Backend and frontend tests must not rely on existing files in `setta_files`. If a test needs to mimic `setta_files`, create it under a temporary directory (for example `/tmp`) and point the test there (see existing tests for patterns).
+- Tests must never mutate real git history in this repo (or any non-disposable developer repo/worktree).
+- Any test that runs git write/history commands (for example `git commit`, `git checkout`, `git reset`, `git rebase`, `git merge`, `git tag`, `git branch`) must run in a disposable temporary repo and fail fast if the target workspace already contains a real `.git` directory.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 - Do not add or change production code for the purpose of easing tests—tests must adapt to production behavior.
 
