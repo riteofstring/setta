@@ -36,15 +36,6 @@ export function UiEditor() {
     order: 30,
     rootRef: uiEditorRef,
   });
-  const hasViewModeTabs = useProjectState((x) => {
-    const viewModes = x.projectConfig.viewModes;
-    for (const modeId in viewModes) {
-      if (viewModes[modeId]?.isTab) {
-        return true;
-      }
-    }
-    return false;
-  });
   const sectionIds = useProjectState(
     (x) => x.projectConfig.activeIds,
     _.isEqual,
@@ -78,13 +69,7 @@ export function UiEditor() {
       ref={uiEditorRef}
       data-tab-scope="ui-editor"
     >
-      <div
-        className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
-        style={{
-          top: "calc(var(--setta-titlebar-height) + 36px)",
-          bottom: hasViewModeTabs ? "36px" : "0px",
-        }}
-      >
+      <div className="absolute right-0 z-[19] flex h-[calc(100%_-_36px)] w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
