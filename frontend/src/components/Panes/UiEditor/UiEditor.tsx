@@ -141,7 +141,7 @@ function TabsVisible({
 }) {
   const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
   return (
-    <div className="box-border flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2">
+    <div className="flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>

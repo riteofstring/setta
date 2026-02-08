@@ -1,10 +1,6 @@
 [mcp_servers.chrome-devtools]
-command = "env"
+command = "bash"
 args = [
-  "LC_ALL=C",
-  "LANG=C",
-  "NODE_NO_WARNINGS=1",
-  "bash",
   "-lc",
   'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); "$ROOT/scripts/chrome-devtools-mcp.sh"'
 ]

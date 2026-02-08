@@ -417,7 +417,7 @@ export function RunInstructions() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-x-hidden">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <p className="mx-[2px] text-xs text-setta-500 dark:text-setta-300">
         Define custom run types (once or continuous) and choose which ones
         appear in the main Run dropdown.
@@ -473,7 +473,7 @@ export function RunInstructions() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
         <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
           Codegen Policy
         </h3>
@@ -660,7 +660,7 @@ export function RunInstructions() {
               <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 Section Type Defaults
               </div>
-              <div className="mt-2 hidden items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500 sm:flex">
+              <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 <div className="flex-1">Type</div>
                 <div className="w-20 text-right">Mode</div>
                 <div className="w-24 text-right">Representation</div>
@@ -680,15 +680,12 @@ export function RunInstructions() {
                   const representationDisabled =
                     representationOptionsWithFallback.length === 1;
                   return (
-                    <div
-                      key={sectionType}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <div className="min-w-0 flex-[1_1_100%] truncate text-[11px] text-setta-700 dark:text-setta-200 sm:flex-1 sm:basis-auto">
+                    <div key={sectionType} className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
                         {sectionType}
                       </div>
                       <select
-                        className="min-w-[5rem] flex-1 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200 sm:w-20 sm:flex-none"
+                        className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
                         disabled={isDeploymentMode}
                         value={typePolicy.mode}
                         onChange={(event) => {
@@ -713,12 +710,12 @@ export function RunInstructions() {
                         ))}
                       </select>
                       {isMetaControl ? (
-                        <div className="min-w-[6rem] flex-1 text-left text-[11px] text-setta-500 dark:text-setta-400 sm:w-24 sm:flex-none sm:text-right">
+                        <div className="w-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
                           code obj policy
                         </div>
                       ) : (
                         <select
-                          className="min-w-[6rem] flex-1 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200 sm:w-24 sm:flex-none"
+                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
                           disabled={isDeploymentMode || representationDisabled}
                           value={typePolicy.representation}
                           onChange={(event) => {
@@ -812,7 +809,7 @@ export function RunInstructions() {
                 </div>
               ) : (
                 <div className="mt-2 space-y-1">
-                  <div className="hidden items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500 sm:flex">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
                     <div className="flex-1">Section</div>
                     <div className="w-20 text-right">Mode</div>
                     <div className="w-24 text-right">Representation</div>
@@ -835,13 +832,13 @@ export function RunInstructions() {
                     return (
                       <div
                         key={entry.sectionId}
-                        className="flex flex-wrap items-center gap-2"
+                        className="flex items-center gap-2"
                       >
-                        <div className="min-w-0 flex-[1_1_100%] truncate text-[11px] text-setta-700 dark:text-setta-200 sm:flex-1 sm:basis-auto">
+                        <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
                           {entry.name}
                         </div>
                         <select
-                          className="min-w-[5rem] flex-1 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200 sm:w-20 sm:flex-none"
+                          className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
                           disabled={isDeploymentMode}
                           value={entry.override.mode}
                           onChange={(event) => {
@@ -866,12 +863,12 @@ export function RunInstructions() {
                           ))}
                         </select>
                         {isMetaControl ? (
-                          <div className="min-w-[6rem] flex-1 text-left text-[11px] text-setta-500 dark:text-setta-400 sm:w-24 sm:flex-none sm:text-right">
+                          <div className="w-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
                             code obj policy
                           </div>
                         ) : (
                           <select
-                            className="min-w-[6rem] flex-1 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200 sm:w-24 sm:flex-none"
+                            className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
                             disabled={
                               isDeploymentMode || representationDisabled
                             }
@@ -932,7 +929,7 @@ export function RunInstructions() {
               <div className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
                 Choose how param values are formatted by default.
               </div>
-              <div className="mt-2 hidden items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500 sm:flex">
+              <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 <div className="flex-1">Type</div>
                 <div className="w-24 text-right">Representation</div>
               </div>
@@ -953,15 +950,12 @@ export function RunInstructions() {
                   const representationDisabled =
                     representationOptionsWithFallback.length === 1;
                   return (
-                    <div
-                      key={codeObjType}
-                      className="flex flex-wrap items-center gap-2"
-                    >
-                      <div className="min-w-0 flex-[1_1_100%] truncate text-[11px] text-setta-700 dark:text-setta-200 sm:flex-1 sm:basis-auto">
+                    <div key={codeObjType} className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
                         {codeObjType}
                       </div>
                       <select
-                        className="min-w-[6rem] flex-1 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200 sm:w-24 sm:flex-none"
+                        className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
                         disabled={isDeploymentMode || representationDisabled}
                         value={typePolicy.representation}
                         onChange={(event) => {
@@ -1054,7 +1048,7 @@ export function RunInstructions() {
                 </div>
               ) : (
                 <div className="mt-2 space-y-1">
-                  <div className="hidden items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500 sm:flex">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
                     <div className="flex-1">Param</div>
                     <div className="w-24 text-right">Representation</div>
                     <div className="w-6" />
@@ -1073,13 +1067,13 @@ export function RunInstructions() {
                     return (
                       <div
                         key={entry.codeObjId}
-                        className="flex flex-wrap items-center gap-2"
+                        className="flex items-center gap-2"
                       >
-                        <div className="min-w-0 flex-[1_1_100%] truncate text-[11px] text-setta-700 dark:text-setta-200 sm:flex-1 sm:basis-auto">
+                        <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
                           {entry.label}
                         </div>
                         <select
-                          className="min-w-[6rem] flex-1 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200 sm:w-24 sm:flex-none"
+                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
                           disabled={isDeploymentMode || representationDisabled}
                           value={entry.override.representation}
                           onChange={(event) => {

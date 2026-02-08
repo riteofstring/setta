@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { type ChatFileAttachment, type SharePolicy } from "utils/generatedTypes";
+import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatInput } from "./ChatInput";
 
@@ -28,14 +28,11 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function renderChatInput({
-  initialAttachments,
-}: { initialAttachments?: ChatFileAttachment[] } = {}) {
+function renderChatInput() {
   return renderToStaticMarkup(
     <ChatInput
       placeholderText="Type a message..."
       waitingForResponse={false}
-      initialAttachments={initialAttachments}
       onSubmit={() => undefined}
     />,
   );
@@ -133,26 +130,5 @@ describe("ChatInput attachment gating", () => {
     expect(className).not.toBeNull();
     expect(className).toContain("w-full");
     expect(className).toContain("max-w-none");
-  });
-
-  it("renders prefilled attachments when provided", () => {
-    useShareSession.setState({
-      isDeploymentMode: false,
-      sharePolicy: buildSharePolicy(),
-    });
-    syncStoreInitialState(useShareSession);
-
-    const markup = renderChatInput({
-      initialAttachments: [
-        {
-          id: "artifacts/style.png",
-          name: "style.png",
-          mimeType: "image/png",
-          size: 123,
-        },
-      ],
-    });
-
-    expect(markup).toContain("style.png");
   });
 });

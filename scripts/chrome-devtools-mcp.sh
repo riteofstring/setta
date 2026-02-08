@@ -4,19 +4,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Keep stdout clean: in some environments bash locale warnings can leak into
-# stdout if stderr is unavailable/merged, and that can break MCP startup.
-CDP_PORT="$("${ROOT_DIR}/scripts/cdp-port.sh" 2>/dev/null | tr -dc '0-9')"
-if [[ -z "${CDP_PORT}" ]] || ! [[ "${CDP_PORT}" =~ ^[0-9]+$ ]]; then
-  CDP_PORT="9222"
-fi
+CDP_PORT="$("${ROOT_DIR}/scripts/cdp-port.sh")"
 BROWSER_URL="${BROWSER_URL:-http://127.0.0.1:${CDP_PORT}}"
 
-# Keep MCP stdio clean. Experimental node warnings can break MCP transports.
-#
-# Some MCP runners merge stderr into stdout; redirect stderr to a log file so the
-# JSON-RPC stream on stdout stays valid.
-LOG_FILE="${CHROME_DEVTOOLS_MCP_LOG_FILE:-${ROOT_DIR}/chrome_devtools_mcp.log}"
-exec env NODE_NO_WARNINGS=1 NPM_CONFIG_UPDATE_NOTIFIER=false \
-  npx -y chrome-devtools-mcp@latest --browser-url="${BROWSER_URL}" "$@" \
-  2>>"${LOG_FILE}"
+# Codex MCP transports can be sensitive to unexpected stderr output at startup.
+# Keep chrome-devtools-mcp warnings/banners isolated so they can't corrupt MCP IO.
+LOG_DIR="${CHROME_DEVTOOLS_MCP_LOG_DIR:-${TMPDIR:-/tmp}/setta-mcp-logs}"
+mkdir -p "${LOG_DIR}"
+TS="$(date +%Y%m%d-%H%M%S)"
+STDERR_LOG="${LOG_DIR}/chrome-devtools-mcp.stderr.${TS}.log"
+
+export CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS="${CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS:-1}"
+export NODE_NO_WARNINGS="${NODE_NO_WARNINGS:-1}"
+
+# Pin a known-good version to avoid breaking MCP transport on upstream changes.
+exec npx -y chrome-devtools-mcp@0.17.0 --browserUrl="${BROWSER_URL}" "$@" 2>"${STDERR_LOG}"

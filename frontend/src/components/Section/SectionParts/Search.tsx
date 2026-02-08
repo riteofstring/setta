@@ -20,6 +20,7 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import {
+  useLocalStorage,
   useProjectState,
   useShareSession,
   useTemporaryMiscState,
@@ -32,6 +33,7 @@ import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
   getSectionSearchHeightKey,
+  getSectionStylePreviewColorKey,
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -39,6 +41,7 @@ import {
   route_set_callable,
 } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 
 export function SectionSearch({
   sectionId,
@@ -49,6 +52,26 @@ export function SectionSearch({
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const styleColor = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return impl.styleColor ?? null;
+  });
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
   const lspEnabled = !isDeploymentMode;
 
   function onEnter(value: string) {
@@ -66,8 +89,16 @@ export function SectionSearch({
       callable={callable}
       onEnter={onEnter}
       onShiftEnter={onShiftEnter}
-      dummyCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 dark:border-setta-800 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`}
-      realCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-blue-500 bg-white mx-[.125rem] py-1  dark:border-blue-400/50 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`}
+      dummyCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid ${
+        hasSectionStyleTheme
+          ? "border-[color:var(--setta-section-style-border)]"
+          : "border-setta-100 dark:border-setta-800"
+      } bg-white py-1 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`}
+      realCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid ${
+        hasSectionStyleTheme
+          ? "border-[color:var(--setta-section-style-outline)]"
+          : "border-blue-500 dark:border-blue-400/50"
+      } bg-white mx-[.125rem] py-1 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`}
       isDisabled={variantIsFrozen || !lspEnabled}
       lspEnabled={lspEnabled}
     />
