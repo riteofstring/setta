@@ -235,7 +235,6 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
-    allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
 
@@ -277,16 +276,6 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
-    if x.sectionId is None and not x.allowUnscoped:
-        raise HTTPException(
-            status_code=400,
-            detail="sectionId is required unless allowUnscoped is true.",
-        )
-    if x.sectionId is not None and x.allowUnscoped:
-        raise HTTPException(
-            status_code=400,
-            detail="allowUnscoped requires sectionId to be omitted.",
-        )
     is_branch_request = (
         x.branchParentChatId is not None or x.branchFromMessageId is not None
     )
@@ -378,8 +367,6 @@ async def route_get_llm_response(
             )
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
-        if x.allowUnscoped:
-            inputs["allowUnscoped"] = True
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -435,8 +422,6 @@ async def route_get_llm_response(
             )
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
-        if x.allowUnscoped:
-            inputs["allowUnscoped"] = True
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:

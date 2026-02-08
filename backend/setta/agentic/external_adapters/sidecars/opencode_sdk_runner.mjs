@@ -57,16 +57,6 @@ function extractSessionId(payload) {
   return null;
 }
 
-function unwrapData(result) {
-  if (!result || typeof result !== "object") {
-    return null;
-  }
-  if ("data" in result && result.data && typeof result.data === "object") {
-    return result.data;
-  }
-  return result;
-}
-
 function extractSessionIdFromEvent(event) {
   if (!event || typeof event !== "object") {
     return null;
@@ -585,7 +575,9 @@ const systemPrompt =
   typeof input.systemPrompt === "string" ? input.systemPrompt.trim() : "";
 const baseUrl = typeof input.baseUrl === "string" ? input.baseUrl : null;
 const workingDir =
-  typeof input.workingDir === "string" ? input.workingDir : process.cwd();
+  typeof input.workingDir === "string"
+    ? input.workingDir
+    : process.env.SETTA_WORKSPACE_ROOT ?? process.cwd();
 const model = parseModel(input.model);
 const requestedSessionId =
   typeof input.sessionId === "string" ? input.sessionId : null;
@@ -646,23 +638,12 @@ if (baseUrl) {
 }
 
 let sessionId = requestedSessionId;
-let sessionInfo = null;
 if (!sessionId) {
   const created = await client.session.create({
+    body: { title: "Setta external run" },
     query: { directory: workingDir },
   });
-  sessionInfo = unwrapData(created);
-  sessionId = extractSessionId(sessionInfo ?? created);
-} else {
-  try {
-    const fetched = await client.session.get({
-      path: { id: sessionId },
-      query: { directory: workingDir },
-    });
-    sessionInfo = unwrapData(fetched);
-  } catch {
-    sessionInfo = null;
-  }
+  sessionId = extractSessionId(created);
 }
 
 if (!sessionId) {
@@ -671,15 +652,6 @@ if (!sessionId) {
     message: "Failed to create or resolve OpenCode session id.",
   });
   process.exit(1);
-}
-
-if (sessionInfo && typeof sessionInfo === "object") {
-  writeEvent({
-    type: "session.updated",
-    properties: {
-      info: sessionInfo,
-    },
-  });
 }
 
 async function sendPermissionResponse(permissionId, approved) {

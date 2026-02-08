@@ -100,14 +100,12 @@ class TestChatToolkitListenerClient:
 
     async def test_tool_runner_client_coerces_messages(self) -> None:
         chat_id = ID("chat-1")
-        section_id = ID("section-1")
 
         async def router_caller(endpoint_name: str, payload: object) -> object:
             if endpoint_name != "route_run_mcp_tools":
                 raise KeyError(f"Unknown endpoint {endpoint_name}")
             if not isinstance(payload, dict):
                 raise TypeError("payload must be a dict")
-            assert payload.get("sectionId") == section_id
             tool_calls = payload["toolCalls"]
             tool_call_id = tool_calls[0].id if tool_calls else "tool-call-1"
             message = ToolChatMessage(
@@ -130,7 +128,6 @@ class TestChatToolkitListenerClient:
 
         messages = await client.run(
             chat_id=chat_id,
-            section_id=section_id,
             tool_calls=[tool_call],
         )
 

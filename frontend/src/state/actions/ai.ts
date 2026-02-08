@@ -1,12 +1,6 @@
 import {
-  receiveAgenticScopeViolationEdges,
-  SCOPE_VIOLATION_TIMEOUT_MS,
-} from "state/actions/aiFollow";
-import { addTemporaryNotification } from "state/actions/notifications";
-import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
-  isManagedChatSection,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
@@ -86,7 +80,6 @@ import {
   MessageThinkingContent,
   PromptTemplate,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -99,14 +92,8 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
-import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
 import { mergeChatMessages } from "./chatMergeUtils";
-
-const scopeViolationToastTimeouts = new Map<
-  string,
-  ReturnType<typeof setTimeout>
->();
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -547,10 +534,9 @@ function mergeChatSectionState(
   },
   preserveWaitingForResponse: boolean,
 ): ChatSectionState {
-  // Treat backend order as canonical, but keep any more-complete local copies.
   const mergedMessages = mergeChatMessages(
-    incoming.messages ?? [],
     currentState.messages ?? [],
+    incoming.messages ?? [],
   );
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
@@ -646,10 +632,9 @@ export async function getLLMChat(
       const nextWaitingForResponse = preserveWaitingForResponse
         ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
         : Boolean(waitingForResponse);
-      // Treat backend order as canonical, but keep any more-complete local copies.
       const nextMessages = mergeChatMessages(
-        messages,
         existingDetails?.messages ?? [],
+        messages,
       );
       return {
         chatDetails: {
@@ -672,7 +657,6 @@ export async function getLLMChat(
         toolCallArguments: {},
       });
       persistChatSectionState({
-        projectConfigId,
         sectionId,
         nextState,
         reason: "hydrate-llm-chat",
@@ -698,10 +682,9 @@ export async function getExternalAgentChat(
       const nextWaitingForResponse = preserveWaitingForResponse
         ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
         : Boolean(waitingForResponse);
-      // Treat backend order as canonical, but keep any more-complete local copies.
       const nextMessages = mergeChatMessages(
-        messages,
         existingDetails?.messages ?? [],
+        messages,
       );
       return {
         chatDetails: {
@@ -724,10 +707,7 @@ export async function getExternalAgentChat(
         waitingForResponse,
         toolCallArguments,
       });
-      const resolvedProjectConfigId =
-        projectConfigId ?? getCurrProjectConfigId();
       persistChatSectionState({
-        projectConfigId: resolvedProjectConfigId,
         sectionId,
         nextState,
         reason: "hydrate-external-chat",
@@ -777,7 +757,6 @@ export async function submitMessage(
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
-      allowUnscoped: sectionId == null,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
@@ -888,7 +867,6 @@ export async function submitEditedMessage({
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
-      allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
     });
@@ -1004,12 +982,11 @@ function applyStreamingChunkToSection(
 ) {
   const nextState = applyChatSectionStreamDelta(sectionId, chunk);
   if (chunk.type === StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA) {
-    applyToolArgumentPreviewDeltaToPreviewStore(chunk, projectConfigId);
+    applyToolArgumentPreviewDeltaToPreviewStore(chunk);
     return;
   }
   if (chunk.type === StreamingEventTypeEnum.TOOL_RESULT) {
     persistChatSectionState({
-      projectConfigId,
       sectionId,
       nextState,
       reason: chunk.type,
@@ -1018,13 +995,11 @@ function applyStreamingChunkToSection(
       projectConfigId,
       chunk.result.tool_call_id,
     );
-    handleAgenticScopeViolation(chunk.result, projectConfigId);
     return;
   }
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
     recordFinalizedMessage(sectionId, chunk.message.id);
     persistChatSectionState({
-      projectConfigId,
       sectionId,
       nextState,
       reason: chunk.type,
@@ -1041,7 +1016,6 @@ function applyStreamingChunkToSection(
       return;
     }
     persistChatSectionState({
-      projectConfigId,
       sectionId,
       nextState,
       reason: chunk.type,
@@ -1051,7 +1025,7 @@ function applyStreamingChunkToSection(
 
 export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   const { chatId, chunk } = msg;
-  const projectConfigId = msg.projectConfigId ?? getCurrProjectConfigId();
+  const projectConfigId = getCurrProjectConfigId();
   let sectionId = msg.sectionId;
   if (shouldIgnoreResponsePlaceholderChunk(chunk)) {
     return;
@@ -1059,11 +1033,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   if (!sectionId && chatId) {
     sectionId = resolveSectionIdForChatId(chatId);
   }
-  const isManagedSection = sectionId
-    ? isManagedChatSection(useProjectState.getState(), sectionId)
-    : false;
-  const shouldUpdateChatDetails = !sectionId || isManagedSection;
-
   const shouldMarkActive =
     chunk.type === StreamingEventTypeEnum.MESSAGE_START ||
     chunk.type === StreamingEventTypeEnum.DELTA ||
@@ -1080,55 +1049,33 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
   }
   if (sectionId) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
+    return;
   }
-  if (shouldUpdateChatDetails) {
-    if (!sectionId) {
-      promotePendingChatDetailsIfNeeded(chatId);
-    }
-    switch (chunk.type) {
-      case StreamingEventTypeEnum.MESSAGE_START:
-        handleMessageStart(chatId, chunk);
-        return;
-      case StreamingEventTypeEnum.DELTA:
-        handleMessageDelta(chatId, chunk);
-        return;
-      case StreamingEventTypeEnum.TOOL_CALL_DELTA:
-        handleToolCallDelta(chatId, chunk);
-        return;
-      case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
-        if (sectionId) {
-          updateChatDetails(chatId, (details) =>
-            applyToolCallDelta(details, chunk),
-          );
-          return;
-        }
-        handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
-        return;
-      case StreamingEventTypeEnum.TOOL_RESULT:
-        if (sectionId) {
-          updateChatDetails(chatId, (details) => {
-            return {
-              ...details,
-              messages: upsertMessage(details.messages, chunk.result),
-            };
-          });
-          clearToolArgumentPreviewByToolCallId(
-            projectConfigId,
-            chunk.result.tool_call_id,
-          );
-          return;
-        }
-        handleToolResult(chatId, chunk, projectConfigId);
-        return;
-      case StreamingEventTypeEnum.MESSAGE_STOP:
-        handleMessageStop(chatId);
-        return;
-      case StreamingEventTypeEnum.MESSAGE_FINALIZED:
-        handleMessageFinalized(chatId, chunk, projectConfigId);
-        return;
-      default:
-        return chunk satisfies never;
-    }
+  promotePendingChatDetailsIfNeeded(chatId);
+  switch (chunk.type) {
+    case StreamingEventTypeEnum.MESSAGE_START:
+      handleMessageStart(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.DELTA:
+      handleMessageDelta(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.TOOL_CALL_DELTA:
+      handleToolCallDelta(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
+      handleToolArgumentPreviewDelta(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.TOOL_RESULT:
+      handleToolResult(chatId, chunk);
+      return;
+    case StreamingEventTypeEnum.MESSAGE_STOP:
+      handleMessageStop(chatId);
+      return;
+    case StreamingEventTypeEnum.MESSAGE_FINALIZED:
+      handleMessageFinalized(chatId, chunk);
+      return;
+    default:
+      return chunk satisfies never;
   }
 }
 
@@ -1279,12 +1226,10 @@ function applyChatSectionStreamDelta(
 }
 
 export function persistChatSectionState({
-  projectConfigId,
   sectionId,
   nextState,
   reason,
 }: {
-  projectConfigId: string;
   sectionId: string;
   nextState: ChatSectionState | null;
   reason: string;
@@ -1292,6 +1237,7 @@ export function persistChatSectionState({
   if (!nextState) {
     return;
   }
+  const projectConfigId = getCurrProjectConfigId();
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -1338,48 +1284,17 @@ function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
 }
 
-function handleAgenticScopeViolation(
-  toolResult: ToolResultEvent["result"],
-  projectConfigId: string,
-): void {
-  const violation = extractAgenticScopeViolation(toolResult);
-  if (!violation) {
-    return;
-  }
-  receiveAgenticScopeViolationEdges({
-    projectConfigId,
-    edges: violation.edges,
-  });
-  const existingTimeout = scopeViolationToastTimeouts.get(projectConfigId);
-  if (existingTimeout !== undefined) {
-    globalThis.clearTimeout(existingTimeout);
-    const timeoutId = globalThis.setTimeout(() => {
-      scopeViolationToastTimeouts.delete(projectConfigId);
-    }, SCOPE_VIOLATION_TIMEOUT_MS);
-    scopeViolationToastTimeouts.set(projectConfigId, timeoutId);
-    return;
-  }
-  const notice = `${violation.message} Add the missing agentic edge(s) shown on the canvas. Use Project Chat for full access.`;
-  addTemporaryNotification(notice, SettaNotificationTypeEnum.warning);
-  const timeoutId = globalThis.setTimeout(() => {
-    scopeViolationToastTimeouts.delete(projectConfigId);
-  }, SCOPE_VIOLATION_TIMEOUT_MS);
-  scopeViolationToastTimeouts.set(projectConfigId, timeoutId);
-}
-
-function handleToolResult(
-  chatId: string,
-  chunk: ToolResultEvent,
-  projectConfigId: string,
-) {
+function handleToolResult(chatId: string, chunk: ToolResultEvent) {
   updateChatDetails(chatId, (details) => {
     return {
       ...details,
       messages: upsertMessage(details.messages, chunk.result),
     };
   });
-  clearToolArgumentPreviewByToolCallId(projectConfigId, chunk.result.tool_call_id);
-  handleAgenticScopeViolation(chunk.result, projectConfigId);
+  clearToolArgumentPreviewByToolCallId(
+    getCurrProjectConfigId(),
+    chunk.result.tool_call_id,
+  );
 }
 
 function handleMessageStop(chatId: string) {
@@ -1389,11 +1304,7 @@ function handleMessageStop(chatId: string) {
   }));
 }
 
-function handleMessageFinalized(
-  chatId: string,
-  chunk: MessageFinalizedEvent,
-  projectConfigId: string,
-) {
+function handleMessageFinalized(chatId: string, chunk: MessageFinalizedEvent) {
   const targetId = chunk.message.id;
   updateChatDetails(chatId, (details) => {
     return {
@@ -1407,22 +1318,21 @@ function handleMessageFinalized(
     chunk.message.role === "assistant"
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
       : [];
-  clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
+  clearToolArgumentPreviewByToolCallIds(getCurrProjectConfigId(), toolCallIds);
 }
 
 function handleToolArgumentPreviewDelta(
   chatId: string,
   chunk: ToolArgumentPreviewDeltaEvent,
-  projectConfigId: string,
 ) {
   updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
-  applyToolArgumentPreviewDeltaToPreviewStore(chunk, projectConfigId);
+  applyToolArgumentPreviewDeltaToPreviewStore(chunk);
 }
 
 function applyToolArgumentPreviewDeltaToPreviewStore(
   chunk: ToolArgumentPreviewDeltaEvent,
-  projectConfigId: string,
 ) {
+  const projectConfigId = getCurrProjectConfigId();
   useToolArgumentPreview.setState((state) => {
     const previewState =
       state.byProjectConfigId[projectConfigId] ??

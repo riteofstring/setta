@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, AsyncIterator, Iterator, Literal
 
@@ -11,42 +11,10 @@ from litellm.types.utils import Delta, ModelResponseStream
 from litellm.utils import supports_prompt_caching
 from pydantic import BaseModel
 
-from setta.agentic.agentic_context import (
-    AgenticContextPayload,
-    build_agentic_section_summary_source,
-)
-from setta.agentic.agentic_context_payload_builder import (
-    build_agentic_context_payload_with_temporary_ids,
-)
-from setta.agentic.agentic_scope import (
-    AgenticContext,
-    AgenticScope,
-    resolve_agentic_scope,
-)
-from setta.agentic.agentic_summary_cache import (
-    build_agentic_summary_cache_key,
-    resolve_cached_agentic_summaries_for_chat_section,
-    write_cached_agentic_summaries,
-)
-from setta.agentic.agentic_summary_limits import MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN
-from setta.agentic.chat_titles import (
-    build_chat_title_input,
-    build_deterministic_chat_title,
-    sanitize_llm_title,
-)
-from setta.agentic.chat_view import (
-    LLM_CHAT_RUN_TYPE,
-    build_chat_state_from_run,
-    get_run_last_updated,
-)
+from setta.agentic.chat_view import build_chat_state_from_run
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
-from setta.agentic.store import (
-    create_agent_run,
-    list_agent_runs_by_metadata,
-    load_agent_run,
-    save_agent_run,
-)
+from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.agentic.system_prompt import build_agent_system_prompt
 from setta.database.db_objs import DBE
 from setta.llm.api_keys import filter_env_vars_for_config
@@ -93,7 +61,7 @@ from setta.mcp.namespacing import (
     build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
-from setta.mcp.tool_metadata import FollowIdType, SettaToolType
+from setta.mcp.tool_metadata import FollowIdType
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -123,18 +91,14 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
 )
-from setta.types.helpers_lvl3 import (
-    build_project_state_summary_section_index,
-    convert_backend_to_single_config,
-)
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 from setta.utils.chat_attachments import build_attachment_content_blocks
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -142,8 +106,6 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "mcp" / "system_prompt.md"
 ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 DEFAULT_ANTHROPIC_THINKING_BUDGET = 1024
-MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS = 1200
-MAX_CHAT_TITLE_INPUT_CHARS = 2000
 
 
 @dataclass(frozen=True)
@@ -160,15 +122,11 @@ class AgentRunContext:
     llm_config: LLMConfig
     engine_config_id: ID
     project_config_id: ID
-    project_state: ProjectStateSingleConfig
     chat_id: ID
     section_id: ID | None
     thinking: bool
     system_prompt: str
     allowlist: ToolAllowlist | None
-    agentic_scope: AgenticScope
-    agentic_context: AgenticContext
-    context_payload: AgenticContextPayload | None
     emit_stream: bool
     emit_ai_follow: bool
 
@@ -208,7 +166,6 @@ class AgentRunner:
         self._runs: dict[ID, AgentRun] = {}
         self._chat_states: dict[ID, ChatSectionState] = {}
         self._ai_follow_state: dict[tuple[ID, ID], AIFollowState] = {}
-        self._agentic_summary_fill_inflight: set[tuple[ID, ID]] = set()
         self._search_tool_name = build_namespaced_tool_name(
             SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
         )
@@ -380,20 +337,7 @@ class AgentRunner:
 
     async def _run_agent(self, context: AgentRunContext) -> None:
         run = context.run
-        context = await self._with_agentic_context_payload(context)
         messages = self._build_initial_messages(context.run.inputs)
-        payload = context.context_payload
-        if context.emit_ai_follow and payload is not None and payload.section_ids:
-            await self._apply_actions(
-                [
-                    UpdateAIFollowAction(
-                        project_config_id=context.project_config_id,
-                        chat_id=context.chat_id,
-                        ids_by_type={"section": payload.section_ids},
-                    )
-                ],
-                context,
-            )
         usage_summary: dict[str, int] | None = None
         cost_value: float | None = None
         try:
@@ -404,7 +348,6 @@ class AgentRunner:
                     thinking=context.thinking,
                     system_prompt=context.system_prompt,
                     allowlist=context.allowlist,
-                    agentic_scope=context.agentic_scope,
                 )
                 assistant_message = AssistantChatMessage(content=[])
                 tool_call_state = ManagedToolCallState()
@@ -553,13 +496,6 @@ class AgentRunner:
                         usage=usage_summary,
                         cost=cost_value,
                     )
-                    if run.outputs is not None:
-                        await self._apply_chat_title_to_outputs(
-                            context,
-                            messages=messages,
-                            outputs=run.outputs,
-                            allow_llm=False,
-                        )
                     if cost_value is not None:
                         run.cost = cost_value
                     was_cancelled = run.status == AgentRunStatus.cancelled
@@ -630,13 +566,6 @@ class AgentRunner:
                         usage=usage_summary,
                         cost=cost_value,
                     )
-                    if run.outputs is not None:
-                        await self._apply_chat_title_to_outputs(
-                            context,
-                            messages=messages,
-                            outputs=run.outputs,
-                            allow_llm=False,
-                        )
                     if cost_value is not None:
                         run.cost = cost_value
                     run.status = AgentRunStatus.failed
@@ -664,13 +593,6 @@ class AgentRunner:
                 usage=usage_summary,
                 cost=cost_value,
             )
-            if run.outputs is not None:
-                await self._apply_chat_title_to_outputs(
-                    context,
-                    messages=messages,
-                    outputs=run.outputs,
-                    allow_llm=True,
-                )
             if cost_value is not None:
                 run.cost = cost_value
             save_agent_run(self.dbe, run)
@@ -704,7 +626,6 @@ class AgentRunner:
                 set(self._resolve_mcp_server_ids(context.llm_config)),
             ),
             share_session_id=self.share_session_id,
-            agentic_context=context.agentic_context,
         )
         if execute_action is not None:
             tool_results = await self._apply_actions([execute_action], context)
@@ -760,8 +681,8 @@ class AgentRunner:
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
     ) -> AgentRunContext:
-        project_state_backend = self.dbe.read_project_required()
-        if project_state_backend.defaultProjectConfigId is None:
+        project_state = self.dbe.read_project_required()
+        if project_state.defaultProjectConfigId is None:
             raise KeyError("Project state does not define a default project config")
         if inputs and "projectConfigId" in inputs:
             raw_project_id = inputs["projectConfigId"]
@@ -769,8 +690,8 @@ class AgentRunner:
                 raise TypeError("projectConfigId must be a string")
             project_config_id = ID(raw_project_id)
         else:
-            project_config_id = project_state_backend.defaultProjectConfigId
-        if project_config_id not in project_state_backend.projectConfigs:
+            project_config_id = project_state.defaultProjectConfigId
+        if project_config_id not in project_state.projectConfigs:
             raise KeyError(f"Unknown project config: {project_config_id}")
         if inputs and "chatId" in inputs:
             raw_chat_id = inputs["chatId"]
@@ -786,16 +707,6 @@ class AgentRunner:
             section_id = ID(raw_section_id)
         else:
             section_id = None
-        allow_unscoped = False
-        if inputs and "allowUnscoped" in inputs:
-            raw_allow_unscoped = inputs["allowUnscoped"]
-            if not isinstance(raw_allow_unscoped, bool):
-                raise TypeError("allowUnscoped must be a boolean")
-            allow_unscoped = raw_allow_unscoped
-        if section_id is None and not allow_unscoped:
-            raise ValueError("sectionId is required unless allowUnscoped is true.")
-        if section_id is not None and allow_unscoped:
-            raise ValueError("allowUnscoped requires sectionId to be omitted.")
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -814,47 +725,17 @@ class AgentRunner:
         run = create_agent_run(profile_id=profile.id, inputs=payload_inputs)
         system_prompt = self._build_system_prompt(profile, project_config_id)
         allowlist = self._normalize_tool_allowlist(profile)
-        project_state = convert_backend_to_single_config(
-            project_state_backend, project_config_id
-        )
-        agentic_scope = resolve_agentic_scope(
-            project_state,
-            section_id,
-            allow_unscoped=allow_unscoped,
-        )
-        resolved_chat_id = chat_id or run.id
-        logger.debug(
-            "Resolved agentic scope for managed run (project=%s, chat=%s, section=%s, read=%s write=%s context=%s peer=%s structural=%s).",
-            project_config_id,
-            resolved_chat_id,
-            section_id,
-            len(agentic_scope.read_section_ids),
-            len(agentic_scope.write_section_ids),
-            len(agentic_scope.context_section_ids),
-            len(agentic_scope.peer_chat_section_ids),
-            agentic_scope.structural_allowed,
-        )
-        agentic_context = AgenticContext(
-            project_config_id=project_config_id,
-            chat_id=resolved_chat_id,
-            section_id=section_id,
-            allow_unscoped=allow_unscoped,
-        )
         return AgentRunContext(
             run=run,
             profile=profile,
             llm_config=llm_config,
             engine_config_id=engine_config_id,
             project_config_id=project_config_id,
-            project_state=project_state,
-            chat_id=resolved_chat_id,
+            chat_id=chat_id or run.id,
             section_id=section_id,
             thinking=thinking,
             system_prompt=system_prompt,
             allowlist=allowlist,
-            agentic_scope=agentic_scope,
-            agentic_context=agentic_context,
-            context_payload=None,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
         )
@@ -947,494 +828,6 @@ class AgentRunner:
                 )
         return messages
 
-    async def _with_agentic_context_payload(
-        self,
-        context: AgentRunContext,
-    ) -> AgentRunContext:
-        if context.section_id is None:
-            return context
-        payload = await self._build_agentic_context_payload(context)
-        if payload is None or not payload.text.strip():
-            return context
-        base_prompt = context.system_prompt.strip()
-        payload_text = payload.text.strip()
-        combined = (
-            f"{base_prompt}\n\n{payload_text}".strip() if base_prompt else payload_text
-        )
-        return replace(
-            context,
-            context_payload=payload,
-            system_prompt=combined,
-        )
-
-    async def _build_agentic_context_payload(
-        self,
-        context: AgentRunContext,
-    ) -> AgenticContextPayload | None:
-        section_id = context.section_id
-        if section_id is None:
-            return None
-
-        project_state = context.project_state
-        (
-            summary_text_by_section_id,
-            summary_by_section,
-            missing_section_ids,
-        ) = await self._resolve_agentic_summary_text_by_section_id(
-            project_state,
-            chat_section_id=section_id,
-            project_config_id=context.project_config_id,
-            llm_config=context.llm_config,
-        )
-        if missing_section_ids and context.profile.enableBackgroundSummaryFill:
-            self._maybe_spawn_agentic_summary_cache_fill(
-                project_state,
-                chat_section_id=section_id,
-                project_config_id=context.project_config_id,
-                llm_config=context.llm_config,
-                summary_by_section=summary_by_section,
-                missing_section_ids=missing_section_ids,
-            )
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
-        payload = build_agentic_context_payload_with_temporary_ids(
-            self.dbe,
-            project_state,
-            section_id,
-            canonical_to_temporary=canonical_to_temporary,
-            temporary_to_canonical=temporary_to_canonical,
-            summary_text_by_section_id=summary_text_by_section_id,
-            summary_by_section=summary_by_section,
-        )
-        if not payload.text.strip():
-            return None
-        return payload
-
-    async def _resolve_agentic_summary_text_by_section_id(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        chat_section_id: ID,
-        project_config_id: ID,
-        llm_config: LLMConfig,
-    ) -> tuple[dict[ID, str], dict[ID, object] | None, list[ID]]:
-        cached, summary_by_section, missing_section_ids = (
-            resolve_cached_agentic_summaries_for_chat_section(
-                self.dbe,
-                project_state=project_state,
-                project_config_id=project_config_id,
-                chat_section_id=chat_section_id,
-            )
-        )
-        if summary_by_section is None:
-            return {}, None, []
-
-        summary_edge_count = len(cached) + len(missing_section_ids)
-        if summary_edge_count and not missing_section_ids:
-            logger.debug(
-                "Agentic summary cache hit (project=%s, chatSection=%s, edges=%s).",
-                project_config_id,
-                chat_section_id,
-                summary_edge_count,
-            )
-            return cached, summary_by_section, []
-
-        deferred_due_to_cap = max(
-            len(missing_section_ids) - MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN, 0
-        )
-        logger.info(
-            "Agentic summary cache miss (project=%s, chatSection=%s, edges=%s cached=%s missing=%s deferred=%s, llm=%s).",
-            project_config_id,
-            chat_section_id,
-            summary_edge_count,
-            len(cached),
-            len(missing_section_ids),
-            deferred_due_to_cap,
-            llm_config.id,
-        )
-        return cached, summary_by_section, list(missing_section_ids)
-
-    def _maybe_spawn_agentic_summary_cache_fill(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        chat_section_id: ID,
-        project_config_id: ID,
-        llm_config: LLMConfig,
-        summary_by_section: dict[ID, object] | None,
-        missing_section_ids: list[ID],
-    ) -> None:
-        if not missing_section_ids:
-            return
-        key = (project_config_id, chat_section_id)
-        if key in self._agentic_summary_fill_inflight:
-            return
-        self._agentic_summary_fill_inflight.add(key)
-
-        async def _runner() -> None:
-            try:
-                await self._fill_agentic_summary_cache_for_chat_section(
-                    project_state,
-                    chat_section_id=chat_section_id,
-                    project_config_id=project_config_id,
-                    llm_config=llm_config,
-                    summary_by_section=summary_by_section,
-                    missing_section_ids=missing_section_ids,
-                )
-            finally:
-                self._agentic_summary_fill_inflight.discard(key)
-
-        spawn_background_task(
-            _runner,
-            label="agentic-summary-cache-fill",
-            logger=logger,
-            project_config_id=str(project_config_id),
-        )
-
-    async def _fill_agentic_summary_cache_for_chat_section(
-        self,
-        project_state: ProjectStateSingleConfig,
-        *,
-        chat_section_id: ID,
-        project_config_id: ID,
-        llm_config: LLMConfig,
-        summary_by_section: dict[ID, object] | None,
-        missing_section_ids: list[ID],
-    ) -> None:
-        if not missing_section_ids:
-            return
-        resolved_summary_by_section = summary_by_section
-        if resolved_summary_by_section is None:
-            resolved_summary_by_section = build_project_state_summary_section_index(
-                project_state,
-                {sid for sid in missing_section_ids if sid in project_state.sections},
-            )
-
-        cache_updates: dict[str, dict[str, Any]] = {}
-        generated_count = 0
-        skipped_empty_count = 0
-        attempted_count = 0
-        deferred_due_to_cap = max(
-            len(missing_section_ids) - MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN, 0
-        )
-        for section_id in missing_section_ids[:MAX_AGENTIC_SECTION_SUMMARIES_PER_RUN]:
-            if section_id not in project_state.projectConfig.sectionVariantMap:
-                raise KeyError(f"Section {section_id} missing variant mapping.")
-            variant_id = project_state.projectConfig.sectionVariantMap[section_id]
-            source = build_agentic_section_summary_source(
-                project_state,
-                section_id,
-                summary_by_section=resolved_summary_by_section,
-            )
-            if not source.raw_text.strip():
-                skipped_empty_count += 1
-                continue
-            attempted_count += 1
-            cache_key = build_agentic_summary_cache_key(
-                project_config_id=project_config_id,
-                section_id=section_id,
-                variant_id=variant_id,
-                content_hash=source.content_hash,
-            )
-            generated_summary = await self._generate_agentic_section_summary(
-                llm_config,
-                source=source,
-            )
-            if not generated_summary:
-                continue
-            normalized = generated_summary.strip()
-            if not normalized:
-                continue
-            cache_updates[cache_key] = {
-                "summary": normalized,
-                "createdAtMs": int(get_now_timestamp().timestamp() * 1000),
-                "metadata": {
-                    "llmConfigId": llm_config.id,
-                    "model": llm_config.model,
-                },
-            }
-            generated_count += 1
-        if cache_updates:
-            write_cached_agentic_summaries(self.dbe, updates=cache_updates)
-        logger.info(
-            "Agentic summary cache fill complete (project=%s, chatSection=%s, attempted=%s generated=%s skippedEmpty=%s deferred=%s).",
-            project_config_id,
-            chat_section_id,
-            attempted_count,
-            generated_count,
-            skipped_empty_count,
-            deferred_due_to_cap,
-        )
-
-    async def _generate_agentic_section_summary(
-        self,
-        llm_config: LLMConfig,
-        *,
-        source,
-    ) -> str | None:
-        system = (
-            "You summarize content for an engineering agent.\n"
-            "Return 5-12 concise markdown bullets.\n"
-            "Do not invent facts. Do not include IDs. Do not add prose outside bullets."
-        )
-        user = (
-            "Summarize the following section content for use as automatic prompt context.\n\n"
-            f"{source.prompt_text}".strip()
-        )
-        try:
-            raw = await self._run_utility_completion(
-                llm_config,
-                system_prompt=system,
-                user_prompt=user,
-                max_tokens=256,
-                temperature=0,
-            )
-        except Exception:
-            logger.info(
-                "Agentic summary generation failed; falling back to deterministic context (section=%s, llm=%s).",
-                source.section_id,
-                llm_config.id,
-                exc_info=True,
-            )
-            return None
-        if raw is None:
-            return None
-        normalized = self._normalize_bullets(raw)
-        if len(normalized) > MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS:
-            normalized = normalized[:MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS].rstrip()
-        return normalized or None
-
-    def _find_existing_chat_title(
-        self,
-        *,
-        chat_id: ID,
-        project_config_id: ID,
-        title_input_hash: str,
-        exclude_run_id: ID,
-    ) -> str | None:
-        candidates = list_agent_runs_by_metadata(
-            self.dbe,
-            run_type=LLM_CHAT_RUN_TYPE,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        best_title: str | None = None
-        best_updated = None
-        for run in candidates:
-            if run.id == exclude_run_id:
-                continue
-            if run.status != AgentRunStatus.completed:
-                continue
-            outputs = run.outputs
-            if not isinstance(outputs, dict):
-                continue
-            raw_title = outputs.get("name")
-            if not isinstance(raw_title, str) or not raw_title.strip():
-                continue
-            raw_hash = outputs.get("nameInputHash")
-            if not isinstance(raw_hash, str) or raw_hash != title_input_hash:
-                continue
-            updated_at = get_run_last_updated(run)
-            if best_updated is None or updated_at > best_updated:
-                best_updated = updated_at
-                best_title = raw_title.strip()
-        return best_title
-
-    async def _apply_chat_title_to_outputs(
-        self,
-        context: AgentRunContext,
-        *,
-        messages: list[BaseChatMessageUnion],
-        outputs: dict[str, Any],
-        allow_llm: bool,
-    ) -> None:
-        inputs = context.run.inputs
-        if not isinstance(inputs, dict):
-            return
-        raw_run_type = inputs.get("runType")
-        if not isinstance(raw_run_type, str) or raw_run_type != LLM_CHAT_RUN_TYPE:
-            return
-
-        title_result = build_deterministic_chat_title(messages)
-        title_input_hash = title_result.input_hash
-
-        existing = self._find_existing_chat_title(
-            chat_id=context.chat_id,
-            project_config_id=context.project_config_id,
-            title_input_hash=title_input_hash,
-            exclude_run_id=context.run.id,
-        )
-        if existing:
-            outputs["name"] = existing
-            outputs["nameInputHash"] = title_input_hash
-            outputs["nameSource"] = "reused"
-            logger.info(
-                "Reused chat title (project=%s, chat=%s, section=%s).",
-                context.project_config_id,
-                context.chat_id,
-                context.section_id,
-            )
-            return
-
-        outputs["name"] = title_result.title
-        outputs["nameInputHash"] = title_input_hash
-        outputs["nameSource"] = "deterministic"
-        if not allow_llm or not context.profile.enableLlmChatTitles:
-            return
-
-        raw_title_input = build_chat_title_input(messages)
-        title_input = raw_title_input.strip()
-        if not title_input:
-            return
-        if len(title_input) > MAX_CHAT_TITLE_INPUT_CHARS:
-            title_input = title_input[:MAX_CHAT_TITLE_INPUT_CHARS].rstrip() + "..."
-
-        generated = await self._generate_llm_chat_title(
-            context.llm_config,
-            title_input=title_input,
-        )
-        if generated:
-            outputs["name"] = generated
-            outputs["nameInputHash"] = title_input_hash
-            outputs["nameSource"] = "llm"
-            logger.info(
-                "Generated chat title (project=%s, chat=%s, section=%s, llm=%s).",
-                context.project_config_id,
-                context.chat_id,
-                context.section_id,
-                context.llm_config.id,
-            )
-
-    async def _generate_llm_chat_title(
-        self,
-        llm_config: LLMConfig,
-        *,
-        title_input: str,
-    ) -> str | None:
-        system = (
-            "You generate short chat titles.\n"
-            "Return a single short phrase (4-10 words).\n"
-            "No quotes. No trailing punctuation. No newline.\n"
-            "Do not invent details not present in the text."
-        )
-        user = f"First user message:\n{title_input}\n\nTitle:"
-        try:
-            raw = await self._run_utility_completion(
-                llm_config,
-                system_prompt=system,
-                user_prompt=user,
-                max_tokens=32,
-                temperature=0,
-            )
-        except Exception:
-            logger.info(
-                "Chat title generation failed; using deterministic title (llm=%s).",
-                llm_config.id,
-                exc_info=True,
-            )
-            return None
-        if raw is None:
-            return None
-        sanitized = sanitize_llm_title(raw)
-        return sanitized or None
-
-    async def _run_utility_completion(
-        self,
-        llm_config: LLMConfig,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-        max_tokens: int,
-        temperature: float,
-    ) -> str | None:
-        request, api_key_env = self.config.build_llm_params(llm_config)
-        if api_key_env:
-            api_key = self.api_keys.get(api_key_env)
-            if api_key:
-                request["api_key"] = api_key
-        self._sanitize_utility_completion_request(request)
-        request["messages"] = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-        request["temperature"] = temperature
-        request["max_tokens"] = max_tokens
-        response = await litellm.acompletion(**request)
-        return self._extract_completion_text(response)
-
-    @staticmethod
-    def _sanitize_utility_completion_request(request: dict[str, Any]) -> None:
-        # Utility completions (titles/summaries) must be deterministic and
-        # provider-agnostic. LLMConfig.other_params can include streaming or tool
-        # options that change the response shape (and can break callers that
-        # expect a single completion object).
-        for key in (
-            "stream",
-            "stream_options",
-            "tools",
-            "tool_choice",
-            "functions",
-            "function_call",
-            "response_format",
-        ):
-            request.pop(key, None)
-        request["stream"] = False
-
-    @staticmethod
-    def _extract_completion_text(response: Any) -> str | None:
-        choices = getattr(response, "choices", None)
-        if choices is None and isinstance(response, dict):
-            choices = response.get("choices")
-        if not isinstance(choices, list) or not choices:
-            return None
-        first = choices[0]
-        message = getattr(first, "message", None)
-        if message is None and isinstance(first, dict):
-            message = first.get("message")
-        if message is None:
-            return None
-        content = getattr(message, "content", None)
-        if content is None and isinstance(message, dict):
-            content = message.get("content")
-        if isinstance(content, str):
-            return content.strip()
-        if isinstance(content, list):
-            parts: list[str] = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    text = block.get("text")
-                    if isinstance(text, str) and text.strip():
-                        parts.append(text.strip())
-            combined = "\n".join(parts).strip()
-            return combined or None
-        return None
-
-    @staticmethod
-    def _normalize_bullets(text: str) -> str:
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
-        if not lines:
-            return ""
-        bullets: list[str] = []
-        for line in lines:
-            normalized = line
-            if normalized.startswith(("* ", "+ ")):
-                normalized = "- " + normalized[2:].lstrip()
-            elif normalized.startswith("- "):
-                normalized = "- " + normalized[2:].lstrip()
-            else:
-                normalized = "- " + normalized.lstrip("-").lstrip()
-            bullets.append(normalized)
-        # Deduplicate while preserving order.
-        seen: set[str] = set()
-        unique: list[str] = []
-        for bullet in bullets:
-            if bullet in seen:
-                continue
-            seen.add(bullet)
-            unique.append(bullet)
-        return "\n".join(unique).strip()
-
     def _build_llm_request_payload(
         self,
         llm_config: LLMConfig,
@@ -1443,7 +836,6 @@ class AgentRunner:
         thinking: bool,
         system_prompt: str,
         allowlist: ToolAllowlist | None,
-        agentic_scope: AgenticScope,
     ) -> dict[str, Any]:
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
@@ -1479,7 +871,6 @@ class AgentRunner:
             server_ids,
             allowlist=allowlist,
             use_tool_search=use_tool_search,
-            agentic_scope=agentic_scope,
         )
         if tools:
             request["tools"] = tools
@@ -1500,8 +891,9 @@ class AgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            base_root = CWD
-            artifacts_root = CWD / C.ARTIFACTS_FOLDER
+            paths = get_setta_paths()
+            base_root = paths.setta_files_root
+            artifacts_root = paths.artifacts_root
         extra_blocks = build_attachment_content_blocks(
             dbe=self.dbe,
             attachments=message.attachments,
@@ -1525,7 +917,6 @@ class AgentRunner:
         *,
         allowlist: ToolAllowlist | None,
         use_tool_search: bool,
-        agentic_scope: AgenticScope,
     ) -> list[ChatCompletionToolParam]:
         if not server_ids:
             return []
@@ -1542,7 +933,6 @@ class AgentRunner:
             defer_loading=use_tool_search,
             include_search_tool=use_tool_search,
             allowlist=allowlist,
-            agentic_scope=agentic_scope,
         )
         return tools
 
@@ -1553,7 +943,6 @@ class AgentRunner:
         defer_loading: bool,
         include_search_tool: bool,
         allowlist: ToolAllowlist | None,
-        agentic_scope: AgenticScope,
     ) -> list[ChatCompletionToolParam]:
         init_tools = self.mcp_client.init_tool_definitions_for_servers(server_ids)
         discoverable_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
@@ -1572,7 +961,6 @@ class AgentRunner:
             tool_names = [
                 name for name in tool_names if self._is_tool_allowed(name, allowlist)
             ]
-        tool_names = self._filter_tool_names_by_scope(tool_names, agentic_scope)
         if not tool_names:
             return []
         payload: list[ChatCompletionToolParam] = []
@@ -1587,38 +975,6 @@ class AgentRunner:
         if defer_loading and not has_non_deferred and payload:
             payload[0].pop("defer_loading", None)
         return payload
-
-    def _filter_tool_names_by_scope(
-        self,
-        tool_names: list[str],
-        agentic_scope: AgenticScope,
-    ) -> list[str]:
-        if not tool_names:
-            return tool_names
-        has_structural = agentic_scope.structural_allowed
-        has_read = bool(agentic_scope.effective_read_section_ids())
-        has_write = bool(agentic_scope.write_section_ids)
-        filtered: list[str] = []
-        for name in tool_names:
-            if not is_setta_tool_name(name):
-                filtered.append(name)
-                continue
-            annotations = self.mcp_client.tool_annotations_by_name.get(name)
-            tool_type = getattr(annotations, "settaToolType", None)
-            if tool_type in (SettaToolType.init, SettaToolType.init.value):
-                filtered.append(name)
-                continue
-            access_type = (
-                "structural" if annotations is None else annotations.accessType
-            )
-            if access_type == "structural" and not has_structural:
-                continue
-            if access_type == "read" and not has_read:
-                continue
-            if access_type == "write" and not has_write:
-                continue
-            filtered.append(name)
-        return filtered
 
     def _resolve_allowed_server_ids(
         self, allowlist: ToolAllowlist | None, server_ids: set[str]
@@ -1978,7 +1334,6 @@ class AgentRunner:
                         action.chat_id,
                         action.chunk,
                         section_id=context.section_id,
-                        project_config_id=context.project_config_id,
                     )
                 continue
             if isinstance(action, UpdateAIFollowAction):

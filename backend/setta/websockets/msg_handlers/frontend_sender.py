@@ -261,7 +261,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         chunk: LLMStreamingResponseChunk,
         *,
         section_id: ID | None = None,
-        project_config_id: ID | None = None,
         share_session_id: str | None = None,
     ):
         await self._broadcast_frontend(
@@ -270,7 +269,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     chatId=chatId,
                     chunk=chunk,
                     sectionId=section_id,
-                    projectConfigId=project_config_id,
                 )
             ),
             share_session_id,

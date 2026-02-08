@@ -25,7 +25,7 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.utils.constants import C
-from setta.utils.utils import normalize_path
+from setta.utils.paths import normalize_workspace_path
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
@@ -259,7 +259,7 @@ def _build_readable_section_export(
         if section_impl.codeFileBinding is not None:
             files["code"] = str(section_impl.codeFileBinding.canonical_path)
     if isinstance(section_impl, BaseDictSectionImpl) and section_impl.isJsonSource:
-        files["jsonSource"] = str(normalize_path(variant.name))
+        files["jsonSource"] = str(normalize_workspace_path(variant.name))
     if isinstance(section_impl, ImageSectionImpl) and section_impl.imagePath:
         files["image"] = section_impl.imagePath
     if isinstance(section_impl, ChartSectionImpl) and section_impl.dataPath:

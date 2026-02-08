@@ -43,7 +43,10 @@ export function resolvePathWithinRoot(
   input: string,
   rootPath: string,
 ): string | null {
-  let normalizedRoot = normalizeBrowserPath(rootPath).replace(/\/+$/, "");
+  let normalizedRoot = normalizeBrowserPath(rootPath).trim();
+  if (normalizedRoot !== "/") {
+    normalizedRoot = normalizedRoot.replace(/\/+$/, "");
+  }
   if (!normalizedRoot) {
     return null;
   }
@@ -59,10 +62,14 @@ export function resolvePathWithinRoot(
       normalizedInput = `/private${normalizedInput}`;
     }
   }
+  normalizedRoot = normalizeSegments(normalizedRoot);
   const combined = isAbsoluteBrowserPath(input)
     ? normalizedInput
     : `${normalizedRoot}/${normalizedInput}`;
   const normalizedCombined = normalizeSegments(combined);
+  if (normalizedRoot === "/") {
+    return normalizedCombined.startsWith("/") ? normalizedCombined : null;
+  }
   if (!normalizedCombined.startsWith(normalizedRoot)) {
     return null;
   }
