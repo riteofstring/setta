@@ -14,6 +14,7 @@ import type { GitGraphRow } from "utils/gitGraph";
 
 const ROW_HEIGHT = 28;
 const GRAPH_CELL_WIDTH = 120;
+const LANE_WIDTH = 12;
 const MAX_ROW_DECORATIONS = 3;
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -166,6 +167,16 @@ export function GitGraphOverlay() {
     : null;
 
   const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
+  const graphViewBoxWidth = useMemo(() => {
+    // Keep the SVG viewBox width consistent across rows so lane x positions
+    // don't rescale row-to-row as the lane count changes (which causes
+    // "disconnected" looking lines at row boundaries).
+    const maxLaneCount = rows.reduce(
+      (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
+      1,
+    );
+    return Math.max(GRAPH_CELL_WIDTH, maxLaneCount * LANE_WIDTH);
+  }, [rows]);
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border border-setta-200 bg-white shadow-sm dark:border-setta-800 dark:bg-setta-950">
@@ -244,6 +255,7 @@ export function GitGraphOverlay() {
                   rows: filteredRows,
                   selectedHash: graphState.selectedCommitHash,
                   palette,
+                  graphViewBoxWidth,
                 }}
                 style={{ height: listSize.height, width: listSize.width }}
               />
@@ -331,6 +343,7 @@ type GitCommitRowProps = {
   rows: GitGraphRow[];
   selectedHash: string | null;
   palette: string[];
+  graphViewBoxWidth: number;
 };
 
 function GitCommitRow({
@@ -339,6 +352,7 @@ function GitCommitRow({
   rows,
   selectedHash,
   palette,
+  graphViewBoxWidth,
 }: GitCommitRowProps) {
   const row = rows[index];
   if (!row) {
@@ -348,8 +362,12 @@ function GitCommitRow({
   const isSelected = commit.hash === selectedHash;
   const date = DATE_FORMATTER.format(new Date(commit.authorTimeMs));
   const shortHash = commit.hash.slice(0, 8);
-  const laneCount = row.laneColorIds.length;
-  const commitColorId = row.laneColorIds[row.laneIndex] ?? 0;
+  const laneCount = row.laneColorIds.reduce(
+    (count, colorId) => (colorId >= 0 ? count + 1 : count),
+    0,
+  );
+  const rawCommitColorId = row.laneColorIds[row.laneIndex] ?? 0;
+  const commitColorId = rawCommitColorId < 0 ? 0 : rawCommitColorId;
   const commitColor = palette[commitColorId % palette.length]!;
 
   const allChips = commit.decorations
@@ -382,6 +400,7 @@ function GitCommitRow({
           joinFromLaneIndices={row.joinFromLaneIndices}
           mergeToLaneIndices={row.mergeToLaneIndices}
           palette={palette}
+          viewBoxWidth={graphViewBoxWidth}
         />
       </div>
       <div className="min-w-0">
@@ -496,6 +515,7 @@ function GitGraphCell({
   joinFromLaneIndices,
   mergeToLaneIndices,
   palette,
+  viewBoxWidth,
 }: {
   laneIndex: number;
   laneColorIds: number[];
@@ -504,17 +524,18 @@ function GitGraphCell({
   joinFromLaneIndices: number[];
   mergeToLaneIndices: number[];
   palette: string[];
+  viewBoxWidth: number;
 }) {
-  const laneWidth = 12;
   const height = ROW_HEIGHT;
-  const width = Math.max(GRAPH_CELL_WIDTH, laneColorIds.length * laneWidth);
+  const width = Math.max(GRAPH_CELL_WIDTH, viewBoxWidth);
   const centerY = height / 2;
   // Keep strokes fully opaque so curves don't blend with underlying lanes and
   // appear to change color when crossing other branches.
   const strokeOpacity = 1;
-  const xForLane = (idx: number) => idx * laneWidth + laneWidth / 2;
+  const xForLane = (idx: number) => idx * LANE_WIDTH + LANE_WIDTH / 2;
 
-  const commitColorId = laneColorIds[laneIndex] ?? 0;
+  const rawCommitColorId = laneColorIds[laneIndex] ?? 0;
+  const commitColorId = rawCommitColorId < 0 ? 0 : rawCommitColorId;
   const commitColor = palette[commitColorId % palette.length]!;
 
   return (
@@ -526,6 +547,9 @@ function GitGraphCell({
       aria-hidden="true"
     >
       {laneColorIds.map((colorId, idx) => {
+        if (colorId < 0) {
+          return null;
+        }
         let y1 = laneStartIndices.includes(idx) ? centerY : 0;
         let y2 = laneEndIndices.includes(idx) ? centerY : height;
         // Join curves occupy the top half of the row for the source lane;
@@ -562,7 +586,8 @@ function GitGraphCell({
       {joinFromLaneIndices.map((fromIdx) => {
         const x1 = xForLane(fromIdx);
         const x2 = xForLane(laneIndex);
-        const fromColorId = laneColorIds[fromIdx] ?? commitColorId;
+        const fromColorIdRaw = laneColorIds[fromIdx] ?? commitColorId;
+        const fromColorId = fromColorIdRaw < 0 ? commitColorId : fromColorIdRaw;
         const fromColor = palette[fromColorId % palette.length]!;
         return (
           <path
@@ -580,7 +605,8 @@ function GitGraphCell({
       {mergeToLaneIndices.map((toIdx) => {
         const x1 = xForLane(laneIndex);
         const x2 = xForLane(toIdx);
-        const toColorId = laneColorIds[toIdx] ?? commitColorId;
+        const toColorIdRaw = laneColorIds[toIdx] ?? commitColorId;
+        const toColorId = toColorIdRaw < 0 ? commitColorId : toColorIdRaw;
         const toColor = palette[toColorId % palette.length]!;
         return (
           <path

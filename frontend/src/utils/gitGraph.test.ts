@@ -70,4 +70,30 @@ describe("computeGitGraphRows", () => {
     expect(bRow!.joinFromLaneIndices).toEqual([1]);
     expect(bRow!.laneEndIndices).toEqual([1]);
   });
+
+  it("keeps stable lane indices when lanes converge (no shifting of later lanes)", () => {
+    const commits = [
+      commit("graph-test C2", ["graph-test B"]),
+      commit("graph-test C1", ["graph-test B"]),
+      commit("graph-test D1", ["graph-test A"]),
+      commit("graph-test B", ["graph-test A"]),
+      commit("graph-test A", []),
+    ];
+    const rows = computeGitGraphRows(commits);
+    expect(rows).toHaveLength(5);
+
+    const bRow = rows.find((r) => r.commit.subject === "graph-test B");
+    expect(bRow).not.toBeNull();
+    expect(bRow!.laneColorIds.length).toBe(3);
+    const rightmostColorId = bRow!.laneColorIds[2]!;
+    expect(rightmostColorId).toBeGreaterThanOrEqual(0);
+
+    const aRow = rows.find((r) => r.commit.subject === "graph-test A");
+    expect(aRow).not.toBeNull();
+    // The middle lane (C1/C2) should end at B; the rightmost lane (D1->A)
+    // should not shift left when that middle lane is removed.
+    expect(aRow!.laneColorIds.length).toBe(3);
+    expect(aRow!.laneColorIds[1]).toBe(-1);
+    expect(aRow!.laneColorIds[2]).toBe(rightmostColorId);
+  });
 });

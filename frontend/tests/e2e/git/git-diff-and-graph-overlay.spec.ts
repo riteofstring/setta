@@ -4,8 +4,16 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { ensureAppReady, seedLocalStorage } from "../helpers";
 
-function runGit(cwd: string, args: string[]): string {
-  return execFileSync("git", args, { cwd, encoding: "utf8" });
+function runGit(
+  cwd: string,
+  args: string[],
+  envOverride?: Record<string, string>,
+): string {
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    env: envOverride ? { ...process.env, ...envOverride } : process.env,
+  });
 }
 
 async function pathExists(target: string): Promise<boolean> {
@@ -130,6 +138,177 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.rm(untrackedPath, { force: true });
     await fs.rm(trackedPath, { force: true });
     await fs.rm(gitIgnorePath, { force: true });
+    if (createdRepo) {
+      await fs.rm(gitDir, { recursive: true, force: true });
+    }
+  }
+});
+
+test("git graph keeps lanes aligned across join boundaries", async ({ page }) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
+
+  const gitDir = path.join(workspaceRoot, ".git");
+  const mainPath = path.join(workspaceRoot, "graph-test-main.txt");
+  const sidePath = path.join(workspaceRoot, "graph-test-side.txt");
+  const commitEnv = (isoTime: string): Record<string, string> => ({
+    GIT_AUTHOR_DATE: isoTime,
+    GIT_COMMITTER_DATE: isoTime,
+  });
+
+  const createdRepo = !(await pathExists(gitDir));
+  try {
+    if (createdRepo) {
+      runGit(workspaceRoot, ["init"]);
+      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
+      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
+    }
+
+    // Root commit: graph-test A
+    await fs.writeFile(mainPath, "A\n", "utf8");
+    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-test A"],
+      commitEnv("2000-01-01T00:00:00Z"),
+    );
+    const defaultBranch = runGit(workspaceRoot, [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD",
+    ]).trim();
+
+    // Side branch from A (will be merged later).
+    runGit(workspaceRoot, ["checkout", "-b", "graph-test-side"]);
+    await fs.writeFile(sidePath, "D\n", "utf8");
+    runGit(workspaceRoot, ["add", "graph-test-side.txt"]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-test D"],
+      commitEnv("2000-01-01T00:02:00Z"),
+    );
+
+    // Mainline commit: A -> B
+    runGit(workspaceRoot, ["checkout", defaultBranch]);
+    await fs.writeFile(mainPath, "B\n", "utf8");
+    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-test B"],
+      commitEnv("2000-01-01T00:01:00Z"),
+    );
+
+    // Branch1 from B (newest head, to force traversal order: C1 first).
+    runGit(workspaceRoot, ["checkout", "-b", "graph-test-branch1"]);
+    await fs.writeFile(mainPath, "C1\n", "utf8");
+    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-test C1"],
+      commitEnv("2000-01-01T00:05:00Z"),
+    );
+
+    runGit(workspaceRoot, ["checkout", defaultBranch]);
+    // Branch2 from B: C2 then merge side branch: M
+    runGit(workspaceRoot, ["checkout", "-b", "graph-test-branch2"]);
+    await fs.writeFile(mainPath, "C2\n", "utf8");
+    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(
+      workspaceRoot,
+      ["commit", "-m", "graph-test C2"],
+      commitEnv("2000-01-01T00:03:00Z"),
+    );
+    runGit(workspaceRoot, ["merge", "--no-ff", "graph-test-side", "-m", "graph-test M"]);
+    runGit(
+      workspaceRoot,
+      ["commit", "--amend", "--no-edit"],
+      commitEnv("2000-01-01T00:04:00Z"),
+    );
+
+    await seedLocalStorage(page, { overviewTab: "Git", overviewVis: true });
+    await ensureAppReady(page);
+
+    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+
+    await expect(
+      graphOverlay.getByRole("button", { name: /graph-test D/ }),
+    ).toBeVisible();
+    await expect(
+      graphOverlay.getByRole("button", { name: /graph-test B/ }),
+    ).toBeVisible();
+    await expect(
+      graphOverlay.getByRole("button", { name: /graph-test A/ }),
+    ).toBeVisible();
+
+    const bRow = graphOverlay.getByRole("button", { name: /graph-test B/ });
+    const dRow = graphOverlay.getByRole("button", { name: /graph-test D/ });
+    const aRow = graphOverlay.getByRole("button", { name: /graph-test A/ });
+
+    // Lane-shift regression guard:
+    // Compare the x coordinate of the rightmost vertical lane segment at B
+    // with the x coordinate of the join curve at A. If lanes shift left when
+    // a middle lane is removed, these won't match and the graph will look
+    // "disconnected" at the row boundary.
+    const dLaneColor = await dRow.locator("svg circle").evaluate((circle) => {
+      return circle.getAttribute("fill");
+    });
+    expect(dLaneColor).not.toBeNull();
+
+    const bLaneX = await bRow.locator("svg").evaluate((svg, laneColor) => {
+      const lines = Array.from(svg.querySelectorAll("line"));
+      for (const line of lines) {
+        if (line.getAttribute("stroke") !== laneColor) {
+          continue;
+        }
+        const raw = line.getAttribute("x1");
+        if (!raw) {
+          continue;
+        }
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
+      }
+      return null;
+    }, dLaneColor);
+    expect(bLaneX).not.toBeNull();
+
+    const aJoinStartX = await aRow.locator("svg").evaluate((svg, laneColor) => {
+      const paths = Array.from(svg.querySelectorAll("path"));
+      for (const path of paths) {
+        if (path.getAttribute("stroke") !== laneColor) {
+          continue;
+        }
+        const d = path.getAttribute("d") ?? "";
+        const match = d.match(/M\s*([-\d.]+)[ ,]+([-\d.]+)\s*Q/);
+        if (!match) {
+          continue;
+        }
+        const x = Number(match[1]);
+        const y = Number(match[2]);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          continue;
+        }
+        if (Math.abs(y) > 1e-6) {
+          continue;
+        }
+        return x;
+      }
+      return null;
+    }, dLaneColor);
+    expect(aJoinStartX).not.toBeNull();
+    expect(aJoinStartX).toBe(bLaneX);
+
+    await page.keyboard.press("Escape");
+    await expect(graphFilter).toHaveCount(0);
+  } finally {
+    await fs.rm(mainPath, { force: true });
+    await fs.rm(sidePath, { force: true });
     if (createdRepo) {
       await fs.rm(gitDir, { recursive: true, force: true });
     }
