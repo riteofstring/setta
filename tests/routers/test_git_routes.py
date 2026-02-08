@@ -71,7 +71,7 @@ class TestGitRoutes:
         self._stack.enter_context(
             temporary_setta_paths(
                 workspace_root=root,
-                setta_files_root=root / "setta_files",
+                setta_files_location="local",
             )
         )
         for path in (
