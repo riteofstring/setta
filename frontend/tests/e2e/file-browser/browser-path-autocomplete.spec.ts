@@ -101,7 +101,7 @@ test("browser path input autocompletes folders", async ({ page }) => {
     });
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(`${parentDir}${path.sep}a`);
+    await page.keyboard.insertText(`${parentDir}${path.sep}a`);
     await page.keyboard.press("Control+Space");
     await completionResponsePromise;
 

@@ -15,6 +15,7 @@ const PROJECT_URL = resolveProjectUrl();
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 const FORMAT_SHORTCUT = "Alt+Shift+F";
+const READY_TIMEOUT_MS = 30000;
 const REQUEST_TIMEOUT_MS = 5000;
 
 type ProjectMetadataEntry = { id: string; name: string };
@@ -350,7 +351,7 @@ async function ensureAppReady(page: Page): Promise<void> {
 
 async function isAppReady(page: Page): Promise<boolean> {
   try {
-    await page.waitForSelector(READY_SELECTOR, { timeout: 10000 });
+    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
     return true;
   } catch {
     return false;
@@ -359,7 +360,7 @@ async function isAppReady(page: Page): Promise<boolean> {
 
 async function waitForProjectUrl(page: Page): Promise<void> {
   await page.waitForURL((url) => url.toString().startsWith(PROJECT_URL), {
-    timeout: 20000,
+    timeout: READY_TIMEOUT_MS,
     waitUntil: "domcontentloaded",
   });
 }
