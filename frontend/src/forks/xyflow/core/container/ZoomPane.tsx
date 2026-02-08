@@ -6,10 +6,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { useEffect, useRef, type ReactNode, type RefObject } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useAIFollow, useMisc, useSettings } from "state/definitions";
-import {
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { clamp, isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";

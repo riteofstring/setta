@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
-const AUTH_COOKIE_NAME = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
+const AUTH_COOKIE_PREFIX = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
@@ -435,7 +435,15 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (paneRect.width <= 0 || paneRect.height <= 0) {
         return null;
       }
-      const gutter = 16;
+      const overviewPane = document.getElementById("OverviewPane");
+      const overviewDomWidth = overviewPane
+        ? overviewPane.getBoundingClientRect().width
+        : 0;
+      const { useLocalStorage } = await import("/src/state/definitions");
+      const storedOverviewWidth = useLocalStorage.getState().overviewTrueWidth;
+      const overviewWidth = Number.isFinite(storedOverviewWidth)
+        ? storedOverviewWidth
+        : overviewDomWidth;
       const transform = window.getComputedStyle(viewport).transform;
       if (!transform || transform === "none") {
         return null;
@@ -445,64 +453,13 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;
       }
-      const overviewPane = document.getElementById("OverviewPane");
-      const uiEditorPane = document.getElementById("UiEditorPane");
-
-      // These panes use `display: contents`, so the actual hit-testing overlays are the
-      // sidebars (`aside.single-cell-container`) and the icon rails (`div.absolute`).
-      const leftOverlays: HTMLElement[] = [];
-      const rightOverlays: HTMLElement[] = [];
-
-      const overviewAside = overviewPane?.querySelector(
-        "aside.single-cell-container",
-      );
-      if (overviewAside instanceof HTMLElement) {
-        leftOverlays.push(overviewAside);
-      }
-      const overviewRail = overviewPane?.querySelector("div.absolute.left-0");
-      if (overviewRail instanceof HTMLElement) {
-        leftOverlays.push(overviewRail);
-      }
-
-      const uiEditorAside = uiEditorPane?.querySelector(
-        "aside.single-cell-container",
-      );
-      if (uiEditorAside instanceof HTMLElement) {
-        rightOverlays.push(uiEditorAside);
-      }
-      const uiEditorRail = uiEditorPane?.querySelector("div.absolute.right-0");
-      if (uiEditorRail instanceof HTMLElement) {
-        rightOverlays.push(uiEditorRail);
-      }
-
-      let leftPx = gutter;
-      for (const overlay of leftOverlays) {
-        const rect = overlay.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          continue;
-        }
-        leftPx = Math.max(leftPx, rect.right - paneRect.left + gutter);
-      }
-
-      let rightPx = paneRect.width - gutter;
-      for (const overlay of rightOverlays) {
-        const rect = overlay.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          continue;
-        }
-        rightPx = Math.min(rightPx, rect.left - paneRect.left - gutter);
-      }
-
-      const topPx = gutter;
-      const bottomPx = paneRect.height - gutter;
-
-      const x = (-matrix.e + leftPx) / scale;
-      const y = (-matrix.f + topPx) / scale;
+      const x = (-matrix.e + overviewWidth) / scale;
+      const y = -matrix.f / scale;
       return {
         x,
         y,
-        w: Math.max(1, (rightPx - leftPx) / scale),
-        h: Math.max(1, (bottomPx - topPx) / scale),
+        w: paneRect.width / scale,
+        h: paneRect.height / scale,
       };
     });
     if (bounds) {
@@ -642,5 +599,9 @@ async function waitForProjectUrl(page: Page): Promise<void> {
 
 async function hasAuthCookie(page: Page): Promise<boolean> {
   const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
-  return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
+  return cookies.some(
+    (cookie) =>
+      cookie.name === AUTH_COOKIE_PREFIX ||
+      cookie.name.startsWith(`${AUTH_COOKIE_PREFIX}_`),
+  );
 }

@@ -42,6 +42,7 @@ from setta.agentic.store import (
     save_agent_run,
 )
 from setta.agentic.system_prompt import build_agent_system_prompt
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
@@ -86,7 +87,8 @@ from setta.utils.chat_attachments import (
     build_attachments_prompt_text_pair,
     collect_message_attachments,
 )
-from setta.utils.constants import CWD, C
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -504,8 +506,9 @@ class ExternalAgentRunner:
             base_root = self.dbe.path
             artifacts_root = self.dbe.path / "artifacts"
         else:
-            base_root = CWD
-            artifacts_root = CWD / C.ARTIFACTS_FOLDER
+            paths = get_setta_paths()
+            base_root = paths.setta_files_root
+            artifacts_root = paths.artifacts_root
         attachment_text = ""
         attachment_text_no_images = ""
         if include_text or include_text_no_images:
@@ -851,7 +854,7 @@ class ExternalAgentRunner:
                 mcp_url=mcp_url,
                 auth_headers=auth_headers,
                 system_prompt=codex_prompt,
-                project_root=working_dir or CWD,
+                project_root=working_dir or get_setta_paths().workspace_root,
             )
             env["CODEX_HOME"] = str(codex_home)
 
@@ -902,7 +905,7 @@ class ExternalAgentRunner:
             return None
         session_metadata, secret = session_info
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
+        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
 
     @staticmethod
     def _build_claude_allowed_tools(
@@ -929,7 +932,7 @@ class ExternalAgentRunner:
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
         strategy = config.workingDirStrategy
         if strategy == ExternalAgentWorkingDirStrategy.project_root:
-            return CWD
+            return get_setta_paths().workspace_root
         if strategy == ExternalAgentWorkingDirStrategy.temp_dir:
             return Path(tempfile.mkdtemp(prefix="setta-external-agent-"))
         if strategy == ExternalAgentWorkingDirStrategy.custom:
@@ -940,7 +943,7 @@ class ExternalAgentRunner:
             path = Path(config.workingDir)
             path.mkdir(parents=True, exist_ok=True)
             return path
-        return CWD
+        return get_setta_paths().workspace_root
 
     def _build_env(self, config: ExternalAgentConfig) -> dict[str, str]:
         env: dict[str, str] = {}

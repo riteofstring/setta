@@ -42,13 +42,13 @@ def test_start_run_persists_status_and_logs(run_env) -> None:
     assert status.exitCode == 0
     assert status.tags["kind"] == "test"
 
-    run_dir = run_env.root / "runtime" / "detached_runs" / response.runId
+    run_dir = run_env.root / "detached_runs" / response.runId
     assert (run_dir / "meta.json").exists()
     assert (run_dir / "stdout.log").exists()
 
 
 def test_start_run_invalid_command_marks_failed(run_env) -> None:
-    runs_root = run_env.root / "runtime" / "detached_runs"
+    runs_root = run_env.root / "detached_runs"
     before = {path.name for path in runs_root.iterdir()}
     snapshot_path = run_env.root / "snapshots" / "run"
     spec = DetachedRunSpec(

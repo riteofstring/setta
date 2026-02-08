@@ -74,6 +74,22 @@ def test_bootstrap_page_trailing_slash_redirects(bootstrap_client) -> None:
     assert location.endswith("/__setta__/bootstrap")
 
 
+def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
+    bootstrap_client,
+) -> None:
+    client, _, _ = bootstrap_client
+    response = client.get("/__setta__/bootstrap")
+    response.raise_for_status()
+    html = response.text
+
+    assert 'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";' in html
+    assert "localStorage.setItem(workspaceHistoryHandoffKey, encoded);" in html
+
+    assert 'const launcherOriginKey = "setta.launcherOrigin";' in html
+    assert 'params.get("lo")' in html
+    assert 'url.protocol === "http:" || url.protocol === "https:"' in html
+
+
 def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:
     client, _, _ = bootstrap_client
     response = client.post("/__setta__/tools/call")

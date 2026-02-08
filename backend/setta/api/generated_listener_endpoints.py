@@ -79,7 +79,6 @@ from setta.types.project_config import (
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    BrowserSavedSearch,
     ChatSectionState,
     SectionSize,
     SectionType,
@@ -518,13 +517,6 @@ class ListenerSetBrowserHideColumnRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     hideColumn: bool
-
-
-class ListenerSetBrowserSavedSearchesRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    savedSearches: list[BrowserSavedSearch]
 
 
 class ListenerSetCallableHideParamsRequestPayload(TypedDict):
@@ -1276,11 +1268,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetBrowserHideColumnRequestPayload
     ) -> None:
         return await self._caller("route_set_browser_hide_column", payload)
-
-    async def set_browser_saved_searches(
-        self, payload: ListenerSetBrowserSavedSearchesRequestPayload
-    ) -> None:
-        return await self._caller("route_set_browser_saved_searches", payload)
 
     async def set_callable(
         self, payload: ListenerSetCallableRequestPayload
