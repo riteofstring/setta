@@ -12,12 +12,12 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
-  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
@@ -149,94 +149,35 @@ export const useProjectState = withProjectState(
   ),
 );
 
-type AppDefinitionState = {
-  appDefinition: AppDefinition | null;
-  appSpec: unknown | null;
-};
-
-export const useAppDefinition = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppDefinitionState>(() => ({
-      appDefinition: null,
-      appSpec: null,
-    })),
-  ),
-);
-
-type AppConfigState = ZustandProjectState;
-
-type AppConfigsState = {
-  configs: Record<string, AppConfigState>;
-};
-
-export const useAppConfigs = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppConfigsState>(() => ({
-      configs: {},
-    })),
-  ),
-);
-
 type ShareSessionState = {
-  isDeploymentMode: boolean;
+  isShareMode: boolean;
   shareSessionId: string | null;
-  sessionRunCount: number;
   sharePolicy: SharePolicy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
-  deploymentMode: "share" | "app" | null;
 };
 
 export const useShareSession = withProjectState(
   createWithEqualityFn(
     withResetFn<ShareSessionState>(() => ({
-      isDeploymentMode: false,
+      isShareMode: false,
       shareSessionId: null,
-      sessionRunCount: 0,
       sharePolicy: null,
       shareDeploymentName: null,
       shareDeploymentVersion: null,
-      deploymentMode: null,
     })),
   ),
 );
 
 type ServerModeState = {
-  mode: "ide" | "share" | "app" | null;
+  isShareServer: boolean;
   modeResolved: boolean;
-  modeError: string | null;
 };
 
 export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  mode: null,
+  isShareServer: false,
   modeResolved: false,
-  modeError: null,
 }));
-
-type AppPreviewState = {
-  isPreviewEnabled: boolean;
-  previewConfigId: string | null;
-  // Draft-only overrides used for live preview while editing App Config.
-  // `undefined` means "no override"; `null` means "explicitly cleared".
-  previewSpecOverride?: unknown | null;
-  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
-  aiPreviewSpecOverride?: unknown | null;
-  previewThemeOverride?: unknown | null;
-  previewAssetsOverride?: unknown[] | null;
-};
-
-export const useAppPreview = withProjectState(
-  createWithEqualityFn(
-    withResetFn<AppPreviewState>(() => ({
-      isPreviewEnabled: false,
-      previewConfigId: null,
-      previewSpecOverride: undefined,
-      aiPreviewSpecOverride: undefined,
-      previewThemeOverride: undefined,
-      previewAssetsOverride: undefined,
-    })),
-  ),
-);
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -355,6 +296,8 @@ type FileBrowserState = {
   selectedPath: string | null;
   expandedPaths: Record<string, boolean>;
   filterText: string;
+  pathSeparator: string;
+  ignorePatterns: string[];
 };
 
 export const useFileBrowserState = createWithEqualityFn(
@@ -363,6 +306,8 @@ export const useFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
   })),
 );
 
@@ -372,6 +317,8 @@ export const useBrowserSectionFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
   })),
 );
 
@@ -381,6 +328,8 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
     selectedPath: null,
     expandedPaths: {},
     filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
   })),
 );
 
@@ -630,6 +579,14 @@ export type ChatDetails = {
   llmConfig: LLMConfig | null;
 };
 
+export type ChatBranchInfo = {
+  chatId: string;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  branchRootChatId: string | null;
+  branchCreatedAt: number | null;
+};
+
 type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysInitialLoadComplete: boolean;
@@ -664,7 +621,6 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
-  pendingProjectChatPrompt: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -706,7 +662,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
-        pendingProjectChatPrompt: null,
       }),
       {
         name: "setta_ai_data",
@@ -732,6 +687,10 @@ type AIFollowState = {
   >;
   selectedChatIdsByProjectConfigId: Record<string, Array<string>>;
   selectedSectionIdsByProjectConfigId: Record<string, Array<string>>;
+  scopeViolationEdgesByProjectConfigId: Record<
+    string,
+    Array<AgenticScopeViolationEdge>
+  >;
 };
 
 export const useAIFollow = withProjectState(
@@ -744,6 +703,29 @@ export const useAIFollow = withProjectState(
         toolResultIdsByProjectConfigId: {},
         selectedChatIdsByProjectConfigId: {},
         selectedSectionIdsByProjectConfigId: {},
+        scopeViolationEdgesByProjectConfigId: {},
+      })),
+    ),
+  ),
+);
+
+export type AgenticScopeViolationEdge = {
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKindEnum;
+};
+
+type AgenticScopeHighlightsState = {
+  readSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
+  writeSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
+};
+
+export const useAgenticScopeHighlights = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AgenticScopeHighlightsState>(() => ({
+        readSectionIdsByProjectConfigId: {},
+        writeSectionIdsByProjectConfigId: {},
       })),
     ),
   ),
@@ -785,7 +767,6 @@ type ZustandLocalStorage = {
   colorMode: ColorModePreference;
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
-  appSpecStreamingEnabled: boolean;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -808,7 +789,6 @@ export const useLocalStorage = createWithEqualityFn(
       colorMode: "dark",
       showMinimap: true,
       projectConfigPreviewEnabled: true,
-      appSpecStreamingEnabled: false,
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,

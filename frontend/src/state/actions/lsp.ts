@@ -36,7 +36,7 @@ export function textFieldIdForLSPWaiting({ sectionId, paramInfoId }) {
 }
 
 export function restartLanguageServer() {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   addTemporaryNotification("Restarting Language Server");

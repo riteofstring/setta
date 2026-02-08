@@ -151,7 +151,7 @@ function mergeUnmappedGenCode(
 }
 
 export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   const projectConfigId = useProjectState.getState().projectConfig.id;
@@ -182,7 +182,7 @@ export function setCodeSectionDiagnosticsMuted(
   sectionId: string,
   mute: boolean,
 ) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   const projectConfigId = getCurrProjectConfigId();
@@ -198,7 +198,7 @@ export function setCodeSectionDiagnosticCodeSuppression(
   code: SettaLspDiagnostic["code"],
   suppress: boolean,
 ) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   if (code === null || code === undefined) {

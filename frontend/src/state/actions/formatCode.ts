@@ -116,7 +116,7 @@ function clearFormatterDiagnosticsForGenCode() {
 
 export async function formatActiveCodeSection(): Promise<void> {
   const shareSession = useShareSession.getState();
-  if (shareSession.isDeploymentMode) {
+  if (shareSession.isShareMode) {
     addTemporaryNotification("Formatting is disabled in share mode.");
     return;
   }

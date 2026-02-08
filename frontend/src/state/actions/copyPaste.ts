@@ -38,7 +38,7 @@ export async function copy() {
 }
 
 export async function paste({ asRef = false }) {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   let x: BaseClipboardDataUnionWithDiscriminator;
