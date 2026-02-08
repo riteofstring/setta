@@ -33,11 +33,10 @@ async def route_binary_upload(
 
 
 @router.get(Route.BINARY_DOWNLOAD)
-async def route_binary_download(
+def route_binary_download(
     contentId: str,
     ctx: RuntimeContextFromRequest,
 ):
-    await ctx.enforce_download_allowed()
     store = BinaryStore.from_dbe(ctx.state.dbe)
     store.cleanup_expired()
     try:

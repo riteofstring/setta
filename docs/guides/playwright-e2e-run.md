@@ -16,6 +16,7 @@ What this does:
 - Starts backend + frontend on free ports.
 - Mints a bootstrap token automatically.
 - Runs Playwright with the correct host platform override on Apple Silicon.
+- Captures backend/frontend logs into a per-run log directory (the script prints `LOG_DIR`). Override via `SETTA_E2E_LOG_DIR` to keep logs somewhere stable; look for `backend.log` and `frontend.log`.
 
 ## Common failure modes
 

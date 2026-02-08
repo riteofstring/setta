@@ -23,10 +23,10 @@ async def route_run_detached(
     ctx: RuntimeContextFromRequest,
 ) -> RunDetachedResponse:
     await ctx.enforce_run_allowed()
-    if ctx.state.deployment_mode:
+    if ctx.state.share_mode:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Detached runs are not supported in deployment mode.",
+            detail="Detached runs are not supported in share mode.",
         )
     manager = ctx.get_project_manager(x.projectConfigId)
     try:

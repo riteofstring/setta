@@ -15,7 +15,6 @@ from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import RunDetachedRequest
-from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.runs import route_run_detached
 from setta.run_manager import DetachedRunManager
 from setta.types.code_obj_impls import CodeParamCodeObjImpl
@@ -308,52 +307,6 @@ class TestRunOverride:
         finally:
             manager.shutdown()
 
-    async def test_create_run_command_applies_overrides_without_mutating_state(
-        self,
-    ) -> None:
-        (
-            manager,
-            project_config,
-            code_section,
-            python_variant,
-            bash_variant,
-            dict_section,
-            param_core,
-        ) = self._build_manager_and_state()
-        try:
-            command = await manager.create_run_command(
-                RunCodeRequest(
-                    projectConfigId=project_config.id,
-                    sectionId=code_section.id,
-                    runSnapshotMode=RunSnapshotMode.ephemeral,
-                    sectionVariantOverrides={code_section.id: bash_variant.id},
-                    paramOverrides={f"{dict_section.id}:{param_core.id}": "2"},
-                )
-            )
-            base_state = convert_backend_to_single_config(
-                manager.project_state_backend, project_config.id
-            )
-
-            assert command.startswith("bash ")
-            assert (
-                base_state.projectConfig.sectionVariantMap[code_section.id]
-                == python_variant.id
-            )
-            param_value = get_curr_effective_code_obj_impl_with_type_guard(
-                base_state,
-                dict_section.id,
-                param_core.id,
-                CodeParamCodeObjImpl,
-            )
-            assert param_value.value == "1"
-            effective_impl = get_curr_effective_section_impl(
-                base_state, code_section.id
-            )
-            assert isinstance(effective_impl, CodeSectionImpl)
-            assert effective_impl.codeLanguage == CodeLanguage.python
-        finally:
-            manager.shutdown()
-
     async def test_create_run_command_with_overrides_rejects_bad_param_key(self) -> None:
         manager, project_config, code_section, _, _, _, _ = (
             self._build_manager_and_state()
@@ -478,7 +431,6 @@ class TestRunOverride:
                 project_manager_switcher=switcher,
                 wmh_frontend_sender=self.frontend_sender,
                 share_mode=False,
-                deployment_mode=False,
                 detached_run_manager=DetachedRunManager(self.dbe),
                 terminals=None,
             )

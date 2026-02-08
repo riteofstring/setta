@@ -62,7 +62,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         "RUN_FOLDER": C.RUN_FOLDER,
         "RUN_SESSIONS_FOLDER": C.RUN_SESSIONS_FOLDER,
         "RUN_LOGS_FOLDER": C.RUN_LOGS_FOLDER,
-        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
+        "SHARE_DEPLOYMENTS_FOLDER": C.SHARE_DEPLOYMENTS_FOLDER,
     }
     C.SETTA_FILES_FOLDER = root / "setta_files"
     C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
@@ -71,7 +71,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
     C.RUN_FOLDER = C.SETTA_FILES_FOLDER / "run"
     C.RUN_SESSIONS_FOLDER = C.RUN_FOLDER / "sessions"
     C.RUN_LOGS_FOLDER = C.RUN_FOLDER / "logs"
-    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "deployments"
+    C.SHARE_DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "share_deployments"
     for path in (
         C.SETTA_FILES_FOLDER,
         C.CODE_FOLDER,
@@ -80,7 +80,7 @@ def _set_temp_constants(root: Path) -> dict[str, Path]:
         C.RUN_FOLDER,
         C.RUN_SESSIONS_FOLDER,
         C.RUN_LOGS_FOLDER,
-        C.DEPLOYMENTS_FOLDER,
+        C.SHARE_DEPLOYMENTS_FOLDER,
     ):
         path.mkdir(parents=True, exist_ok=True)
     return previous
@@ -94,7 +94,7 @@ def _restore_constants(previous: dict[str, Path]) -> None:
     C.RUN_FOLDER = previous["RUN_FOLDER"]
     C.RUN_SESSIONS_FOLDER = previous["RUN_SESSIONS_FOLDER"]
     C.RUN_LOGS_FOLDER = previous["RUN_LOGS_FOLDER"]
-    C.DEPLOYMENTS_FOLDER = previous["DEPLOYMENTS_FOLDER"]
+    C.SHARE_DEPLOYMENTS_FOLDER = previous["SHARE_DEPLOYMENTS_FOLDER"]
 
 
 class TypeCheckProjectManager(BaseProjectManager):

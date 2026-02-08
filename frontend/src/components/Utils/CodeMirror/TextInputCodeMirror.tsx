@@ -153,8 +153,8 @@ function CoreCodeMirror({
   tooltipParentDivId,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const canUseLsp = !isDeploymentMode;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const canUseLsp = !isShareMode;
   const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
   const resolvedTooltipParentDivId =
     resolveTooltipParentDivId(tooltipParentDivId);

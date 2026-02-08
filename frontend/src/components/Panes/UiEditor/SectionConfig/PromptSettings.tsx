@@ -31,8 +31,8 @@ export function PromptSettings({ sectionId }: PromptSettingsProps) {
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams } = useShareCapabilities();
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const canEdit = !isDeploymentMode || canEditParams;
+  const isShareMode = useShareSession((x) => x.isShareMode);
+  const canEdit = !isShareMode || canEditParams;
 
   const { template, format, inputs, isFrozen } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(

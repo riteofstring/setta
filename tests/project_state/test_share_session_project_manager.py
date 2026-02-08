@@ -28,7 +28,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
 )
-from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
+from setta.types.share_deployment import ShareDeploymentManifest
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -42,7 +42,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "deployments"
+        / "share_deployments"
         / project_config_name
         / deployment_version
     )
@@ -149,15 +149,13 @@ def _write_project_with_state(
     dbe = DBE(root)
     dbe.write_project(backend)
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -180,15 +178,13 @@ def _write_project_with_states(
     dbe.write_project(backend)
     default_config = backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
-    manifest = DeploymentManifest(
+    manifest = ShareDeploymentManifest(
         version=1,
         deploymentName=deployment_name,
-        deploymentType=DeploymentType.share,
         defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
-    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
