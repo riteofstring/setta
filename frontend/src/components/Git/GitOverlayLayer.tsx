@@ -5,6 +5,23 @@ import { closeGitOverlay } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
 
+export function isEditableEscapeTarget(target: EventTarget | null): boolean {
+  if (typeof HTMLElement === "undefined") {
+    return false;
+  }
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  if (target.isContentEditable) {
+    return true;
+  }
+  return (
+    target.closest(
+      "input, textarea, [contenteditable=''], [contenteditable='true']",
+    ) !== null
+  );
+}
+
 export function GitOverlayLayer() {
   const overlayKind = useGitStore((x) => x.overlay.kind);
   const { overviewWidth, uiEditorWidth } = useLocalStorage((x) => ({
@@ -20,13 +37,17 @@ export function GitOverlayLayer() {
       if (event.key !== "Escape") {
         return;
       }
-      event.preventDefault();
-      event.stopPropagation();
+      if (event.defaultPrevented) {
+        return;
+      }
+      if (isEditableEscapeTarget(event.target)) {
+        return;
+      }
       closeGitOverlay();
     };
-    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [overlayKind]);
 

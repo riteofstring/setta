@@ -7,7 +7,7 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import type { GitDiffMode } from "utils/generatedTypes";
+import type { GitDiffMode, GitStatusEntry } from "utils/generatedTypes";
 import {
   appendGitGraphRows,
   computeGitGraphRowsWithState,
@@ -21,6 +21,38 @@ let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
+
+export function buildGitDiffAvailabilityByPath(
+  entries: readonly GitStatusEntry[],
+): Record<string, { hasStaged: boolean; hasUnstaged: boolean }> {
+  const availabilityByPath: Record<
+    string,
+    { hasStaged: boolean; hasUnstaged: boolean }
+  > = {};
+  for (const entry of entries) {
+    const existing = availabilityByPath[entry.path];
+    if (existing) {
+      if (entry.kind === "staged") {
+        existing.hasStaged = true;
+      } else if (
+        entry.kind === "unstaged" ||
+        entry.kind === "untracked" ||
+        entry.kind === "conflict"
+      ) {
+        existing.hasUnstaged = true;
+      }
+      continue;
+    }
+    availabilityByPath[entry.path] = {
+      hasStaged: entry.kind === "staged",
+      hasUnstaged:
+        entry.kind === "unstaged" ||
+        entry.kind === "untracked" ||
+        entry.kind === "conflict",
+    };
+  }
+  return availabilityByPath;
+}
 
 function createInitialGitGraphOverlayState({
   allRefs,
@@ -65,9 +97,17 @@ export async function refreshGitStatus(): Promise<void> {
     return;
   }
   if (res200(res)) {
+    const diffAvailabilityByPath = buildGitDiffAvailabilityByPath(
+      res.data.entries,
+    );
     useGitStore.setState((state) => ({
       ...state,
-      status: { ...state.status, response: res.data, isLoading: false },
+      status: {
+        ...state.status,
+        response: res.data,
+        diffAvailabilityByPath,
+        isLoading: false,
+      },
     }));
     return;
   }
@@ -75,7 +115,6 @@ export async function refreshGitStatus(): Promise<void> {
     ...state,
     status: {
       ...state.status,
-      response: null,
       isLoading: false,
       error: getErrorDetail(res.data) ?? "Failed to load git status.",
     },
@@ -83,25 +122,12 @@ export async function refreshGitStatus(): Promise<void> {
 }
 
 function computeDiffAvailability(path: string) {
-  const status = useGitStore.getState().status.response;
-  const entries = status?.entries ?? [];
-  let hasStaged = false;
-  let hasUnstaged = false;
-  for (const entry of entries) {
-    if (entry.path !== path) {
-      continue;
-    }
-    if (entry.kind === "staged") {
-      hasStaged = true;
-    } else if (
-      entry.kind === "unstaged" ||
-      entry.kind === "untracked" ||
-      entry.kind === "conflict"
-    ) {
-      hasUnstaged = true;
-    }
+  const availability =
+    useGitStore.getState().status.diffAvailabilityByPath[path];
+  if (!availability) {
+    return { hasStaged: false, hasUnstaged: false };
   }
-  return { hasStaged, hasUnstaged };
+  return availability;
 }
 
 async function refreshGitDiff({
@@ -287,10 +313,13 @@ async function refreshGitGraph({
         ...state,
         overlay: {
           kind: "graph",
-          graph: createInitialGitGraphOverlayState({
-            allRefs,
-            filterText: state.overlay.graph.filterText,
-          }),
+          graph: {
+            ...state.overlay.graph,
+            isLoading: true,
+            isLoadingMore: false,
+            error: null,
+            loadMoreError: null,
+          },
         },
       };
     });
@@ -319,6 +348,7 @@ async function refreshGitGraph({
           kind: "graph",
           graph: {
             ...state.overlay.graph,
+            allRefs,
             response: responseData,
             rows,
             rowComputationState,
@@ -346,16 +376,10 @@ async function refreshGitGraph({
         kind: "graph",
         graph: {
           ...state.overlay.graph,
-          response: null,
-          rows: [],
-          rowComputationState: createEmptyGitGraphRowComputationState(),
           isLoading: false,
           error: getErrorDetail(res.data) ?? "Failed to load git log.",
           isLoadingMore: false,
           loadMoreError: null,
-          hasMore: false,
-          nextOffset: null,
-          isCapped: false,
         },
       },
     };

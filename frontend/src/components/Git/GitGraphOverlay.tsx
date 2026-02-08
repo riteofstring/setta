@@ -23,6 +23,13 @@ import type {
   GitCommitChangedFile,
 } from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
+import {
+  DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_SPLIT_PCT,
+} from "utils/gitGraphLayoutDefaults";
 
 const ROW_HEIGHT = 28;
 const MAX_ROW_DECORATIONS = 3;
@@ -31,8 +38,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: "2-digit",
   year: "numeric",
 });
-
-const DEFAULT_GIT_GRAPH_SPLIT_PCT = 56;
 
 const COMMIT_GRID_HORIZONTAL_PADDING_PX = 24; // px-3 on both sides
 const COMMIT_GRID_GAP_PX = 8; // gap-2
@@ -64,7 +69,7 @@ const CSS_VAR_GIT_GRAPH_COL_AUTHOR = "--git-graph-col-author";
 const CSS_VAR_GIT_GRAPH_COL_DATE = "--git-graph-col-date";
 const CSS_VAR_GIT_GRAPH_COL_HASH = "--git-graph-col-hash";
 
-const COMMIT_GRID_TEMPLATE_COLUMNS = `var(${CSS_VAR_GIT_GRAPH_COL_GRAPH}, 120px) minmax(${MESSAGE_COL_MIN_WIDTH_PX}px, 1fr) var(${CSS_VAR_GIT_GRAPH_COL_AUTHOR}, 120px) var(${CSS_VAR_GIT_GRAPH_COL_DATE}, 110px) var(${CSS_VAR_GIT_GRAPH_COL_HASH}, 84px)`;
+const COMMIT_GRID_TEMPLATE_COLUMNS = `var(${CSS_VAR_GIT_GRAPH_COL_GRAPH}, ${DEFAULT_GIT_GRAPH_COL_WIDTH_PX}px) minmax(${MESSAGE_COL_MIN_WIDTH_PX}px, 1fr) var(${CSS_VAR_GIT_GRAPH_COL_AUTHOR}, ${DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX}px) var(${CSS_VAR_GIT_GRAPH_COL_DATE}, ${DEFAULT_GIT_GRAPH_DATE_WIDTH_PX}px) var(${CSS_VAR_GIT_GRAPH_COL_HASH}, ${DEFAULT_GIT_GRAPH_HASH_WIDTH_PX}px)`;
 
 const LANE_COLORS_LIGHT = [
   "#2563eb",
@@ -296,10 +301,25 @@ export function GitGraphOverlay() {
   const panesWrapperRef = useRef<HTMLDivElement | null>(null);
   const commitHeaderRef = useRef<HTMLDivElement | null>(null);
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
+  const activeDragCleanupsRef = useRef(new Set<() => void>());
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
   const [liveGraphColWidthPx, setLiveGraphColWidthPx] = useState<number | null>(
     null,
   );
+
+  function registerDragCleanup(cleanup: () => void): () => void {
+    let isCleanedUp = false;
+    const wrappedCleanup = () => {
+      if (isCleanedUp) {
+        return;
+      }
+      isCleanedUp = true;
+      activeDragCleanupsRef.current.delete(wrappedCleanup);
+      cleanup();
+    };
+    activeDragCleanupsRef.current.add(wrappedCleanup);
+    return wrappedCleanup;
+  }
 
   useEffect(() => {
     const wrapper = listWrapperRef.current;
@@ -370,6 +390,16 @@ export function GitGraphOverlay() {
     // When persisted width changes, drop any temporary drag-time override.
     setLiveGraphColWidthPx(null);
   }, [graphColWidthPx]);
+
+  useEffect(() => {
+    return () => {
+      const pendingCleanups = Array.from(activeDragCleanupsRef.current);
+      activeDragCleanupsRef.current.clear();
+      for (const cleanup of pendingCleanups) {
+        cleanup();
+      }
+    };
+  }, []);
 
   const rows = graphState?.rows ?? [];
   const commits = graphState?.response?.commits ?? [];
@@ -503,13 +533,7 @@ export function GitGraphOverlay() {
       if (upEvent.pointerId !== pointerId) {
         return;
       }
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      teardownDrag();
 
       const pctRaw = root.style.getPropertyValue(CSS_VAR_GIT_GRAPH_SPLIT_PCT);
       const pct = Number.parseFloat(pctRaw);
@@ -518,6 +542,16 @@ export function GitGraphOverlay() {
         : DEFAULT_GIT_GRAPH_SPLIT_PCT;
       useLocalStorage.setState({ gitGraphSplitPct: persisted });
     };
+
+    const teardownDrag = registerDragCleanup(() => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    });
 
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
@@ -554,10 +588,10 @@ export function GitGraphOverlay() {
       hash: CSS_VAR_GIT_GRAPH_COL_HASH,
     } as const;
     const defaultPxByKey = {
-      graph: 120,
-      author: 120,
-      date: 110,
-      hash: 84,
+      graph: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
+      author: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
+      date: DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
+      hash: DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
     } as const;
     const minPxByKey = {
       graph: GRAPH_COL_MIN_WIDTH_PX,
@@ -772,13 +806,7 @@ export function GitGraphOverlay() {
       if (upEvent.pointerId !== pointerId) {
         return;
       }
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-      window.removeEventListener("pointercancel", handleUp);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      teardownDrag();
 
       const keys = changedKeysByBoundary[boundary];
       const persisted: Partial<typeof start> = {};
@@ -798,6 +826,16 @@ export function GitGraphOverlay() {
       applyWidths(persisted);
       persistWidths(persisted);
     };
+
+    const teardownDrag = registerDragCleanup(() => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    });
 
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);

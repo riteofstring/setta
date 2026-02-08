@@ -41,6 +41,8 @@ _MAX_LOG_PAGE_SIZE = 500
 _RECORD_SEP = "\x1e"
 _FIELD_SEP = "\x1f"
 
+_PATH_CHECK_TIMEOUT_S = 1.5
+
 
 def _require_ide_mode(ctx: RuntimeContextFromRequest) -> None:
     if ctx.deployment_mode:
@@ -90,6 +92,66 @@ def _normalize_repo_relative_path(raw_path: str) -> str:
         )
     # Normalize to forward slashes for display + API roundtrips.
     return candidate.as_posix()
+
+
+def _git_pathspec_is_directory(
+    repo_root: Path, *, rel_path: str, commitish: str
+) -> bool:
+    result = run_git(
+        [
+            "--literal-pathspecs",
+            "ls-tree",
+            "-d",
+            "--name-only",
+            commitish,
+            "--",
+            rel_path,
+        ],
+        cwd=repo_root,
+        timeout_s=_PATH_CHECK_TIMEOUT_S,
+        max_stdout_bytes=4096,
+        max_stderr_bytes=8192,
+    )
+    if result.returncode != 0:
+        return False
+    return any(line.strip() == rel_path for line in result.stdout.splitlines())
+
+
+def _assert_single_file_pathspec(
+    repo_root: Path,
+    *,
+    raw_path: str,
+    rel_path: str,
+    commitish: str | None = None,
+) -> None:
+    if rel_path == "." or raw_path.endswith("/") or raw_path.endswith("\\"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path must point to a file.",
+        )
+
+    candidate_abs = repo_root / Path(rel_path)
+    if candidate_abs.exists() and candidate_abs.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path must point to a file.",
+        )
+
+    if commitish:
+        if _git_pathspec_is_directory(
+            repo_root, rel_path=rel_path, commitish=commitish
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Path must point to a file.",
+            )
+        return
+
+    if _git_pathspec_is_directory(repo_root, rel_path=rel_path, commitish="HEAD"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path must point to a file.",
+        )
 
 
 def _resolve_path_for_untracked_synth(repo_root: Path, rel_path: str) -> Path:
@@ -404,7 +466,14 @@ def route_get_git_status(
 
 def _is_untracked_path(repo_root: Path, rel_path: str) -> bool:
     result = run_git(
-        ["ls-files", "--others", "--exclude-standard", "--", rel_path],
+        [
+            "--literal-pathspecs",
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "--",
+            rel_path,
+        ],
         cwd=repo_root,
         timeout_s=1.5,
         max_stdout_bytes=8192,
@@ -478,17 +547,42 @@ def route_get_git_diff(
 ) -> GetGitDiffResponse:
     repo_root = _get_repo_root_or_400(ctx=ctx)
     rel_path = _normalize_repo_relative_path(x.path)
+    _assert_single_file_pathspec(repo_root, raw_path=x.path, rel_path=rel_path)
     rel_old_path: str | None = None
     if x.oldPath:
         rel_old_path = _normalize_repo_relative_path(x.oldPath)
+        _assert_single_file_pathspec(
+            repo_root,
+            raw_path=x.oldPath,
+            rel_path=rel_old_path,
+        )
 
     diff_paths = [rel_path]
     if rel_old_path and rel_old_path != rel_path:
         diff_paths = [rel_old_path, rel_path]
     if x.mode == "staged":
-        args = ["diff", "--cached", "--no-color", "--patch", "--", *diff_paths]
+        args = [
+            "--literal-pathspecs",
+            "diff",
+            "--cached",
+            "--no-color",
+            "--patch",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--",
+            *diff_paths,
+        ]
     else:
-        args = ["diff", "--no-color", "--patch", "--", *diff_paths]
+        args = [
+            "--literal-pathspecs",
+            "diff",
+            "--no-color",
+            "--patch",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--",
+            *diff_paths,
+        ]
 
     result = run_git(
         args,
@@ -562,7 +656,7 @@ def route_get_git_log(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Missing revision.",
             )
-        if rev.startswith("-"):
+        if rev.startswith("-") or "\x00" in rev:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid revision.",
@@ -747,6 +841,8 @@ def route_get_git_commit_details(
             "show",
             "--no-color",
             f"--pretty=format:{fmt}",
+            "--no-ext-diff",
+            "--no-textconv",
             "--raw",
             "--numstat",
             "-z",
@@ -846,11 +942,33 @@ def route_get_git_commit_file_diff(
     commit_hash = _resolve_commit_hash(repo_root, x.commitHash)
 
     rel_path = _normalize_repo_relative_path(x.path)
+    _assert_single_file_pathspec(
+        repo_root,
+        raw_path=x.path,
+        rel_path=rel_path,
+        commitish=commit_hash,
+    )
     rel_old_path: str | None = None
     if x.oldPath:
         rel_old_path = _normalize_repo_relative_path(x.oldPath)
+        _assert_single_file_pathspec(
+            repo_root,
+            raw_path=x.oldPath,
+            rel_path=rel_old_path,
+            commitish=commit_hash,
+        )
 
-    args = ["show", "--no-color", "--patch", "--format=", commit_hash, "--"]
+    args = [
+        "--literal-pathspecs",
+        "show",
+        "--no-color",
+        "--patch",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--format=",
+        commit_hash,
+        "--",
+    ]
     if rel_old_path and rel_old_path != rel_path:
         args.extend([rel_old_path, rel_path])
     else:

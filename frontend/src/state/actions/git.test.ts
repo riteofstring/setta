@@ -4,6 +4,7 @@ import {
   route_get_git_commit_file_diff,
   route_get_git_diff,
   route_get_git_log,
+  route_get_git_status,
 } from "utils/generatedEndpoints";
 import {
   createGetGitCommitDetailsResponse,
@@ -15,9 +16,12 @@ import {
 import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildGitDiffAvailabilityByPath,
   loadMoreGitGraphCommits,
   openGitDiffOverlay,
   openGitGraphOverlay,
+  refreshGitGraphOverlay,
+  refreshGitStatus,
   selectGitCommit,
   selectGitCommitFile,
   setGitDiffMode,
@@ -120,6 +124,12 @@ function setGitStatusResponse(
     kind: "conflict" | "staged" | "unstaged" | "untracked";
   }>,
 ): void {
+  const diffAvailabilityByPath = buildGitDiffAvailabilityByPath(
+    entries.map((entry) => ({
+      ...entry,
+      oldPath: entry.oldPath ?? undefined,
+    })),
+  );
   useGitStore.setState((state) => ({
     ...state,
     status: {
@@ -133,6 +143,7 @@ function setGitStatusResponse(
         entries,
         isTruncated: false,
       },
+      diffAvailabilityByPath,
       isLoading: false,
       error: null,
     },
@@ -394,6 +405,68 @@ describe("git graph actions", () => {
     setStateSpy.mockRestore();
   });
 
+  it("builds a path-indexed staged/unstaged availability map", () => {
+    const availabilityByPath = buildGitDiffAvailabilityByPath([
+      {
+        path: "tracked.py",
+        oldPath: undefined,
+        indexStatus: "M",
+        worktreeStatus: " ",
+        kind: "staged",
+      },
+      {
+        path: "tracked.py",
+        oldPath: undefined,
+        indexStatus: " ",
+        worktreeStatus: "M",
+        kind: "unstaged",
+      },
+      {
+        path: "new.py",
+        oldPath: undefined,
+        indexStatus: "?",
+        worktreeStatus: "?",
+        kind: "untracked",
+      },
+    ]);
+
+    expect(availabilityByPath["tracked.py"]).toEqual({
+      hasStaged: true,
+      hasUnstaged: true,
+    });
+    expect(availabilityByPath["new.py"]).toEqual({
+      hasStaged: false,
+      hasUnstaged: true,
+    });
+  });
+
+  it("keeps last successful git status payload when a refresh fails", async () => {
+    setGitStatusResponse([
+      {
+        path: "tracked.py",
+        oldPath: null,
+        indexStatus: "M",
+        worktreeStatus: "M",
+        kind: "staged",
+      },
+    ]);
+    vi.mocked(route_get_git_status).mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "status backend failed" },
+    });
+
+    await refreshGitStatus();
+
+    const status = useGitStore.getState().status;
+    expect(status.response?.entries).toHaveLength(1);
+    expect(status.diffAvailabilityByPath["tracked.py"]).toEqual({
+      hasStaged: true,
+      hasUnstaged: false,
+    });
+    expect(status.error).toBe("status backend failed");
+  });
+
   it("ignores stale commit file diff responses after commit selection changes", async () => {
     const commitA = commit("a1b2c3", []);
     const commitB = commit("b4c5d6", ["a1b2c3"]);
@@ -648,5 +721,39 @@ describe("git graph actions", () => {
 
     expect(setStateSpy).toHaveBeenCalledTimes(2);
     setStateSpy.mockRestore();
+  });
+
+  it("keeps last successful git graph rows when refresh fails", async () => {
+    const c1 = commit("c1", []);
+    const c2 = commit("c2", ["c1"]);
+    const firstPage = createLogResponse({
+      commits: [c2, c1],
+      offset: 0,
+      pageSize: 2,
+      nextOffset: null,
+      hasMore: false,
+      isCapped: false,
+    });
+    setGraphOverlayState({ response: firstPage });
+    vi.mocked(route_get_git_log).mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "git log failed on refresh" },
+    });
+
+    await refreshGitGraphOverlay();
+
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.response?.commits.map((entry) => entry.hash)).toEqual([
+      "c2",
+      "c1",
+    ]);
+    expect(overlay.graph.rows).toHaveLength(2);
+    expect(overlay.graph.error).toBe("git log failed on refresh");
+    expect(overlay.graph.isLoading).toBe(false);
   });
 });

@@ -42,6 +42,7 @@ describe("GitPane", () => {
           entries: [],
           isTruncated: true,
         },
+        diffAvailabilityByPath: {},
         isLoading: false,
         error: null,
       },

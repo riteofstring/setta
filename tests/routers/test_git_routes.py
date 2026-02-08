@@ -242,6 +242,61 @@ class TestGitRoutes:
         assert "-one" in diff.diff
         assert "+two" in diff.diff
 
+    async def test_diff_treats_special_characters_as_literal_pathspecs(self) -> None:
+        # Requesting a file with glob-like chars should only diff that exact file.
+        special_path = "a[1].txt"
+        plain_path = "a1.txt"
+        (self._workspace_root / special_path).write_text("one\n", encoding="utf-8")
+        (self._workspace_root / plain_path).write_text("one\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", special_path, plain_path])
+        _run_git(self._workspace_root, ["commit", "-m", "add special path names"])
+        (self._workspace_root / special_path).write_text("two\n", encoding="utf-8")
+        (self._workspace_root / plain_path).write_text("two\n", encoding="utf-8")
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            diff = route_get_git_diff(
+                GetGitDiffRequest(path=special_path, mode="unstaged"),
+                ctx,
+            )
+
+        assert f"diff --git a/{special_path} b/{special_path}" in diff.diff
+        assert f"diff --git a/{plain_path} b/{plain_path}" not in diff.diff
+
+    async def test_diff_rejects_repo_root_pathspec(self) -> None:
+        # The file-diff endpoint should reject repo-root pathspecs.
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_diff(
+                    GetGitDiffRequest(path=".", mode="unstaged"),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Path must point to a file." in str(exc.value.detail)
+
+    async def test_diff_rejects_directory_pathspec(self) -> None:
+        # The file-diff endpoint should reject directory pathspecs.
+        nested_dir = self._workspace_root / "dir"
+        nested_dir.mkdir()
+        nested_file = nested_dir / "nested.txt"
+        nested_file.write_text("one\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", "dir/nested.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "add nested file"])
+        nested_file.write_text("two\n", encoding="utf-8")
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_diff(
+                    GetGitDiffRequest(path="dir", mode="unstaged"),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Path must point to a file." in str(exc.value.detail)
+
     async def test_diff_rejects_untracked_directory_path_for_synthesized_diff(
         self,
     ) -> None:
@@ -259,7 +314,7 @@ class TestGitRoutes:
                 )
 
         assert exc.value.status_code == 400
-        assert "regular file" in str(exc.value.detail)
+        assert "Path must point to a file." in str(exc.value.detail)
 
     async def test_diff_allows_tracked_symlink_pathspec_outside_repo(self) -> None:
         # Tracked symlinks may target outside the repo; git diff pathspec should still work.
@@ -343,6 +398,25 @@ class TestGitRoutes:
         assert exc.value.status_code == 400
         assert "Invalid revision" in str(exc.value.detail)
 
+    async def test_log_rejects_revision_containing_nul(self) -> None:
+        # NUL bytes should be treated as malformed client input.
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_log(
+                    GetGitLogRequest(
+                        rev="HEAD\x00evil",
+                        pageSize=20,
+                        offset=0,
+                        allRefs=False,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Invalid revision" in str(exc.value.detail)
+
     async def test_log_returns_client_error_for_unknown_revision(self) -> None:
         state = await self._build_state()
 
@@ -412,6 +486,60 @@ class TestGitRoutes:
         assert file_diff.commitHash == head
         assert file_diff.path == "tracked.txt"
         assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
+
+    async def test_commit_file_diff_treats_special_characters_as_literal_pathspecs(
+        self,
+    ) -> None:
+        # Commit-file diff should isolate the selected file even with [] in name.
+        special_path = "a[1].txt"
+        plain_path = "a1.txt"
+        (self._workspace_root / special_path).write_text("one\n", encoding="utf-8")
+        (self._workspace_root / plain_path).write_text("one\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", special_path, plain_path])
+        _run_git(self._workspace_root, ["commit", "-m", "add literal files"])
+        (self._workspace_root / special_path).write_text("two\n", encoding="utf-8")
+        (self._workspace_root / plain_path).write_text("two\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", special_path, plain_path])
+        _run_git(self._workspace_root, ["commit", "-m", "update literal files"])
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            file_diff = route_get_git_commit_file_diff(
+                GetGitCommitFileDiffRequest(
+                    commitHash=head,
+                    path=special_path,
+                    oldPath=None,
+                ),
+                ctx,
+            )
+
+        assert f"diff --git a/{special_path} b/{special_path}" in file_diff.diff
+        assert f"diff --git a/{plain_path} b/{plain_path}" not in file_diff.diff
+
+    async def test_commit_file_diff_rejects_directory_pathspec(self) -> None:
+        # Commit-file diff should reject directory pathspecs.
+        nested_dir = self._workspace_root / "dir"
+        nested_dir.mkdir()
+        (nested_dir / "nested.txt").write_text("one\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", "dir/nested.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "add nested"])
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_commit_file_diff(
+                    GetGitCommitFileDiffRequest(
+                        commitHash=head,
+                        path="dir",
+                        oldPath=None,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Path must point to a file." in str(exc.value.detail)
 
     async def test_commit_details_parses_paths_with_tabs(self) -> None:
         tab_path = "tab\tname.txt"
@@ -501,6 +629,8 @@ class TestGitRoutes:
 
         show_calls = [args for args in captured_args if args and args[0] == "show"]
         assert len(show_calls) == 1
+        assert "--no-ext-diff" in show_calls[0]
+        assert "--no-textconv" in show_calls[0]
         assert "--raw" in show_calls[0]
         assert "--numstat" in show_calls[0]
         assert "-z" in show_calls[0]
@@ -508,6 +638,64 @@ class TestGitRoutes:
         assert len(details.files) == 1
         assert details.files[0].path == "tracked.txt"
         assert details.isTruncated is False
+
+    async def test_diff_commands_disable_external_diff_and_textconv(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # UI diff commands should not run repo-configured external diff/textconv.
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+        original_run_git = git_router.run_git
+        captured_args: list[list[str]] = []
+
+        def recording_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ):
+            captured_args.append(args)
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", recording_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            route_get_git_diff(
+                GetGitDiffRequest(path="tracked.txt", mode="unstaged"),
+                ctx,
+            )
+            route_get_git_commit_file_diff(
+                GetGitCommitFileDiffRequest(
+                    commitHash=head,
+                    path="tracked.txt",
+                    oldPath=None,
+                ),
+                ctx,
+            )
+
+        diff_calls = [
+            args for args in captured_args if len(args) > 1 and args[1] == "diff"
+        ]
+        show_patch_calls = [
+            args
+            for args in captured_args
+            if len(args) > 1 and args[1] == "show" and "--patch" in args
+        ]
+        assert len(diff_calls) >= 1
+        assert len(show_patch_calls) >= 1
+        assert "--literal-pathspecs" in diff_calls[0]
+        assert "--no-ext-diff" in diff_calls[0]
+        assert "--no-textconv" in diff_calls[0]
+        assert "--literal-pathspecs" in show_patch_calls[0]
+        assert "--no-ext-diff" in show_patch_calls[0]
+        assert "--no-textconv" in show_patch_calls[0]
 
     async def test_commit_routes_accept_sha256_length_hash_when_git_verifies(
         self, monkeypatch: pytest.MonkeyPatch
@@ -533,7 +721,7 @@ class TestGitRoutes:
                     stderr_truncated=False,
                     timed_out=False,
                 )
-            if args and args[0] == "show" and "--raw" in args and "--numstat" in args:
+            if "show" in args and "--raw" in args and "--numstat" in args:
                 show_payload = (
                     f"{sha256_hash}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
                     f"A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e\n"
@@ -548,7 +736,7 @@ class TestGitRoutes:
                     stderr_truncated=False,
                     timed_out=False,
                 )
-            if args and args[0] == "show" and "--format=" in args and "--patch" in args:
+            if "show" in args and "--format=" in args and "--patch" in args:
                 return GitCommandOutput(
                     returncode=0,
                     stdout="diff --git a/tracked.txt b/tracked.txt\n",

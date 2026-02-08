@@ -10,8 +10,6 @@ import type { GitGraphRow, GitGraphRowComputationState } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "./utils";
 
-type GitOverlayKind = "none" | "diff" | "graph";
-
 type GitDiffOverlayState = {
   path: string;
   oldPath: string | null;
@@ -54,6 +52,10 @@ type GitOverlayState =
 
 type GitStatusState = {
   response: GetGitStatusResponse | null;
+  diffAvailabilityByPath: Record<
+    string,
+    { hasStaged: boolean; hasUnstaged: boolean }
+  >;
   isLoading: boolean;
   error: string | null;
 };
@@ -67,6 +69,7 @@ export const useGitStore = createWithEqualityFn(
   withResetFn<GitState>(() => ({
     status: {
       response: null,
+      diffAvailabilityByPath: {},
       isLoading: false,
       error: null,
     },
