@@ -69,8 +69,6 @@ test("workspace switcher launches a session and persists history", async ({
   await modal
     .getByRole("combobox", { name: "Setta Files Location" })
     .selectOption("global");
-
-  await modal.getByRole("button", { name: "Show" }).click();
   await modal.getByPlaceholder("user@host").fill("user@host");
   const scrollInfo = await page.evaluate(() => {
     const dialog = document.querySelector("[role='dialog']");
@@ -292,7 +290,6 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await modal
     .getByRole("combobox", { name: "Setta Files Location" })
     .selectOption("global");
-  await modal.getByRole("button", { name: "Show" }).click();
   await modal.getByPlaceholder("61000").fill(String(requestedLocalPort));
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());

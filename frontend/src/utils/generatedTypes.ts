@@ -765,6 +765,7 @@ export const RouteEnum = {
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
+  GET_SETTA_HOME_INFO: "/settaHomeInfo",
   LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
@@ -18503,6 +18504,24 @@ export function createBackendInitStatusResponse(
   options: Partial<BackendInitStatusResponse> = {},
 ): BackendInitStatusResponse {
   return BackendInitStatusResponseSchema.parse(options);
+}
+
+export const SettaHomeInfoResponseSchema = z.object({
+  settaHome: z.string(),
+  configPath: z.string(),
+  globalSettaFilesBase: z.string(),
+});
+
+export type SettaHomeInfoResponse = z.infer<typeof SettaHomeInfoResponseSchema>;
+
+export type SettaHomeInfoResponseInput = z.input<
+  typeof SettaHomeInfoResponseSchema
+>;
+
+export function createSettaHomeInfoResponse(
+  options: Partial<SettaHomeInfoResponse> = {},
+): SettaHomeInfoResponse {
+  return SettaHomeInfoResponseSchema.parse(options);
 }
 
 export const DeleteTerminalsRequestSchema = z.object({

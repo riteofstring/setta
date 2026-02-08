@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
-import type { LaunchRequestInput } from "utils/generatedTypes";
+import { res200 } from "utils/endpointUtils";
+import { route_get_setta_home_info } from "utils/generatedEndpoints";
+import type { LaunchRequestInput, SettaHomeInfoResponse } from "utils/generatedTypes";
 import {
   loadWorkspaceHistory,
   saveWorkspaceHistory,
@@ -25,15 +27,17 @@ export function WorkspaceSwitcherModal() {
   const [settaFilesLocation, setSettaFilesLocation] = useState<
     "auto" | "local" | "global"
   >("auto");
+  const [settaHomeInfo, setSettaHomeInfo] =
+    useState<SettaHomeInfoResponse | null>(null);
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
   const [localPort, setLocalPort] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [history, setHistory] = useState<WorkspaceHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     setHistory(loadWorkspaceHistory());
 
     const draft = readWorkspaceSwitcherDraft();
@@ -54,10 +58,21 @@ export function WorkspaceSwitcherModal() {
       setLocalPort(
         typeof draft.localPort === "number" ? String(draft.localPort) : "",
       );
-      setShowAdvanced(
-        Boolean(draft.sshArgs || draft.remoteCmd || draft.localPort),
-      );
     }
+
+    async function hydrateSettaHomeInfo() {
+      const res = await route_get_setta_home_info();
+      if (!isMounted || !res200(res)) {
+        return;
+      }
+      setSettaHomeInfo(res.data);
+    }
+
+    void hydrateSettaHomeInfo();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const trimmedWorkspace = workspaceRoot.trim();
@@ -78,7 +93,6 @@ export function WorkspaceSwitcherModal() {
     setSshArgs("");
     setRemoteCmd("");
     setLocalPort(entry.localPort ? String(entry.localPort) : "");
-    setShowAdvanced(Boolean(entry.localPort));
     setError(null);
   }
 
@@ -199,6 +213,48 @@ export function WorkspaceSwitcherModal() {
             </p>
           </div>
 
+          {trimmedSshTarget.length > 0 && (
+            <div className="grid gap-3">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  SSH Args (Optional)
+                </label>
+                <input
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
+                  value={sshArgs}
+                  onChange={(event) => setSshArgs(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Remote Cmd (Optional)
+                </label>
+                <input
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  placeholder="source .venv/bin/activate && setta"
+                  value={remoteCmd}
+                  onChange={(event) => setRemoteCmd(event.target.value)}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Local Tunnel Port (Optional)
+                </label>
+                <input
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  placeholder="61000"
+                  value={localPort}
+                  onChange={(event) => setLocalPort(event.target.value)}
+                  spellCheck={false}
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-3">
             <label
               htmlFor="setta-files-location"
@@ -224,70 +280,19 @@ export function WorkspaceSwitcherModal() {
             >
               <option value="auto">Default (auto)</option>
               <option value="local">Local (workspace)</option>
-              <option value="global">Global (&lt;setta_home&gt;)</option>
+              <option value="global">
+                Global ({settaHomeInfo?.settaHome ?? "<setta_home>"})
+              </option>
             </select>
             <p className="text-xs text-setta-500 dark:text-setta-400">
               If the workspace already has a local{" "}
               <span className="font-semibold">setta_files/</span>, Setta will use
               it even when Global is selected.
+              {trimmedSshTarget.length > 0
+                ? " For SSH targets, Global refers to the remote machine's Setta home."
+                : null}
             </p>
           </div>
-
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-            <span>Advanced</span>
-            <button
-              className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-              onClick={() => setShowAdvanced((prev) => !prev)}
-            >
-              {showAdvanced ? "Hide" : "Show"}
-            </button>
-          </div>
-
-          {showAdvanced && (
-            <div className="grid gap-3">
-              {trimmedSshTarget.length > 0 && (
-                <>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                      SSH Args (Optional)
-                    </label>
-                    <input
-                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                      placeholder="-i ~/.ssh/id_ed25519 -J user@jump"
-                      value={sshArgs}
-                      onChange={(event) => setSshArgs(event.target.value)}
-                      spellCheck={false}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                      Remote Cmd (Optional)
-                    </label>
-                    <input
-                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                      placeholder="source .venv/bin/activate && setta"
-                      value={remoteCmd}
-                      onChange={(event) => setRemoteCmd(event.target.value)}
-                      spellCheck={false}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                      Local Tunnel Port (Optional)
-                    </label>
-                    <input
-                      className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                      placeholder="61000"
-                      value={localPort}
-                      onChange={(event) => setLocalPort(event.target.value)}
-                      spellCheck={false}
-                      inputMode="numeric"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">
