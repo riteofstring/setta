@@ -201,7 +201,6 @@ class Route(str, Enum):
     SET_BROWSER_COLUMN_WIDTHS = "/setBrowserColumnWidths"
     SET_BROWSER_AREA_VIEW_MODE = "/setBrowserAreaViewMode"
     SET_BROWSER_HIDE_COLUMN = "/setBrowserHideColumn"
-    SET_BROWSER_SAVED_SEARCHES = "/setBrowserSavedSearches"
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_CHAT_SECTION_SETTINGS = "/setChatSectionSettings"
     SET_CHAT_SECTION_STATE = "/setChatSectionState"

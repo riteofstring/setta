@@ -104,31 +104,6 @@ class BrowserAreaViewMode(str, Enum):
     carousel = "carousel"
 
 
-class BrowserSearchScope(str, Enum):
-    recursive = "recursive"
-    local = "local"
-
-
-class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
-    image: bool = True
-    video: bool = True
-    audio: bool = True
-    text: bool = True
-    data: bool = True
-
-
-class BrowserSavedSearch(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str = ""
-    query: str = ""
-    searchScope: BrowserSearchScope = BrowserSearchScope.recursive
-    typeFilters: BrowserSavedSearchTypeFilters = Field(
-        default_factory=BrowserSavedSearchTypeFilters
-    )
-    color: str = "#3b82f6"
-    quickInfo: str = ""
-
-
 class BrowserAreaItemType(str, Enum):
     Image = "Image"
     Video = "Video"
@@ -366,12 +341,8 @@ class ChatSectionImpl(BaseSectionImpl):
 
 class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=720.0, height=460.0)
-    )
     folder: str = ""
     hideColumn: bool = False
     columnWidth: float | None = None
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
-    savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)

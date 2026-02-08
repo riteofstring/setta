@@ -1137,12 +1137,6 @@ export async function route_set_browser_hide_column(
   return await post("/setBrowserHideColumn", x);
 }
 
-export async function route_set_browser_saved_searches(
-  x: gt.SetBrowserSavedSearchesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setBrowserSavedSearches", x);
-}
-
 export async function route_set_text_block_format(
   x: gt.SetTextBlockFormatRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

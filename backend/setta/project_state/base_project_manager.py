@@ -136,7 +136,6 @@ from setta.project_state.project_manager_types import (
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
-    SetBrowserSavedSearchesRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetCallableResponse,
@@ -274,7 +273,6 @@ from setta.types.helpers_lvl2 import (
     set_browser_area_view_mode,
     set_browser_column_widths,
     set_browser_hide_column,
-    set_browser_saved_searches,
     set_callable_hide_params,
     set_chart_area_data_path,
     set_chart_settings,
@@ -3248,26 +3246,12 @@ class BaseProjectManager(ABC):
     async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
-        # Pure UI state: avoid running full `update()` (which can trigger expensive
-        # codegen/LSP refresh) for a simple view-mode toggle.
-        async with self._project_state_lock.write_lock():
-            project_state._section_slug_cache = None
-            self._merge_project_state_backend(
-                project_state,
-                updateFileWatcher=False,
-            )
-        await self._broadcast_project_state_snapshot(project_state)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     async def set_browser_hide_column(self, x: SetBrowserHideColumnRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_browser_hide_column(project_state, x.sectionId, x.hideColumn)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_browser_saved_searches(self, x: SetBrowserSavedSearchesRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_browser_saved_searches(project_state, x.sectionId, x.savedSearches)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

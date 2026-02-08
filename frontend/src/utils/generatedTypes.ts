@@ -941,7 +941,6 @@ export const RouteEnum = {
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
-  SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
@@ -1000,13 +999,6 @@ export const BrowserAreaItemTypeEnum = {
 } as const;
 
 export type BrowserAreaItemType = ObjectValues<typeof BrowserAreaItemTypeEnum>;
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
-} as const;
-
-export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
 
 export const BackgroundVariantEnum = {
   lines: "lines",
@@ -2287,7 +2279,6 @@ export const AllImplFieldsSchema = z.literal([
   "requestHeaderValue",
   "requestMethod",
   "requestUrl",
-  "savedSearches",
   "selectedParams",
   "showSectionTitle",
   "size",
@@ -2616,52 +2607,6 @@ export function createDrawAreaLayer(
   return DrawAreaLayerSchema.parse(options);
 }
 
-export const BrowserSavedSearchTypeFiltersSchema = z.object({
-  image: z.boolean().default(true),
-  video: z.boolean().default(true),
-  audio: z.boolean().default(true),
-  text: z.boolean().default(true),
-  data: z.boolean().default(true),
-});
-
-export type BrowserSavedSearchTypeFilters = z.infer<
-  typeof BrowserSavedSearchTypeFiltersSchema
->;
-
-export type BrowserSavedSearchTypeFiltersInput = z.input<
-  typeof BrowserSavedSearchTypeFiltersSchema
->;
-
-export function createBrowserSavedSearchTypeFilters(
-  options: Partial<BrowserSavedSearchTypeFilters> = {},
-): BrowserSavedSearchTypeFilters {
-  return BrowserSavedSearchTypeFiltersSchema.parse(options);
-}
-
-export const BrowserSavedSearchSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string().default("" as const),
-  query: z.string().default("" as const),
-  searchScope: z
-    .enum(BrowserSearchScopeEnum)
-    .default(BrowserSearchScopeEnum.recursive),
-  typeFilters: BrowserSavedSearchTypeFiltersSchema.default(
-    createBrowserSavedSearchTypeFilters,
-  ),
-  color: z.string().default("#3b82f6" as const),
-  quickInfo: z.string().default("" as const),
-});
-
-export type BrowserSavedSearch = z.infer<typeof BrowserSavedSearchSchema>;
-
-export type BrowserSavedSearchInput = z.input<typeof BrowserSavedSearchSchema>;
-
-export function createBrowserSavedSearch(
-  options: Partial<BrowserSavedSearch> = {},
-): BrowserSavedSearch {
-  return BrowserSavedSearchSchema.parse(options);
-}
-
 export const SectionSizeSchema = z.object({
   width: z
     .union([z.number(), z.literal("auto")])
@@ -2778,7 +2723,6 @@ export const SharedModifierSchema = z.object({
   requestHeaderValue: z.string().optional(),
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
-  savedSearches: z.array(BrowserSavedSearchSchema).optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -2899,7 +2843,6 @@ export const CoreSchema = z.object({
         "requestHeaderValue",
         "requestMethod",
         "requestUrl",
-        "savedSearches",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -3571,9 +3514,7 @@ export const BrowserSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 720.0, height: 460.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -3587,7 +3528,6 @@ export const BrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  savedSearches: z.array(BrowserSavedSearchSchema).default([]),
 });
 
 export type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
@@ -5993,7 +5933,6 @@ export const BrowserSectionImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
-  savedSearches: z.array(BrowserSavedSearchSchema).optional(),
 });
 
 export type BrowserSectionImplArgs = z.infer<
@@ -7472,6 +7411,8 @@ export const SettingsGUISchema = z.object({
   gridPatternSize: z.int().default(2),
   gridColor: z.string().default("#afbacf" as const),
   gridColorDarkMode: z.string().default("#2b364a" as const),
+  wireColor: z.string().default("#41506c" as const),
+  wireColorDarkMode: z.string().default("#bac2d3" as const),
   defaultZoomLevel: z.number().default(1.0),
   minZoom: z.number().default(0.1),
   maxZoom: z.number().default(10.0),
@@ -7502,7 +7443,7 @@ export function createSettingsGUI(
 export const SettingsBackendSchema = z.object({
   showDefaultConfigOnLoad: z.boolean().default(true),
   autosave: z.boolean().default(true),
-  autobackup: z.boolean().default(true),
+  autobackup: z.boolean().default(false),
   autobackupFreq: z.int().default(300),
   autobackupKeepLastN: z.int().default(10),
   clearTerminalBeforeMarkingAsReady: z.boolean().default(true),
@@ -7916,9 +7857,7 @@ export function createSectionSizingPolicy(
 
 export const UserDefaultBrowserSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 720.0, height: 460.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -7929,7 +7868,6 @@ export const UserDefaultBrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  savedSearches: z.array(BrowserSavedSearchSchema).default([]),
 });
 
 export type UserDefaultBrowserSectionImpl = z.infer<
@@ -10921,9 +10859,6 @@ export const BrowserSectionImplArgsWithCallableSchema = z.object({
   columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   typesColumnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   viewMode: z.union([z.enum(BrowserAreaViewModeEnum), z.any()]).optional(),
-  savedSearches: z
-    .union([z.array(BrowserSavedSearchSchema), z.any()])
-    .optional(),
 });
 
 export type BrowserSectionImplArgsWithCallable = z.infer<
@@ -12076,7 +12011,6 @@ export const CoreArgsSchema = z.object({
         "requestHeaderValue",
         "requestMethod",
         "requestUrl",
-        "savedSearches",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -15715,27 +15649,6 @@ export function createSetBrowserHideColumnRequest(
   return SetBrowserHideColumnRequestSchema.parse(options);
 }
 
-export const SetBrowserSavedSearchesRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  savedSearches: z.array(BrowserSavedSearchSchema),
-});
-
-export type SetBrowserSavedSearchesRequest = z.infer<
-  typeof SetBrowserSavedSearchesRequestSchema
->;
-
-export type SetBrowserSavedSearchesRequestInput = z.input<
-  typeof SetBrowserSavedSearchesRequestSchema
->;
-
-export function createSetBrowserSavedSearchesRequest(
-  options: Partial<SetBrowserSavedSearchesRequest> = {},
-): SetBrowserSavedSearchesRequest {
-  return SetBrowserSavedSearchesRequestSchema.parse(options);
-}
-
 export const SetCallableHideParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -17671,6 +17584,7 @@ export const BackendInitStatusResponseSchema = z.object({
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
+  worktreeName: z.union([z.string(), z.null()]),
 });
 
 export type BackendInitStatusResponse = z.infer<

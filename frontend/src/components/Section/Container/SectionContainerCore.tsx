@@ -9,6 +9,7 @@ import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
+import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import {
   getOnSectionClick,
@@ -97,11 +98,14 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`agentic-handle-scope group/card-section relative transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
     >
       <AgenticEdgeHandles isUserView={isUserView} />
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
