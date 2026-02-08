@@ -6,7 +6,6 @@ import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
-import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
 import {
   appendWorkspaceHistoryToBootstrapUrlFragment,
   loadWorkspaceHistory,
@@ -16,7 +15,6 @@ import {
   clearPendingWorkspaceLaunch,
   readPendingWorkspaceLaunch,
   requestOpenWorkspaceSwitcherOnNextMount,
-  writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
 
 type LaunchPhase =
@@ -100,7 +98,8 @@ export function WorkspaceLaunchPage() {
         (request) =>
           JSON.stringify({
             workspaceRoot: request.workspaceRoot ?? null,
-            settaFilesLocation: request.settaFilesLocation ?? null,
+            filesRoot: request.filesRoot ?? null,
+            filesRootBase: request.filesRootBase ?? null,
             sshTarget: request.sshTarget ?? null,
             sshArgs: request.sshArgs ?? null,
             remoteCmd: request.remoteCmd ?? null,
@@ -148,6 +147,10 @@ export function WorkspaceLaunchPage() {
 
       const resolvedWorkspaceRoot =
         res.data.workspaceRoot ?? pending.request.workspaceRoot ?? "";
+      const requestedFilesRoot = pending.request.filesRoot ?? null;
+      const resolvedFilesRoot =
+        res.data.filesRoot ?? requestedFilesRoot ?? null;
+      const requestedFilesRootBase = pending.request.filesRootBase ?? null;
       let resolvedLocalPort = pending.request.localPort ?? null;
       if (pending.request.sshTarget) {
         try {
@@ -170,17 +173,12 @@ export function WorkspaceLaunchPage() {
         resolvedLocalPort = null;
       }
 
-      const historySettaFilesLocation =
-        chooseWorkspaceHistorySettaFilesLocation({
-          requested: pending.request.settaFilesLocation,
-          resolved: res.data.settaFilesLocation,
-        });
-
       const nextEntry = {
         workspaceRoot: resolvedWorkspaceRoot,
         sshTarget: pending.request.sshTarget ?? null,
         localPort: resolvedLocalPort,
-        settaFilesLocation: historySettaFilesLocation,
+        filesRoot: requestedFilesRoot ? resolvedFilesRoot : null,
+        filesRootBase: requestedFilesRoot ? null : requestedFilesRootBase,
         lastUsedAt: Date.now(),
       };
 
@@ -188,15 +186,6 @@ export function WorkspaceLaunchPage() {
         loadWorkspaceHistory(),
         nextEntry,
       );
-
-      // Keep the switcher selection aligned with what actually happened, so
-      // reopening the modal doesn't show a misleading explicit selection.
-      writeWorkspaceSwitcherDraft({
-        ...pending.request,
-        workspaceRoot: resolvedWorkspaceRoot,
-        localPort: resolvedLocalPort,
-        settaFilesLocation: historySettaFilesLocation,
-      });
 
       clearPendingWorkspaceLaunch();
       const bootstrapUrl = import.meta.env?.DEV

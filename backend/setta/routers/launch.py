@@ -1,4 +1,4 @@
-from typing import Literal
+from pathlib import PurePosixPath
 
 from fastapi import Depends
 from pydantic import BaseModel
@@ -10,13 +10,24 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
+from setta.utils.paths import (
+    build_files_root_from_base,
+    resolve_path,
+    resolve_setta_paths,
+)
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 
+def _strip_posix_trailing_slash(value: str) -> str:
+    stripped = value.rstrip("/")
+    return stripped or "/"
+
+
 class LaunchRequest(BaseModel):
     workspaceRoot: str | None = None
-    settaFilesLocation: Literal["auto", "local", "global"] | None = None
+    filesRoot: str | None = None
+    filesRootBase: str | None = None
     sshTarget: str | None = None
     sshArgs: str | None = None
     remoteCmd: str | None = None
@@ -42,7 +53,7 @@ class LaunchResponse(BaseModel):
     ok: bool
     bootstrapUrlFragment: str | None = None
     workspaceRoot: str | None = None
-    settaFilesLocation: Literal["local", "global"] | None = None
+    filesRoot: str | None = None
     sessionId: str | None = None
     startedNew: bool | None = None
     session: LaunchSessionInfo | None = None
@@ -57,17 +68,33 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,
                 workspace=x.workspaceRoot or "",
-                setta_files_location=x.settaFilesLocation or "auto",
+                files_root=x.filesRoot,
+                files_root_base=x.filesRootBase,
                 ssh_args=x.sshArgs,
                 remote_cmd=x.remoteCmd,
                 local_port=x.localPort,
             )
             resolved_workspace_root = remote.session.workspace_path_canonical
+            resolved_files_root: str | None = None
+            if remote.files_root is not None and remote.files_root.strip():
+                resolved_files_root = _strip_posix_trailing_slash(
+                    remote.files_root.strip()
+                )
+            elif x.filesRoot is not None and x.filesRoot.strip():
+                resolved_files_root = _strip_posix_trailing_slash(x.filesRoot.strip())
+            elif x.filesRootBase is not None and x.filesRootBase.strip():
+                computed_root = build_files_root_from_base(
+                    PurePosixPath(x.filesRootBase.strip()),
+                    PurePosixPath(resolved_workspace_root),
+                )
+                resolved_files_root = _strip_posix_trailing_slash(
+                    computed_root.as_posix()
+                )
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote.bootstrap_url_fragment,
                 workspaceRoot=resolved_workspace_root,
-                settaFilesLocation=remote.setta_files_location,
+                filesRoot=resolved_files_root,
                 sessionId=remote.session.id,
                 startedNew=remote.started_new,
                 remoteCmdResolved=remote.remote_cmd_resolved,
@@ -82,11 +109,23 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ),
             )
         workspace_root = x.workspaceRoot
-        setta_files_location = x.settaFilesLocation or "auto"
+        files_root = x.filesRoot
+        files_root_base = x.filesRootBase
+
+        requested_workspace = None
+        if workspace_root is not None and workspace_root.strip():
+            requested_workspace = resolve_path(workspace_root.strip())
+        ignore_env_files_root = False
+        if requested_workspace is not None:
+            ignore_env_files_root = (
+                requested_workspace != resolve_setta_paths().workspace_root
+            )
 
         result = launch_workspace_session(
             workspace_root=workspace_root,
-            setta_files_location=setta_files_location,
+            files_root=files_root,
+            files_root_base=files_root_base,
+            ignore_env_files_root=ignore_env_files_root,
         )
     except LaunchError as exc:
         return LaunchResponse(
@@ -117,7 +156,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         ok=True,
         bootstrapUrlFragment=bootstrap_url_fragment,
         workspaceRoot=str(result.paths.workspace_root),
-        settaFilesLocation=result.paths.setta_files_location,
+        filesRoot=str(result.paths.setta_files_root),
         sessionId=result.session.id,
         startedNew=result.started_new,
         session=session_info,
