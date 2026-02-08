@@ -29,7 +29,7 @@
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
-- Avoid div soup: keep markup shallow and semantic, minimize unnecessary wrappers, and avoid deep nesting of divs when it is not required.
+- Avoid div soup: keep markup shallow and semantic, minimize unnecessary wrappers, and avoid deep nesting when it is not required.
 - Prefer semantic elements in JSX (`section`, `header`, `nav`, `main`, `article`, `button`, `ul/li`) over generic `div`/`span` when appropriate.
 - Frontend code must prioritize performance, assuming very large DOMs (for example, hundreds of complex sections on the React Flow canvas).
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
