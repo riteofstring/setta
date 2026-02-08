@@ -17,8 +17,11 @@ import {
 } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
+import type {
+  GetGitCommitDetailsResponse,
+  GitCommitChangedFile,
+} from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
-import type { GetGitCommitDetailsResponse, GitCommitChangedFile } from "utils/generatedTypes";
 
 const ROW_HEIGHT = 28;
 const MAX_ROW_DECORATIONS = 3;
@@ -430,8 +433,7 @@ export function GitGraphOverlay() {
     }
 
     const startX = event.clientX;
-    const startLeftPx =
-      (wrapperWidth * clamp(splitPct, 0, 100)) / 100;
+    const startLeftPx = (wrapperWidth * clamp(splitPct, 0, 100)) / 100;
     const pointerId = event.pointerId;
     const root = overlayRef.current;
     if (!root) {
@@ -485,11 +487,7 @@ export function GitGraphOverlay() {
   }
 
   function beginColumnResizeDrag(
-    boundary:
-      | "graphMessage"
-      | "messageAuthor"
-      | "authorDate"
-      | "dateHash",
+    boundary: "graphMessage" | "messageAuthor" | "authorDate" | "dateHash",
     event: React.PointerEvent<HTMLDivElement>,
   ) {
     event.preventDefault();
@@ -641,9 +639,7 @@ export function GitGraphOverlay() {
       return clamp(delta, lower, upper);
     };
 
-    const computeNextFromDelta = (
-      deltaX: number,
-    ): Partial<typeof start> => {
+    const computeNextFromDelta = (deltaX: number): Partial<typeof start> => {
       if (boundary === "graphMessage") {
         return {
           graph: clampSingleWidth("graph", start.graph + deltaX),
@@ -850,7 +846,9 @@ export function GitGraphOverlay() {
                 dataTestId="git-graph-col-resize-graph-message"
                 label="Resize graph and message boundary"
                 edge="right"
-                onPointerDown={(event) => beginColumnResizeDrag("graphMessage", event)}
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("graphMessage", event)
+                }
               />
             </div>
             <div
@@ -867,7 +865,9 @@ export function GitGraphOverlay() {
                 dataTestId="git-graph-col-resize-message-author"
                 label="Resize message and author boundary"
                 edge="left"
-                onPointerDown={(event) => beginColumnResizeDrag("messageAuthor", event)}
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("messageAuthor", event)
+                }
               />
               <span>Author</span>
             </div>
@@ -879,7 +879,9 @@ export function GitGraphOverlay() {
                 dataTestId="git-graph-col-resize-author-date"
                 label="Resize author and date boundary"
                 edge="left"
-                onPointerDown={(event) => beginColumnResizeDrag("authorDate", event)}
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("authorDate", event)
+                }
               />
               <span>Date</span>
             </div>
@@ -891,7 +893,9 @@ export function GitGraphOverlay() {
                 dataTestId="git-graph-col-resize-date-hash"
                 label="Resize date and hash boundary"
                 edge="left"
-                onPointerDown={(event) => beginColumnResizeDrag("dateHash", event)}
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("dateHash", event)
+                }
               />
               <span>Hash</span>
             </div>
@@ -922,7 +926,8 @@ export function GitGraphOverlay() {
                   ) {
                     return;
                   }
-                  const remaining = filteredRows.length - 1 - visibleRows.stopIndex;
+                  const remaining =
+                    filteredRows.length - 1 - visibleRows.stopIndex;
                   if (remaining <= LOAD_MORE_THRESHOLD_ROWS) {
                     void loadMoreGitGraphCommits();
                   }
@@ -933,7 +938,8 @@ export function GitGraphOverlay() {
                   selectedCommitDetails: graphState.selectedCommitDetails,
                   selectedCommitDetailsIsLoading:
                     graphState.selectedCommitDetailsIsLoading,
-                  selectedCommitDetailsError: graphState.selectedCommitDetailsError,
+                  selectedCommitDetailsError:
+                    graphState.selectedCommitDetailsError,
                   selectedFilePath: graphState.selectedCommitFilePath,
                   palette,
                   darkMode,
@@ -972,8 +978,8 @@ export function GitGraphOverlay() {
                 <span>Filtering loaded commits only.</span>
               ) : graphState.isCapped ? (
                 <span>
-                  Showing first {loadedCommitCount.toLocaleString()} commits (cap
-                  reached).
+                  Showing first {loadedCommitCount.toLocaleString()} commits
+                  (cap reached).
                 </span>
               ) : !graphState.hasMore && loadedCommitCount > 0 ? (
                 <span>Start of history reached.</span>
@@ -991,7 +997,7 @@ export function GitGraphOverlay() {
           className="group/resize relative w-3 cursor-col-resize bg-transparent"
           onPointerDown={beginPaneSplitDrag}
         >
-          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 dark:bg-setta-800 group-hover/resize:bg-blue-400 dark:group-hover/resize:bg-blue-400" />
+          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
         </div>
 
         <section
@@ -1318,7 +1324,9 @@ function ExpandedCommitRow({
 }) {
   const parentsLabel = details.parents.map((p) => p.slice(0, 8)).join(" ");
   const authorDate = DATE_FORMATTER.format(new Date(details.authorTimeMs));
-  const committerDate = DATE_FORMATTER.format(new Date(details.committerTimeMs));
+  const committerDate = DATE_FORMATTER.format(
+    new Date(details.committerTimeMs),
+  );
   const showCommitter =
     details.committerName !== details.authorName ||
     details.committerEmail !== details.authorEmail ||
@@ -1390,7 +1398,7 @@ function ExpandedCommitRow({
         ) : (
           <ul
             data-testid="git-graph-files-list"
-            className="max-h-56 overflow-x-hidden overflow-y-auto rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
+            className="max-h-56 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
           >
             {details.files.map((file) => (
               <li key={`${file.status}-${file.oldPath ?? ""}-${file.path}`}>
@@ -1507,9 +1515,7 @@ function ColumnResizeHandle({
       className={`group/col-resize absolute top-0 z-10 h-full w-6 cursor-col-resize ${rootPositionClass}`}
       onPointerDown={onPointerDown}
     >
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-300 dark:bg-setta-700 group-hover/col-resize:bg-blue-400 dark:group-hover/col-resize:bg-blue-400"
-      />
+      <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-300 group-hover/col-resize:bg-blue-400 dark:bg-setta-700 dark:group-hover/col-resize:bg-blue-400" />
     </div>
   );
 }

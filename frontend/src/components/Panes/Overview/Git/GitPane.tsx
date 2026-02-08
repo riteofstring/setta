@@ -1,9 +1,9 @@
-import { useEffect, useMemo } from "react";
 import {
   gitFileStatusCategoryFromEntry,
   gitFileStatusVisuals,
   type GitFileStatusCategory,
 } from "components/Git/gitFileStatusVisuals";
+import { useEffect, useMemo } from "react";
 import {
   openGitDiffOverlay,
   openGitGraphOverlay,

@@ -33,7 +33,9 @@ function normalizeGitCommit(commit: GitCommit): GitCommit {
   };
 }
 
-function normalizeGitLogResponse(response: GetGitLogResponse): GetGitLogResponse {
+function normalizeGitLogResponse(
+  response: GetGitLogResponse,
+): GetGitLogResponse {
   return {
     ...response,
     commits: response.commits.map(normalizeGitCommit),
@@ -418,7 +420,9 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
         };
       }
 
-      const seenHashes = new Set(existingResponse.commits.map((commit) => commit.hash));
+      const seenHashes = new Set(
+        existingResponse.commits.map((commit) => commit.hash),
+      );
       const appendedCommits = normalizedPage.commits.filter(
         (commit) => !seenHashes.has(commit.hash),
       );
@@ -465,7 +469,8 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
         graph: {
           ...state.overlay.graph,
           isLoadingMore: false,
-          loadMoreError: getErrorDetail(res.data) ?? "Failed to load more commits.",
+          loadMoreError:
+            getErrorDetail(res.data) ?? "Failed to load more commits.",
         },
       },
     };

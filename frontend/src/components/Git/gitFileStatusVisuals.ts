@@ -1,4 +1,7 @@
-import type { GitCommitChangedFile, GitStatusEntry } from "utils/generatedTypes";
+import type {
+  GitCommitChangedFile,
+  GitStatusEntry,
+} from "utils/generatedTypes";
 
 export type GitFileStatusCategory =
   | "added"
@@ -7,7 +10,7 @@ export type GitFileStatusCategory =
   | "conflict"
   | "other";
 
-export type GitFileStatusVisuals = {
+type GitFileStatusVisuals = {
   badgeClassName: string;
 };
 

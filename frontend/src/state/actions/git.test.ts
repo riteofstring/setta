@@ -1,5 +1,9 @@
 import { useGitStore } from "state/git";
-import { computeGitGraphRows } from "utils/gitGraph";
+import {
+  route_get_git_commit_details,
+  route_get_git_commit_file_diff,
+  route_get_git_log,
+} from "utils/generatedEndpoints";
 import {
   createGetGitCommitDetailsResponse,
   createGetGitLogResponse,
@@ -7,11 +11,7 @@ import {
   type GetGitLogResponse,
   type GitCommit,
 } from "utils/generatedTypes";
-import {
-  route_get_git_commit_details,
-  route_get_git_commit_file_diff,
-  route_get_git_log,
-} from "utils/generatedEndpoints";
+import { computeGitGraphRows } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadMoreGitGraphCommits, openGitGraphOverlay } from "./git";
 

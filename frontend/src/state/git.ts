@@ -11,9 +11,9 @@ import type { GitGraphRow } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "./utils";
 
-export type GitOverlayKind = "none" | "diff" | "graph";
+type GitOverlayKind = "none" | "diff" | "graph";
 
-export type GitDiffOverlayState = {
+type GitDiffOverlayState = {
   path: string;
   mode: GitDiffMode;
   hasStaged: boolean;
@@ -23,7 +23,7 @@ export type GitDiffOverlayState = {
   error: string | null;
 };
 
-export type GitGraphOverlayState = {
+type GitGraphOverlayState = {
   allRefs: boolean;
   response: GetGitLogResponse | null;
   rows: GitGraphRow[];
@@ -47,18 +47,18 @@ export type GitGraphOverlayState = {
   selectedCommitFileDiffError: string | null;
 };
 
-export type GitOverlayState =
+type GitOverlayState =
   | { kind: "none" }
   | { kind: "diff"; diff: GitDiffOverlayState }
   | { kind: "graph"; graph: GitGraphOverlayState };
 
-export type GitStatusState = {
+type GitStatusState = {
   response: GetGitStatusResponse | null;
   isLoading: boolean;
   error: string | null;
 };
 
-export type GitState = {
+type GitState = {
   status: GitStatusState;
   overlay: GitOverlayState;
   repoInfoOverride: GitRepoInfoResponse | null;

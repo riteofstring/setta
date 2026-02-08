@@ -1,6 +1,15 @@
+import {
+  javascriptLanguage,
+  jsxLanguage,
+  tsxLanguage,
+  typescriptLanguage,
+} from "@codemirror/lang-javascript";
+import { jsonLanguage } from "@codemirror/lang-json";
+import { markdownLanguage } from "@codemirror/lang-markdown";
+import { pythonLanguage } from "@codemirror/lang-python";
+import { highlightingFor } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorState, RangeSetBuilder } from "@codemirror/state";
-import { highlightingFor } from "@codemirror/language";
 import {
   Decoration,
   EditorView,
@@ -9,10 +18,6 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { highlightTree, type Highlighter } from "@lezer/highlight";
-import { javascriptLanguage, jsxLanguage, tsxLanguage, typescriptLanguage } from "@codemirror/lang-javascript";
-import { jsonLanguage } from "@codemirror/lang-json";
-import { markdownLanguage } from "@codemirror/lang-markdown";
-import { pythonLanguage } from "@codemirror/lang-python";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useMemo } from "react";
@@ -289,7 +294,11 @@ export function GitDiffCodeMirror({
             }
 
             update(update: ViewUpdate) {
-              if (update.docChanged || update.viewportChanged || update.reconfigured) {
+              if (
+                update.docChanged ||
+                update.viewportChanged ||
+                update.reconfigured
+              ) {
                 if (update.docChanged || update.reconfigured) {
                   this.lineCache.clear();
                 }
