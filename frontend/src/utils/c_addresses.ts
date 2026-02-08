@@ -3,6 +3,7 @@ import { C } from "utils/c";
 import { RouteEnum } from "utils/generatedTypes";
 import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
+import { safeSessionStorage } from "utils/storage";
 
 export class C_ADDRESSES {
   static get DEV_MODE() {
@@ -10,13 +11,12 @@ export class C_ADDRESSES {
   }
 
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
-    if (typeof sessionStorage === "undefined") {
+    const storage = safeSessionStorage();
+    if (!storage) {
       return undefined;
     }
     try {
-      const rawOverride = sessionStorage.getItem(
-        BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
-      );
+      const rawOverride = storage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
       if (!rawOverride) {
         return undefined;
       }
@@ -58,10 +58,27 @@ export class C_ADDRESSES {
   }
 
   static get LAUNCHER_ORIGIN() {
-    const fallback = this.DEV_MODE
-      ? this.DEV_BACKEND_ORIGIN_OVERRIDE ??
-        `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`
-      : location.origin;
+    if (!this.DEV_MODE) {
+      return getOrInitLauncherOrigin(location.origin);
+    }
+
+    const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
+    if (override) {
+      return getOrInitLauncherOrigin(override);
+    }
+
+    let fallback = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
+    try {
+      const backendUrl = new URL(this.BACKEND_ORIGIN);
+      if (backendUrl.protocol === "http:" || backendUrl.protocol === "https:") {
+        const hostname = backendUrl.hostname.includes(":")
+          ? `[${backendUrl.hostname}]`
+          : backendUrl.hostname;
+        fallback = `${backendUrl.protocol}//${hostname}:${C.DEFAULT_PORT}`;
+      }
+    } catch {
+      // Ignore invalid origin values and keep the default fallback.
+    }
     return getOrInitLauncherOrigin(fallback);
   }
 

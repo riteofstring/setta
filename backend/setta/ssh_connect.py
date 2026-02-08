@@ -1,3 +1,4 @@
+import logging
 import hashlib
 import json
 import math
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import psutil
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from setta.auth.bootstrap import extract_token_from_bootstrap_url
 from setta.launch import LaunchError, validate_files_root_options
@@ -33,6 +34,8 @@ from setta.ssh_common import (
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class RemoteConnectResult:
@@ -40,6 +43,7 @@ class RemoteConnectResult:
     session: RemoteSessionSummary
     started_new: bool
     remote_cmd_resolved: str
+    files_root: str | None
 
 
 class SshTunnelMetadata(BaseModel):
@@ -148,6 +152,12 @@ def connect_remote_workspace_session(
             "RemoteConnectInfo",
             "Remote connect info did not include a bootstrapUrlFragment.",
         )
+    remote_files_root: str | None = None
+    files_root_value = connect_info.get("filesRoot")
+    if isinstance(files_root_value, str):
+        trimmed_files_root = files_root_value.strip()
+        if trimmed_files_root:
+            remote_files_root = trimmed_files_root
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:
@@ -172,6 +182,7 @@ def connect_remote_workspace_session(
         session=session,
         started_new=started_new,
         remote_cmd_resolved=setta_command,
+        files_root=remote_files_root,
     )
 
 
@@ -204,8 +215,14 @@ def _load_tunnel_metadata(path: Path) -> SshTunnelMetadata | None:
     if not path.exists():
         return None
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+        raw_text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    try:
+        raw = json.loads(raw_text)
+    except json.JSONDecodeError:
+        logger.warning("Invalid SSH tunnel metadata JSON at %s; deleting.", path)
         try:
             path.unlink()
         except OSError:
@@ -213,7 +230,8 @@ def _load_tunnel_metadata(path: Path) -> SshTunnelMetadata | None:
         return None
     try:
         return SshTunnelMetadata.model_validate(raw)
-    except Exception:
+    except ValidationError:
+        logger.warning("Invalid SSH tunnel metadata schema at %s; deleting.", path)
         try:
             path.unlink()
         except OSError:
@@ -328,6 +346,31 @@ def _preferred_local_port(key_hash: str) -> int:
     min_port = 61000
     max_port = 65535
     return min_port + (value % (max_port - min_port + 1))
+
+
+def ensure_ssh_tunnel(
+    *,
+    ssh_target: str,
+    ssh_prefix: list[str],
+    ssh_args: list[str],
+    remote_host: str,
+    remote_port: int,
+    requested_local_port: int | None,
+) -> SshTunnelMetadata:
+    """Ensure a reusable local SSH tunnel is running for the given remote endpoint.
+
+    This starts the tunnel in the background (or reuses an existing one) and
+    persists metadata under the current runtime root for reuse across calls.
+    """
+
+    return _ensure_ssh_tunnel(
+        ssh_target=ssh_target,
+        ssh_prefix=ssh_prefix,
+        ssh_args=ssh_args,
+        remote_host=remote_host,
+        remote_port=remote_port,
+        requested_local_port=requested_local_port,
+    )
 
 
 def _ensure_ssh_tunnel(

@@ -2,12 +2,27 @@ export function dedupeInFlightJson<TParam, TResult>(
   cache: Map<string, Promise<TResult>>,
   param: TParam,
   fn: (param: TParam) => Promise<TResult>,
+  keyFn?: (param: TParam) => string | null,
 ): Promise<TResult> {
   let key: string | null = null;
-  try {
-    key = JSON.stringify(param);
-  } catch {
-    key = null;
+  if (keyFn) {
+    try {
+      const computed = keyFn(param);
+      if (typeof computed === "string" && computed.trim()) {
+        key = computed;
+      }
+    } catch {
+      key = null;
+    }
+  } else {
+    try {
+      const computed = JSON.stringify(param);
+      if (typeof computed === "string" && computed.trim()) {
+        key = computed;
+      }
+    } catch {
+      key = null;
+    }
   }
 
   if (!key) {

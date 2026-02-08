@@ -4,6 +4,7 @@ import os
 import secrets
 import shutil
 import stat
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -179,49 +180,75 @@ class SessionRegistry:
     def _write_metadata(self, metadata: SessionMetadata) -> None:
         path = self._session_dir(metadata.id) / SESSION_METADATA_FILENAME
         payload = metadata.model_dump(mode="json")
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+        # Write atomically so readers never see a truncated/partial JSON payload.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(".tmp")
+        tmp_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        tmp_path.replace(path)
+
+    def _is_recently_modified(self, path: Path, *, seconds: float) -> bool:
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            return False
+        return (time.time() - mtime) <= seconds
 
     def _read_metadata_path(self, path: Path) -> SessionMetadata | None:
+        raw_text: str
         try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            logger.warning(
-                "Failed to read session metadata at %s; deleting %s",
-                path,
-                path.parent,
-                exc_info=True,
-            )
-            try:
-                shutil.rmtree(path.parent)
-            except OSError:
-                pass
+            raw_text = path.read_text(encoding="utf-8")
+        except OSError:
+            if self._is_recently_modified(path, seconds=2.0):
+                logger.debug(
+                    "Failed to read session metadata at %s (transient).",
+                    path,
+                    exc_info=True,
+                )
+            else:
+                logger.warning(
+                    "Failed to read session metadata at %s; skipping.",
+                    path,
+                    exc_info=True,
+                )
+            return None
+
+        raw: dict
+        try:
+            raw = json.loads(raw_text)
+        except json.JSONDecodeError:
+            if self._is_recently_modified(path, seconds=2.0):
+                logger.debug(
+                    "Failed to parse session metadata JSON at %s (transient).",
+                    path,
+                    exc_info=True,
+                )
+            else:
+                logger.warning(
+                    "Failed to parse session metadata JSON at %s; skipping.",
+                    path,
+                    exc_info=True,
+                )
             return None
         try:
             metadata = SessionMetadata.model_validate(raw)
         except ValidationError:
             logger.warning(
-                "Invalid session metadata at %s; deleting %s",
+                "Invalid session metadata at %s; skipping.",
                 path,
-                path.parent,
                 exc_info=True,
             )
-            try:
-                shutil.rmtree(path.parent)
-            except OSError:
-                pass
             return None
         secret_path = Path(metadata.secretPath)
         if not secret_path.is_absolute():
             logger.warning(
-                "Invalid session metadata for %s at %s (secretPath must be absolute); deleting %s",
+                "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
                 metadata.id,
                 path,
-                path.parent,
             )
-            try:
-                shutil.rmtree(path.parent)
-            except OSError:
-                pass
             return None
         return metadata
 

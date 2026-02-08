@@ -73,6 +73,7 @@ class TestLaunchRoutes:
                 assert response.bootstrapUrlFragment is not None
                 assert "/__setta__/bootstrap#token=" in response.bootstrapUrlFragment
                 assert response.sessionId == session.id
+                assert response.filesRoot == str(paths.setta_files_root)
             finally:
                 if pid_file.exists():
                     pid_str = pid_file.read_text(encoding="utf-8").strip()
@@ -145,6 +146,7 @@ class TestLaunchRoutes:
                     assert response2.ok is True
                     pid2 = int(pid_file.read_text(encoding="utf-8").strip())
                     assert pid1 == pid2
+                    assert response2.filesRoot == str(paths.setta_files_root)
             finally:
                 if pid_file.exists():
                     pid_str = pid_file.read_text(encoding="utf-8").strip()

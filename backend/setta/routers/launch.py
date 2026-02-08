@@ -76,16 +76,18 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             )
             resolved_workspace_root = remote.session.workspace_path_canonical
             resolved_files_root: str | None = None
-            if x.filesRoot is not None and x.filesRoot.strip():
+            if remote.files_root is not None and remote.files_root.strip():
+                resolved_files_root = _strip_posix_trailing_slash(
+                    remote.files_root.strip()
+                )
+            elif x.filesRoot is not None and x.filesRoot.strip():
                 resolved_files_root = _strip_posix_trailing_slash(x.filesRoot.strip())
             elif x.filesRootBase is not None and x.filesRootBase.strip():
                 computed_root = build_files_root_from_base(
                     PurePosixPath(x.filesRootBase.strip()),
                     PurePosixPath(resolved_workspace_root),
                 )
-                resolved_files_root = _strip_posix_trailing_slash(
-                    computed_root.as_posix()
-                )
+                resolved_files_root = _strip_posix_trailing_slash(computed_root.as_posix())
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote.bootstrap_url_fragment,

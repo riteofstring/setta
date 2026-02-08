@@ -95,6 +95,16 @@ export function WorkspaceLaunchPage() {
         inFlightLaunchesByKey,
         pending.request,
         route_launch,
+        (request) =>
+          JSON.stringify({
+            workspaceRoot: request.workspaceRoot ?? null,
+            filesRoot: request.filesRoot ?? null,
+            filesRootBase: request.filesRootBase ?? null,
+            sshTarget: request.sshTarget ?? null,
+            sshArgs: request.sshArgs ?? null,
+            remoteCmd: request.remoteCmd ?? null,
+            localPort: request.localPort ?? null,
+          }),
       );
       if (!isMounted) {
         return;

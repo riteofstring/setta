@@ -161,6 +161,8 @@ def test_status_connect_info_json_emits_payload(status_env) -> None:
         payload["sshTunnelCommand"]
         == "ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 <user@host> -o ExitOnForwardFailure=yes"
     )
+    assert payload["runtimeRoot"] == str(status_env.sessions_root.parent)
+    assert payload["filesRoot"] == str(status_env.sessions_root.parent.parent)
 
 
 def test_status_requires_session_or_latest_for_multiple_sessions_json(

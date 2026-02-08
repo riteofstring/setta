@@ -111,9 +111,10 @@ def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:
     registry = SessionRegistry(sessions_root=sessions_root)
     sessions = registry.load_sessions(prune_stale=False)
     assert [session.id for session in sessions] == [good_session_id]
+    assert bad_session_dir.exists()
 
 
-def test_load_sessions_prunes_relative_secret_paths(tmp_path: Path) -> None:
+def test_load_sessions_skips_relative_secret_paths(tmp_path: Path) -> None:
     sessions_root = tmp_path / "sessions"
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -141,7 +142,7 @@ def test_load_sessions_prunes_relative_secret_paths(tmp_path: Path) -> None:
     registry = SessionRegistry(sessions_root=sessions_root)
     sessions = registry.load_sessions(prune_stale=False)
     assert sessions == []
-    assert not session_dir.exists()
+    assert session_dir.exists()
 
 
 def test_find_sessions_by_workspace_resolves_paths() -> None:

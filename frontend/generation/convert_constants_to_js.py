@@ -14,7 +14,8 @@ def extract_constants(constants_class) -> Dict[str, Any]:
 
     # Get all class attributes
     for name in dir(constants_class):
-        if name.startswith("__"):
+        # Only export public constants; avoid backend-private implementation details.
+        if name.startswith("_"):
             continue
         raw_attr = inspect.getattr_static(constants_class, name)
         if isinstance(raw_attr, classproperty):

@@ -119,4 +119,16 @@ describe("C_ADDRESSES", () => {
       `http://launcher.example:9999${RouteEnum.PREFIX}`,
     );
   });
+
+  it("derives launcher origin hostname from the active backend origin in dev mode", () => {
+    env["DEV"] = true;
+    env["VITE_BACKEND_ORIGIN"] = "";
+    sessionStorageStub.setItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+      "http://localhost:61000",
+    );
+
+    expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://localhost:61000");
+    expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://localhost:8000");
+  });
 });

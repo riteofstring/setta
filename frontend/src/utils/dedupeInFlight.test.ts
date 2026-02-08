@@ -44,4 +44,35 @@ describe("dedupeInFlightJson", () => {
     await expect(dedupeInFlightJson(cache, param, fn)).resolves.toBe(1);
     await expect(dedupeInFlightJson(cache, param, fn)).resolves.toBe(2);
   });
+
+  it("dedupes in-flight promises when keyFn is provided", async () => {
+    const cache = new Map<string, Promise<number>>();
+    let calls = 0;
+    const resolvers: Array<(value: number) => void> = [];
+
+    const fn = async (_param: { a: number; b: number }) => {
+      calls += 1;
+      return await new Promise<number>((resolve) => {
+        resolvers.push(resolve);
+      });
+    };
+
+    const p1 = dedupeInFlightJson(
+      cache,
+      { a: 1, b: 2 },
+      fn,
+      (param) => `${param.a}:${param.b}`,
+    );
+    const p2 = dedupeInFlightJson(
+      cache,
+      { b: 2, a: 1 },
+      fn,
+      (param) => `${param.a}:${param.b}`,
+    );
+    expect(p1).toBe(p2);
+    expect(calls).toBe(1);
+
+    resolvers[0]?.(99);
+    await expect(p1).resolves.toBe(99);
+  });
 });

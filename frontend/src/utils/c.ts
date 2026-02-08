@@ -56,5 +56,4 @@ export class C {
   static SHARE_MODE = false;
   static WS_RUN_CODE = "runCode";
   static WS_TERMINAL_RESIZE = "terminalResize";
-  static _raw_auth_cookie_name = null;
 }

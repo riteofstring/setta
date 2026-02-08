@@ -16,12 +16,12 @@ import click
 import requests
 import yaml
 
-from setta import __version__, ssh_common
+from setta import __version__, ssh_common, ssh_connect
 from setta.auth.bootstrap import extract_token_from_bootstrap_url
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
-from setta.launch import LaunchError, launch_workspace_session
+from setta.launch import LaunchError, launch_workspace_session, validate_files_root_options
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads
@@ -71,6 +71,13 @@ def _resolve_cli_paths(
     files_root_base: str | Path | None,
     validate: bool,
 ):
+    try:
+        validate_files_root_options(
+            files_root=files_root,
+            files_root_base=files_root_base,
+        )
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
     paths = resolve_setta_paths(
         workspace_root=workspace,
         files_root=files_root,
@@ -1126,7 +1133,9 @@ def launch(
 @click.option("-w", "--workspace", type=click.Path(path_type=Path))
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
+@click.pass_context
 def status(
+    ctx: click.Context,
     connect_info: bool,
     list_sessions: bool,
     delete_session_id: str | None,
@@ -1138,7 +1147,19 @@ def status(
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
 
-    registry = _build_session_registry(workspace)
+    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
+    group_workspace = ctx_obj.get("workspace")
+    resolved_workspace: Path | None = workspace
+    if resolved_workspace is None:
+        resolved_workspace = group_workspace
+    elif group_workspace is not None and resolved_workspace.resolve(
+        strict=False
+    ) != group_workspace.resolve(strict=False):
+        raise click.ClickException(
+            "Conflicting --workspace provided at both the global CLI level and the status subcommand."
+        )
+
+    registry = _build_session_registry(resolved_workspace)
     if delete_session_id:
         sessions = registry.load_sessions(prune_stale=False)
         target = next(
@@ -1155,10 +1176,10 @@ def status(
     if list_sessions:
         if not json_output:
             raise click.ClickException("Use --json with --list-sessions.")
-        if workspace is None:
+        if resolved_workspace is None:
             sessions = registry.load_sessions()
         else:
-            sessions = registry.find_sessions_by_workspace(workspace)
+            sessions = registry.find_sessions_by_workspace(resolved_workspace)
         payload = {
             "sessions": [
                 {
@@ -1179,12 +1200,14 @@ def status(
     if not connect_info:
         raise click.ClickException("Use --connect-info to print session details.")
 
-    if workspace is None:
+    if resolved_workspace is None:
         sessions = registry.load_sessions()
     else:
-        sessions = registry.find_sessions_by_workspace(workspace)
+        sessions = registry.find_sessions_by_workspace(resolved_workspace)
         if not sessions:
-            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
+            sessions = registry.find_sessions_by_workspace(
+                resolved_workspace, prune_stale=False
+            )
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1209,6 +1232,7 @@ def status(
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
+        resolved_paths = resolve_setta_paths(workspace_root=resolved_workspace)
         payload = {
             "session": {
                 "id": session.id,
@@ -1222,6 +1246,8 @@ def status(
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
+            "filesRoot": str(resolved_paths.setta_files_root),
+            "runtimeRoot": str(resolved_paths.runtime_root),
         }
         _emit_connect_info_json(payload)
         return
@@ -1246,7 +1272,9 @@ def status(
     default=None,
     help="Override the backend base URL (scheme://host:port).",
 )
+@click.pass_context
 def auth(
+    ctx: click.Context,
     json_output: bool,
     workspace: Path | None,
     session_id: str | None,
@@ -1256,13 +1284,27 @@ def auth(
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
 
-    registry = _build_session_registry(workspace)
-    if workspace is None:
+    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
+    group_workspace = ctx_obj.get("workspace")
+    resolved_workspace: Path | None = workspace
+    if resolved_workspace is None:
+        resolved_workspace = group_workspace
+    elif group_workspace is not None and resolved_workspace.resolve(
+        strict=False
+    ) != group_workspace.resolve(strict=False):
+        raise click.ClickException(
+            "Conflicting --workspace provided at both the global CLI level and the auth subcommand."
+        )
+
+    registry = _build_session_registry(resolved_workspace)
+    if resolved_workspace is None:
         sessions = registry.load_sessions()
     else:
-        sessions = registry.find_sessions_by_workspace(workspace)
+        sessions = registry.find_sessions_by_workspace(resolved_workspace)
         if not sessions:
-            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
+            sessions = registry.find_sessions_by_workspace(
+                resolved_workspace, prune_stale=False
+            )
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1738,6 +1780,48 @@ def connect(
     local_bootstrap_url, _ = build_bootstrap_urls(
         "127.0.0.1", resolved_local_port, token
     )
+
+    if print_only:
+        if verbose:
+            click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
+        tunnel_args = _build_ssh_tunnel_args(
+            ssh_target,
+            ssh_args_list,
+            selected_session.host,
+            resolved_local_port,
+            selected_session.port,
+        )
+        click.echo(shlex.join(tunnel_args))
+        click.echo(local_bootstrap_url)
+        click.echo(token)
+        return
+
+    if detach:
+        click.echo("Ensuring local tunnel is running (background).")
+        tunnel = ssh_connect.ensure_ssh_tunnel(
+            ssh_target=ssh_target,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=True),
+            ssh_args=ssh_args_list,
+            remote_host=selected_session.host,
+            remote_port=selected_session.port,
+            requested_local_port=local_port,
+        )
+        local_bootstrap_url, _ = build_bootstrap_urls(
+            "127.0.0.1",
+            tunnel.localPort,
+            token,
+        )
+        if verbose:
+            click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
+        if not no_open:
+            click.echo("Opening browser...")
+            webbrowser.open(local_bootstrap_url, new=0)
+        click.echo(
+            f"Tunnel running in background (pid {tunnel.pid}, local port {tunnel.localPort})."
+        )
+        click.echo(f"To stop: kill {tunnel.pid}")
+        return
+
     if verbose:
         click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
     tunnel_args = _build_ssh_tunnel_args(
@@ -1747,32 +1831,6 @@ def connect(
         resolved_local_port,
         selected_session.port,
     )
-
-    if print_only:
-        click.echo(shlex.join(tunnel_args))
-        click.echo(local_bootstrap_url)
-        click.echo(token)
-        return
-
-    if detach:
-        click.echo(f"Opening local tunnel on {resolved_local_port} (background).")
-        proc = subprocess.Popen(
-            tunnel_args,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-        _ensure_background_process_started(proc)
-        if not no_open:
-            click.echo("Opening browser...")
-            webbrowser.open(local_bootstrap_url, new=0)
-        click.echo(
-            f"Tunnel running in background (pid {proc.pid}, local port {resolved_local_port})."
-        )
-        click.echo(f"To stop: kill {proc.pid}")
-        return
-
     click.echo(
         f"Opening local tunnel on {resolved_local_port} (keep this terminal open)."
     )

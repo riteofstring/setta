@@ -1,3 +1,4 @@
+import os
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from fastapi import Body, Depends, Header, HTTPException, Request, Response, status
@@ -330,14 +331,19 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	          errorEl.textContent = message || "";
 	        }
 
+	        let hashParams;
+	        try {
+	          const hash = window.location.hash.startsWith("#")
+	            ? window.location.hash.slice(1)
+	            : window.location.hash;
+	          hashParams = new URLSearchParams(hash || "");
+	        } catch {
+	          hashParams = new URLSearchParams();
+	        }
+
 	        function hydrateWorkspaceHistoryFromHash() {
 	          try {
-	            const hash = window.location.hash.slice(1);
-	            if (!hash) {
-	              return;
-	            }
-	            const params = new URLSearchParams(hash);
-	            const encoded = params.get("wh");
+	            const encoded = hashParams.get("wh");
 	            if (!encoded) {
 	              return;
 	            }
@@ -349,12 +355,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 
 	        function hydrateLauncherOriginFromHash() {
 	          try {
-	            const hash = window.location.hash.slice(1);
-	            if (!hash) {
-	              return;
-	            }
-	            const params = new URLSearchParams(hash);
-	            const raw = params.get("lo");
+	            const raw = hashParams.get("lo");
 	            if (!raw) {
 	              return;
 	            }
@@ -372,8 +373,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	        }
 
         function readTokenFromUrl() {
-          const hash = window.location.hash.slice(1);
-          const hashToken = new URLSearchParams(hash).get("token");
+          const hashToken = hashParams.get("token");
           if (hashToken) {
             return hashToken;
           }
@@ -464,7 +464,11 @@ def _bootstrap_redirect_url(request: Request) -> str:
         return "/"
     hostname = request.url.hostname or C.HOST
     host = format_host_for_url(hostname)
-    redirect_url = f"{request.url.scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
+    frontend_scheme = os.environ.get("SETTA_DEV_FRONTEND_SCHEME", "http") or "http"
+    frontend_scheme = frontend_scheme.strip().lower() or "http"
+    if frontend_scheme not in {"http", "https"}:
+        frontend_scheme = "http"
+    redirect_url = f"{frontend_scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
     return _set_query_param(
         redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
     )

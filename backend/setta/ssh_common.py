@@ -1,3 +1,4 @@
+import binascii
 import base64
 import json
 import os
@@ -82,14 +83,27 @@ def run_ssh_command(
 def parse_json_payload(output: str) -> dict[str, Any]:
     for line in output.splitlines():
         if line.startswith(CONNECT_INFO_JSON_PREFIX):
-            encoded = line.removeprefix(CONNECT_INFO_JSON_PREFIX)
+            encoded = line.removeprefix(CONNECT_INFO_JSON_PREFIX).strip()
             try:
-                decoded = base64.b64decode(encoded).decode("utf-8")
-                data = json.loads(decoded)
-            except Exception as exc:
+                decoded_bytes = base64.b64decode(encoded, validate=True)
+            except (binascii.Error, ValueError) as exc:
                 raise LaunchError(
                     "RemoteJsonPayload",
-                    "Failed to decode remote Setta JSON payload.",
+                    "Failed to decode remote Setta JSON payload (base64).",
+                ) from exc
+            try:
+                decoded = decoded_bytes.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise LaunchError(
+                    "RemoteJsonPayload",
+                    "Failed to decode remote Setta JSON payload (utf-8).",
+                ) from exc
+            try:
+                data = json.loads(decoded)
+            except json.JSONDecodeError as exc:
+                raise LaunchError(
+                    "RemoteJsonPayload",
+                    "Failed to decode remote Setta JSON payload (json).",
                 ) from exc
             if not isinstance(data, dict):
                 raise LaunchError(
