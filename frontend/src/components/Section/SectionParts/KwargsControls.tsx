@@ -10,12 +10,16 @@ import {
   updateShownParamIdsForPinnedParams,
 } from "state/actions/sectionInfos";
 import {
+  useLocalStorage,
   useProjectState,
   useSettings,
   useTemporaryMiscState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { getKwargsControlsHeightKey } from "utils/constants";
+import {
+  getKwargsControlsHeightKey,
+  getSectionStylePreviewColorKey,
+} from "utils/constants";
 import {
   route_add_kwarg,
   route_delete_kwarg,
@@ -29,17 +33,14 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
 
 type KwargsControlsProps = {
   sectionId: string;
-  bgColor?: string;
 };
 
-export function KwargsControls({
-  sectionId,
-  bgColor = "bg-transparent",
-}: KwargsControlsProps) {
+export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
@@ -81,18 +82,48 @@ export function KwargsControls({
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
   const { canEditLayout, canEditStructure } = useShareCapabilities();
-  const { callableMissing, isCallableSection } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      x,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const isCallableSection = impl.type === SectionTypeEnum.Callable;
-    return {
-      callableMissing: isCallableSection && impl.callable == null,
-      isCallableSection,
-    };
-  }, _.isEqual);
+  const { callableMissing, isCallableSection, styleColor } = useProjectState(
+    (x) => {
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      const isCallableSection = impl.type === SectionTypeEnum.Callable;
+      return {
+        callableMissing: isCallableSection && impl.callable == null,
+        isCallableSection,
+        styleColor: impl.styleColor ?? null,
+      };
+    },
+    _.isEqual,
+  );
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
+  const argsBgColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-bg)]"
+    : "";
+  const argsBorderColorClassName = hasSectionStyleTheme
+    ? "border-[color:var(--setta-section-style-border)]"
+    : "border-white dark:border-setta-700";
+  const argsLabelColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-600/70 dark:text-setta-400/30";
+  const argsIconButtonColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]"
+    : "text-setta-500 hover:text-blue-500 dark:hover:text-blue-500";
+  const argsIconGlyphColorClassName =
+    "text-current before:text-current after:text-current";
   const kwargButtonsDisabled =
     variantIsFrozen || callableMissing || !canEditStructure;
 
@@ -332,7 +363,7 @@ export function KwargsControls({
       <section
         className={`section-args z-10 ${
           isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1"
-        } flex min-w-0 flex-wrap rounded-xl border-b border-solid border-white px-1 shadow-sm @container dark:border-setta-700 ${bgColor}`}
+        } flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container ${argsBgColorClassName} ${argsBorderColorClassName}`}
         ref={controlsRef}
       >
         <article
@@ -341,11 +372,13 @@ export function KwargsControls({
           }`}
         >
           <section className="ml-1 flex items-center gap-1">
-            <h3 className="my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter text-setta-600/70 @[300px]:block dark:text-setta-400/30">
+            <h3
+              className={`my-auto ml-2 mr-[.1rem] hidden text-xs font-bold uppercase tracking-tighter @[300px]:block ${argsLabelColorClassName}`}
+            >
               Args
             </h3>
             <button
-              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
               onClick={() => {
                 const payload = {
                   projectConfigId: getCurrProjectConfigId(),
@@ -358,10 +391,12 @@ export function KwargsControls({
               aria-label="Remove arg"
               {...getFloatingBoxHandlers({ content: "Remove arg" })}
             >
-              <i className="gg-math-minus before:!left-0 " />
+              <i
+                className={`gg-math-minus before:!left-0 ${argsIconGlyphColorClassName}`}
+              />
             </button>
             <button
-              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
               onClick={() => {
                 const payload = {
                   projectConfigId: getCurrProjectConfigId(),
@@ -374,21 +409,25 @@ export function KwargsControls({
               aria-label="Add arg"
               {...getFloatingBoxHandlers({ content: "Add arg" })}
             >
-              <i className="gg-math-plus !scale-50" />
+              <i
+                className={`gg-math-plus !scale-50 ${argsIconGlyphColorClassName}`}
+              />
             </button>
 
             <button
-              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
               onClick={onClickPinParam}
               tabIndex={0}
               disabled={pinParamsDisabled}
               aria-label={pinButtonLabel}
               {...getFloatingBoxHandlers({ content: pinButtonLabel })}
             >
-              <i className="gg-pin-alt mt-1 !scale-50" />
+              <i
+                className={`gg-pin-alt mt-1 !scale-50 ${argsIconGlyphColorClassName}`}
+              />
             </button>
             <button
-              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
               onClick={onClickConvertToEdgeInputs}
               tabIndex={0}
               disabled={convertToEdgeDisabled}
@@ -396,10 +435,12 @@ export function KwargsControls({
               aria-label={convertToEdgeAriaLabel}
               {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
             >
-              <i className={`${convertToEdgeIconClassName} !scale-50`} />
+              <i
+                className={`${convertToEdgeIconClassName} !scale-50 ${argsIconGlyphColorClassName}`}
+              />
             </button>
             <button
-              className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"
+              className={`nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent focus-visible:ring-2 ${argsIconButtonColorClassName}`}
               onClick={onClickDeleteSelectedKwargs}
               tabIndex={0}
               disabled={deleteSelectedDisabled}
@@ -407,7 +448,9 @@ export function KwargsControls({
               aria-label="Delete selected args"
               {...getFloatingBoxHandlers({ content: "Delete selected args" })}
             >
-              <i className="gg-close !scale-50" />
+              <i
+                className={`gg-close !scale-50 ${argsIconGlyphColorClassName}`}
+              />
             </button>
           </section>
         </article>
@@ -415,6 +458,7 @@ export function KwargsControls({
         <ParamFilter
           sectionId={sectionId}
           includeCallablePadding={isCallableSection}
+          hasSectionStyleTheme={hasSectionStyleTheme}
         />
       </section>
     </>
@@ -424,9 +468,11 @@ export function KwargsControls({
 function ParamFilter({
   sectionId,
   includeCallablePadding,
+  hasSectionStyleTheme,
 }: {
   sectionId: string;
   includeCallablePadding: boolean;
+  hasSectionStyleTheme: boolean;
 }) {
   const { paramFilterValue, sectionIsActive } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -443,6 +489,12 @@ function ParamFilter({
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),
   );
+  const sortIconColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-300 dark:text-setta-600";
+  const inputColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-text)] placeholder-[color:var(--setta-section-style-muted-text)] focus-visible:border-[color:var(--setta-section-style-outline)]"
+    : "text-setta-700 placeholder-setta-400 focus-visible:border-blue-300 dark:text-setta-300";
 
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
@@ -463,11 +515,11 @@ function ParamFilter({
         includeCallablePadding ? "py-1" : ""
       }`}
     >
-      <i className="gg-sort-az -mr-2 text-setta-300 dark:text-setta-600" />
+      <i className={`gg-sort-az -mr-2 ${sortIconColorClassName}`} />
       <input
         id={`${sectionId}-args-filter`} // IMPORTANT, used for ctrl-k shortcut
         value={paramFilterValue}
-        className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
+        className={`min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs outline-0 [border-width:0_0_1px_0] ${inputColorClassName}`}
         placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
         tabIndex={0}
         onChange={onSearchChange}

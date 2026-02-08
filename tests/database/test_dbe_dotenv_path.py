@@ -12,7 +12,6 @@ def test_dbe_dot_env_is_workspace_root_anchored(tmp_path: Path) -> None:
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_files_root,
     ):
         dbe = DBE(setta_files_root)
 
@@ -23,4 +22,3 @@ def test_dbe_dot_env_is_workspace_root_anchored(tmp_path: Path) -> None:
         assert expected.exists()
         assert "SETTA_TEST_KEY=value" in expected.read_text(encoding="utf-8")
         assert not (setta_files_root / ".env").exists()
-

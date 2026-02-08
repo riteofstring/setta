@@ -9,6 +9,7 @@ import { attachKeyEventListeners } from "state/actions/keyActivations";
 import { useLocalStorage, useMisc } from "state/definitions";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
+import { ViewModeTabs } from "./ViewModeTabs";
 
 export function UIPage() {
   useInitGlobalKeyEventListeners();
@@ -17,13 +18,16 @@ export function UIPage() {
 
   return (
     <SectionDndContext>
-      <div className="relative h-full min-h-0 w-full min-w-0">
-        <ReactFlow />
-        <PaneContextMenu />
-        <SelectionContextMenu />
-        <TypeErrorContextMenu />
-        {showMiniMap && <ResponsiveMiniMap />}
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-col">
+        <ViewModeTabs />
+        <div className="min-h-0 w-full min-w-0 flex-1">
+          <ReactFlow />
+        </div>
       </div>
+      <PaneContextMenu />
+      <SelectionContextMenu />
+      <TypeErrorContextMenu />
+      {showMiniMap && <ResponsiveMiniMap />}
     </SectionDndContext>
   );
 }

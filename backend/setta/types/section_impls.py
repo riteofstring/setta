@@ -150,6 +150,8 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     name: str = Field(default_factory=generate_memorable_string)
     isFrozen: bool = False
     isInOtherProjectConfigs: bool = False
+    tagColor: str | None = None
+    styleColor: str | None = None
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool | float = False
     aspectRatioExtraHeight: int = 0
