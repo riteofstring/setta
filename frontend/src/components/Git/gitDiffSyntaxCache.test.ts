@@ -19,7 +19,11 @@ describe("setSyntaxLineCacheEntry", () => {
       setSyntaxLineCacheEntry(cache, i, entry(`line-${i}`));
     }
 
-    setSyntaxLineCacheEntry(cache, MAX_SYNTAX_LINE_CACHE_ENTRIES, entry("extra"));
+    setSyntaxLineCacheEntry(
+      cache,
+      MAX_SYNTAX_LINE_CACHE_ENTRIES,
+      entry("extra"),
+    );
 
     expect(cache.size).toBe(MAX_SYNTAX_LINE_CACHE_ENTRIES);
     expect(cache.has(0)).toBe(false);
@@ -34,7 +38,11 @@ describe("setSyntaxLineCacheEntry", () => {
 
     // Refresh key 0 so key 1 becomes the oldest candidate for eviction.
     setSyntaxLineCacheEntry(cache, 0, entry("line-0-updated"));
-    setSyntaxLineCacheEntry(cache, MAX_SYNTAX_LINE_CACHE_ENTRIES, entry("extra"));
+    setSyntaxLineCacheEntry(
+      cache,
+      MAX_SYNTAX_LINE_CACHE_ENTRIES,
+      entry("extra"),
+    );
 
     expect(cache.size).toBe(MAX_SYNTAX_LINE_CACHE_ENTRIES);
     expect(cache.has(0)).toBe(true);

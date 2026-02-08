@@ -6,10 +6,7 @@ import type {
   GetGitStatusResponse,
   GitDiffMode,
 } from "utils/generatedTypes";
-import type {
-  GitGraphRow,
-  GitGraphRowComputationState,
-} from "utils/gitGraph";
+import type { GitGraphRow, GitGraphRowComputationState } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
 import { withResetFn } from "./utils";
 

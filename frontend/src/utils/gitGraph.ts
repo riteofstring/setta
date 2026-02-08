@@ -154,9 +154,7 @@ export function appendGitGraphRows(
   };
 }
 
-export function computeGitGraphRowsWithState(
-  commits: readonly GitCommit[],
-): {
+export function computeGitGraphRowsWithState(commits: readonly GitCommit[]): {
   rows: GitGraphRow[];
   rowComputationState: GitGraphRowComputationState;
 } {
