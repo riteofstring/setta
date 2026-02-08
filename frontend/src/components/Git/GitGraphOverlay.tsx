@@ -509,6 +509,7 @@ function GitGraphCell({
   const height = ROW_HEIGHT;
   const width = Math.max(GRAPH_CELL_WIDTH, laneColorIds.length * laneWidth);
   const centerY = height / 2;
+  const strokeOpacity = 0.6;
   const xForLane = (idx: number) => idx * laneWidth + laneWidth / 2;
 
   const commitColorId = laneColorIds[laneIndex] ?? 0;
@@ -551,7 +552,7 @@ function GitGraphCell({
             stroke={color}
             strokeWidth={2}
             strokeLinecap="round"
-            opacity={0.35}
+            opacity={strokeOpacity}
           />
         );
       })}
@@ -569,7 +570,7 @@ function GitGraphCell({
             strokeWidth={2}
             strokeLinecap="round"
             fill="none"
-            opacity={0.75}
+            opacity={strokeOpacity}
           />
         );
       })}
@@ -577,15 +578,17 @@ function GitGraphCell({
       {mergeToLaneIndices.map((toIdx) => {
         const x1 = xForLane(laneIndex);
         const x2 = xForLane(toIdx);
+        const toColorId = laneColorIds[toIdx] ?? commitColorId;
+        const toColor = palette[toColorId % palette.length]!;
         return (
           <path
             key={`merge-${laneIndex}-${toIdx}`}
             d={`M ${x1} ${centerY} Q ${x2} ${centerY} ${x2} ${height}`}
-            stroke={commitColor}
+            stroke={toColor}
             strokeWidth={2}
             strokeLinecap="round"
             fill="none"
-            opacity={0.6}
+            opacity={strokeOpacity}
           />
         );
       })}
