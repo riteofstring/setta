@@ -188,6 +188,40 @@ test("workspace switcher allows selecting setta files location", async ({
   await modal.getByRole("button", { name: "Cancel" }).click();
 });
 
+test("workspace switcher sends local setta files location", async ({ page }) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for workspace switcher test.");
+  }
+  const missingWorkspace = `${workspaceRoot}/does-not-exist-${Date.now()}`;
+
+  await ensureAppReady(page);
+  await page.getByRole("menuitem", { name: "Project" }).click();
+  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+
+  await modal
+    .getByRole("combobox", { name: "Setta Files Location" })
+    .selectOption("local");
+  await modal.getByPlaceholder("/path/to/workspace").fill(missingWorkspace);
+
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
+  await modal.getByRole("button", { name: "Launch" }).click();
+
+  await page.waitForURL("**/launching");
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.settaFilesLocation).toBe("local");
+  await expect(page.getByText("Workspace root does not exist")).toBeVisible();
+});
+
 test("workspace launch URL handoff overrides stale sessionStorage", async ({
   page,
 }) => {
