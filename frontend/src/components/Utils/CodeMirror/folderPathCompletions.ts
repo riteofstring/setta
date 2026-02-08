@@ -156,7 +156,10 @@ export function createDynamicFolderPathCompletionSource(
     return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}`;
   };
 
-  const getEntries = (options: FolderPathCompletionOptions, folderPath: string) => {
+  const getEntries = (
+    options: FolderPathCompletionOptions,
+    folderPath: string,
+  ) => {
     const cached = cache.get(folderPath);
     if (cached) {
       return cached;

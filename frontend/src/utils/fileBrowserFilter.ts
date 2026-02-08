@@ -1,14 +1,14 @@
-export type FileBrowserFilterQuery =
+type FileBrowserFilterQuery =
   | { kind: "none" }
   | { kind: "path"; needle: string }
   | { kind: "extension"; suffix: string }
   | { kind: "name"; needle: string };
 
-export function normalizeFileBrowserFilterText(value: string): string {
+function normalizeFileBrowserFilterText(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function isPathLikeFileBrowserFilterText(value: string): boolean {
+function isPathLikeFileBrowserFilterText(value: string): boolean {
   return value.includes("/") || value.includes("\\");
 }
 

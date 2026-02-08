@@ -14,8 +14,8 @@ import { useShareCapabilities } from "state/hooks/share";
 import { route_set_browser_saved_searches } from "utils/generatedEndpoints";
 import {
   BrowserSavedSearch,
-  BrowserSearchScopeEnum,
   BrowserSavedSearchTypeFilters,
+  BrowserSearchScopeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
@@ -79,7 +79,9 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
       if (isDisabled) {
         return;
       }
-      const next = savedSearches.map((s) => (s.id === id ? { ...s, ...patch } : s));
+      const next = savedSearches.map((s) =>
+        s.id === id ? { ...s, ...patch } : s,
+      );
       updateSavedSearchesOptimistically({ sectionId, nextSavedSearches: next });
     },
     [isDisabled, savedSearches, sectionId],
@@ -103,7 +105,8 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
           Saved Searches
         </p>
         <p className="text-xs text-setta-400 dark:text-setta-600">
-          Create saved searches from the Browser section, then customize them here.
+          Create saved searches from the Browser section, then customize them
+          here.
         </p>
       </div>
 
@@ -128,19 +131,23 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
                     aria-hidden="true"
                   />
                   <input
-                    className="w-full min-w-0 truncate bg-transparent text-sm font-semibold text-setta-700 outline-none [border-width:0_0_1px_0] border-solid border-setta-200 focus-visible:border-blue-300 dark:text-setta-200 dark:border-setta-800"
+                    className="w-full min-w-0 truncate border-solid border-setta-200 bg-transparent text-sm font-semibold text-setta-700 outline-none [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:border-setta-800 dark:text-setta-200"
                     value={search.name ?? ""}
                     placeholder="Saved search name"
                     disabled={isDisabled}
-                    onChange={(e) => updateSearch(search.id, { name: e.target.value })}
+                    onChange={(e) =>
+                      updateSearch(search.id, { name: e.target.value })
+                    }
                   />
                 </div>
                 <input
-                  className="mt-2 w-full min-w-0 truncate bg-transparent text-xs text-setta-600 outline-none [border-width:0_0_1px_0] border-solid border-setta-200 focus-visible:border-blue-300 dark:text-setta-300 dark:border-setta-800"
+                  className="mt-2 w-full min-w-0 truncate border-solid border-setta-200 bg-transparent text-xs text-setta-600 outline-none [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:border-setta-800 dark:text-setta-300"
                   value={search.query ?? ""}
                   placeholder="Search query"
                   disabled={isDisabled}
-                  onChange={(e) => updateSearch(search.id, { query: e.target.value })}
+                  onChange={(e) =>
+                    updateSearch(search.id, { query: e.target.value })
+                  }
                 />
               </div>
 
@@ -181,7 +188,9 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
                   type="color"
                   value={search.color || "#3b82f6"}
                   disabled={isDisabled}
-                  onChange={(e) => updateSearch(search.id, { color: e.target.value })}
+                  onChange={(e) =>
+                    updateSearch(search.id, { color: e.target.value })
+                  }
                   className="h-7 w-10 cursor-pointer rounded-md border border-setta-200 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800"
                   aria-label="Saved search color"
                 />
@@ -225,7 +234,9 @@ export function BrowserAreaSettings({ sectionId }: BrowserAreaSettingsProps) {
               value={search.quickInfo ?? ""}
               disabled={isDisabled}
               rows={3}
-              onChange={(e) => updateSearch(search.id, { quickInfo: e.target.value })}
+              onChange={(e) =>
+                updateSearch(search.id, { quickInfo: e.target.value })
+              }
             />
           </div>
         ))}

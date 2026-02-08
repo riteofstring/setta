@@ -257,6 +257,9 @@ describe("flattenFileBrowserTree", () => {
       searchScope: "local",
       getChildPaths: (path) => childrenByPath[path] ?? [],
     });
-    expect(localReadme.map((x) => x.fullPath)).toEqual([rootPath, "/root/README.md"]);
+    expect(localReadme.map((x) => x.fullPath)).toEqual([
+      rootPath,
+      "/root/README.md",
+    ]);
   });
 });

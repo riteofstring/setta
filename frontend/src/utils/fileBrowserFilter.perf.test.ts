@@ -30,4 +30,3 @@ describe("fileBrowserFilter (perf)", () => {
     expect(elapsedMs).toBeLessThan(1500);
   });
 });
-

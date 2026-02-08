@@ -8,13 +8,13 @@ import {
 } from "react";
 import { FiChevronLeft, FiChevronRight, FiFileText } from "react-icons/fi";
 import { IoImageOutline } from "react-icons/io5";
-import { getFloatingBoxHandlers } from "./FloatingBox";
 import {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
+import { getFloatingBoxHandlers } from "./FloatingBox";
 
 export type MediaCarouselItem<T = unknown> = {
   id: string;
@@ -198,7 +198,8 @@ export function MediaCarousel<T>({
         rowHeightPx: null as number | null,
       };
     }
-    const availableHeight = thumbnailRowHeightPx - THUMBNAIL_ROW_PADDING_Y_PX * 2;
+    const availableHeight =
+      thumbnailRowHeightPx - THUMBNAIL_ROW_PADDING_Y_PX * 2;
     const normalLabelHeight = showThumbnailLabels
       ? THUMBNAIL_LABEL_GAP_PX +
         THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
@@ -212,7 +213,10 @@ export function MediaCarousel<T>({
 
     const normalScale = (availableHeight - normalLabelHeight) / thumbnailSize;
     if (normalScale >= THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD) {
-      const scale = Math.min(1, Math.max(resolvedThumbnailRowMinScale, normalScale));
+      const scale = Math.min(
+        1,
+        Math.max(resolvedThumbnailRowMinScale, normalScale),
+      );
       return {
         thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
         labelMode: "wrap" as const,
@@ -221,7 +225,10 @@ export function MediaCarousel<T>({
     }
 
     const compactScale = (availableHeight - compactLabelHeight) / thumbnailSize;
-    const scale = Math.min(1, Math.max(resolvedThumbnailRowMinScale, compactScale));
+    const scale = Math.min(
+      1,
+      Math.max(resolvedThumbnailRowMinScale, compactScale),
+    );
     return {
       thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
       labelMode: "compact" as const,
@@ -449,7 +456,7 @@ export function MediaCarousel<T>({
           aria-label="Resize thumbnail strip"
           aria-orientation="horizontal"
           onPointerDown={handleThumbnailRowResizePointerDown}
-          className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} nodrag flex h-3 items-center justify-center cursor-row-resize select-none touch-none`}
+          className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME} nodrag flex h-3 cursor-row-resize touch-none select-none items-center justify-center`}
         >
           <div className="h-1 w-12 rounded-full bg-setta-200/80 opacity-70 transition-opacity group-hover/media-carousel:opacity-100 dark:bg-setta-700/70" />
         </div>
@@ -557,13 +564,16 @@ export function MediaCarousel<T>({
                 <div className="w-full">
                   <p className="flex w-full justify-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
                     <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
-                      <span className="min-w-0 flex-1 truncate">{fileStem}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {fileStem}
+                      </span>
                       {fileExtension ? (
                         <span className="shrink-0">{fileExtension}</span>
                       ) : null}
                     </span>
                   </p>
-                  {item.subLabel && thumbnailRowLayout.labelMode !== "compact" ? (
+                  {item.subLabel &&
+                  thumbnailRowLayout.labelMode !== "compact" ? (
                     <p className="w-full truncate text-center text-[10px] text-setta-400 dark:text-setta-500">
                       {item.subLabel}
                     </p>

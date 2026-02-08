@@ -20,4 +20,3 @@ describe("MediaCarousel scrollbar CSS", () => {
     );
   });
 });
-

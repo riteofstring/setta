@@ -1,6 +1,6 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
-import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
+import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { CSSProperties } from "react";
@@ -23,10 +23,7 @@ import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { normalizeBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import {
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   matchesFileBrowserNameFilter,
@@ -83,7 +80,7 @@ type FlattenedNode = FileNode & {
   depth: number;
 };
 
-export type FlattenedFileNode = FlattenedNode;
+type FlattenedFileNode = FlattenedNode;
 
 export function flattenFileBrowserTree({
   rootPath,
@@ -280,15 +277,21 @@ export function FileBrowserPane({
   columnWidthConfig,
 }: FileBrowserPaneProps = {}) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
-  const { rootPath, expandedPaths, selectedPath, filterText, typeFilters, searchScope } =
-    fileBrowserState((state) => ({
-      rootPath: state.rootPath,
-      expandedPaths: state.expandedPaths,
-      selectedPath: state.selectedPath,
-      filterText: state.filterText,
-      typeFilters: state.typeFilters,
-      searchScope: state.searchScope,
-    }));
+  const {
+    rootPath,
+    expandedPaths,
+    selectedPath,
+    filterText,
+    typeFilters,
+    searchScope,
+  } = fileBrowserState((state) => ({
+    rootPath: state.rootPath,
+    expandedPaths: state.expandedPaths,
+    selectedPath: state.selectedPath,
+    filterText: state.filterText,
+    typeFilters: state.typeFilters,
+    searchScope: state.searchScope,
+  }));
   const [isTooltipKeyHeld, setIsTooltipKeyHeld] = useState(false);
   const [nodesByPath, setNodesByPath] = useState<Record<string, FileNode>>({});
   const nodesByPathRef = useRef(nodesByPath);
@@ -1046,7 +1049,10 @@ export function FileBrowserPane({
                 return;
               }
               const start = Math.max(0, visibleRows.startIndex);
-              const stop = Math.min(displayedItems.length - 1, visibleRows.stopIndex);
+              const stop = Math.min(
+                displayedItems.length - 1,
+                visibleRows.stopIndex,
+              );
               if (start > stop) {
                 return;
               }
@@ -1429,7 +1435,7 @@ export function FileBrowserFilter({
             type="button"
             aria-label="Save search"
             title="Save search"
-            className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset disabled:cursor-default disabled:opacity-40 ${
+            className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 disabled:cursor-default disabled:opacity-40 ${
               canShowSaveButton
                 ? "bg-transparent text-setta-400 hover:bg-setta-50 dark:text-setta-500 dark:hover:bg-setta-800"
                 : "bg-transparent text-setta-300 dark:text-setta-700"
@@ -1462,7 +1468,7 @@ export function FileBrowserFilter({
             <button
               type="button"
               aria-label="Search scope options"
-              className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset hover:bg-setta-50 dark:hover:bg-setta-800 ${
+              className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-setta-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 dark:hover:bg-setta-800 ${
                 searchMenuOpen
                   ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600"
                   : "bg-transparent text-setta-400 dark:text-setta-500"
@@ -1477,7 +1483,7 @@ export function FileBrowserFilter({
               <button
                 type="button"
                 aria-pressed={searchScope === "recursive"}
-                className={`box-border w-full rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset ${
+                className={`box-border w-full rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 ${
                   searchScope === "recursive"
                     ? "bg-blue-100/80 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/50"
                     : "text-setta-700 hover:bg-setta-50 dark:text-setta-200 dark:hover:bg-setta-850"
@@ -1505,7 +1511,7 @@ export function FileBrowserFilter({
               <button
                 type="button"
                 aria-pressed={searchScope === "local"}
-                className={`box-border w-full rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset ${
+                className={`box-border w-full rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300 ${
                   searchScope === "local"
                     ? "bg-blue-100/80 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/50"
                     : "text-setta-700 hover:bg-setta-50 dark:text-setta-200 dark:hover:bg-setta-850"

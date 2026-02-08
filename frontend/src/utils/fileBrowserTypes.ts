@@ -3,7 +3,12 @@ import { normalizeBrowserPath } from "utils/browserPaths";
 
 export type FileBrowserSearchScope = "recursive" | "local";
 
-export type FileBrowserTypeFilter = "image" | "video" | "audio" | "text" | "data";
+export type FileBrowserTypeFilter =
+  | "image"
+  | "video"
+  | "audio"
+  | "text"
+  | "data";
 
 export const DEFAULT_FILE_BROWSER_TYPE_FILTERS: Record<
   FileBrowserTypeFilter,
@@ -59,7 +64,7 @@ function extractExtension(value: string | undefined): string | null {
   return baseName.slice(dotIndex).toLowerCase();
 }
 
-export function getFileBrowserTypeFilterForItem(
+function getFileBrowserTypeFilterForItem(
   item: FileBrowserItemLike,
 ): FileBrowserTypeFilter | "folder" {
   if (item.type.toLowerCase() === "folder") {
@@ -85,7 +90,8 @@ export function getFileBrowserTypeFilterForItem(
 
     case "text":
     case "pdf": {
-      const ext = extractExtension(item.name) ?? extractExtension(item.fullPath);
+      const ext =
+        extractExtension(item.name) ?? extractExtension(item.fullPath);
       if (ext && DATA_EXTENSIONS.has(ext)) {
         return "data";
       }
@@ -101,10 +107,9 @@ export function getFileBrowserTypeFilterForItem(
   }
 }
 
-export function filterFileBrowserItemsByTypeFilters<T extends FileBrowserItemLike>(
-  items: T[],
-  typeFilters: Record<FileBrowserTypeFilter, boolean>,
-): T[] {
+export function filterFileBrowserItemsByTypeFilters<
+  T extends FileBrowserItemLike,
+>(items: T[], typeFilters: Record<FileBrowserTypeFilter, boolean>): T[] {
   return items.filter((item) => {
     if (item.type.toLowerCase() === "folder") {
       return true;

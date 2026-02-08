@@ -58,9 +58,7 @@ import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { formatBytes } from "utils/attachments";
 import { resolvePathWithinRoot } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import {
-  CODEMIRROR_TOOLTIP_PARENT_ID,
-} from "utils/constants";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   filterFileBrowserFolderItems,
@@ -284,23 +282,23 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { width, hideColumn, viewMode, folder, savedSearches, isFrozen } =
     useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Browser,
-    );
-    return {
-      width:
-        impl.size.width === "auto"
-          ? getSectionRect(sectionId)?.width
-          : impl.size.width,
-      hideColumn: impl.hideColumn,
-      viewMode: impl.viewMode,
-      folder: impl.folder,
-      savedSearches: impl.savedSearches ?? [],
-      isFrozen: impl.isFrozen,
-    };
-  }, _.isEqual);
+      const impl = getCurrEffectiveSectionImplOfType(
+        x,
+        sectionId,
+        SectionTypeEnum.Browser,
+      );
+      return {
+        width:
+          impl.size.width === "auto"
+            ? getSectionRect(sectionId)?.width
+            : impl.size.width,
+        hideColumn: impl.hideColumn,
+        viewMode: impl.viewMode,
+        folder: impl.folder,
+        savedSearches: impl.savedSearches ?? [],
+        isFrozen: impl.isFrozen,
+      };
+    }, _.isEqual);
   const handleTypesColumnResizeStart = useBrowserColumnWidth({
     sectionId,
     outerRef: containerRef,
@@ -363,13 +361,12 @@ function TypesColumn({
   savedSearches: BrowserSavedSearch[];
 }) {
   const { ref, isScrollable } = useIsScrollable();
-  const { filterText, typeFilters, searchScope } = useBrowserSectionFileBrowserState(
-    (state) => ({
+  const { filterText, typeFilters, searchScope } =
+    useBrowserSectionFileBrowserState((state) => ({
       filterText: state.filterText,
       typeFilters: state.typeFilters,
       searchScope: state.searchScope,
-    }),
-  );
+    }));
   const isResizable = width > TYPES_COLUMN_MIN_CONTAINER_WIDTH;
   return (
     <article
@@ -387,7 +384,7 @@ function TypesColumn({
 
       <ul
         ref={ref}
-        className={`relative mb-2 mt-2 flex min-h-0 min-w-0 flex-1 flex-col list-none overflow-y-auto overflow-x-hidden box-border pr-1 ${isScrollable ? "nowheel" : ""}`}
+        className={`relative mb-2 mt-2 box-border flex min-h-0 min-w-0 flex-1 list-none flex-col overflow-y-auto overflow-x-hidden pr-1 ${isScrollable ? "nowheel" : ""}`}
       >
         {artifactTypes.map((x) => (
           <FilterToggleRow
@@ -1095,8 +1092,9 @@ function ItemsColumn({
       return null;
     }
     return (
-      filteredVisibleItems.find((item) => item.fullPath === selectedCarouselId) ??
-      null
+      filteredVisibleItems.find(
+        (item) => item.fullPath === selectedCarouselId,
+      ) ?? null
     );
   }, [filteredVisibleItems, selectedCarouselId]);
   const folderCompletionOptionsRef = useRef<{
@@ -1202,7 +1200,9 @@ function ItemsColumn({
         normalizedEffectiveFolderForPrefix &&
         normalizedFolder.startsWith(`${normalizedEffectiveFolderForPrefix}/`)
       ) {
-        return normalizedFolder.slice(normalizedEffectiveFolderForPrefix.length + 1);
+        return normalizedFolder.slice(
+          normalizedEffectiveFolderForPrefix.length + 1,
+        );
       }
       if (
         normalizedRootPathForPrefix &&
@@ -1633,8 +1633,9 @@ function ItemsColumn({
       return;
     }
     const preferred =
-      filteredVisibleItems.find((item) => getBrowserPreviewKind(item) === "image") ??
-      filteredVisibleItems[0];
+      filteredVisibleItems.find(
+        (item) => getBrowserPreviewKind(item) === "image",
+      ) ?? filteredVisibleItems[0];
     if (preferred) {
       setSelectedCarouselId(preferred.fullPath);
     }
@@ -2091,7 +2092,7 @@ function FilterToggleRow({
       <button
         type="button"
         aria-pressed={checked}
-        className="nodrag flex min-h-7 w-full min-w-0 items-center gap-2 bg-transparent px-1 py-0.5 text-left text-xs text-setta-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 hover:text-setta-900 dark:text-setta-200 dark:hover:text-white"
+        className="nodrag flex min-h-7 w-full min-w-0 items-center gap-2 bg-transparent px-1 py-0.5 text-left text-xs text-setta-700 transition-colors hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-200 dark:hover:text-white"
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
@@ -2209,7 +2210,7 @@ function FolderPath({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 overflow-hidden opacity-100 transition-opacity duration-0 group-focus-within/folderpath:opacity-0 group-focus-within/folderpath:duration-150"
       >
-        <span className="block min-w-0 truncate pl-4 py-1 text-xs leading-4 font-sans text-setta-700 dark:text-setta-200">
+        <span className="block min-w-0 truncate py-1 pl-4 font-sans text-xs leading-4 text-setta-700 dark:text-setta-200">
           {inputValue}
         </span>
       </div>
