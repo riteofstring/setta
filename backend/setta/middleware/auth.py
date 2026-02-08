@@ -244,7 +244,7 @@ class AuthMiddleware:
             return
 
         session_metadata, secret = session_info
-        cookie_value = read_auth_cookie(request, session_id=session_metadata.id)
+        cookie_value = read_auth_cookie(request)
         if cookie_value:
             cookie_payload = validate_auth_cookie(
                 cookie_value, session_metadata.id, secret
@@ -257,12 +257,7 @@ class AuthMiddleware:
                     await self.app(
                         scope,
                         receive,
-                        _build_send_with_auth_cookie(
-                            send,
-                            auth_cookie,
-                            request,
-                            session_id=session_metadata.id,
-                        ),
+                        _build_send_with_auth_cookie(send, auth_cookie, request),
                     )
                     return
 
@@ -274,12 +269,7 @@ class AuthMiddleware:
             await self.app(
                 scope,
                 receive,
-                _build_send_with_auth_cookie(
-                    send,
-                    auth_cookie,
-                    request,
-                    session_id=session_metadata.id,
-                ),
+                _build_send_with_auth_cookie(send, auth_cookie, request),
             )
             return
 
@@ -293,12 +283,7 @@ class AuthMiddleware:
                 await self.app(
                     scope,
                     receive,
-                    _build_send_with_auth_cookie(
-                        send,
-                        auth_cookie,
-                        request,
-                        session_id=session_metadata.id,
-                    ),
+                    _build_send_with_auth_cookie(send, auth_cookie, request),
                 )
                 return
 
@@ -318,14 +303,12 @@ def _should_refresh_auth_cookie(exp: int) -> bool:
 
 
 def _build_send_with_auth_cookie(
-    send: Send, auth_cookie: str, request: Request, *, session_id: str
+    send: Send, auth_cookie: str, request: Request
 ) -> Send:
     async def send_wrapper(message: Message) -> None:
         if message["type"] == "http.response.start":
             headers = list(message.get("headers", []))
-            cookie_headers = _build_auth_cookie_headers(
-                auth_cookie, request, session_id=session_id
-            )
+            cookie_headers = _build_auth_cookie_headers(auth_cookie, request)
             if cookie_headers:
                 headers.extend(cookie_headers)
                 message["headers"] = headers
@@ -359,10 +342,10 @@ def _is_auth_exempt_path(path: str) -> bool:
 
 
 def _build_auth_cookie_headers(
-    token: str, request: Request, *, session_id: str
+    token: str, request: Request
 ) -> list[tuple[bytes, bytes]]:
     response = Response()
-    set_auth_cookie(response, token, session_id=session_id, request=request)
+    set_auth_cookie(response, token, request=request)
     return [
         header for header in response.raw_headers if header[0].lower() == b"set-cookie"
     ]

@@ -30,7 +30,7 @@ function setProjectConfig(watchCodeEnabled: boolean) {
 describe("WatchCodeToggleButton", () => {
   beforeEach(() => {
     resetProjectStores();
-    useShareSession.setState({ isShareMode: false });
+    useShareSession.setState({ isDeploymentMode: false });
     syncStoreInitialState(useShareSession);
   });
 

@@ -9,11 +9,16 @@ without MCP.
 Run commands from the workspace that owns the Setta session:
 
 ```sh
-setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
+setta api get_latest_project_state_summary \
+  --agentic-project-config-id "..." \
+  --agentic-section-id "..." \
+  --json '{"projectConfigId":"..."}' --json-output
 ```
 
 `setta api` auto-auths using the newest local session in the current workspace.
-Use `setta tools` to list available tool names and schemas.
+Most tools are agentic-scope enforced, so tool calls typically need at least
+`--agentic-project-config-id` and `--agentic-section-id`. Use `setta tools` to
+list available tool names and schemas.
 
 ## Auth fallback
 

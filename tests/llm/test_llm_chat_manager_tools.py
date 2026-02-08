@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from mcp.types import CallToolResult, TextContent
 import pytest
 
+from setta.agentic.agentic_scope import AgenticContext, AgenticScope
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.chat_store import AgentRunChatStore
 from setta.llm.chat_toolkit.history import ChatHistory
@@ -116,6 +117,19 @@ def _build_system_prompt(runner: AgentRunner, project_config_id: ID) -> str:
     return runner._build_system_prompt(profile, project_config_id)
 
 
+def _build_permissive_agentic_scope() -> AgenticScope:
+    # Tool payload tests aren't validating agentic scope filtering; provide a
+    # permissive scope so structural/read/write tools are all available.
+    allowed = ID("scope-section")
+    return AgenticScope(
+        read_section_ids={allowed},
+        write_section_ids={allowed},
+        context_section_ids=set(),
+        peer_chat_section_ids=set(),
+        structural_allowed=True,
+    )
+
+
 class TestToolPayload:
     pytestmark = pytest.mark.asyncio
     async def test_non_anthropic_payload_includes_all_tools_without_defer_loading(
@@ -138,6 +152,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             tools = payload["tools"]
@@ -178,6 +193,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             tools = payload["tools"]
@@ -230,6 +246,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             extra_headers = payload.get("extra_headers")
@@ -263,6 +280,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             extra_headers = payload.get("extra_headers")
@@ -301,6 +319,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             tool_messages = [
@@ -346,6 +365,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             tool_messages = [
@@ -382,6 +402,7 @@ class TestToolPayload:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
 
             tools = payload["tools"]
@@ -492,6 +513,7 @@ class TestToolSearchResult:
                 thinking=False,
                 system_prompt=system_prompt,
                 allowlist=None,
+                agentic_scope=_build_permissive_agentic_scope(),
             )
             payload_tool_names = {
                 tool["function"]["name"] for tool in payload["tools"]
@@ -559,12 +581,18 @@ class TestToolDispatch:
                     arguments={},
                 )
             )
+            chat_id = ID("chat-uuid")
             execute_action = build_execute_tool_calls_action(
                 project_config_id=project_config_id,
-                chat_id=ID("chat-uuid"),
+                chat_id=chat_id,
                 tool_calls=[tool_call],
                 allowed_server_ids={SETTA_MCP_SERVER_ID},
                 share_session_id=None,
+                agentic_context=AgenticContext(
+                    project_config_id=project_config_id,
+                    chat_id=chat_id,
+                    section_id=None,
+                ),
             )
             if execute_action is None:
                 raise AssertionError("Expected tool execution action")

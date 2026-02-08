@@ -84,6 +84,7 @@ AllImplFields = Literal[
     "requestHeaderValue",
     "requestMethod",
     "requestUrl",
+    "savedSearches",
     "selectedParams",
     "showSectionTitle",
     "size",

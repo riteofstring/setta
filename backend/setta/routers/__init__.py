@@ -1,11 +1,12 @@
 from .agentic import router as agentic_router
 from .ai import router as ai_router
+from .app_deployments import router as app_deployments_router
+from .app_spec_streaming import router as app_spec_streaming_router
 from .artifact import router as artifact_router
 from .attachments import router as attachments_router
 from .binary import router as binary_router
 from .bootstrap import router as bootstrap_router
 from .code_info import router as code_info_router
-from .launch import router as launch_router
 from .listener import router as listener_router
 from .llm import router as llm_router
 from .lsp import router as lsp_router

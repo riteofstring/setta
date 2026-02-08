@@ -38,7 +38,7 @@ from setta.types.websocket import (
     WebsocketMsgListenerRegisterAck,
     WebsocketConnectionType,
 )
-from setta.utils.paths import normalize_state_path
+from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_receiver import (
@@ -200,12 +200,12 @@ class _StubArtifacts:
         self.raise_value_error: bool = False
 
     def normalize_artifact_id(self, path) -> str:
-        return str(normalize_state_path(path))
+        return str(normalize_path(path))
 
     def get_cached_artifact_type(self, path):
         if self.raise_value_error:
             raise ValueError("conflict")
-        normalized = str(normalize_state_path(path))
+        normalized = str(normalize_path(path))
         return self.cached_types.get(normalized)
 
 
@@ -272,6 +272,8 @@ class _StubWebsocketManager:
         self.sockets: dict[str, SimpleNamespace] = {}
         self._state = SimpleNamespace(
             share_mode=False,
+            deployment_mode=False,
+            app_mode=False,
             wait_until_ready=_noop_wait_until_ready,
         )
         for websocket_id in _DEFAULT_SOCKET_IDS:
@@ -933,7 +935,7 @@ class TestPythonScriptReceiver:
         assert project_config_id == PROJECT_ID
         assert len(artifact_updates) == 1
         artifact_update = artifact_updates[0]
-        assert artifact_update.id == str(normalize_state_path("/tmp/image.png"))
+        assert artifact_update.id == str(normalize_path("/tmp/image.png"))
         assert artifact_update.type == ArtifactType.Image
         assert (
             artifact_update.value
@@ -1078,7 +1080,7 @@ class TestPythonScriptReceiver:
             listener_registry,
         ) = _build_receiver_fixture({PROJECT_ID: project_state})
         manager = project_manager_switcher._manager
-        normalized_path = str(normalize_state_path("/tmp/image.png"))
+        normalized_path = str(normalize_path("/tmp/image.png"))
         manager.artifacts.cached_types[normalized_path] = ArtifactType.ChartData
         callback = ListenerRegisterCallback(
             dependencies=[],

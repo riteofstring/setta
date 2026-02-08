@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import os
 
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
@@ -15,12 +17,29 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 
 logger = logging.getLogger(__name__)
 
+_WEBSOCKET_SEND_TIMEOUT_ENV = "SETTA_WEBSOCKET_SEND_TIMEOUT_S"
+_DEFAULT_WEBSOCKET_SEND_TIMEOUT_S = 5.0
+
+
+def _resolve_websocket_send_timeout_s() -> float | None:
+    raw = os.environ.get(_WEBSOCKET_SEND_TIMEOUT_ENV)
+    if raw is None:
+        return _DEFAULT_WEBSOCKET_SEND_TIMEOUT_S
+    try:
+        value = float(raw.strip())
+    except ValueError:
+        return _DEFAULT_WEBSOCKET_SEND_TIMEOUT_S
+    if value <= 0:
+        return None
+    return value
+
 
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class WebsocketManager:
     def __init__(self):
         self.sockets: dict[str, WebsocketConnectionInfoWithSocket] = {}
         self.main_id = "main"
+        self._send_timeout_s = _resolve_websocket_send_timeout_s()
 
     async def on_connect(
         self,
@@ -71,7 +90,33 @@ class WebsocketManager:
             self.sockets.pop(toWebsocketId, None)
             return
         try:
-            await websocket.send_text(message.model_dump_json())
+            payload = message.model_dump_json()
+            if self._send_timeout_s is None:
+                await websocket.send_text(payload)
+                return
+            send_task = asyncio.create_task(websocket.send_text(payload))
+            _done, pending = await asyncio.wait(
+                {send_task},
+                timeout=self._send_timeout_s,
+            )
+            if pending:
+                logger.warning(
+                    "Websocket %s send_text timed out after %.2fs; removing.",
+                    toWebsocketId,
+                    self._send_timeout_s,
+                )
+                self.sockets.pop(toWebsocketId, None)
+                send_task.cancel()
+                return
+            # If the task completed, re-raise any exceptions so we can clean up sockets.
+            send_task.result()
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Websocket %s send_text timed out after %.2fs; removing.",
+                toWebsocketId,
+                self._send_timeout_s,
+            )
+            self.sockets.pop(toWebsocketId, None)
         except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self.sockets.pop(toWebsocketId, None)
@@ -85,7 +130,31 @@ class WebsocketManager:
             self.sockets.pop(toWebsocketId, None)
             return
         try:
-            await websocket.send_bytes(payload)
+            if self._send_timeout_s is None:
+                await websocket.send_bytes(payload)
+                return
+            send_task = asyncio.create_task(websocket.send_bytes(payload))
+            _done, pending = await asyncio.wait(
+                {send_task},
+                timeout=self._send_timeout_s,
+            )
+            if pending:
+                logger.warning(
+                    "Websocket %s send_bytes timed out after %.2fs; removing.",
+                    toWebsocketId,
+                    self._send_timeout_s,
+                )
+                self.sockets.pop(toWebsocketId, None)
+                send_task.cancel()
+                return
+            send_task.result()
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Websocket %s send_bytes timed out after %.2fs; removing.",
+                toWebsocketId,
+                self._send_timeout_s,
+            )
+            self.sockets.pop(toWebsocketId, None)
         except (RuntimeError, ConnectionClosedError, WebSocketDisconnect):
             logger.debug("Websocket %s is closed; removing.", toWebsocketId)
             self.sockets.pop(toWebsocketId, None)

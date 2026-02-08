@@ -764,7 +764,7 @@ function resolveSectionDragSelection(
   draggingRectsById: Record<string, DragRect> | null;
 } {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return buildSectionSelection([activeId], activeId, activeRect);
   }
 

@@ -1,6 +1,7 @@
 import type { CompletionSource } from "@codemirror/autocomplete";
+import type { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { getExtensions } from "./getExtensions";
 import { useCodeMirrorStyle } from "./useCodeMirrorStyle";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
@@ -10,12 +11,13 @@ type InlineCodeMirrorInputProps = {
   value: string;
   placeholder?: string;
   onChange: (value: string) => void;
-  onBlur?: () => void;
+  onBlur?: (value: string) => void;
   className?: string;
   dummyClassName?: string;
   singleLine?: boolean;
   wrapLines?: boolean;
   completionsFn?: CompletionSource;
+  completionInteractionDelayMs?: number;
   tabToAutocomplete?: boolean;
   keyComboActions?: Record<string, (text: string) => boolean | void>;
   onTab?: (text: string, completionResult: boolean) => void;
@@ -36,6 +38,7 @@ export function InlineCodeMirrorInput({
   singleLine = true,
   wrapLines,
   completionsFn,
+  completionInteractionDelayMs,
   tabToAutocomplete = true,
   keyComboActions,
   onTab,
@@ -47,9 +50,13 @@ export function InlineCodeMirrorInput({
   const theme = useCodeMirrorStyle();
   const tooltipParent = useCodeMirrorTooltipParent(tooltipParentDivId);
   const isBrowser = typeof window !== "undefined";
+  const viewRef = useRef<EditorView | null>(null);
 
   function localOnBlur() {
-    onBlur?.();
+    // Read the latest value directly from the EditorView to avoid race
+    // conditions where the controlled React value hasn't flushed yet.
+    const latest = viewRef.current?.state.doc.toString() ?? value;
+    onBlur?.(latest);
   }
 
   const extensions = useMemo(() => {
@@ -59,6 +66,7 @@ export function InlineCodeMirrorInput({
     return getExtensions({
       parent: tooltipParent,
       completionsFn,
+      completionInteractionDelayMs,
       singleLine,
       wrapLines,
       tabToAutocomplete,
@@ -72,6 +80,7 @@ export function InlineCodeMirrorInput({
     isBrowser,
     tooltipParent,
     completionsFn,
+    completionInteractionDelayMs,
     singleLine,
     wrapLines,
     tabToAutocomplete,
@@ -106,6 +115,9 @@ export function InlineCodeMirrorInput({
       extensions={extensions}
       onChange={onChange}
       onBlur={localOnBlur}
+      onCreateEditor={(view) => {
+        viewRef.current = view;
+      }}
       indentWithTab={false}
       tabIndex={0}
     />

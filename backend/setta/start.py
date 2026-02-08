@@ -2,29 +2,35 @@ import base64
 import json
 import logging
 import os
+import re
 import shlex
 import signal
+import socket
 import subprocess
 import sys
 import time
 import webbrowser
+from dataclasses import dataclass
+from datetime import datetime
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 import click
 import requests
 import yaml
 
-from setta import __version__, ssh_common, ssh_connect
-from setta.auth.bootstrap import extract_token_from_bootstrap_url
-from setta.auth.cookies import auth_cookie_name
+from setta import __version__
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
+from setta.database.backup import (
+    backup_filename_to_datetime,
+    create_restore_stash,
+    get_backup_files,
+)
 from setta.database.db_objs import DBE
-from setta.launch import (
-    LaunchError,
-    launch_workspace_session,
-    validate_files_root_options,
+from setta.deployments.deployment_utils import (
+    iter_deployment_versions,
+    parse_deployment_version,
 )
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
@@ -33,31 +39,19 @@ from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
-from setta.share.deployment_utils import (
-    iter_share_deployment_versions,
-    parse_share_deployment_version,
-)
 from setta.types.routes import Route
+from setta.types.share_deployment import DeploymentType
 from setta.utils.constants import IS_DEV_MODE, C
-from setta.utils.env_vars import (
-    FILES_ROOT_BASE_ENV,
-    FILES_ROOT_ENV,
-    WORKSPACE_ROOT_ENV,
-)
 from setta.utils.network import (
     build_bootstrap_urls,
     format_host_for_ssh_tunnel,
     format_host_for_url,
 )
-from setta.utils.paths import (
-    clear_setta_paths_cache,
-    get_optional_dir_validation_error,
-    get_setta_paths,
-    resolve_setta_paths,
-    validate_workspace_root,
-)
+from setta.utils.utils import normalize_path
 
+_CONNECT_INFO_JSON_PREFIX = "__SETTA_JSON_B64__"
 _DEFAULT_LOCAL_PORT = 61000
+_TILDE_PREFIX_RE = re.compile(r"^~[A-Za-z0-9_.-]*$")
 _ROUTE_NAMES = {route.value.lstrip("/") for route in Route}
 _MISSING_AUTH_MESSAGE = (
     "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
@@ -65,70 +59,129 @@ _MISSING_AUTH_MESSAGE = (
     "workspace)."
 )
 
-RemoteSessionSummary = ssh_common.RemoteSessionSummary
+
+@dataclass
+class RemoteSessionSummary:
+    id: str
+    workspace_path: str
+    host: str
+    port: int
+    pid: int
+    started_at: datetime
 
 
-def _resolve_cli_paths(
-    *,
-    workspace: str | Path | None,
-    files_root: str | Path | None,
-    files_root_base: str | Path | None,
-    validate: bool,
-):
-    try:
-        validate_files_root_options(
-            files_root=files_root,
-            files_root_base=files_root_base,
+def _parse_json_payload(output: str) -> dict:
+    for line in output.splitlines():
+        if line.startswith(_CONNECT_INFO_JSON_PREFIX):
+            encoded = line.removeprefix(_CONNECT_INFO_JSON_PREFIX)
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            return json.loads(decoded)
+    raise click.ClickException("Missing JSON payload from remote output.")
+
+
+def _parse_session_list(payload: dict) -> list[RemoteSessionSummary]:
+    sessions = payload.get("sessions", [])
+    parsed: list[RemoteSessionSummary] = []
+    for session in sessions:
+        parsed.append(
+            RemoteSessionSummary(
+                id=session["id"],
+                workspace_path=session["workspacePath"],
+                host=session["host"],
+                port=int(session["port"]),
+                pid=int(session["pid"]),
+                started_at=datetime.fromisoformat(session["startedAt"]),
+            )
         )
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
-    paths = resolve_setta_paths(
-        workspace_root=workspace,
-        files_root=files_root,
-        files_root_base=files_root_base,
-    )
-    if validate:
-        try:
-            validate_workspace_root(paths.workspace_root)
-        except ValueError as exc:
-            # Click should render a clean message without an exception traceback.
-            raise click.ClickException(str(exc)) from exc
-        for raw_path, label in (
-            (files_root, "files root"),
-            (files_root_base, "files root base"),
-            (paths.setta_files_root, "files root"),
-        ):
-            message = get_optional_dir_validation_error(raw_path, label=label)
-            if message:
-                raise click.ClickException(message)
-    return paths
-
-
-def _apply_paths_to_env(paths, *, files_root_base: Path | None) -> None:
-    os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-    os.environ[FILES_ROOT_ENV] = str(paths.setta_files_root)
-    if files_root_base is not None:
-        os.environ[FILES_ROOT_BASE_ENV] = str(files_root_base.resolve(strict=False))
-    clear_setta_paths_cache()
+    return parsed
 
 
 def _parse_ssh_args(raw: str | None) -> list[str]:
-    return ssh_common.parse_ssh_args(raw)
+    if not raw:
+        return []
+    return shlex.split(raw)
+
+
+def _has_control_socket_option(ssh_args: list[str]) -> bool:
+    control_keys = ("controlmaster", "controlpath", "controlpersist")
+    for idx, arg in enumerate(ssh_args):
+        if arg in {"-M", "-S"}:
+            return True
+        if arg.startswith("-S") and len(arg) > 2:
+            return True
+        lower = arg.lower()
+        if lower == "-o":
+            if idx + 1 >= len(ssh_args):
+                continue
+            option = ssh_args[idx + 1].lower()
+            if any(option.startswith(f"{key}=") for key in control_keys):
+                return True
+            continue
+        if lower.startswith("-o"):
+            option = lower[2:]
+            if any(option.startswith(f"{key}=") for key in control_keys):
+                return True
+    return False
 
 
 def _apply_control_socket_args(ssh_args: list[str]) -> list[str]:
-    return ssh_common.apply_control_socket_args(ssh_args)
+    if _has_control_socket_option(ssh_args):
+        return ssh_args
+    control_args = [
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        "ControlPersist=5m",
+        "-o",
+        "ControlPath=~/.ssh/setta-ctl-%r@%h:%p",
+    ]
+    return control_args + ssh_args
+
+
+def _run_ssh_command(
+    ssh_target: str,
+    ssh_args: list[str],
+    remote_command: str,
+    capture_output: bool = True,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    cmd = ["ssh", *ssh_args, ssh_target, remote_command]
+    if capture_output:
+        return subprocess.run(
+            cmd, check=False, capture_output=True, text=True, timeout=timeout
+        )
+    return subprocess.run(cmd, check=False, timeout=timeout)
+
+
+def _build_remote_shell_command(shell: str, inner_command: str) -> str:
+    return f"{shell} -lc {shlex.quote(inner_command)}"
+
+
+def _format_remote_path(path: PurePath) -> str:
+    return path.as_posix()
 
 
 def _resolve_remote_shell(ssh_target: str, ssh_args: list[str]) -> str:
-    try:
-        return ssh_common.resolve_remote_shell(
+    for candidate in ("bash", "sh"):
+        result = _run_ssh_command(
             ssh_target,
             ssh_args,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+            f"command -v {candidate}",
+            capture_output=True,
         )
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
+        if result.returncode == 255:
+            details = (result.stderr or result.stdout or "").strip()
+            hint = "SSH failed while probing remote shell."
+            if details:
+                raise click.ClickException(f"{hint} {details}")
+            raise click.ClickException(
+                f"{hint} Check that SSH is reachable and credentials are valid."
+            )
+        if result.returncode == 0:
+            return candidate
+    raise click.ClickException(
+        "Remote shell not found (bash/sh missing). Use --remote-cmd and ensure a POSIX shell is available."
+    )
 
 
 def _resolve_remote_workspace(
@@ -137,36 +190,32 @@ def _resolve_remote_workspace(
     shell: str,
     workspace: str,
 ) -> str:
-    try:
-        return ssh_common.resolve_remote_workspace(
-            ssh_target,
-            ssh_args,
-            shell,
-            workspace,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+    tilde_parts = _split_tilde_path(workspace)
+    if tilde_parts is None:
+        inner = f"cd {shlex.quote(workspace)} && pwd -P"
+    else:
+        tilde_prefix, rest = tilde_parts
+        if rest:
+            inner = f"cd {tilde_prefix} && cd {shlex.quote(rest)} && pwd -P"
+        else:
+            inner = f"cd {tilde_prefix} && pwd -P"
+    result = _run_ssh_command(
+        ssh_target,
+        ssh_args,
+        _build_remote_shell_command(shell, inner),
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        tilde_hint = _build_remote_workspace_tilde_hint(workspace)
+        suffix = f" {tilde_hint}" if tilde_hint else ""
+        raise click.ClickException(
+            f"Failed to resolve remote workspace: "
+            f"{result.stderr.strip() or result.stdout.strip()}{suffix}"
         )
-    except LaunchError as exc:
-        message = str(exc)
-        if exc.code == "RemoteWorkspace":
-            raw_home = os.path.expanduser("~") or ""
-            home = raw_home.rstrip("/\\")
-            workspace_trimmed = (workspace or "").strip()
-            if (
-                home
-                and workspace_trimmed
-                and not workspace_trimmed.startswith("~")
-                and (
-                    workspace_trimmed == home
-                    or workspace_trimmed.startswith(f"{home}/")
-                    or workspace_trimmed.startswith(f"{home}\\")
-                )
-            ):
-                message = (
-                    f"{message}\n\nHint: Your local shell may have expanded '~'. "
-                    "If you meant a remote home directory, quote it like "
-                    "--workspace '~/path' (or -w '~/path')."
-                )
-        raise click.ClickException(message) from exc
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise click.ClickException("Failed to resolve remote workspace path.")
+    return lines[-1]
 
 
 def _resolve_remote_setta_command(
@@ -176,17 +225,68 @@ def _resolve_remote_setta_command(
     workspace: str,
     remote_cmd: str | None,
 ) -> str:
-    try:
-        return ssh_common.resolve_remote_setta_command(
-            ssh_target,
-            ssh_args,
-            shell,
-            workspace,
-            remote_cmd,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+    if remote_cmd:
+        return remote_cmd
+    activation = "source" if shell == "bash" else "."
+    quoted_workspace = shlex.quote(workspace)
+    inner = (
+        f"cd {quoted_workspace} || exit 1;"
+        f'if [ -f "./.venv/bin/activate" ]; then printf \'%s\' "{activation} ./.venv/bin/activate && setta"; exit 0; fi;'
+        f'if [ -f "./venv/bin/activate" ]; then printf \'%s\' "{activation} ./venv/bin/activate && setta"; exit 0; fi;'
+        f'if [ -f "./env/bin/activate" ]; then printf \'%s\' "{activation} ./env/bin/activate && setta"; exit 0; fi;'
+        'if [ -f "pyproject.toml" ] && command -v poetry >/dev/null 2>&1; then printf \'%s\' "poetry run setta"; exit 0; fi;'
+        'if [ -f "pyproject.toml" ] && command -v uv >/dev/null 2>&1; then printf \'%s\' "uv run setta"; exit 0; fi;'
+        "if command -v setta >/dev/null 2>&1; then printf '%s' \"setta\"; exit 0; fi;"
+        "exit 2;"
+    )
+    result = _run_ssh_command(
+        ssh_target,
+        ssh_args,
+        _build_remote_shell_command(shell, inner),
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise click.ClickException(
+            "Unable to resolve remote Setta command. Use --remote-cmd "
+            "'source .venv/bin/activate && setta' (or equivalent)."
         )
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise click.ClickException(
+            "Remote Setta command resolution returned no output. Use --remote-cmd."
+        )
+    return lines[-1]
+
+
+def _split_tilde_path(path: str) -> tuple[str, str] | None:
+    if not path.startswith("~"):
+        return None
+    tilde_prefix, _, remainder = path.partition("/")
+    if not _TILDE_PREFIX_RE.fullmatch(tilde_prefix):
+        return None
+    return tilde_prefix, remainder.lstrip("/")
+
+
+def _build_remote_workspace_tilde_hint(workspace: str) -> str | None:
+    if workspace.startswith("~"):
+        return None
+    local_home = os.path.expanduser("~")
+    if not local_home or not workspace.startswith(local_home):
+        return None
+    return (
+        "\nIf you meant a remote ~ path, quote it like "
+        "-w '~/path' or -w \\~/path so your local shell does not expand it."
+    )
+
+
+def _remote_command_exists(ssh_target: str, ssh_args: list[str], command: str) -> bool:
+    result = _run_ssh_command(
+        ssh_target,
+        ssh_args,
+        f"command -v {shlex.quote(command)}",
+        capture_output=True,
+    )
+    return result.returncode == 0
 
 
 def _run_remote_setta_command(
@@ -196,26 +296,13 @@ def _run_remote_setta_command(
     workspace: str,
     setta_command: str,
     setta_args: str,
+    capture_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
-    return ssh_common.run_remote_setta_command(
-        ssh_target,
-        ssh_args,
-        shell,
-        workspace,
-        setta_command,
-        setta_args,
-        ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-    )
-
-
-def _build_remote_files_root_args(
-    *,
-    files_root: Path | None,
-    files_root_base: Path | None,
-) -> str:
-    return ssh_common.build_remote_files_root_args(
-        files_root=str(files_root) if files_root is not None else None,
-        files_root_base=str(files_root_base) if files_root_base is not None else None,
+    quoted_workspace = shlex.quote(workspace)
+    inner = f"cd {quoted_workspace} && {setta_command} {setta_args}"
+    remote_command = _build_remote_shell_command(shell, inner)
+    return _run_ssh_command(
+        ssh_target, ssh_args, remote_command, capture_output=capture_output
     )
 
 
@@ -225,20 +312,23 @@ def _fetch_remote_sessions(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
 ) -> list[RemoteSessionSummary]:
-    try:
-        return ssh_common.fetch_remote_sessions(
-            ssh_target,
-            ssh_args,
-            shell,
-            workspace,
-            setta_command,
-            files_root_args,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+    quoted_workspace = shlex.quote(workspace)
+    result = _run_remote_setta_command(
+        ssh_target,
+        ssh_args,
+        shell,
+        workspace,
+        setta_command,
+        f"status --list-sessions --json --workspace {quoted_workspace}",
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise click.ClickException(
+            f"Failed to list remote sessions: {result.stderr.strip() or result.stdout.strip()}"
         )
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
+    payload = _parse_json_payload(result.stdout)
+    return _parse_session_list(payload)
 
 
 def _fetch_remote_connect_info(
@@ -247,37 +337,29 @@ def _fetch_remote_connect_info(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
     session_id: str | None,
     latest: bool,
 ) -> dict:
-    if session_id is None:
-        if not latest:
-            raise click.ClickException("Use --session or --latest for remote connect.")
-        sessions = _fetch_remote_sessions(
-            ssh_target,
-            ssh_args,
-            shell,
-            workspace,
-            setta_command,
-            files_root_args,
+    quoted_workspace = shlex.quote(workspace)
+    args = f"status --connect-info --json --workspace {quoted_workspace}"
+    if session_id:
+        args += f" --session {shlex.quote(session_id)}"
+    elif latest:
+        args += " --latest"
+    result = _run_remote_setta_command(
+        ssh_target,
+        ssh_args,
+        shell,
+        workspace,
+        setta_command,
+        args,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise click.ClickException(
+            f"Failed to read remote connect info: {result.stderr.strip() or result.stdout.strip()}"
         )
-        if not sessions:
-            raise click.ClickException("No matching Setta sessions found.")
-        session_id = max(sessions, key=lambda entry: entry.started_at).id
-    try:
-        return ssh_common.fetch_remote_connect_info(
-            ssh_target,
-            ssh_args,
-            shell,
-            workspace,
-            setta_command,
-            files_root_args,
-            session_id=session_id,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-        )
-    except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
+    return _parse_json_payload(result.stdout)
 
 
 def _delete_remote_session(
@@ -286,17 +368,16 @@ def _delete_remote_session(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
     session_id: str,
 ) -> None:
-    root_prefix = f"{files_root_args} " if files_root_args else ""
     result = _run_remote_setta_command(
         ssh_target,
         ssh_args,
         shell,
         workspace,
         setta_command,
-        f"{root_prefix}status --delete-session {shlex.quote(session_id)}",
+        f"status --delete-session {shlex.quote(session_id)}",
+        capture_output=True,
     )
     if result.returncode != 0:
         raise click.ClickException(
@@ -310,30 +391,74 @@ def _start_remote_setta(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
-    *,
-    files_root: Path | None,
-    files_root_base: Path | None,
-) -> bool:
+    verbose: bool = False,
+) -> None:
+    runner = None
+    if _remote_command_exists(ssh_target, ssh_args, "setsid"):
+        runner = "setsid"
+    elif _remote_command_exists(ssh_target, ssh_args, "nohup"):
+        runner = "nohup"
+    if runner is None:
+        raise click.ClickException(
+            "Remote host missing nohup/setsid for background start. Use --remote-cmd."
+        )
+    remote_logs_dir = _format_remote_path(C.RUNTIME_LOGS_FOLDER)
+    remote_log_file = f"{remote_logs_dir}/nohup.out"
+    start_cmd = f"cd {shlex.quote(workspace)} && {setta_command} --no-open"
+    quoted_start = shlex.quote(start_cmd)
+    if runner == "nohup":
+        launch = (
+            f"cd {shlex.quote(workspace)} && "
+            f"mkdir -p {shlex.quote(remote_logs_dir)} && "
+            f"nohup {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
+        )
+    else:
+        launch = (
+            f"cd {shlex.quote(workspace)} && "
+            f"mkdir -p {shlex.quote(remote_logs_dir)} && "
+            f"setsid {shell} -lc {quoted_start} > {shlex.quote(remote_log_file)} 2>&1 < /dev/null &"
+        )
+    if verbose:
+        click.echo(f"Remote start runner: {runner}")
+        click.echo(f"Remote start log: {remote_log_file}")
+        click.echo(f"Remote start command: {launch}")
+    inner = launch
+    remote_command = _build_remote_shell_command(shell, inner)
+    if verbose:
+        ssh_cmd = ["ssh", *ssh_args, ssh_target, remote_command]
+        click.echo(f"Remote start ssh: {shlex.join(ssh_cmd)}")
     try:
-        ssh_common.start_remote_setta(
+        result = _run_ssh_command(
             ssh_target,
             ssh_args,
-            shell,
-            workspace,
-            setta_command,
-            files_root_args,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-            files_root=str(files_root) if files_root is not None else None,
-            files_root_base=str(files_root_base)
-            if files_root_base is not None
-            else None,
+            remote_command,
+            capture_output=True,
+            timeout=10.0,
         )
-    except LaunchError as exc:
-        if exc.code == "SshTimeout":
-            return True
-        raise click.ClickException(str(exc)) from exc
-    return False
+    except subprocess.TimeoutExpired as exc:
+        if verbose:
+            click.echo(
+                "Remote start SSH command did not return after 10s; "
+                "continuing to poll for sessions."
+            )
+            stdout = (exc.stdout or "").strip()
+            stderr = (exc.stderr or "").strip()
+            if stdout:
+                click.echo(f"Remote start stdout (partial): {stdout}")
+            if stderr:
+                click.echo(f"Remote start stderr (partial): {stderr}")
+        return
+    if verbose:
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
+        if stdout:
+            click.echo(f"Remote start stdout: {stdout}")
+        if stderr:
+            click.echo(f"Remote start stderr: {stderr}")
+    if result.returncode != 0:
+        raise click.ClickException(
+            f"Failed to start remote Setta: {result.stderr.strip() or result.stdout.strip()}"
+        )
 
 
 def _wait_for_remote_session(
@@ -342,7 +467,6 @@ def _wait_for_remote_session(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
 ) -> RemoteSessionSummary:
@@ -351,7 +475,7 @@ def _wait_for_remote_session(
     while True:
         attempt += 1
         sessions = _fetch_remote_sessions(
-            ssh_target, ssh_args, shell, workspace, setta_command, files_root_args
+            ssh_target, ssh_args, shell, workspace, setta_command
         )
         if verbose:
             click.echo(
@@ -382,17 +506,19 @@ def _stop_session_process(pid: int) -> None:
 def _ensure_background_process_started(
     proc: subprocess.Popen[str], wait_seconds: float = 0.2
 ) -> None:
-    try:
-        ssh_common.ensure_background_process_started(proc, wait_seconds=wait_seconds)
-    except LaunchError as exc:
-        raise click.ClickException(f"{exc} Try --print-only or --verbose.") from exc
+    time.sleep(wait_seconds)
+    if proc.poll() is not None:
+        raise click.ClickException(
+            f"SSH tunnel failed to start (exit {proc.returncode}). "
+            "Try --print-only or --verbose."
+        )
 
 
 def _extract_token_from_bootstrap_url(url: str) -> str:
-    try:
-        return extract_token_from_bootstrap_url(url)
-    except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
+    marker = "#token="
+    if marker not in url:
+        raise click.ClickException("Bootstrap URL missing token fragment.")
+    return url.split(marker, 1)[1]
 
 
 def _build_ssh_tunnel_args(
@@ -402,14 +528,17 @@ def _build_ssh_tunnel_args(
     local_port: int,
     remote_port: int,
 ) -> list[str]:
-    return ssh_common.build_ssh_tunnel_args(
+    tunnel_host = format_host_for_ssh_tunnel(host)
+    return [
+        "ssh",
+        *ssh_args,
+        "-N",
+        "-L",
+        f"{local_port}:{tunnel_host}:{remote_port}",
+        "-o",
+        "ExitOnForwardFailure=yes",
         ssh_target,
-        ssh_args,
-        host,
-        local_port,
-        remote_port,
-        ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
-    )
+    ]
 
 
 def _prompt_for_session_action(
@@ -441,7 +570,11 @@ def _prompt_for_session_action(
 
 
 def _select_free_port(host: str) -> int:
-    return ssh_common.select_free_port(host)
+    addr_info = socket.getaddrinfo(host, 0, type=socket.SOCK_STREAM)
+    family, socktype, proto, _, sockaddr = addr_info[0]
+    with socket.socket(family, socktype, proto) as sock:
+        sock.bind(sockaddr)
+        return sock.getsockname()[1]
 
 
 def _resolve_port(host: str, port: int | None) -> int:
@@ -450,7 +583,24 @@ def _resolve_port(host: str, port: int | None) -> int:
     return port
 
 
-def _resolve_share_deployment_root(
+def _is_loopback_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    return normalized in {"127.0.0.1", "localhost", "::1"}
+
+
+def _warn_if_public_host_no_auth(*, mode: str, host: str) -> None:
+    if _is_loopback_host(host):
+        return
+    click.echo(
+        (
+            f"WARNING: {mode} mode disables auth. "
+            f"Binding to {host!r} may expose your deployment publicly."
+        ),
+        err=True,
+    )
+
+
+def _resolve_deployment_root(
     *,
     deployment_root: Path | None,
     deployment_name: str | None,
@@ -464,7 +614,7 @@ def _resolve_share_deployment_root(
             )
         resolved = deployment_root.expanduser().resolve()
         if not resolved.exists():
-            raise click.ClickException(f"Share deployment root not found: {resolved}")
+            raise click.ClickException(f"Deployment root not found: {resolved}")
         return resolved
     if not deployment_name:
         raise click.ClickException(
@@ -474,23 +624,23 @@ def _resolve_share_deployment_root(
         raise click.ClickException("Use either --version or --latest, not both.")
     if not deployment_version and not latest:
         raise click.ClickException("Missing --version or --latest.")
-    project_root = (C.SHARE_DEPLOYMENTS_FOLDER / deployment_name).resolve()
+    project_root = (C.DEPLOYMENTS_FOLDER / deployment_name).resolve()
     if not project_root.exists():
-        raise click.ClickException(f"Share deployment not found: {deployment_name}")
+        raise click.ClickException(f"Deployment not found: {deployment_name}")
     if latest:
-        versions = iter_share_deployment_versions(project_root)
+        versions = iter_deployment_versions(project_root)
         if not versions:
-            raise click.ClickException(f"Share deployment not found: {deployment_name}")
+            raise click.ClickException(f"Deployment not found: {deployment_name}")
         _, latest_root = max(versions, key=lambda item: item[0])
         return latest_root.resolve()
-    if parse_share_deployment_version(deployment_version) is None:
+    if parse_deployment_version(deployment_version) is None:
         raise click.ClickException(
             "Invalid --version value. Expected vN (for example v3)."
         )
     resolved = (project_root / deployment_version).resolve()
     if not resolved.exists():
         raise click.ClickException(
-            f"Share deployment not found: {deployment_name}/{deployment_version}"
+            f"Deployment not found: {deployment_name}/{deployment_version}"
         )
     return resolved
 
@@ -613,7 +763,7 @@ def _render_connect_info_message(
     token: str,
 ) -> str:
     bind_label = _format_bind_hint(session.host, session.port)
-    quoted_workspace = shlex.quote(session.workspacePathCanonical)
+    quoted_workspace = shlex.quote(session.workspacePath)
     lines = [
         f"Setta session {session.id}",
         f"Bind: {bind_label}",
@@ -694,7 +844,7 @@ def _select_session_for_connect_info(
 def _emit_connect_info_json(payload: dict) -> None:
     raw = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     encoded = base64.b64encode(raw.encode("utf-8")).decode("ascii")
-    click.echo(f"{ssh_common.CONNECT_INFO_JSON_PREFIX}{encoded}")
+    click.echo(f"{_CONNECT_INFO_JSON_PREFIX}{encoded}")
 
 
 def _normalize_base_url(base_url: str) -> str:
@@ -723,7 +873,6 @@ def _format_session_payload(session: SessionMetadata) -> dict[str, Any]:
     return {
         "id": session.id,
         "workspacePath": session.workspacePath,
-        "workspacePathCanonical": session.workspacePathCanonical,
         "host": session.host,
         "port": session.port,
         "pid": session.pid,
@@ -814,12 +963,8 @@ def _cookie_header_from_auth_payload(payload: dict[str, Any]) -> str:
     if isinstance(cookie, str) and cookie.strip():
         cookie_value = _strip_cookie_header_prefix(cookie)
         if "=" not in cookie_value:
-            name = payload.get("cookieName")
-            if not isinstance(name, str) or not name.strip():
-                raise click.ClickException(
-                    "Auth JSON missing cookieName for raw cookie values."
-                )
-            cookie_value = f"{name.strip()}={cookie_value}"
+            name = payload.get("cookieName") or C.AUTH_COOKIE_NAME
+            cookie_value = f"{name}={cookie_value}"
         return cookie_value
     raise click.ClickException("Auth JSON missing cookieHeader/cookie fields.")
 
@@ -978,6 +1123,126 @@ def export_db(
     click.echo(f"Wrote readable export to {output_path}")
 
 
+@click.group()
+def backups() -> None:
+    """Manage local backups in setta_files/backups."""
+
+
+@backups.command(name="list")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
+@click.option("--limit", type=int, default=None, help="Limit number of entries")
+def backups_list(json_output: bool, limit: int | None) -> None:
+    backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
+    backups = get_backup_files(backup_dir)
+    if limit is not None:
+        if limit < 1:
+            raise click.ClickException("--limit must be >= 1")
+        backups = backups[:limit]
+
+    payload = [
+        dict(
+            index=idx,
+            path=str(path),
+            timestamp=backup_filename_to_datetime(path).isoformat(),
+        )
+        for idx, path in enumerate(backups, start=1)
+    ]
+
+    if json_output:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    if not payload:
+        click.echo(f"No backups found in {backup_dir}")
+        return
+
+    for entry in payload:
+        click.echo(f"{entry['index']}. {entry['timestamp']}  {entry['path']}")
+
+
+@backups.command(name="restore")
+@click.option("--latest", is_flag=True, help="Restore the most recent backup")
+@click.option("--index", type=int, default=None, help="Restore by list index (1-based)")
+@click.option(
+    "--path",
+    "backup_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Restore a specific backup file path",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Allow restore even if a Setta session appears to be running",
+)
+@click.option("--yes", is_flag=True, help="Skip confirmation prompt")
+def backups_restore(
+    latest: bool,
+    index: int | None,
+    backup_path: Path | None,
+    force: bool,
+    yes: bool,
+) -> None:
+    backup_dir = normalize_path(C.DB_BACKUP_FOLDER)
+    usage_error = "Use exactly one of: --latest, --index, --path"
+
+    if backup_path is not None:
+        if latest or index is not None:
+            raise click.ClickException(usage_error)
+        selected = normalize_path(backup_path)
+    elif latest:
+        if index is not None:
+            raise click.ClickException(usage_error)
+        backups = get_backup_files(backup_dir)
+        if not backups:
+            raise click.ClickException(f"No backups found in {backup_dir}")
+        selected = backups[0]
+    elif index is not None:
+        backups = get_backup_files(backup_dir)
+        if not backups:
+            raise click.ClickException(f"No backups found in {backup_dir}")
+        if index < 1 or index > len(backups):
+            raise click.ClickException(
+                f"--index must be between 1 and {len(backups)} (got {index})"
+            )
+        selected = backups[index - 1]
+    else:
+        raise click.ClickException(usage_error)
+    if not selected.exists():
+        raise click.ClickException(f"Backup file not found: {selected}")
+    if not selected.is_file():
+        raise click.ClickException(f"Backup path is not a file: {selected}")
+
+    sessions_root = resolve_sessions_root(Path.cwd())
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.find_sessions_by_workspace(Path.cwd())
+    if sessions and not force:
+        session_ids = ", ".join(session.id for session in sessions)
+        raise click.ClickException(
+            "Refusing to restore while a Setta session is running for this workspace "
+            f"({session_ids}). Stop it first or pass --force."
+        )
+
+    dbe = DBE(C.SETTA_FILES_FOLDER)
+    project_path = dbe.project
+    if not yes:
+        prompt = f"This will overwrite {project_path} with {selected}. Continue?"
+        if not click.confirm(prompt, default=False):
+            click.echo("Cancelled.")
+            return
+
+    stash_path: Path | None = None
+    if project_path.exists():
+        stash_path = create_restore_stash(dbe, project_path, backup_dir)
+
+    dbe.copy(selected, project_path)
+
+    click.echo(f"Restored {project_path} from {selected}")
+    if stash_path is not None:
+        click.echo(f"Stashed previous project file at {stash_path}")
+    click.echo("Restart any running Setta backend to load the restored project.")
+
+
 @click.command()
 @click.option(
     "--deployment-root",
@@ -988,7 +1253,7 @@ def export_db(
 @click.option(
     "--deployment-name",
     default=None,
-    help="Deployment name under setta_files/share_deployments.",
+    help="Deployment name under setta_files/deployments.",
 )
 @click.option(
     "--version",
@@ -1019,16 +1284,22 @@ def share(
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    resolved_deployment_root = _resolve_share_deployment_root(
+    _warn_if_public_host_no_auth(mode="share", host=resolved_host)
+
+    resolved_deployment_root = _resolve_deployment_root(
         deployment_root=deployment_root,
         deployment_name=deployment_name,
         deployment_version=deployment_version,
         latest=latest,
     )
-    manifest = DBE(resolved_deployment_root).read_share_manifest_optional()
+    manifest = DBE(resolved_deployment_root).read_deployment_manifest_optional()
     if manifest is None:
         raise click.ClickException(
             f"Share deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
+        )
+    if manifest.deploymentType is not DeploymentType.share:
+        raise click.ClickException(
+            f"Deployment is not a share deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
         )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
@@ -1061,87 +1332,91 @@ def share(
 
 
 @click.command()
-@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
-@click.option("-w", "--workspace", type=click.Path(path_type=Path))
-@click.option("--files-root", type=click.Path(path_type=Path))
-@click.option("--files-root-base", type=click.Path(path_type=Path))
 @click.option(
-    "--timeout",
-    type=float,
+    "--deployment-root",
+    type=click.Path(path_type=Path),
     default=None,
-    help="Seconds to wait for session startup (defaults to 30s).",
+    help="Path to an app deployment root (contains manifest.json/project.json).",
 )
+@click.option(
+    "--deployment-name",
+    default=None,
+    help="Deployment name under setta_files/deployments.",
+)
+@click.option(
+    "--version",
+    "deployment_version",
+    default=None,
+    help="Deployment version (vN).",
+)
+@click.option("--latest", is_flag=True, help="Use the latest deployment version.")
 @click.pass_context
-def launch(
+def app(
     ctx: click.Context,
-    json_output: bool,
-    workspace: Path | None,
-    files_root: Path | None,
-    files_root_base: Path | None,
-    timeout: float | None,
+    deployment_root: Path | None,
+    deployment_name: str | None,
+    deployment_version: str | None,
+    latest: bool,
 ) -> None:
-    if not json_output:
-        raise click.ClickException("Use --json with launch.")
+    params = ctx.obj or {}
+    reload = params.get("reload", False)
+    host = params.get("host", C.DEFAULT_HOST)
+    port = params.get("port", None)
+    log_level = params.get("log_level", None)
+    no_open = params.get("no_open", False)
+    if reload:
+        raise click.ClickException("App mode does not support --reload.")
 
-    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
-    group_workspace = ctx_obj.get("workspace")
-    group_files_root = ctx_obj.get("files_root")
-    group_files_root_base = ctx_obj.get("files_root_base")
+    resolved_host = host
+    resolved_port = _resolve_port(resolved_host, port)
+    C.HOST = resolved_host
+    C.PORT = resolved_port
 
-    def resolve_path_option(
-        *, value: Path | None, group_value: Path | None, label: str
-    ) -> Path | None:
-        if value is None:
-            return group_value
-        if group_value is None:
-            return value
-        if value.resolve(strict=False) != group_value.resolve(strict=False):
-            raise click.ClickException(
-                f"Conflicting {label} provided at both the global CLI level and the launch subcommand."
-            )
-        return value
+    _warn_if_public_host_no_auth(mode="app", host=resolved_host)
 
-    resolved_workspace = resolve_path_option(
-        value=workspace, group_value=group_workspace, label="--workspace"
+    resolved_deployment_root = _resolve_deployment_root(
+        deployment_root=deployment_root,
+        deployment_name=deployment_name,
+        deployment_version=deployment_version,
+        latest=latest,
     )
-    resolved_files_root = resolve_path_option(
-        value=files_root, group_value=group_files_root, label="--files-root"
-    )
-    resolved_files_root_base = resolve_path_option(
-        value=files_root_base,
-        group_value=group_files_root_base,
-        label="--files-root-base",
-    )
-
-    try:
-        timeout_seconds = timeout if timeout is not None else 30.0
-        result = launch_workspace_session(
-            workspace_root=resolved_workspace,
-            files_root=resolved_files_root,
-            files_root_base=resolved_files_root_base,
-            timeout_seconds=timeout_seconds,
+    manifest = DBE(resolved_deployment_root).read_deployment_manifest_optional()
+    if manifest is None:
+        raise click.ClickException(
+            f"App deployment manifest not found: {resolved_deployment_root / 'manifest.json'}"
         )
-    except LaunchError as exc:
-        _emit_json_output(
-            {"ok": False, "error": {"code": exc.code, "message": str(exc)}}
+    if manifest.deploymentType is not DeploymentType.app:
+        raise click.ClickException(
+            f"Deployment is not an app deployment: {manifest.deploymentName}/{manifest.deploymentVersion}"
         )
-        raise SystemExit(1) from exc
+    C.APP_MODE = True
+    C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
 
-    secret = result.registry.load_secret(result.session)
-    token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
-    bootstrap_url_fragment, _ = build_bootstrap_urls(
-        result.session.host, result.session.port, token
+    resolved_log_level = configure_logging(level_override=log_level)
+    uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
+    resolved_version = manifest.deploymentVersion
+    resolved_deployment_label = deployment_name or manifest.deploymentName
+    app_url = C.BACKEND
+    auto_open = _should_auto_open(no_open)
+    C.OPEN_BROWSER_ON_START = app_url if auto_open else None
+    click.echo(
+        f"Starting app backend for {resolved_deployment_label}/{resolved_version}"
     )
-    payload = {
-        "ok": True,
-        "bootstrapUrlFragment": bootstrap_url_fragment,
-        "workspaceRoot": str(result.paths.workspace_root),
-        "filesRoot": str(result.paths.setta_files_root),
-        "sessionId": result.session.id,
-        "startedNew": result.started_new,
-        "session": _format_session_payload(result.session),
-    }
-    _emit_json_output(payload)
+    click.echo(f"App URL: {app_url}")
+
+    import uvicorn
+
+    config = uvicorn.Config(
+        "setta.server:app",
+        host=resolved_host,
+        port=resolved_port,
+        log_level=uvicorn_log_level,
+        log_config=None,
+        reload=False,
+        timeout_graceful_shutdown=1,
+    )
+    server = uvicorn.Server(config)
+    server.run()
 
 
 @click.command()
@@ -1160,9 +1435,7 @@ def launch(
 @click.option("-w", "--workspace", type=click.Path(path_type=Path))
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
-@click.pass_context
 def status(
-    ctx: click.Context,
     connect_info: bool,
     list_sessions: bool,
     delete_session_id: str | None,
@@ -1174,19 +1447,7 @@ def status(
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
 
-    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
-    group_workspace = ctx_obj.get("workspace")
-    resolved_workspace: Path | None = workspace
-    if resolved_workspace is None:
-        resolved_workspace = group_workspace
-    elif group_workspace is not None and resolved_workspace.resolve(
-        strict=False
-    ) != group_workspace.resolve(strict=False):
-        raise click.ClickException(
-            "Conflicting --workspace provided at both the global CLI level and the status subcommand."
-        )
-
-    registry = _build_session_registry(resolved_workspace)
+    registry = _build_session_registry(workspace)
     if delete_session_id:
         sessions = registry.load_sessions(prune_stale=False)
         target = next(
@@ -1203,16 +1464,15 @@ def status(
     if list_sessions:
         if not json_output:
             raise click.ClickException("Use --json with --list-sessions.")
-        if resolved_workspace is None:
+        if workspace is None:
             sessions = registry.load_sessions()
         else:
-            sessions = registry.find_sessions_by_workspace(resolved_workspace)
+            sessions = registry.find_sessions_by_workspace(workspace)
         payload = {
             "sessions": [
                 {
                     "id": session.id,
                     "workspacePath": session.workspacePath,
-                    "workspacePathCanonical": session.workspacePathCanonical,
                     "host": session.host,
                     "port": session.port,
                     "pid": session.pid,
@@ -1227,14 +1487,12 @@ def status(
     if not connect_info:
         raise click.ClickException("Use --connect-info to print session details.")
 
-    if resolved_workspace is None:
+    if workspace is None:
         sessions = registry.load_sessions()
     else:
-        sessions = registry.find_sessions_by_workspace(resolved_workspace)
+        sessions = registry.find_sessions_by_workspace(workspace)
         if not sessions:
-            sessions = registry.find_sessions_by_workspace(
-                resolved_workspace, prune_stale=False
-            )
+            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1259,12 +1517,10 @@ def status(
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
-        resolved_paths = resolve_setta_paths(workspace_root=resolved_workspace)
         payload = {
             "session": {
                 "id": session.id,
                 "workspacePath": session.workspacePath,
-                "workspacePathCanonical": session.workspacePathCanonical,
                 "host": session.host,
                 "port": session.port,
                 "pid": session.pid,
@@ -1273,8 +1529,6 @@ def status(
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
-            "filesRoot": str(resolved_paths.setta_files_root),
-            "runtimeRoot": str(resolved_paths.runtime_root),
         }
         _emit_connect_info_json(payload)
         return
@@ -1299,9 +1553,7 @@ def status(
     default=None,
     help="Override the backend base URL (scheme://host:port).",
 )
-@click.pass_context
 def auth(
-    ctx: click.Context,
     json_output: bool,
     workspace: Path | None,
     session_id: str | None,
@@ -1311,27 +1563,13 @@ def auth(
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
 
-    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
-    group_workspace = ctx_obj.get("workspace")
-    resolved_workspace: Path | None = workspace
-    if resolved_workspace is None:
-        resolved_workspace = group_workspace
-    elif group_workspace is not None and resolved_workspace.resolve(
-        strict=False
-    ) != group_workspace.resolve(strict=False):
-        raise click.ClickException(
-            "Conflicting --workspace provided at both the global CLI level and the auth subcommand."
-        )
-
-    registry = _build_session_registry(resolved_workspace)
-    if resolved_workspace is None:
+    registry = _build_session_registry(workspace)
+    if workspace is None:
         sessions = registry.load_sessions()
     else:
-        sessions = registry.find_sessions_by_workspace(resolved_workspace)
+        sessions = registry.find_sessions_by_workspace(workspace)
         if not sessions:
-            sessions = registry.find_sessions_by_workspace(
-                resolved_workspace, prune_stale=False
-            )
+            sessions = registry.find_sessions_by_workspace(workspace, prune_stale=False)
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1354,9 +1592,8 @@ def auth(
         resolved_base_url, token_for_output
     )
 
-    cookie_name = auth_cookie_name(session.id)
     cookie_value = AUTH_COOKIE_MANAGER.mint(session.id, secret)
-    cookie = f"{cookie_name}={cookie_value}"
+    cookie = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
     cookie_header = f"Cookie: {cookie}"
 
     payload = {
@@ -1364,7 +1601,7 @@ def auth(
         "apiBaseUrl": api_base_url,
         "cookieHeader": cookie_header,
         "cookie": cookie,
-        "cookieName": cookie_name,
+        "cookieName": C.AUTH_COOKIE_NAME,
         "session": _format_session_payload(session),
         "bootstrapUrlFragment": bootstrap_url_fragment,
         "bootstrapUrlPlain": bootstrap_url_plain,
@@ -1422,6 +1659,21 @@ def tools() -> None:
     help="Request timeout in seconds (0 disables).",
 )
 @click.option("--base-url", default=None, help="Override backend base URL")
+@click.option(
+    "--agentic-project-config-id",
+    default=None,
+    help="Set x-setta-project-config-id for agentic scope enforcement (temporary or canonical id).",
+)
+@click.option(
+    "--agentic-chat-id",
+    default=None,
+    help="Set x-setta-chat-id for agentic scope enforcement (temporary or canonical id).",
+)
+@click.option(
+    "--agentic-section-id",
+    default=None,
+    help="Set x-setta-section-id for agentic scope enforcement (temporary or canonical id).",
+)
 def api(
     tool_name: str,
     json_payload: str | None,
@@ -1434,6 +1686,9 @@ def api(
     auth_stdin: bool,
     timeout: float,
     base_url: str | None,
+    agentic_project_config_id: str | None,
+    agentic_chat_id: str | None,
+    agentic_section_id: str | None,
 ) -> None:
     if auth_stdin and payload_stdin:
         raise click.ClickException("Use --auth-stdin or --stdin, not both.")
@@ -1446,6 +1701,7 @@ def api(
             or auth_stdin
             or cookie_header
             or cookie
+            or (base_url and (cookie_header or cookie))
         )
         payload = _load_json_payload(json_payload, payload_stdin, payload_file)
         if payload is None:
@@ -1473,33 +1729,29 @@ def api(
             elif cookie:
                 cookie_value = _strip_cookie_header_prefix(cookie)
                 if "=" not in cookie_value:
-                    raise click.ClickException(
-                        "Cookie must be provided in name=value form."
-                    )
+                    cookie_value = f"{C.AUTH_COOKIE_NAME}={cookie_value}"
             if resolved_base_url is None:
-                session, _ = _resolve_latest_session_for_workspace(
-                    get_setta_paths().workspace_root
-                )
+                session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
                 resolved_base_url = _base_url_from_session(session)
         elif auth_payload is not None:
             cookie_value = _cookie_header_from_auth_payload(auth_payload)
             if resolved_base_url is None:
                 resolved_base_url = _base_url_from_auth_payload(auth_payload)
             if resolved_base_url is None:
-                session, _ = _resolve_latest_session_for_workspace(
-                    get_setta_paths().workspace_root
-                )
+                session, _ = _resolve_latest_session_for_workspace(Path.cwd().resolve())
                 resolved_base_url = _base_url_from_session(session)
         else:
             session, secret = _resolve_latest_session_for_workspace(
-                get_setta_paths().workspace_root
+                Path.cwd().resolve()
             )
             resolved_base_url = (
                 _normalize_base_url(base_url)
                 if base_url
                 else _base_url_from_session(session)
             )
-            cookie_value = f"{auth_cookie_name(session.id)}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
+            cookie_value = (
+                f"{C.AUTH_COOKIE_NAME}={AUTH_COOKIE_MANAGER.mint(session.id, secret)}"
+            )
 
         if resolved_base_url is None:
             raise click.ClickException(
@@ -1519,6 +1771,20 @@ def api(
         raise
 
     headers = {"Cookie": cookie_value}
+    if agentic_project_config_id is not None and agentic_project_config_id.strip():
+        from setta.mcp.agentic_context_headers import (
+            AGENTIC_CONTEXT_CHAT_ID_HEADER,
+            AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+            AGENTIC_CONTEXT_SECTION_ID_HEADER,
+        )
+
+        headers[AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER] = (
+            agentic_project_config_id.strip()
+        )
+        if agentic_chat_id is not None and agentic_chat_id.strip():
+            headers[AGENTIC_CONTEXT_CHAT_ID_HEADER] = agentic_chat_id.strip()
+        if agentic_section_id is not None and agentic_section_id.strip():
+            headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = agentic_section_id.strip()
     request_kwargs: dict[str, Any] = {
         "headers": headers,
         "json": {"tool": normalized_tool_name, "arguments": arguments},
@@ -1577,9 +1843,7 @@ def api(
 @click.option("--all", "stop_all", is_flag=True)
 @click.option("--ssh-args", default=None)
 @click.option("--remote-cmd", default=None)
-@click.pass_context
 def stop(
-    ctx: click.Context,
     ssh_target: str | None,
     workspace: str,
     session_id: str | None,
@@ -1606,11 +1870,6 @@ def stop(
             click.echo(f"Stopped session {session.id}.")
         return
 
-    params = ctx.obj or {}
-    files_root_args = _build_remote_files_root_args(
-        files_root=params.get("files_root"),
-        files_root_base=params.get("files_root_base"),
-    )
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
     shell = _resolve_remote_shell(ssh_target, ssh_args_list)
     remote_workspace = _resolve_remote_workspace(
@@ -1620,12 +1879,7 @@ def stop(
         ssh_target, ssh_args_list, shell, remote_workspace, remote_cmd
     )
     sessions = _fetch_remote_sessions(
-        ssh_target,
-        ssh_args_list,
-        shell,
-        remote_workspace,
-        setta_command,
-        files_root_args,
+        ssh_target, ssh_args_list, shell, remote_workspace, setta_command
     )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1637,7 +1891,6 @@ def stop(
             shell,
             remote_workspace,
             setta_command,
-            files_root_args,
             session.id,
         )
         click.echo(f"Stopped session {session.id}.")
@@ -1655,9 +1908,7 @@ def stop(
 @click.option("--print-only", is_flag=True)
 @click.option("--no-open", is_flag=True)
 @click.option("--verbose", is_flag=True)
-@click.pass_context
 def connect(
-    ctx: click.Context,
     ssh_target: str,
     workspace: str,
     session_id: str | None,
@@ -1674,12 +1925,6 @@ def connect(
         raise click.ClickException("Use either --session or --latest, not both.")
     if detach and print_only:
         raise click.ClickException("Use either --detach or --print-only, not both.")
-
-    params = ctx.obj or {}
-    files_root_args = _build_remote_files_root_args(
-        files_root=params.get("files_root"),
-        files_root_base=params.get("files_root_base"),
-    )
 
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
     if verbose:
@@ -1701,12 +1946,7 @@ def connect(
         click.echo(f"Remote Setta command: {setta_command}")
 
     sessions = _fetch_remote_sessions(
-        ssh_target,
-        ssh_args_list,
-        shell,
-        remote_workspace,
-        setta_command,
-        files_root_args,
+        ssh_target, ssh_args_list, shell, remote_workspace, setta_command
     )
     if verbose:
         click.echo(f"Remote sessions found: {len(sessions)}")
@@ -1739,7 +1979,6 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
-                        files_root_args,
                         target.id,
                     )
                     sessions = _fetch_remote_sessions(
@@ -1748,7 +1987,6 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
-                        files_root_args,
                     )
                     if not sessions:
                         break
@@ -1765,34 +2003,22 @@ def connect(
             click.echo(
                 f"Starting Setta on {ssh_target} (workspace {remote_workspace})..."
             )
-        start_timed_out = _start_remote_setta(
+        _start_remote_setta(
             ssh_target,
             ssh_args_list,
             shell,
             remote_workspace,
             setta_command,
-            files_root_args,
-            files_root=params.get("files_root"),
-            files_root_base=params.get("files_root_base"),
+            verbose=verbose,
         )
-        try:
-            selected_session = _wait_for_remote_session(
-                ssh_target,
-                ssh_args_list,
-                shell,
-                remote_workspace,
-                setta_command,
-                files_root_args,
-                verbose=verbose,
-            )
-        except click.ClickException as exc:
-            if start_timed_out and str(exc).strip() == (
-                "Timed out waiting for remote Setta session to start."
-            ):
-                raise click.ClickException(
-                    "SSH command to start remote Setta timed out, and no sessions appeared before the launch timeout. Check SSH connectivity/auth and try again."
-                ) from exc
-            raise
+        selected_session = _wait_for_remote_session(
+            ssh_target,
+            ssh_args_list,
+            shell,
+            remote_workspace,
+            setta_command,
+            verbose=verbose,
+        )
 
     if not print_only:
         click.echo(
@@ -1805,7 +2031,6 @@ def connect(
         shell,
         remote_workspace,
         setta_command,
-        files_root_args,
         session_id=selected_session.id,
         latest=False,
     )
@@ -1815,48 +2040,6 @@ def connect(
     local_bootstrap_url, _ = build_bootstrap_urls(
         "127.0.0.1", resolved_local_port, token
     )
-
-    if print_only:
-        if verbose:
-            click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
-        tunnel_args = _build_ssh_tunnel_args(
-            ssh_target,
-            ssh_args_list,
-            selected_session.host,
-            resolved_local_port,
-            selected_session.port,
-        )
-        click.echo(shlex.join(tunnel_args))
-        click.echo(local_bootstrap_url)
-        click.echo(token)
-        return
-
-    if detach:
-        click.echo("Ensuring local tunnel is running (background).")
-        tunnel = ssh_connect.ensure_ssh_tunnel(
-            ssh_target=ssh_target,
-            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=True),
-            ssh_args=ssh_args_list,
-            remote_host=selected_session.host,
-            remote_port=selected_session.port,
-            requested_local_port=local_port,
-        )
-        local_bootstrap_url, _ = build_bootstrap_urls(
-            "127.0.0.1",
-            tunnel.localPort,
-            token,
-        )
-        if verbose:
-            click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
-        if not no_open:
-            click.echo("Opening browser...")
-            webbrowser.open(local_bootstrap_url, new=0)
-        click.echo(
-            f"Tunnel running in background (pid {tunnel.pid}, local port {tunnel.localPort})."
-        )
-        click.echo(f"To stop: kill {tunnel.pid}")
-        return
-
     if verbose:
         click.echo(f"Local bootstrap URL: {local_bootstrap_url}")
     tunnel_args = _build_ssh_tunnel_args(
@@ -1866,6 +2049,32 @@ def connect(
         resolved_local_port,
         selected_session.port,
     )
+
+    if print_only:
+        click.echo(shlex.join(tunnel_args))
+        click.echo(local_bootstrap_url)
+        click.echo(token)
+        return
+
+    if detach:
+        click.echo(f"Opening local tunnel on {resolved_local_port} (background).")
+        proc = subprocess.Popen(
+            tunnel_args,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        _ensure_background_process_started(proc)
+        if not no_open:
+            click.echo("Opening browser...")
+            webbrowser.open(local_bootstrap_url, new=0)
+        click.echo(
+            f"Tunnel running in background (pid {proc.pid}, local port {resolved_local_port})."
+        )
+        click.echo(f"To stop: kill {proc.pid}")
+        return
+
     click.echo(
         f"Opening local tunnel on {resolved_local_port} (keep this terminal open)."
     )
@@ -1880,29 +2089,15 @@ def connect(
     proc.wait()
 
 
-@click.group(invoke_without_command=True)
+@click.group(
+    invoke_without_command=True,
+    context_settings=dict(
+        ignore_unknown_options=True,
+    ),
+)
 @click.option("--reload", is_flag=True)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", type=int, default=None, help="backend port (random if omitted)")
-@click.option(
-    "-w",
-    "--workspace",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Workspace root for code operations (defaults to CWD).",
-)
-@click.option(
-    "--files-root",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Root directory for setta_files (overrides --files-root-base).",
-)
-@click.option(
-    "--files-root-base",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Base directory for hashed setta_files roots.",
-)
 @click.option(
     "--log-level",
     type=click.Choice(
@@ -1918,9 +2113,6 @@ def cli(
     reload: bool,
     host: str,
     port: int | None,
-    workspace: Path | None,
-    files_root: Path | None,
-    files_root_base: Path | None,
     log_level: str | None,
     no_open: bool,
 ) -> None:
@@ -1928,48 +2120,22 @@ def cli(
     ctx.obj["reload"] = reload
     ctx.obj["host"] = host
     ctx.obj["port"] = port
-    ctx.obj["workspace"] = workspace
-    ctx.obj["files_root"] = files_root
-    ctx.obj["files_root_base"] = files_root_base
     ctx.obj["log_level"] = log_level
     ctx.obj["no_open"] = no_open
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
-    paths_override = None
-    if workspace is not None or files_root is not None or files_root_base is not None:
-        paths_override = _resolve_cli_paths(
-            workspace=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
-            validate=True,
-        )
-        _apply_paths_to_env(paths_override, files_root_base=files_root_base)
     if ctx.invoked_subcommand is None:
         logging.getLogger(__name__).info("Starting Setta")
-
-        paths = paths_override or _resolve_cli_paths(
-            workspace=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
-            validate=True,
-        )
-        if paths_override is None:
-            _apply_paths_to_env(paths, files_root_base=files_root_base)
 
         resolved_host = host
         resolved_port = _resolve_port(resolved_host, port)
         C.HOST = resolved_host
         C.PORT = resolved_port
 
-        sessions_root = paths.runtime_sessions_root
+        sessions_root = resolve_sessions_root(Path.cwd())
         registry = SessionRegistry(sessions_root=sessions_root)
-        display_workspace = workspace or paths.workspace_root
         session = registry.create_session(
-            paths.workspace_root,
-            resolved_host,
-            resolved_port,
-            os.getpid(),
-            workspace_display_path=str(display_workspace),
+            Path.cwd(), resolved_host, resolved_port, os.getpid()
         )
         os.environ[SESSION_ID_ENV_VAR] = session.id
         os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
@@ -1988,7 +2154,7 @@ def cli(
                 session.id,
                 resolved_host,
                 resolved_port,
-                Path(session.workspacePathCanonical),
+                Path.cwd().resolve(),
                 bootstrap_url_fragment,
                 bootstrap_url_plain,
                 token,
@@ -2015,8 +2181,9 @@ def cli(
 
 cli.add_command(version)
 cli.add_command(export_db)
+cli.add_command(backups)
 cli.add_command(share)
-cli.add_command(launch)
+cli.add_command(app)
 cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)
