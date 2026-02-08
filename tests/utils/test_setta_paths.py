@@ -77,8 +77,7 @@ def test_resolve_setta_paths_auto_uses_global_if_present(
         json.dumps(
             {
                 "globalSettaFilesBase": str((setta_home / "setta_files").resolve()),
-                "openWorkspaceFallback": "use_global_if_present",
-                "defaultCreateLocation": "local",
+                "autoMode": "use_global_if_present",
             },
             indent=2,
             sort_keys=True,

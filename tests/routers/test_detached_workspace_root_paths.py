@@ -80,8 +80,7 @@ def _detached_roots(tmpdir: str):
         json.dumps(
             {
                 "globalSettaFilesBase": str(global_setta_files_base),
-                "openWorkspaceFallback": "create_local",
-                "defaultCreateLocation": "local",
+                "autoMode": "create_local",
             },
             indent=2,
             sort_keys=True,

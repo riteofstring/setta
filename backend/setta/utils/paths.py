@@ -230,14 +230,14 @@ def _resolve_files_root(
         return (global_root, "global")
 
     # auto: follow user config fallback behavior.
-    if config.open_workspace_fallback == "create_local":
+    if config.auto_mode == "create_local":
         return (local_root, "local")
 
-    # use_global_if_present
+    # use_global_if_present / create_global
     if global_root.is_dir():
         return (global_root, "global")
 
-    if config.default_create_location == "global":
+    if config.auto_mode == "create_global":
         return (global_root, "global")
     return (local_root, "local")
 

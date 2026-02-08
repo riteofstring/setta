@@ -76,33 +76,26 @@ type SettaUserConfig = {
   // This directory contains multiple hashed per-workspace folders.
   globalSettaFilesBase: string; // default: "<setta_home>/setta_files"
 
-  // What to do when opening a workspace that has no local setta_files directory.
-  openWorkspaceFallback: "create_local" | "use_global_if_present";
-
-  // If we need to create state for a workspace (no local and no global),
-  // which location should be created by default.
-  defaultCreateLocation: "local" | "global";
+  // Behavior used when settaFilesLocation=auto and the workspace has no local
+  // setta_files/ folder.
+  autoMode: "create_local" | "use_global_if_present" | "create_global";
 };
 ```
 
 ### Defaults (must preserve today’s behavior)
 
 - `globalSettaFilesBase = "<setta_home>/setta_files"`
-- `openWorkspaceFallback = "create_local"`
-- `defaultCreateLocation = "local"`
+- `autoMode = "create_local"`
 
 ### Semantics
 
 When opening a workspace (no explicit CLI override):
 
 1. If `<workspace_root>/setta_files` exists, use it (local wins).
-2. Else if `openWorkspaceFallback == "create_local"`, use local and create `<workspace_root>/setta_files` (normal current behavior).
-3. Else `openWorkspaceFallback == "use_global_if_present"`:
-   - Compute the per-workspace global state root under `globalSettaFilesBase`.
-   - If it exists, use it.
-   - If it does not exist, create new state at `defaultCreateLocation`:
-     - `local`: create `<workspace_root>/setta_files`
-     - `global`: create the computed per-workspace global state root
+2. Otherwise compute the per-workspace global state root under `globalSettaFilesBase`, then choose based on `autoMode`:
+   - `create_local`: use local and create `<workspace_root>/setta_files` (normal current behavior).
+   - `use_global_if_present`: if the computed global root already exists, use it; otherwise create/use local.
+   - `create_global`: create/use the computed global root.
 
 Notes:
 
@@ -219,10 +212,10 @@ Add a new short doc (or extend one of the above) describing:
 Add focused unit tests under `tests/utils/` for the new resolver behavior:
 
 - local exists -> always local
-- missing local + fallback=create_local -> local selected
-- missing local + fallback=use_global_if_present + global exists -> global selected
-- missing local + fallback=use_global_if_present + global missing + defaultCreateLocation=local -> local selected
-- missing local + fallback=use_global_if_present + global missing + defaultCreateLocation=global -> global selected
+- missing local + autoMode=create_local -> local selected
+- missing local + autoMode=use_global_if_present + global exists -> global selected
+- missing local + autoMode=use_global_if_present + global missing -> local selected
+- missing local + autoMode=create_global -> global selected
 - explicit `--setta-files-location local|global` forces selection (and creates the selected root if missing)
 
 Tests must not rely on real `<setta_home>`; provide an override for the config directory path (env var or dependency injection) so tests can use a temp dir.

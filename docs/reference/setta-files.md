@@ -24,8 +24,7 @@ file is missing, Setta uses the defaults shown below.
 ```json
 {
   "globalSettaFilesBase": "~/.setta/setta_files",
-  "openWorkspaceFallback": "create_local",
-  "defaultCreateLocation": "local"
+  "autoMode": "create_local"
 }
 ```
 
@@ -34,12 +33,10 @@ Fields:
 - `globalSettaFilesBase`
   - directory that will contain per-workspace global state folders
   - default: `<setta_home>/setta_files`
-- `openWorkspaceFallback`
+- `autoMode`
   - `create_local`: if the workspace has no local `setta_files/`, Setta will create/use `<workspace>/setta_files`
-  - `use_global_if_present`: if the workspace has no local `setta_files/`, Setta will use the global state folder if it already exists, otherwise it will defer to `defaultCreateLocation`
-- `defaultCreateLocation`
-  - `local` or `global`
-  - only used when opening a workspace that has no local `setta_files/` and no existing global state (and `openWorkspaceFallback=use_global_if_present`)
+  - `use_global_if_present`: if the workspace has no local `setta_files/`, Setta will use the global state folder if it already exists; otherwise it will create/use `<workspace>/setta_files`
+  - `create_global`: if the workspace has no local `setta_files/`, Setta will create/use the computed global state folder
 
 ## How Setta Chooses a `setta_files` Root
 
@@ -49,7 +46,7 @@ Resolution rules:
 2. Otherwise, choose based on the requested location:
    - `local`: use `<workspace>/setta_files`
    - `global`: use `<globalSettaFilesBase>/<workspace-name>-<hash>`
-   - `auto`: follow `openWorkspaceFallback` + `defaultCreateLocation` from config
+   - `auto`: follow `autoMode` from config
 
 The global folder name is deterministic per workspace path, and looks like:
 
@@ -83,7 +80,6 @@ Prefer global state for new workspaces (via config):
 ```json
 {
   "globalSettaFilesBase": "~/setta_state",
-  "openWorkspaceFallback": "use_global_if_present",
-  "defaultCreateLocation": "global"
+  "autoMode": "create_global"
 }
 ```

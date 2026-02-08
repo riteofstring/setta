@@ -26,8 +26,7 @@ def test_iter_python_files_ignores_custom_state_root_inside_workspace() -> None:
             json.dumps(
                 {
                     "globalSettaFilesBase": str(base_root.resolve(strict=False)),
-                    "openWorkspaceFallback": "create_local",
-                    "defaultCreateLocation": "local",
+                    "autoMode": "create_local",
                 },
                 indent=2,
                 sort_keys=True,

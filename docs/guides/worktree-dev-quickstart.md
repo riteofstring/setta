@@ -31,8 +31,7 @@ Centralize `setta_files` outside worktrees (global state):
 ```json
 {
   "globalSettaFilesBase": "~/setta_state",
-  "openWorkspaceFallback": "use_global_if_present",
-  "defaultCreateLocation": "global"
+  "autoMode": "create_global"
 }
 ```
 2. Ensure the worktree does not already contain a local `setta_files/` folder (local always wins when it exists).

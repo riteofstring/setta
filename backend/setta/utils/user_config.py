@@ -7,22 +7,19 @@ from typing import Literal, cast
 
 from setta.utils.setta_home import resolve_setta_home, resolve_setta_user_config_path
 
-OpenWorkspaceFallback = Literal["create_local", "use_global_if_present"]
-DefaultCreateLocation = Literal["local", "global"]
+AutoMode = Literal["create_local", "use_global_if_present", "create_global"]
 
 
 @dataclass(frozen=True)
 class SettaUserConfig:
     global_setta_files_base: Path
-    open_workspace_fallback: OpenWorkspaceFallback
-    default_create_location: DefaultCreateLocation
+    auto_mode: AutoMode
 
     @staticmethod
     def defaults(*, setta_home: Path) -> "SettaUserConfig":
         return SettaUserConfig(
             global_setta_files_base=(setta_home / "setta_files").resolve(strict=False),
-            open_workspace_fallback="create_local",
-            default_create_location="local",
+            auto_mode="create_local",
         )
 
 
@@ -38,8 +35,7 @@ def _build_default_config_payload(*, setta_home: Path) -> dict[str, object]:
     defaults = SettaUserConfig.defaults(setta_home=setta_home)
     return {
         "globalSettaFilesBase": str(defaults.global_setta_files_base),
-        "openWorkspaceFallback": defaults.open_workspace_fallback,
-        "defaultCreateLocation": defaults.default_create_location,
+        "autoMode": defaults.auto_mode,
     }
 
 
@@ -52,18 +48,12 @@ def _coerce_str(raw: object, *, label: str) -> str | None:
     return trimmed or None
 
 
-def _parse_open_workspace_fallback(value: str) -> OpenWorkspaceFallback:
-    if value in ("create_local", "use_global_if_present"):
-        return cast("OpenWorkspaceFallback", value)
+def _parse_auto_mode(value: str) -> AutoMode:
+    if value in ("create_local", "use_global_if_present", "create_global"):
+        return cast("AutoMode", value)
     raise ValueError(
-        "openWorkspaceFallback must be one of: create_local, use_global_if_present."
+        "autoMode must be one of: create_local, use_global_if_present, create_global."
     )
-
-
-def _parse_default_create_location(value: str) -> DefaultCreateLocation:
-    if value in ("local", "global"):
-        return cast("DefaultCreateLocation", value)
-    raise ValueError("defaultCreateLocation must be one of: local, global.")
 
 
 def _load_setta_user_config_uncached(*, setta_home: Path) -> SettaUserConfig:
@@ -93,12 +83,12 @@ def _load_setta_user_config_uncached(*, setta_home: Path) -> SettaUserConfig:
     raw_base = _coerce_str(
         raw.get("globalSettaFilesBase"), label="globalSettaFilesBase"
     )
-    raw_fallback = _coerce_str(
-        raw.get("openWorkspaceFallback"), label="openWorkspaceFallback"
-    )
-    raw_default_location = _coerce_str(
-        raw.get("defaultCreateLocation"), label="defaultCreateLocation"
-    )
+    raw_auto_mode = _coerce_str(raw.get("autoMode"), label="autoMode")
+    if "openWorkspaceFallback" in raw or "defaultCreateLocation" in raw:
+        raise ValueError(
+            f"Setta config uses removed keys openWorkspaceFallback/defaultCreateLocation: {config_path}. "
+            "Use autoMode instead."
+        )
 
     base_path = (
         _resolve_path(raw_base, setta_home=setta_home)
@@ -106,25 +96,18 @@ def _load_setta_user_config_uncached(*, setta_home: Path) -> SettaUserConfig:
         else defaults.global_setta_files_base
     )
 
-    fallback = (
-        _parse_open_workspace_fallback(raw_fallback)
-        if raw_fallback is not None
-        else defaults.open_workspace_fallback
-    )
-
-    default_location = (
-        _parse_default_create_location(raw_default_location)
-        if raw_default_location is not None
-        else defaults.default_create_location
-    )
+    auto_mode: AutoMode
+    if raw_auto_mode is not None:
+        auto_mode = _parse_auto_mode(raw_auto_mode)
+    else:
+        auto_mode = defaults.auto_mode
 
     if base_path.exists() and not base_path.is_dir():
         raise ValueError(f"globalSettaFilesBase is not a directory: {base_path}")
 
     return SettaUserConfig(
         global_setta_files_base=base_path,
-        open_workspace_fallback=fallback,
-        default_create_location=default_location,
+        auto_mode=auto_mode,
     )
 
 
