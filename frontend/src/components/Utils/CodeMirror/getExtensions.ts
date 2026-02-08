@@ -1,6 +1,7 @@
 import {
   acceptCompletion,
   autocompletion,
+  closeCompletion,
   completionKeymap,
   CompletionSource,
   completionStatus,
@@ -36,6 +37,7 @@ type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
   completionsFn?: CompletionSource;
+  completionInteractionDelayMs?: number;
   singleLine?: boolean;
   wrapLines?: boolean;
   tabToAutocomplete?: boolean;
@@ -54,6 +56,7 @@ export function getExtensions({
   parent,
   language,
   completionsFn,
+  completionInteractionDelayMs,
   singleLine,
   wrapLines,
   tabToAutocomplete,
@@ -101,8 +104,40 @@ export function getExtensions({
       autocompletion({
         override: [completionsFn],
         tooltipClass: () => "nowheel",
+        interactionDelay: completionInteractionDelayMs,
+        selectOnOpen: true,
       }),
     );
+    if (completionTriggerChars && completionTriggerChars.length > 0) {
+      extensions.push(
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) {
+            return;
+          }
+          const isUserInput = update.transactions.some((tr) =>
+            tr.isUserEvent("input"),
+          );
+          if (!isUserInput) {
+            return;
+          }
+          const head = update.state.selection.main.head;
+          if (head <= 0) {
+            return;
+          }
+          const lastChar = update.state.doc.sliceString(head - 1, head);
+          if (!triggerChars.includes(lastChar)) {
+            return;
+          }
+          if (!update.view.hasFocus) {
+            return;
+          }
+          if (completionStatus(update.state) === "active") {
+            return;
+          }
+          queueMicrotask(() => startCompletion(update.view));
+        }),
+      );
+    }
     if (triggerCompletionAfterAccept) {
       extensions.push(
         EditorView.updateListener.of((update) => {
@@ -115,7 +150,20 @@ export function getExtensions({
                 update.state.doc.length - 1,
               );
               if (triggerChars.includes(lastChar)) {
-                startCompletion(update.view);
+                if (!update.view.hasFocus) {
+                  return;
+                }
+                // Defer to the next tick so CodeMirror's own completion accept
+                // transaction has fully settled before we re-trigger completion.
+                queueMicrotask(() => {
+                  if (!update.view.hasFocus) {
+                    return;
+                  }
+                  if (completionStatus(update.view.state) === "active") {
+                    return;
+                  }
+                  startCompletion(update.view);
+                });
               }
               break;
             }
@@ -136,6 +184,7 @@ export function getExtensions({
   }
 
   const keymapArray = getKeyMapArray({
+    hasCompletions: Boolean(completionsFn),
     indentWithTab,
     singleLine,
     tabToAutocomplete,
@@ -154,6 +203,7 @@ export function getExtensions({
 }
 
 function getKeyMapArray({
+  hasCompletions,
   indentWithTab,
   singleLine,
   tabToAutocomplete,
@@ -210,9 +260,14 @@ function getKeyMapArray({
       preventDefault: true,
       stopPropagation: true,
       run: (view) => {
-        let completionResult = false;
-        if (completionStatus(view.state) === "active") {
-          completionResult = acceptCompletion(view);
+        // In single-line "submit" inputs (like the Browser path bar) Enter should
+        // submit, not silently accept a completion. If a caller wants Enter to
+        // accept completions, they should disable tab-to-autocomplete so Enter
+        // is the primary completion interaction.
+        const completionResult =
+          hasCompletions && !tabToAutocomplete ? acceptCompletion(view) : false;
+        if (hasCompletions) {
+          closeCompletion(view);
         }
         onEnter(view.state.doc.toString(), completionResult);
         return true;
@@ -248,12 +303,15 @@ function getKeyMapArray({
       run: (view) => {
         let completionResult = false;
         let movedFocus = false;
-        if (tabToAutocomplete && completionStatus(view.state) === "active") {
+        if (tabToAutocomplete && hasCompletions) {
           completionResult = acceptCompletion(view);
-        } else if (indentWithTab) {
-          indentMore(view);
-        } else if (shouldHandleTabNavigation || singleLine) {
-          movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
+        }
+        if (!completionResult) {
+          if (indentWithTab) {
+            indentMore(view);
+          } else if (shouldHandleTabNavigation || singleLine) {
+            movedFocus = moveFocus({ direction: 1, from: view.contentDOM });
+          }
         }
         if (onTab) {
           onTab(view.state.doc.toString(), completionResult);

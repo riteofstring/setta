@@ -20,15 +20,3 @@ export function toggleProjectConfigPreviewEnabled() {
 export function toggleSnapToGrid() {
   useLocalStorage.setState((state) => ({ snapToGrid: !state.snapToGrid }));
 }
-
-export function toggleAgenticEdges() {
-  useLocalStorage.setState((state) => ({
-    showAgenticEdges: !state.showAgenticEdges,
-  }));
-}
-
-export function toggleArgEdges() {
-  useLocalStorage.setState((state) => ({
-    showArgEdges: !state.showArgEdges,
-  }));
-}

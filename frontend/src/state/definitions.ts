@@ -12,6 +12,11 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  DEFAULT_FILE_BROWSER_TYPE_FILTERS,
+  type FileBrowserSearchScope,
+  type FileBrowserTypeFilter,
+} from "utils/fileBrowserTypes";
+import {
   AgentProfile,
   AgentRun,
   AllLLMConfigs,
@@ -297,6 +302,8 @@ type FileBrowserState = {
   filterText: string;
   pathSeparator: string;
   ignorePatterns: string[];
+  typeFilters: Record<FileBrowserTypeFilter, boolean>;
+  searchScope: FileBrowserSearchScope;
 };
 
 export const useFileBrowserState = createWithEqualityFn(
@@ -307,6 +314,8 @@ export const useFileBrowserState = createWithEqualityFn(
     filterText: "",
     pathSeparator: "/",
     ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
   })),
 );
 
@@ -318,6 +327,8 @@ export const useBrowserSectionFileBrowserState = createWithEqualityFn(
     filterText: "",
     pathSeparator: "/",
     ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
   })),
 );
 
@@ -329,6 +340,8 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
     filterText: "",
     pathSeparator: "/",
     ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
   })),
 );
 
@@ -735,8 +748,6 @@ export type ColorModePreference = "dark" | "light" | "auto";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
-  showAgenticEdges: boolean;
-  showArgEdges: boolean;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
@@ -759,8 +770,6 @@ export const useLocalStorage = createWithEqualityFn(
   persist<ZustandLocalStorage>(
     () => ({
       snapToGrid: true,
-      showAgenticEdges: true,
-      showArgEdges: true,
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,

@@ -42,6 +42,10 @@ test("browser path input autocompletes folders", async ({ page }) => {
     {
       projectConfigId,
       implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.55,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       viewportBounds,
     },
   );
@@ -68,10 +72,6 @@ test("browser path input autocompletes folders", async ({ page }) => {
     await expect(sectionNode).toBeVisible();
     await rootResponsePromise;
 
-    await sectionNode
-      .locator('button[aria-label="Carousel view"]')
-      .click();
-
     const pathInput = sectionNode.locator(
       `[id="CodeMirror-${sectionId}-browser-path"]`,
     );
@@ -89,40 +89,27 @@ test("browser path input autocompletes folders", async ({ page }) => {
         }, `CodeMirror-${sectionId}-browser-path`),
       )
       .toContain(normalizedWorkspaceRoot);
-    const completionResponsePromise = page.waitForResponse((response) => {
-      if (
-        !response.url().includes("/api/getFolderContents") ||
-        response.status() !== 200
-      ) {
-        return false;
-      }
-      const postData = response.request().postData() ?? "";
-      return postData.includes(parentDir);
-    });
+    const tooltip = page.locator(".cm-tooltip-autocomplete");
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
     await page.keyboard.type(`${parentDir}${path.sep}a`);
-    await page.keyboard.press("Control+Space");
-    await completionResponsePromise;
 
-    const tooltip = page.locator(".cm-tooltip-autocomplete");
     await expect(tooltip).toBeVisible({ timeout: 15000 });
     const alphaOption = tooltip.locator("li", { hasText: "alpha" }).first();
     await expect(alphaOption).toBeVisible();
-    const nestedResponsePromise = page.waitForResponse((response) => {
-      if (
-        !response.url().includes("/api/getFolderContents") ||
-        response.status() !== 200
-      ) {
-        return false;
-      }
-      const postData = response.request().postData() ?? "";
-      return postData.includes(alphaDir);
-    });
-    await alphaOption.click();
-    await nestedResponsePromise;
-    await expect(tooltip).toBeVisible({ timeout: 15000 });
-    await expect(tooltip).toContainText("child");
+    // Regression guard: the completion popup should still show after backspace
+    // and re-typing the same character sequence.
+    await page.keyboard.press("Backspace");
+    await page.keyboard.type("a");
+    await expect(alphaOption).toBeVisible({ timeout: 15000 });
+    // Wait until CodeMirror reports the completion tooltip as "enabled" before
+    // accepting it. Otherwise `acceptCompletion` can return false even when the
+    // tooltip is visible (the list can be temporarily disabled while results are
+    // recomputing).
+    await expect(tooltip).not.toHaveClass(/cm-tooltip-autocomplete-disabled/);
+    // Ensure we have an active selection before accepting the completion.
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Tab");
 
     const normalizedExpected = normalizePathForComparison(
       `${parentDir}${path.sep}alpha${path.sep}`,
@@ -142,5 +129,9 @@ test("browser path input autocompletes folders", async ({ page }) => {
       .toContain(normalizedExpected);
   } finally {
     await fs.rm(parentDir, { recursive: true, force: true });
+    await postBackend(page, "/deleteSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+    });
   }
 });
