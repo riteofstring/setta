@@ -48,6 +48,8 @@ Use these components as the primary style anchors:
   - `frontend/src/components/Panes/Overview/Overview.tsx` (h2)
   - `frontend/src/components/Panes/UiEditor/UiEditor.tsx` (h2)
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` (h3/h4)
+- View mode tab chrome (bottom bar + tab states):
+  - `frontend/src/components/Pages/Project/ViewModeTabs.tsx`
 - Section Config color controls (compact panel cards, reset/category controls):
   - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionTagColorSettings.tsx`
   - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionStyleColorSettings.tsx`
