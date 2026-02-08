@@ -428,12 +428,12 @@ def fetch_remote_sessions(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     *,
     ssh_prefix: list[str],
 ) -> list[RemoteSessionSummary]:
     quoted_workspace = shlex.quote(workspace)
-    root_prefix = f"{files_root_args} " if files_root_args else ""
+    root_prefix = f"{setta_files_args} " if setta_files_args else ""
     result = run_remote_setta_command(
         ssh_target,
         ssh_args,
@@ -459,7 +459,7 @@ def wait_for_remote_sessions(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     *,
     ssh_prefix: list[str],
     timeout_seconds: float,
@@ -476,7 +476,7 @@ def wait_for_remote_sessions(
             shell,
             workspace,
             setta_command,
-            files_root_args,
+            setta_files_args,
             ssh_prefix=ssh_prefix,
         )
         if sessions:
@@ -495,13 +495,13 @@ def fetch_remote_connect_info(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     *,
     session_id: str,
     ssh_prefix: list[str],
 ) -> dict[str, Any]:
     quoted_workspace = shlex.quote(workspace)
-    root_prefix = f"{files_root_args} " if files_root_args else ""
+    root_prefix = f"{setta_files_args} " if setta_files_args else ""
     args = (
         f"{root_prefix}status --connect-info --json --workspace {quoted_workspace}"
         f" --session {shlex.quote(session_id)}"
@@ -571,11 +571,11 @@ def start_remote_setta(
     shell: str,
     workspace: str,
     setta_command: str,
-    files_root_args: str,
+    setta_files_args: str,
     *,
     ssh_prefix: list[str],
     setta_files_location: str,
-) -> str:
+) -> None:
     runner = None
     if _remote_command_exists(ssh_target, ssh_args, "setsid", ssh_prefix=ssh_prefix):
         runner = "setsid"
@@ -591,7 +591,7 @@ def start_remote_setta(
         workspace=workspace, setta_files_location=setta_files_location
     )
     remote_log_file = f"{remote_logs_dir}/nohup-{time.time_ns()}-{os.getpid()}.out"
-    root_prefix = f"{files_root_args} " if files_root_args else ""
+    root_prefix = f"{setta_files_args} " if setta_files_args else ""
     setta_args = f"{root_prefix}--no-open".strip()
 
     def _needs_shell_wrapper(command: str) -> bool:
@@ -626,7 +626,7 @@ def start_remote_setta(
             f"Failed to start remote Setta. {details} "
             f"(remote log: {remote_log_file})".strip(),
         )
-    return remote_log_file
+    return None
 
 
 def build_ssh_tunnel_args(

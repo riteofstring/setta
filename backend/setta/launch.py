@@ -10,12 +10,16 @@ from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.paths import (
+    InvalidGlobalSettaFilesRootError,
+    InvalidLocalSettaFilesRootError,
+    InvalidSettaFilesLocationError,
     SettaFilesLocation,
     SettaPaths,
     get_optional_dir_validation_error,
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.user_config import SettaUserConfigError
 
 DEFAULT_LAUNCH_TIMEOUT_SECONDS = 30.0
 DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS = 0.5
@@ -72,14 +76,14 @@ def launch_workspace_session(
             workspace_root=workspace_root,
             setta_files_location=setta_files_location,
         )
+    except InvalidSettaFilesLocationError as exc:
+        raise LaunchError("InvalidSettaFilesLocation", str(exc)) from exc
+    except (InvalidLocalSettaFilesRootError, InvalidGlobalSettaFilesRootError) as exc:
+        raise LaunchError("InvalidSettaFilesRoot", str(exc)) from exc
+    except SettaUserConfigError as exc:
+        raise LaunchError("InvalidSettaUserConfig", str(exc)) from exc
     except ValueError as exc:
-        message = str(exc)
-        code = "BadRequest"
-        if "setta_files path is not a directory" in message:
-            code = "InvalidSettaFilesRoot"
-        elif message.startswith("Invalid setta files location:"):
-            code = "InvalidSettaFilesLocation"
-        raise LaunchError(code, message) from exc
+        raise LaunchError("BadRequest", str(exc)) from exc
     try:
         validate_workspace_root(paths.workspace_root)
     except ValueError as exc:

@@ -2,10 +2,10 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
-import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { route_get_setta_home_info } from "utils/generatedEndpoints";
 import {
-  RouteEnum,
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
@@ -60,31 +60,22 @@ export function WorkspaceSwitcherModal() {
     }
 
     async function hydrateLauncherSettaHomeInfo() {
-      try {
-        const response = await fetch(
-          `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_SETTA_HOME_INFO}`,
-          {
-            credentials: "include",
-          },
-        );
-        if (!isMounted || response.status !== 200) {
-          return;
-        }
-        const data: unknown = await response.json();
-        if (!data || typeof data !== "object") {
-          return;
-        }
-        const record = data as Record<string, unknown>;
-        if (
-          typeof record.settaHome !== "string" ||
-          typeof record.globalSettaFilesBase !== "string"
-        ) {
-          return;
-        }
-        setLauncherSettaHomeInfo(record as SettaHomeInfoResponse);
-      } catch {
-        // Ignore network errors; the UI will fall back to placeholder strings.
+      const response = await route_get_setta_home_info();
+      if (!isMounted || !res200(response)) {
+        return;
       }
+      const data: unknown = response.data;
+      if (!data || typeof data !== "object") {
+        return;
+      }
+      const record = data as Record<string, unknown>;
+      if (
+        typeof record.settaHome !== "string" ||
+        typeof record.globalSettaFilesBase !== "string"
+      ) {
+        return;
+      }
+      setLauncherSettaHomeInfo(record as SettaHomeInfoResponse);
     }
 
     void hydrateLauncherSettaHomeInfo();

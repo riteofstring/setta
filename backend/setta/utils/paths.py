@@ -16,6 +16,22 @@ SettaFilesLocation = Literal["auto", "local", "global"]
 ResolvedSettaFilesLocation = Literal["local", "global"]
 
 
+class SettaPathsError(ValueError):
+    pass
+
+
+class InvalidSettaFilesLocationError(SettaPathsError):
+    pass
+
+
+class InvalidLocalSettaFilesRootError(SettaPathsError):
+    pass
+
+
+class InvalidGlobalSettaFilesRootError(SettaPathsError):
+    pass
+
+
 @dataclass(frozen=True)
 class SettaPaths:
     workspace_root: Path
@@ -197,7 +213,9 @@ def _resolve_files_root(
 ) -> tuple[Path, ResolvedSettaFilesLocation]:
     local_root = (workspace_root / "setta_files").resolve(strict=False)
     if local_root.exists() and not local_root.is_dir():
-        raise ValueError(f"Local setta_files path is not a directory: {local_root}")
+        raise InvalidLocalSettaFilesRootError(
+            f"Local setta_files path is not a directory: {local_root}"
+        )
 
     # Local always wins when present, regardless of config/overrides.
     if local_root.is_dir():
@@ -214,7 +232,7 @@ def _resolve_files_root(
         raw_location = "auto"
 
     if raw_location not in ("auto", "local", "global"):
-        raise ValueError(
+        raise InvalidSettaFilesLocationError(
             f"Invalid setta files location: {raw_location!r} (expected auto, local, or global)."
         )
 
@@ -226,7 +244,9 @@ def _resolve_files_root(
         config.global_setta_files_base, workspace_root
     ).resolve(strict=False)
     if global_root.exists() and not global_root.is_dir():
-        raise ValueError(f"Global setta_files path is not a directory: {global_root}")
+        raise InvalidGlobalSettaFilesRootError(
+            f"Global setta_files path is not a directory: {global_root}"
+        )
 
     if raw_location == "global":
         return (global_root, "global")

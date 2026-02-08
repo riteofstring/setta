@@ -10,6 +10,10 @@ from setta.utils.setta_home import resolve_setta_home, resolve_setta_user_config
 AutoMode = Literal["create_local", "use_global_if_present", "create_global"]
 
 
+class SettaUserConfigError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class SettaUserConfig:
     global_setta_files_base: Path
@@ -43,7 +47,7 @@ def _coerce_str(raw: object, *, label: str) -> str | None:
     if raw is None:
         return None
     if not isinstance(raw, str):
-        raise ValueError(f"{label} must be a string.")
+        raise SettaUserConfigError(f"{label} must be a string.")
     trimmed = raw.strip()
     return trimmed or None
 
@@ -51,7 +55,7 @@ def _coerce_str(raw: object, *, label: str) -> str | None:
 def _parse_auto_mode(value: str) -> AutoMode:
     if value in ("create_local", "use_global_if_present", "create_global"):
         return cast("AutoMode", value)
-    raise ValueError(
+    raise SettaUserConfigError(
         "autoMode must be one of: create_local, use_global_if_present, create_global."
     )
 
@@ -68,24 +72,28 @@ def _load_setta_user_config_uncached(*, setta_home: Path) -> SettaUserConfig:
     try:
         raw_text = config_path.read_text(encoding="utf-8")
     except OSError as exc:
-        raise ValueError(f"Failed to read Setta config: {config_path}") from exc
+        raise SettaUserConfigError(
+            f"Failed to read Setta config: {config_path}"
+        ) from exc
 
     try:
         raw = json.loads(raw_text) if raw_text.strip() else {}
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in Setta config: {config_path}") from exc
+        raise SettaUserConfigError(
+            f"Invalid JSON in Setta config: {config_path}"
+        ) from exc
 
     if raw is None:
         raw = {}
     if not isinstance(raw, dict):
-        raise ValueError(f"Setta config must be a JSON object: {config_path}")
+        raise SettaUserConfigError(f"Setta config must be a JSON object: {config_path}")
 
     raw_base = _coerce_str(
         raw.get("globalSettaFilesBase"), label="globalSettaFilesBase"
     )
     raw_auto_mode = _coerce_str(raw.get("autoMode"), label="autoMode")
     if "openWorkspaceFallback" in raw or "defaultCreateLocation" in raw:
-        raise ValueError(
+        raise SettaUserConfigError(
             f"Setta config uses removed keys openWorkspaceFallback/defaultCreateLocation: {config_path}. "
             "Use autoMode instead."
         )
@@ -103,7 +111,9 @@ def _load_setta_user_config_uncached(*, setta_home: Path) -> SettaUserConfig:
         auto_mode = defaults.auto_mode
 
     if base_path.exists() and not base_path.is_dir():
-        raise ValueError(f"globalSettaFilesBase is not a directory: {base_path}")
+        raise SettaUserConfigError(
+            f"globalSettaFilesBase is not a directory: {base_path}"
+        )
 
     return SettaUserConfig(
         global_setta_files_base=base_path,

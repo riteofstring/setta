@@ -61,6 +61,28 @@ def test_launch_reports_invalid_local_setta_files_root(tmp_path: Path) -> None:
     assert "Local setta_files path is not a directory" in payload["error"]["message"]
 
 
+def test_launch_reports_invalid_user_config(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    config_path = setta_home / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("{", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        ["--json", "--workspace", str(workspace)],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidSettaUserConfig"
+    assert str(config_path) in payload["error"]["message"]
+
+
 def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     if not _can_bind_localhost():
         pytest.skip("Socket binds are not permitted in this test environment.")
