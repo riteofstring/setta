@@ -409,6 +409,10 @@ def route_get_git_log(
 
     commits: list[GitCommit] = []
     for raw_record in result.stdout.split(record_sep):
+        # git log inserts newlines between records even when using a custom format.
+        # Our record separator is ASCII 0x1e, and our field separator is 0x1f; both
+        # are treated as whitespace by Python, so avoid `.strip()` here.
+        raw_record = raw_record.lstrip("\r\n")
         if not raw_record:
             continue
         parts = raw_record.split(field_sep)

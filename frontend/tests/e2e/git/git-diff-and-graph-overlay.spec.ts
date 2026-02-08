@@ -111,6 +111,17 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await expect(
       graphOverlay.getByRole("button", { name: /add tracked/ }),
     ).toBeVisible();
+
+    // Linear history should stay on a single lane (regression guard for log parsing).
+    await expect(
+      graphOverlay.getByRole("button", { name: /add tracked.*lanes 1/ }),
+    ).toBeVisible();
+    await graphFilter.fill("init");
+    await expect(
+      graphOverlay.getByRole("button", { name: /init.*lanes 1/ }),
+    ).toBeVisible();
+    await graphFilter.fill("");
+
     await expect(graphOverlay.locator(".cm-content")).toContainText("commit");
 
     await page.keyboard.press("Escape");
