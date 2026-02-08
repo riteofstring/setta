@@ -87,7 +87,9 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                     PurePosixPath(x.filesRootBase.strip()),
                     PurePosixPath(resolved_workspace_root),
                 )
-                resolved_files_root = _strip_posix_trailing_slash(computed_root.as_posix())
+                resolved_files_root = _strip_posix_trailing_slash(
+                    computed_root.as_posix()
+                )
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote.bootstrap_url_fragment,

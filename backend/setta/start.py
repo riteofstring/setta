@@ -21,7 +21,11 @@ from setta.auth.bootstrap import extract_token_from_bootstrap_url
 from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER, BOOTSTRAP_TOKEN_MANAGER
 from setta.database.db_objs import DBE
-from setta.launch import LaunchError, launch_workspace_session, validate_files_root_options
+from setta.launch import (
+    LaunchError,
+    launch_workspace_session,
+    validate_files_root_options,
+)
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads

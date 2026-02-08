@@ -1,6 +1,6 @@
-import logging
 import hashlib
 import json
+import logging
 import math
 import os
 import subprocess
