@@ -72,32 +72,36 @@ async function refreshGitDiff({
   path,
   oldPath,
   mode,
+  skipPreloadState = false,
 }: {
   path: string;
   oldPath: string | null;
   mode: GitDiffMode;
+  skipPreloadState?: boolean;
 }): Promise<void> {
   const requestId = (diffRequestId += 1);
-  useGitStore.setState((state) => {
-    if (state.overlay.kind !== "diff") {
-      return state;
-    }
-    return {
-      ...state,
-      overlay: {
-        kind: "diff",
-        diff: {
-          ...state.overlay.diff,
-          path,
-          oldPath,
-          mode,
-          response: null,
-          isLoading: true,
-          error: null,
+  if (!skipPreloadState) {
+    useGitStore.setState((state) => {
+      if (state.overlay.kind !== "diff") {
+        return state;
+      }
+      return {
+        ...state,
+        overlay: {
+          kind: "diff",
+          diff: {
+            ...state.overlay.diff,
+            path,
+            oldPath,
+            mode,
+            response: null,
+            isLoading: true,
+            error: null,
+          },
         },
-      },
-    };
-  });
+      };
+    });
+  }
 
   const res = await route_get_git_diff({ path, oldPath, mode });
   if (requestId !== diffRequestId) {
@@ -168,7 +172,7 @@ export async function openGitDiffOverlay({
       },
     },
   }));
-  await refreshGitDiff({ path, oldPath, mode });
+  await refreshGitDiff({ path, oldPath, mode, skipPreloadState: true });
 }
 
 export async function setGitDiffMode(mode: GitDiffMode): Promise<void> {

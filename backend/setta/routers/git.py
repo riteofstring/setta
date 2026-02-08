@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 from fastapi import HTTPException, status
@@ -25,8 +24,6 @@ from setta.utils.git import get_workspace_repo_root, run_git
 from setta.utils.paths import get_setta_paths
 
 router = SettaAPIRouter()
-
-_COMMIT_HASH_RE = re.compile(r"^[0-9a-fA-F]{4,40}$")
 
 _STATUS_TIMEOUT_S = 2.0
 _DIFF_TIMEOUT_S = 4.0
@@ -69,11 +66,16 @@ def _get_repo_root_or_400(*, ctx: RuntimeContextFromRequest) -> Path:
     return repo_root
 
 
-def _resolve_repo_relative_path(repo_root: Path, raw_path: str) -> tuple[str, Path]:
+def _normalize_repo_relative_path(raw_path: str) -> str:
     if raw_path == "":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing path.",
+        )
+    if "\x00" in raw_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid path.",
         )
     candidate = Path(raw_path)
     if candidate.is_absolute():
@@ -86,15 +88,25 @@ def _resolve_repo_relative_path(repo_root: Path, raw_path: str) -> tuple[str, Pa
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Path must not contain '..'.",
         )
-    resolved = (repo_root / candidate).resolve(strict=False)
-    if not resolved.is_relative_to(repo_root.resolve(strict=False)):
+    # Normalize to forward slashes for display + API roundtrips.
+    return candidate.as_posix()
+
+
+def _resolve_path_for_untracked_synth(repo_root: Path, rel_path: str) -> Path:
+    candidate_abs = repo_root / Path(rel_path)
+    if candidate_abs.is_symlink():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Symlink paths are not supported for synthesized diffs.",
+        )
+    resolved_root = repo_root.resolve(strict=False)
+    resolved_candidate = candidate_abs.resolve(strict=False)
+    if not resolved_candidate.is_relative_to(resolved_root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Path must be within the repo root.",
         )
-    # Normalize to forward slashes for display + API roundtrips.
-    normalized_rel = candidate.as_posix()
-    return normalized_rel, resolved
+    return resolved_candidate
 
 
 def _get_head_ref_info(repo_root: Path) -> tuple[str | None, str | None]:
@@ -134,33 +146,125 @@ def _build_repo_info(repo_root: Path | None) -> GitRepoInfoResponse:
     )
 
 
-def _parse_git_numstat_path(path_text: str) -> tuple[str, str | None]:
-    # `git show --numstat` may format renames using a brace shorthand, for example:
-    # - `a.txt => b.txt`
-    # - `{old => new}/file.txt`
-    # - `src/{a => b}/c.txt`
-    if "=>" not in path_text:
-        return path_text, None
+def _resolve_commit_hash(repo_root: Path, raw_commit_hash: str) -> str:
+    commit_hash = raw_commit_hash.strip()
+    if not commit_hash or commit_hash.startswith("-") or "\x00" in commit_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid commit hash.",
+        )
 
-    if "{" in path_text and "}" in path_text:
-        prefix, rest = path_text.split("{", 1)
-        inside, suffix = rest.split("}", 1)
-        if "=>" not in inside:
-            return path_text, None
-        old_part, new_part = inside.split("=>", 1)
-        old_part = old_part.strip()
-        new_part = new_part.strip()
-        old_path = f"{prefix}{old_part}{suffix}"
-        new_path = f"{prefix}{new_part}{suffix}"
-        return new_path, old_path
+    verify = run_git(
+        [
+            "rev-parse",
+            "--verify",
+            "--quiet",
+            "--end-of-options",
+            f"{commit_hash}^{{commit}}",
+        ],
+        cwd=repo_root,
+        timeout_s=1.5,
+        max_stdout_bytes=256,
+        max_stderr_bytes=4096,
+    )
+    if verify.timed_out:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out verifying commit hash.",
+        )
 
-    # Fallback: treat as a simple `old => new` string.
-    pieces = path_text.split("=>", 1)
-    if len(pieces) != 2:
-        return path_text, None
-    old_path = pieces[0].strip()
-    new_path = pieces[1].strip()
-    return new_path, old_path
+    resolved = verify.stdout.strip()
+    if verify.returncode != 0 or not resolved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid commit hash.",
+        )
+    return resolved
+
+
+def _parse_git_show_raw_and_numstat_z(
+    diff_payload: str,
+) -> tuple[list[tuple[str, str | None, str]], dict[str, tuple[int | None, int | None]]]:
+    payload = diff_payload.lstrip("\r\n")
+    tokens = payload.split("\0")
+    if tokens and tokens[-1] == "":
+        tokens.pop()
+
+    raw_changed_files: list[tuple[str, str | None, str]] = []
+    i = 0
+    while i < len(tokens):
+        header = tokens[i]
+        if not header or not header.startswith(":"):
+            break
+        i += 1
+        header_parts = header.split()
+        if not header_parts:
+            continue
+        status_code = header_parts[-1].strip()
+        if not status_code:
+            continue
+
+        old_path: str | None = None
+        new_path: str | None = None
+        if status_code.startswith(("R", "C")):
+            if i + 1 >= len(tokens):
+                break
+            old_path = tokens[i] or None
+            new_path = tokens[i + 1] or None
+            i += 2
+        else:
+            if i >= len(tokens):
+                break
+            new_path = tokens[i] or None
+            i += 1
+
+        if not new_path:
+            continue
+        raw_changed_files.append((new_path, old_path, status_code))
+
+    stats_by_new_path: dict[str, tuple[int | None, int | None]] = {}
+    while i < len(tokens):
+        token = tokens[i]
+        i += 1
+        if not token:
+            continue
+
+        first_tab = token.find("\t")
+        if first_tab == -1:
+            continue
+        second_tab = token.find("\t", first_tab + 1)
+        if second_tab == -1:
+            continue
+
+        additions_text = token[:first_tab]
+        deletions_text = token[first_tab + 1 : second_tab]
+        path_or_marker = token[second_tab + 1 :]
+        if not (
+            (additions_text.isdigit() or additions_text == "-")
+            and (deletions_text.isdigit() or deletions_text == "-")
+        ):
+            continue
+
+        additions = int(additions_text) if additions_text.isdigit() else None
+        deletions = int(deletions_text) if deletions_text.isdigit() else None
+
+        new_path: str | None = None
+        if path_or_marker:
+            new_path = path_or_marker
+        else:
+            # `git show --numstat -z` emits renames/copies as:
+            # `<add>\t<del>\t\0<old-path>\0<new-path>\0`
+            if i + 1 >= len(tokens):
+                continue
+            _old_path = tokens[i]
+            new_path = tokens[i + 1] or None
+            i += 2
+
+        if not new_path:
+            continue
+        stats_by_new_path[new_path] = (additions, deletions)
+
+    return raw_changed_files, stats_by_new_path
 
 
 def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
@@ -362,10 +466,10 @@ def route_get_git_diff(
     ctx: RuntimeContextFromRequest,
 ) -> GetGitDiffResponse:
     repo_root = _get_repo_root_or_400(ctx=ctx)
-    rel_path, abs_path = _resolve_repo_relative_path(repo_root, x.path)
+    rel_path = _normalize_repo_relative_path(x.path)
     rel_old_path: str | None = None
     if x.oldPath:
-        rel_old_path, _abs_old_path = _resolve_repo_relative_path(repo_root, x.oldPath)
+        rel_old_path = _normalize_repo_relative_path(x.oldPath)
 
     diff_paths = [rel_path]
     if rel_old_path and rel_old_path != rel_path:
@@ -400,6 +504,7 @@ def route_get_git_diff(
 
     if x.mode == "unstaged" and not diff_text.strip():
         if _is_untracked_path(repo_root, rel_path):
+            abs_path = _resolve_path_for_untracked_synth(repo_root, rel_path)
             diff_text, synth_truncated = _synthesize_untracked_diff(
                 rel_path=rel_path,
                 abs_path=abs_path,
@@ -423,11 +528,12 @@ def route_get_git_log(
     repo_root = _get_repo_root_or_400(ctx=ctx)
     offset = max(0, int(x.offset))
     page_size = max(1, min(int(x.pageSize), _MAX_LOG_PAGE_SIZE))
+    head_branch = _get_head_branch(repo_root) if offset == 0 else None
 
     if offset >= _MAX_LOG_COUNT:
         return GetGitLogResponse(
             repoRoot=str(repo_root),
-            headBranch=_get_head_branch(repo_root),
+            headBranch=head_branch,
             commits=[],
             offset=offset,
             pageSize=page_size,
@@ -572,7 +678,7 @@ def route_get_git_log(
 
     return GetGitLogResponse(
         repoRoot=str(repo_root),
-        headBranch=_get_head_branch(repo_root),
+        headBranch=head_branch,
         commits=commits,
         offset=offset,
         pageSize=page_size,
@@ -588,12 +694,7 @@ def route_get_git_commit_details(
     ctx: RuntimeContextFromRequest,
 ) -> GetGitCommitDetailsResponse:
     repo_root = _get_repo_root_or_400(ctx=ctx)
-    commit_hash = x.commitHash.strip()
-    if not _COMMIT_HASH_RE.match(commit_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid commit hash.",
-        )
+    commit_hash = _resolve_commit_hash(repo_root, x.commitHash)
 
     fmt = (
         f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}%at{_FIELD_SEP}"
@@ -606,6 +707,7 @@ def route_get_git_commit_details(
             f"--pretty=format:{fmt}",
             "--raw",
             "--numstat",
+            "-z",
             commit_hash,
             "--",
         ],
@@ -657,51 +759,9 @@ def route_get_git_commit_details(
     except ValueError:
         committer_time_ms = 0
 
-    stats_by_new_path: dict[str, tuple[int | None, int | None]] = {}
-    raw_changed_files: list[tuple[str, str | None, str]] = []
-    for line in diff_payload.splitlines():
-        if not line.strip():
-            continue
-        if line.startswith(":"):
-            raw_parts = line.split("\t")
-            if len(raw_parts) < 2:
-                continue
-            header_parts = raw_parts[0].split()
-            if not header_parts:
-                continue
-            status_code = header_parts[-1].strip()
-            if not status_code:
-                continue
-            old_path: str | None = None
-            new_path: str | None = None
-            if status_code.startswith(("R", "C")):
-                if len(raw_parts) < 3:
-                    continue
-                old_path = raw_parts[1] or None
-                new_path = raw_parts[2] or None
-            else:
-                new_path = raw_parts[1] or None
-            if not new_path:
-                continue
-            raw_changed_files.append((new_path, old_path, status_code))
-            continue
-
-        stat_parts = line.split("\t")
-        if len(stat_parts) < 3:
-            continue
-        add_s = stat_parts[0]
-        del_s = stat_parts[1]
-        if not (
-            (add_s.isdigit() or add_s == "-") and (del_s.isdigit() or del_s == "-")
-        ):
-            continue
-        path_text = stat_parts[2]
-        additions = int(add_s) if add_s.isdigit() else None
-        deletions = int(del_s) if del_s.isdigit() else None
-        new_path, _old_path = _parse_git_numstat_path(path_text)
-        if not new_path:
-            continue
-        stats_by_new_path[new_path] = (additions, deletions)
+    raw_changed_files, stats_by_new_path = _parse_git_show_raw_and_numstat_z(
+        diff_payload
+    )
 
     changed_files: list[GitCommitChangedFile] = []
     for new_path, old_path, status_code in raw_changed_files:
@@ -740,17 +800,12 @@ def route_get_git_commit_file_diff(
     ctx: RuntimeContextFromRequest,
 ) -> GetGitCommitFileDiffResponse:
     repo_root = _get_repo_root_or_400(ctx=ctx)
-    commit_hash = x.commitHash.strip()
-    if not _COMMIT_HASH_RE.match(commit_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid commit hash.",
-        )
+    commit_hash = _resolve_commit_hash(repo_root, x.commitHash)
 
-    rel_path, _abs_path = _resolve_repo_relative_path(repo_root, x.path)
+    rel_path = _normalize_repo_relative_path(x.path)
     rel_old_path: str | None = None
     if x.oldPath:
-        rel_old_path, _abs_old_path = _resolve_repo_relative_path(repo_root, x.oldPath)
+        rel_old_path = _normalize_repo_relative_path(x.oldPath)
 
     args = ["show", "--no-color", "--patch", "--format=", commit_hash, "--"]
     if rel_old_path and rel_old_path != rel_path:

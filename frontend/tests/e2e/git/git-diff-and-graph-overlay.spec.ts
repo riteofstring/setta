@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -49,10 +49,22 @@ async function initializeDisposableGitRepo(
   return gitDir;
 }
 
-test("git diff overlay and git graph overlay render between panes", async ({
-  page,
-}) => {
-  const workspaceRoot = getWorkspaceRootOrThrow();
+type GitOverlayFixture = {
+  gitDir: string;
+  gitIgnorePath: string;
+  trackedPath: string;
+  legacyPath: string;
+  renameOldPath: string;
+  renameNewPath: string;
+  historyPath: string;
+  untrackedPath: string;
+  latestHistoryLabel: string | null;
+};
+
+async function seedGitOverlayFixture(
+  workspaceRoot: string,
+  { historyCommitCount }: { historyCommitCount: number },
+): Promise<GitOverlayFixture> {
   const gitDir = await initializeDisposableGitRepo(workspaceRoot);
   const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
   const trackedPath = path.join(workspaceRoot, "tracked.py");
@@ -62,50 +74,93 @@ test("git diff overlay and git graph overlay render between panes", async ({
   const historyPath = path.join(workspaceRoot, "history.txt");
   const untrackedPath = path.join(workspaceRoot, "new.py");
 
+  await fs.writeFile(gitIgnorePath, "setta_files/\n", "utf8");
+  runGit(workspaceRoot, ["add", ".gitignore"]);
+  runGit(workspaceRoot, ["commit", "-m", "init"]);
+
+  await fs.writeFile(trackedPath, "def foo():\n  return 1\n", "utf8");
+  runGit(workspaceRoot, ["add", "tracked.py"]);
+  runGit(workspaceRoot, ["commit", "-m", "add tracked"]);
+
+  await fs.writeFile(legacyPath, "legacy\n", "utf8");
+  runGit(workspaceRoot, ["add", "legacy.py"]);
+  runGit(workspaceRoot, ["commit", "-m", "add legacy"]);
+
+  await fs.writeFile(renameOldPath, "rename me\n", "utf8");
+  runGit(workspaceRoot, ["add", "rename-old.py"]);
+  runGit(workspaceRoot, ["commit", "-m", "add rename source"]);
+
+  for (let i = 0; i < historyCommitCount; i += 1) {
+    const label = i.toString().padStart(3, "0");
+    await fs.writeFile(historyPath, `history ${label}\n`, "utf8");
+    runGit(workspaceRoot, ["add", "history.txt"]);
+    runGit(workspaceRoot, ["commit", "-m", `history-${label}`]);
+  }
+
+  // Create both staged + unstaged changes for the same file.
+  await fs.writeFile(trackedPath, "def foo():\n  return 2\n", "utf8");
+  runGit(workspaceRoot, ["add", "tracked.py"]);
+  await fs.writeFile(trackedPath, "def foo():\n  return 3\n", "utf8");
+  await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
+  await fs.rm(legacyPath, { force: true });
+  runGit(workspaceRoot, ["add", "legacy.py"]);
+  runGit(workspaceRoot, ["mv", "rename-old.py", "rename-new.py"]);
+
+  const latestHistoryLabel =
+    historyCommitCount > 0
+      ? `history-${(historyCommitCount - 1).toString().padStart(3, "0")}`
+      : null;
+
+  return {
+    gitDir,
+    gitIgnorePath,
+    trackedPath,
+    legacyPath,
+    renameOldPath,
+    renameNewPath,
+    historyPath,
+    untrackedPath,
+    latestHistoryLabel,
+  };
+}
+
+async function cleanupGitOverlayFixture(
+  fixture: GitOverlayFixture,
+): Promise<void> {
+  await fs.rm(fixture.untrackedPath, { force: true });
+  await fs.rm(fixture.historyPath, { force: true });
+  await fs.rm(fixture.trackedPath, { force: true });
+  await fs.rm(fixture.legacyPath, { force: true });
+  await fs.rm(fixture.renameOldPath, { force: true });
+  await fs.rm(fixture.renameNewPath, { force: true });
+  await fs.rm(fixture.gitIgnorePath, { force: true });
+  await fs.rm(fixture.gitDir, { recursive: true, force: true });
+}
+
+async function openGitOverview(page: Page): Promise<void> {
+  await seedLocalStorage(page, {
+    overviewTab: "Git",
+    overviewVis: true,
+    gitGraphSplitPct: 56,
+    gitGraphColWidthPx: 120,
+    gitGraphAuthorWidthPx: 120,
+    gitGraphDateWidthPx: 110,
+    gitGraphHashWidthPx: 84,
+  });
+  await ensureAppReady(page);
+  await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+}
+
+test("git diff overlay renders staged, unstaged, rename, and untracked diffs", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 0,
+  });
+
   try {
-    await fs.writeFile(gitIgnorePath, "setta_files/\n", "utf8");
-    runGit(workspaceRoot, ["add", ".gitignore"]);
-    runGit(workspaceRoot, ["commit", "-m", "init"]);
-
-    await fs.writeFile(trackedPath, "def foo():\n  return 1\n", "utf8");
-    runGit(workspaceRoot, ["add", "tracked.py"]);
-    runGit(workspaceRoot, ["commit", "-m", "add tracked"]);
-    await fs.writeFile(legacyPath, "legacy\n", "utf8");
-    runGit(workspaceRoot, ["add", "legacy.py"]);
-    runGit(workspaceRoot, ["commit", "-m", "add legacy"]);
-    await fs.writeFile(renameOldPath, "rename me\n", "utf8");
-    runGit(workspaceRoot, ["add", "rename-old.py"]);
-    runGit(workspaceRoot, ["commit", "-m", "add rename source"]);
-
-    // Seed enough history to require pagination/infinite loading in graph view.
-    for (let i = 0; i < 260; i += 1) {
-      const label = i.toString().padStart(3, "0");
-      await fs.writeFile(historyPath, `history ${label}\n`, "utf8");
-      runGit(workspaceRoot, ["add", "history.txt"]);
-      runGit(workspaceRoot, ["commit", "-m", `history-${label}`]);
-    }
-
-    // Create both staged + unstaged changes for the same file.
-    await fs.writeFile(trackedPath, "def foo():\n  return 2\n", "utf8");
-    runGit(workspaceRoot, ["add", "tracked.py"]);
-    await fs.writeFile(trackedPath, "def foo():\n  return 3\n", "utf8");
-    await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
-    await fs.rm(legacyPath, { force: true });
-    runGit(workspaceRoot, ["add", "legacy.py"]);
-    runGit(workspaceRoot, ["mv", "rename-old.py", "rename-new.py"]);
-
-    await seedLocalStorage(page, {
-      overviewTab: "Git",
-      overviewVis: true,
-      gitGraphSplitPct: 56,
-      gitGraphColWidthPx: 120,
-      gitGraphAuthorWidthPx: 120,
-      gitGraphDateWidthPx: 110,
-      gitGraphHashWidthPx: 84,
-    });
-    await ensureAppReady(page);
-
-    await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+    await openGitOverview(page);
 
     const stagedGroup = page
       .getByRole("heading", { name: "Staged Changes" })
@@ -185,20 +240,34 @@ test("git diff overlay and git graph overlay render between panes", async ({
 
     await page.keyboard.press("Escape");
     await expect(closeDiffButton2).toHaveCount(0);
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph panes and columns resize without overlap or geometry drift", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 40,
+  });
+
+  try {
+    await openGitOverview(page);
 
     await page.getByRole("button", { name: "Graph" }).click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();
-
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+
+    if (!fixture.latestHistoryLabel) {
+      throw new Error("Expected latest history label for graph resize test.");
+    }
     await expect(
-      graphOverlay.getByRole("button", { name: "Show all refs" }),
-    ).toBeVisible();
-    await expect(
-      graphOverlay.getByText("Select a commit to view details."),
-    ).toBeVisible();
-    await expect(
-      graphOverlay.getByRole("button", { name: /history-259/ }),
+      graphOverlay.getByRole("button", {
+        name: new RegExp(fixture.latestHistoryLabel),
+      }),
     ).toBeVisible();
 
     const historyPane = graphOverlay.getByTestId("git-graph-history-pane");
@@ -255,6 +324,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await expect(messageAuthorResizeHandle).toBeVisible();
     await expect(authorDateResizeHandle).toBeVisible();
     await expect(dateHashResizeHandle).toBeVisible();
+
     const paneSplitterBoxBeforeNarrowDrag = await paneSplitter.boundingBox();
     if (!paneSplitterBoxBeforeNarrowDrag) {
       throw new Error(
@@ -285,11 +355,10 @@ test("git diff overlay and git graph overlay render between panes", async ({
         "Expected message and author headers to have bounding boxes after narrow pane drag.",
       );
     }
-    // Regression guard: shrinking the history pane should not cause message
-    // and author header labels/cells to overlap.
     expect(
       messageHeaderAfterNarrowPane.x + messageHeaderAfterNarrowPane.width,
     ).toBeLessThanOrEqual(authorHeaderAfterNarrowPane.x + 1);
+
     const paneSplitterBoxAfterNarrowDrag = await paneSplitter.boundingBox();
     if (!paneSplitterBoxAfterNarrowDrag) {
       throw new Error(
@@ -314,9 +383,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await page.mouse.up();
 
     const historyCommitSvg = graphOverlay
-      .getByRole("button", { name: /history-259/ })
+      .getByRole("button", {
+        name: new RegExp(fixture.latestHistoryLabel),
+      })
       .locator("svg")
       .first();
+
     const metricsBeforeGraphResize = await historyCommitSvg.evaluate((svg) => {
       const dot = svg.querySelector("circle");
       const laneStroke = svg.querySelector("line");
@@ -336,6 +408,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
         "Expected git graph row to render both a commit dot and lane stroke.",
       );
     }
+
     const graphMessageHandleBefore =
       await graphMessageResizeHandle.boundingBox();
     if (!graphMessageHandleBefore) {
@@ -372,8 +445,6 @@ test("git diff overlay and git graph overlay render between panes", async ({
         "Expected git graph row to keep rendering geometry while dragging.",
       );
     }
-    // Regression guard: dragging the graph/message boundary should not
-    // temporarily stretch the lane SVG geometry.
     expect(
       Math.abs(
         metricsBeforeGraphResize.dotWidth - metricsBeforeGraphResize.dotHeight,
@@ -391,6 +462,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
       ),
     ).toBeLessThanOrEqual(1.25);
     await page.mouse.up();
+
     const graphMessageHandleAfterGrow =
       await graphMessageResizeHandle.boundingBox();
     if (!graphMessageHandleAfterGrow) {
@@ -465,6 +537,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
         "Expected git graph date-hash resize handle to have a bounding box.",
       );
     }
+
     await page.mouse.move(
       messageAuthorHandleBefore.x + messageAuthorHandleBefore.width / 2,
       messageAuthorHandleBefore.y + messageAuthorHandleBefore.height / 2,
@@ -659,6 +732,43 @@ test("git diff overlay and git graph overlay render between panes", async ({
       .evaluate((el) => window.getComputedStyle(el).overflowX);
     expect(listOverflowX).toBe("hidden");
 
+    await page.keyboard.press("Escape");
+    await expect(graphFilter).toHaveCount(0);
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph paginates, filters, and loads commit file diffs", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 260,
+  });
+
+  try {
+    await openGitOverview(page);
+
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    await expect(
+      graphOverlay.getByRole("button", { name: "Show all refs" }),
+    ).toBeVisible();
+    await expect(
+      graphOverlay.getByText("Select a commit to view details."),
+    ).toBeVisible();
+    await expect(
+      graphOverlay.getByRole("button", { name: /history-259/ }),
+    ).toBeVisible();
+
+    const commitListWrapper = graphOverlay.getByTestId(
+      "git-graph-commit-list-wrapper",
+    );
+
     await graphFilter.fill("history-000");
     await expect(
       graphOverlay.getByRole("button", { name: /history-000.*lanes 1/ }),
@@ -684,7 +794,6 @@ test("git diff overlay and git graph overlay render between panes", async ({
     ).toBeVisible();
     await graphFilter.fill("");
 
-    // Linear history should stay on a single lane (regression guard for log parsing).
     await expect(
       graphOverlay.getByRole("button", { name: /history-259.*lanes 1/ }),
     ).toBeVisible();
@@ -701,7 +810,6 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await expect(addTrackedCommit).toBeVisible();
     await addTrackedCommit.click();
 
-    // Selected commit expands and lists files; the right panel shows the per-file patch.
     await expect(graphOverlay.getByText("Files changed")).toBeVisible();
     await expect(
       graphOverlay.getByTestId("git-graph-expanded-gutter").first(),
@@ -739,6 +847,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
       "data-file-status-category",
       "changed",
     );
+
     await graphFilter.fill("add tracked");
     await expect(addTrackedCommit).toBeVisible();
     await addTrackedCommit.click();
@@ -757,27 +866,18 @@ test("git diff overlay and git graph overlay render between panes", async ({
       graphOverlay.locator(".cm-gitdiff-syntax").first(),
     ).toBeVisible();
 
-    // Clicking the expanded commit row again should collapse it.
     await addTrackedCommit.click();
     await expect(graphOverlay.getByText("Files changed")).toHaveCount(0);
     await expect(
       graphOverlay.getByText("Select a commit to view details."),
     ).toBeVisible();
-    await graphFilter.fill("");
 
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);
   } finally {
-    await fs.rm(untrackedPath, { force: true });
-    await fs.rm(trackedPath, { force: true });
-    await fs.rm(legacyPath, { force: true });
-    await fs.rm(renameOldPath, { force: true });
-    await fs.rm(renameNewPath, { force: true });
-    await fs.rm(gitIgnorePath, { force: true });
-    await fs.rm(gitDir, { recursive: true, force: true });
+    await cleanupGitOverlayFixture(fixture);
   }
 });
-
 test("git graph keeps lanes aligned across join boundaries", async ({
   page,
 }) => {

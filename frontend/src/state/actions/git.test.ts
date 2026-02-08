@@ -321,6 +321,39 @@ describe("git graph actions", () => {
     expect(overlay.diff.oldPath).toBe("legacy.py");
   });
 
+  it("does not duplicate preload state writes when opening git diff overlay", async () => {
+    setGitStatusResponse([
+      {
+        path: "tracked.py",
+        oldPath: null,
+        indexStatus: "M",
+        worktreeStatus: "M",
+        kind: "staged",
+      },
+    ]);
+    vi.mocked(route_get_git_diff).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        repoRoot: "/repo",
+        path: "tracked.py",
+        mode: "staged",
+        diff: "",
+        isTruncated: false,
+      },
+    });
+    const setStateSpy = vi.spyOn(useGitStore, "setState");
+
+    await openGitDiffOverlay({
+      path: "tracked.py",
+      oldPath: null,
+      mode: "staged",
+    });
+
+    expect(setStateSpy).toHaveBeenCalledTimes(2);
+    setStateSpy.mockRestore();
+  });
+
   it("ignores stale commit file diff responses after commit selection changes", async () => {
     const commitA = commit("a1b2c3", []);
     const commitB = commit("b4c5d6", ["a1b2c3"]);

@@ -25,6 +25,7 @@ from setta.types.git import (
     GetGitLogRequest,
 )
 from setta.utils.constants import C
+from setta.utils.git import GitCommandOutput
 from tests.utils.manager_fixture import _seed_minimal_setta_files
 from tests.utils.runtime_context import runtime_context
 from tests.utils.setta_paths import temporary_setta_paths
@@ -260,6 +261,55 @@ class TestGitRoutes:
         assert exc.value.status_code == 400
         assert "regular file" in str(exc.value.detail)
 
+    async def test_diff_allows_tracked_symlink_pathspec_outside_repo(self) -> None:
+        # Tracked symlinks may target outside the repo; git diff pathspec should still work.
+        with TemporaryDirectory() as external_tmp:
+            external_root = Path(external_tmp)
+            external_old = external_root / "old-target.txt"
+            external_new = external_root / "new-target.txt"
+            external_old.write_text("old\n", encoding="utf-8")
+            external_new.write_text("new\n", encoding="utf-8")
+
+            link_path = self._workspace_root / "outside-link.txt"
+            link_path.symlink_to(external_old)
+            _run_git(self._workspace_root, ["add", "outside-link.txt"])
+            _run_git(self._workspace_root, ["commit", "-m", "add outside symlink"])
+
+            link_path.unlink()
+            link_path.symlink_to(external_new)
+
+            state = await self._build_state()
+            with runtime_context(state) as ctx:
+                diff = route_get_git_diff(
+                    GetGitDiffRequest(path="outside-link.txt", mode="unstaged"),
+                    ctx,
+                )
+
+        assert "diff --git a/outside-link.txt b/outside-link.txt" in diff.diff
+
+    async def test_diff_rejects_untracked_symlink_path_for_synthesized_diff(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as external_tmp:
+            target = Path(external_tmp) / "outside-target.txt"
+            target.write_text("outside\n", encoding="utf-8")
+            link_path = self._workspace_root / "untracked-outside-link.txt"
+            link_path.symlink_to(target)
+
+            state = await self._build_state()
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    route_get_git_diff(
+                        GetGitDiffRequest(
+                            path="untracked-outside-link.txt",
+                            mode="unstaged",
+                        ),
+                        ctx,
+                    )
+
+        assert exc.value.status_code == 403
+        assert "Symlink paths" in str(exc.value.detail)
+
     async def test_status_marks_truncation_when_output_is_capped(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -329,6 +379,57 @@ class TestGitRoutes:
         assert file_diff.path == "tracked.txt"
         assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
 
+    async def test_commit_details_parses_paths_with_tabs(self) -> None:
+        tab_path = "tab\tname.txt"
+        (self._workspace_root / tab_path).write_text("tab\n", encoding="utf-8")
+        _run_git(self._workspace_root, ["add", tab_path])
+        _run_git(self._workspace_root, ["commit", "-m", "add tab path"])
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+
+        tab_entry = next(
+            (file for file in details.files if file.path == tab_path), None
+        )
+        assert tab_entry is not None
+        assert tab_entry.status == "A"
+        assert tab_entry.additions == 1
+        assert tab_entry.deletions == 0
+
+    async def test_commit_details_parses_rename_numstat_with_nul_delimiters(
+        self,
+    ) -> None:
+        (self._workspace_root / "rename-src.txt").write_text(
+            "rename\n", encoding="utf-8"
+        )
+        _run_git(self._workspace_root, ["add", "rename-src.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "add rename source"])
+        _run_git(self._workspace_root, ["mv", "rename-src.txt", "rename-dst.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", "rename source to dest"])
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+
+        renamed = next(
+            (file for file in details.files if file.path == "rename-dst.txt"),
+            None,
+        )
+        assert renamed is not None
+        assert renamed.oldPath == "rename-src.txt"
+        assert renamed.status.startswith("R")
+        assert renamed.additions == 0
+        assert renamed.deletions == 0
+
     async def test_commit_details_uses_single_git_show_call(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -366,9 +467,88 @@ class TestGitRoutes:
         assert len(show_calls) == 1
         assert "--raw" in show_calls[0]
         assert "--numstat" in show_calls[0]
+        assert "-z" in show_calls[0]
         assert details.commitHash == head
         assert len(details.files) == 1
         assert details.files[0].path == "tracked.txt"
+
+    async def test_commit_routes_accept_sha256_length_hash_when_git_verifies(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sha256_hash = "a" * 64
+        captured_rev_parse_args: list[list[str]] = []
+
+        def fake_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            if args[:4] == ["rev-parse", "--verify", "--quiet", "--end-of-options"]:
+                captured_rev_parse_args.append(args)
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=f"{sha256_hash}\n",
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "show" and "--raw" in args and "--numstat" in args:
+                show_payload = (
+                    f"{sha256_hash}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
+                    f"A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e\n"
+                    ":100644 100644 0000000 1111111 M\0tracked.txt\0"
+                    "1\t1\ttracked.txt\0"
+                )
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=show_payload,
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            if args and args[0] == "show" and "--format=" in args and "--patch" in args:
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout="diff --git a/tracked.txt b/tracked.txt\n",
+                    stderr="",
+                    stdout_truncated=False,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            return GitCommandOutput(
+                returncode=1,
+                stdout="",
+                stderr="unexpected command in fake run_git",
+                stdout_truncated=False,
+                stderr_truncated=False,
+                timed_out=False,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", fake_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=sha256_hash),
+                ctx,
+            )
+            file_diff = route_get_git_commit_file_diff(
+                GetGitCommitFileDiffRequest(
+                    commitHash=sha256_hash,
+                    path="tracked.txt",
+                    oldPath=None,
+                ),
+                ctx,
+            )
+
+        assert len(captured_rev_parse_args) == 2
+        assert details.commitHash == sha256_hash
+        assert details.files[0].path == "tracked.txt"
+        assert file_diff.commitHash == sha256_hash
 
     async def test_log_pagination_offsets_without_overlap(self) -> None:
         # Build enough history to span multiple pages.
@@ -399,6 +579,43 @@ class TestGitRoutes:
         page1_hashes = {commit.hash for commit in page1.commits}
         page2_hashes = {commit.hash for commit in page2.commits}
         assert page1_hashes.isdisjoint(page2_hashes)
+
+    async def test_log_non_initial_page_skips_head_branch_lookup(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _append_commits(self._workspace_root, 4, prefix="skip-head")
+        original_run_git = git_router.run_git
+        rev_parse_calls = 0
+
+        def recording_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            nonlocal rev_parse_calls
+            if args and args[0] == "rev-parse":
+                rev_parse_calls += 1
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", recording_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            page = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=2, offset=2, allRefs=False),
+                ctx,
+            )
+
+        assert rev_parse_calls == 0
+        assert page.headBranch is None
 
     async def test_log_reports_cap_boundary(
         self, monkeypatch: pytest.MonkeyPatch

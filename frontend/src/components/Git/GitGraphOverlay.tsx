@@ -19,6 +19,7 @@ import { useLocalStorage } from "state/definitions";
 import { useGitStore } from "state/git";
 import type {
   GetGitCommitDetailsResponse,
+  GitCommit,
   GitCommitChangedFile,
 } from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
@@ -240,6 +241,36 @@ function parseDecorationChip(raw: string): DecorationChip | null {
   return { label: text, kind: "branch" };
 }
 
+export function buildGitCommitLookupByHash(
+  commits: readonly GitCommit[],
+): Map<string, GitCommit> {
+  const commitsByHash = new Map<string, GitCommit>();
+  for (const commit of commits) {
+    commitsByHash.set(commit.hash, commit);
+  }
+  return commitsByHash;
+}
+
+export function buildGitGraphRowHeightCacheKey({
+  commits,
+  allRefs,
+  filterText,
+}: {
+  commits: readonly GitCommit[];
+  allRefs: boolean;
+  filterText: string;
+}): string {
+  const normalizedFilter = filterText.trim().toLowerCase();
+  const refMode = allRefs ? "all" : "branch";
+  if (commits.length === 0) {
+    return `0:${refMode}:${normalizedFilter}`;
+  }
+  const firstHash = commits[0]?.hash ?? "";
+  const middleHash = commits[Math.floor(commits.length / 2)]?.hash ?? "";
+  const lastHash = commits[commits.length - 1]?.hash ?? "";
+  return `${commits.length}:${refMode}:${firstHash}:${middleHash}:${lastHash}:${normalizedFilter}`;
+}
+
 export function GitGraphOverlay() {
   const graphState = useGitStore((x) =>
     x.overlay.kind === "graph" ? x.overlay.graph : null,
@@ -263,7 +294,6 @@ export function GitGraphOverlay() {
   const listRef = useListRef();
   const overlayRef = useRef<HTMLElement | null>(null);
   const panesWrapperRef = useRef<HTMLDivElement | null>(null);
-  const historyPaneRef = useRef<HTMLElement | null>(null);
   const commitHeaderRef = useRef<HTMLDivElement | null>(null);
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
@@ -342,7 +372,26 @@ export function GitGraphOverlay() {
   }, [graphColWidthPx]);
 
   const rows = graphState?.rows ?? [];
+  const commits = graphState?.response?.commits ?? [];
   const filterText = graphState?.filterText ?? "";
+  const commitsByHash = useMemo(() => {
+    return buildGitCommitLookupByHash(commits);
+  }, [commits]);
+  const selectedCommit = graphState?.selectedCommitHash
+    ? commitsByHash.get(graphState.selectedCommitHash) ?? null
+    : null;
+  const dynamicRowHeightCacheKey = useMemo(() => {
+    return buildGitGraphRowHeightCacheKey({
+      commits,
+      allRefs: graphState?.allRefs ?? false,
+      filterText,
+    });
+  }, [commits, filterText, graphState?.allRefs]);
+  const dynamicRowHeight = useDynamicRowHeight({
+    defaultRowHeight: ROW_HEIGHT,
+    key: dynamicRowHeightCacheKey,
+  });
+
   const filteredRows = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     if (!q) {
@@ -372,11 +421,6 @@ export function GitGraphOverlay() {
 
   const repoRoot = graphState.response?.repoRoot ?? null;
   const headBranch = graphState.response?.headBranch ?? null;
-  const selectedCommit = graphState.selectedCommitHash
-    ? graphState.response?.commits.find(
-        (c) => c.hash === graphState.selectedCommitHash,
-      ) ?? null
-    : null;
 
   const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
   const maxLaneCount = useMemo(() => {
@@ -394,13 +438,6 @@ export function GitGraphOverlay() {
     return graphViewBoxWidth / Math.max(1, maxLaneCount);
   }, [graphViewBoxWidth, maxLaneCount]);
 
-  const dynamicRowHeight = useDynamicRowHeight({
-    defaultRowHeight: ROW_HEIGHT,
-    // Filter changes and refreshes can change row ordering; reset cached heights.
-    key: `${graphState.response?.commits.length ?? 0}:${filterText
-      .trim()
-      .toLowerCase()}`,
-  });
   const isFilterActive = filterText.trim().length > 0;
   const loadedCommitCount = graphState.response?.commits.length ?? 0;
 
@@ -824,7 +861,6 @@ export function GitGraphOverlay() {
 
       <div ref={panesWrapperRef} className="flex min-h-0 flex-1">
         <section
-          ref={historyPaneRef}
           data-testid="git-graph-history-pane"
           className="flex min-h-0 flex-col overflow-hidden"
           style={{
@@ -1629,6 +1665,10 @@ function GitGraphCell({
   const rawCommitColorId = laneColorIds[laneIndex] ?? 0;
   const commitColorId = clampNonNegative(rawCommitColorId);
   const commitColor = laneColorForId(commitColorId, palette, darkMode);
+  const laneStartSet = new Set(laneStartIndices);
+  const laneEndSet = new Set(laneEndIndices);
+  const joinFromSet = new Set(joinFromLaneIndices);
+  const mergeToSet = new Set(mergeToLaneIndices);
 
   return (
     <svg
@@ -1643,11 +1683,11 @@ function GitGraphCell({
         if (colorId < 0) {
           return null;
         }
-        let y1 = laneStartIndices.includes(idx) ? centerY : 0;
-        let y2 = laneEndIndices.includes(idx) ? centerY : height;
+        let y1 = laneStartSet.has(idx) ? centerY : 0;
+        let y2 = laneEndSet.has(idx) ? centerY : height;
         // Join curves occupy the top half of the row for the source lane;
         // drawing the vertical lane segment here creates a "tail" artifact.
-        if (joinFromLaneIndices.includes(idx)) {
+        if (joinFromSet.has(idx)) {
           y1 = Math.max(y1, centerY);
         }
         // For merge commits, the destination lane might already exist above this
@@ -1659,10 +1699,7 @@ function GitGraphCell({
         // vertical segment below the commit dot looks like a "tail" hanging off
         // the merge curve endpoint. Avoid that by suppressing the vertical
         // segment only for lanes that start at this row.
-        if (
-          mergeToLaneIndices.includes(idx) &&
-          laneStartIndices.includes(idx)
-        ) {
+        if (mergeToSet.has(idx) && laneStartSet.has(idx)) {
           y2 = Math.min(y2, centerY);
         }
         if (y1 === y2) {
