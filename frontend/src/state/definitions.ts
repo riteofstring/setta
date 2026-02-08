@@ -849,6 +849,11 @@ type ZustandLocalStorage = {
   overviewWidth: number;
   overviewTrueWidth: number;
   overviewTab: OverviewTabName;
+  gitGraphSplitPct: number;
+  gitGraphColWidthPx: number;
+  gitGraphAuthorWidthPx: number;
+  gitGraphDateWidthPx: number;
+  gitGraphHashWidthPx: number;
   uiEditorVis: boolean;
   uiEditorWidth: number;
   uiEditorTrueWidth: number;
@@ -874,6 +879,11 @@ export const useLocalStorage = createWithEqualityFn(
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTab: OverviewTabNameEnum.Overview,
+      gitGraphSplitPct: 56,
+      gitGraphColWidthPx: 120,
+      gitGraphAuthorWidthPx: 120,
+      gitGraphDateWidthPx: 110,
+      gitGraphHashWidthPx: 84,
       uiEditorVis: false,
       uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,

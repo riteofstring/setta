@@ -39,7 +39,7 @@ const LazyAppMainContainer = lazy(async () => {
 
 function GridContainer({ children }: { children: ReactNode }) {
   return (
-    <section className="grid min-h-0 w-screen flex-1 grid-cols-[1fr] grid-rows-[min-content_1fr_min-content] overflow-hidden">
+    <section className="grid min-h-0 w-screen flex-1 grid-cols-[1fr] grid-rows-[min-content_1fr] overflow-hidden">
       {children}
     </section>
   );
