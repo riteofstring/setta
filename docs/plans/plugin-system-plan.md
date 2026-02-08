@@ -255,6 +255,14 @@ def register(plugin: "BackendPluginContext") -> None:
 
 This keeps plugin import side effects minimal and makes the host responsible for lifecycle.
 
+### Backend dependency/import model (normative MVP)
+
+- Backend plugin code executes inside Setta's backend Python process (no per-plugin virtualenv in MVP).
+- The host loads `backend.entrypoint` by file path and temporarily includes the plugin root and `backend/` directory for plugin-local imports.
+- Import/load failures (for example missing module, syntax error, missing symbol) mark the plugin `invalid` with error code `PLUGIN_BACKEND_IMPORT_FAILED`; host startup continues.
+- `zip`, folder-path, and `github:` installs must be self-contained for backend runtime (plugin-local vendored deps or Setta-runtime deps only).
+- `pypi:` installs resolve plugin content from package artifacts at install time; the host still does not perform dependency installation during plugin load.
+
 ### BackendPluginContext (host API)
 
 The context object should be the only stable surface plugins need. It should expose:
@@ -378,6 +386,41 @@ Status entry fields:
 - `restartRequired`: boolean.
 - `errors`: list of `{ code: string, message: string }`.
 
+### Plugin management APIs (normative MVP)
+
+Lock write contracts in MVP so frontend, CLI, and MCP integrations all call the same backend operations.
+
+`POST /api/plugins/install`:
+
+- request: `{ sourceSpec: string, scope?: "workspace" | "setta_files" | "global", enable?: boolean, force?: boolean }`
+- source spec formats:
+  - `path:<local-path>`
+  - `url:<https-url-to-zip>`
+  - `github:<owner>/<repo>[#ref]`
+  - `pypi:<package>[==version]`
+- response: `{ pluginId, version, sourceScope, sourcePath, canonicalSourceKey, components, state, restartRequired }`
+
+`POST /api/plugins/uninstall`:
+
+- request: `{ pluginId: string, scope?: "workspace" | "setta_files" | "global" }`
+- if `scope` is omitted and the plugin exists in multiple scopes, return `PLUGIN_UNINSTALL_SCOPE_REQUIRED`.
+- response: `{ pluginId, removedFromScope, restartRequired }`
+
+`POST /api/plugins/enable`:
+
+- request: `{ pluginId: string }`
+- response: `{ pluginId, state, restartRequired }`
+
+`POST /api/plugins/disable`:
+
+- request: `{ pluginId: string }`
+- response: `{ pluginId, state, restartRequired }`
+
+`POST /api/plugins/rescan`:
+
+- request: `{}`
+- response: `{ schemaVersion, serverMode, installedPlugins, activePlugins }`
+
 ## Frontend Plugins
 
 ### Load model
@@ -385,8 +428,8 @@ Status entry fields:
 Frontend plugins are loaded by the UI based on a backend-provided registry:
 
 - Backend exposes `/api/plugins/list` returning enabled plugins and their frontend entrypoints (and optional CSS).
-- Frontend lazy-loads plugin JS via dynamic import or module script injection.
-- Dev vs built note: in dev mode the frontend origin (Vite) differs from the backend origin, so plugin entrypoints should be expressed in a way the frontend can resolve against the backend origin (for example absolute URLs, or backend-relative paths that the loader prefixes with the backend origin).
+- Frontend lazy-loads plugin JS with native ESM `import()` only (no script-injection path in MVP).
+- `/api/plugins/list` returns absolute backend-origin URLs for `frontend.entrypointUrl` and `frontend.styleUrl`, so loader behavior is identical in dev and built modes.
 
 Key requirement:
 
@@ -405,7 +448,7 @@ The host object is the stable API surface.
 
 Implementation note:
 
-- The plugin frontend entrypoint should be a standards-compliant ES module (ESM) so the host can load it via `import()` or `<script type="module">` without bundler-specific loaders.
+- The plugin frontend entrypoint should be a standards-compliant ES module (ESM) so the host can load it via native `import()` without bundler-specific loaders.
 
 ### SettaPluginHost (frontend host API)
 
@@ -648,8 +691,9 @@ There are two separate concerns:
 Recommended initial model:
 
 - Add a workspace-level file `<setta_files_root>/plugins_state.json` containing enable/disable state and per-plugin config (note `setta_files_root` can be local or global; see `docs/reference/setta-files.md`).
+- Add a global defaults file `<setta_home>/plugins_global_state.json` to store enable defaults for globally installed plugins.
+- Plugin install defaults to enabled (`enable=true`) unless explicitly disabled by `--no-enable` (CLI) or `enable=false` (API).
 - Add an optional project-config override in `ProjectConfig` later if plugin enablement needs to vary by config.
-- Keep enablement workspace-local even for globally installed plugins (global install controls availability, not automatic enablement everywhere).
 
 State fields:
 
@@ -657,12 +701,17 @@ State fields:
 - `disabledPluginIds`: list of plugin ids explicitly disabled for this workspace.
 - `pluginConfigById`: dict of plugin id to arbitrary JSON config blob.
 
+Global defaults fields (`<setta_home>/plugins_global_state.json`):
+
+- `autoEnabledPluginIds`: list of globally-installed plugin ids enabled by default for workspaces.
+
 Enablement resolution (normative MVP):
 
 1. Resolve one active source per `pluginId` using scope precedence (`workspace > setta_files > global`).
 2. Compute enabled state:
    - if `pluginId` in `disabledPluginIds`, plugin is disabled.
    - else if `pluginId` in `enabledPluginIds`, plugin is enabled.
+   - else if active source scope is `global` and `pluginId` is in `autoEnabledPluginIds`, plugin is enabled.
    - else use `manifest.enabledByDefault`.
 3. Apply compatibility checks (`settaVersionRange`, schema support).
 4. Apply mode capability filtering to produce `effectiveCapabilities`.
@@ -676,7 +725,8 @@ Rationale:
 
 Implementation notes:
 
-- A globally installed plugin is only active in a workspace if that workspace enables the plugin id in its own `plugins_state.json` (or if first-discovery defaults choose enabled behavior).
+- Global install with default settings adds the plugin id to `autoEnabledPluginIds`, so users get "install once, works on next startup" behavior without per-workspace manual steps.
+- Workspaces can still explicitly disable a globally auto-enabled plugin via their own `plugins_state.json`.
 - Plugin status responses should include `sourceScope` and `sourcePath` so users can tell whether a plugin came from workspace/setta_files/global.
 
 ## Installation UX (CLI + Drop-in)
@@ -700,6 +750,7 @@ Behavior:
 - The file browser is read-only for non-plugin paths and cannot escape the workspace root.
 - Drag-and-drop files onto the modal uploads them into `plugins/` (or the currently selected plugin folder).
 - The modal can include view toggles, for example "Backend" and "Frontend", that jump into `plugins/<selectedPluginId>/backend/` and `plugins/<selectedPluginId>/frontend/` without changing the on-disk layout.
+- The modal includes per-plugin actions: enable, disable, and uninstall for workspace-scoped plugins.
 
 What to drop:
 
@@ -717,7 +768,7 @@ Implementation note:
 - `FileBrowserPane` currently has no upload surface. We would add a reusable drag-and-drop wrapper (and a fallback file input) that can be reused by Browser sections later if we want artifact uploads there too.
 - The backend currently does not expose a safe "upload zip and extract under `<workspace>/plugins/...`" endpoint. The in-app installer needs a dedicated IDE-mode-only route/tool that enforces path traversal protections and write constraints.
 
-### CLI plugin installer (install from URL or path)
+### CLI plugin installer (install from path, URL, GitHub, or PyPI)
 
 Add a CLI command (exact naming is flexible) that installs a plugin into either the workspace `plugins/` folder or the global plugin folder.
 
@@ -727,6 +778,10 @@ Examples:
 setta plugins install https://example.com/my-plugin.zip
 setta plugins install ./my-plugin.zip
 setta plugins install ./path/to/plugin-folder
+setta plugins install github:acme/setta-rust-tools
+setta plugins install github:acme/setta-rust-tools#v0.2.0
+setta plugins install pypi:setta-rust-tools
+setta plugins install pypi:setta-rust-tools==0.2.0
 setta plugins install --global https://example.com/my-plugin.zip
 setta plugins install --global ./path/to/plugin-folder
 ```
@@ -741,10 +796,33 @@ Recommended behavior:
 - Default install scope is workspace: `<workspace>/plugins/<pluginId>/`.
 - `--global` installs into `<setta_home>/plugins/<pluginId>/` (using `resolve_setta_home()`, honoring `SETTA_HOME`).
 - Output should include both install scope and target path.
-- For URL installs, start with `.zip` bundles. Later, add Git URLs and/or a simple registry format.
+- `install` enables the plugin by default in the target scope; `--no-enable` skips that.
+- For global installs, default behavior also adds plugin id to `autoEnabledPluginIds`; `--no-enable` skips this.
+- Source resolution is first-class in MVP:
+  - `path:` or bare local path
+  - `url:` or bare `https://...zip`
+  - `github:<owner>/<repo>[#ref]`
+  - `pypi:<package>[==version]`
 - For source installs, include canonical source identity in output and status (for example `pypi:setta-rust-tools`, `github:acme/SettaRustTools`), alongside `pluginId`.
-- For Git URL installs, derive `pluginId` from `[project].name` in `pyproject.toml` when present; fallback to a source-derived id (`gh.<owner>.<repo>`) when metadata is missing.
-- `setta plugins list` should show scope and whether the plugin is active or shadowed by a higher-precedence scope.
+- For `github:` installs, derive `pluginId` from `[project].name` in `pyproject.toml` when present; fallback to a source-derived id (`gh.<owner>.<repo>`) when metadata is missing.
+- For PyPI installs, derive `pluginId` from package metadata (`[project].name` or wheel metadata) and fallback to normalized package name.
+- `setta plugins list` should show install scope (`workspace`, `setta_files`, `global`), active/shadowed state, and whether enablement comes from workspace override or global default.
+
+Required lifecycle commands (normative MVP):
+
+- `setta plugins list`
+- `setta plugins install <sourceSpec> [--global|--setta-files] [--no-enable] [--force]`
+- `setta plugins uninstall <pluginId> [--scope workspace|setta_files|global]`
+- `setta plugins enable <pluginId>`
+- `setta plugins disable <pluginId>`
+- `setta plugins rescan`
+- `setta plugins pack <plugin-folder> [--out <zip-path>]`
+
+`pack` behavior:
+
+- Validates `setta.plugin.json`.
+- Produces a deterministic zip bundle `<pluginId>-<version>.setta-plugin.zip`.
+- Preserves plugin-relative paths so users can install the zip via path, URL, GitHub release asset, or PyPI package contents.
 
 Safety baseline (still assuming trusted plugins):
 
@@ -769,7 +847,8 @@ Restart semantics:
 - `rescan_plugins` does not execute backend plugin entrypoints; it only refreshes discovery state, static asset availability, and content contributions.
 - Transition rules:
   - frontend/content-only plugin install or update: active after successful rescan.
-  - backend plugin install/update/remove/enable/disable: status becomes `pending_restart` until backend restart.
+  - frontend/content-only plugin uninstall: removed after successful rescan.
+  - backend plugin install/update/remove/enable/disable/uninstall: status becomes `pending_restart` until backend restart.
 - On restart, backend plugin registry is rebuilt from scratch from the active discovered set. No incremental backend plugin unmounting is attempted in MVP.
 
 ### AI-driven plugin install ("install this plugin at this URL")
@@ -783,19 +862,20 @@ Because Setta already exposes privileged actions via MCP tools, the simplest pat
 
 Suggested MCP tool shape:
 
-- `install_plugin({ sourceUrl?: string, sourcePath?: string, scope?: "workspace" | "global", enable?: boolean, force?: boolean }) -> { pluginId, version, components, restartRequired, sourceScope, sourcePath }`
+- `install_plugin({ sourceSpec: string, scope?: "workspace" | "setta_files" | "global", enable?: boolean, force?: boolean }) -> { pluginId, version, components, restartRequired, sourceScope, sourcePath }`
+- `uninstall_plugin({ pluginId: string, scope?: "workspace" | "setta_files" | "global" }) -> { pluginId, removedFromScope, restartRequired }`
 - `rescan_plugins() -> { installedPlugins, enabledPlugins }`
 
 This lets a user say "install this plugin at this url please" in Project Chat, and the agent can call `install_plugin` and then `rescan_plugins` (and the UI can show "restart required" if needed).
 
-Follow-on CLI commands:
+CLI command set (MVP):
 
 - `setta plugins list`
 - `setta plugins enable <id>`
 - `setta plugins disable <id>`
-- `setta plugins install <path-or-url>`
-
-`install` can initially just copy a folder into `plugins/`.
+- `setta plugins install <sourceSpec>`
+- `setta plugins uninstall <id>`
+- `setta plugins pack <plugin-folder>`
 
 ## Versioning and Compatibility
 
@@ -852,9 +932,12 @@ Backend:
 - Tests for mode capability gating (IDE vs Share/App) and blocked API errors.
 - Tests for schema migration paths (for example v1 manifests/state accepted and migrated to current).
 - Tests for uploading a plugin bundle and extracting it into `plugins/` (once the in-app installer exists).
+- Tests for source-spec parsing and install behavior for `path:`, `url:`, `github:`, and `pypi:`.
 - Tests for enablement resolution order (`disabledPluginIds`, `enabledPluginIds`, `enabledByDefault`).
-- Tests for `pending_restart` transitions after backend plugin install/enable/disable/update.
+- Tests for global auto-enable defaults (`plugins_global_state.json`) and workspace override precedence.
+- Tests for `pending_restart` transitions after backend plugin install/enable/disable/update/uninstall.
 - Tests for atomic installer rollback behavior (failed install leaves existing plugin unchanged).
+- Tests for uninstall semantics (single-scope uninstall, multi-scope scope-required error).
 
 Frontend:
 
@@ -871,16 +954,16 @@ Frontend:
 
 - Create `backend/setta/plugins/` package with manifest types, plugin directory scanning, enablement state, and status reporting.
 - Resolve `<setta_home>/plugins` using the same Setta-home logic as user config (`resolve_setta_home()`, `SETTA_HOME`) and include it in discovery.
-- Add backend routes `GET /api/plugins/list` and `GET /api/plugins/status` matching the normative schemas in this document.
+- Add backend routes `GET /api/plugins/list`, `GET /api/plugins/status`, and management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`) matching normative schemas in this document.
 - Serve plugin static assets under `/plugins/<pluginId>/...` from the resolved active plugin source path (workspace/setta_files/global).
 - Built-mode note: ensure `/plugins/...` mounts are registered before the SPA catch-all route (or move the catch-all route to the end after mounting), otherwise requests for plugin JS/CSS can be swallowed by the app's `index.html` handler.
-- Implement enablement resolution (`disabledPluginIds`, `enabledPluginIds`, `enabledByDefault`) and `pending_restart` status semantics.
+- Implement enablement resolution (`disabledPluginIds`, `enabledPluginIds`, `autoEnabledPluginIds`, `enabledByDefault`) and `pending_restart` status semantics.
 
 ### Phase 2: Frontend loader + minimal extension points
 
 - Add frontend plugin loader module and a global registry in `frontend/src/`.
 - Load enabled plugins on app start (or on demand).
-- Add minimal extension points: panes, commands, and "Add" menu items for plugin section kinds.
+- Add minimal extension points: panes and commands.
 - Add a "Plugins" modal with an embedded `FileBrowserPane` pinned to `plugins/`, plus drag-and-drop upload and "restart required" messaging.
 - Add a stable fixture plugin starter in `tests/fixtures/plugins/` and a short authoring README so plugin authors have a live, tested reference.
 
@@ -888,6 +971,7 @@ Frontend:
 
 - Add `SectionType.Plugin` and `PluginSectionImpl` to backend and frontend generated types.
 - Add a `PluginArea` renderer to `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`.
+- Add "Add" menu items for plugin section kinds.
 - Add fallback UI when renderer is missing.
 - Add a simple example plugin in `tests/fixtures/plugins/` to validate the pipeline.
 
@@ -906,7 +990,7 @@ Frontend:
 
 ## Phase completion gates
 
-- Phase 1 complete when `/api/plugins/list` and `/api/plugins/status` are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
+- Phase 1 complete when `/api/plugins/list`, `/api/plugins/status`, and management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`) are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
 - Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, and Share-mode capability filtering is visible in UI/status.
 - Phase 3 complete when `SectionType.Plugin` roundtrips through backend/frontend types, renders via registered plugin renderer, and missing renderer falls back without app instability.
 - Phase 4 complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
@@ -914,7 +998,10 @@ Frontend:
 
 ## MVP Decisions (Resolved)
 
-- Plugin enablement is workspace-level only in MVP (no per-`ProjectConfig` enablement yet).
-- No global enable-default file in MVP; globally installed plugins are still enabled per workspace via that workspace's `plugins_state.json`.
+- Plugin enablement is resolved per workspace in MVP (no per-`ProjectConfig` enablement yet).
+- Global plugins use `<setta_home>/plugins_global_state.json` for auto-enable defaults; workspace-level disable still overrides.
 - Plugin packaging supports both folder installs and `.zip` bundles in MVP.
+- `setta plugins install` supports `path`, `url`, `github`, and `pypi` source specs in MVP.
+- Plugin install defaults to enabled unless `--no-enable` is explicitly provided.
+- Frontend plugin loading uses native ESM `import()` only in MVP.
 - Plugin-defined languages do not extend the core `CodeLanguage` enum in MVP. Language plugins register LSP/settings integrations only. Enum extension is deferred to Phase 5 follow-on design.
