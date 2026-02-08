@@ -1,5 +1,4 @@
 [mcp_servers.chrome-devtools]
-# Worktree-scoped Chrome DevTools MCP (ports/profiles derived from worktree root).
 command = "bash"
 args = [
   "-lc",
