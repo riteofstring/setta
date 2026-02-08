@@ -50,6 +50,7 @@
 - `reference/keyboard-shortcuts.md` – keyboard navigation, selection, and manipulation shortcuts in the UI.
 - `reference/name-validation.md` – name validation rules and error messaging.
 - `reference/param-sweeps.md` – how to run parameter sweeps via the Python runner API.
+- `reference/section-colors.md` – section `tagColor`/`styleColor` model, routes, UI behavior, and guardrails.
 - `reference/section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
 - `reference/watch-code.md` – watch-mode notes for code sections.
 
