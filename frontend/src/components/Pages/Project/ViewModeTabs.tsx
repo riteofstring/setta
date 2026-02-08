@@ -60,7 +60,9 @@ export function ViewModeTabs() {
               title={label}
               disabled={!canEditVariants}
             >
-              <span className="min-w-0 flex-1 truncate">{label}</span>
+              <span className="relative -top-px min-w-0 flex-1 truncate">
+                {label}
+              </span>
             </button>
           );
         })}
