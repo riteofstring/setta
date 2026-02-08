@@ -77,9 +77,6 @@ reparent both sections and params in the project UI.
   - Cancelled drags force a reset via `forceDeactivateDnd`.
 - `moveSectionsWithBackend` switches to `route_set_code_section_attached_terminal`
   when a single Terminal is dropped into a code section.
-- During attach-through-move, the frontend also normalizes terminal width to the
-  destination code section width (when that width is concrete) so terminal
-  column reflow happens immediately after drop.
 
 ## Drop rules
 

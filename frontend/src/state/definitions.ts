@@ -28,6 +28,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatFileAttachment,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -48,13 +49,6 @@ import {
   SharePolicy,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
-import {
-  DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
-  DEFAULT_GIT_GRAPH_SPLIT_PCT,
-} from "utils/gitGraphLayoutDefaults";
 import {
   createJSONStorage,
   persist,
@@ -702,6 +696,7 @@ type ZustandAIStore = {
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
   pendingProjectChatPrompt: string | null;
+  pendingProjectChatAttachments: ChatFileAttachment[] | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -744,6 +739,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
         pendingProjectChatPrompt: null,
+        pendingProjectChatAttachments: null,
       }),
       {
         name: "setta_ai_data",
@@ -852,15 +848,17 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
+  appGenNavPresetId: string;
+  appGenNavPrompt: string;
+  appGenNavCustomPresets: Array<{
+    id: string;
+    name: string;
+    prompt: string;
+  }>;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
   overviewTab: OverviewTabName;
-  gitGraphSplitPct: number;
-  gitGraphColWidthPx: number;
-  gitGraphAuthorWidthPx: number;
-  gitGraphDateWidthPx: number;
-  gitGraphHashWidthPx: number;
   uiEditorVis: boolean;
   uiEditorWidth: number;
   uiEditorTrueWidth: number;
@@ -882,15 +880,19 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
+      appGenNavPresetId: "routes-shell",
+      appGenNavPrompt: [
+        "- Treat tab view modes as pages.",
+        "- If any view mode is userFacing, prefer ONLY userFacing tab view modes and include ONLY the sections visible in that view mode.",
+        "- Create routes as a list of { path, name, rootKey } and save them via routes in set_app_definition / stream_app_definition.",
+        "- rootKey must reference an element key that exists in appSpec.elements.",
+        "- Do NOT add a navbar in appSpec; the app shell renders navigation from routes.",
+      ].join("\\n"),
+      appGenNavCustomPresets: [],
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTab: OverviewTabNameEnum.Overview,
-      gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
-      gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
-      gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
-      gitGraphDateWidthPx: DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
-      gitGraphHashWidthPx: DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
       uiEditorVis: false,
       uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,

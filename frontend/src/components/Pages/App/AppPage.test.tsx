@@ -141,4 +141,97 @@ describe("AppPage", () => {
     // Match the `dark` class token, not Tailwind `dark:*` class names.
     expect(markup).toMatch(/\sdark(?:\s|")/);
   });
+
+  it("matches routes by suffix and prefixes nav links when deployed under a path", () => {
+    useAppDefinition.setState({
+      appDefinition: {
+        appSpecVersion: "v1",
+        catalogId: "setta.app.default",
+        appSpecPath: null,
+        routes: [
+          { path: "/alpha", name: "Alpha", rootKey: "root" },
+          { path: "/beta", name: "Beta", rootKey: "root" },
+        ],
+        dataBindings: {},
+        actions: {},
+        theme: null,
+        assets: [],
+      },
+      appSpec: {
+        root: "root",
+        elements: {
+          root: { key: "root", type: "Stack" },
+        },
+      },
+    });
+    syncStoreInitialState(useAppDefinition);
+
+    const markup = renderPage("/prefix/alpha");
+
+    expect(markup).toContain("Alpha");
+    expect(markup).not.toContain("App page not found.");
+    expect(markup).toContain('href="/prefix/beta"');
+  });
+
+  it("matches the root route under a project config prefix", () => {
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: "config-1",
+      projectMetadata: [{ id: "config-1", name: "shore_balm" }],
+    });
+    syncStoreInitialState(useAllProjectMetadata);
+    useAppDefinition.setState({
+      appDefinition: {
+        appSpecVersion: "v1",
+        catalogId: "setta.app.default",
+        appSpecPath: null,
+        routes: [
+          { path: "/", name: "Home", rootKey: "root" },
+          { path: "/beta", name: "Beta", rootKey: "root" },
+        ],
+        dataBindings: {},
+        actions: {},
+        theme: null,
+        assets: [],
+      },
+      appSpec: {
+        root: "root",
+        elements: {
+          root: { key: "root", type: "Stack" },
+        },
+      },
+    });
+    syncStoreInitialState(useAppDefinition);
+
+    const markup = renderPage("/shore_balm");
+
+    expect(markup).toContain("Home");
+    expect(markup).not.toContain("App page not found.");
+    expect(markup).toContain('href="/shore_balm/beta"');
+  });
+
+  it("renders a hamburger menu button when routes are present", () => {
+    useAppDefinition.setState({
+      appDefinition: {
+        appSpecVersion: "v1",
+        catalogId: "setta.app.default",
+        appSpecPath: null,
+        routes: [{ path: "/alpha", name: "Alpha", rootKey: "root" }],
+        dataBindings: {},
+        actions: {},
+        theme: null,
+        assets: [],
+      },
+      appSpec: {
+        root: "root",
+        elements: {
+          root: { key: "root", type: "Stack" },
+        },
+      },
+    });
+    syncStoreInitialState(useAppDefinition);
+
+    const markup = renderPage("/alpha");
+
+    expect(markup).toContain('aria-label="Open menu"');
+  });
 });

@@ -49,5 +49,3 @@ Frontend routes above are **not** the same as backend API routes. Backend routes
 use the `Route` enum (`backend/setta/types/routes.py`) and are called via
 `/api/<route>` using the generated endpoint helpers in
 `frontend/src/utils/generatedEndpoints.ts`.
-
-For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.

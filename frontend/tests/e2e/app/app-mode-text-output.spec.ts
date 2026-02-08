@@ -159,7 +159,7 @@ test("app mode TextOutput renders the effective (modifier) TextBlock text", asyn
     useServerMode.setState({ mode: "app", modeResolved: true });
   });
 
-  await expect(page.getByText("App Mode")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Config A" })).toBeVisible();
   await expect(page.getByText("From core modifier")).toBeVisible();
   await expect(page.getByText("From impl")).not.toBeVisible();
 });
