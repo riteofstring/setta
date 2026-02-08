@@ -509,7 +509,9 @@ function GitGraphCell({
   const height = ROW_HEIGHT;
   const width = Math.max(GRAPH_CELL_WIDTH, laneColorIds.length * laneWidth);
   const centerY = height / 2;
-  const strokeOpacity = 0.6;
+  // Keep strokes fully opaque so curves don't blend with underlying lanes and
+  // appear to change color when crossing other branches.
+  const strokeOpacity = 1;
   const xForLane = (idx: number) => idx * laneWidth + laneWidth / 2;
 
   const commitColorId = laneColorIds[laneIndex] ?? 0;
