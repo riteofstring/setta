@@ -52,14 +52,20 @@ class GitCommit(BaseModel):
 
 class GetGitLogRequest(BaseModel):
     rev: str = "HEAD"
-    maxCount: int = 2000
     allRefs: bool = False
+    offset: int = 0
+    pageSize: int = 250
 
 
 class GetGitLogResponse(BaseModel):
     repoRoot: str
     headBranch: str | None
     commits: list[GitCommit]
+    offset: int
+    pageSize: int
+    nextOffset: int | None
+    hasMore: bool
+    isCapped: bool
 
 
 class GetGitCommitDiffRequest(BaseModel):

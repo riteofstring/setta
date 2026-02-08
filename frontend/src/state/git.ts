@@ -29,7 +29,13 @@ export type GitGraphOverlayState = {
   rows: GitGraphRow[];
   filterText: string;
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
+  loadMoreError: string | null;
+  hasMore: boolean;
+  nextOffset: number | null;
+  pageSize: number;
+  isCapped: boolean;
   selectedCommitHash: string | null;
   selectedCommitDetails: GetGitCommitDetailsResponse | null;
   selectedCommitDetailsIsLoading: boolean;

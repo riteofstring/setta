@@ -4,6 +4,7 @@ import { List, useDynamicRowHeight, useListRef } from "react-window";
 import {
   clearGitGraphSelectedCommit,
   closeGitOverlay,
+  loadMoreGitGraphCommits,
   refreshGitGraphOverlay,
   selectGitCommit,
   selectGitCommitFile,
@@ -71,6 +72,7 @@ const LANE_COLORS_DARK = [
 const GOLDEN_ANGLE_DEG = 137.508;
 const GENERATED_LANE_COLORS_LIGHT = new Map<number, string>();
 const GENERATED_LANE_COLORS_DARK = new Map<number, string>();
+const LOAD_MORE_THRESHOLD_ROWS = 40;
 
 function clampNonNegative(value: number): number {
   return value < 0 ? 0 : value;
@@ -369,6 +371,8 @@ export function GitGraphOverlay() {
       .trim()
       .toLowerCase()}`,
   });
+  const isFilterActive = filterText.trim().length > 0;
+  const loadedCommitCount = graphState.response?.commits.length ?? 0;
 
   function beginPaneSplitDrag(event: React.PointerEvent<HTMLDivElement>) {
     event.preventDefault();
@@ -870,6 +874,21 @@ export function GitGraphOverlay() {
                 rowCount={filteredRows.length}
                 rowHeight={dynamicRowHeight}
                 className="nodrag"
+                onRowsRendered={(visibleRows) => {
+                  if (
+                    graphState.isLoading ||
+                    graphState.isLoadingMore ||
+                    graphState.nextOffset === null ||
+                    !graphState.hasMore ||
+                    isFilterActive
+                  ) {
+                    return;
+                  }
+                  const remaining = filteredRows.length - 1 - visibleRows.stopIndex;
+                  if (remaining <= LOAD_MORE_THRESHOLD_ROWS) {
+                    void loadMoreGitGraphCommits();
+                  }
+                }}
                 rowProps={{
                   rows: filteredRows,
                   selectedHash: graphState.selectedCommitHash,
@@ -891,6 +910,39 @@ export function GitGraphOverlay() {
               />
             )}
           </div>
+          {!graphState.isLoading && (
+            <div
+              data-testid="git-graph-load-more-status"
+              className="min-h-[24px] border-t border-setta-200/70 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800/70 dark:text-setta-400"
+            >
+              {graphState.loadMoreError ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{graphState.loadMoreError}</span>
+                  <button
+                    type="button"
+                    data-testid="git-graph-load-more-retry"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+                    onClick={() => void loadMoreGitGraphCommits()}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : graphState.isLoadingMore ? (
+                <span>Loading more commits…</span>
+              ) : isFilterActive ? (
+                <span>Filtering loaded commits only.</span>
+              ) : graphState.isCapped ? (
+                <span>
+                  Showing first {loadedCommitCount.toLocaleString()} commits (cap
+                  reached).
+                </span>
+              ) : !graphState.hasMore && loadedCommitCount > 0 ? (
+                <span>Start of history reached.</span>
+              ) : (
+                <span className="opacity-0">.</span>
+              )}
+            </div>
+          )}
         </section>
 
         <div

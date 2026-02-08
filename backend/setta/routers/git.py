@@ -41,6 +41,7 @@ _MAX_LOG_BYTES = 4_000_000
 _MAX_SHOW_BYTES = 2_000_000
 
 _MAX_LOG_COUNT = 5000
+_MAX_LOG_PAGE_SIZE = 500
 
 _RECORD_SEP = "\x1e"
 _FIELD_SEP = "\x1f"
@@ -407,7 +408,23 @@ def route_get_git_log(
     ctx: RuntimeContextFromRequest,
 ) -> GetGitLogResponse:
     repo_root = _get_repo_root_or_400(ctx=ctx)
-    max_count = max(1, min(int(x.maxCount), _MAX_LOG_COUNT))
+    offset = max(0, int(x.offset))
+    page_size = max(1, min(int(x.pageSize), _MAX_LOG_PAGE_SIZE))
+
+    if offset >= _MAX_LOG_COUNT:
+        return GetGitLogResponse(
+            repoRoot=str(repo_root),
+            headBranch=_get_head_branch(repo_root),
+            commits=[],
+            offset=offset,
+            pageSize=page_size,
+            nextOffset=None,
+            hasMore=False,
+            isCapped=True,
+        )
+
+    remaining_budget = _MAX_LOG_COUNT - offset
+    fetch_count = min(page_size + 1, remaining_budget)
 
     # Use ASCII-safe separators to simplify parsing.
     record_sep = "\x1e"
@@ -417,7 +434,8 @@ def route_get_git_log(
     args = [
         "log",
         "--topo-order",
-        f"--max-count={max_count}",
+        f"--skip={offset}",
+        f"--max-count={fetch_count}",
         "--no-color",
         f"--pretty=format:{fmt}",
     ]
@@ -489,10 +507,53 @@ def route_get_git_log(
             )
         )
 
+    has_more = len(commits) > page_size or result.stdout_truncated
+    if len(commits) > page_size:
+        commits = commits[:page_size]
+
+    # If we reached the backend safety cap, check whether older commits exist
+    # beyond the cap so UI can communicate that this is a cap, not true history end.
+    is_capped = False
+    at_cap_boundary = offset + len(commits) >= _MAX_LOG_COUNT
+    if at_cap_boundary:
+        cap_probe_args = [
+            "log",
+            "--topo-order",
+            f"--skip={_MAX_LOG_COUNT}",
+            "--max-count=1",
+            "--no-color",
+            "--pretty=format:%H",
+        ]
+        if x.allRefs:
+            cap_probe_args.append("--all")
+        else:
+            cap_probe_args.append(x.rev)
+        cap_probe = run_git(
+            cap_probe_args,
+            cwd=repo_root,
+            timeout_s=_LOG_TIMEOUT_S,
+            max_stdout_bytes=512,
+            max_stderr_bytes=200_000,
+        )
+        is_capped = (
+            not cap_probe.timed_out
+            and cap_probe.returncode == 0
+            and bool(cap_probe.stdout.strip())
+        )
+        if is_capped:
+            has_more = False
+
+    next_offset = offset + len(commits) if has_more else None
+
     return GetGitLogResponse(
         repoRoot=str(repo_root),
         headBranch=_get_head_branch(repo_root),
         commits=commits,
+        offset=offset,
+        pageSize=page_size,
+        nextOffset=next_offset,
+        hasMore=has_more,
+        isCapped=is_capped,
     )
 
 

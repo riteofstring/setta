@@ -7,7 +7,11 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import type { GitCommit, GitDiffMode } from "utils/generatedTypes";
+import type {
+  GetGitLogResponse,
+  GitCommit,
+  GitDiffMode,
+} from "utils/generatedTypes";
 import { computeGitGraphRows } from "utils/gitGraph";
 
 let statusRequestId = 0;
@@ -15,6 +19,8 @@ let diffRequestId = 0;
 let logRequestId = 0;
 let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
+
+const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
 
 function normalizeGitCommit(commit: GitCommit): GitCommit {
   // Defensive: backend should already return clean hashes, but whitespace here
@@ -24,6 +30,13 @@ function normalizeGitCommit(commit: GitCommit): GitCommit {
     hash: commit.hash.trim(),
     parents: commit.parents.map((parent) => parent.trim()).filter(Boolean),
     decorations: commit.decorations.map((d) => d.trim()).filter(Boolean),
+  };
+}
+
+function normalizeGitLogResponse(response: GetGitLogResponse): GetGitLogResponse {
+  return {
+    ...response,
+    commits: response.commits.map(normalizeGitCommit),
   };
 }
 
@@ -240,7 +253,13 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           response: null,
           rows: [],
           isLoading: true,
+          isLoadingMore: false,
           error: null,
+          loadMoreError: null,
+          hasMore: false,
+          nextOffset: null,
+          pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
+          isCapped: false,
           selectedCommitHash: null,
           selectedCommitDetails: null,
           selectedCommitDetailsIsLoading: false,
@@ -255,13 +274,18 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
     };
   });
 
-  const res = await route_get_git_log({ rev: "HEAD", maxCount: 2000, allRefs });
+  const res = await route_get_git_log({
+    rev: "HEAD",
+    allRefs,
+    offset: 0,
+    pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
+  });
   if (requestId !== logRequestId) {
     return;
   }
   if (res200(res)) {
-    const commits = res.data.commits.map(normalizeGitCommit);
-    const normalizedResponse = { ...res.data, commits };
+    const normalizedResponse = normalizeGitLogResponse(res.data);
+    const commits = normalizedResponse.commits;
     const rows = computeGitGraphRows(commits);
     useGitStore.setState((state) => {
       if (state.overlay.kind !== "graph") {
@@ -276,6 +300,12 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
             response: normalizedResponse,
             rows,
             isLoading: false,
+            isLoadingMore: false,
+            loadMoreError: null,
+            hasMore: normalizedResponse.hasMore,
+            nextOffset: normalizedResponse.nextOffset,
+            pageSize: normalizedResponse.pageSize,
+            isCapped: normalizedResponse.isCapped,
           },
         },
       };
@@ -300,6 +330,142 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           rows: [],
           isLoading: false,
           error: getErrorDetail(res.data) ?? "Failed to load git log.",
+          isLoadingMore: false,
+          loadMoreError: null,
+          hasMore: false,
+          nextOffset: null,
+          isCapped: false,
+        },
+      },
+    };
+  });
+}
+
+export async function loadMoreGitGraphCommits(): Promise<void> {
+  const overlay = useGitStore.getState().overlay;
+  if (overlay.kind !== "graph") {
+    return;
+  }
+  const graph = overlay.graph;
+  if (
+    graph.isLoading ||
+    graph.isLoadingMore ||
+    graph.nextOffset === null ||
+    !graph.hasMore
+  ) {
+    return;
+  }
+  if (graph.filterText.trim()) {
+    return;
+  }
+
+  const requestId = (logRequestId += 1);
+  const nextOffset = graph.nextOffset;
+  const pageSize = graph.pageSize;
+  const allRefs = graph.allRefs;
+
+  useGitStore.setState((state) => {
+    if (state.overlay.kind !== "graph") {
+      return state;
+    }
+    return {
+      ...state,
+      overlay: {
+        kind: "graph",
+        graph: {
+          ...state.overlay.graph,
+          isLoadingMore: true,
+          loadMoreError: null,
+        },
+      },
+    };
+  });
+
+  const res = await route_get_git_log({
+    rev: "HEAD",
+    allRefs,
+    offset: nextOffset,
+    pageSize,
+  });
+  if (requestId !== logRequestId) {
+    return;
+  }
+
+  if (res200(res)) {
+    const normalizedPage = normalizeGitLogResponse(res.data);
+    useGitStore.setState((state) => {
+      if (state.overlay.kind !== "graph") {
+        return state;
+      }
+      const existingResponse = state.overlay.graph.response;
+      if (!existingResponse) {
+        return {
+          ...state,
+          overlay: {
+            kind: "graph",
+            graph: {
+              ...state.overlay.graph,
+              response: normalizedPage,
+              rows: computeGitGraphRows(normalizedPage.commits),
+              isLoadingMore: false,
+              loadMoreError: null,
+              hasMore: normalizedPage.hasMore,
+              nextOffset: normalizedPage.nextOffset,
+              pageSize: normalizedPage.pageSize,
+              isCapped: normalizedPage.isCapped,
+            },
+          },
+        };
+      }
+
+      const seenHashes = new Set(existingResponse.commits.map((commit) => commit.hash));
+      const appendedCommits = normalizedPage.commits.filter(
+        (commit) => !seenHashes.has(commit.hash),
+      );
+      const mergedCommits = existingResponse.commits.concat(appendedCommits);
+      const mergedResponse = {
+        ...existingResponse,
+        commits: mergedCommits,
+        offset: 0,
+        pageSize: normalizedPage.pageSize,
+        nextOffset: normalizedPage.nextOffset,
+        hasMore: normalizedPage.hasMore,
+        isCapped: normalizedPage.isCapped,
+      };
+
+      return {
+        ...state,
+        overlay: {
+          kind: "graph",
+          graph: {
+            ...state.overlay.graph,
+            response: mergedResponse,
+            rows: computeGitGraphRows(mergedCommits),
+            isLoadingMore: false,
+            loadMoreError: null,
+            hasMore: normalizedPage.hasMore,
+            nextOffset: normalizedPage.nextOffset,
+            pageSize: normalizedPage.pageSize,
+            isCapped: normalizedPage.isCapped,
+          },
+        },
+      };
+    });
+    return;
+  }
+
+  useGitStore.setState((state) => {
+    if (state.overlay.kind !== "graph") {
+      return state;
+    }
+    return {
+      ...state,
+      overlay: {
+        kind: "graph",
+        graph: {
+          ...state.overlay.graph,
+          isLoadingMore: false,
+          loadMoreError: getErrorDetail(res.data) ?? "Failed to load more commits.",
         },
       },
     };
@@ -318,7 +484,13 @@ export async function openGitGraphOverlay(): Promise<void> {
         rows: [],
         filterText: "",
         isLoading: true,
+        isLoadingMore: false,
         error: null,
+        loadMoreError: null,
+        hasMore: false,
+        nextOffset: null,
+        pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
+        isCapped: false,
         selectedCommitHash: null,
         selectedCommitDetails: null,
         selectedCommitDetailsIsLoading: false,

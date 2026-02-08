@@ -7,6 +7,7 @@ from fastapi import FastAPI
 import pytest
 import pytest_asyncio
 
+import setta.routers.git as git_router
 from setta.routers.git import (
     route_get_git_commit_details,
     route_get_git_commit_diff,
@@ -46,6 +47,13 @@ def _run_git(cwd: Path, args: list[str]) -> str:
         text=True,
     )
     return completed.stdout
+
+
+def _append_commits(cwd: Path, count: int, *, prefix: str) -> None:
+    for idx in range(count):
+        (cwd / "tracked.txt").write_text(f"{prefix}-{idx}\n", encoding="utf-8")
+        _run_git(cwd, ["add", "tracked.txt"])
+        _run_git(cwd, ["commit", "-m", f"{prefix}-{idx}"])
 
 
 class TestGitRoutes:
@@ -185,7 +193,7 @@ class TestGitRoutes:
         state = await self._build_state()
         with runtime_context(state) as ctx:
             log = route_get_git_log(
-                GetGitLogRequest(rev="HEAD", maxCount=20, allRefs=False),
+                GetGitLogRequest(rev="HEAD", pageSize=20, offset=0, allRefs=False),
                 ctx,
             )
             details = route_get_git_commit_details(
@@ -220,3 +228,68 @@ class TestGitRoutes:
         assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
         assert "commit" in show.diff
         assert head[:8] in show.diff
+
+    async def test_log_pagination_offsets_without_overlap(self) -> None:
+        # Build enough history to span multiple pages.
+        _append_commits(self._workspace_root, 6, prefix="page")
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            page1 = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=3, offset=0, allRefs=False),
+                ctx,
+            )
+            assert page1.hasMore is True
+            assert page1.nextOffset == 3
+            assert len(page1.commits) == 3
+
+            page2 = route_get_git_log(
+                GetGitLogRequest(
+                    rev="HEAD",
+                    pageSize=3,
+                    offset=page1.nextOffset or 0,
+                    allRefs=False,
+                ),
+                ctx,
+            )
+
+        assert page2.offset == 3
+        assert page2.pageSize == 3
+        assert len(page2.commits) == 3
+        page1_hashes = {commit.hash for commit in page1.commits}
+        page2_hashes = {commit.hash for commit in page2.commits}
+        assert page1_hashes.isdisjoint(page2_hashes)
+
+    async def test_log_reports_cap_boundary(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Use a small cap so the behavior is testable without huge histories.
+        monkeypatch.setattr(git_router, "_MAX_LOG_COUNT", 5)
+        _append_commits(self._workspace_root, 8, prefix="cap")
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            first = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=4, offset=0, allRefs=False),
+                ctx,
+            )
+            second = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=4, offset=4, allRefs=False),
+                ctx,
+            )
+            beyond = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=4, offset=99, allRefs=False),
+                ctx,
+            )
+
+        assert len(first.commits) == 4
+        assert first.hasMore is True
+        assert first.nextOffset == 4
+        assert first.isCapped is False
+
+        assert len(second.commits) == 1
+        assert second.hasMore is False
+        assert second.nextOffset is None
+        assert second.isCapped is True
+
+        assert beyond.commits == []
+        assert beyond.hasMore is False
+        assert beyond.nextOffset is None
+        assert beyond.isCapped is True

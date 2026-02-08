@@ -13642,8 +13642,9 @@ export function createGetGitDiffResponse(
 
 export const GetGitLogRequestSchema = z.object({
   rev: z.string().default("HEAD" as const),
-  maxCount: z.int().default(2000),
   allRefs: z.boolean().default(false),
+  offset: z.int().default(0),
+  pageSize: z.int().default(250),
 });
 
 export type GetGitLogRequest = z.infer<typeof GetGitLogRequestSchema>;
@@ -13678,6 +13679,11 @@ export const GetGitLogResponseSchema = z.object({
   repoRoot: z.string(),
   headBranch: z.union([z.string(), z.null()]),
   commits: z.array(GitCommitSchema),
+  offset: z.int(),
+  pageSize: z.int(),
+  nextOffset: z.union([z.int(), z.null()]),
+  hasMore: z.boolean(),
+  isCapped: z.boolean(),
 });
 
 export type GetGitLogResponse = z.infer<typeof GetGitLogResponseSchema>;

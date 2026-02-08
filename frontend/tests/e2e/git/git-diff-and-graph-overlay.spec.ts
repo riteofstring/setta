@@ -36,6 +36,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
   const gitDir = path.join(workspaceRoot, ".git");
   const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
   const trackedPath = path.join(workspaceRoot, "tracked.py");
+  const historyPath = path.join(workspaceRoot, "history.txt");
   const untrackedPath = path.join(workspaceRoot, "new.py");
 
   const createdRepo = !(await pathExists(gitDir));
@@ -53,6 +54,14 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.writeFile(trackedPath, "def foo():\n  return 1\n", "utf8");
     runGit(workspaceRoot, ["add", "tracked.py"]);
     runGit(workspaceRoot, ["commit", "-m", "add tracked"]);
+
+    // Seed enough history to require pagination/infinite loading in graph view.
+    for (let i = 0; i < 260; i += 1) {
+      const label = i.toString().padStart(3, "0");
+      await fs.writeFile(historyPath, `history ${label}\n`, "utf8");
+      runGit(workspaceRoot, ["add", "history.txt"]);
+      runGit(workspaceRoot, ["commit", "-m", `history-${label}`]);
+    }
 
     // Create both staged + unstaged changes for the same file.
     await fs.writeFile(trackedPath, "def foo():\n  return 2\n", "utf8");
@@ -127,7 +136,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
 
     const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
     await expect(
-      graphOverlay.getByRole("button", { name: /add tracked/ }),
+      graphOverlay.getByRole("button", { name: /history-259/ }),
     ).toBeVisible();
 
     const historyPane = graphOverlay.getByTestId("git-graph-history-pane");
@@ -374,15 +383,45 @@ test("git diff overlay and git graph overlay render between panes", async ({
       .evaluate((el) => window.getComputedStyle(el).overflowX);
     expect(listOverflowX).toBe("hidden");
 
+    await graphFilter.fill("history-000");
+    await expect(
+      graphOverlay.getByRole("button", { name: /history-000.*lanes 1/ }),
+    ).toHaveCount(0);
+    await expect(
+      graphOverlay.getByTestId("git-graph-load-more-status"),
+    ).toContainText("Filtering loaded commits only.");
+    await graphFilter.fill("");
+
+    const commitListScroller = commitListWrapper.locator(":scope > div").first();
+    await commitListScroller.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect(
+      graphOverlay.getByTestId("git-graph-load-more-status"),
+    ).toContainText("Start of history reached.");
+
+    await graphFilter.fill("history-000");
+    await expect(
+      graphOverlay.getByRole("button", { name: /history-000.*lanes 1/ }),
+    ).toBeVisible();
+    await graphFilter.fill("");
+
     // Linear history should stay on a single lane (regression guard for log parsing).
     await expect(
-      graphOverlay.getByRole("button", { name: /add tracked.*lanes 1/ }),
+      graphOverlay.getByRole("button", { name: /history-259.*lanes 1/ }),
     ).toBeVisible();
     await graphFilter.fill("init");
     await expect(
       graphOverlay.getByRole("button", { name: /init.*lanes 1/ }),
     ).toBeVisible();
     await graphFilter.fill("");
+
+    await graphFilter.fill("add tracked");
+    const addTrackedCommit = graphOverlay.getByRole("button", {
+      name: /add tracked.*lanes 1/,
+    });
+    await expect(addTrackedCommit).toBeVisible();
+    await addTrackedCommit.click();
 
     // Selected commit expands and lists files; the right panel shows the per-file patch.
     await expect(graphOverlay.getByText("Files changed")).toBeVisible();
@@ -414,14 +453,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     ).toBeVisible();
 
     // Clicking the expanded commit row again should collapse it.
-    const addTrackedRow = graphOverlay.getByRole("button", {
-      name: /add tracked.*lanes 1/i,
-    });
-    await addTrackedRow.click();
+    await addTrackedCommit.click();
     await expect(graphOverlay.getByText("Files changed")).toHaveCount(0);
     await expect(
       graphOverlay.getByText("Select a commit to view details."),
     ).toBeVisible();
+    await graphFilter.fill("");
 
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);
