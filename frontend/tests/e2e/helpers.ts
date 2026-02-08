@@ -72,15 +72,26 @@ export async function ensureAppReady(page: Page): Promise<void> {
     return;
   }
 
-  const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie && BOOTSTRAP_TOKEN) {
-    await page.goto(
-      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-    );
+  let defaultConfig = await getDefaultConfigNameResult(page);
+  if (
+    !defaultConfig.name &&
+    (defaultConfig.status === 401 || defaultConfig.status === 403) &&
+    BOOTSTRAP_TOKEN
+  ) {
+    await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
     try {
       await waitForProjectUrl(page);
     } catch {
       // Fall through to the final readiness check below.
+    }
+    defaultConfig = await getDefaultConfigNameResult(page);
+  }
+
+  if (defaultConfig.name) {
+    const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
+    await page.goto(defaultUrl, { waitUntil: "domcontentloaded" });
+    if (await isAppReady(page)) {
+      return;
     }
   }
 
@@ -89,6 +100,7 @@ export async function ensureAppReady(page: Page): Promise<void> {
     return;
   }
 
+  const hasCookie = await hasAuthCookie(page);
   if (!BOOTSTRAP_TOKEN && !hasCookie) {
     throw new Error(
       "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
@@ -304,6 +316,31 @@ export async function createChatSection(
   return { sectionId: created.sectionId, sectionName };
 }
 
+export async function createTextBlockSection(
+  page: Page,
+  projectConfigId: string,
+  baseName: string,
+): Promise<{ sectionId: string; sectionName: string }> {
+  const sectionName = `${baseName}-${Date.now()}`;
+  const created = await postBackend<CreateSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "TextBlock",
+    },
+  );
+  if (!created?.sectionId) {
+    throw new Error("Missing sectionId when creating text block section.");
+  }
+  await postBackend(page, "/setSectionName", {
+    projectConfigId,
+    sectionId: created.sectionId,
+    name: sectionName,
+  });
+  return { sectionId: created.sectionId, sectionName };
+}
+
 export async function setChatSectionState(
   page: Page,
   payload: {
@@ -435,7 +472,15 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (paneRect.width <= 0 || paneRect.height <= 0) {
         return null;
       }
-      const gutter = 16;
+      const overviewPane = document.getElementById("OverviewPane");
+      const overviewDomWidth = overviewPane
+        ? overviewPane.getBoundingClientRect().width
+        : 0;
+      const { useLocalStorage } = await import("/src/state/definitions");
+      const storedOverviewWidth = useLocalStorage.getState().overviewTrueWidth;
+      const overviewWidth = Number.isFinite(storedOverviewWidth)
+        ? storedOverviewWidth
+        : overviewDomWidth;
       const transform = window.getComputedStyle(viewport).transform;
       if (!transform || transform === "none") {
         return null;
@@ -445,64 +490,13 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (!Number.isFinite(scale) || scale <= 0) {
         return null;
       }
-      const overviewPane = document.getElementById("OverviewPane");
-      const uiEditorPane = document.getElementById("UiEditorPane");
-
-      // These panes use `display: contents`, so the actual hit-testing overlays are the
-      // sidebars (`aside.single-cell-container`) and the icon rails (`div.absolute`).
-      const leftOverlays: HTMLElement[] = [];
-      const rightOverlays: HTMLElement[] = [];
-
-      const overviewAside = overviewPane?.querySelector(
-        "aside.single-cell-container",
-      );
-      if (overviewAside instanceof HTMLElement) {
-        leftOverlays.push(overviewAside);
-      }
-      const overviewRail = overviewPane?.querySelector("div.absolute.left-0");
-      if (overviewRail instanceof HTMLElement) {
-        leftOverlays.push(overviewRail);
-      }
-
-      const uiEditorAside = uiEditorPane?.querySelector(
-        "aside.single-cell-container",
-      );
-      if (uiEditorAside instanceof HTMLElement) {
-        rightOverlays.push(uiEditorAside);
-      }
-      const uiEditorRail = uiEditorPane?.querySelector("div.absolute.right-0");
-      if (uiEditorRail instanceof HTMLElement) {
-        rightOverlays.push(uiEditorRail);
-      }
-
-      let leftPx = gutter;
-      for (const overlay of leftOverlays) {
-        const rect = overlay.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          continue;
-        }
-        leftPx = Math.max(leftPx, rect.right - paneRect.left + gutter);
-      }
-
-      let rightPx = paneRect.width - gutter;
-      for (const overlay of rightOverlays) {
-        const rect = overlay.getBoundingClientRect();
-        if (rect.width <= 0 || rect.height <= 0) {
-          continue;
-        }
-        rightPx = Math.min(rightPx, rect.left - paneRect.left - gutter);
-      }
-
-      const topPx = gutter;
-      const bottomPx = paneRect.height - gutter;
-
-      const x = (-matrix.e + leftPx) / scale;
-      const y = (-matrix.f + topPx) / scale;
+      const x = (-matrix.e + overviewWidth) / scale;
+      const y = -matrix.f / scale;
       return {
         x,
         y,
-        w: Math.max(1, (rightPx - leftPx) / scale),
-        h: Math.max(1, (bottomPx - topPx) / scale),
+        w: paneRect.width / scale,
+        h: paneRect.height / scale,
       };
     });
     if (bounds) {
@@ -643,4 +637,29 @@ async function waitForProjectUrl(page: Page): Promise<void> {
 async function hasAuthCookie(page: Page): Promise<boolean> {
   const cookies = await page.context().cookies([PROJECT_URL, BACKEND_ORIGIN]);
   return cookies.some((cookie) => cookie.name === AUTH_COOKIE_NAME);
+}
+
+async function getDefaultConfigNameResult(page: Page): Promise<{
+  name: string | null;
+  status: number;
+}> {
+  const response = await page.request.post(
+    `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
+    {
+      data: {},
+    },
+  );
+  const status = response.status();
+  if (!response.ok()) {
+    return { name: null, status };
+  }
+  const text = await response.text();
+  if (!text) {
+    return { name: null, status };
+  }
+  const payload = JSON.parse(text) as unknown;
+  if (typeof payload !== "string" || !payload.trim()) {
+    return { name: null, status };
+  }
+  return { name: payload, status };
 }

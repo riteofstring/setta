@@ -12,11 +12,7 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
-  DEFAULT_FILE_BROWSER_TYPE_FILTERS,
-  type FileBrowserSearchScope,
-  type FileBrowserTypeFilter,
-} from "utils/fileBrowserTypes";
-import {
+  AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
   AllLLMConfigs,
@@ -302,8 +298,6 @@ type FileBrowserState = {
   filterText: string;
   pathSeparator: string;
   ignorePatterns: string[];
-  typeFilters: Record<FileBrowserTypeFilter, boolean>;
-  searchScope: FileBrowserSearchScope;
 };
 
 export const useFileBrowserState = createWithEqualityFn(
@@ -314,8 +308,6 @@ export const useFileBrowserState = createWithEqualityFn(
     filterText: "",
     pathSeparator: "/",
     ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
   })),
 );
 
@@ -327,8 +319,6 @@ export const useBrowserSectionFileBrowserState = createWithEqualityFn(
     filterText: "",
     pathSeparator: "/",
     ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
   })),
 );
 
@@ -340,8 +330,6 @@ export const useDropzoneFileBrowserState = createWithEqualityFn(
     filterText: "",
     pathSeparator: "/",
     ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
   })),
 );
 
@@ -699,6 +687,10 @@ type AIFollowState = {
   >;
   selectedChatIdsByProjectConfigId: Record<string, Array<string>>;
   selectedSectionIdsByProjectConfigId: Record<string, Array<string>>;
+  scopeViolationEdgesByProjectConfigId: Record<
+    string,
+    Array<AgenticScopeViolationEdge>
+  >;
 };
 
 export const useAIFollow = withProjectState(
@@ -711,6 +703,29 @@ export const useAIFollow = withProjectState(
         toolResultIdsByProjectConfigId: {},
         selectedChatIdsByProjectConfigId: {},
         selectedSectionIdsByProjectConfigId: {},
+        scopeViolationEdgesByProjectConfigId: {},
+      })),
+    ),
+  ),
+);
+
+export type AgenticScopeViolationEdge = {
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKindEnum;
+};
+
+type AgenticScopeHighlightsState = {
+  readSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
+  writeSectionIdsByProjectConfigId: Record<string, Record<string, true>>;
+};
+
+export const useAgenticScopeHighlights = withProjectState(
+  createWithEqualityFn(
+    immer(
+      withResetFn<AgenticScopeHighlightsState>(() => ({
+        readSectionIdsByProjectConfigId: {},
+        writeSectionIdsByProjectConfigId: {},
       })),
     ),
   ),
@@ -748,8 +763,6 @@ export type ColorModePreference = "dark" | "light" | "auto";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
-  showAgenticEdges: boolean;
-  showArgEdges: boolean;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
@@ -772,8 +785,6 @@ export const useLocalStorage = createWithEqualityFn(
   persist<ZustandLocalStorage>(
     () => ({
       snapToGrid: true,
-      showAgenticEdges: true,
-      showArgEdges: true,
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,

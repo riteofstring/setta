@@ -57,4 +57,3 @@
 - `plans/ai-gen-standalone-app-plan.md` – standalone app planning notes.
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
-- `plans/plugin-system-plan.md` – planning notes for a Setta plugin system (frontend, backend, content).

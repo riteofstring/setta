@@ -32,41 +32,31 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
-from tests.utils.integration_flags import (
-    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    external_agent_integration_tests_enabled,
-)
 
 
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.skipif(
-        not external_agent_integration_tests_enabled(),
-        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
-    ),
-]
+pytestmark = pytest.mark.asyncio
 
 
 class TestCodexAppServerAdapterIntegration:
     def _require_codex_cli(self) -> str:
-        codex_path = shutil.which("codex")
-        if codex_path is None:
-            pytest.skip("codex CLI not installed")
         if not os.environ.get("OPENAI_API_KEY"):
             pytest.skip("OPENAI_API_KEY not set")
+        codex_path = shutil.which("codex")
+        if codex_path is None:
+            pytest.fail("codex CLI not installed")
         result = subprocess.run(
             [codex_path, "app-server", "--help"],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
-            pytest.skip("codex app-server subcommand not available")
+            pytest.fail("codex app-server subcommand not available")
         try:
             socket.getaddrinfo("api.openai.com", 443)
             with socket.create_connection(("api.openai.com", 443), timeout=3):
                 pass
-        except OSError:
-            pytest.skip("Cannot connect to api.openai.com:443")
+        except OSError as exc:
+            pytest.skip(f"Cannot connect to api.openai.com:443 ({exc})")
         return codex_path
 
     async def _await_completed_run(
@@ -377,7 +367,7 @@ class TestCodexAppServerAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "allowUnscoped": True},
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
@@ -401,7 +391,7 @@ class TestCodexAppServerAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "allowUnscoped": True},
             )
 
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
@@ -421,7 +411,7 @@ class TestCodexAppServerAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "allowUnscoped": True},
             )
             first_stored = await self._await_completed_run(
                 dbe, first_run.id, runner=runner
@@ -436,7 +426,11 @@ class TestCodexAppServerAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello again.", "chatId": str(first_run.id)},
+                {
+                    "prompt": "Say hello again.",
+                    "chatId": str(first_run.id),
+                    "allowUnscoped": True,
+                },
             )
 
             second_inputs = second_run.inputs or {}
@@ -465,6 +459,7 @@ class TestCodexAppServerAdapterIntegration:
                 {
                     "messages": [user_message.model_dump(mode="json")],
                     "prompt": "What is the code word? Reply with only the code word.",
+                    "allowUnscoped": True,
                 },
             )
 
@@ -490,6 +485,7 @@ class TestCodexAppServerAdapterIntegration:
                     "prompt": (
                         f"Reply with the code word '{code_word}' and nothing else."
                     ),
+                    "allowUnscoped": True,
                 },
             )
             await self._await_completed_run(dbe, first_run.id, runner=runner)
@@ -504,6 +500,7 @@ class TestCodexAppServerAdapterIntegration:
                         "Reply with only the code word."
                     ),
                     "chatId": str(first_run.id),
+                    "allowUnscoped": True,
                 },
             )
             stored = await self._await_completed_run(dbe, second_run.id, runner=runner)
@@ -539,6 +536,7 @@ class TestCodexAppServerAdapterIntegration:
                         "Return only the JSON object."
                     ),
                     "outputSchema": schema,
+                    "allowUnscoped": True,
                 },
             )
 
@@ -563,7 +561,7 @@ class TestCodexAppServerAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello."},
+                {"prompt": "Say hello.", "allowUnscoped": True},
             )
             debug_adapter = None
             debug_state = None
@@ -628,7 +626,8 @@ class TestCodexAppServerAdapterIntegration:
                         "prompt": (
                             "What tools do you have access to? Reply with only the "
                             "tool names."
-                        )
+                        ),
+                        "allowUnscoped": True,
                     },
                 )
                 debug_stored = await self._await_completed_run(
@@ -664,7 +663,7 @@ class TestCodexAppServerAdapterIntegration:
                     config.id,
                     config,
                     None,
-                    {"prompt": tool_prompt},
+                    {"prompt": tool_prompt, "allowUnscoped": True},
                 )
                 debug_adapter = None
                 debug_state = None
@@ -851,6 +850,7 @@ class TestCodexAppServerAdapterIntegration:
                     "prompt": (
                         f"Reply with the code word '{code_word}' and nothing else."
                     ),
+                    "allowUnscoped": True,
                 },
             )
             first_stored = await self._await_completed_run(
@@ -872,6 +872,7 @@ class TestCodexAppServerAdapterIntegration:
                         "Reply with only the code word."
                     ),
                     "threadId": thread_id,
+                    "allowUnscoped": True,
                 },
             )
             stored = await self._await_completed_run(dbe, second_run.id, runner=runner)
@@ -911,6 +912,7 @@ class TestCodexAppServerAdapterIntegration:
                             "directory. Do not answer until after it completes. "
                             "Then reply with only the exact command output."
                         ),
+                        "allowUnscoped": True,
                     },
                 )
 
@@ -1004,6 +1006,7 @@ class TestCodexAppServerAdapterIntegration:
                             "Do not answer until after the file is updated. "
                             "Then reply with only OK."
                         ),
+                        "allowUnscoped": True,
                     },
                 )
 
@@ -1122,7 +1125,8 @@ class TestCodexAppServerAdapterIntegration:
                             f"`{command}` in the current directory. Do not answer "
                             "until after it completes. Then reply with only the "
                             "exact command output."
-                        )
+                        ),
+                        "allowUnscoped": True,
                     },
                 )
 

@@ -107,3 +107,4 @@ class LLMStreamingResponse(BaseModel):
     chatId: ID
     chunk: LLMStreamingResponseChunk
     sectionId: ID | None = None
+    projectConfigId: ID | None = None

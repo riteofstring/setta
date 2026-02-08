@@ -3,7 +3,6 @@ import * as Popover from "@radix-ui/react-popover";
 export function StandardPopover({
   trigger,
   contentClasses,
-  contentProps,
   children,
   open,
   close = false,
@@ -14,7 +13,6 @@ export function StandardPopover({
 }: {
   trigger: React.ReactElement;
   contentClasses?: string;
-  contentProps?: Omit<Popover.PopoverContentProps, "children" | "className">;
   children?: React.ReactNode;
   close?: boolean;
   closeClasses?: string;
@@ -36,7 +34,7 @@ export function StandardPopover({
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
 
       <Popover.Portal container={portalContainer ?? undefined}>
-        <Popover.Content className={contentClasses} {...contentProps}>
+        <Popover.Content className={contentClasses}>
           {close && (
             <Popover.Close className={closeClasses}>{close}</Popover.Close>
           )}

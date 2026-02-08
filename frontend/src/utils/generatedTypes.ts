@@ -443,6 +443,7 @@ export const RouteEnum = {
   GET_LLM_CHAT: "/getLLMChat",
   GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENTIC_SUMMARY_CACHE_STATUS: "/getAgenticSummaryCacheStatus",
   GET_AGENT_PROFILES: "/getAgentProfiles",
   GET_AGENT_PROFILE: "/getAgentProfile",
   CREATE_AGENT_PROFILE: "/createAgentProfile",
@@ -578,7 +579,6 @@ export const RouteEnum = {
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
-  SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
@@ -623,11 +623,6 @@ export const RouteEnum = {
     "/share/deployments/{deploymentName}/{version}/project_config",
   SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
   WEBSOCKET_SHARE_FRONTEND: "/share/frontend",
-} as const;
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
 } as const;
 
 export const BackgroundVariantEnum = {
@@ -1402,40 +1397,6 @@ export function createDrawAreaLayer(
   return DrawAreaLayerSchema.parse(options);
 }
 
-const BrowserSavedSearchTypeFiltersSchema = z.object({
-  image: z.boolean().default(true),
-  video: z.boolean().default(true),
-  audio: z.boolean().default(true),
-  text: z.boolean().default(true),
-  data: z.boolean().default(true),
-});
-
-export type BrowserSavedSearchTypeFilters = z.infer<
-  typeof BrowserSavedSearchTypeFiltersSchema
->;
-
-function createBrowserSavedSearchTypeFilters(
-  options: Partial<BrowserSavedSearchTypeFilters> = {},
-): BrowserSavedSearchTypeFilters {
-  return BrowserSavedSearchTypeFiltersSchema.parse(options);
-}
-
-const BrowserSavedSearchSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string().default("" as const),
-  query: z.string().default("" as const),
-  searchScope: z
-    .enum(BrowserSearchScopeEnum)
-    .default(BrowserSearchScopeEnum.recursive),
-  typeFilters: BrowserSavedSearchTypeFiltersSchema.default(
-    createBrowserSavedSearchTypeFilters,
-  ),
-  color: z.string().default("#3b82f6" as const),
-  quickInfo: z.string().default("" as const),
-});
-
-export type BrowserSavedSearch = z.infer<typeof BrowserSavedSearchSchema>;
-
 const SectionSizeSchema = z.object({
   width: z
     .union([z.number(), z.literal("auto")])
@@ -1550,7 +1511,6 @@ const SharedModifierSchema = z.object({
   requestHeaderValue: z.string().optional(),
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
-  savedSearches: z.array(BrowserSavedSearchSchema).optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -1669,7 +1629,6 @@ const CoreSchema = z.object({
         "requestHeaderValue",
         "requestMethod",
         "requestUrl",
-        "savedSearches",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -2182,9 +2141,7 @@ const BrowserSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 720.0, height: 460.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -2198,7 +2155,6 @@ const BrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  savedSearches: z.array(BrowserSavedSearchSchema).default([]),
 });
 
 type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
@@ -3380,7 +3336,6 @@ const BrowserSectionImplArgsSchema = z.object({
   columnWidth: z.union([z.number(), z.null()]).optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
-  savedSearches: z.array(BrowserSavedSearchSchema).optional(),
 });
 
 type BrowserSectionImplArgs = z.infer<typeof BrowserSectionImplArgsSchema>;
@@ -3553,6 +3508,7 @@ const LLMStreamingResponseSchema = z.object({
     MessageFinalizedEventSchema,
   ]),
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
 });
 
 export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
@@ -3941,7 +3897,7 @@ const AgenticEdgeSchema = z.object({
   selected: z.boolean().default(false),
 });
 
-type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
+export type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
 
 export function createAgenticEdge(
   options: Partial<AgenticEdge> = {},
@@ -4216,8 +4172,6 @@ const SettingsGUISchema = z.object({
   gridPatternSize: z.int().default(2),
   gridColor: z.string().default("#afbacf" as const),
   gridColorDarkMode: z.string().default("#2b364a" as const),
-  wireColor: z.string().default("#41506c" as const),
-  wireColorDarkMode: z.string().default("#bac2d3" as const),
   defaultZoomLevel: z.number().default(1.0),
   minZoom: z.number().default(0.1),
   maxZoom: z.number().default(10.0),
@@ -4244,7 +4198,7 @@ function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
 const SettingsBackendSchema = z.object({
   showDefaultConfigOnLoad: z.boolean().default(true),
   autosave: z.boolean().default(true),
-  autobackup: z.boolean().default(true),
+  autobackup: z.boolean().default(false),
   autobackupFreq: z.int().default(300),
   autobackupKeepLastN: z.int().default(10),
   clearTerminalBeforeMarkingAsReady: z.boolean().default(true),
@@ -4628,9 +4582,7 @@ function createSectionSizingPolicy(
 
 const UserDefaultBrowserSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 720.0, height: 460.0 }),
-  ),
+  size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
@@ -4641,7 +4593,6 @@ const UserDefaultBrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  savedSearches: z.array(BrowserSavedSearchSchema).default([]),
 });
 
 type UserDefaultBrowserSectionImpl = z.infer<
@@ -5575,6 +5526,8 @@ const AgentProfileSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(false),
+  enableLlmChatTitles: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6044,6 +5997,20 @@ const RunChainSpecSchema = z.object({
   stopOnFailure: z.boolean().default(true),
 });
 
+const AgenticSummaryCacheStatusSchema = z.object({
+  maxSummariesPerRun: z.int(),
+  summarySectionIds: z.array(IDSchema).default([]),
+  cachedSectionIds: z.array(IDSchema).default([]),
+  missingSectionIds: z.array(IDSchema).default([]),
+  emptySourceSectionIds: z.array(IDSchema).default([]),
+  consideredSectionIds: z.array(IDSchema).default([]),
+  wouldAttemptSectionIds: z.array(IDSchema).default([]),
+});
+
+export type AgenticSummaryCacheStatus = z.infer<
+  typeof AgenticSummaryCacheStatusSchema
+>;
+
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -6108,6 +6075,7 @@ const DeleteChatRequestSchema = z.object({
 export type DeleteChatRequestInput = z.input<typeof DeleteChatRequestSchema>;
 
 const EmitChatStreamDeltaRequestSchema = z.object({
+  projectConfigId: IDSchema,
   sectionId: IDSchema,
   chatId: IDSchema,
   chunk: z.union([
@@ -6139,6 +6107,7 @@ export type GetChatRequestInput = z.input<typeof GetChatRequestSchema>;
 
 const RunMcpToolsRequestSchema = z.object({
   chatId: IDSchema,
+  sectionId: IDSchema,
   toolCalls: z.array(ToolCallSchema),
 });
 
@@ -6494,6 +6463,8 @@ const CreateAgentProfileRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(false),
+  enableLlmChatTitles: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6605,6 +6576,15 @@ const GetAgentRunRequestSchema = z.object({
 });
 
 export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetAgenticSummaryCacheStatusRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatSectionId: IDSchema,
+});
+
+export type GetAgenticSummaryCacheStatusRequestInput = z.input<
+  typeof GetAgenticSummaryCacheStatusRequestSchema
+>;
 
 const GetEngineConfigRequestSchema = z.object({
   configId: IDSchema,
@@ -6793,6 +6773,7 @@ const GetLLMResponseRequestSchema = z.object({
   thinking: z.boolean(),
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  allowUnscoped: z.boolean().default(false),
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
 });
@@ -6998,6 +6979,7 @@ export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
 const MCPToolCallRequestSchema = z.object({
   tool: z.string(),
   arguments: z.union([z.any(), z.null()]).default(null),
+  agenticContext: z.any().default(null),
 });
 
 export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;
@@ -7590,17 +7572,6 @@ const SetBrowserHideColumnRequestSchema = z.object({
 
 export type SetBrowserHideColumnRequestInput = z.input<
   typeof SetBrowserHideColumnRequestSchema
->;
-
-const SetBrowserSavedSearchesRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  savedSearches: z.array(BrowserSavedSearchSchema),
-});
-
-export type SetBrowserSavedSearchesRequestInput = z.input<
-  typeof SetBrowserSavedSearchesRequestSchema
 >;
 
 const SetCallableHideParamsRequestSchema = z.object({
@@ -8580,7 +8551,6 @@ const BackendInitStatusResponseSchema = z.object({
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
-  worktreeName: z.union([z.string(), z.null()]),
 });
 
 export type BackendInitStatusResponse = z.infer<

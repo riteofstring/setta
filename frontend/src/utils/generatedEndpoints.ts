@@ -467,6 +467,12 @@ export async function route_get_agent_runs(): Promise<
   return await get("/getAgentRuns");
 }
 
+export async function route_get_agentic_summary_cache_status(
+  x: gt.GetAgenticSummaryCacheStatusRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgenticSummaryCacheStatus>> {
+  return await post("/getAgenticSummaryCacheStatus", x);
+}
+
 export async function route_get_prompt_templates(): Promise<
   ResponseDataAndStatus<Array<gt.PromptTemplate>>
 > {
@@ -1133,12 +1139,6 @@ export async function route_set_browser_hide_column(
   x: gt.SetBrowserHideColumnRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setBrowserHideColumn", x);
-}
-
-export async function route_set_browser_saved_searches(
-  x: gt.SetBrowserSavedSearchesRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setBrowserSavedSearches", x);
 }
 
 export async function route_set_text_block_format(

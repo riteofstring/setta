@@ -39,7 +39,7 @@ export function HideColumn({ sectionId }) {
 
   return (
     <MenuItem onClick={onClick}>
-      {hideColumn ? "Show Filters" : "Hide Filters"}
+      {hideColumn ? "Show Types" : "Hide Types"}
     </MenuItem>
   );
 }

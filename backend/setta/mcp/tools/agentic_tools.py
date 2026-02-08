@@ -2,10 +2,46 @@ from typing import Any
 
 from mcp.server.fastmcp.server import Context
 
+from setta.agentic.agentic_scope import AgenticContext
 from setta.agentic.store import load_agent_profiles
-from setta.mcp.tool_setup import setta_tool
+from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
+from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
 from setta.types.id import ID
+
+
+@setta_init_tool
+def set_agentic_context(
+    *,
+    projectConfigId: ID,
+    chatId: ID | None = None,
+    sectionId: ID | None = None,
+    allowUnscoped: bool = False,
+    ctx: Context,
+) -> dict[str, Any]:
+    """
+    Register agentic context for this MCP session before any tool calls.
+
+    Args:
+        projectConfigId: Active project config id.
+        chatId: Chat id for the agent run.
+        sectionId: Chat section id (required unless allowUnscoped=true).
+        allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
+    """
+    if sectionId is None and not allowUnscoped:
+        raise ValueError("sectionId is required unless allowUnscoped is true.")
+    if sectionId is not None and allowUnscoped:
+        raise ValueError("allowUnscoped requires sectionId to be omitted.")
+    ctx.fastmcp.set_agentic_context_for_session(
+        ctx,
+        AgenticContext(
+            project_config_id=projectConfigId,
+            chat_id=chatId,
+            section_id=sectionId,
+            allow_unscoped=allowUnscoped,
+        ),
+    )
+    return {"status": "ok"}
 
 
 @setta_tool
@@ -15,6 +51,12 @@ def list_agent_profiles(ctx: Context) -> AgentProfileList:
     """
     profiles = load_agent_profiles(ctx.fastmcp.state.dbe)
     return AgentProfileList(profiles=profiles)
+
+
+attach_tool_access(
+    list_agent_profiles,
+    ToolAccessMetadata(accessType="read"),
+)
 
 
 @setta_tool
@@ -29,6 +71,12 @@ def get_agent_profile(profileId: ID, ctx: Context) -> AgentProfile:
         if profile.id == profileId:
             return profile
     raise KeyError(f"Agent profile {profileId} not found")
+
+
+attach_tool_access(
+    get_agent_profile,
+    ToolAccessMetadata(accessType="read"),
+)
 
 
 @setta_tool
@@ -51,3 +99,9 @@ async def run_agent_profile(
                 raise RuntimeError("Agent runner is not available")
             return await runner.run_sub_agent(profile, inputs)
     raise KeyError(f"Agent profile {profileId} not found")
+
+
+attach_tool_access(
+    run_agent_profile,
+    ToolAccessMetadata(accessType="structural"),
+)

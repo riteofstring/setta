@@ -1,11 +1,16 @@
-import watchdog.observers
+import sys
+
 from watchdog.observers.polling import PollingObserver
 
-from tests.utils.watchdog_observer import should_force_polling_observer
+import setta.file_watchers.lsp as lsp_file_watcher
+import setta.file_watchers.specific_file_watcher as specific_file_watcher
+import setta.project_state.watch_code as watch_code
 
 
-# Patch watchdog itself (not Setta modules) so any later `from watchdog.observers import Observer`
-# bindings pick up polling without importing Setta early (which can freeze `setta.utils.constants.CWD`).
-if should_force_polling_observer():
-    watchdog.observers.Observer = PollingObserver
+if sys.platform == "darwin":
+    # Avoid watchdog FSEvents crashes during test teardown on macOS by using a
+    # polling observer for all filesystem watchers.
+    specific_file_watcher.Observer = PollingObserver
+    lsp_file_watcher.Observer = PollingObserver
+    watch_code.Observer = PollingObserver
 

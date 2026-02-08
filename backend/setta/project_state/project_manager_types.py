@@ -34,7 +34,6 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    BrowserSavedSearch,
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
@@ -926,10 +925,6 @@ class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithSection):
 
 class SetBrowserHideColumnRequest(ProjectManagerRequestWithSection):
     hideColumn: bool
-
-
-class SetBrowserSavedSearchesRequest(ProjectManagerRequestWithSection):
-    savedSearches: list[BrowserSavedSearch]
 
 
 class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
