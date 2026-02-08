@@ -1302,6 +1302,27 @@ class TestGitRoutes:
         assert page.nextOffset is None
         assert page.isCapped is False
 
+    async def test_log_high_offset_rejects_invalid_revision(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(git_router, "_MAX_LOG_COUNT", 50)
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_log(
+                    GetGitLogRequest(
+                        rev="does-not-exist",
+                        pageSize=10,
+                        offset=99,
+                        allRefs=False,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Invalid revision: does-not-exist" in str(exc.value.detail)
+
     async def test_log_truncated_without_parsed_commits_does_not_loop_pagination(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

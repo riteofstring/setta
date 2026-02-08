@@ -210,6 +210,26 @@ def _git_log_error_is_invalid_revision(stderr: str) -> bool:
     )
 
 
+def _verify_log_revision_or_400(repo_root: Path, rev: str) -> None:
+    verify_rev = run_git(
+        ["rev-parse", "--verify", "--quiet", "--end-of-options", rev],
+        cwd=repo_root,
+        timeout_s=1.5,
+        max_stdout_bytes=256,
+        max_stderr_bytes=4096,
+    )
+    if verify_rev.timed_out:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out verifying revision.",
+        )
+    if verify_rev.returncode != 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid revision: {rev}",
+        )
+
+
 def _build_repo_info(repo_root: Path | None) -> GitRepoInfoResponse:
     if repo_root is None:
         return GitRepoInfoResponse(isGitRepo=False)
@@ -825,6 +845,8 @@ def route_get_git_log(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid revision.",
             )
+        if rev != "HEAD":
+            _verify_log_revision_or_400(repo_root, rev)
 
     head_branch = _get_head_branch(repo_root) if offset == 0 else None
 

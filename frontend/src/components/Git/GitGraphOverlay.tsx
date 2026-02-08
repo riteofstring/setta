@@ -4,7 +4,12 @@ import {
   gitFileStatusVisuals,
 } from "components/Git/gitFileStatusVisuals";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { List, useDynamicRowHeight, useListRef } from "react-window";
+import {
+  List,
+  type RowComponentProps,
+  useDynamicRowHeight,
+  useListRef,
+} from "react-window";
 import {
   clearGitGraphSelectedCommit,
   closeGitOverlay,
@@ -217,6 +222,7 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
   symbolic: 4,
   other: 5,
 };
+const EMPTY_REMOTE_DECORATION_PREFIXES: ReadonlySet<string> = new Set();
 
 export function buildGitCommitSearchBlob(commit: GitCommit): string {
   const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
@@ -226,7 +232,6 @@ export function buildGitCommitSearchBlob(commit: GitCommit): string {
 export function collectRemoteDecorationPrefixes(
   decorations: readonly string[],
 ): Set<string> {
-  const plainRefNames = new Set<string>();
   const remotePrefixes = new Set<string>();
 
   for (const raw of decorations) {
@@ -235,46 +240,29 @@ export function collectRemoteDecorationPrefixes(
       continue;
     }
 
+    if (text.startsWith("origin/")) {
+      remotePrefixes.add("origin");
+      continue;
+    }
+    if (text.startsWith("upstream/")) {
+      remotePrefixes.add("upstream");
+      continue;
+    }
+
     const arrowIdx = text.indexOf(" -> ");
-    if (arrowIdx !== -1) {
-      const left = text.slice(0, arrowIdx).trim();
-      const right = text.slice(arrowIdx + " -> ".length).trim();
-      if (left.endsWith("/HEAD")) {
-        const prefix = left.slice(0, -"/HEAD".length).trim();
-        if (prefix) {
-          remotePrefixes.add(prefix);
-        }
-      }
-      if (right && !right.includes("/")) {
-        plainRefNames.add(right);
-      }
+    if (arrowIdx === -1) {
       continue;
     }
-
-    if (!text.includes("/")) {
-      plainRefNames.add(text);
-    }
-  }
-
-  for (const raw of decorations) {
-    const text = raw.trim();
-    if (!text || text.startsWith("tag: ") || text.includes(" -> ")) {
+    const left = text.slice(0, arrowIdx).trim();
+    const right = text.slice(arrowIdx + " -> ".length).trim();
+    if (!left.endsWith("/HEAD")) {
       continue;
     }
-    const slashIdx = text.indexOf("/");
-    if (slashIdx <= 0) {
+    const prefix = left.slice(0, -"/HEAD".length).trim();
+    if (!prefix) {
       continue;
     }
-    const prefix = text.slice(0, slashIdx);
-    const suffix = text.slice(slashIdx + 1);
-    if (!suffix) {
-      continue;
-    }
-    if (prefix === "origin" || prefix === "upstream") {
-      remotePrefixes.add(prefix);
-      continue;
-    }
-    if (plainRefNames.has(suffix)) {
+    if (right.startsWith(`${prefix}/`)) {
       remotePrefixes.add(prefix);
     }
   }
@@ -325,9 +313,9 @@ function parseDecorationChip(
   return { label: text, kind: "branch" };
 }
 
-function summarizeDecorationChips(
+export function summarizeDecorationChips(
   decorations: readonly string[],
-  remoteDecorationPrefixes: ReadonlySet<string>,
+  remoteDecorationPrefixes: ReadonlySet<string> = EMPTY_REMOTE_DECORATION_PREFIXES,
 ): DecorationChipSummary {
   const allChips = decorations
     .map((decoration) =>
@@ -376,18 +364,24 @@ export function buildGitCommitLookupByHash(
 }
 
 export function buildGitGraphRowHeightCacheKey({
-  commits,
+  commitDigest,
   allRefs,
   filterText,
 }: {
-  commits: readonly GitCommit[];
+  commitDigest: string;
   allRefs: boolean;
   filterText: string;
 }): string {
   const normalizedFilter = filterText.trim().toLowerCase();
   const refMode = allRefs ? "all" : "branch";
+  return `${commitDigest}:${refMode}:${normalizedFilter}`;
+}
+
+export function buildGitGraphCommitDigest(
+  commits: readonly GitCommit[],
+): string {
   if (commits.length === 0) {
-    return `0:${refMode}:${normalizedFilter}`;
+    return "0";
   }
   let digest = 2166136261;
   for (const commit of commits) {
@@ -398,7 +392,7 @@ export function buildGitGraphRowHeightCacheKey({
     digest ^= 124;
     digest = Math.imul(digest, 16777619) >>> 0;
   }
-  return `${commits.length}:${refMode}:${digest.toString(16)}:${normalizedFilter}`;
+  return `${commits.length}:${digest.toString(16)}`;
 }
 
 export function GitGraphOverlay() {
@@ -421,7 +415,7 @@ export function GitGraphOverlay() {
     hashColWidthPx: x.gitGraphHashWidthPx,
   }));
 
-  const listRef = useListRef();
+  const listRef = useListRef(null);
   const overlayRef = useRef<HTMLElement | null>(null);
   const panesWrapperRef = useRef<HTMLDivElement | null>(null);
   const commitHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -542,13 +536,16 @@ export function GitGraphOverlay() {
   const selectedCommit = graphState?.selectedCommitHash
     ? commitsByHash.get(graphState.selectedCommitHash) ?? null
     : null;
+  const commitDigest = useMemo(() => {
+    return buildGitGraphCommitDigest(commits);
+  }, [commits]);
   const dynamicRowHeightCacheKey = useMemo(() => {
     return buildGitGraphRowHeightCacheKey({
-      commits,
+      commitDigest,
       allRefs: graphState?.allRefs ?? false,
       filterText,
     });
-  }, [commits, filterText, graphState?.allRefs]);
+  }, [commitDigest, filterText, graphState?.allRefs]);
   const dynamicRowHeight = useDynamicRowHeight({
     defaultRowHeight: ROW_HEIGHT,
     key: dynamicRowHeightCacheKey,
@@ -585,7 +582,7 @@ export function GitGraphOverlay() {
     return graphViewBoxWidth / Math.max(1, maxLaneCount);
   }, [graphViewBoxWidth, maxLaneCount]);
   const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
-  const commitRowProps = useMemo(
+  const commitRowProps = useMemo<GitCommitRowDataProps>(
     () => ({
       rows: filteredRows,
       selectedHash: graphState?.selectedCommitHash ?? null,
@@ -1317,9 +1314,7 @@ export function GitGraphOverlay() {
   );
 }
 
-type GitCommitRowProps = {
-  index: number;
-  style: Record<string, unknown>;
+type GitCommitRowDataProps = {
   rows: GitGraphRow[];
   selectedHash: string | null;
   palette: readonly string[];
@@ -1329,6 +1324,7 @@ type GitCommitRowProps = {
   dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
   decorationChipSummaryByHash: Map<string, DecorationChipSummary>;
 };
+type GitCommitRowProps = RowComponentProps<GitCommitRowDataProps>;
 
 function GitCommitRow({
   index,
@@ -1379,7 +1375,7 @@ function GitCommitRow({
 
   return (
     <div
-      style={style as never}
+      style={style}
       ref={rowRef}
       data-react-window-index={index}
       className="w-full"

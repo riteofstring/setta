@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildGitCommitLookupByHash,
   buildGitCommitSearchBlob,
+  buildGitGraphCommitDigest,
   buildGitGraphRowHeightCacheKey,
   collectRemoteDecorationPrefixes,
+  summarizeDecorationChips,
 } from "./GitGraphOverlay";
 
 function commit(
@@ -33,13 +35,23 @@ function commit(
 
 describe("buildGitGraphRowHeightCacheKey", () => {
   it("changes when commit identities change even if commit count is unchanged", () => {
+    const firstDigest = buildGitGraphCommitDigest([
+      commit("a1"),
+      commit("b2"),
+      commit("c3"),
+    ]);
+    const secondDigest = buildGitGraphCommitDigest([
+      commit("x1"),
+      commit("y2"),
+      commit("z3"),
+    ]);
     const firstKey = buildGitGraphRowHeightCacheKey({
-      commits: [commit("a1"), commit("b2"), commit("c3")],
+      commitDigest: firstDigest,
       allRefs: false,
       filterText: "",
     });
     const secondKey = buildGitGraphRowHeightCacheKey({
-      commits: [commit("x1"), commit("y2"), commit("z3")],
+      commitDigest: secondDigest,
       allRefs: false,
       filterText: "",
     });
@@ -48,13 +60,14 @@ describe("buildGitGraphRowHeightCacheKey", () => {
   });
 
   it("includes ref-mode and normalized filter text", () => {
+    const commitDigest = buildGitGraphCommitDigest([commit("a1")]);
     const branchKey = buildGitGraphRowHeightCacheKey({
-      commits: [commit("a1")],
+      commitDigest,
       allRefs: false,
       filterText: "  Feature  ",
     });
     const allRefsKey = buildGitGraphRowHeightCacheKey({
-      commits: [commit("a1")],
+      commitDigest,
       allRefs: true,
       filterText: "feature",
     });
@@ -63,25 +76,27 @@ describe("buildGitGraphRowHeightCacheKey", () => {
   });
 
   it("changes when interior commits change with identical length and edge hashes", () => {
+    const firstDigest = buildGitGraphCommitDigest([
+      commit("a1"),
+      commit("b2"),
+      commit("c3"),
+      commit("d4"),
+      commit("e5"),
+    ]);
+    const secondDigest = buildGitGraphCommitDigest([
+      commit("a1"),
+      commit("x9"),
+      commit("c3"),
+      commit("y8"),
+      commit("e5"),
+    ]);
     const firstKey = buildGitGraphRowHeightCacheKey({
-      commits: [
-        commit("a1"),
-        commit("b2"),
-        commit("c3"),
-        commit("d4"),
-        commit("e5"),
-      ],
+      commitDigest: firstDigest,
       allRefs: false,
       filterText: "",
     });
     const secondKey = buildGitGraphRowHeightCacheKey({
-      commits: [
-        commit("a1"),
-        commit("x9"),
-        commit("c3"),
-        commit("y8"),
-        commit("e5"),
-      ],
+      commitDigest: secondDigest,
       allRefs: false,
       filterText: "",
     });
@@ -119,16 +134,25 @@ describe("buildGitCommitSearchBlob", () => {
 });
 
 describe("collectRemoteDecorationPrefixes", () => {
-  it("detects remote prefixes from remote-head and matching local refs", () => {
+  it("detects remote prefixes from remote-head and known remote names", () => {
     const remotePrefixes = collectRemoteDecorationPrefixes([
       "HEAD -> main",
       "upstream/main",
       "mirror/HEAD -> mirror/main",
-      "feature/scope",
+      "feature/main",
     ]);
 
     expect(remotePrefixes.has("upstream")).toBe(true);
     expect(remotePrefixes.has("mirror")).toBe(true);
     expect(remotePrefixes.has("feature")).toBe(false);
+  });
+});
+
+describe("summarizeDecorationChips", () => {
+  it("defaults remote-prefix context so fallback calls are safe", () => {
+    const summary = summarizeDecorationChips(["feature/main"]);
+
+    expect(summary.chips).toEqual([{ label: "feature/main", kind: "branch" }]);
+    expect(summary.extraChipCount).toBe(0);
   });
 });

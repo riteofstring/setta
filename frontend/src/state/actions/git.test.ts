@@ -17,6 +17,7 @@ import { computeGitGraphRowsWithState } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildGitDiffAvailabilityByPath,
+  clearGitGraphSelectedCommit,
   loadMoreGitGraphCommits,
   openGitDiffOverlay,
   openGitGraphOverlay,
@@ -895,6 +896,87 @@ describe("git graph actions", () => {
     });
 
     await refreshGitGraphOverlay();
+
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.selectedCommitDetails).toBeNull();
+    expect(overlay.graph.selectedCommitDetailsIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitDetailsError).toBeNull();
+    expect(overlay.graph.selectedCommitFilePath).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitFileDiffError).toBeNull();
+  });
+
+  it("clears selected commit details and diff state when selection is cleared", async () => {
+    const commitA = commit("a1b2c3", []);
+    const commitB = commit("b4c5d6", ["a1b2c3"]);
+    setGraphOverlayState({
+      response: createLogResponse({
+        commits: [commitB, commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+    useGitStore.setState((state) => {
+      if (state.overlay.kind !== "graph") {
+        return state;
+      }
+      return {
+        ...state,
+        overlay: {
+          kind: "graph",
+          graph: {
+            ...state.overlay.graph,
+            selectedCommitHash: "b4c5d6",
+            selectedCommitDetails: createGetGitCommitDetailsResponse({
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              parents: ["a1b2c3"],
+              authorName: "B",
+              authorEmail: "b@example.com",
+              authorTimeMs: 2,
+              committerName: "B",
+              committerEmail: "b@example.com",
+              committerTimeMs: 2,
+              subject: "B",
+              body: "",
+              isTruncated: false,
+              files: [
+                {
+                  path: "b.txt",
+                  oldPath: null,
+                  status: "M",
+                  additions: 1,
+                  deletions: 1,
+                },
+              ],
+            }),
+            selectedCommitDetailsIsLoading: true,
+            selectedCommitDetailsError: "stale details error",
+            selectedCommitFilePath: "b.txt",
+            selectedCommitFileDiffResponse: {
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              path: "b.txt",
+              diff: "stale",
+              isTruncated: false,
+            },
+            selectedCommitFileDiffIsLoading: true,
+            selectedCommitFileDiffError: "stale diff error",
+          },
+        },
+      };
+    });
+
+    clearGitGraphSelectedCommit();
 
     const overlay = useGitStore.getState().overlay;
     expect(overlay.kind).toBe("graph");

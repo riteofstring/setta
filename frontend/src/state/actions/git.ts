@@ -22,6 +22,19 @@ let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
 
+function createClearedGitGraphSelectionState() {
+  return {
+    selectedCommitHash: null,
+    selectedCommitDetails: null,
+    selectedCommitDetailsIsLoading: false,
+    selectedCommitDetailsError: null,
+    selectedCommitFilePath: null,
+    selectedCommitFileDiffResponse: null,
+    selectedCommitFileDiffIsLoading: false,
+    selectedCommitFileDiffError: null,
+  };
+}
+
 export function buildGitDiffAvailabilityByPath(
   entries: readonly GitStatusEntry[],
 ): Map<string, { hasStaged: boolean; hasUnstaged: boolean }> {
@@ -76,14 +89,7 @@ function createInitialGitGraphOverlayState({
     nextOffset: null,
     pageSize: DEFAULT_GIT_GRAPH_PAGE_SIZE,
     isCapped: false,
-    selectedCommitHash: null,
-    selectedCommitDetails: null,
-    selectedCommitDetailsIsLoading: false,
-    selectedCommitDetailsError: null,
-    selectedCommitFilePath: null,
-    selectedCommitFileDiffResponse: null,
-    selectedCommitFileDiffIsLoading: false,
-    selectedCommitFileDiffError: null,
+    ...createClearedGitGraphSelectionState(),
   };
 }
 
@@ -286,14 +292,7 @@ export function clearGitGraphSelectedCommit(): void {
         kind: "graph",
         graph: {
           ...state.overlay.graph,
-          selectedCommitHash: null,
-          selectedCommitDetails: null,
-          selectedCommitDetailsIsLoading: false,
-          selectedCommitDetailsError: null,
-          selectedCommitFilePath: null,
-          selectedCommitFileDiffResponse: null,
-          selectedCommitFileDiffIsLoading: false,
-          selectedCommitFileDiffError: null,
+          ...createClearedGitGraphSelectionState(),
         },
       },
     };
@@ -370,16 +369,7 @@ async function refreshGitGraph({
             pageSize: responseData.pageSize,
             isCapped: responseData.isCapped,
             ...(shouldClearSelection
-              ? {
-                  selectedCommitHash: null,
-                  selectedCommitDetails: null,
-                  selectedCommitDetailsIsLoading: false,
-                  selectedCommitDetailsError: null,
-                  selectedCommitFilePath: null,
-                  selectedCommitFileDiffResponse: null,
-                  selectedCommitFileDiffIsLoading: false,
-                  selectedCommitFileDiffError: null,
-                }
+              ? createClearedGitGraphSelectionState()
               : {}),
           },
         },
@@ -409,14 +399,7 @@ async function refreshGitGraph({
           hasMore: false,
           nextOffset: null,
           isCapped: false,
-          selectedCommitHash: null,
-          selectedCommitDetails: null,
-          selectedCommitDetailsIsLoading: false,
-          selectedCommitDetailsError: null,
-          selectedCommitFilePath: null,
-          selectedCommitFileDiffResponse: null,
-          selectedCommitFileDiffIsLoading: false,
-          selectedCommitFileDiffError: null,
+          ...createClearedGitGraphSelectionState(),
         },
       },
     };
@@ -631,14 +614,9 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
         kind: "graph",
         graph: {
           ...state.overlay.graph,
+          ...createClearedGitGraphSelectionState(),
           selectedCommitHash: commitHash,
-          selectedCommitDetails: null,
           selectedCommitDetailsIsLoading: true,
-          selectedCommitDetailsError: null,
-          selectedCommitFilePath: null,
-          selectedCommitFileDiffResponse: null,
-          selectedCommitFileDiffIsLoading: false,
-          selectedCommitFileDiffError: null,
         },
       },
     };
