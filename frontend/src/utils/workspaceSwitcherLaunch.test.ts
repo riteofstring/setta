@@ -154,7 +154,7 @@ describe("workspaceSwitcherLaunch", () => {
 
     writeWorkspaceSwitcherDraft(request);
     expect(memoryStorage.getItem("setta.workspaceSwitcherDraft")).toContain(
-      "\"settaFilesLocation\":\"global\"",
+      '"settaFilesLocation":"global"',
     );
 
     const draft = readWorkspaceSwitcherDraft();

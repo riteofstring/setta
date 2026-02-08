@@ -327,7 +327,9 @@ describe("workspaceHistory", () => {
 
     consumeWorkspaceHistoryHandoff();
 
-    expect(memoryStorage.getItem("setta.workspaceHistoryHandoff.v2")).toBeNull();
+    expect(
+      memoryStorage.getItem("setta.workspaceHistoryHandoff.v2"),
+    ).toBeNull();
     const loaded = loadWorkspaceHistory();
     expect(loaded[0]?.workspaceRoot).toBe("/tmp/work");
     expect(loaded[0]?.lastUsedAt).toBe(20);

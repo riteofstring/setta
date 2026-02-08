@@ -1,7 +1,7 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
 import { safeLocalStorage } from "utils/storage";
 
-export type SettaFilesLocation = "auto" | "local" | "global";
+type SettaFilesLocation = "auto" | "local" | "global";
 
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
@@ -134,7 +134,9 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot: normalizedWorkspaceRoot,
       sshTarget: normalizeNullableString(record.sshTarget),
       localPort: normalizeNullablePort(record.localPort),
-      settaFilesLocation: normalizeSettaFilesLocation(record.settaFilesLocation),
+      settaFilesLocation: normalizeSettaFilesLocation(
+        record.settaFilesLocation,
+      ),
       lastUsedAt: record.lastUsedAt,
     });
   }

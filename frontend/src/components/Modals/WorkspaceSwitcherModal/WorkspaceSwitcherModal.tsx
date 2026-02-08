@@ -6,7 +6,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_get_setta_home_info } from "utils/generatedEndpoints";
-import type { LaunchRequestInput, SettaHomeInfoResponse } from "utils/generatedTypes";
+import type {
+  LaunchRequestInput,
+  SettaHomeInfoResponse,
+} from "utils/generatedTypes";
 import {
   loadWorkspaceHistory,
   saveWorkspaceHistory,
@@ -269,11 +272,7 @@ export function WorkspaceSwitcherModal() {
               value={settaFilesLocation}
               onChange={(event) => {
                 const next = event.target.value;
-                if (
-                  next === "auto" ||
-                  next === "local" ||
-                  next === "global"
-                ) {
+                if (next === "auto" || next === "local" || next === "global") {
                   setSettaFilesLocation(next);
                 }
               }}
@@ -286,8 +285,8 @@ export function WorkspaceSwitcherModal() {
             </select>
             <p className="text-xs text-setta-500 dark:text-setta-400">
               If the workspace already has a local{" "}
-              <span className="font-semibold">setta_files/</span>, Setta will use
-              it even when Global is selected.
+              <span className="font-semibold">setta_files/</span>, Setta will
+              use it even when Global is selected.
               {trimmedSshTarget.length > 0
                 ? " For SSH targets, Global refers to the remote machine's Setta home."
                 : null}
