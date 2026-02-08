@@ -73,7 +73,7 @@ export function createFolderPathCompletionSource(
   const cache = new Map<string, FolderContentItem[]>();
   const inflight = new Map<string, Promise<FolderContentItem[]>>();
 
-  const getEntries = async (folderPath: string) => {
+  const getEntries = (folderPath: string) => {
     const cached = cache.get(folderPath);
     if (cached) {
       return cached;
@@ -95,7 +95,7 @@ export function createFolderPathCompletionSource(
     return request;
   };
 
-  return async (context) => {
+  return (context) => {
     const textBefore = context.state.doc.sliceString(0, context.pos);
     if (!context.explicit && textBefore.length === 0) {
       return null;
@@ -115,22 +115,128 @@ export function createFolderPathCompletionSource(
     if (!targetFolder) {
       return null;
     }
-    const entries = await getEntries(targetFolder);
-    const optionsList: Completion[] = entries
-      .filter((entry) => entry.type === "folder")
-      .map((entry) => ({
-        label: entry.name,
-        type: "folder",
-        apply: `${entry.name}${separator}`,
-      }));
-    if (optionsList.length === 0) {
+
+    const to = context.pos;
+    const makeResult = (entries: FolderContentItem[]) => {
+      const optionsList: Completion[] = entries
+        .filter((entry) => entry.type === "folder")
+        .map((entry) => ({
+          label: entry.name,
+          type: "folder",
+          apply: `${entry.name}${separator}`,
+        }));
+      if (optionsList.length === 0) {
+        return null;
+      }
+      return {
+        from,
+        to,
+        options: optionsList,
+        filter: true,
+      };
+    };
+
+    const entries = getEntries(targetFolder);
+    if (Array.isArray(entries)) {
+      return makeResult(entries);
+    }
+    return entries.then(makeResult);
+  };
+}
+
+export function createDynamicFolderPathCompletionSource(
+  getOptions: () => FolderPathCompletionOptions,
+): CompletionSource {
+  const cache = new Map<string, FolderContentItem[]>();
+  const inflight = new Map<string, Promise<FolderContentItem[]>>();
+  let lastCacheKey: string | null = null;
+
+  const getCacheKey = (options: FolderPathCompletionOptions) => {
+    const ignoreKey = (options.ignorePatterns ?? []).join("\n");
+    return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}`;
+  };
+
+  const getEntries = (options: FolderPathCompletionOptions, folderPath: string) => {
+    const cached = cache.get(folderPath);
+    if (cached) {
+      return cached;
+    }
+    const pending = inflight.get(folderPath);
+    if (pending) {
+      return pending;
+    }
+    const request = loadFolderEntries({
+      folderPath,
+      ignorePatterns: options.ignorePatterns,
+      maxEntries: options.maxEntries,
+    }).then((entries) => {
+      inflight.delete(folderPath);
+      cache.set(folderPath, entries);
+      return entries;
+    });
+    inflight.set(folderPath, request);
+    return request;
+  };
+
+  return (context) => {
+    const options = getOptions();
+    if (!options.rootPath) {
       return null;
     }
-    return {
-      from,
-      to: context.pos,
-      options: optionsList,
-      filter: true,
+    const cacheKey = getCacheKey(options);
+    if (lastCacheKey !== cacheKey) {
+      cache.clear();
+      inflight.clear();
+      lastCacheKey = cacheKey;
+    }
+
+    const fallbackSeparator =
+      options.pathSeparator ?? (options.rootPath.includes("\\") ? "\\" : "/");
+
+    const textBefore = context.state.doc.sliceString(0, context.pos);
+    if (!context.explicit && textBefore.length === 0) {
+      return null;
+    }
+    if (
+      isAbsoluteBrowserPath(textBefore) &&
+      !resolvePathWithinRoot(textBefore, options.rootPath)
+    ) {
+      return null;
+    }
+
+    const { dirPart, from, separator } = splitPathInput(
+      textBefore,
+      fallbackSeparator,
+    );
+    const targetFolder = resolvePathWithinRoot(dirPart || "", options.rootPath);
+    if (!targetFolder) {
+      return null;
+    }
+
+    const to = context.pos;
+    const makeResult = (entries: FolderContentItem[]) => {
+      const optionsList: Completion[] = entries
+        .filter((entry) => entry.type === "folder")
+        .map((entry) => ({
+          label: entry.name,
+          type: "folder",
+          apply: `${entry.name}${separator}`,
+        }));
+      if (optionsList.length === 0) {
+        return null;
+      }
+      return {
+        from,
+        to,
+        options: optionsList,
+        filter: true,
+      };
     };
+
+    const entries = getEntries(options, targetFolder);
+    if (Array.isArray(entries)) {
+      return makeResult(entries);
+    }
+    return entries.then(makeResult);
   };
 }

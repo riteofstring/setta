@@ -105,7 +105,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.IFrame]: [],
   [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Browser]: [],
+  [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;

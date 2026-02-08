@@ -280,6 +280,50 @@ export async function openFileInTextSection({
   return newSectionId;
 }
 
+type OpenFileInImageSectionArgs = {
+  filePath: string;
+  fileName: string;
+};
+
+export async function openFileInImageSection({
+  filePath,
+  fileName,
+}: OpenFileInImageSectionArgs) {
+  if (useShareSession.getState().isShareMode) {
+    return null;
+  }
+  const projectState = useProjectState.getState();
+  for (const sectionId of Object.keys(projectState.sections)) {
+    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
+    if (impl.type !== SectionTypeEnum.Image) {
+      continue;
+    }
+    if (impl.imagePath === filePath) {
+      goToSection(sectionId);
+      return sectionId;
+    }
+  }
+
+  const newSectionId = await createTopLevelSection({
+    implType: SectionTypeEnum.Image,
+    implOverrides: {
+      type: SectionTypeEnum.Image,
+      imagePath: filePath,
+    },
+    position: null,
+  });
+  if (!newSectionId) {
+    return null;
+  }
+  await route_set_section_name({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId: newSectionId,
+    name: fileName,
+  });
+  goToSection(newSectionId);
+  return newSectionId;
+}
+
 function resolveTextBlockImplOverrides(
   implType: CreateTopLevelSectionRequestInput["implType"],
   implOverrides: CreateTopLevelSectionRequestInput["implOverrides"],
