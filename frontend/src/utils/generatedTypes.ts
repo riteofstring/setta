@@ -765,6 +765,7 @@ export const RouteEnum = {
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
+  GET_SETTA_HOME_INFO: "/settaHomeInfo",
   LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
@@ -979,11 +980,6 @@ export const RouteEnum = {
   GET_FOLDER_CONTENTS: "/getFolderContents",
   GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
   FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
-  GET_GIT_REPO_INFO: "/git/repoInfo",
-  GET_GIT_STATUS: "/git/status",
-  GET_GIT_DIFF: "/git/diff",
-  GET_GIT_LOG: "/git/log",
-  GET_GIT_COMMIT_DIFF: "/git/commitDiff",
   IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
   DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
@@ -10306,23 +10302,6 @@ export function createWebsocketMsgUnionWithDiscriminator(
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const GitDiffModeSchema = z.literal(["unstaged", "staged"]);
-
-export type GitDiffMode = z.infer<typeof GitDiffModeSchema>;
-
-export type GitDiffModeInput = z.input<typeof GitDiffModeSchema>;
-
-export const GitStatusKindSchema = z.literal([
-  "conflict",
-  "staged",
-  "unstaged",
-  "untracked",
-]);
-
-export type GitStatusKind = z.infer<typeof GitStatusKindSchema>;
-
-export type GitStatusKindInput = z.input<typeof GitStatusKindSchema>;
-
 export const CanonicalToTemporaryIDMapSchema = z.record(IDSchema, IDSchema);
 
 export type CanonicalToTemporaryIDMap = z.infer<
@@ -13457,182 +13436,6 @@ export function createUserDefaultBaseSectionWithParamsImpl(
   return UserDefaultBaseSectionWithParamsImplSchema.parse(options);
 }
 
-export const GetGitCommitDiffRequestSchema = z.object({
-  commitHash: z.string(),
-});
-
-export type GetGitCommitDiffRequest = z.infer<
-  typeof GetGitCommitDiffRequestSchema
->;
-
-export type GetGitCommitDiffRequestInput = z.input<
-  typeof GetGitCommitDiffRequestSchema
->;
-
-export function createGetGitCommitDiffRequest(
-  options: Partial<GetGitCommitDiffRequest> = {},
-): GetGitCommitDiffRequest {
-  return GetGitCommitDiffRequestSchema.parse(options);
-}
-
-export const GetGitCommitDiffResponseSchema = z.object({
-  repoRoot: z.string(),
-  commitHash: z.string(),
-  diff: z.string(),
-  isTruncated: z.boolean(),
-});
-
-export type GetGitCommitDiffResponse = z.infer<
-  typeof GetGitCommitDiffResponseSchema
->;
-
-export type GetGitCommitDiffResponseInput = z.input<
-  typeof GetGitCommitDiffResponseSchema
->;
-
-export function createGetGitCommitDiffResponse(
-  options: Partial<GetGitCommitDiffResponse> = {},
-): GetGitCommitDiffResponse {
-  return GetGitCommitDiffResponseSchema.parse(options);
-}
-
-export const GetGitDiffRequestSchema = z.object({
-  path: z.string(),
-  mode: z.literal(["unstaged", "staged"]),
-});
-
-export type GetGitDiffRequest = z.infer<typeof GetGitDiffRequestSchema>;
-
-export type GetGitDiffRequestInput = z.input<typeof GetGitDiffRequestSchema>;
-
-export function createGetGitDiffRequest(
-  options: Partial<GetGitDiffRequest> = {},
-): GetGitDiffRequest {
-  return GetGitDiffRequestSchema.parse(options);
-}
-
-export const GetGitDiffResponseSchema = z.object({
-  repoRoot: z.string(),
-  path: z.string(),
-  mode: z.literal(["unstaged", "staged"]),
-  diff: z.string(),
-  isTruncated: z.boolean(),
-});
-
-export type GetGitDiffResponse = z.infer<typeof GetGitDiffResponseSchema>;
-
-export type GetGitDiffResponseInput = z.input<typeof GetGitDiffResponseSchema>;
-
-export function createGetGitDiffResponse(
-  options: Partial<GetGitDiffResponse> = {},
-): GetGitDiffResponse {
-  return GetGitDiffResponseSchema.parse(options);
-}
-
-export const GetGitLogRequestSchema = z.object({
-  rev: z.string().default("HEAD" as const),
-  maxCount: z.int().default(2000),
-  allRefs: z.boolean().default(false),
-});
-
-export type GetGitLogRequest = z.infer<typeof GetGitLogRequestSchema>;
-
-export type GetGitLogRequestInput = z.input<typeof GetGitLogRequestSchema>;
-
-export function createGetGitLogRequest(
-  options: Partial<GetGitLogRequest> = {},
-): GetGitLogRequest {
-  return GetGitLogRequestSchema.parse(options);
-}
-
-export const GitCommitSchema = z.object({
-  hash: z.string(),
-  parents: z.array(z.string()),
-  authorName: z.string(),
-  authorEmail: z.string(),
-  authorTimeMs: z.int(),
-  subject: z.string(),
-  decorations: z.array(z.string()).default([]),
-});
-
-export type GitCommit = z.infer<typeof GitCommitSchema>;
-
-export type GitCommitInput = z.input<typeof GitCommitSchema>;
-
-export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
-  return GitCommitSchema.parse(options);
-}
-
-export const GetGitLogResponseSchema = z.object({
-  repoRoot: z.string(),
-  headBranch: z.union([z.string(), z.null()]),
-  commits: z.array(GitCommitSchema),
-});
-
-export type GetGitLogResponse = z.infer<typeof GetGitLogResponseSchema>;
-
-export type GetGitLogResponseInput = z.input<typeof GetGitLogResponseSchema>;
-
-export function createGetGitLogResponse(
-  options: Partial<GetGitLogResponse> = {},
-): GetGitLogResponse {
-  return GetGitLogResponseSchema.parse(options);
-}
-
-export const GitRepoInfoResponseSchema = z.object({
-  isGitRepo: z.boolean(),
-  repoRoot: z.union([z.string(), z.null()]).default(null),
-  headBranch: z.union([z.string(), z.null()]).default(null),
-  headCommit: z.union([z.string(), z.null()]).default(null),
-});
-
-export type GitRepoInfoResponse = z.infer<typeof GitRepoInfoResponseSchema>;
-
-export type GitRepoInfoResponseInput = z.input<
-  typeof GitRepoInfoResponseSchema
->;
-
-export function createGitRepoInfoResponse(
-  options: Partial<GitRepoInfoResponse> = {},
-): GitRepoInfoResponse {
-  return GitRepoInfoResponseSchema.parse(options);
-}
-
-export const GitStatusEntrySchema = z.object({
-  path: z.string(),
-  oldPath: z.union([z.string(), z.null()]).default(null),
-  indexStatus: z.string(),
-  worktreeStatus: z.string(),
-  kind: z.literal(["conflict", "staged", "unstaged", "untracked"]),
-});
-
-export type GitStatusEntry = z.infer<typeof GitStatusEntrySchema>;
-
-export type GitStatusEntryInput = z.input<typeof GitStatusEntrySchema>;
-
-export function createGitStatusEntry(
-  options: Partial<GitStatusEntry> = {},
-): GitStatusEntry {
-  return GitStatusEntrySchema.parse(options);
-}
-
-export const GetGitStatusResponseSchema = z.object({
-  repo: GitRepoInfoResponseSchema,
-  entries: z.array(GitStatusEntrySchema),
-});
-
-export type GetGitStatusResponse = z.infer<typeof GetGitStatusResponseSchema>;
-
-export type GetGitStatusResponseInput = z.input<
-  typeof GetGitStatusResponseSchema
->;
-
-export function createGetGitStatusResponse(
-  options: Partial<GetGitStatusResponse> = {},
-): GetGitStatusResponse {
-  return GetGitStatusResponseSchema.parse(options);
-}
-
 export const ChatSectionStateSchema = z.object({
   messages: z
     .array(
@@ -15149,8 +14952,9 @@ export function createLaunchErrorPayload(
 
 export const LaunchRequestSchema = z.object({
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  filesRoot: z.union([z.string(), z.null()]).default(null),
-  filesRootBase: z.union([z.string(), z.null()]).default(null),
+  settaFilesLocation: z
+    .union([z.literal(["auto", "local", "global"]), z.null()])
+    .default(null),
   sshTarget: z.union([z.string(), z.null()]).default(null),
   sshArgs: z.union([z.string(), z.null()]).default(null),
   remoteCmd: z.union([z.string(), z.null()]).default(null),
@@ -15191,7 +14995,9 @@ export const LaunchResponseSchema = z.object({
   ok: z.boolean(),
   bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  filesRoot: z.union([z.string(), z.null()]).default(null),
+  settaFilesLocation: z
+    .union([z.literal(["local", "global"]), z.null()])
+    .default(null),
   sessionId: z.union([z.string(), z.null()]).default(null),
   startedNew: z.union([z.boolean(), z.null()]).default(null),
   session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
@@ -18698,6 +18504,24 @@ export function createBackendInitStatusResponse(
   options: Partial<BackendInitStatusResponse> = {},
 ): BackendInitStatusResponse {
   return BackendInitStatusResponseSchema.parse(options);
+}
+
+export const SettaHomeInfoResponseSchema = z.object({
+  settaHome: z.string(),
+  configPath: z.string(),
+  globalSettaFilesBase: z.string(),
+});
+
+export type SettaHomeInfoResponse = z.infer<typeof SettaHomeInfoResponseSchema>;
+
+export type SettaHomeInfoResponseInput = z.input<
+  typeof SettaHomeInfoResponseSchema
+>;
+
+export function createSettaHomeInfoResponse(
+  options: Partial<SettaHomeInfoResponse> = {},
+): SettaHomeInfoResponse {
+  return SettaHomeInfoResponseSchema.parse(options);
 }
 
 export const DeleteTerminalsRequestSchema = z.object({

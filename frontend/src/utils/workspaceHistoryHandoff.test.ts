@@ -37,8 +37,7 @@ describe("appendWorkspaceHistoryToBootstrapUrlFragment", () => {
         workspaceRoot: "/tmp/work",
         sshTarget: null,
         localPort: null,
-        filesRoot: null,
-        filesRootBase: null,
+        settaFilesLocation: "auto",
         lastUsedAt: 123,
       },
     ]);
