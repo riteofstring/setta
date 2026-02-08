@@ -174,6 +174,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     expect(diffAfter).toBeLessThan(diffBefore - 40);
 
     const authorHeader = graphOverlay.getByTestId("git-graph-header-author");
+    const graphMessageResizeHandle = graphOverlay.getByTestId(
+      "git-graph-col-resize-graph-message",
+    );
     const messageAuthorResizeHandle = graphOverlay.getByTestId(
       "git-graph-col-resize-message-author",
     );
@@ -183,9 +186,64 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const dateHashResizeHandle = graphOverlay.getByTestId(
       "git-graph-col-resize-date-hash",
     );
+    await expect(graphMessageResizeHandle).toBeVisible();
     await expect(messageAuthorResizeHandle).toBeVisible();
     await expect(authorDateResizeHandle).toBeVisible();
     await expect(dateHashResizeHandle).toBeVisible();
+    const historyCommitSvg = graphOverlay
+      .getByRole("button", { name: /history-259/ })
+      .locator("svg")
+      .first();
+    const dotBeforeGraphResize = await historyCommitSvg.evaluate((svg) => {
+      const dot = svg.querySelector("circle");
+      if (!dot) {
+        return null;
+      }
+      const rect = dot.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    if (!dotBeforeGraphResize) {
+      throw new Error("Expected git graph row to render a commit dot.");
+    }
+    const graphMessageHandleBefore = await graphMessageResizeHandle.boundingBox();
+    if (!graphMessageHandleBefore) {
+      throw new Error(
+        "Expected git graph graph-message resize handle to have a bounding box.",
+      );
+    }
+    await page.mouse.move(
+      graphMessageHandleBefore.x + graphMessageHandleBefore.width / 2,
+      graphMessageHandleBefore.y + graphMessageHandleBefore.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      graphMessageHandleBefore.x + graphMessageHandleBefore.width / 2 + 80,
+      graphMessageHandleBefore.y + graphMessageHandleBefore.height / 2,
+      { steps: 8 },
+    );
+    const dotDuringGraphResize = await historyCommitSvg.evaluate((svg) => {
+      const dot = svg.querySelector("circle");
+      if (!dot) {
+        return null;
+      }
+      const rect = dot.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    if (!dotDuringGraphResize) {
+      throw new Error(
+        "Expected git graph row to keep rendering a commit dot while dragging.",
+      );
+    }
+    // Regression guard: dragging the graph/message boundary should not
+    // temporarily stretch the lane SVG geometry.
+    expect(
+      Math.abs(dotBeforeGraphResize.width - dotBeforeGraphResize.height),
+    ).toBeLessThanOrEqual(1.5);
+    expect(
+      Math.abs(dotDuringGraphResize.width - dotDuringGraphResize.height),
+    ).toBeLessThanOrEqual(1.5);
+    await page.mouse.up();
+
     const authorBefore = await authorHeader.evaluate(
       (el) => el.getBoundingClientRect().width,
     );

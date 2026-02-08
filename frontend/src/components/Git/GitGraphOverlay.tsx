@@ -249,6 +249,9 @@ export function GitGraphOverlay() {
   const commitHeaderRef = useRef<HTMLDivElement | null>(null);
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
+  const [liveGraphColWidthPx, setLiveGraphColWidthPx] = useState<number | null>(
+    null,
+  );
 
   useEffect(() => {
     const wrapper = listWrapperRef.current;
@@ -315,6 +318,11 @@ export function GitGraphOverlay() {
     splitPct,
   ]);
 
+  useEffect(() => {
+    // When persisted width changes, drop any temporary drag-time override.
+    setLiveGraphColWidthPx(null);
+  }, [graphColWidthPx]);
+
   const rows = graphState?.rows ?? [];
   const filterText = graphState?.filterText ?? "";
   const filteredRows = useMemo(() => {
@@ -357,12 +365,13 @@ export function GitGraphOverlay() {
     // Keep the SVG viewBox width consistent across rows so lane x positions
     // don't rescale row-to-row as the lane count changes (which causes
     // "disconnected" looking lines at row boundaries).
+    const graphWidthForViewBox = liveGraphColWidthPx ?? graphColWidthPx;
     const maxLaneCount = rows.reduce(
       (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
       1,
     );
-    return Math.max(graphColWidthPx, maxLaneCount * LANE_WIDTH);
-  }, [graphColWidthPx, rows]);
+    return Math.max(graphWidthForViewBox, maxLaneCount * LANE_WIDTH);
+  }, [graphColWidthPx, liveGraphColWidthPx, rows]);
 
   const dynamicRowHeight = useDynamicRowHeight({
     defaultRowHeight: ROW_HEIGHT,
@@ -651,6 +660,7 @@ export function GitGraphOverlay() {
           graph: clampSingleWidth("graph", defaultPxByKey.graph),
         };
         applyWidths(next);
+        setLiveGraphColWidthPx(next.graph);
         persistWidths(next);
       } else if (boundary === "messageAuthor") {
         const next = {
@@ -696,6 +706,9 @@ export function GitGraphOverlay() {
       }
       rafId = requestAnimationFrame(() => {
         applyWidths(next);
+        if (boundary === "graphMessage" && next.graph !== undefined) {
+          setLiveGraphColWidthPx(next.graph);
+        }
         rafId = null;
       });
     };
@@ -723,6 +736,9 @@ export function GitGraphOverlay() {
         persisted[key] = Number.isFinite(parsed)
           ? clamp(parsed, minPx, maxPx)
           : clamp(fallback, minPx, maxPx);
+      }
+      if (boundary === "graphMessage") {
+        setLiveGraphColWidthPx(persisted.graph ?? start.graph);
       }
       applyWidths(persisted);
       persistWidths(persisted);
