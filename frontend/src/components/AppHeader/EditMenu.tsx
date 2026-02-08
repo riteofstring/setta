@@ -70,7 +70,7 @@ function Items() {
         disabled={!canEditStructure}
       >
         <AiOutlineGroup className="h-4 w-4" />
-        Group
+        Dict
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem
