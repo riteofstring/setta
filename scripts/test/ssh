@@ -35,18 +35,12 @@ def _load_session_metadata() -> tuple[str, dict[str, Any], bytes]:
     if sessions_root_raw:
         sessions_root = Path(sessions_root_raw)
     else:
-        files_root = os.environ.get("SETTA_FILES_ROOT", "").strip()
-        if files_root:
-            sessions_root = Path(files_root) / "runtime" / "sessions"
-        else:
-            workspace_root = os.environ.get("SETTA_WORKSPACE_ROOT", "").strip()
-            if not workspace_root:
-                raise RuntimeError(
-                    "SETTA_SESSIONS_ROOT (or SETTA_FILES_ROOT / SETTA_WORKSPACE_ROOT) must be set for ssh stub."
-                )
-            sessions_root = (
-                Path(workspace_root) / "setta_files" / "runtime" / "sessions"
+        workspace_root = os.environ.get("SETTA_WORKSPACE_ROOT", "").strip()
+        if not workspace_root:
+            raise RuntimeError(
+                "SETTA_SESSIONS_ROOT (or SETTA_WORKSPACE_ROOT) must be set for ssh stub."
             )
+        sessions_root = Path(workspace_root) / "setta_files" / "runtime" / "sessions"
 
     if not sessions_root.exists():
         raise RuntimeError(f"Sessions root does not exist: {sessions_root}")
@@ -268,8 +262,10 @@ def _handle_remote_command(command: str) -> int:
         bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
             host, port, token
         )
-        files_root = os.environ.get("SETTA_FILES_ROOT", "").strip()
         runtime_root = os.environ.get("SETTA_RUNTIME_ROOT", "").strip()
+        setta_files_location = os.environ.get("SETTA_FILES_LOCATION", "").strip().lower()
+        if setta_files_location not in ("local", "global"):
+            setta_files_location = "local"
         payload = {
             "session": {
                 "id": metadata.get("id", session_id),
@@ -285,7 +281,7 @@ def _handle_remote_command(command: str) -> int:
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": "ssh -N -L ${LOCAL_PORT}:127.0.0.1:1234 user@host -o ExitOnForwardFailure=yes",
-            "filesRoot": files_root or None,
+            "settaFilesLocation": setta_files_location,
             "runtimeRoot": runtime_root or None,
         }
         _emit_json(payload)

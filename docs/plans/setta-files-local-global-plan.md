@@ -26,6 +26,7 @@ No backward compatibility, legacy support, or migrations are required.
 - Any automatic migration of old `files root base` data into the new global layout.
 - Preserving existing workspace history entries / localStorage formats.
 - Supporting multiple legacy ways to specify state roots (we will delete the old ones).
+- Adding UI for editing `<setta_home>/config.json` (edit the file manually).
 
 ## Terminology
 

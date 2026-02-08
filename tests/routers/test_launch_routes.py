@@ -6,7 +6,6 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.routers.launch import LaunchRequest, route_launch
 from setta.sessions.registry import SessionRegistry
 from setta.utils.paths import build_files_root_from_base, resolve_setta_paths
@@ -14,18 +13,6 @@ from tests.utils.setta_paths import temporary_setta_paths
 
 
 class TestLaunchRoutes:
-    def test_launch_rejects_files_root_conflicts(self) -> None:
-        response = route_launch(
-            LaunchRequest(
-                workspaceRoot="/tmp/workspace",
-                filesRoot="/tmp/setta_files",
-                filesRootBase="/tmp/state_base",
-            )
-        )
-        assert response.ok is False
-        assert response.error is not None
-        assert response.error.code == "FilesRootConflict"
-
     def test_launch_returns_structured_error_for_value_error(self) -> None:
         response = route_launch(LaunchRequest(workspaceRoot="bad\u0000path"))
         assert response.ok is False
@@ -79,7 +66,7 @@ class TestLaunchRoutes:
                 assert response.bootstrapUrlFragment is not None
                 assert "/__setta__/bootstrap#token=" in response.bootstrapUrlFragment
                 assert response.sessionId == session.id
-                assert response.filesRoot == str(paths.setta_files_root)
+                assert response.settaFilesLocation == "local"
             finally:
                 if pid_file.exists():
                     pid_str = pid_file.read_text(encoding="utf-8").strip()
@@ -152,7 +139,7 @@ class TestLaunchRoutes:
                     assert response2.ok is True
                     pid2 = int(pid_file.read_text(encoding="utf-8").strip())
                     assert pid1 == pid2
-                    assert response2.filesRoot == str(paths.setta_files_root)
+                    assert response2.settaFilesLocation == "local"
             finally:
                 if pid_file.exists():
                     pid_str = pid_file.read_text(encoding="utf-8").strip()
@@ -174,129 +161,74 @@ class TestLaunchRoutes:
                 os.environ.pop("SETTA_SESSIONS_ROOT", None)
                 os.environ["PATH"] = old_path
 
-    def test_launch_local_defaults_files_root_to_workspace_setta_files(
-        self, monkeypatch
-    ) -> None:
+    def test_launch_local_does_not_inherit_server_files_location_env(self, monkeypatch) -> None:
         with TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             workspace_root = tmp_path / "workspace"
             workspace_root.mkdir(parents=True, exist_ok=True)
 
-            server_workspace_root = tmp_path / "server_workspace"
-            server_workspace_root.mkdir(parents=True, exist_ok=True)
-            server_files_root = tmp_path / "server_setta_files"
-            server_files_root.mkdir(parents=True, exist_ok=True)
-
-            # The launch implementation prunes sessions whose pid isn't a Setta
-            # process, so mark the current pid as "in process backend".
-            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
-
-            # Simulate the dev backend's own roots living elsewhere.
-            monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(server_workspace_root))
-            monkeypatch.setenv("SETTA_FILES_ROOT", str(server_files_root))
-            monkeypatch.delenv("SETTA_FILES_ROOT_BASE", raising=False)
-            monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
-
-            # If route_launch incorrectly inherits SETTA_FILES_ROOT, it will look for
-            # sessions here.
-            server_paths = resolve_setta_paths(
-                workspace_root=workspace_root, files_root=server_files_root
-            )
-            server_registry = SessionRegistry(
-                sessions_root=server_paths.runtime_sessions_root
-            )
-            server_registry.create_session(
-                workspace_path=workspace_root,
-                host="127.0.0.1",
-                port=61234,
-                pid=os.getpid(),
-            )
-
-            # The correct default should instead live under workspace_root/setta_files.
-            expected_files_root = (workspace_root / "setta_files").resolve(
+            setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+            global_base = (setta_home / "setta_files").resolve(strict=False)
+            global_root = build_files_root_from_base(global_base, workspace_root).resolve(
                 strict=False
             )
-            expected_paths = resolve_setta_paths(
-                workspace_root=workspace_root, files_root=expected_files_root
-            )
-            expected_registry = SessionRegistry(
-                sessions_root=expected_paths.runtime_sessions_root
-            )
-            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+            local_sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
+            local_sessions_root.mkdir(parents=True, exist_ok=True)
+            global_sessions_root = global_root / "runtime" / "sessions"
+            global_sessions_root.mkdir(parents=True, exist_ok=True)
+
+            server_socket_local = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server_socket_global = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                server_socket.bind(("127.0.0.1", 0))
+                server_socket_local.bind(("127.0.0.1", 0))
+                server_socket_local.listen(1)
+                local_port = server_socket_local.getsockname()[1]
+                server_socket_global.bind(("127.0.0.1", 0))
+                server_socket_global.listen(1)
+                global_port = server_socket_global.getsockname()[1]
             except OSError:
                 pytest.skip("Socket binds are not permitted in this test environment.")
-            server_socket.listen(1)
-            port = server_socket.getsockname()[1]
-            expected_session = expected_registry.create_session(
+
+            local_registry = SessionRegistry(sessions_root=local_sessions_root)
+            local_session = local_registry.create_session(
                 workspace_path=workspace_root,
                 host="127.0.0.1",
-                port=port,
+                port=local_port,
                 pid=os.getpid(),
             )
 
-            try:
-                response = route_launch(
-                    LaunchRequest(workspaceRoot=str(workspace_root))
-                )
-            finally:
-                server_socket.close()
-            assert response.ok is True
-            assert response.filesRoot == str(expected_files_root)
-            assert response.sessionId == expected_session.id
+            global_registry = SessionRegistry(sessions_root=global_sessions_root)
+            global_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=global_port,
+                pid=os.getpid(),
+            )
 
-    def test_launch_local_files_root_base_overrides_server_files_root_env(
-        self, monkeypatch
-    ) -> None:
+            # Simulate the running server process having a global override.
+            monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
+
+            try:
+                response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+            finally:
+                server_socket_local.close()
+                server_socket_global.close()
+
+            assert response.ok is True
+            assert response.sessionId == local_session.id
+            assert response.settaFilesLocation == "local"
+
+    def test_launch_local_always_wins_even_when_global_requested(self) -> None:
         with TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             workspace_root = tmp_path / "workspace"
             workspace_root.mkdir(parents=True, exist_ok=True)
+            (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
 
-            server_workspace_root = tmp_path / "server_workspace"
-            server_workspace_root.mkdir(parents=True, exist_ok=True)
-            server_files_root = tmp_path / "server_setta_files"
-            server_files_root.mkdir(parents=True, exist_ok=True)
+            sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
+            sessions_root.mkdir(parents=True, exist_ok=True)
 
-            files_root_base = tmp_path / "files_root_base"
-            files_root_base.mkdir(parents=True, exist_ok=True)
-
-            # The launch implementation prunes sessions whose pid isn't a Setta
-            # process, so mark the current pid as "in process backend".
-            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
-
-            # Simulate the dev backend's own roots living elsewhere.
-            monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(server_workspace_root))
-            monkeypatch.setenv("SETTA_FILES_ROOT", str(server_files_root))
-            monkeypatch.delenv("SETTA_FILES_ROOT_BASE", raising=False)
-            monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
-
-            # If route_launch incorrectly inherits SETTA_FILES_ROOT, it will look for
-            # sessions here.
-            server_paths = resolve_setta_paths(
-                workspace_root=workspace_root, files_root=server_files_root
-            )
-            server_registry = SessionRegistry(
-                sessions_root=server_paths.runtime_sessions_root
-            )
-            server_registry.create_session(
-                workspace_path=workspace_root,
-                host="127.0.0.1",
-                port=61234,
-                pid=os.getpid(),
-            )
-
-            expected_files_root = build_files_root_from_base(
-                files_root_base.resolve(strict=False),
-                workspace_root.resolve(strict=False),
-            ).resolve(strict=False)
-            expected_paths = resolve_setta_paths(
-                workspace_root=workspace_root, files_root=expected_files_root
-            )
-            expected_registry = SessionRegistry(
-                sessions_root=expected_paths.runtime_sessions_root
-            )
             server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 server_socket.bind(("127.0.0.1", 0))
@@ -304,7 +236,9 @@ class TestLaunchRoutes:
                 pytest.skip("Socket binds are not permitted in this test environment.")
             server_socket.listen(1)
             port = server_socket.getsockname()[1]
-            expected_session = expected_registry.create_session(
+
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
                 workspace_path=workspace_root,
                 host="127.0.0.1",
                 port=port,
@@ -315,11 +249,13 @@ class TestLaunchRoutes:
                 response = route_launch(
                     LaunchRequest(
                         workspaceRoot=str(workspace_root),
-                        filesRootBase=str(files_root_base),
+                        settaFilesLocation="global",
                     )
                 )
             finally:
                 server_socket.close()
+
             assert response.ok is True
-            assert response.filesRoot == str(expected_files_root)
-            assert response.sessionId == expected_session.id
+            assert response.sessionId == session.id
+            assert response.settaFilesLocation == "local"
+
