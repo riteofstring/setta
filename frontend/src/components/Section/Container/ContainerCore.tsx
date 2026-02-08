@@ -145,6 +145,7 @@ function ContainerGroup({
           sectionId={sectionId}
           sectionTypeName={SectionTypeEnum.Group}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
+          hasSectionStyleTheme={false}
         />
         <div
           className={`${pointerSelectCSS} relative my-auto mr-2 flex min-h-10 w-full items-center overflow-hidden`}

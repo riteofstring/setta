@@ -1115,6 +1115,18 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
+export async function route_set_section_tag_color(
+  x: gt.SetSectionTagColorRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionTagColor", x);
+}
+
+export async function route_set_section_style_color(
+  x: gt.SetSectionStyleColorRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionStyleColor", x);
+}
+
 export async function route_set_meta_control_show_section_title(
   x: gt.SetMetaControlShowSectionTitleRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -201,6 +201,8 @@ class Route(str, Enum):
     SET_ACTIVE_IDS = "/setActiveIds"
     SET_VIEWPORT = "/setViewport"
     SET_SECTION_NAME = "/setSectionName"
+    SET_SECTION_TAG_COLOR = "/setSectionTagColor"
+    SET_SECTION_STYLE_COLOR = "/setSectionStyleColor"
     SET_META_CONTROL_SHOW_SECTION_TITLE = "/setMetaControlShowSectionTitle"
     SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"
     SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME = "/setTextBlockHeadingAsSectionName"
