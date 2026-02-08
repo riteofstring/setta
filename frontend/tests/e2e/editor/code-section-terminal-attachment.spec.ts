@@ -891,6 +891,19 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
       stableMs: 750,
     });
 
+    const narrowResize = await getTerminalLastResize(page, terminalId);
+    if (!narrowResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} after narrow sizing.`,
+      );
+    }
+    const narrowCols = narrowResize.cols;
+    if (!Number.isFinite(narrowCols) || narrowCols <= 0) {
+      throw new Error(
+        `Invalid narrow terminal cols observed for ${terminalId}: ${String(narrowCols)}`,
+      );
+    }
+
     // Keep output minimal so the wrapped line stays in view during row sampling.
     await focusTerminalAndType(page, terminalId, "clear");
     await waitForTerminalOutputToStabilize(page, terminalId, {
@@ -899,24 +912,28 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
     });
 
     const marker = `REFLOW_MARKER_${Date.now()}`;
+    // Pick a line length that is guaranteed to wrap in the narrow terminal and
+    // then unwrap (fewer rows) when the terminal widens by at least 1 column.
+    const desiredLength = 3 * narrowCols + 1;
+    const xCount = Math.max(60, desiredLength - (marker.length + 1));
     await focusTerminalAndType(
       page,
       terminalId,
-      `python -c "print('${marker}', flush=True); print('${marker}_' + 'x'*220, flush=True)"`,
+      `python -c "m='${marker}'; print(m, flush=True); print(m + '_' + 'x'*${xCount}, flush=True)"`,
     );
-    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
+    await waitForTerminalOutputMarker(page, terminalId, `${marker}_`, 20000);
 
     await expect
       .poll(async () => {
         const rows = await getTerminalRowsSnapshot(page, terminalId);
-        return countLongLineRows(rows, marker);
+        return countLongLineWrapRows(rows, marker);
       })
-      .toBeGreaterThan(1);
-    const narrowRowCount = countLongLineRows(
+      .toBeGreaterThan(3);
+    const narrowRowCount = countLongLineWrapRows(
       await getTerminalRowsSnapshot(page, terminalId),
       marker,
     );
-    expect(narrowRowCount).toBeGreaterThan(1);
+    expect(narrowRowCount).toBeGreaterThan(3);
 
     const resizeCountBeforeWide = await page.evaluate((id) => {
       const counts = window.__terminalResizeCountsBySectionId?.[id];
@@ -952,12 +969,24 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
       stableMs: 750,
     });
 
+    const wideResize = await getTerminalLastResize(page, terminalId);
+    if (!wideResize) {
+      throw new Error(
+        `Missing terminalResize payload for ${terminalId} after wide sizing.`,
+      );
+    }
+    if (wideResize.cols <= narrowCols) {
+      throw new Error(
+        `Expected terminal cols to increase after widening: narrow=${narrowCols} wide=${wideResize.cols}`,
+      );
+    }
+
     try {
       await expect
         .poll(
           async () => {
             const rows = await getTerminalRowsSnapshot(page, terminalId);
-            return countLongLineRows(rows, marker);
+            return countLongLineWrapRows(rows, marker);
           },
           { timeout: process.env.CI ? 30000 : 15000 },
         )
@@ -1477,6 +1506,23 @@ function countLongLineRows(rows: string[], marker: string): number {
   }).length;
 }
 
+function countLongLineWrapRows(rows: string[], marker: string): number {
+  const markerPrefix = `${marker}_`;
+  return rows.filter((row) => {
+    const trimmed = row.trim();
+    if (!trimmed) {
+      return false;
+    }
+    if (trimmed.includes(markerPrefix)) {
+      return true;
+    }
+    if (/^x+$/.test(trimmed)) {
+      return true;
+    }
+    return /x{20,}/.test(trimmed);
+  }).length;
+}
+
 async function syncEmbeddedTerminalSectionSize(
   page: Page,
   terminalId: string,
@@ -1855,6 +1901,22 @@ async function waitForTerminalResizeCountsToStabilize(
   );
 }
 
+async function getTerminalLastResize(
+  page: Page,
+  terminalId: string,
+): Promise<{ cols: number; rows: number } | null> {
+  return await page.evaluate((id) => {
+    const entry = window.__terminalLastResizeBySectionId?.[id];
+    if (!entry) {
+      return null;
+    }
+    if (typeof entry.cols !== "number" || typeof entry.rows !== "number") {
+      return null;
+    }
+    return { cols: entry.cols, rows: entry.rows };
+  }, terminalId);
+}
+
 async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
   await page.addInitScript(() => {
     if (window.__terminalResizeInstrumented) {
@@ -1863,6 +1925,7 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
     window.__terminalResizeInstrumented = true;
     window.__terminalResizePhase = "idle";
     window.__terminalResizeCountsBySectionId = {};
+    window.__terminalLastResizeBySectionId = {};
     const originalSend = WebSocket.prototype.send;
     WebSocket.prototype.send = function (data) {
       try {
@@ -1883,6 +1946,12 @@ async function addTerminalResizeInstrumentation(page: Page): Promise<void> {
             }
             const counts = window.__terminalResizeCountsBySectionId[sectionId];
             counts[phase] = (counts[phase] ?? 0) + 1;
+            if (typeof parsed.cols === "number" && typeof parsed.rows === "number") {
+              window.__terminalLastResizeBySectionId[sectionId] = {
+                cols: parsed.cols,
+                rows: parsed.rows,
+              };
+            }
           }
         }
       } catch {
