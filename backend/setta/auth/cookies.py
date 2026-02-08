@@ -3,8 +3,15 @@ from fastapi import Request, Response
 from setta.utils.constants import C
 
 
-def read_auth_cookie(request: Request) -> str | None:
-    return request.cookies.get(C.AUTH_COOKIE_NAME)
+def auth_cookie_name(session_id: str) -> str:
+    trimmed = session_id.strip()
+    if not trimmed:
+        return C.AUTH_COOKIE_NAME
+    return f"{C.AUTH_COOKIE_NAME}_{trimmed}"
+
+
+def read_auth_cookie(request: Request, *, session_id: str) -> str | None:
+    return request.cookies.get(auth_cookie_name(session_id))
 
 
 def _is_request_secure(request: Request) -> bool:
@@ -17,13 +24,17 @@ def _is_request_secure(request: Request) -> bool:
 
 
 def set_auth_cookie(
-    response: Response, token: str, *, request: Request | None = None
+    response: Response,
+    token: str,
+    *,
+    session_id: str,
+    request: Request | None = None,
 ) -> None:
     secure = C.AUTH_COOKIE_SECURE
     if not secure and request is not None and _is_request_secure(request):
         secure = True
     response.set_cookie(
-        C.AUTH_COOKIE_NAME,
+        auth_cookie_name(session_id),
         token,
         max_age=C.AUTH_COOKIE_MAX_AGE_SECONDS,
         httponly=True,

@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from fastapi import WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
+from setta.auth.cookies import auth_cookie_name
 from setta.auth.headers import extract_bearer_token
 from setta.auth.session import load_current_session_secret
 from setta.auth.validation import consume_bootstrap_token, validate_auth_cookie
@@ -18,7 +19,6 @@ from setta.types.id import ID
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
@@ -38,7 +38,7 @@ async def _authenticate_websocket(websocket: WebSocket) -> bool:
         await _close_unauthorized(websocket)
         return False
     session_metadata, secret = session_info
-    cookie_value = websocket.cookies.get(C.AUTH_COOKIE_NAME)
+    cookie_value = websocket.cookies.get(auth_cookie_name(session_metadata.id))
     if cookie_value:
         cookie_payload = validate_auth_cookie(cookie_value, session_metadata.id, secret)
         if cookie_payload is not None:

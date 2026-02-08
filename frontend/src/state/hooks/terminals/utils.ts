@@ -36,14 +36,14 @@ function useFitAddon() {
   return fitAddon.current;
 }
 
-function scrollSensitivityUpdater(terminal, setHasScrollbar) {
-  terminal.onRender(() => {
+export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
+  const renderDisposable = terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
   });
 
   // Even though react flow calls preventDefault and stopPropagation when in pan scrolling mode,
   // xterm still picks up the scrolling. So this sets scrollSensitivity to a small number to disable scrolling when already moving via trackpad.
-  const unsub = useMisc.subscribe(
+  const unsubMisc = useMisc.subscribe(
     (x) => x.isPanScrolling,
     (isPanScrolling) => {
       if (isPanScrolling) {
@@ -55,7 +55,10 @@ function scrollSensitivityUpdater(terminal, setHasScrollbar) {
     },
   );
 
-  return unsub;
+  return () => {
+    renderDisposable.dispose();
+    unsubMisc();
+  };
 }
 
 export function terminalCleanup(ws, terminal) {

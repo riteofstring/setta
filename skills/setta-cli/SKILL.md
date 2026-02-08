@@ -17,28 +17,8 @@ Run commands from the workspace that owns the Setta session. Use `setta tools`
 to list available tool names and schemas (bare names, no `setta__` prefix):
 
 ```sh
-setta api get_latest_project_state_summary \
-  --agentic-project-config-id "..." \
-  --json '{"projectConfigId":"..."}' \
-  --json-output
+setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
 ```
-
-Agentic scope enforcement is strict by default: without agentic context headers,
-`setta api` calls will return an MCP `CallToolResult` error with
-`structuredContent.reason="missing_context"`.
-
-To run as a scoped Chat section, include the chat + section IDs:
-
-```sh
-setta api get_latest_project_state_summary \
-  --agentic-project-config-id "..." \
-  --agentic-chat-id "..." \
-  --agentic-section-id "..." \
-  --json '{"projectConfigId":"..."}' \
-  --json-output
-```
-
-IDs may be temporary or canonical.
 
 ## Auth fallback
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import shutil
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -48,14 +48,15 @@ from setta.types.section_impls import (
     CodeSectionImpl,
 )
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
-from setta.utils.constants import C
-from setta.utils.utils import compute_md5_hex, normalize_path
+from setta.utils.paths import normalize_workspace_path, workspace_relative_path
+from setta.utils.utils import compute_md5_hex
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.manager_fixture import _shutdown_manager
+from tests.utils.setta_paths import temporary_setta_paths
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +84,9 @@ def _capture_logger(
 class TestWatchCode:
     @pytest_asyncio.fixture(autouse=True)
     async def _setup(self) -> None:
-        self._tmp_dir = TemporaryDirectory(dir=Path.cwd())
+        self._tmp_dir = TemporaryDirectory()
         root = Path(self._tmp_dir.name)
+        self.workspace_root = root
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
@@ -92,16 +94,13 @@ class TestWatchCode:
         for path in (self.setta_root, self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._original_constants = {
-            "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-            "CODE_FOLDER": C.CODE_FOLDER,
-            "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-            "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        }
-        C.SETTA_FILES_FOLDER = self.setta_root
-        C.CODE_FOLDER = self.code_folder
-        C.ARTIFACTS_FOLDER = self.artifacts_folder
-        C.DB_BACKUP_FOLDER = self.backup_folder
+        self._stack = ExitStack()
+        self._stack.enter_context(
+            temporary_setta_paths(
+                workspace_root=self.workspace_root,
+                setta_files_root=self.setta_root,
+            )
+        )
 
         self.dbe = DBE(self.setta_root)
         self.websocket_manager = WebsocketManager()
@@ -164,8 +163,7 @@ class TestWatchCode:
 
         self.manager.shutdown()
         await _shutdown_manager(self.manager)
-        for name, value in self._original_constants.items():
-            setattr(C, name, value)
+        self._stack.close()
         self._tmp_dir.cleanup()
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
@@ -205,7 +203,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -215,12 +213,12 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.watch_file_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.watch_file_path))
         callable_name = f"{module_path}.existing"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
         baseline = state.projectConfig.watchCodeBaselineByPath
-        assert str(normalize_path(self.watch_file_path)) in baseline
-        assert identity in baseline[str(normalize_path(self.watch_file_path))]
+        assert str(normalize_workspace_path(self.watch_file_path)) in baseline
+        assert identity in baseline[str(normalize_workspace_path(self.watch_file_path))]
         assert state.projectConfig.watchCodeRegistry == {}
         callable_sections = [
             section_id
@@ -245,16 +243,16 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_path(new_file))],
+                watchCodeFiles=[str(workspace_relative_path(new_file))],
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
         baseline = state.projectConfig.watchCodeBaselineByPath
-        assert str(normalize_path(new_file)) in baseline
+        assert str(normalize_workspace_path(new_file)) in baseline
         assert state.projectConfig.watchCodeRegistry == {}
 
     async def test_rejects_watch_inputs_outside_repo(self) -> None:
-        outside_file = Path.cwd().parent / "outside_watch.py"
+        outside_file = self.workspace_root.parent / "outside_watch.py"
         with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
                 SetWatchCodeInputsRequest(
@@ -264,15 +262,18 @@ class TestWatchCode:
                 )
             )
         inside_file = self.watch_file_path.resolve()
-        with pytest.raises(ValueError):
-            await self.manager.set_watch_code_inputs(
-                SetWatchCodeInputsRequest(
-                    projectConfigId=self.project_config_id,
-                    watchCodeFolders=[],
-                    watchCodeFiles=[str(inside_file)],
-                )
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=[str(inside_file)],
             )
-        outside_folder = Path.cwd().parent / "outside_watch_dir"
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        assert state.projectConfig.watchCodeFiles == [
+            str(workspace_relative_path(inside_file))
+        ]
+        outside_folder = self.workspace_root.parent / "outside_watch_dir"
         with pytest.raises(ValueError):
             await self.manager.set_watch_code_inputs(
                 SetWatchCodeInputsRequest(
@@ -284,16 +285,22 @@ class TestWatchCode:
                 )
             )
         inside_folder = self.watch_file_path.parent.resolve()
-        with pytest.raises(ValueError):
-            await self.manager.set_watch_code_inputs(
-                SetWatchCodeInputsRequest(
-                    projectConfigId=self.project_config_id,
-                    watchCodeFolders=[
-                        WatchCodeFolder(path=str(inside_folder), recursive=False)
-                    ],
-                    watchCodeFiles=[],
-                )
+        await self.manager.set_watch_code_inputs(
+            SetWatchCodeInputsRequest(
+                projectConfigId=self.project_config_id,
+                watchCodeFolders=[
+                    WatchCodeFolder(path=str(inside_folder), recursive=False)
+                ],
+                watchCodeFiles=[],
             )
+        )
+        state = self.manager.get_single_config_state(self.project_config_id)
+        assert [folder.path for folder in state.projectConfig.watchCodeFolders] == [
+            str(workspace_relative_path(inside_folder))
+        ]
+        assert [folder.recursive for folder in state.projectConfig.watchCodeFolders] == [
+            False
+        ]
 
     async def test_auto_creates_callable_section_for_new_def(self) -> None:
         await self.manager.set_watch_code_enabled(
@@ -314,7 +321,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         callable_name = f"{module_path}.new_func"
         identity = f"{callable_name}:function"
         assert identity in state.projectConfig.watchCodeRegistry
@@ -337,7 +344,7 @@ class TestWatchCode:
         )
         self.code_section_path.write_text(updated_code)
         plan = CodeFileReloadPlan(
-            path=normalize_path(self.code_section_path),
+            path=normalize_workspace_path(self.code_section_path),
             raw_content=updated_code,
             content_hash=compute_md5_hex(updated_code),
             bindings_by_config={
@@ -351,17 +358,17 @@ class TestWatchCode:
                 ]
             },
             core_update=FileWatcherCoreUpdate(
-                absPath=normalize_path(self.code_section_path),
+                absPath=normalize_workspace_path(self.code_section_path),
                 relPath=Path(self.code_section_path.name),
                 eventType=FileEventType.modified,
                 matchingGlobPatterns=[],
-                fileToRead=normalize_path(self.code_section_path),
+                fileToRead=normalize_workspace_path(self.code_section_path),
             ),
         )
         await self.manager.reload_code_sections(plan)
         state = self.manager.get_single_config_state(self.project_config_id)
         module_path = convert_path_to_module_path(
-            normalize_path(self.code_section_path)
+            workspace_relative_path(self.code_section_path)
         )
         callable_name = f"{module_path}.external_added"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
@@ -372,7 +379,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -405,7 +412,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -419,7 +426,7 @@ class TestWatchCode:
             self.watch_file_path,
             baseline_only=False,
         )
-        debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
+        debouncer_key = (self.project_config_id, normalize_workspace_path(self.watch_file_path))
         assert debouncer_key in self.manager.watch_code_manager._debouncers
         await self.manager.set_watch_code_enabled(
             SetWatchCodeEnabledRequest(
@@ -442,13 +449,13 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(watch_root)), recursive=False
+                        path=str(workspace_relative_path(watch_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
             )
         )
-        normalized_root = normalize_path(watch_root)
+        normalized_root = normalize_workspace_path(watch_root)
         entry = self.manager.watch_code_manager._watched_dirs.get(normalized_root)
         assert entry is not None
         assert not entry[1]
@@ -458,7 +465,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(watch_root)), recursive=True
+                        path=str(workspace_relative_path(watch_root)), recursive=True
                     )
                 ],
                 watchCodeFiles=[],
@@ -485,16 +492,16 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(missing_dir)), recursive=False
+                        path=str(workspace_relative_path(missing_dir)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
             )
         )
-        normalized_missing = normalize_path(missing_dir)
+        normalized_missing = normalize_workspace_path(missing_dir)
         watch_manager = self.manager.watch_code_manager
         assert normalized_missing in watch_manager._pending_dirs
-        ancestor = normalize_path(missing_dir.parent)
+        ancestor = normalize_workspace_path(missing_dir.parent)
         assert ancestor in watch_manager._watched_dirs
 
         missing_dir.mkdir(parents=True, exist_ok=True)
@@ -514,7 +521,7 @@ class TestWatchCode:
             self.watch_file_path,
             baseline_only=False,
         )
-        debouncer_key = (self.project_config_id, normalize_path(self.watch_file_path))
+        debouncer_key = (self.project_config_id, normalize_workspace_path(self.watch_file_path))
         assert debouncer_key in self.manager.watch_code_manager._debouncers
         self.manager._get_lsp_diagnostics_state(self.project_config_id)
         assert (
@@ -543,7 +550,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(self.setta_root.parent)),
+                        path=str(workspace_relative_path(self.setta_root.parent)),
                         recursive=True,
                     )
                 ],
@@ -567,7 +574,7 @@ class TestWatchCode:
             baseline_only=False,
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(bulk_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(bulk_path))
         watched_identity = build_callable_identity(
             f"{module_path}.watched", WatchCodeCallableKind.function
         )
@@ -579,15 +586,15 @@ class TestWatchCode:
         self.manager.watch_code_manager._handle_event(
             bulk_path, "moved", moved_path
         )
-        debouncer_key = (self.project_config_id, normalize_path(moved_path))
+        debouncer_key = (self.project_config_id, normalize_workspace_path(moved_path))
         debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
         await debouncer.flush(
-            self.project_config_id, normalize_path(moved_path), False
+            self.project_config_id, normalize_workspace_path(moved_path), False
         )
 
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         moved_module_path = convert_path_to_module_path(
-            normalize_path(moved_path)
+            workspace_relative_path(moved_path)
         )
         moved_identity = build_callable_identity(
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
@@ -595,10 +602,10 @@ class TestWatchCode:
         assert moved_identity in updated_state.projectConfig.watchCodeRegistry
         assert len(updated_state.projectConfig.watchCodeRegistry) == 1
         entry = updated_state.projectConfig.watchCodeRegistry[moved_identity]
-        assert entry.sourcePath == str(normalize_path(moved_path))
+        assert entry.sourcePath == str(normalize_workspace_path(moved_path))
         baseline = updated_state.projectConfig.watchCodeBaselineByPath
-        assert str(normalize_path(moved_path)) in baseline
-        assert str(normalize_path(bulk_path)) not in baseline
+        assert str(normalize_workspace_path(moved_path)) in baseline
+        assert str(normalize_workspace_path(bulk_path)) not in baseline
 
     async def test_move_in_from_untracked_creates_sections(self) -> None:
         watch_root = self.setta_root.parent / "watch_root"
@@ -614,7 +621,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(watch_root)), recursive=False
+                        path=str(workspace_relative_path(watch_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -631,14 +638,14 @@ class TestWatchCode:
         self.manager.watch_code_manager._handle_event(
             source_path, "moved", dest_path
         )
-        debouncer_key = (self.project_config_id, normalize_path(dest_path))
+        debouncer_key = (self.project_config_id, normalize_workspace_path(dest_path))
         debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
         await debouncer.flush(
-            self.project_config_id, normalize_path(dest_path), False
+            self.project_config_id, normalize_workspace_path(dest_path), False
         )
 
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(dest_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(dest_path))
         identity = build_callable_identity(
             f"{module_path}.incoming", WatchCodeCallableKind.function
         )
@@ -657,7 +664,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(watch_root)), recursive=False
+                        path=str(workspace_relative_path(watch_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -681,18 +688,18 @@ class TestWatchCode:
 
         src_path.replace(dest_path)
         self.manager.watch_code_manager._handle_event(src_path, "moved", dest_path)
-        debouncer_key = (self.project_config_id, normalize_path(dest_path))
+        debouncer_key = (self.project_config_id, normalize_workspace_path(dest_path))
         debouncer = self.manager.watch_code_manager._debouncers[debouncer_key]
         await debouncer.flush(
-            self.project_config_id, normalize_path(dest_path), False
+            self.project_config_id, normalize_workspace_path(dest_path), False
         )
 
         state = self.manager.get_single_config_state(self.project_config_id)
-        src_key = str(normalize_path(src_path))
+        src_key = str(normalize_workspace_path(src_path))
         assert src_key not in state.projectConfig.watchCodeBaselineByPath
         for entry in state.projectConfig.watchCodeRegistry.values():
             assert entry.sourcePath != src_key
-        moved_module_path = convert_path_to_module_path(normalize_path(dest_path))
+        moved_module_path = convert_path_to_module_path(workspace_relative_path(dest_path))
         moved_identity = build_callable_identity(
             f"{moved_module_path}.watched", WatchCodeCallableKind.function
         )
@@ -720,7 +727,7 @@ class TestWatchCode:
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(source_root)), recursive=False
+                        path=str(workspace_relative_path(source_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -731,7 +738,7 @@ class TestWatchCode:
                 projectConfigId=secondary_config_id,
                 watchCodeFolders=[
                     WatchCodeFolder(
-                        path=str(normalize_path(dest_root)), recursive=False
+                        path=str(workspace_relative_path(dest_root)), recursive=False
                     )
                 ],
                 watchCodeFiles=[],
@@ -758,7 +765,7 @@ class TestWatchCode:
             baseline_only=False,
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        src_module_path = convert_path_to_module_path(normalize_path(src_path))
+        src_module_path = convert_path_to_module_path(workspace_relative_path(src_path))
         src_identity = build_callable_identity(
             f"{src_module_path}.moved", WatchCodeCallableKind.function
         )
@@ -768,28 +775,28 @@ class TestWatchCode:
         src_path.replace(dest_path)
         self.manager.watch_code_manager._handle_event(src_path, "moved", dest_path)
 
-        delete_key = (self.project_config_id, normalize_path(src_path))
+        delete_key = (self.project_config_id, normalize_workspace_path(src_path))
         delete_debouncer = self.manager.watch_code_manager._delete_debouncers[
             delete_key
         ]
         await delete_debouncer.flush(
-            self.project_config_id, normalize_path(src_path)
+            self.project_config_id, normalize_workspace_path(src_path)
         )
 
-        scan_key = (secondary_config_id, normalize_path(dest_path))
+        scan_key = (secondary_config_id, normalize_workspace_path(dest_path))
         scan_debouncer = self.manager.watch_code_manager._debouncers[scan_key]
         await scan_debouncer.flush(
-            secondary_config_id, normalize_path(dest_path), False
+            secondary_config_id, normalize_workspace_path(dest_path), False
         )
 
         updated_state = self.manager.get_single_config_state(self.project_config_id)
-        src_key = str(normalize_path(src_path))
+        src_key = str(normalize_workspace_path(src_path))
         assert src_key not in updated_state.projectConfig.watchCodeBaselineByPath
         for entry in updated_state.projectConfig.watchCodeRegistry.values():
             assert entry.sourcePath != src_key
 
         dest_state = self.manager.get_single_config_state(secondary_config_id)
-        dest_module_path = convert_path_to_module_path(normalize_path(dest_path))
+        dest_module_path = convert_path_to_module_path(workspace_relative_path(dest_path))
         dest_identity = build_callable_identity(
             f"{dest_module_path}.moved", WatchCodeCallableKind.function
         )
@@ -814,7 +821,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         callable_name = f"{module_path}.watched"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
         entry = state.projectConfig.watchCodeRegistry[identity]
@@ -853,7 +860,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         identity = build_callable_identity(
             f"{module_path}.watched", WatchCodeCallableKind.function
         )
@@ -889,7 +896,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         callable_name = f"{module_path}.watched"
         identity = build_callable_identity(callable_name, WatchCodeCallableKind.function)
         entry = state.projectConfig.watchCodeRegistry[identity]
@@ -931,7 +938,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         original_name = f"{module_path}.original"
         original_identity = build_callable_identity(
             original_name, WatchCodeCallableKind.function
@@ -979,7 +986,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         original_name = f"{module_path}.original"
         original_identity = build_callable_identity(
             original_name, WatchCodeCallableKind.function
@@ -1036,7 +1043,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         watched_name = f"{module_path}.watched"
         watched_identity = build_callable_identity(
             watched_name, WatchCodeCallableKind.function
@@ -1079,7 +1086,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         alpha_identity = build_callable_identity(
             f"{module_path}.alpha", WatchCodeCallableKind.function
         )
@@ -1154,7 +1161,7 @@ class TestWatchCode:
             SetWatchCodeInputsRequest(
                 projectConfigId=self.project_config_id,
                 watchCodeFolders=[],
-                watchCodeFiles=[str(normalize_path(self.watch_file_path))],
+                watchCodeFiles=[str(workspace_relative_path(self.watch_file_path))],
             )
         )
         await self.manager.set_watch_code_enabled(
@@ -1174,13 +1181,13 @@ class TestWatchCode:
             baseline_only=False,
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.watch_file_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.watch_file_path))
         added_identity = build_callable_identity(
             f"{module_path}.added", WatchCodeCallableKind.function
         )
         assert added_identity in state.projectConfig.watchCodeRegistry
         assert (
-            str(normalize_path(self.watch_file_path))
+            str(normalize_workspace_path(self.watch_file_path))
             in state.projectConfig.watchCodeBaselineByPath
         )
 
@@ -1190,7 +1197,7 @@ class TestWatchCode:
         updated_state = self.manager.get_single_config_state(self.project_config_id)
         assert updated_state.projectConfig.watchCodeRegistry == {}
         assert (
-            str(normalize_path(self.watch_file_path))
+            str(normalize_workspace_path(self.watch_file_path))
             not in updated_state.projectConfig.watchCodeBaselineByPath
         )
 
@@ -1215,7 +1222,7 @@ class TestWatchCode:
             )
         )
         state = self.manager.get_single_config_state(self.project_config_id)
-        module_path = convert_path_to_module_path(normalize_path(self.code_section_path))
+        module_path = convert_path_to_module_path(workspace_relative_path(self.code_section_path))
         callable_name = f"{module_path}.Widget"
         identity = build_callable_identity(
             callable_name, WatchCodeCallableKind.class_init
@@ -1231,6 +1238,7 @@ class TestWatchCodeLspOrdering:
     async def _setup(self) -> None:
         self._tmp_dir = TemporaryDirectory()
         root = Path(self._tmp_dir.name)
+        self.workspace_root = root
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
@@ -1243,16 +1251,13 @@ class TestWatchCodeLspOrdering:
         ):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._original_constants = {
-            "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-            "CODE_FOLDER": C.CODE_FOLDER,
-            "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-            "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        }
-        C.SETTA_FILES_FOLDER = self.setta_root
-        C.CODE_FOLDER = self.code_folder
-        C.ARTIFACTS_FOLDER = self.artifacts_folder
-        C.DB_BACKUP_FOLDER = self.backup_folder
+        self._stack = ExitStack()
+        self._stack.enter_context(
+            temporary_setta_paths(
+                workspace_root=self.workspace_root,
+                setta_files_root=self.setta_root,
+            )
+        )
 
         self.dbe = DBE(self.setta_root)
         self.websocket_manager = WebsocketManager()
@@ -1328,8 +1333,7 @@ class TestWatchCodeLspOrdering:
             if self._lsps_started:
                 await stop_lsps(self.lsp_servers, self.lsp_readers)
                 stop_file_watcher(self.lsp_writers)
-            for name, value in self._original_constants.items():
-                setattr(C, name, value)
+            self._stack.close()
             self._tmp_dir.cleanup()
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:
