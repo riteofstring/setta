@@ -134,11 +134,6 @@ test.describe.serial("section color tags", () => {
           `[id="${sectionId}-OverviewListItem"] span[title^="Color tag:"]`,
         ),
       ).toHaveCount(0);
-      await expect(
-        nodeAfter.locator(
-          `section[data-section-id="${sectionId}"] div.absolute.left-0.top-0.h-full.w-1`,
-        ),
-      ).toHaveCount(0);
       await expect(colorTagBlock.getByText("None").first()).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);

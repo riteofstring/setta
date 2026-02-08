@@ -50,6 +50,8 @@ export function SectionStyleColorSettings({
     clearPreviewStyleColor();
   }, [clearPreviewStyleColor, styleColor]);
 
+  useEffect(() => clearPreviewStyleColor, [clearPreviewStyleColor]);
+
   const canEditStyleColor = (!isDeploymentMode || canEditLayout) && !isFrozen;
 
   const commitStyleColor = useCallback(

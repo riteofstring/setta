@@ -18,21 +18,17 @@ import {
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
-  useLocalStorage,
   useMisc,
   useProjectSearch,
   useProjectState,
-  useTemporaryMiscState,
   useTypeErrors,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
-import { getSectionStylePreviewColorKey } from "utils/constants";
 import {
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
@@ -45,6 +41,7 @@ type ParamSwitchProps = {
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
+  hasSectionStyleTheme: boolean;
 };
 
 function _ParamSwitch(props: ParamSwitchProps) {
@@ -129,7 +126,7 @@ function TempParamSwitch({
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const { sectionId, paramInfoId } = props;
+  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -148,7 +145,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const { paramIsSelected, isKwarg, paramChildren, isNestedParam, styleColor } =
+  const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
         x,
@@ -167,21 +164,8 @@ function RealParamSwitch(props: ParamSwitchProps) {
         isKwarg: codeObjImpl.coreNameEditable,
         paramChildren: isNestedParam ? codeObjImpl.children : [],
         isNestedParam,
-        styleColor: impl.styleColor ?? null,
       };
     }, _.isEqual);
-  const darkMode = useLocalStorage((x) => x.darkMode);
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (x) => x[styleColorPreviewKey] as string | null | undefined,
-  );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? styleColor : previewStyleColor;
-  const hasSectionStyleTheme = Boolean(
-    resolvedStyleColor
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null,
-  );
 
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);

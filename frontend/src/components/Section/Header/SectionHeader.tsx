@@ -7,7 +7,10 @@ import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
 } from "state/actions/lspDiagnostics";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
+} from "state/actions/sectionInfos";
 import {
   useAIFollow,
   useLspDiagnostics,
@@ -89,9 +92,12 @@ function _SectionHeader({
   }, [heightKey]);
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const tagColor = useProjectState(
-    (x) => x.sections[sectionId]?.sharedModifier.tagColor ?? null,
-  );
+  const tagColor = useProjectState((x) => {
+    if (!x.sections[sectionId]) {
+      return null;
+    }
+    return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
+  });
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),

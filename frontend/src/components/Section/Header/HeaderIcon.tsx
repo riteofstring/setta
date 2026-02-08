@@ -172,8 +172,7 @@ export function HeaderIcon({
           className={
             themedIconClassName
               ? `[&_*]:!scale-120 ${themedIconClassName}`
-              : "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600  dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]
-          "
+              : "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600 dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]"
           }
         />
       );
@@ -182,8 +181,7 @@ export function HeaderIcon({
         <FaChartPie
           className={
             themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
-          "
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
           }
         />
       );
@@ -192,8 +190,7 @@ export function HeaderIcon({
         <IoChatbox
           className={
             themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
-          "
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
           }
         />
       );
@@ -202,8 +199,7 @@ export function HeaderIcon({
         <TbFolderFilled
           className={
             themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
-          "
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
           }
         />
       );

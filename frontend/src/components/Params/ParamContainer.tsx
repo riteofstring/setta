@@ -129,6 +129,7 @@ function _ParamContainer({
               requiredParamIdsToPaths={requiredParamIdsToPaths}
               onResizeStart={onResizeStart}
               listKey={listKey}
+              hasSectionStyleTheme={hasSectionStyleTheme}
             />
           </div>
         )}
@@ -161,6 +162,7 @@ function _ParamContainer({
           requiredParamIdsToPaths={requiredParamIdsToPaths}
           onResizeStart={onResizeStart}
           listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
         />
       </div>
     </article>

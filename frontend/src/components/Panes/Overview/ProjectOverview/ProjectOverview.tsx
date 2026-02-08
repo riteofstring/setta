@@ -248,7 +248,7 @@ function getDepthListingHelper(
     id: section.id,
     name: section.name,
     depth: depth,
-    tagColor: section.sharedModifier.tagColor ?? null,
+    tagColor: sectionImpl.tagColor ?? null,
   });
 
   if (isBaseParentSectionImpl(sectionImpl)) {

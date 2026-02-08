@@ -834,6 +834,7 @@ function PinnedParamsArea({
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
             listKey="pinned"
+            hasSectionStyleTheme={hasSectionStyleTheme}
           />
         </div>
       </div>
@@ -852,6 +853,7 @@ function GetUnpinnedParams({
     topLevelParamIds,
     hasPinnedParams,
     positionAndSizeLocked,
+    styleColor,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -877,8 +879,21 @@ function GetUnpinnedParams({
       topLevelParamIds: filteredUnpinned.topLevelParamIds,
       hasPinnedParams,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
@@ -944,6 +959,7 @@ function GetUnpinnedParams({
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
             listKey="unpinned"
+            hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}
       </div>
