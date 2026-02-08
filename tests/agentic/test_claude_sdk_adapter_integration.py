@@ -267,7 +267,7 @@ class TestClaudeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config, "allowUnscoped": True},
             )
 
             handle = await self._await_run_handle(runner, run.id)
@@ -309,7 +309,7 @@ class TestClaudeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config, "allowUnscoped": True},
             )
 
             handle = await self._await_run_handle(runner, run.id)
@@ -359,7 +359,7 @@ class TestClaudeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config, "allowUnscoped": True},
             )
 
             await self._await_run_handle(runner, first_run.id)
@@ -381,6 +381,7 @@ class TestClaudeSdkAdapterIntegration:
                     "prompt": "Say hello again.",
                     "chatId": str(first_run.id),
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                 },
             )
 
@@ -439,6 +440,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["Read"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -525,6 +527,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["Bash"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -613,6 +616,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["TodoWrite"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 2,
                 },
             )
@@ -826,6 +830,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["Bash"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -914,6 +919,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "thinking": {"type": "enabled", "budget_tokens": 1024},
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -994,6 +1000,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["AskUserQuestion"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 2,
                 },
             )
@@ -1126,6 +1133,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["AskUserQuestion"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 2,
                 },
             )

@@ -1378,7 +1378,10 @@ function handleToolResult(
       messages: upsertMessage(details.messages, chunk.result),
     };
   });
-  clearToolArgumentPreviewByToolCallId(projectConfigId, chunk.result.tool_call_id);
+  clearToolArgumentPreviewByToolCallId(
+    projectConfigId,
+    chunk.result.tool_call_id,
+  );
   handleAgenticScopeViolation(chunk.result, projectConfigId);
 }
 

@@ -524,7 +524,7 @@ class TestOpenCodeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "opencodePort": port},
+                {"prompt": "Say hello.", "opencodePort": port, "allowUnscoped": True},
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
@@ -544,7 +544,7 @@ class TestOpenCodeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "opencodePort": port},
+                {"prompt": "Say hello.", "opencodePort": port, "allowUnscoped": True},
             )
             stored = await self._await_completed_run(dbe, run.id, runner=runner)
             outputs = stored.get("outputs")
@@ -567,6 +567,7 @@ class TestOpenCodeSdkAdapterIntegration:
                 {
                     "prompt": f"Remember this codeword: {code_word}. Reply with OK.",
                     "opencodePort": port,
+                    "allowUnscoped": True,
                 },
             )
             first_stored = await self._await_completed_run(
@@ -586,6 +587,7 @@ class TestOpenCodeSdkAdapterIntegration:
                     "prompt": "What codeword did I ask you to remember?",
                     "sessionId": session_id,
                     "opencodePort": port,
+                    "allowUnscoped": True,
                 },
             )
             second_stored = await self._await_completed_run(
@@ -625,7 +627,7 @@ class TestOpenCodeSdkAdapterIntegration:
                     config.id,
                     config,
                     profile,
-                    {"prompt": prompt, "opencodePort": port},
+                    {"prompt": prompt, "opencodePort": port, "allowUnscoped": True},
                 )
                 approval_id = await self._await_pending_approval(runner, dbe, run.id)
                 await runner.respond_to_approval(approval_id, True)
@@ -671,7 +673,7 @@ class TestOpenCodeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": prompt, "opencodePort": port},
+                {"prompt": prompt, "opencodePort": port, "allowUnscoped": True},
             )
             tool_call_id, questions = await self._await_pending_question(
                 runner, dbe, run.id
