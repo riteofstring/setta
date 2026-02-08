@@ -3,19 +3,24 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from setta.utils.env_vars import (
-    FILES_ROOT_BASE_ENV,
-    FILES_ROOT_ENV,
+    FILES_LOCATION_ENV,
     RUNTIME_ROOT_ENV,
     WORKSPACE_ROOT_ENV,
 )
+from setta.utils.user_config import load_setta_user_config
+
+SettaFilesLocation = Literal["auto", "local", "global"]
+ResolvedSettaFilesLocation = Literal["local", "global"]
 
 
 @dataclass(frozen=True)
 class SettaPaths:
     workspace_root: Path
     setta_files_root: Path
+    setta_files_location: ResolvedSettaFilesLocation
     runtime_root: Path
 
     @property
@@ -54,17 +59,13 @@ class SettaPaths:
 def resolve_setta_paths(
     *,
     workspace_root: Path | str | None = None,
-    files_root: Path | str | None = None,
-    files_root_base: Path | str | None = None,
+    setta_files_location: SettaFilesLocation | None = None,
     runtime_root: Path | str | None = None,
-    ignore_env_files_root: bool = False,
 ) -> SettaPaths:
     resolved_workspace = _resolve_workspace_root(workspace_root)
-    resolved_files_root = _resolve_files_root(
+    resolved_files_root, resolved_location = _resolve_files_root(
         resolved_workspace,
-        files_root=files_root,
-        files_root_base=files_root_base,
-        ignore_env_files_root=ignore_env_files_root,
+        setta_files_location=setta_files_location,
     )
     resolved_runtime_root = _resolve_runtime_root(
         resolved_files_root, runtime_root=runtime_root
@@ -72,6 +73,7 @@ def resolve_setta_paths(
     return SettaPaths(
         workspace_root=resolved_workspace,
         setta_files_root=resolved_files_root,
+        setta_files_location=resolved_location,
         runtime_root=resolved_runtime_root,
     )
 
@@ -83,6 +85,11 @@ def get_setta_paths() -> SettaPaths:
 
 def clear_setta_paths_cache() -> None:
     get_setta_paths.cache_clear()
+    # clear_setta_paths_cache is the "big hammer" tests use when they change env vars.
+    # Keep user config cache in sync so SETTA_HOME overrides behave as expected.
+    from setta.utils.user_config import clear_setta_user_config_cache
+
+    clear_setta_user_config_cache()
 
 
 def normalize_workspace_path(
@@ -186,49 +193,53 @@ def _resolve_workspace_root(workspace_root: Path | str | None) -> Path:
 def _resolve_files_root(
     workspace_root: Path,
     *,
-    files_root: Path | str | None,
-    files_root_base: Path | str | None,
-    ignore_env_files_root: bool,
-) -> Path:
-    raw_files_root: Path | str | None = files_root
-    if isinstance(raw_files_root, str):
-        raw_files_root = raw_files_root.strip() or None
+    setta_files_location: SettaFilesLocation | None,
+) -> tuple[Path, ResolvedSettaFilesLocation]:
+    local_root = (workspace_root / "setta_files").resolve(strict=False)
+    if local_root.exists() and not local_root.is_dir():
+        raise ValueError(f"Local setta_files path is not a directory: {local_root}")
 
-    raw_files_root_base: Path | str | None = files_root_base
-    if isinstance(raw_files_root_base, str):
-        raw_files_root_base = raw_files_root_base.strip() or None
+    # Local always wins when present, regardless of config/overrides.
+    if local_root.is_dir():
+        return (local_root, "local")
 
-    raw_env_files_root: str | None = None
-    if not ignore_env_files_root:
-        raw_env_files_root = os.environ.get(FILES_ROOT_ENV)
-        if raw_env_files_root is not None:
-            raw_env_files_root = raw_env_files_root.strip() or None
+    raw_location = setta_files_location
+    if raw_location is None:
+        raw_env = os.environ.get(FILES_LOCATION_ENV)
+        if raw_env is not None:
+            raw_location = raw_env.strip().lower() or None
+    if raw_location is None:
+        raw_location = "auto"
 
-    raw_env_files_root_base = os.environ.get(FILES_ROOT_BASE_ENV)
-    if raw_env_files_root_base is not None:
-        raw_env_files_root_base = raw_env_files_root_base.strip() or None
-
-    # Precedence:
-    # 1. explicit --files-root
-    # 2. explicit --files-root-base
-    # 3. SETTA_FILES_ROOT (unless ignored)
-    # 4. SETTA_FILES_ROOT_BASE
-    # 5. workspace_root/setta_files
-    if raw_files_root is not None:
-        return resolve_path(raw_files_root)
-    if raw_files_root_base is not None:
-        base_root = resolve_path(raw_files_root_base)
-        return build_files_root_from_base(base_root, workspace_root).resolve(
-            strict=False
+    if raw_location not in ("auto", "local", "global"):
+        raise ValueError(
+            f"Invalid setta files location: {raw_location!r} (expected auto, local, or global)."
         )
-    if raw_env_files_root is not None:
-        return resolve_path(raw_env_files_root)
-    if raw_env_files_root_base is not None:
-        base_root = resolve_path(raw_env_files_root_base)
-        return build_files_root_from_base(base_root, workspace_root).resolve(
-            strict=False
-        )
-    return (workspace_root / "setta_files").resolve(strict=False)
+
+    if raw_location == "local":
+        return (local_root, "local")
+
+    config = load_setta_user_config()
+    global_root = build_files_root_from_base(
+        config.global_setta_files_base, workspace_root
+    ).resolve(strict=False)
+    if global_root.exists() and not global_root.is_dir():
+        raise ValueError(f"Global setta_files path is not a directory: {global_root}")
+
+    if raw_location == "global":
+        return (global_root, "global")
+
+    # auto: follow user config fallback behavior.
+    if config.auto_mode == "create_local":
+        return (local_root, "local")
+
+    # use_global_if_present / create_global
+    if global_root.is_dir():
+        return (global_root, "global")
+
+    if config.auto_mode == "create_global":
+        return (global_root, "global")
+    return (local_root, "local")
 
 
 def _resolve_runtime_root(

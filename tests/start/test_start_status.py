@@ -30,7 +30,8 @@ def _decode_connect_info(output: str) -> dict:
 def status_env(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_root = tmp_path / "setta_files"
+    setta_root = workspace / "setta_files"
+    setta_root.mkdir(parents=True, exist_ok=True)
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
@@ -162,7 +163,7 @@ def test_status_connect_info_json_emits_payload(status_env) -> None:
         == "ssh -N -L ${LOCAL_PORT}:127.0.0.1:61234 <user@host> -o ExitOnForwardFailure=yes"
     )
     assert payload["runtimeRoot"] == str(status_env.sessions_root.parent)
-    assert payload["filesRoot"] == str(status_env.sessions_root.parent.parent)
+    assert payload["settaFilesLocation"] == "local"
 
 
 def test_status_requires_session_or_latest_for_multiple_sessions_json(
