@@ -7,7 +7,10 @@ import {
   setCodeSectionDiagnosticCodeSuppression,
   setCodeSectionDiagnosticsMuted,
 } from "state/actions/lspDiagnostics";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplOfType,
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
 import {
   useAIFollow,
   useLspDiagnostics,
@@ -236,7 +239,12 @@ function _SectionHeader({
             />
           </>
         )}
-        <AttachedTerminalControls sectionId={sectionId} isUserView={isUserView} />
+        {isBaseCodeSectionType(sectionTypeName) && (
+          <AttachedTerminalControls
+            sectionId={sectionId}
+            isUserView={isUserView}
+          />
+        )}
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}

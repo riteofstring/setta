@@ -76,6 +76,57 @@ test("run attaches a terminal and reuses it", async ({ page }) => {
   }
 });
 
+test("code header terminal button creates an attached terminal without running", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+
+  const { projectConfigId, projectConfigName } =
+    await createNewProjectConfig(page);
+
+  try {
+    const sectionId = await createCodeSection(page);
+    const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+    const codeSection = codeNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    const codeHeader = codeSection.locator("header.section-title");
+    const toggleButton = codeHeader.locator("[data-attached-terminal-toggle]");
+    const trashButton = codeNode.locator("[data-attached-terminal-trash]");
+
+    await expect(toggleButton).toHaveCount(1);
+    await expect(toggleButton).toHaveAttribute("title", "Create terminal");
+    await expect(trashButton).toHaveCount(0);
+
+    await toggleButton.click({ force: true });
+
+    const terminalId = await waitForAttachedTerminalId(
+      page,
+      projectConfigName,
+      sectionId,
+    );
+    const embeddedTerminalHost = codeNode.locator(
+      `[data-attached-terminal-section-id="${terminalId}"]`,
+    );
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${terminalId}"]`,
+    );
+    const attachedTerminalSection = codeNode.locator(
+      `section[data-section-id="${terminalId}"]`,
+    );
+    const attachedTerminalTrashButton = attachedTerminalSection.locator(
+      "[data-attached-terminal-trash]",
+    );
+    await expect(embeddedTerminalHost).toBeVisible();
+    await expect(terminalNode).toHaveCount(0);
+    await expect(toggleButton).toHaveAttribute("title", "Hide terminal");
+    await expect(attachedTerminalTrashButton).toHaveCount(1);
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
 test("embedded terminal keeps code editor visible", async ({ page }) => {
   test.setTimeout(90000);
   await ensureAppReady(page);
@@ -266,6 +317,9 @@ test("attached terminal renders without header and resizes independently", async
       1,
     );
     await expect(codeHeader.locator("[data-attached-terminal-trash]")).toHaveCount(
+      0,
+    );
+    await expect(terminalSection.locator("[data-attached-terminal-trash]")).toHaveCount(
       1,
     );
     await expect(
@@ -508,7 +562,7 @@ test("resizing embedded terminal width also resizes the code section", async ({
   }
 });
 
-test("embedded terminal code header trash deletes the attached terminal", async ({
+test("embedded terminal trash deletes the attached terminal", async ({
   page,
 }) => {
   test.setTimeout(90000);
@@ -532,19 +586,12 @@ test("embedded terminal code header trash deletes the attached terminal", async 
     );
     const codeHeader = codeSection.locator("header.section-title");
     const toggleButton = codeHeader.locator("[data-attached-terminal-toggle]");
-    const trashButton = codeHeader.locator("[data-attached-terminal-trash]");
+    const terminalSection = codeNode.locator(
+      `section[data-section-id="${terminalId}"]`,
+    );
+    const trashButton = terminalSection.locator("[data-attached-terminal-trash]");
     await expect(toggleButton).toHaveCount(1);
     await expect(trashButton).toHaveCount(1);
-
-    await toggleButton.click({ force: true });
-    await expect(
-      codeNode.locator(
-        `[data-attached-terminal-section-id="${terminalId}"]`,
-      ),
-    ).toHaveCount(0);
-    await expect(
-      codeNode.locator(`section[data-section-id="${terminalId}"]`),
-    ).toHaveCount(0);
 
     await trashButton.click({ force: true });
 

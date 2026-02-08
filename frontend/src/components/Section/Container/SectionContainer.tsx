@@ -4,6 +4,7 @@ import React from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalForCodeSection,
   getSectionShouldRender,
   getSectionViewModeVisibility,
   isBaseCodeSectionType,
@@ -42,7 +43,6 @@ function _SectionContainer({
     sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
-    joinedAttachedTerminalId,
     isJoinedAttachedTerminalGroup,
     isJoinedGroupActive,
   } = useProjectState((x) => {
@@ -55,33 +55,18 @@ function _SectionContainer({
     const pythonTarget = getPythonCodegenTarget(x.projectConfig);
     const activeIds = x.projectConfig.activeIds;
     const isActive = activeIds.includes(sectionId);
-    let joinedAttachedTerminalId: string | null = null;
     let isJoinedAttachedTerminalGroup = false;
     let isJoinedGroupActive = isActive;
 
-    if (isBaseCodeSectionType(impl.type)) {
-      const attachedTerminalId = impl.attachedTerminalSectionId ?? null;
-      if (attachedTerminalId && attachedTerminalId in x.sections) {
-        const children = impl.children ?? [];
-        const candidateChildId =
-          children.length > 0 ? children[0] : attachedTerminalId;
-        const isEmbeddedCandidate =
-          candidateChildId === attachedTerminalId &&
-          children.length < 2 &&
-          x.parentSectionMap[attachedTerminalId] === sectionId;
-        if (isEmbeddedCandidate) {
-          const terminalImpl = getCurrEffectiveSectionImpl(
-            x,
-            attachedTerminalId,
-          );
-          if (terminalImpl.type === SectionTypeEnum.Terminal) {
-            joinedAttachedTerminalId = attachedTerminalId;
-            isJoinedAttachedTerminalGroup = !terminalImpl.isMinimized;
-            isJoinedGroupActive =
-              isJoinedGroupActive || activeIds.includes(attachedTerminalId);
-          }
-        }
-      }
+    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+      x,
+      sectionId,
+    );
+    if (embeddedTerminal) {
+      isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
+      isJoinedGroupActive =
+        isJoinedGroupActive ||
+        activeIds.includes(embeddedTerminal.attachedTerminalId);
     }
     return {
       visibility,
@@ -96,7 +81,6 @@ function _SectionContainer({
       sectionTypeName: impl.type,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-      joinedAttachedTerminalId,
       isJoinedAttachedTerminalGroup,
       isJoinedGroupActive,
     };
@@ -135,9 +119,6 @@ function _SectionContainer({
                 },
               )}`}
               data-joined-code-terminal-group
-              data-joined-attached-terminal-id={
-                joinedAttachedTerminalId ?? undefined
-              }
             >
               <AgenticEdgeHandles isUserView={isUserView} />
               <SectionContainerCore

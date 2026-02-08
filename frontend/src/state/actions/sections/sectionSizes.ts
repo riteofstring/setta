@@ -1,9 +1,9 @@
 import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
   getHighestAncestor,
   getSectionDescendants,
-  isBaseCodeSectionType,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
@@ -23,11 +23,9 @@ export function setSelfParentSiblingChildrenWidths(
     [sectionId]: newSize,
   };
   if (!_.isNil(changedSize.width)) {
-    const embeddedTerminalParentId = getEmbeddedAttachedTerminalParentId(
-      sectionId,
-      state,
-    );
-    if (embeddedTerminalParentId) {
+    const embeddedTerminalParentId =
+      getEmbeddedAttachedTerminalParentIdForTerminalSection(state, sectionId);
+    if (embeddedTerminalParentId !== null) {
       updatedSectionSizes[embeddedTerminalParentId] = setSectionSize(
         embeddedTerminalParentId,
         { width: changedSize.width },
@@ -35,7 +33,11 @@ export function setSelfParentSiblingChildrenWidths(
       );
       updatedSectionSizes = {
         ...updatedSectionSizes,
-        ...setAllOtherWidths(embeddedTerminalParentId, changedSize.width, state),
+        ...setAllOtherWidths(
+          embeddedTerminalParentId,
+          changedSize.width,
+          state,
+        ),
       };
       return updatedSectionSizes;
     }
@@ -45,38 +47,6 @@ export function setSelfParentSiblingChildrenWidths(
     };
   }
   return updatedSectionSizes;
-}
-
-function getEmbeddedAttachedTerminalParentId(
-  sectionId: string,
-  state: ZustandProjectState,
-): string | null {
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  if (impl.type !== SectionTypeEnum.Terminal) {
-    return null;
-  }
-  const parentId = state.parentSectionMap[sectionId] ?? null;
-  if (!parentId) {
-    return null;
-  }
-  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
-  if (!isBaseCodeSectionType(parentImpl.type)) {
-    return null;
-  }
-  if (parentImpl.attachedTerminalSectionId !== sectionId) {
-    return null;
-  }
-  const parentChildren = Array.isArray(parentImpl.children)
-    ? parentImpl.children
-    : [];
-  const candidateChildId =
-    parentChildren.length > 0 ? parentChildren[0] : sectionId;
-  const isEmbeddedTerminalChild =
-    parentChildren.length < 2 && candidateChildId === sectionId;
-  if (!isEmbeddedTerminalChild) {
-    return null;
-  }
-  return parentId;
 }
 
 function setAllOtherWidths(

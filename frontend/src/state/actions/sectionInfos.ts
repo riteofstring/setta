@@ -226,6 +226,99 @@ export function isBaseCodeSectionType(sectionType: SectionType): boolean {
   );
 }
 
+type EmbeddedAttachedTerminalInfo = {
+  attachedTerminalId: string;
+  isTerminalMinimized: boolean;
+};
+
+export function getAttachedTerminalParentIdForTerminalSection(
+  state: ZustandProjectState,
+  terminalSectionId: string,
+): string | null {
+  const terminalImpl = getCurrEffectiveSectionImpl(state, terminalSectionId);
+  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+    return null;
+  }
+  const parentId = state.parentSectionMap[terminalSectionId] ?? null;
+  if (!parentId) {
+    return null;
+  }
+  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+  if (!isBaseCodeSectionType(parentImpl.type)) {
+    return null;
+  }
+  if (parentImpl.attachedTerminalSectionId !== terminalSectionId) {
+    return null;
+  }
+  return parentId;
+}
+
+export function getEmbeddedAttachedTerminalParentIdForTerminalSection(
+  state: ZustandProjectState,
+  terminalSectionId: string,
+): string | null {
+  const parentId = getAttachedTerminalParentIdForTerminalSection(
+    state,
+    terminalSectionId,
+  );
+  if (!parentId) {
+    return null;
+  }
+  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+  if (!isBaseParentSectionImpl(parentImpl)) {
+    return null;
+  }
+  const childIds = parentImpl.children;
+  const candidateChildId =
+    childIds.length > 0 ? childIds[0] : terminalSectionId;
+  const isEmbeddedCandidate =
+    candidateChildId === terminalSectionId && childIds.length < 2;
+  if (!isEmbeddedCandidate) {
+    return null;
+  }
+  return parentId;
+}
+
+export function getEmbeddedAttachedTerminalForCodeSection(
+  state: ZustandProjectState,
+  sectionId: string,
+  childIdsOverride?: string[],
+): EmbeddedAttachedTerminalInfo | null {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  if (!isBaseCodeSectionType(impl.type)) {
+    return null;
+  }
+  const attachedTerminalId = impl.attachedTerminalSectionId ?? null;
+  if (!attachedTerminalId || !(attachedTerminalId in state.sections)) {
+    return null;
+  }
+  const parentId = getAttachedTerminalParentIdForTerminalSection(
+    state,
+    attachedTerminalId,
+  );
+  if (parentId !== sectionId) {
+    return null;
+  }
+  const childIds =
+    childIdsOverride ??
+    (isBaseParentSectionImpl(impl) ? impl.children : [attachedTerminalId]);
+  const candidateChildId =
+    childIds.length > 0 ? childIds[0] : attachedTerminalId;
+  const isEmbeddedCandidate =
+    candidateChildId === attachedTerminalId && childIds.length < 2;
+  if (!isEmbeddedCandidate) {
+    return null;
+  }
+  const terminalImpl = getCurrEffectiveSectionImpl(state, attachedTerminalId);
+  if (terminalImpl.type !== SectionTypeEnum.Terminal) {
+    return null;
+  }
+  return {
+    attachedTerminalId,
+    isTerminalMinimized: terminalImpl.isMinimized,
+  };
+}
+
 export function getTopLevelSectionIdsForDisplay(
   projectState: ZustandProjectState,
 ): string[] {

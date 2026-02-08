@@ -3,9 +3,9 @@ import _ from "lodash";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import {
   adjustSizeToBeAtLeastMin,
@@ -30,7 +30,7 @@ import {
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { route_set_section_sizes } from "utils/generatedEndpoints";
-import { SectionSize, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionSize } from "utils/generatedTypes";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   getChangedSize,
@@ -449,21 +449,9 @@ function CustomResizableSuperCore({
   const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
-  const isAttachedTerminalChild = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type !== SectionTypeEnum.Terminal) {
-      return false;
-    }
-    const parentId = x.parentSectionMap[sectionId] ?? null;
-    if (!parentId) {
-      return false;
-    }
-    const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
-    if (!isBaseCodeSectionType(parentImpl.type)) {
-      return false;
-    }
-    return parentImpl.attachedTerminalSectionId === sectionId;
-  });
+  const isAttachedTerminalChild = useProjectState(
+    (x) => getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null,
+  );
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );

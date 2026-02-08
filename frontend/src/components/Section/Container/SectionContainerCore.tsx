@@ -1,7 +1,8 @@
 import React from "react";
 import {
+  getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
@@ -46,28 +47,11 @@ function _SectionContainerCore({
     isJoinedAttachedTerminalChild,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const parentId = x.parentSectionMap[sectionId] ?? null;
-    let isAttachedTerminalChild = false;
-    let isJoinedAttachedTerminalChild = false;
-    if (parentId) {
-      const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
-      if (
-        impl.type === SectionTypeEnum.Terminal &&
-        isBaseCodeSectionType(parentImpl.type) &&
-        parentImpl.attachedTerminalSectionId === sectionId
-      ) {
-        isAttachedTerminalChild = true;
-        const parentChildren = Array.isArray(parentImpl.children)
-          ? parentImpl.children
-          : [];
-        const candidateChildId =
-          parentChildren.length > 0 ? parentChildren[0] : sectionId;
-        const isEmbeddedTerminalChild =
-          parentChildren.length < 2 && candidateChildId === sectionId;
-        isJoinedAttachedTerminalChild =
-          isEmbeddedTerminalChild && !impl.isMinimized;
-      }
-    }
+    const isAttachedTerminalChild =
+      getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null;
+    const isJoinedAttachedTerminalChild =
+      getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
+        null && !impl.isMinimized;
     return {
       isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
