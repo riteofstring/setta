@@ -194,16 +194,24 @@ test("git diff overlay and git graph overlay render between panes", async ({
       .getByRole("button", { name: /history-259/ })
       .locator("svg")
       .first();
-    const dotBeforeGraphResize = await historyCommitSvg.evaluate((svg) => {
+    const metricsBeforeGraphResize = await historyCommitSvg.evaluate((svg) => {
       const dot = svg.querySelector("circle");
-      if (!dot) {
+      const laneStroke = svg.querySelector("line");
+      if (!dot || !laneStroke) {
         return null;
       }
-      const rect = dot.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
+      const dotRect = dot.getBoundingClientRect();
+      const laneStrokeRect = laneStroke.getBoundingClientRect();
+      return {
+        dotWidth: dotRect.width,
+        dotHeight: dotRect.height,
+        laneStrokeWidth: laneStrokeRect.width,
+      };
     });
-    if (!dotBeforeGraphResize) {
-      throw new Error("Expected git graph row to render a commit dot.");
+    if (!metricsBeforeGraphResize) {
+      throw new Error(
+        "Expected git graph row to render both a commit dot and lane stroke.",
+      );
     }
     const graphMessageHandleBefore = await graphMessageResizeHandle.boundingBox();
     if (!graphMessageHandleBefore) {
@@ -221,28 +229,92 @@ test("git diff overlay and git graph overlay render between panes", async ({
       graphMessageHandleBefore.y + graphMessageHandleBefore.height / 2,
       { steps: 8 },
     );
-    const dotDuringGraphResize = await historyCommitSvg.evaluate((svg) => {
+    const metricsDuringGraphResize = await historyCommitSvg.evaluate((svg) => {
       const dot = svg.querySelector("circle");
-      if (!dot) {
+      const laneStroke = svg.querySelector("line");
+      if (!dot || !laneStroke) {
         return null;
       }
-      const rect = dot.getBoundingClientRect();
-      return { width: rect.width, height: rect.height };
+      const dotRect = dot.getBoundingClientRect();
+      const laneStrokeRect = laneStroke.getBoundingClientRect();
+      return {
+        dotWidth: dotRect.width,
+        dotHeight: dotRect.height,
+        laneStrokeWidth: laneStrokeRect.width,
+      };
     });
-    if (!dotDuringGraphResize) {
+    if (!metricsDuringGraphResize) {
       throw new Error(
-        "Expected git graph row to keep rendering a commit dot while dragging.",
+        "Expected git graph row to keep rendering geometry while dragging.",
       );
     }
     // Regression guard: dragging the graph/message boundary should not
     // temporarily stretch the lane SVG geometry.
     expect(
-      Math.abs(dotBeforeGraphResize.width - dotBeforeGraphResize.height),
+      Math.abs(
+        metricsBeforeGraphResize.dotWidth - metricsBeforeGraphResize.dotHeight,
+      ),
     ).toBeLessThanOrEqual(1.5);
     expect(
-      Math.abs(dotDuringGraphResize.width - dotDuringGraphResize.height),
+      Math.abs(
+        metricsDuringGraphResize.dotWidth - metricsDuringGraphResize.dotHeight,
+      ),
     ).toBeLessThanOrEqual(1.5);
+    expect(
+      Math.abs(
+        metricsDuringGraphResize.laneStrokeWidth -
+          metricsBeforeGraphResize.laneStrokeWidth,
+      ),
+    ).toBeLessThanOrEqual(1.25);
     await page.mouse.up();
+    const graphMessageHandleAfterGrow = await graphMessageResizeHandle.boundingBox();
+    if (!graphMessageHandleAfterGrow) {
+      throw new Error(
+        "Expected git graph graph-message resize handle to remain measurable after drag.",
+      );
+    }
+    await page.mouse.move(
+      graphMessageHandleAfterGrow.x + graphMessageHandleAfterGrow.width / 2,
+      graphMessageHandleAfterGrow.y + graphMessageHandleAfterGrow.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      graphMessageHandleAfterGrow.x + graphMessageHandleAfterGrow.width / 2 - 160,
+      graphMessageHandleAfterGrow.y + graphMessageHandleAfterGrow.height / 2,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+
+    const metricsAfterGraphResize = await historyCommitSvg.evaluate((svg) => {
+      const dot = svg.querySelector("circle");
+      const laneStroke = svg.querySelector("line");
+      if (!dot || !laneStroke) {
+        return null;
+      }
+      const dotRect = dot.getBoundingClientRect();
+      const laneStrokeRect = laneStroke.getBoundingClientRect();
+      return {
+        dotWidth: dotRect.width,
+        dotHeight: dotRect.height,
+        laneStrokeWidth: laneStrokeRect.width,
+      };
+    });
+    if (!metricsAfterGraphResize) {
+      throw new Error(
+        "Expected git graph row to render both a commit dot and lane stroke after drag.",
+      );
+    }
+    expect(
+      Math.abs(
+        metricsAfterGraphResize.dotWidth - metricsAfterGraphResize.dotHeight,
+      ),
+    ).toBeLessThanOrEqual(1.5);
+    expect(
+      Math.abs(
+        metricsAfterGraphResize.laneStrokeWidth -
+          metricsBeforeGraphResize.laneStrokeWidth,
+      ),
+    ).toBeLessThanOrEqual(1.25);
 
     const authorBefore = await authorHeader.evaluate(
       (el) => el.getBoundingClientRect().width,
@@ -818,6 +890,76 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
     expect(laneCount).not.toBeNull();
     expect(laneCount).toBeGreaterThan(8);
     expect(uniqueColors).toBe(laneCount);
+    const graphMessageResizeHandle = graphOverlay.getByTestId(
+      "git-graph-col-resize-graph-message",
+    );
+    await expect(graphMessageResizeHandle).toBeVisible();
+
+    const mergeSvg = mergeRow.locator("svg");
+    const dotBeforeResize = await mergeSvg.evaluate((svg) => {
+      const dot = svg.querySelector("circle");
+      if (!dot) {
+        return null;
+      }
+      const rect = dot.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    if (!dotBeforeResize) {
+      throw new Error(
+        "Expected graph-color merge row to render a commit dot before resize.",
+      );
+    }
+
+    const graphMessageHandleBefore = await graphMessageResizeHandle.boundingBox();
+    if (!graphMessageHandleBefore) {
+      throw new Error(
+        "Expected graph-message resize handle to have a bounding box before narrow drag.",
+      );
+    }
+    await page.mouse.move(
+      graphMessageHandleBefore.x + graphMessageHandleBefore.width / 2,
+      graphMessageHandleBefore.y + graphMessageHandleBefore.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      graphMessageHandleBefore.x + graphMessageHandleBefore.width / 2 - 180,
+      graphMessageHandleBefore.y + graphMessageHandleBefore.height / 2,
+      { steps: 10 },
+    );
+    const dotDuringNarrowResize = await mergeSvg.evaluate((svg) => {
+      const dot = svg.querySelector("circle");
+      if (!dot) {
+        return null;
+      }
+      const rect = dot.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    await page.mouse.up();
+    if (!dotDuringNarrowResize) {
+      throw new Error(
+        "Expected graph-color merge row to render a commit dot during narrow resize drag.",
+      );
+    }
+    const dotAfterNarrowResize = await mergeSvg.evaluate((svg) => {
+      const dot = svg.querySelector("circle");
+      if (!dot) {
+        return null;
+      }
+      const rect = dot.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    if (!dotAfterNarrowResize) {
+      throw new Error(
+        "Expected graph-color merge row to render a commit dot after narrow resize drag.",
+      );
+    }
+    expect(Math.abs(dotBeforeResize.width - dotBeforeResize.height)).toBeLessThanOrEqual(1.5);
+    expect(
+      Math.abs(dotDuringNarrowResize.width - dotDuringNarrowResize.height),
+    ).toBeLessThanOrEqual(1.5);
+    expect(
+      Math.abs(dotAfterNarrowResize.width - dotAfterNarrowResize.height),
+    ).toBeLessThanOrEqual(1.5);
 
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);

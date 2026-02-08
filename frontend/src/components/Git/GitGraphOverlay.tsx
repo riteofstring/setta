@@ -17,7 +17,6 @@ import type { GitGraphRow } from "utils/gitGraph";
 import type { GetGitCommitDetailsResponse, GitCommitChangedFile } from "utils/generatedTypes";
 
 const ROW_HEIGHT = 28;
-const LANE_WIDTH = 12;
 const MAX_ROW_DECORATIONS = 3;
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -361,17 +360,20 @@ export function GitGraphOverlay() {
     : null;
 
   const palette = darkMode ? LANE_COLORS_DARK : LANE_COLORS_LIGHT;
-  const graphViewBoxWidth = useMemo(() => {
-    // Keep the SVG viewBox width consistent across rows so lane x positions
-    // don't rescale row-to-row as the lane count changes (which causes
-    // "disconnected" looking lines at row boundaries).
-    const graphWidthForViewBox = liveGraphColWidthPx ?? graphColWidthPx;
-    const maxLaneCount = rows.reduce(
+  const maxLaneCount = useMemo(() => {
+    return rows.reduce(
       (maxCount, row) => Math.max(maxCount, row.laneColorIds.length),
       1,
     );
-    return Math.max(graphWidthForViewBox, maxLaneCount * LANE_WIDTH);
-  }, [graphColWidthPx, liveGraphColWidthPx, rows]);
+  }, [rows]);
+  const graphViewBoxWidth = useMemo(() => {
+    // Keep the SVG coordinate width synchronized with the rendered graph
+    // column width so lane geometry does not scale non-uniformly.
+    return Math.max(1, liveGraphColWidthPx ?? graphColWidthPx);
+  }, [graphColWidthPx, liveGraphColWidthPx]);
+  const laneWidth = useMemo(() => {
+    return graphViewBoxWidth / Math.max(1, maxLaneCount);
+  }, [graphViewBoxWidth, maxLaneCount]);
 
   const dynamicRowHeight = useDynamicRowHeight({
     defaultRowHeight: ROW_HEIGHT,
@@ -916,6 +918,7 @@ export function GitGraphOverlay() {
                   palette,
                   darkMode,
                   graphViewBoxWidth,
+                  laneWidth,
                   dynamicRowHeight,
                 }}
                 style={{
@@ -1073,6 +1076,7 @@ type GitCommitRowProps = {
   palette: readonly string[];
   darkMode: boolean;
   graphViewBoxWidth: number;
+  laneWidth: number;
   dynamicRowHeight: ReturnType<typeof useDynamicRowHeight>;
 };
 
@@ -1088,6 +1092,7 @@ function GitCommitRow({
   palette,
   darkMode,
   graphViewBoxWidth,
+  laneWidth,
   dynamicRowHeight,
 }: GitCommitRowProps) {
   const row = rows[index];
@@ -1159,6 +1164,7 @@ function GitCommitRow({
             palette={palette}
             darkMode={darkMode}
             viewBoxWidth={graphViewBoxWidth}
+            laneWidth={laneWidth}
           />
         </div>
         <div className="min-w-0">
@@ -1203,6 +1209,7 @@ function GitCommitRow({
               palette={palette}
               darkMode={darkMode}
               viewBoxWidth={graphViewBoxWidth}
+              laneWidth={laneWidth}
             />
             <div className="col-span-4 min-w-0 py-3">
               {selectedCommitDetailsIsLoading ? (
@@ -1239,6 +1246,7 @@ function ExpandedGraphGutter({
   palette,
   darkMode,
   viewBoxWidth,
+  laneWidth,
 }: {
   laneColorIds: number[];
   laneEndIndices: number[];
@@ -1246,12 +1254,15 @@ function ExpandedGraphGutter({
   palette: readonly string[];
   darkMode: boolean;
   viewBoxWidth: number;
+  laneWidth: number;
 }) {
   const blockedLaneIndices = new Set<number>([
     ...laneEndIndices,
     ...joinFromLaneIndices,
   ]);
-  const xForLane = (idx: number) => idx * LANE_WIDTH + LANE_WIDTH / 2;
+  const normalizedLaneWidth = Math.max(1, laneWidth);
+  const xForLane = (idx: number) =>
+    Math.round(idx * normalizedLaneWidth + normalizedLaneWidth / 2);
   const normalizedWidth = Math.max(1, viewBoxWidth);
 
   return (
@@ -1560,6 +1571,7 @@ function GitGraphCell({
   palette,
   darkMode,
   viewBoxWidth,
+  laneWidth,
 }: {
   laneIndex: number;
   laneColorIds: number[];
@@ -1570,6 +1582,7 @@ function GitGraphCell({
   palette: readonly string[];
   darkMode: boolean;
   viewBoxWidth: number;
+  laneWidth: number;
 }) {
   const height = ROW_HEIGHT;
   const width = Math.max(1, viewBoxWidth);
@@ -1577,7 +1590,9 @@ function GitGraphCell({
   // Keep strokes fully opaque so curves don't blend with underlying lanes and
   // appear to change color when crossing other branches.
   const strokeOpacity = 1;
-  const xForLane = (idx: number) => idx * LANE_WIDTH + LANE_WIDTH / 2;
+  const normalizedLaneWidth = Math.max(1, laneWidth);
+  const xForLane = (idx: number) =>
+    Math.round(idx * normalizedLaneWidth + normalizedLaneWidth / 2);
 
   const rawCommitColorId = laneColorIds[laneIndex] ?? 0;
   const commitColorId = clampNonNegative(rawCommitColorId);
