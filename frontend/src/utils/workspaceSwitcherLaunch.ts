@@ -1,5 +1,5 @@
-import type { LaunchRequestInput } from "utils/generatedTypes";
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+import type { LaunchRequestInput } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
 type PendingWorkspaceLaunch = {
@@ -85,7 +85,10 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
       url.hash = params.toString();
       window.history.replaceState(window.history.state, "", url.toString());
     } catch (error) {
-      console.warn("Failed to clean pending workspace launch from URL hash", error);
+      console.warn(
+        "Failed to clean pending workspace launch from URL hash",
+        error,
+      );
     }
     return pending;
   } catch (error) {

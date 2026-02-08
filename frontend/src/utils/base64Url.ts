@@ -21,4 +21,3 @@ export function decodeBase64Url(value: string): Uint8Array {
   }
   return bytes;
 }
-

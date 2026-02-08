@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { encodeBase64Url } from "./base64Url";
 import {
   consumeWorkspaceHistoryHandoff,
   loadWorkspaceHistory,
   upsertWorkspaceHistoryEntry,
   workspaceHistoryEntryKey,
 } from "./workspaceHistory";
-import { encodeBase64Url } from "./base64Url";
 
 describe("workspaceHistory", () => {
   let memoryStorage: Storage;

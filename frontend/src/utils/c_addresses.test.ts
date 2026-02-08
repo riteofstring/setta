@@ -51,7 +51,8 @@ describe("C_ADDRESSES", () => {
   beforeAll(() => {
     (globalThis as { window?: unknown }).window = windowStub;
     (globalThis as { location?: unknown }).location = windowStub.location;
-    (globalThis as { sessionStorage?: Storage }).sessionStorage = sessionStorageStub;
+    (globalThis as { sessionStorage?: Storage }).sessionStorage =
+      sessionStorageStub;
     (globalThis as { localStorage?: Storage }).localStorage = localStorageStub;
   });
 
@@ -81,7 +82,8 @@ describe("C_ADDRESSES", () => {
     if (originalLocalStorage === undefined) {
       delete (globalThis as { localStorage?: unknown }).localStorage;
     } else {
-      (globalThis as { localStorage?: unknown }).localStorage = originalLocalStorage;
+      (globalThis as { localStorage?: unknown }).localStorage =
+        originalLocalStorage;
     }
 
     env["DEV"] = previousDev;
@@ -106,7 +108,10 @@ describe("C_ADDRESSES", () => {
   it("reads launcher origin from localStorage in built mode", () => {
     env["DEV"] = false;
     windowStub.location.origin = "http://remote.example:7777";
-    localStorageStub.setItem("setta.launcherOrigin", "http://launcher.example:9999");
+    localStorageStub.setItem(
+      "setta.launcherOrigin",
+      "http://launcher.example:9999",
+    );
 
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://remote.example:7777");
     expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://launcher.example:9999");
@@ -115,4 +120,3 @@ describe("C_ADDRESSES", () => {
     );
   });
 });
-
