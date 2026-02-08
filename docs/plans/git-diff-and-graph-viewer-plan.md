@@ -255,13 +255,16 @@ Endpoints:
    - HEAD commit:
      - `git rev-parse HEAD`.
 2. `route_get_git_status(ctx) -> GetGitStatusResponse`
-   - Use `git status --porcelain=v2 -z --untracked-files=all`.
+   - Use `git status --porcelain -z --untracked-files=all`.
    - Parse using NUL delimiters to correctly handle filenames with spaces/newlines.
+   - Record formats (porcelain v1, `-z`):
+     - Normal: `XY <path>`
+     - Rename/copy: `R? <new_path>\\0<old_path>` (same for `C?`)
    - Classify entries:
-     - Untracked: `?`
-     - Conflicts: `u` entries or `XY` containing `U`
-     - Staged: `X != '.'` (index has changes)
-     - Unstaged: `Y != '.'` (worktree has changes)
+     - Untracked: `??`
+     - Conflicts: `XY` containing `U` (plus special pairs like `AA`, `DD`, `DU`, etc)
+     - Staged: `X != ' '` (index has changes)
+     - Unstaged: `Y != ' '` (worktree has changes)
    - For a single path that is both staged and unstaged, return **two entries** (one under Staged, one under Unstaged), matching VS Code behavior.
 3. `route_get_git_diff(x, ctx) -> GetGitDiffResponse`
    - Validate `x.path`:
@@ -271,9 +274,10 @@ Endpoints:
      - `unstaged`: `git diff --no-color --patch -- <path>`
      - `staged`: `git diff --cached --no-color --patch -- <path>`
    - Untracked file behavior:
-     - `git diff` returns empty; for untracked, synthesize a patch:
-       - Preferred: `git diff --no-index --no-color --patch -- <empty_file> <path>`
-       - Use a temporary empty file created under repo root or runtime temp dir.
+     - `git diff` returns empty; for untracked, synthesize a patch in-process:
+       - Emit a `new file mode` unified diff header for `b/<path>`
+       - Treat the current file contents as “all additions”
+       - If binary (NUL bytes detected), emit a small “binary diff omitted” stub
 4. `route_get_git_log(x, ctx) -> GetGitLogResponse`
    - Use `git log --topo-order --date=unix --pretty=... --parents --decorate=full`.
    - Return structured commits. Decorations can be parsed from `--decorate=full` output or obtained via a separate `git for-each-ref` map.
@@ -454,7 +458,7 @@ Add `frontend/tests/e2e/git/git-diff-overlay.spec.ts`:
 2. Status entry modeling (staged + unstaged):
    - If a file has both staged and unstaged changes, show it in **both** groups (two rows). Clicking within each group opens the corresponding diff base.
 3. Untracked diffs:
-   - Show a synthetic “new file” diff (all additions) by diffing the file against an empty file (via `git diff --no-index` with a temporary empty file), matching VS Code’s “Open Changes” semantics for untracked files.
+   - Show a synthetic “new file” diff (all additions) by formatting a `new file mode` unified diff from the current file contents (with a size cap + binary stub), matching VS Code’s “Open Changes” semantics for untracked files.
 4. Graph UI surface:
    - Use a **central overlay** (between panes), not a modal.
 5. Large diff behavior (truncation):
