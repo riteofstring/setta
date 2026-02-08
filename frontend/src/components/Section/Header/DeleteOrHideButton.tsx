@@ -13,7 +13,6 @@ import {
 
 type DeleteOrHideButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   sectionId: string;
-  hasSectionStyleTheme?: boolean;
   icon?: ReactNode;
   twClasses?: string;
   size?: string;
@@ -73,7 +72,6 @@ export function DeleteOrHideButton({
   };
 
   const {
-    hasSectionStyleTheme = false,
     icon,
     children,
     twClasses,
@@ -96,12 +94,6 @@ export function DeleteOrHideButton({
   const cursorClass = isDisabled
     ? "cursor-not-allowed opacity-50"
     : "cursor-pointer";
-  const defaultBg = hasSectionStyleTheme
-    ? "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]"
-    : "bg-transparent hover:bg-red-500";
-  const defaultColor = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]"
-    : "text-setta-600 hover:text-white";
 
   if (render) {
     return render({
@@ -118,8 +110,8 @@ export function DeleteOrHideButton({
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
       } nodrag flex justify-center ${
-        bg ?? defaultBg
-      } ${color ?? defaultColor} ${
+        bg ?? "bg-transparent hover:bg-red-500"
+      } ${color ?? "text-setta-600 hover:text-white"} ${
         rounded ?? "rounded-full"
       } ${padding ?? "p-0"} ${size ?? "h-4 min-w-4"} ${cursorClass} ${
         twClasses ?? ""

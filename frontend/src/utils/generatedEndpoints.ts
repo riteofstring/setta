@@ -1115,18 +1115,6 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
-export async function route_set_section_tag_color(
-  x: gt.SetSectionTagColorRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionTagColor", x);
-}
-
-export async function route_set_section_style_color(
-  x: gt.SetSectionStyleColorRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionStyleColor", x);
-}
-
 export async function route_set_meta_control_show_section_title(
   x: gt.SetMetaControlShowSectionTitleRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1359,6 +1347,12 @@ export async function route_get_server_mode(): Promise<
   ResponseDataAndStatus<gt.ServerModeResponse>
 > {
   return await get("/serverMode");
+}
+
+export async function route_get_setta_home_info(): Promise<
+  ResponseDataAndStatus<gt.SettaHomeInfoResponse>
+> {
+  return await get("/settaHomeInfo");
 }
 
 export async function route_list_share_deployments(): Promise<

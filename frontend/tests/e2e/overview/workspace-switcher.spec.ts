@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import * as fs from "node:fs";
+import * as path from "node:path";
 import net from "node:net";
 import { ensureAppReady } from "../helpers";
 
@@ -38,12 +39,12 @@ test("workspace switcher launches a session and persists history", async ({
     );
   }
   const canonicalWorkspaceRoot = fs.realpathSync(initialWorkspaceRoot);
-  const filesRoot = `${initialWorkspaceRoot.replace(/\/+$/, "")}/setta_files`;
-  const canonicalFilesRoot = fs.realpathSync(filesRoot);
 
   await ensureAppReady(page);
   await page.setViewportSize({ width: 1000, height: 560 });
-  await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
+  await page.evaluate(() =>
+    localStorage.removeItem("setta.workspaceHistory"),
+  );
   await page.evaluate(() =>
     localStorage.removeItem("setta.workspaceHistoryHandoff"),
   );
@@ -66,8 +67,14 @@ test("workspace switcher launches a session and persists history", async ({
 
   const modal = page.getByRole("dialog");
   await expect(modal.getByText("Switch Workspace")).toBeVisible();
-
-  await modal.getByRole("button", { name: "Show" }).click();
+  await expect(modal.getByText(/Files Root Base/i)).toHaveCount(0);
+  await expect(modal.getByText(/Files Root/i)).toHaveCount(0);
+  await expect(
+    modal.getByRole("combobox", { name: "Setta Files Location" }),
+  ).toHaveValue("auto");
+  await modal
+    .getByRole("combobox", { name: "Setta Files Location" })
+    .selectOption("auto");
   await modal.getByPlaceholder("user@host").fill("user@host");
   const scrollInfo = await page.evaluate(() => {
     const dialog = document.querySelector("[role='dialog']");
@@ -89,7 +96,6 @@ test("workspace switcher launches a session and persists history", async ({
   );
   await modal.getByPlaceholder("user@host").fill("");
 
-  await modal.getByPlaceholder("/path/to/setta_files").fill(filesRoot);
   await modal
     .getByPlaceholder("/path/to/workspace")
     .fill("/path/does/not/exist");
@@ -103,8 +109,8 @@ test("workspace switcher launches a session and persists history", async ({
   await expect(modalAfterError.getByText("Switch Workspace")).toBeVisible();
 
   await expect(
-    modalAfterError.getByPlaceholder("/path/to/setta_files"),
-  ).toHaveValue(filesRoot);
+    modalAfterError.getByRole("combobox", { name: "Setta Files Location" }),
+  ).toHaveValue("auto");
   await modalAfterError
     .getByPlaceholder("/path/to/workspace")
     .fill(initialWorkspaceRoot);
@@ -120,11 +126,11 @@ test("workspace switcher launches a session and persists history", async ({
     string,
     unknown
   >;
-  expect(requestBody.filesRoot).toBe(filesRoot);
-  expect(requestBody.filesRootBase).toBeNull();
+  expect(requestBody.settaFilesLocation).toBe("auto");
   await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
-    (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
+    (origin) =>
+      sessionStorage.getItem("setta.backendOriginOverride") === origin,
     expectedBackendOrigin,
   );
   const backendOrigin = await page.evaluate(async () => {
@@ -134,7 +140,8 @@ test("workspace switcher launches a session and persists history", async ({
   expect(backendOrigin).toBe(expectedBackendOrigin);
 
   await page.waitForFunction(
-    (root) => (localStorage.getItem("setta.workspaceHistory") ?? "").includes(root),
+    (root) =>
+      (localStorage.getItem("setta.workspaceHistory") ?? "").includes(root),
     canonicalWorkspaceRoot,
   );
 
@@ -147,20 +154,17 @@ test("workspace switcher launches a session and persists history", async ({
   const firstEntry = (storedHistory as Array<Record<string, unknown>>)[0];
   expect(firstEntry).toMatchObject({
     workspaceRoot: canonicalWorkspaceRoot,
-    filesRoot: canonicalFilesRoot,
-    filesRootBase: null,
+    settaFilesLocation: "auto",
   });
 
   await page.getByRole("menuitem", { name: "Project" }).click();
   await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
   const modalAfterSuccess = page.getByRole("dialog");
   await expect(modalAfterSuccess.getByText("Switch Workspace")).toBeVisible();
-  await expect(
-    modalAfterSuccess.getByText(`Files root: ${canonicalFilesRoot}`),
-  ).toBeVisible();
+  await expect(modalAfterSuccess.getByText("Setta files: auto")).toBeVisible();
 });
 
-test("workspace switcher enforces mutually exclusive files roots", async ({
+test("workspace switcher allows selecting setta files location", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -169,18 +173,84 @@ test("workspace switcher enforces mutually exclusive files roots", async ({
 
   const modal = page.getByRole("dialog");
   await expect(modal.getByText("Switch Workspace")).toBeVisible();
-  await modal.getByRole("button", { name: "Show" }).click();
 
-  const filesRoot = modal.getByPlaceholder("/path/to/setta_files");
-  const filesRootBase = modal.getByPlaceholder("/path/to/setta_state");
-  await filesRoot.fill("/tmp/setta_files");
-  await expect(filesRootBase).toHaveValue("");
-  await filesRootBase.fill("/tmp/setta_state");
-  await expect(filesRoot).toHaveValue("");
-  await filesRoot.fill("/tmp/setta_files_again");
-  await expect(filesRootBase).toHaveValue("");
+  const location = modal.getByRole("combobox", {
+    name: "Setta Files Location",
+  });
+  await expect(location).toHaveValue("auto");
+  await location.selectOption("local");
+  await expect(location).toHaveValue("local");
+  await location.selectOption("global");
+  await expect(location).toHaveValue("global");
+  await location.selectOption("auto");
+  await expect(location).toHaveValue("auto");
 
   await modal.getByRole("button", { name: "Cancel" }).click();
+});
+
+test("workspace switcher shows launcher global path when backend origin is overridden", async ({
+  page,
+}) => {
+  const settaHome = process.env.SETTA_HOME;
+  if (!settaHome) {
+    throw new Error("Missing SETTA_HOME for workspace switcher global path test.");
+  }
+  const expectedGlobalBase = path.join(settaHome, "setta_files");
+
+  await ensureAppReady(page);
+
+  // Simulate being "inside" a tunneled/remote session where the backend origin is
+  // not the same as the launcher origin.
+  await page.evaluate(() => {
+    sessionStorage.setItem("setta.backendOriginOverride", "http://127.0.0.1:65534");
+  });
+
+  await page.getByRole("menuitem", { name: "Project" }).click();
+  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+
+  const globalOption = modal.locator("option[value='global']");
+  await expect(globalOption).toContainText(expectedGlobalBase);
+});
+
+test("workspace switcher sends local setta files location", async ({
+  page,
+}) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error(
+      "Missing SETTA_WORKSPACE_ROOT for workspace switcher test.",
+    );
+  }
+  const missingWorkspace = `${workspaceRoot}/does-not-exist-${Date.now()}`;
+
+  await ensureAppReady(page);
+  await page.getByRole("menuitem", { name: "Project" }).click();
+  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+
+  await modal
+    .getByRole("combobox", { name: "Setta Files Location" })
+    .selectOption("local");
+  await modal.getByPlaceholder("/path/to/workspace").fill(missingWorkspace);
+
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
+  await modal.getByRole("button", { name: "Launch" }).click();
+
+  await page.waitForURL("**/launching");
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.settaFilesLocation).toBe("local");
+  await expect(page.getByText("Workspace root does not exist")).toBeVisible();
 });
 
 test("workspace launch URL handoff overrides stale sessionStorage", async ({
@@ -257,10 +327,11 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   }
   const canonicalWorkspaceRoot = fs.realpathSync(workspaceRoot);
   const requestedLocalPort = await pickFreeLocalPort();
-  const filesRootBase = `${workspaceRoot.replace(/\/+$/, "")}/setta_state_base`;
 
   await ensureAppReady(page);
-  await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
+  await page.evaluate(() =>
+    localStorage.removeItem("setta.workspaceHistory"),
+  );
   await page.evaluate(() =>
     localStorage.removeItem("setta.workspaceHistoryHandoff"),
   );
@@ -286,9 +357,10 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
 
   await modal.getByPlaceholder("/path/to/workspace").fill(workspaceRoot);
   await modal.getByPlaceholder("user@host").fill("user@host");
-  await modal.getByRole("button", { name: "Show" }).click();
+  await modal
+    .getByRole("combobox", { name: "Setta Files Location" })
+    .selectOption("global");
   await modal.getByPlaceholder("61000").fill(String(requestedLocalPort));
-  await modal.getByPlaceholder("/path/to/setta_state").fill(filesRootBase);
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
@@ -300,8 +372,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const bootstrapRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
     return (
-      url.hostname === "127.0.0.1" &&
-      url.pathname === "/__setta__/bootstrap"
+      url.hostname === "127.0.0.1" && url.pathname === "/__setta__/bootstrap"
     );
   });
   await modal.getByRole("button", { name: "Launch" }).click();
@@ -312,8 +383,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     unknown
   >;
   expect(requestBody.localPort).toBe(requestedLocalPort);
-  expect(requestBody.filesRoot).toBeNull();
-  expect(requestBody.filesRootBase).toBe(filesRootBase);
+  expect(requestBody.settaFilesLocation).toBe("global");
 
   const bootstrapUrl = new URL((await bootstrapRequest).url());
   const connectedPort = Number(bootstrapUrl.port);
@@ -324,7 +394,8 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   await page.waitForSelector(".react-flow__pane");
   const tunnelOrigin = `http://127.0.0.1:${connectedPort}`;
   await page.waitForFunction(
-    (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
+    (origin) =>
+      sessionStorage.getItem("setta.backendOriginOverride") === origin,
     tunnelOrigin,
   );
   const { backendOrigin, launcherOrigin } = await page.evaluate(async () => {
@@ -345,12 +416,10 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     modalAfterReload.getByText(canonicalWorkspaceRoot, { exact: true }),
   ).toBeVisible();
   await expect(modalAfterReload.getByText("SSH: user@host")).toBeVisible();
+  await expect(modalAfterReload.getByText("Setta files: local")).toBeVisible();
   await expect(
-    modalAfterReload.getByText(`Files base: ${filesRootBase}`),
-  ).toBeVisible();
-  await expect(
-    modalAfterReload.getByPlaceholder("/path/to/setta_state"),
-  ).toHaveValue(filesRootBase);
+    modalAfterReload.getByRole("combobox", { name: "Setta Files Location" }),
+  ).toHaveValue("local");
 
   // Regression test: once we are "inside" an SSH session, launching again must
   // still send /api/launch to the original launcher backend (not the tunneled backend).
@@ -363,8 +432,9 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
     );
   });
   await modalAfterReload.getByPlaceholder("61000").fill("");
-  await modalAfterReload.getByPlaceholder("/path/to/setta_state").fill("");
-  await modalAfterReload.getByPlaceholder("/path/to/setta_files").fill("");
+  await modalAfterReload
+    .getByRole("combobox", { name: "Setta Files Location" })
+    .selectOption("auto");
   await modalAfterReload.getByPlaceholder("user@host").fill("");
   await modalAfterReload
     .getByPlaceholder("/path/to/workspace")

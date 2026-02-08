@@ -149,8 +149,6 @@ class CoreArgs(TypedDict):
                 "showSectionTitle",
                 "size",
                 "step",
-                "styleColor",
-                "tagColor",
                 "template",
                 "text",
                 "textDisplayMode",
@@ -199,8 +197,6 @@ class BaseSectionImplArgs(TypedDict):
     name: NotRequired[str]
     isFrozen: NotRequired[bool]
     isInOtherProjectConfigs: NotRequired[bool]
-    tagColor: NotRequired[str | None]
-    styleColor: NotRequired[str | None]
     size: NotRequired[SectionSize]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
@@ -216,8 +212,6 @@ class BaseSectionImplArgsWithCallable(TypedDict):
     name: NotRequired[str | Callable[[str], str]]
     isFrozen: NotRequired[bool | Callable[[bool], bool]]
     isInOtherProjectConfigs: NotRequired[bool | Callable[[bool], bool]]
-    tagColor: NotRequired[str | None | Callable[[str | None], str | None]]
-    styleColor: NotRequired[str | None | Callable[[str | None], str | None]]
     size: NotRequired[SectionSize | Callable[[SectionSize], SectionSize]]
     aspectRatio: NotRequired[bool | float | Callable[[bool | float], bool | float]]
     aspectRatioExtraHeight: NotRequired[int | Callable[[int], int]]

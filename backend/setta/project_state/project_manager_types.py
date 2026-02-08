@@ -968,24 +968,6 @@ class SetSectionNameRequest(ProjectManagerRequestWithSection):
     )
 
 
-class SetSectionTagColorRequest(ProjectManagerRequestWithSection):
-    """Request payload for setting or clearing the per-section color tag."""
-
-    tagColor: str | None = Field(
-        default=None,
-        description="Optional hex color string (for example, #3b82f6). Set null to clear.",
-    )
-
-
-class SetSectionStyleColorRequest(ProjectManagerRequestWithSection):
-    """Request payload for setting or clearing per-section style chrome color."""
-
-    styleColor: str | None = Field(
-        default=None,
-        description="Optional hex color string (for example, #3b82f6). Set null to clear.",
-    )
-
-
 class SetMetaControlShowSectionTitleRequest(ProjectManagerRequestWithSection):
     """Request payload for toggling a meta control section title."""
 
