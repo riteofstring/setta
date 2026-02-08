@@ -208,4 +208,63 @@ test.describe("view mode bottom tab bar layout", () => {
       });
     }
   });
+
+  test("in light mode, bottom tab bar matches top-nav white background", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      colorMode: "light",
+      darkMode: false,
+      showMinimap: true,
+      overviewVis: true,
+      uiEditorVis: false,
+    });
+
+    const { projectConfigId } = await openIsolatedProject(page);
+
+    try {
+      await ensureNoTabbedViewModes(page, projectConfigId);
+      await createTabbedViewMode(page, projectConfigId, "Tab A");
+      await createTabbedViewMode(page, projectConfigId, "Tab B");
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForReady(page);
+
+      const tabsBar = page.locator(VIEW_MODE_TABS_SELECTOR);
+      await expect(tabsBar).toBeVisible();
+      const tabA = tabsBar.getByRole("button", { name: "Tab A", exact: true });
+      await expect(tabA).toBeVisible();
+      const tabB = tabsBar.getByRole("button", { name: "Tab B", exact: true });
+      await expect(tabB).toBeVisible();
+
+      const barStyles = await tabsBar.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return {
+          backgroundColor: style.backgroundColor,
+          borderTopColor: style.borderTopColor,
+        };
+      });
+      expect(barStyles.backgroundColor).toBe("rgb(255, 255, 255)");
+      expect(barStyles.borderTopColor).not.toBe(barStyles.backgroundColor);
+
+      const tabBackgroundColors = await Promise.all(
+        [tabA, tabB].map((tab) =>
+          tab.evaluate((el) => getComputedStyle(el).backgroundColor),
+        ),
+      );
+      expect(
+        tabBackgroundColors.some((color) => color !== "rgb(255, 255, 255)"),
+      ).toBeTruthy();
+
+      await expect(tabsBar).toHaveScreenshot("view-mode-tabs-bar-light.png", {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixelRatio: 0.02,
+      });
+    } finally {
+      await postBackend(page, "/deleteProjectConfigs", {
+        ids: [projectConfigId],
+      });
+    }
+  });
 });

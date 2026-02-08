@@ -19,9 +19,7 @@ function syncStoreInitialState(store: {
 }
 
 function extractRailStyle(markup: string): string {
-  const match = markup.match(
-    /class="fixed right-0[^"]*" style="([^"]*)"/,
-  );
+  const match = markup.match(/class="fixed right-0[^"]*" style="([^"]*)"/);
   if (!match) {
     throw new Error("Unable to locate UiEditor rail in markup.");
   }
@@ -129,4 +127,3 @@ describe("UiEditor rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 });
-

@@ -26,9 +26,7 @@ function syncStoreInitialState(store: {
 }
 
 function extractRailStyle(markup: string): string {
-  const match = markup.match(
-    /class="fixed left-0[^"]*" style="([^"]*)"/,
-  );
+  const match = markup.match(/class="fixed left-0[^"]*" style="([^"]*)"/);
   if (!match) {
     throw new Error("Unable to locate Overview rail in markup.");
   }
