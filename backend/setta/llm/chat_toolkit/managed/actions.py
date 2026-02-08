@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-from setta.agentic.agentic_scope import AgenticContext
 from setta.mcp.tool_metadata import FollowIdType
 from setta.types.chat_messages import ToolCall
 from setta.types.chat_stream_events import LLMStreamingResponseChunk
@@ -47,7 +46,6 @@ class ExecuteToolCallsAction:
     tool_calls: list[ToolCall]
     allowed_server_ids: set[str] | None
     share_session_id: str | None
-    agentic_context: AgenticContext
 
 
 ManagedAction = (

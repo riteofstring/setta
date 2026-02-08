@@ -65,7 +65,7 @@ export const ChatInput = memo(function ChatInput({
     handlePickFromProject,
     handleRemoveAttachment,
     isDragActive,
-    isDeploymentMode,
+    isShareMode,
     isUploading,
     showAttachmentDisabledMessage,
     showSharePolicyMessage,
@@ -232,7 +232,7 @@ export const ChatInput = memo(function ChatInput({
                     <IoAttach />
                     Attach
                   </DropdownMenu.Item>
-                  {!isDeploymentMode ? (
+                  {!isShareMode ? (
                     <DropdownMenu.Item
                       className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
                       onSelect={handlePickFromProject}

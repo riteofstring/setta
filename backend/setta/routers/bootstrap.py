@@ -1,3 +1,6 @@
+import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from fastapi import Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -14,6 +17,8 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
+
+BACKEND_ORIGIN_QUERY_PARAM = "__setta_backend_origin"
 
 BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -308,25 +313,107 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         </p>
       </section>
     </main>
-    <script>
-      (function () {
-        const redirectUrl = "__SETTA_REDIRECT_URL__";
-        const form = document.getElementById("bootstrap-form");
-        const input = document.getElementById("token-input");
-        const statusEl = document.getElementById("status");
-        const errorEl = document.getElementById("error");
+	    <script>
+	      (function () {
+		        const redirectUrl = "__SETTA_REDIRECT_URL__";
+		        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
+		        const launcherOriginKey = "setta.launcherOrigin";
+		        const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
+		        const maxHandoffLength = 8192;
+		        const form = document.getElementById("bootstrap-form");
+		        const input = document.getElementById("token-input");
+		        const statusEl = document.getElementById("status");
+		        const errorEl = document.getElementById("error");
 
         function setStatus(message) {
           statusEl.textContent = message;
         }
 
-        function setError(message) {
-          errorEl.textContent = message || "";
-        }
+	        function setError(message) {
+	          errorEl.textContent = message || "";
+	        }
+
+	        function isLocalHostname(hostname) {
+	          const normalized = String(hostname || "").trim().toLowerCase();
+	          return (
+	            normalized === "localhost" ||
+	            normalized === "127.0.0.1" ||
+	            normalized === "::1"
+	          );
+	        }
+
+	        function isAllowedLauncherOrigin(url) {
+	          if (!url || !url.hostname) {
+	            return false;
+	          }
+	          if (
+	            url.protocol !== "http:" &&
+	            url.protocol !== "https:"
+	          ) {
+	            return false;
+	          }
+	          const currentHostname = String(window.location.hostname || "")
+	            .trim()
+	            .toLowerCase();
+	          const nextHostname = String(url.hostname || "").trim().toLowerCase();
+	          if (!currentHostname || !nextHostname) {
+	            return false;
+	          }
+	          if (currentHostname === nextHostname) {
+	            return true;
+	          }
+	          return isLocalHostname(currentHostname) && isLocalHostname(nextHostname);
+	        }
+
+	        let hashParams;
+	        try {
+	          const hash = window.location.hash.startsWith("#")
+	            ? window.location.hash.slice(1)
+	            : window.location.hash;
+	          hashParams = new URLSearchParams(hash || "");
+	        } catch {
+	          hashParams = new URLSearchParams();
+	        }
+
+	        function hydrateWorkspaceHistoryFromHash() {
+	          try {
+	            const encoded = hashParams.get("wh");
+	            if (!encoded) {
+	              return;
+	            }
+	            const trimmed = encoded.trim();
+	            if (!trimmed || trimmed.length > maxHandoffLength) {
+	              return;
+	            }
+	            localStorage.setItem(workspaceHistoryHandoffKey, trimmed);
+	          } catch {
+	            /* ignore */
+	          }
+	        }
+
+	        function hydrateLauncherOriginFromHash() {
+	          try {
+	            const raw = hashParams.get("lo");
+	            if (!raw) {
+	              return;
+	            }
+	            const trimmed = raw.trim();
+	            if (!trimmed || trimmed.length > maxHandoffLength) {
+	              return;
+		            }
+		            const url = new URL(trimmed);
+		            if (isAllowedLauncherOrigin(url)) {
+		              launcherOriginStorage.setItem(launcherOriginKey, url.origin);
+		            } else {
+		              launcherOriginStorage.removeItem(launcherOriginKey);
+		            }
+		          } catch {
+		            /* ignore */
+		          }
+		        }
 
         function readTokenFromUrl() {
-          const hash = window.location.hash.slice(1);
-          const hashToken = new URLSearchParams(hash).get("token");
+          const hashToken = hashParams.get("token");
           if (hashToken) {
             return hashToken;
           }
@@ -344,6 +431,8 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           if (!response.ok) {
             throw new Error("Token rejected");
           }
+          hydrateWorkspaceHistoryFromHash();
+          hydrateLauncherOriginFromHash();
           history.replaceState({}, "", "/__setta__/bootstrap");
           window.location.assign(redirectUrl);
         }
@@ -386,22 +475,67 @@ def _bearer_token_from_header(
     return extract_bearer_token_value(authorization)
 
 
-def _bootstrap_redirect_url() -> str:
+def _request_origin(request: Request) -> str:
+    return f"{request.url.scheme}://{request.url.netloc}"
+
+
+def _is_local_hostname(hostname: str) -> bool:
+    normalized = hostname.strip().lower()
+    return normalized in {"localhost", "127.0.0.1", "::1"}
+
+
+def _set_query_param(url: str, *, key: str, value: str) -> str:
+    parts = urlsplit(url)
+    query = [
+        (entry_key, entry_value)
+        for entry_key, entry_value in parse_qsl(parts.query, keep_blank_values=True)
+        if entry_key != key
+    ]
+    query.append((key, value))
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            parts.fragment,
+        )
+    )
+
+
+def _bootstrap_redirect_url(request: Request) -> str:
     if not IS_DEV_MODE:
         return "/"
-    host = format_host_for_url(C.HOST)
-    return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
+    candidate_hostname = request.url.hostname
+    if candidate_hostname and (
+        candidate_hostname == C.HOST or _is_local_hostname(candidate_hostname)
+    ):
+        hostname = candidate_hostname
+    else:
+        hostname = C.HOST
+    host = format_host_for_url(hostname)
+    frontend_scheme = os.environ.get("SETTA_DEV_FRONTEND_SCHEME", "http") or "http"
+    frontend_scheme = frontend_scheme.strip().lower() or "http"
+    if frontend_scheme not in {"http", "https"}:
+        frontend_scheme = "http"
+    redirect_url = f"{frontend_scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
+    return _set_query_param(
+        redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
+    )
 
 
-def _render_bootstrap_html() -> str:
-    return BOOTSTRAP_HTML_TEMPLATE.replace(
-        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url()
+def _render_bootstrap_html(request: Request) -> str:
+    launcher_origin_storage = "sessionStorage" if IS_DEV_MODE else "localStorage"
+    return (
+        BOOTSTRAP_HTML_TEMPLATE.replace(
+            "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+        ).replace("__SETTA_LAUNCHER_ORIGIN_STORAGE__", launcher_origin_storage)
     )
 
 
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)
-async def route_bootstrap_page() -> str:
-    return _render_bootstrap_html()
+async def route_bootstrap_page(request: Request) -> str:
+    return _render_bootstrap_html(request)
 
 
 @router.post(Route.BOOTSTRAP_CONSUME)
@@ -433,5 +567,7 @@ async def route_bootstrap_consume(
         )
 
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    set_auth_cookie(response, auth_cookie, request=request)
+    set_auth_cookie(
+        response, auth_cookie, session_id=session_metadata.id, request=request
+    )
     return {"status": "ok"}

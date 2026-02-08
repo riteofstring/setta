@@ -72,7 +72,7 @@ export function toggleEdgeSelection(edgeId: string, multiSelect: boolean) {
 }
 
 export function deleteSelectedEdges() {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return false;
   }
   const state = useProjectState.getState();
@@ -111,8 +111,8 @@ export function createEdgeFromConnection(connection: Connection) {
     return;
   }
 
-  const isDeploymentMode = useShareSession.getState().isDeploymentMode;
-  if (isDeploymentMode) {
+  const isShareMode = useShareSession.getState().isShareMode;
+  if (isShareMode) {
     return;
   }
 
@@ -165,8 +165,8 @@ export function reconnectEdgeFromConnection(
     return;
   }
 
-  const isDeploymentMode = useShareSession.getState().isDeploymentMode;
-  if (isDeploymentMode) {
+  const isShareMode = useShareSession.getState().isShareMode;
+  if (isShareMode) {
     return;
   }
 

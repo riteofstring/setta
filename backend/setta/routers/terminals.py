@@ -1,23 +1,16 @@
 import logging
 
-from fastapi import HTTPException, WebSocket
+from fastapi import WebSocket
 from pydantic import BaseModel
 
 from setta.logging.context_bindings import bind_websocket_logging_context
 from setta.logging.project_id_route import require_project_context
-from setta.project_state.project_manager_types import (
-    RunCodeRequest,
-)
+from setta.project_state.project_manager_types import RunCodeRequest
 from setta.routers.dependencies import (
     RuntimeContextFromRequest,
     RuntimeContextFromWebsocket,
 )
 from setta.routers.setta_api_router import SettaAPIRouter, SettaProjectContextAPIRouter
-from setta.share.policy import (
-    SharePolicyGuard,
-    enforce_share_policy_guard,
-    ensure_share_param_value_allowed,
-)
 from setta.terminals.run_code import run_code
 from setta.terminals.terminals import build_terminal_id
 from setta.types.id import ID
@@ -35,35 +28,6 @@ class DeleteTerminalsRequest(BaseModel):
 
 class KillSubprocessesRequest(BaseModel):
     projectConfigId: ID
-
-
-async def _validate_run_overrides(
-    x: RunCodeRequest,
-    ctx: RuntimeContextFromRequest,
-    manager,
-) -> None:
-    if not ctx.deployment_mode:
-        return
-    if x.sectionVariantOverrides:
-        await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
-    if x.paramOverrides:
-        for key in x.paramOverrides.keys():
-            section_id_str, param_info_id_str = (key.split(":", 1) + [""])[:2]
-            if not section_id_str or not param_info_id_str:
-                raise HTTPException(
-                    status_code=400, detail=f"Invalid paramOverrides key: {key!r}"
-                )
-            section_id = ID(section_id_str)
-            param_info_id = ID(param_info_id_str)
-            project_state = manager.get_single_config_state(x.projectConfigId)
-            await ensure_share_param_value_allowed(
-                policy=ctx.policy,
-                frontend_sender=ctx.frontend_sender,
-                project_state=project_state,
-                section_id=section_id,
-                param_info_id=param_info_id,
-                share_session_id=ctx.share_session_id,
-            )
 
 
 @terminals_ws_router.websocket(Route.TERMINAL)
@@ -117,7 +81,7 @@ async def terminal_websocket_endpoint(
             await ctx.state.terminals.write_to_terminal(
                 websocket,
                 terminal_id,
-                allow_input=not ctx.deployment_mode,
+                allow_input=not ctx.share_mode,
                 on_activity=touch_session,
             )
         except Exception as exc:
@@ -182,30 +146,13 @@ async def route_run_code(
     share_session_id = ctx.share_session_id
     manager = ctx.get_project_manager(x.projectConfigId)
     await ctx.enforce_run_allowed()
-    reserved_single_run = await ctx.enforce_multiple_runs_allowed()
-    try:
-        await _validate_run_overrides(x, ctx, manager)
-        await run_code(
-            x,
-            manager,
-            ctx.state.terminals,
-            ctx.state.wmh_cli_sender,
-            share_session_id=share_session_id,
-        )
-    except Exception as exc:
-        if reserved_single_run and ctx.deployment_mode and share_session_id is not None:
-            await ctx.state.share_runtime_state.rollback_reserved_session_run_count(
-                share_session_id
-            )
-        if isinstance(exc, (KeyError, ValueError)):
-            detail = exc.args[0] if exc.args else str(exc)
-            raise HTTPException(
-                status_code=400,
-                detail=str(detail),
-            ) from exc
-        raise
-    if ctx.deployment_mode and share_session_id is not None and not reserved_single_run:
-        ctx.state.share_runtime_state.increment_session_run_count(share_session_id)
+    await run_code(
+        x,
+        manager,
+        ctx.state.terminals,
+        ctx.state.wmh_cli_sender,
+        share_session_id=share_session_id,
+    )
 
     await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
         "Started command",

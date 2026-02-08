@@ -1,9 +1,8 @@
 import asyncio
 import hashlib
-from contextlib import suppress
+from contextlib import ExitStack, suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -36,14 +35,16 @@ from setta.types.section_impls import (
 )
 from setta.types.specific_file_watcher import FileEventType, FileWatcherCoreUpdate
 from setta.utils.constants import C
-from setta.utils.utils import build_gen_code_path, normalize_path
+from setta.utils.paths import normalize_workspace_path
+from setta.utils.utils import build_gen_code_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests.utils.setta_paths import temporary_setta_paths
 
-class ProjectManagerForTest(BaseProjectManager):
+class TestProjectManager(BaseProjectManager):
     def __init__(
         self,
         lsp_writers: LSPWriters,
@@ -86,6 +87,7 @@ class TestCodeFileBindingRegistration:
     async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
+        self.workspace_root = root
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
@@ -93,14 +95,13 @@ class TestCodeFileBindingRegistration:
         for path in (self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._patchers = [
-            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
-            patch.object(C, "CODE_FOLDER", self.code_folder),
-            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
-            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
-        ]
-        for patcher in self._patchers:
-            patcher.start()
+        self._stack = ExitStack()
+        self._stack.enter_context(
+            temporary_setta_paths(
+                workspace_root=self.workspace_root,
+                setta_files_root=self.setta_root,
+            )
+        )
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
@@ -137,7 +138,7 @@ class TestCodeFileBindingRegistration:
         )
         backend.validate_default_project_id()
 
-        self.manager = ProjectManagerForTest(
+        self.manager = TestProjectManager(
             self.lsp_writers,
             self.frontend_sender,
             self.python_script_sender,
@@ -160,8 +161,7 @@ class TestCodeFileBindingRegistration:
             await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
-        for patcher in self._patchers:
-            patcher.stop()
+        self._stack.close()
         self._tmpdir.cleanup()
 
     def _build_project_state(self) -> ProjectStateSingleConfig:
@@ -196,7 +196,7 @@ class TestCodeFileBindingRegistration:
         self.section_id = section.id
         self.variant_id = variant.id
         self.project_config_id = project_config.id
-        self.expected_code_path = normalize_path(
+        self.expected_code_path = normalize_workspace_path(
             C.CODE_FOLDER / "sections" / project_slug / f"{section_slug}.py"
         )
         return project_state
@@ -272,7 +272,7 @@ class TestCodeFileBindingRegistration:
         project_state = self.project_state.model_copy(deep=True)
         await self.manager.update(project_state)
 
-        gen_code_path = normalize_path(
+        gen_code_path = normalize_workspace_path(
             build_gen_code_path(C.CODE_FOLDER, project_state.projectConfig.name)
         )
         assert self.manager.code_files.get_bindings(gen_code_path)
@@ -292,7 +292,7 @@ class TestCodeFileBindingRegistration:
             defaultProjectConfigId=settings_config.id,
         )
         settings_backend.validate_default_project_id()
-        settings_manager = ProjectManagerForTest(
+        settings_manager = TestProjectManager(
             self.lsp_writers,
             self.frontend_sender,
             self.python_script_sender,

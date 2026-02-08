@@ -24,11 +24,8 @@ from setta.types.chat_messages import (
 from setta.types.chat_stream_events import MessageStartEvent
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig, MCPServerConfig
-from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl2 import create_top_level_section
-from setta.types.project_config import Position, ProjectConfig
-from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.section_impls import SectionType
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend
 from setta.utils.timestamps import get_now_timestamp
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -181,46 +178,24 @@ class TestAgentRunner:
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            default_context = runner._build_context(
-                profile, inputs={"allowUnscoped": True}
-            )
+            default_context = runner._build_context(profile, inputs=None)
             assert default_context.project_config_id == default_id
             assert default_context.chat_id == default_context.run.id
             assert default_context.section_id is None
             assert default_context.thinking is False
-
-            settings = SettingsState()
-            project_state = ProjectStateSingleConfig(projectConfig=second_config)
-            chat_section_id = create_top_level_section(
-                settings,
-                project_state,
-                SectionType.Chat,
-                Position(),
-            )
-            backend_state = ProjectStateBackend(
-                projectConfigs={second_config.id: project_state.projectConfig},
-                defaultProjectConfigId=second_config.id,
-                sections=project_state.sections,
-                sectionImpls=project_state.sectionImpls,
-                sectionVariants=project_state.sectionVariants,
-                codeObjs=project_state.codeObjs,
-                codeObjImpls=project_state.codeObjImpls,
-                codeObjVariants=project_state.codeObjVariants,
-            )
-            dbe.write_project(backend_state)
 
             override_context = runner._build_context(
                 profile,
                 inputs={
                     "projectConfigId": str(second_config.id),
                     "chatId": "chat-1",
-                    "sectionId": str(chat_section_id),
+                    "sectionId": "section-1",
                     "thinking": True,
                 },
             )
             assert override_context.project_config_id == second_config.id
             assert override_context.chat_id == ID("chat-1")
-            assert override_context.section_id == chat_section_id
+            assert override_context.section_id == ID("section-1")
             assert override_context.thinking is True
 
     def test_context_validates_input_types(self) -> None:
@@ -245,22 +220,13 @@ class TestAgentRunner:
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
             with pytest.raises(TypeError):
-                runner._build_context(
-                    profile,
-                    inputs={"projectConfigId": 123, "allowUnscoped": True},
-                )
+                runner._build_context(profile, inputs={"projectConfigId": 123})
             with pytest.raises(TypeError):
-                runner._build_context(
-                    profile,
-                    inputs={"chatId": 123, "allowUnscoped": True},
-                )
+                runner._build_context(profile, inputs={"chatId": 123})
             with pytest.raises(TypeError):
                 runner._build_context(profile, inputs={"sectionId": 123})
             with pytest.raises(TypeError):
-                runner._build_context(
-                    profile,
-                    inputs={"thinking": "yes", "allowUnscoped": True},
-                )
+                runner._build_context(profile, inputs={"thinking": "yes"})
 
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -286,7 +252,7 @@ class TestAgentRunner:
             with pytest.raises(KeyError):
                 runner._build_context(
                     profile,
-                    inputs={"engineConfigId": "engine-mismatch", "allowUnscoped": True},
+                    inputs={"engineConfigId": "engine-mismatch"},
                 )
 
     def test_system_prompt_includes_profile_and_project(self) -> None:
@@ -424,10 +390,7 @@ class TestAgentRunner:
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            context = runner._build_context(
-                profile,
-                inputs={"prompt": "hello", "allowUnscoped": True},
-            )
+            context = runner._build_context(profile, inputs={"prompt": "hello"})
             run = context.run
             runner._record_event(
                 run,
@@ -476,10 +439,7 @@ class TestAgentRunnerSubAgent:
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
 
-            run = await runner.run_sub_agent(
-                profile,
-                inputs={"prompt": "hello", "allowUnscoped": True},
-            )
+            run = await runner.run_sub_agent(profile, inputs={"prompt": "hello"})
 
             assert run.status == AgentRunStatus.completed
             loaded = load_agent_run(dbe, run.id)
@@ -551,11 +511,7 @@ class TestAgentRunnerStreamEvent:
             engine_config_id = ID("engine-primary")
             _seed_engine_config(dbe, engine_config_id, "primary")
             profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
-            context = runner._build_context(
-                profile,
-                inputs={"allowUnscoped": True},
-                emit_stream=False,
-            )
+            context = runner._build_context(profile, inputs=None, emit_stream=False)
             assistant_message = AssistantChatMessage(content=[])
 
             await runner._apply_actions(

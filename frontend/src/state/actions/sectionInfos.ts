@@ -229,12 +229,7 @@ export function getTopLevelSectionIdsForDisplay(
   projectState: ZustandProjectState,
 ): string[] {
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  return Object.keys(topLevelSections).filter((sectionId) => {
-    // Only true top-level sections should be rendered as React Flow nodes. If a
-    // section has a parent, it will be rendered via the nested section tree.
-    const parentId = projectState.parentSectionMap[sectionId] ?? null;
-    return parentId === null;
-  });
+  return Object.keys(topLevelSections);
 }
 
 function getEffectiveCodeObjImplIfPresent(
@@ -356,40 +351,6 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   }
 
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
-}
-
-export function isManagedChatSection(
-  state: ZustandProjectState,
-  sectionId: string,
-): boolean {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return false;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return false;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return false;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return false;
-  }
-  const effectiveType =
-    (variant.modifier as { type?: unknown } | undefined)?.type ??
-    (core.sharedModifier as { type?: unknown } | undefined)?.type ??
-    (impl as { type?: unknown }).type;
-  if (effectiveType !== SectionTypeEnum.Chat) {
-    return false;
-  }
-  const managed =
-    (variant.modifier as { managed?: unknown } | undefined)?.managed ??
-    (core.sharedModifier as { managed?: unknown } | undefined)?.managed ??
-    (impl as { managed?: unknown }).managed;
-  return Boolean(managed);
 }
 
 export function getVariantBaseAndEffectiveSectionImpl(
@@ -1218,7 +1179,7 @@ export function getAncestorSameVisibility(
 
 export function deleteAllActiveSections() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isDeploymentMode) {
+  if (shareSession.isShareMode) {
     return;
   }
   route_delete_sections({
@@ -1352,30 +1313,16 @@ function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
 export function debounced_route_set_top_level_section_layout() {
   const shareSession = useShareSession.getState();
   if (
-    shareSession.isDeploymentMode &&
+    shareSession.isShareMode &&
     shareSession.sharePolicy?.allowLayoutChanges === false
   ) {
     return;
   }
   const projectState = useProjectState.getState();
-  const parentSectionMap = projectState.parentSectionMap;
-  const existingLayoutsRaw = getActiveViewModeTopLevelSections(projectState);
-  const existingLayouts = Object.fromEntries(
-    Object.entries(existingLayoutsRaw).filter(([sectionId]) => {
-      const parentId = parentSectionMap[sectionId] ?? null;
-      return parentId === null;
-    }),
-  );
-  const nodeInternalsRaw = useNodeInternals.getState().x;
-  const nodeInternals: typeof nodeInternalsRaw = new Map(
-    Array.from(nodeInternalsRaw.entries()).filter(([sectionId]) => {
-      const parentId = parentSectionMap[sectionId] ?? null;
-      return parentId === null;
-    }),
-  );
+  const existingLayouts = getActiveViewModeTopLevelSections(projectState);
   const topLevelSections = createTopLevelSectionLayoutDict(
     projectState.sections,
-    nodeInternals,
+    useNodeInternals.getState().x,
     existingLayouts,
   );
   if (pendingTopLevelLayoutRef.opId) {
@@ -1423,7 +1370,7 @@ export function getSectionChildren(
 
 export async function groupActiveSections() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isDeploymentMode) {
+  if (shareSession.isShareMode) {
     return;
   }
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
@@ -1436,7 +1383,7 @@ export async function groupActiveSections() {
 
 export async function ungroupActiveGroups() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isDeploymentMode) {
+  if (shareSession.isShareMode) {
     return;
   }
   const groupIds = useProjectState.getState().projectConfig.activeIds;

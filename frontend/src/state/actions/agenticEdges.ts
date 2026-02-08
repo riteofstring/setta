@@ -78,7 +78,7 @@ export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   if (connection.source === connection.target) {
     return false;
   }
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return false;
   }
   const types = getConnectionSectionTypes(connection);
@@ -171,7 +171,7 @@ export function toggleAgenticEdgeSelection(
 }
 
 export function deleteSelectedAgenticEdges(): boolean {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return false;
   }
   const state = useProjectState.getState();
@@ -202,7 +202,7 @@ export function deleteSelectedAgenticEdges(): boolean {
 }
 
 export function deleteAgenticEdgesById(edgeIds: string[]): void {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   if (edgeIds.length === 0) {
@@ -224,41 +224,6 @@ export function deleteAgenticEdgesById(edgeIds: string[]): void {
   });
 }
 
-export function updateAgenticEdgeContextMode(
-  edgeId: string,
-  contextMode: AgenticEdgeContextModeEnum,
-): void {
-  if (useShareSession.getState().isDeploymentMode) {
-    return;
-  }
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      const edge = state.projectConfig.agenticEdges.find(
-        (candidate) => candidate.id === edgeId,
-      );
-      if (!edge) {
-        return;
-      }
-      edge.contextMode = contextMode;
-    },
-    send: (frontendOpId) => {
-      const edge = useProjectState
-        .getState()
-        .projectConfig.agenticEdges.find(
-          (candidate) => candidate.id === edgeId,
-        );
-      if (!edge) {
-        return;
-      }
-      return route_update_agentic_edge({
-        projectConfigId: getCurrProjectConfigId(),
-        edge,
-        frontendOpId,
-      });
-    },
-  });
-}
-
 export function createAgenticEdgeFromSections({
   sourceSectionId,
   targetSectionId,
@@ -270,7 +235,7 @@ export function createAgenticEdgeFromSections({
   kind: AgenticEdgeKindEnum;
   contextMode?: AgenticEdgeContextModeEnum;
 }): void {
-  if (useShareSession.getState().isDeploymentMode) {
+  if (useShareSession.getState().isShareMode) {
     return;
   }
   if (sourceSectionId === targetSectionId) {
