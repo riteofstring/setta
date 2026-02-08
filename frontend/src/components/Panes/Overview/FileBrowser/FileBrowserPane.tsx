@@ -1,6 +1,8 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { useReactFlow } from "forks/xyflow/core/store";
 import type { CSSProperties } from "react";
 import {
   useCallback,
@@ -10,15 +12,21 @@ import {
   useRef,
   useState,
 } from "react";
+import { FiSave } from "react-icons/fi";
 import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
-import { TbFile, TbFolder } from "react-icons/tb";
+import { TbFile, TbFolder, TbFolders } from "react-icons/tb";
 import { List, useListRef } from "react-window";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
 import { useFileBrowserState } from "state/definitions";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
 import { useColumnWidthDrag } from "state/hooks/useColumnWidthDrag";
+import { getAttachmentPreviewKind } from "utils/attachmentPreview";
+import { normalizeBrowserPath } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import {
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   matchesFileBrowserNameFilter,
@@ -31,6 +39,7 @@ import {
   type FileBrowserSearchScope,
 } from "utils/fileBrowserTypes";
 import {
+  route_get_file_browser_download_urls,
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
@@ -50,11 +59,17 @@ const FILTER_DEBOUNCE_MS = 150;
 const MAX_ENTRIES = 5000;
 const FILTER_RECURSIVE_MIN_CHARS = 2;
 const FILTER_RECURSIVE_MAX_FOLDERS = 600;
+const FILE_URL_REFRESH_BUFFER_MS = 30_000;
 
 type NodeKind = "folder" | "file";
 
 type SortKey = "name" | "modified";
 type SortDirection = "asc" | "desc";
+
+type FileUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
 
 export type FileNode = {
   name: string;
@@ -223,6 +238,9 @@ type RowData = {
   items: FlattenedNode[];
   expandedPaths: Record<string, boolean>;
   selectedPath: string | null;
+  rootPath: string | null;
+  fileUrlMap: Record<string, FileUrlEntry>;
+  showSearchPathTooltips: boolean;
   loadingPaths: Record<string, boolean>;
   errorByPath: Record<string, string>;
   columnWidth: string;
@@ -271,6 +289,7 @@ export function FileBrowserPane({
       typeFilters: state.typeFilters,
       searchScope: state.searchScope,
     }));
+  const [isTooltipKeyHeld, setIsTooltipKeyHeld] = useState(false);
   const [nodesByPath, setNodesByPath] = useState<Record<string, FileNode>>({});
   const nodesByPathRef = useRef(nodesByPath);
   useEffect(() => {
@@ -291,6 +310,14 @@ export function FileBrowserPane({
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [fileUrlMap, setFileUrlMap] = useState<Record<string, FileUrlEntry>>(
+    {},
+  );
+  const fileUrlMapRef = useRef(fileUrlMap);
+  useEffect(() => {
+    fileUrlMapRef.current = fileUrlMap;
+  }, [fileUrlMap]);
+  const fileUrlRequests = useRef<Set<string>>(new Set());
   const listRef = useListRef();
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const didLoadRootRef = useRef(false);
@@ -324,6 +351,34 @@ export function FileBrowserPane({
     observer.observe(wrapper);
     return () => {
       observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.code === "KeyQ") {
+        setIsTooltipKeyHeld(true);
+      }
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      if (event.code === "KeyQ") {
+        setIsTooltipKeyHeld(false);
+      }
+    }
+
+    function handleWindowBlur() {
+      setIsTooltipKeyHeld(false);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleWindowBlur);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleWindowBlur);
     };
   }, []);
 
@@ -594,6 +649,46 @@ export function FileBrowserPane({
     void crawl();
   }, [fetchFolderContents, filterText, rootPath, searchScope]);
 
+  const requestFileUrls = useCallback(async (paths: string[]) => {
+    if (paths.length === 0) {
+      return;
+    }
+    const now = Date.now();
+    const pending = paths.filter((path) => {
+      const existing = fileUrlMapRef.current[path];
+      if (
+        existing &&
+        existing.expiresAt * 1000 - FILE_URL_REFRESH_BUFFER_MS > now
+      ) {
+        return false;
+      }
+      if (fileUrlRequests.current.has(path)) {
+        return false;
+      }
+      return true;
+    });
+    if (pending.length === 0) {
+      return;
+    }
+    for (const path of pending) {
+      fileUrlRequests.current.add(path);
+    }
+    const res = await route_get_file_browser_download_urls({ paths: pending });
+    for (const path of pending) {
+      fileUrlRequests.current.delete(path);
+    }
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      console.warn("Failed to load file preview URLs", detail ?? pending);
+      return;
+    }
+    const nextEntries: Record<string, FileUrlEntry> = {};
+    for (const entry of res.data) {
+      nextEntries[entry.path] = { url: entry.url, expiresAt: entry.expiresAt };
+    }
+    setFileUrlMap((prev) => ({ ...prev, ...nextEntries }));
+  }, []);
+
   const flattenedItems = useMemo(() => {
     return flattenFileBrowserTree({
       rootPath,
@@ -848,6 +943,8 @@ export function FileBrowserPane({
   const fileSortDirection = sortKey === "name" ? sortDirection : "asc";
   const dateSortDirection = sortKey === "modified" ? sortDirection : "desc";
   const showMeta = showFilter || rootError;
+  const showSearchPathTooltips =
+    filterText.trim().length > 0 && isTooltipKeyHeld;
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
@@ -944,10 +1041,41 @@ export function FileBrowserPane({
             rowCount={displayedItems.length}
             rowHeight={ROW_HEIGHT}
             className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
+            onRowsRendered={(visibleRows) => {
+              if (displayedItems.length === 0) {
+                return;
+              }
+              const start = Math.max(0, visibleRows.startIndex);
+              const stop = Math.min(displayedItems.length - 1, visibleRows.stopIndex);
+              if (start > stop) {
+                return;
+              }
+              const needed: string[] = [];
+              for (let i = start; i <= stop; i += 1) {
+                const entry = displayedItems[i];
+                if (!entry || entry.type === "folder") {
+                  continue;
+                }
+                const previewKind = getAttachmentPreviewKind({
+                  id: entry.fullPath,
+                  name: entry.name,
+                  mimeType: null,
+                  size: null,
+                });
+                if (previewKind !== "image") {
+                  continue;
+                }
+                needed.push(entry.fullPath);
+              }
+              void requestFileUrls(needed);
+            }}
             rowProps={{
               items: displayedItems,
               expandedPaths,
               selectedPath,
+              rootPath,
+              fileUrlMap,
+              showSearchPathTooltips,
               loadingPaths,
               errorByPath,
               columnWidth,
@@ -970,6 +1098,9 @@ function FileBrowserRow({
   items,
   expandedPaths,
   selectedPath,
+  rootPath,
+  fileUrlMap,
+  showSearchPathTooltips,
   loadingPaths,
   errorByPath,
   columnWidth,
@@ -992,6 +1123,23 @@ function FileBrowserRow({
   const rowClasses = isSelected
     ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
     : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-900";
+  const tooltipPath =
+    showSearchPathTooltips && !isFolder
+      ? formatBrowserPathTooltip(item.fullPath, rootPath)
+      : null;
+  const tooltipHandlers = tooltipPath
+    ? getFloatingBoxHandlers({ title: "File path", content: tooltipPath })
+    : null;
+  const previewKind = !isFolder
+    ? getAttachmentPreviewKind({
+        id: item.fullPath,
+        name: item.name,
+        mimeType: null,
+        size: null,
+      })
+    : null;
+  const imageUrl =
+    previewKind === "image" ? fileUrlMap[item.fullPath]?.url ?? null : null;
 
   function handleRowDoubleClick(event: React.MouseEvent<HTMLElement>) {
     event.stopPropagation();
@@ -1015,7 +1163,7 @@ function FileBrowserRow({
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
       className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
-      title={item.fullPath}
+      {...(tooltipHandlers ?? {})}
       onMouseDown={(event) => {
         event.stopPropagation();
         // Clicking a row should behave like a real file explorer: it should
@@ -1062,6 +1210,13 @@ function FileBrowserRow({
         )}
         {isFolder ? (
           <TbFolder className="text-setta-400" size={14} />
+        ) : imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={item.name}
+            loading="lazy"
+            className="h-4 w-4 shrink-0 rounded-sm object-cover"
+          />
         ) : (
           <TbFile className="text-setta-400" size={14} />
         )}
@@ -1110,6 +1265,27 @@ function getBaseNameFromPath(path: string): string {
   return path;
 }
 
+function formatBrowserPathTooltip(
+  fullPath: string,
+  rootPath: string | null,
+): string {
+  const normalizedFull = normalizeBrowserPath(fullPath).replace(/\/+$/, "");
+  if (!rootPath) {
+    return normalizedFull;
+  }
+  const normalizedRoot = normalizeBrowserPath(rootPath).replace(/\/+$/, "");
+  if (!normalizedRoot) {
+    return normalizedFull;
+  }
+  if (normalizedFull === normalizedRoot) {
+    return normalizedFull;
+  }
+  if (normalizedFull.startsWith(`${normalizedRoot}/`)) {
+    return normalizedFull.slice(normalizedRoot.length + 1);
+  }
+  return normalizedFull;
+}
+
 function formatModifiedAt(mtime?: number | null): string {
   if (!mtime) {
     return "";
@@ -1125,10 +1301,15 @@ export function FileBrowserFilter({
   useFileBrowserStateHook,
   className,
   tooltipParentDivId,
+  saveSearchConfig,
 }: {
   useFileBrowserStateHook?: typeof useFileBrowserState;
   className?: string;
   tooltipParentDivId?: string | null;
+  saveSearchConfig?: {
+    canSave: boolean;
+    onSaveSearch: (query: string) => void;
+  } | null;
 }) {
   const fileBrowserState = useFileBrowserStateHook ?? useFileBrowserState;
   const { filterText, rootPath, pathSeparator, ignorePatterns, searchScope } =
@@ -1157,6 +1338,44 @@ export function FileBrowserFilter({
   }, [filterText]);
 
   useEffect(() => {
+    if (!searchMenuOpen) {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    // ReactFlow pans/zooms via CSS transforms. Radix Popover doesn't automatically
+    // reposition on transform changes when the content is portaled to `document.body`,
+    // so we dispatch a synthetic scroll/resize event while the menu is open.
+    let rafId: number | null = null;
+    const scheduleReposition = () => {
+      if (rafId !== null) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("resize"));
+      });
+    };
+
+    scheduleReposition();
+
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform,
+      () => scheduleReposition(),
+    );
+
+    return () => {
+      unsubscribe();
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [searchMenuOpen]);
+
+  useEffect(() => {
     const timeout = setTimeout(() => {
       fileBrowserState.setState({ filterText: filterInput });
     }, FILTER_DEBOUNCE_MS);
@@ -1181,9 +1400,11 @@ export function FileBrowserFilter({
   );
 
   const dummyInputClassName =
-    "min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 font-sans";
+    "min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent py-1 pl-3 pr-12 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 font-sans";
   const realInputClassName =
-    "min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent outline-0 [border-width:0_0_1px_0] focus-within:border-blue-300 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-3 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-300 [&_.cm-placeholder]:text-setta-400 dark:[&_.cm-placeholder]:text-setta-600 [&_.cm-content]:font-sans";
+    "min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent outline-0 [border-width:0_0_1px_0] focus-within:border-blue-300 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-3 [&_.cm-content]:!pr-12 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-300 [&_.cm-placeholder]:text-setta-400 dark:[&_.cm-placeholder]:text-setta-600 [&_.cm-content]:font-sans";
+  const canShowSaveButton = (saveSearchConfig?.canSave ?? false) === true;
+  const hasSearchValue = filterInput.trim().length > 0;
 
   return (
     <search
@@ -1193,7 +1414,7 @@ export function FileBrowserFilter({
       <InlineCodeMirrorInput
         id={`CodeMirror-FileBrowserFilter-${inputId}`}
         value={filterInput}
-        placeholder="Filter files and folders"
+        placeholder="Search"
         onChange={setFilterInput}
         className={realInputClassName}
         dummyClassName={dummyInputClassName}
@@ -1202,74 +1423,116 @@ export function FileBrowserFilter({
         keyComboActions={keyComboActions}
         tooltipParentDivId={tooltipParentDivId}
       />
-      <StandardPopover
-        open={searchMenuOpen}
-        onOpenChange={setSearchMenuOpen}
-        arrowClasses="fill-white dark:fill-setta-800"
-        contentClasses="z-40 rounded-md border border-solid border-setta-200 bg-white px-2 py-2 shadow-lg dark:border-setta-700 dark:bg-setta-800"
-        trigger={
+      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+        {saveSearchConfig && hasSearchValue ? (
           <button
             type="button"
-            aria-label="Search scope options"
-            className="nodrag ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-setta-400 hover:bg-setta-50 hover:text-setta-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-500 dark:hover:bg-setta-850 dark:hover:text-setta-200"
-          >
-            <HiChevronDown size={16} />
-          </button>
-        }
-      >
-        <div className="flex w-[220px] flex-col gap-1 text-xs text-setta-700 dark:text-setta-200">
-          <button
-            type="button"
-            aria-pressed={searchScope === "recursive"}
-            className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-setta-50 dark:hover:bg-setta-850 ${
-              searchScope === "recursive"
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
-                : ""
+            aria-label="Save search"
+            title="Save search"
+            className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset disabled:cursor-default disabled:opacity-40 ${
+              canShowSaveButton
+                ? "bg-transparent text-setta-400 hover:bg-setta-50 dark:text-setta-500 dark:hover:bg-setta-800"
+                : "bg-transparent text-setta-300 dark:text-setta-700"
             }`}
+            disabled={!canShowSaveButton}
             onClick={() => {
-              fileBrowserState.setState({ searchScope: "recursive" });
-              setSearchMenuOpen(false);
+              if (!canShowSaveButton) {
+                return;
+              }
+              saveSearchConfig.onSaveSearch(filterInput);
             }}
           >
-            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
-              {searchScope === "recursive" ? (
-                <div className="h-full w-full rounded-full bg-blue-500" />
-              ) : null}
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold">Recursive search</div>
-              <div className="text-[11px] text-setta-400 dark:text-setta-500">
-                Search the current folder and nested folders.
-              </div>
-            </div>
+            <FiSave size={14} />
           </button>
-          <button
-            type="button"
-            aria-pressed={searchScope === "local"}
-            className={`flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-setta-50 dark:hover:bg-setta-850 ${
-              searchScope === "local"
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
-                : ""
-            }`}
-            onClick={() => {
-              fileBrowserState.setState({ searchScope: "local" });
-              setSearchMenuOpen(false);
-            }}
-          >
-            <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full border border-setta-300 bg-transparent dark:border-setta-600">
-              {searchScope === "local" ? (
-                <div className="h-full w-full rounded-full bg-blue-500" />
-              ) : null}
+        ) : null}
+
+        <StandardPopover
+          open={searchMenuOpen}
+          onOpenChange={setSearchMenuOpen}
+          arrowClasses="h-2 w-4 -translate-y-px fill-white/95 stroke-setta-200/80 stroke-1 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+          contentClasses="z-[320] w-[252px] overflow-visible rounded-xl border border-solid border-setta-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur outline-none dark:border-setta-700/70 dark:bg-setta-900/95 dark:ring-setta-800/60"
+          contentProps={{
+            sideOffset: 8,
+            collisionPadding: 16,
+            align: "center",
+            // React Flow pans via CSS transforms; keep the menu anchored while panning.
+            updatePositionStrategy: "always",
+          }}
+          trigger={
+            <button
+              type="button"
+              aria-label="Search scope options"
+              className={`nodrag flex h-6 w-6 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset hover:bg-setta-50 dark:hover:bg-setta-800 ${
+                searchMenuOpen
+                  ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600"
+                  : "bg-transparent text-setta-400 dark:text-setta-500"
+              }`}
+            >
+              <HiChevronDown size={14} />
+            </button>
+          }
+        >
+          <div className="overflow-hidden rounded-[inherit] p-2.5">
+            <div className="flex flex-col gap-1.5 text-xs text-setta-700 dark:text-setta-200">
+              <button
+                type="button"
+                aria-pressed={searchScope === "recursive"}
+                className={`box-border w-full rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset ${
+                  searchScope === "recursive"
+                    ? "bg-blue-100/80 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/50"
+                    : "text-setta-700 hover:bg-setta-50 dark:text-setta-200 dark:hover:bg-setta-850"
+                }`}
+                onClick={() => {
+                  fileBrowserState.setState({ searchScope: "recursive" });
+                  setSearchMenuOpen(false);
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center text-current">
+                    <TbFolders size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-semibold leading-snug">
+                      Recursive search
+                    </div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-setta-400 dark:text-setta-500">
+                      Search the current folder and nested folders.
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={searchScope === "local"}
+                className={`box-border w-full rounded-lg px-3 py-2 text-left transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-inset ${
+                  searchScope === "local"
+                    ? "bg-blue-100/80 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-950/50"
+                    : "text-setta-700 hover:bg-setta-50 dark:text-setta-200 dark:hover:bg-setta-850"
+                }`}
+                onClick={() => {
+                  fileBrowserState.setState({ searchScope: "local" });
+                  setSearchMenuOpen(false);
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center text-current">
+                    <TbFolder size={16} />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-semibold leading-snug">
+                      Local search
+                    </div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-setta-400 dark:text-setta-500">
+                      Search only the current folder.
+                    </div>
+                  </div>
+                </div>
+              </button>
             </div>
-            <div className="min-w-0">
-              <div className="font-semibold">Local search</div>
-              <div className="text-[11px] text-setta-400 dark:text-setta-500">
-                Search only the current folder.
-              </div>
-            </div>
-          </button>
-        </div>
-      </StandardPopover>
+          </div>
+        </StandardPopover>
+      </div>
     </search>
   );
 }

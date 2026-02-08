@@ -55,6 +55,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
+    SetBrowserSavedSearchesRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetCallableResponse,
@@ -1132,6 +1133,15 @@ async def route_set_browser_hide_column(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_browser_hide_column(x)
+
+
+@router.post(Route.SET_BROWSER_SAVED_SEARCHES)
+async def route_set_browser_saved_searches(
+    x: SetBrowserSavedSearchesRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_browser_saved_searches(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_FORMAT)

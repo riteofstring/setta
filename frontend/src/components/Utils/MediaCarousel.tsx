@@ -8,6 +8,7 @@ import {
 } from "react";
 import { FiChevronLeft, FiChevronRight, FiFileText } from "react-icons/fi";
 import { IoImageOutline } from "react-icons/io5";
+import { getFloatingBoxHandlers } from "./FloatingBox";
 import {
   NO_PAN_CLASS_NAME,
   NO_WHEEL_CLASS_NAME,
@@ -22,6 +23,8 @@ export type MediaCarouselItem<T = unknown> = {
   thumbnailUrl?: string | null;
   imageUrl?: string | null;
   text?: string | null;
+  tooltipTitle?: string | null;
+  tooltipContent?: string | null;
   data?: T;
 };
 
@@ -51,8 +54,10 @@ const DEFAULT_THUMBNAIL_ROW_MIN_SCALE = 0.5;
 const THUMBNAIL_ROW_PADDING_Y_PX = 8;
 const THUMBNAIL_LABEL_GAP_PX = 4;
 const THUMBNAIL_LABEL_LINE_HEIGHT_PX = 16;
-const THUMBNAIL_LABEL_NORMAL_LINES = 2;
+const THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX = 16;
+const THUMBNAIL_LABEL_NORMAL_LINES = 1;
 const THUMBNAIL_ROW_MIN_PREVIEW_HEIGHT_PX = 140;
+const THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD = 0.75;
 
 export function MediaCarousel<T>({
   items,
@@ -97,6 +102,10 @@ export function MediaCarousel<T>({
     return items.findIndex((item) => item.id === selectedItem.id);
   }, [items, selectedItem]);
   const hasNavButtons = showNavButtons && items.length > 1;
+  const hasSubLabel = useMemo(
+    () => items.some((item) => (item.subLabel ?? "").trim().length > 0),
+    [items],
+  );
 
   const resolvedThumbnailRowMinScale =
     thumbnailRowMinScale ?? DEFAULT_THUMBNAIL_ROW_MIN_SCALE;
@@ -115,7 +124,8 @@ export function MediaCarousel<T>({
     thumbnailSize +
     (showThumbnailLabels
       ? THUMBNAIL_LABEL_GAP_PX +
-        THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES
+        THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
+        (hasSubLabel ? THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX : 0)
       : 0);
   const [thumbnailRowHeightPx, setThumbnailRowHeightPx] = useState<number>(
     thumbnailRowDefaultHeightPx,
@@ -154,7 +164,9 @@ export function MediaCarousel<T>({
           : startHeight + 400;
 
       function handlePointerMove(moveEvent: PointerEvent) {
-        const delta = moveEvent.clientY - startY;
+        // The handle sits above the thumbnail row, so dragging up should grow the
+        // row (and dragging down should shrink it).
+        const delta = startY - moveEvent.clientY;
         const next = Math.max(
           thumbnailRowMinHeightPx,
           Math.min(maxHeight, startHeight + delta),
@@ -186,18 +198,20 @@ export function MediaCarousel<T>({
         rowHeightPx: null as number | null,
       };
     }
-    const availableHeight =
-      thumbnailRowHeightPx - THUMBNAIL_ROW_PADDING_Y_PX * 2;
+    const availableHeight = thumbnailRowHeightPx - THUMBNAIL_ROW_PADDING_Y_PX * 2;
     const normalLabelHeight = showThumbnailLabels
       ? THUMBNAIL_LABEL_GAP_PX +
-        THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES
+        THUMBNAIL_LABEL_LINE_HEIGHT_PX * THUMBNAIL_LABEL_NORMAL_LINES +
+        (hasSubLabel ? THUMBNAIL_SUB_LABEL_LINE_HEIGHT_PX : 0)
       : 0;
+    // Sub-labels are hidden in compact mode to keep thumbnails square at
+    // minimal heights.
     const compactLabelHeight = showThumbnailLabels
       ? THUMBNAIL_LABEL_GAP_PX + THUMBNAIL_LABEL_LINE_HEIGHT_PX
       : 0;
 
     const normalScale = (availableHeight - normalLabelHeight) / thumbnailSize;
-    if (normalScale >= resolvedThumbnailRowMinScale) {
+    if (normalScale >= THUMBNAIL_ROW_COMPACT_LABEL_SCALE_THRESHOLD) {
       const scale = Math.min(1, Math.max(resolvedThumbnailRowMinScale, normalScale));
       return {
         thumbnailSizePx: Math.max(1, Math.round(thumbnailSize * scale)),
@@ -214,6 +228,7 @@ export function MediaCarousel<T>({
       rowHeightPx: thumbnailRowHeightPx,
     };
   }, [
+    hasSubLabel,
     resolvedThumbnailRowMinScale,
     showThumbnailLabels,
     thumbnailRowHeightPx,
@@ -340,15 +355,15 @@ export function MediaCarousel<T>({
     .filter(Boolean)
     .join(" ");
 
-	  const thumbnailRowClasses = [
-	    // `px-2` prevents selected thumbnails (scale + shadow) from being clipped.
-	    thumbnailRowResizable
-	      ? "flex shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2"
-	      : "flex shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 pb-4 pt-[4px]",
-	    NO_PAN_CLASS_NAME,
-	    // Keep wheel events from being intercepted by the canvas zoom handler.
-	    NO_WHEEL_CLASS_NAME,
-	    thumbnailRowClassName,
+  const thumbnailRowClasses = [
+    // `px-2` prevents selected thumbnails (scale + shadow) from being clipped.
+    thumbnailRowResizable
+      ? "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-auto overflow-y-hidden px-2 py-2"
+      : "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-auto overflow-y-hidden px-2 pb-4 pt-[4px]",
+    NO_PAN_CLASS_NAME,
+    // Keep wheel events from being intercepted by the canvas zoom handler.
+    NO_WHEEL_CLASS_NAME,
+    thumbnailRowClassName,
   ]
     .filter(Boolean)
     .join(" ");
@@ -472,8 +487,16 @@ export function MediaCarousel<T>({
       >
         {items.map((item) => {
           const isSelected = selectedItem?.id === item.id;
+          const tooltipContent = item.tooltipContent?.trim() ?? "";
+          const tooltipHandlers =
+            tooltipContent.length > 0
+              ? getFloatingBoxHandlers({
+                  title: item.tooltipTitle ?? "File path",
+                  content: tooltipContent,
+                })
+              : null;
           const thumbnailContainerClassName = [
-            "single-cell-container overflow-clip rounded-md border border-solid",
+            "single-cell-container shrink-0 overflow-clip rounded-md border border-solid",
             isSelected
               ? resolvedSelectedThumbnailClassName
               : resolvedThumbnailClassName,
@@ -494,13 +517,17 @@ export function MediaCarousel<T>({
             <button
               type="button"
               key={item.id}
+              aria-label={item.label}
+              title={item.label}
               onClick={() => handleSelect(item.id)}
               onDoubleClick={() => onThumbnailDoubleClick?.(item)}
+              {...(tooltipHandlers ?? {})}
               className={`group/thumbnail flex cursor-pointer flex-col items-center gap-1 bg-transparent p-0 text-left ${
                 isSelected ? "scale-105" : ""
               }`}
               style={{ width: `${thumbnailRowLayout.thumbnailSizePx}px` }}
             >
+              <span className="sr-only">{item.label}</span>
               <div
                 className={thumbnailContainerClassName}
                 style={{
@@ -528,27 +555,15 @@ export function MediaCarousel<T>({
               </div>
               {showThumbnailLabels ? (
                 <div className="w-full">
-                  {thumbnailRowLayout.labelMode === "compact" ? (
-                    <p className="w-full text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
-                      <span className="flex w-full min-w-0 items-baseline gap-0.5">
-                        <span className="min-w-0 flex-1 truncate">
-                          {fileStem}
-                        </span>
-                        {fileExtension ? (
-                          <span className="shrink-0">{fileExtension}</span>
-                        ) : null}
-                      </span>
-                    </p>
-                  ) : thumbnailRowResizable ? (
-                    <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white overflow-hidden [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical]">
-                      {item.label}
-                    </p>
-                  ) : (
-                    <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
-                      {item.label}
-                    </p>
-                  )}
-                  {item.subLabel ? (
+                  <p className="flex w-full justify-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
+                    <span className="flex min-w-0 max-w-full items-baseline gap-0.5">
+                      <span className="min-w-0 flex-1 truncate">{fileStem}</span>
+                      {fileExtension ? (
+                        <span className="shrink-0">{fileExtension}</span>
+                      ) : null}
+                    </span>
+                  </p>
+                  {item.subLabel && thumbnailRowLayout.labelMode !== "compact" ? (
                     <p className="w-full truncate text-center text-[10px] text-setta-400 dark:text-setta-500">
                       {item.subLabel}
                     </p>

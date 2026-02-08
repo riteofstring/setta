@@ -4,6 +4,7 @@ import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
+import { BrowserAreaSettings } from "./BrowserAreaSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { EdgePortsSettings } from "./EdgePortsSettings";
@@ -57,5 +58,7 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <IframeSettings sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
       return <ChatAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Browser:
+      return <BrowserAreaSettings sectionId={sectionId} />;
   }
 }

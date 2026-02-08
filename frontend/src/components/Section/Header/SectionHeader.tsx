@@ -19,7 +19,6 @@ import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import {
   getSectionHeaderHeightKey,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
 import {
   CodeLanguageEnum,
@@ -306,7 +305,6 @@ function DiagnosticsPopover({
     <StandardPopover
       arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
       contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
-      portalContainerId={SETTA_POPOVER_PORTAL_PARENT_ID}
       trigger={
         <button
           className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}

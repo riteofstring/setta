@@ -3,7 +3,7 @@ import { normalizeBrowserPath } from "utils/browserPaths";
 
 export type FileBrowserSearchScope = "recursive" | "local";
 
-export type FileBrowserTypeFilter = "image" | "video" | "text" | "data";
+export type FileBrowserTypeFilter = "image" | "video" | "audio" | "text" | "data";
 
 export const DEFAULT_FILE_BROWSER_TYPE_FILTERS: Record<
   FileBrowserTypeFilter,
@@ -11,6 +11,7 @@ export const DEFAULT_FILE_BROWSER_TYPE_FILTERS: Record<
 > = {
   image: true,
   video: true,
+  audio: true,
   text: true,
   data: true,
 };
@@ -77,8 +78,10 @@ export function getFileBrowserTypeFilterForItem(
       return "image";
 
     case "video":
-    case "audio":
       return "video";
+
+    case "audio":
+      return "audio";
 
     case "text":
     case "pdf": {
@@ -123,4 +126,3 @@ export function getFileBrowserFolderPathLabel(fullPath: string): string | null {
   const folder = normalized.slice(0, slashIndex);
   return folder || null;
 }
-

@@ -115,6 +115,7 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
+    BrowserSavedSearch,
     BrowserSectionImpl,
     CallableSectionImpl,
     ChatSectionImpl,
@@ -2788,6 +2789,21 @@ def set_browser_hide_column(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, BrowserSectionImplArgsWithCallable(hideColumn=hideColumn)
+    )
+
+
+def set_browser_saved_searches(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    savedSearches: list[BrowserSavedSearch],
+):
+    impl = get_curr_effective_section_impl(p, sectionId)
+    if not isinstance(impl, BrowserSectionImpl):
+        raise TypeError(f"Section {sectionId} does not support browser saved searches")
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BrowserSectionImplArgsWithCallable(savedSearches=savedSearches),
     )
 
 

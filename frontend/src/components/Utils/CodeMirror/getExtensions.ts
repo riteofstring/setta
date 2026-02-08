@@ -106,6 +106,7 @@ export function getExtensions({
         tooltipClass: () => "nowheel",
         interactionDelay: completionInteractionDelayMs,
         selectOnOpen: true,
+        activateOnTyping: true,
       }),
     );
     if (completionTriggerChars && completionTriggerChars.length > 0) {
@@ -120,12 +121,20 @@ export function getExtensions({
           if (!isUserInput) {
             return;
           }
-          const head = update.state.selection.main.head;
-          if (head <= 0) {
-            return;
-          }
-          const lastChar = update.state.doc.sliceString(head - 1, head);
-          if (!triggerChars.includes(lastChar)) {
+          let insertedTextHasTriggerChar = false;
+          update.changes.iterChanges((_fromA, _toA, _fromB, _toB, inserted) => {
+            if (insertedTextHasTriggerChar) {
+              return;
+            }
+            const insertedText = inserted.toString();
+            if (!insertedText) {
+              return;
+            }
+            insertedTextHasTriggerChar = triggerChars.some((char) =>
+              insertedText.includes(char),
+            );
+          });
+          if (!insertedTextHasTriggerChar) {
             return;
           }
           if (!update.view.hasFocus) {
