@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -47,6 +48,39 @@ def test_load_setta_user_config_rejects_legacy_keys() -> None:
     clear_setta_user_config_cache()
     with pytest.raises(ValueError, match=r"openWorkspaceFallback"):
         load_setta_user_config(setta_home=setta_home)
+
+
+def test_ensure_setta_user_config_noops_when_file_exists() -> None:
+    setta_home = resolve_setta_home()
+    config_path = resolve_setta_user_config_path(setta_home=setta_home)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("{\"ok\": true}\n", encoding="utf-8")
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert error is None
+    assert config_path.read_text(encoding="utf-8") == "{\"ok\": true}\n"
+
+
+def test_ensure_setta_user_config_reports_error_when_path_is_directory() -> None:
+    setta_home = resolve_setta_home()
+    config_path = resolve_setta_user_config_path(setta_home=setta_home)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.mkdir(parents=True, exist_ok=True)
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert isinstance(error, str)
+    assert "not a file" in error
+
+
+def test_ensure_setta_user_config_reports_error_when_setta_home_is_file(
+    tmp_path: Path,
+) -> None:
+    setta_home = tmp_path / "not_a_dir"
+    setta_home.write_text("nope", encoding="utf-8")
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert isinstance(error, str)
+    assert "Failed to create Setta home directory" in error
 
 
 def test_load_setta_user_config_uses_defaults_without_creating_file() -> None:

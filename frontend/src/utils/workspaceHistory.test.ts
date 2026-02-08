@@ -243,6 +243,32 @@ describe("workspaceHistory", () => {
     ]);
   });
 
+  it("normalizes settaFilesLocation case and whitespace", () => {
+    memoryStorage.setItem(
+      "setta.workspaceHistory.v2",
+      JSON.stringify([
+        {
+          workspaceRoot: "/tmp/work",
+          sshTarget: null,
+          localPort: null,
+          settaFilesLocation: "  GLOBAL ",
+          lastUsedAt: 1,
+        },
+      ]),
+    );
+
+    const loaded = loadWorkspaceHistory();
+    expect(loaded).toEqual([
+      {
+        workspaceRoot: "/tmp/work",
+        sshTarget: null,
+        localPort: null,
+        settaFilesLocation: "global",
+        lastUsedAt: 1,
+      },
+    ]);
+  });
+
   it("coerces localPort values", () => {
     memoryStorage.setItem(
       "setta.workspaceHistory.v2",
