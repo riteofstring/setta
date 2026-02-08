@@ -14,7 +14,6 @@ import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
 import { AppPreview } from "./Project/AppPreview";
 import { UIPage } from "./Project/UiPage";
-import { ViewModeTabs } from "./Project/ViewModeTabs";
 
 type MainContainerCoreProps = {
   doneLoading: boolean;
@@ -47,7 +46,6 @@ export function MainContainerCore({
       <GridWrapper>
         {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
       </GridWrapper>
-      <ViewModeTabs />
       <FloatingBox />
     </>
   );

@@ -20,11 +20,13 @@ type LockPositionButtonRenderState = {
 
 type LockPositionButtonProps = {
   sectionId: string;
+  hasSectionStyleTheme?: boolean;
   render?: (state: LockPositionButtonRenderState) => ReactNode;
 };
 
 export function LockPositionButton({
   sectionId,
+  hasSectionStyleTheme = false,
   render,
 }: LockPositionButtonProps) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
@@ -78,7 +80,16 @@ export function LockPositionButton({
 
   let backgroundClassName = "bg-transparent";
   let textClassName = "text-setta-600";
-  if (positionAndSizeLocked) {
+  if (hasSectionStyleTheme) {
+    if (positionAndSizeLocked) {
+      backgroundClassName = "bg-[color:var(--setta-section-style-bg)]";
+      textClassName = "text-[color:var(--setta-section-style-outline)]";
+    } else {
+      backgroundClassName = "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]";
+      textClassName =
+        "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]";
+    }
+  } else if (positionAndSizeLocked) {
     backgroundClassName =
       "shadow-[inset_0_1px_1px_0_rgb(0_0_0_/_0.1)] hover:bg-orange-500 dark:border-transparent  dark:bg-transparent  dark:shadow-none dark:hover:bg-orange-500";
     textClassName =
@@ -89,7 +100,13 @@ export function LockPositionButton({
 
   return (
     <button
-      className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${backgroundClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 hover:text-orange-500 dark:hover:text-orange-700 ${
+      className={`nodrag flex inline-flex cursor-pointer items-center justify-center focus-visible:ring-2 ${
+        hasSectionStyleTheme
+          ? "focus-visible:ring-[var(--setta-section-style-outline)]"
+          : ""
+      } ${backgroundClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 ${
+        hasSectionStyleTheme ? "" : "hover:text-orange-500 dark:hover:text-orange-700"
+      } ${
         isGroup ? "h-5 w-5" : "h-4 w-4"
       } ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}
       onClick={onClick}
