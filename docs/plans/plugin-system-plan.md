@@ -189,6 +189,30 @@ Suggested fields:
 - `content.promptsDir`: optional folder for prompt files.
 - `capabilities`: future-facing allowlist for permissions and UI messaging.
 
+### Capability vocabulary (normative MVP)
+
+To keep mode-gating and plugin host behavior deterministic, `capabilities` is a closed string set in MVP:
+
+- `registerSectionKinds`
+- `registerPane`
+- `registerCommand`
+- `registerToolbarItem`
+- `registerContextMenu`
+- `registerSettingsPanel`
+- `registerMcpTools`
+- `registerLanguageServer`
+- `registerExternalAgentAdapter`
+- `registerCodegenTarget`
+- `registerRouter`
+- `registerStaticDir`
+- `writeWorkspacePlugins`
+
+Validation rules:
+
+- Unknown capability values fail manifest validation with `PLUGIN_MANIFEST_INVALID_CAPABILITY`.
+- Duplicate capability entries fail manifest validation with `PLUGIN_MANIFEST_DUPLICATE_CAPABILITY`.
+- Capability checks are enforced at host API call time. If a plugin calls a host API without an effective capability, the host returns `PLUGIN_CAPABILITY_DENIED`.
+
 ### Manifest validation baseline
 
 - Manifest parsing should be strict (`extra=forbid`): unknown fields should fail validation instead of being ignored.
@@ -287,14 +311,72 @@ Default policy:
 Recommended mode policy (initial):
 
 - `ide`: allow all declared capabilities that pass normal compatibility checks.
-- `share`: allow UI/content-focused capabilities (`registerSectionKinds`, `registerPane`, `registerCommand`, content template/blueprint access).
-- `share`: block infrastructure/power capabilities (`registerMcpTools`, `registerLanguageServer`, `registerExternalAgentAdapter`, `registerCodegenTarget`, unrestricted router/file-write behaviors).
+- `share`: allow UI/content-focused capabilities (`registerSectionKinds`, `registerPane`, `registerCommand`, `registerToolbarItem`, `registerContextMenu`, `registerSettingsPanel`, content template/blueprint access).
+- `share`: block infrastructure/power capabilities (`registerMcpTools`, `registerLanguageServer`, `registerExternalAgentAdapter`, `registerCodegenTarget`, `registerRouter`, `registerStaticDir`, `writeWorkspacePlugins`).
 - `app`: same as `share` for MVP, with room to tighten later if needed.
+
+Mode matrix (normative MVP):
+
+| Capability | ide | share | app |
+| --- | --- | --- | --- |
+| `registerSectionKinds` | allow | allow | allow |
+| `registerPane` | allow | allow | allow |
+| `registerCommand` | allow | allow | allow |
+| `registerToolbarItem` | allow | allow | allow |
+| `registerContextMenu` | allow | allow | allow |
+| `registerSettingsPanel` | allow | allow | allow |
+| `registerMcpTools` | allow | block (`mode_policy`) | block (`mode_policy`) |
+| `registerLanguageServer` | allow | block (`mode_policy`) | block (`mode_policy`) |
+| `registerExternalAgentAdapter` | allow | block (`mode_policy`) | block (`mode_policy`) |
+| `registerCodegenTarget` | allow | block (`mode_policy`) | block (`mode_policy`) |
+| `registerRouter` | allow | block (`mode_policy`) | block (`mode_policy`) |
+| `registerStaticDir` | allow | block (`mode_policy`) | block (`mode_policy`) |
+| `writeWorkspacePlugins` | allow | block (`mode_policy`) | block (`mode_policy`) |
 
 Rationale:
 
 - Share/App are intentionally constrained runtimes; capability gating preserves plugin UX while keeping deployment behavior predictable.
 - This is a product policy for deterministic behavior and UX, not a hard security sandbox.
+
+### Plugin registry APIs (normative MVP)
+
+Lock endpoint contracts before implementation to avoid backend/frontend drift.
+
+`GET /api/plugins/list` (for frontend loader, active plugins only):
+
+- `schemaVersion`: integer (`1` for MVP).
+- `serverMode`: `ide | share | app`.
+- `plugins`: list of active plugin descriptors sorted by `pluginId` ascending.
+
+Plugin descriptor fields:
+
+- `pluginId`, `name`, `version`.
+- `sourceScope`: `workspace | setta_files | global`.
+- `canonicalSourceKey`.
+- `frontend`: `{ entrypointUrl?: string, styleUrl?: string }`.
+- `content`: `{ hasBlueprints: boolean, hasProjectTemplates: boolean, hasPrompts: boolean }`.
+- `effectiveCapabilities`: `string[]`.
+- `restartRequired`: boolean.
+
+`GET /api/plugins/status` (debug/observability, all discovered plugins including inactive/broken/shadowed):
+
+- `schemaVersion`: integer (`1` for MVP).
+- `serverMode`: `ide | share | app`.
+- `plugins`: list sorted by:
+  - `pluginId` ascending.
+  - scope precedence (`workspace`, `setta_files`, `global`).
+  - `sourcePath` ascending.
+
+Status entry fields:
+
+- `pluginId`, `name`, `version`.
+- `state`: `active | disabled | invalid | shadowed | pending_restart`.
+- `sourceScope`, `sourcePath`, `canonicalSourceKey`.
+- `shadowedBySourcePath`: optional string.
+- `requestedCapabilities`, `effectiveCapabilities`.
+- `blockedCapabilities`: `[{ capability: string, reason: "mode_policy" | "host_policy" | "manifest_invalid" }]`.
+- `restartRequired`: boolean.
+- `errors`: list of `{ code: string, message: string }`.
 
 ## Frontend Plugins
 
@@ -410,6 +492,23 @@ Performance guardrails for plugin sections:
 - Share expensive services at plugin scope (for example one poller/store per plugin) rather than one per section instance.
 - `unmount` must clean up listeners/timers/observers to prevent leaks during section deletion, disable, and hot reload.
 - Add performance coverage for large-canvas scenarios (for example 100+ plugin sections) to catch update fanout regressions.
+
+### Missing renderer fallback UX (normative MVP)
+
+If a `SectionType.Plugin` section exists but the plugin frontend renderer is unavailable, render a stable fallback card instead of a blank/erroring node.
+
+Fallback card fields:
+
+- `pluginId`
+- `kind`
+- reason (`plugin_disabled`, `plugin_not_installed`, `frontend_load_failed`, or `mode_blocked`)
+- compact `data` preview
+
+Fallback card actions:
+
+- "Open Plugins" (jumps to plugin status pane/modal)
+- "Copy Section JSON"
+- "Delete Section"
 
 Follow-on:
 
@@ -554,8 +653,21 @@ Recommended initial model:
 
 State fields:
 
-- `enabledPluginIds`: list of plugin ids enabled for this workspace.
+- `enabledPluginIds`: list of plugin ids explicitly enabled for this workspace.
+- `disabledPluginIds`: list of plugin ids explicitly disabled for this workspace.
 - `pluginConfigById`: dict of plugin id to arbitrary JSON config blob.
+
+Enablement resolution (normative MVP):
+
+1. Resolve one active source per `pluginId` using scope precedence (`workspace > setta_files > global`).
+2. Compute enabled state:
+   - if `pluginId` in `disabledPluginIds`, plugin is disabled.
+   - else if `pluginId` in `enabledPluginIds`, plugin is enabled.
+   - else use `manifest.enabledByDefault`.
+3. Apply compatibility checks (`settaVersionRange`, schema support).
+4. Apply mode capability filtering to produce `effectiveCapabilities`.
+
+This keeps behavior deterministic and explains "why disabled" cases in `/api/plugins/status`.
 
 Rationale:
 
@@ -598,6 +710,7 @@ Loading semantics (recommended MVP):
 
 - Frontend plugins and content plugins can become available immediately after upload because the backend can rescan manifests on demand.
 - Backend plugins require a backend restart to execute Python entrypoints and register routers/tools. The modal should show "restart required" when it detects a new or changed backend entrypoint.
+- Backend plugin disable/enable changes are also restart-gated in MVP (to avoid hot-unload complexity).
 
 Implementation note:
 
@@ -638,10 +751,26 @@ Safety baseline (still assuming trusted plugins):
 - Prevent zip-slip/path traversal by ensuring extracted files stay within the chosen target root (`<workspace>/plugins` or `<setta_home>/plugins`).
 - Refuse to overwrite an existing plugin folder in the target scope unless `--force` is provided.
 
+Atomic install semantics (normative MVP):
+
+1. Download/copy source into a temp staging directory.
+2. Extract/copy into a second temp "candidate root".
+3. Validate `setta.plugin.json`, referenced paths, schema compatibility, and traversal safety.
+4. If validation passes, atomically move candidate root to the target plugin folder.
+5. If any step fails, abort and delete temp directories; do not modify existing installed plugin state.
+
 Restart semantics:
 
 - Installing/changing a backend plugin should be treated as "restart required" for deterministic behavior.
 - Installing/changing a frontend/content plugin can be made available immediately by triggering a "rescan plugins" flow and reloading plugin JS on the frontend.
+
+### Lifecycle semantics (normative MVP)
+
+- `rescan_plugins` does not execute backend plugin entrypoints; it only refreshes discovery state, static asset availability, and content contributions.
+- Transition rules:
+  - frontend/content-only plugin install or update: active after successful rescan.
+  - backend plugin install/update/remove/enable/disable: status becomes `pending_restart` until backend restart.
+- On restart, backend plugin registry is rebuilt from scratch from the active discovered set. No incremental backend plugin unmounting is attempted in MVP.
 
 ### AI-driven plugin install ("install this plugin at this URL")
 
@@ -689,6 +818,12 @@ Data migrations:
 - Add explicit migration registries/hooks once plugins persist richer state beyond section payloads.
 - Optional follow-on: CLI command to rewrite files to current schemas (`setta plugins migrate --write`) for easier maintenance.
 
+Migration execution rules (normative MVP):
+
+- Migrations run during plugin discovery before activation.
+- Migration failures are non-fatal to host startup: plugin is marked `invalid` with explicit migration error details.
+- Automatic migrations are in-memory only in MVP. Persistent rewrites happen only via explicit write paths (for example a future `setta plugins migrate --write`).
+
 ## Error Handling and Observability
 
 Plugin failures must be visible and actionable:
@@ -717,6 +852,9 @@ Backend:
 - Tests for mode capability gating (IDE vs Share/App) and blocked API errors.
 - Tests for schema migration paths (for example v1 manifests/state accepted and migrated to current).
 - Tests for uploading a plugin bundle and extracting it into `plugins/` (once the in-app installer exists).
+- Tests for enablement resolution order (`disabledPluginIds`, `enabledPluginIds`, `enabledByDefault`).
+- Tests for `pending_restart` transitions after backend plugin install/enable/disable/update.
+- Tests for atomic installer rollback behavior (failed install leaves existing plugin unchanged).
 
 Frontend:
 
@@ -725,6 +863,7 @@ Frontend:
 - Verify Share mode behavior for partially active plugins (allowed contributions render; blocked contributions show clear status).
 - Add large-canvas performance coverage for plugin sections (for example 100+ sections, update fanout checks).
 - Add coverage for the drag-and-drop install flow once the modal exists.
+- Add coverage for fallback card reasons (`plugin_disabled`, `plugin_not_installed`, `frontend_load_failed`, `mode_blocked`).
 
 ## Implementation Phases
 
@@ -732,9 +871,10 @@ Frontend:
 
 - Create `backend/setta/plugins/` package with manifest types, plugin directory scanning, enablement state, and status reporting.
 - Resolve `<setta_home>/plugins` using the same Setta-home logic as user config (`resolve_setta_home()`, `SETTA_HOME`) and include it in discovery.
-- Add backend routes `GET /api/plugins/list` and `GET /api/plugins/status`.
+- Add backend routes `GET /api/plugins/list` and `GET /api/plugins/status` matching the normative schemas in this document.
 - Serve plugin static assets under `/plugins/<pluginId>/...` from the resolved active plugin source path (workspace/setta_files/global).
 - Built-mode note: ensure `/plugins/...` mounts are registered before the SPA catch-all route (or move the catch-all route to the end after mounting), otherwise requests for plugin JS/CSS can be swallowed by the app's `index.html` handler.
+- Implement enablement resolution (`disabledPluginIds`, `enabledPluginIds`, `enabledByDefault`) and `pending_restart` status semantics.
 
 ### Phase 2: Frontend loader + minimal extension points
 
@@ -742,6 +882,7 @@ Frontend:
 - Load enabled plugins on app start (or on demand).
 - Add minimal extension points: panes, commands, and "Add" menu items for plugin section kinds.
 - Add a "Plugins" modal with an embedded `FileBrowserPane` pinned to `plugins/`, plus drag-and-drop upload and "restart required" messaging.
+- Add a stable fixture plugin starter in `tests/fixtures/plugins/` and a short authoring README so plugin authors have a live, tested reference.
 
 ### Phase 3: Plugin sections (core model + rendering)
 
@@ -765,15 +906,15 @@ Frontend:
 
 ## Phase completion gates
 
-- Phase 1 complete when `/api/plugins/list` and `/api/plugins/status` are implemented with deterministic ordering, shadowing visibility, canonical source identity, and schema validation error coverage.
+- Phase 1 complete when `/api/plugins/list` and `/api/plugins/status` are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
 - Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, and Share-mode capability filtering is visible in UI/status.
 - Phase 3 complete when `SectionType.Plugin` roundtrips through backend/frontend types, renders via registered plugin renderer, and missing renderer falls back without app instability.
 - Phase 4 complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
 - Phase 5 complete when at least one deeper integration (for example language-server registration) works end-to-end with mode-aware capability gating and failure reporting.
 
-## Open Questions
+## MVP Decisions (Resolved)
 
-- Should plugin enablement be per workspace only, or per `ProjectConfig` as well?
-- Should we support optional global enable defaults (for example `<setta_home>/plugins_state.json`) so newly opened workspaces auto-enable selected global plugins?
-- How do we want plugin-defined "language" to interact with existing `CodeLanguage` enum and file extension logic (`CODE_LANGUAGE_EXTENSIONS`)?
-- Do we want to support plugin packaging as a single zip file in addition to folders?
+- Plugin enablement is workspace-level only in MVP (no per-`ProjectConfig` enablement yet).
+- No global enable-default file in MVP; globally installed plugins are still enabled per workspace via that workspace's `plugins_state.json`.
+- Plugin packaging supports both folder installs and `.zip` bundles in MVP.
+- Plugin-defined languages do not extend the core `CodeLanguage` enum in MVP. Language plugins register LSP/settings integrations only. Enum extension is deferred to Phase 5 follow-on design.
