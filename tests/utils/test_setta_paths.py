@@ -66,6 +66,52 @@ def test_resolve_setta_paths_honors_files_location_env_global(
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
 
+def test_resolve_setta_paths_rejects_invalid_files_location_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    monkeypatch.setenv("SETTA_FILES_LOCATION", "nope")
+
+    with pytest.raises(ValueError, match=r"Invalid setta files location"):
+        resolve_setta_paths(workspace_root=workspace)
+
+
+def test_resolve_setta_paths_rejects_invalid_files_location_override(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    with pytest.raises(ValueError, match=r"Invalid setta files location"):
+        resolve_setta_paths(workspace_root=workspace, setta_files_location="nope")
+
+
+def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    (workspace / "setta_files").write_text("nope", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Local setta_files path is not a directory"):
+        resolve_setta_paths(workspace_root=workspace)
+
+
+def test_resolve_setta_paths_rejects_global_root_that_is_file(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    global_base = (setta_home / "setta_files").resolve(strict=False)
+    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
+    global_root.parent.mkdir(parents=True, exist_ok=True)
+    global_root.write_text("nope", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"Global setta_files path is not a directory"):
+        resolve_setta_paths(workspace_root=workspace, setta_files_location="global")
+
+
 def test_resolve_setta_paths_auto_uses_global_if_present(
     tmp_path: Path,
 ) -> None:

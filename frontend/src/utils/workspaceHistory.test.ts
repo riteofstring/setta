@@ -143,6 +143,28 @@ describe("workspaceHistory", () => {
     );
   });
 
+  it("does not dedupe entries that differ by settaFilesLocation", () => {
+    const existing = [
+      {
+        workspaceRoot: "/tmp/work",
+        sshTarget: null,
+        localPort: null,
+        settaFilesLocation: "auto",
+        lastUsedAt: 1,
+      },
+    ] satisfies WorkspaceHistoryEntry[];
+    const nextEntry = {
+      ...existing[0],
+      settaFilesLocation: "global",
+      lastUsedAt: 2,
+    };
+
+    const merged = upsertWorkspaceHistoryEntry(existing, nextEntry);
+    expect(merged).toHaveLength(2);
+    expect(merged[0].settaFilesLocation).toBe("global");
+    expect(merged[1].settaFilesLocation).toBe("auto");
+  });
+
   it("dedupes entries that only differ by localPort", () => {
     const existing = [
       {
