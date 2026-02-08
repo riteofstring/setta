@@ -174,6 +174,34 @@ def _should_ignore_path(path: Path) -> bool:
     return False
 
 
+def _build_ignore_predicate() -> Callable[[Path], bool]:
+    paths = get_setta_paths()
+    workspace_root = paths.workspace_root.resolve(strict=False)
+    state_root = paths.setta_files_root.resolve(strict=False)
+    runtime_root = paths.runtime_root.resolve(strict=False)
+    state_is_in_workspace = state_root.is_relative_to(workspace_root)
+    runtime_is_in_workspace = runtime_root.is_relative_to(workspace_root)
+
+    def should_ignore(path: Path) -> bool:
+        resolved = (
+            path.resolve(strict=False)
+            if path.is_absolute()
+            else (workspace_root / path).resolve(strict=False)
+        )
+        # If the state roots are inside the workspace, ignore them by path (not by
+        # the literal folder name "setta_files") so detached roots don't get scanned.
+        if state_is_in_workspace and resolved.is_relative_to(state_root):
+            return True
+        if runtime_is_in_workspace and resolved.is_relative_to(runtime_root):
+            return True
+        for part in resolved.parts:
+            if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
+                return True
+        return False
+
+    return should_ignore
+
+
 def _normalize_watch_code_path(raw: str, label: str) -> Path:
     candidate = Path(raw)
     workspace_root = get_setta_paths().workspace_root
@@ -187,10 +215,11 @@ def _normalize_watch_code_path(raw: str, label: str) -> Path:
 
 
 def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
+    should_ignore = _build_ignore_predicate()
     if not root.exists():
         return []
     if root.is_file():
-        if root.suffix == ".py" and not _should_ignore_path(root):
+        if root.suffix == ".py" and not should_ignore(root):
             return [root]
         return []
     if not root.is_dir():
@@ -198,11 +227,7 @@ def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
     if not recursive:
         output: list[Path] = []
         for entry in root.iterdir():
-            if (
-                entry.is_file()
-                and entry.suffix == ".py"
-                and not _should_ignore_path(entry)
-            ):
+            if entry.is_file() and entry.suffix == ".py" and not should_ignore(entry):
                 output.append(entry)
         return output
     output: list[Path] = []
@@ -213,13 +238,13 @@ def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
             for d in dirs
             if d
             and d not in DEFAULT_WATCH_CODE_IGNORE_DIRS
-            and not _should_ignore_path(root_path / d)
+            and not should_ignore(root_path / d)
         ]
         for filename in files:
             if not filename.endswith(".py"):
                 continue
             file_path = Path(current_root) / filename
-            if _should_ignore_path(file_path):
+            if should_ignore(file_path):
                 continue
             output.append(file_path)
     return output

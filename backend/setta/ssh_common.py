@@ -332,8 +332,10 @@ def resolve_remote_setta_command(
     *,
     ssh_prefix: list[str],
 ) -> str:
-    if remote_cmd:
-        return remote_cmd
+    if remote_cmd is not None:
+        trimmed = remote_cmd.strip()
+        if trimmed:
+            return trimmed
     quoted_workspace = shlex.quote(workspace)
     inner = (
         f"cd {quoted_workspace} || exit 1;"

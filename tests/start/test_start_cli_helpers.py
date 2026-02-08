@@ -1,4 +1,5 @@
 import io
+import os
 import tempfile
 from pathlib import Path
 
@@ -6,6 +7,7 @@ import click
 import pytest
 
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
+from setta.launch import LaunchError
 from setta.start import (
     _base_url_from_auth_payload,
     _build_tool_call_url,
@@ -14,6 +16,7 @@ from setta.start import (
     _load_json_payload,
     _normalize_base_url,
     _normalize_tool_name,
+    _resolve_remote_workspace,
     _strip_cookie_header_prefix,
 )
 from setta.types.routes import Route
@@ -134,3 +137,27 @@ def test_normalize_tool_name() -> None:
         _normalize_tool_name("/path")
     with pytest.raises(click.ClickException):
         _normalize_tool_name(f"setta{MCP_TOOL_NAME_SEPARATOR}tool")
+
+
+def test_resolve_remote_workspace_adds_hint_for_local_tilde_expansion(monkeypatch) -> None:
+    import setta.start as start_module
+
+    def fake_resolve_remote_workspace(*_args, **_kwargs):
+        raise LaunchError("RemoteWorkspace", "Failed to resolve remote workspace.")
+
+    monkeypatch.setattr(
+        start_module.ssh_common,
+        "resolve_remote_workspace",
+        fake_resolve_remote_workspace,
+    )
+
+    home = os.path.expanduser("~")
+    if not home:
+        pytest.skip("Missing local home directory for tilde-expansion hint test.")
+    workspace = f"{home.rstrip('/\\\\')}/repo"
+
+    with pytest.raises(click.ClickException) as excinfo:
+        _resolve_remote_workspace("user@host", [], "bash", workspace)
+    message = str(excinfo.value)
+    assert "expanded '~'" in message
+    assert "--workspace" in message

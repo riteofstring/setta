@@ -111,6 +111,19 @@ describe("workspaceHistory", () => {
     expect(merged).toHaveLength(1);
   });
 
+  it("preserves windows drive roots when building keys", () => {
+    const entry = {
+      workspaceRoot: "C:\\",
+      sshTarget: null,
+      localPort: null,
+      filesRoot: null,
+      filesRootBase: null,
+      lastUsedAt: 1,
+    };
+    const parsed = JSON.parse(workspaceHistoryEntryKey(entry));
+    expect(parsed.workspaceRoot).toBe("C:\\");
+  });
+
   it("avoids key collisions when values contain '::'", () => {
     const entryA = {
       workspaceRoot: "a",

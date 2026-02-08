@@ -146,7 +146,27 @@ def _resolve_remote_workspace(
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
         )
     except LaunchError as exc:
-        raise click.ClickException(str(exc)) from exc
+        message = str(exc)
+        if exc.code == "RemoteWorkspace":
+            raw_home = os.path.expanduser("~") or ""
+            home = raw_home.rstrip("/\\")
+            workspace_trimmed = (workspace or "").strip()
+            if (
+                home
+                and workspace_trimmed
+                and not workspace_trimmed.startswith("~")
+                and (
+                    workspace_trimmed == home
+                    or workspace_trimmed.startswith(f"{home}/")
+                    or workspace_trimmed.startswith(f"{home}\\")
+                )
+            ):
+                message = (
+                    f"{message}\n\nHint: Your local shell may have expanded '~'. "
+                    "If you meant a remote home directory, quote it like "
+                    "--workspace '~/path' (or -w '~/path')."
+                )
+        raise click.ClickException(message) from exc
 
 
 def _resolve_remote_setta_command(

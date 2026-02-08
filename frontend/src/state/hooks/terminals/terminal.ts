@@ -37,7 +37,7 @@ type TerminalSession = {
 };
 
 const TERMINAL_SESSIONS: Record<TerminalSessionKey, TerminalSession> = {};
-const INITIAL_MESSAGES: Record<string, string[]> = {}; // maps from sectionId to a list of messages
+const INITIAL_MESSAGES: Record<TerminalSessionKey, string[]> = {}; // sessionKey -> pending messages
 
 const TERMINAL_SESSION_DISPOSE_DELAY_MS = 750;
 
@@ -108,6 +108,7 @@ function ensureTerminalSession({
   terminal.loadAddon(fitAddon);
 
   const { ws, wsId } = createTerminalWebsocket({
+    sessionKey: key,
     projectConfigId,
     sectionId,
     shareSessionId,
@@ -153,6 +154,7 @@ function releaseTerminalSession(key: TerminalSessionKey) {
       return;
     }
     delete TERMINAL_SESSIONS[key];
+    delete INITIAL_MESSAGES[key];
     terminalCleanup(latest.ws, latest.terminal);
   }, TERMINAL_SESSION_DISPOSE_DELAY_MS);
 }
@@ -249,7 +251,7 @@ export function useTerminal({
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        addTerminalInitialMessage(sectionId, message);
+        addTerminalInitialMessage(session.key, message);
       }
     });
 
@@ -287,12 +289,14 @@ export function useTerminal({
 }
 
 function createTerminalWebsocket({
+  sessionKey,
   projectConfigId,
   sectionId,
   shareSessionId,
   isShareMode,
   terminal,
 }: {
+  sessionKey: TerminalSessionKey;
   projectConfigId: string;
   sectionId: string;
   shareSessionId: string | null;
@@ -309,10 +313,10 @@ function createTerminalWebsocket({
     : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
-    if (INITIAL_MESSAGES[sectionId]?.length > 0) {
+    if (INITIAL_MESSAGES[sessionKey]?.length > 0) {
       const sentMessageIdx = [];
       for (const [idx, initialMessage] of INITIAL_MESSAGES[
-        sectionId
+        sessionKey
       ].entries()) {
         // hack to get backend to receive distinct messages rather than 1 grouped message
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -321,7 +325,7 @@ function createTerminalWebsocket({
           sentMessageIdx.push(idx);
         }
       }
-      INITIAL_MESSAGES[sectionId] = INITIAL_MESSAGES[sectionId].filter(
+      INITIAL_MESSAGES[sessionKey] = INITIAL_MESSAGES[sessionKey].filter(
         (x, idx) => !sentMessageIdx.includes(idx),
       );
     }
@@ -346,11 +350,14 @@ function createTerminalWebsocket({
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-function addTerminalInitialMessage(sectionId, msg) {
-  if (!(sectionId in INITIAL_MESSAGES)) {
-    INITIAL_MESSAGES[sectionId] = [];
+function addTerminalInitialMessage(
+  sessionKey: TerminalSessionKey,
+  msg: string,
+) {
+  if (!(sessionKey in INITIAL_MESSAGES)) {
+    INITIAL_MESSAGES[sessionKey] = [];
   }
-  if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
-    INITIAL_MESSAGES[sectionId].push(msg);
+  if (!INITIAL_MESSAGES[sessionKey].includes(msg)) {
+    INITIAL_MESSAGES[sessionKey].push(msg);
   }
 }

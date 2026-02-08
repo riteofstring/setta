@@ -318,6 +318,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	        const redirectUrl = "__SETTA_REDIRECT_URL__";
 	        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
 	        const launcherOriginKey = "setta.launcherOrigin";
+	        const maxHandoffLength = 8192;
 	        const form = document.getElementById("bootstrap-form");
 	        const input = document.getElementById("token-input");
 	        const statusEl = document.getElementById("status");
@@ -329,6 +330,38 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 
 	        function setError(message) {
 	          errorEl.textContent = message || "";
+	        }
+
+	        function isLocalHostname(hostname) {
+	          const normalized = String(hostname || "").trim().toLowerCase();
+	          return (
+	            normalized === "localhost" ||
+	            normalized === "127.0.0.1" ||
+	            normalized === "::1"
+	          );
+	        }
+
+	        function isAllowedLauncherOrigin(url) {
+	          if (!url || !url.hostname) {
+	            return false;
+	          }
+	          if (
+	            url.protocol !== "http:" &&
+	            url.protocol !== "https:"
+	          ) {
+	            return false;
+	          }
+	          const currentHostname = String(window.location.hostname || "")
+	            .trim()
+	            .toLowerCase();
+	          const nextHostname = String(url.hostname || "").trim().toLowerCase();
+	          if (!currentHostname || !nextHostname) {
+	            return false;
+	          }
+	          if (currentHostname === nextHostname) {
+	            return true;
+	          }
+	          return isLocalHostname(currentHostname) && isLocalHostname(nextHostname);
 	        }
 
 	        let hashParams;
@@ -347,7 +380,11 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	            if (!encoded) {
 	              return;
 	            }
-	            localStorage.setItem(workspaceHistoryHandoffKey, encoded);
+	            const trimmed = encoded.trim();
+	            if (!trimmed || trimmed.length > maxHandoffLength) {
+	              return;
+	            }
+	            localStorage.setItem(workspaceHistoryHandoffKey, trimmed);
 	          } catch {
 	            /* ignore */
 	          }
@@ -360,12 +397,14 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 	              return;
 	            }
 	            const trimmed = raw.trim();
-	            if (!trimmed) {
+	            if (!trimmed || trimmed.length > maxHandoffLength) {
 	              return;
 	            }
 	            const url = new URL(trimmed);
-	            if (url.protocol === "http:" || url.protocol === "https:") {
+	            if (isAllowedLauncherOrigin(url)) {
 	              localStorage.setItem(launcherOriginKey, url.origin);
+	            } else {
+	              localStorage.removeItem(launcherOriginKey);
 	            }
 	          } catch {
 	            /* ignore */
@@ -391,6 +430,8 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           if (!response.ok) {
             throw new Error("Token rejected");
           }
+          hydrateWorkspaceHistoryFromHash();
+          hydrateLauncherOriginFromHash();
           history.replaceState({}, "", "/__setta__/bootstrap");
           window.location.assign(redirectUrl);
         }
@@ -407,9 +448,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
             setStatus("Paste a bootstrap token to continue.");
           });
         });
-
-        hydrateWorkspaceHistoryFromHash();
-        hydrateLauncherOriginFromHash();
 
         const urlToken = readTokenFromUrl();
         if (urlToken) {

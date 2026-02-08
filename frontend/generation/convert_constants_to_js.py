@@ -8,6 +8,12 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
 
+EXCLUDED_FRONTEND_CONSTANTS = {
+    # The backend now scopes auth cookies by session id (`{prefix}_{sessionId}`), and the
+    # frontend should not be reading cookies by name.
+    "AUTH_COOKIE_NAME",
+}
+
 
 def extract_constants(constants_class) -> Dict[str, Any]:
     constants = {}
@@ -16,6 +22,8 @@ def extract_constants(constants_class) -> Dict[str, Any]:
     for name in dir(constants_class):
         # Only export public constants; avoid backend-private implementation details.
         if name.startswith("_"):
+            continue
+        if name in EXCLUDED_FRONTEND_CONSTANTS:
             continue
         raw_attr = inspect.getattr_static(constants_class, name)
         if isinstance(raw_attr, classproperty):

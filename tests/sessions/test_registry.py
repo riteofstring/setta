@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -75,6 +76,40 @@ def test_load_sessions_skips_missing_workspace_path_canonical(
     registry = SessionRegistry(sessions_root=sessions_root)
     sessions = registry.load_sessions(prune_stale=False)
     assert len(sessions) == 0
+
+
+def test_load_sessions_prunes_missing_workspace_path_canonical(tmp_path: Path) -> None:
+    sessions_root = tmp_path / "sessions"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    session_id = "abc123"
+    session_dir = sessions_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    secret_path = session_dir / "secret"
+    secret_path.write_bytes(b"secret")
+
+    metadata_path = session_dir / "session.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "id": session_id,
+                "workspacePath": str(workspace),
+                "host": "127.0.0.1",
+                "port": 61234,
+                "pid": 12345,
+                "secretPath": str(secret_path),
+            }
+        ),
+        encoding="utf-8",
+    )
+    # Pruning ignores files that were just written to avoid deleting in-flight writes.
+    old = time.time() - 10.0
+    os.utime(metadata_path, (old, old))
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.load_sessions(prune_stale=True)
+    assert sessions == []
+    assert not session_dir.exists()
 
 
 def test_load_sessions_skips_invalid_metadata(tmp_path: Path) -> None:

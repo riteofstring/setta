@@ -1,6 +1,6 @@
 from pathlib import PurePosixPath
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from pydantic import BaseModel
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
@@ -133,9 +133,10 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             error=LaunchErrorPayload(code=exc.code, message=str(exc)),
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        return LaunchResponse(
+            ok=False,
+            error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
+        )
 
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)

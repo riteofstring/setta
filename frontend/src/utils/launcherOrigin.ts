@@ -7,6 +7,36 @@ function launcherOriginStorage(): Storage | undefined {
   return import.meta.env?.DEV ? safeSessionStorage() : safeLocalStorage();
 }
 
+function isLocalHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1"
+  );
+}
+
+function isLauncherOriginAllowed(
+  launcherOrigin: string,
+  currentOrigin: string,
+): boolean {
+  let launcherUrl: URL;
+  let currentUrl: URL;
+  try {
+    launcherUrl = new URL(launcherOrigin);
+    currentUrl = new URL(currentOrigin);
+  } catch {
+    return false;
+  }
+  if (launcherUrl.hostname === currentUrl.hostname) {
+    return true;
+  }
+  return (
+    isLocalHostname(launcherUrl.hostname) &&
+    isLocalHostname(currentUrl.hostname)
+  );
+}
+
 function readLauncherOrigin(): string | undefined {
   const storage = launcherOriginStorage();
   if (!storage) {
@@ -17,7 +47,22 @@ function readLauncherOrigin(): string | undefined {
     if (!raw) {
       return undefined;
     }
-    return normalizeOrigin(raw, "launcher origin") ?? undefined;
+    const normalized = normalizeOrigin(raw, "launcher origin");
+    if (!normalized) {
+      return undefined;
+    }
+    if (
+      typeof window !== "undefined" &&
+      !isLauncherOriginAllowed(normalized, window.location.origin)
+    ) {
+      try {
+        storage.removeItem(LAUNCHER_ORIGIN_STORAGE_KEY);
+      } catch {
+        // Ignore storage failures.
+      }
+      return undefined;
+    }
+    return normalized;
   } catch {
     return undefined;
   }
@@ -30,6 +75,12 @@ function writeLauncherOrigin(origin: string): void {
   }
   const normalized = normalizeOrigin(origin, "launcher origin");
   if (!normalized) {
+    return;
+  }
+  if (
+    typeof window !== "undefined" &&
+    !isLauncherOriginAllowed(normalized, window.location.origin)
+  ) {
     return;
   }
   try {

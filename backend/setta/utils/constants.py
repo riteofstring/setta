@@ -61,7 +61,7 @@ class C:
 
     @classproperty
     def CODE_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "code"
+        return get_setta_paths().code_root
 
     @classproperty
     def DB_BACKUP_FOLDER(cls) -> Path:
@@ -69,7 +69,7 @@ class C:
 
     @classproperty
     def ARTIFACTS_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "artifacts"
+        return get_setta_paths().artifacts_root
 
     @classproperty
     def RUNTIME_FOLDER(cls) -> Path:
@@ -77,23 +77,23 @@ class C:
 
     @classproperty
     def RUNTIME_SESSIONS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "sessions"
+        return get_setta_paths().runtime_sessions_root
 
     @classproperty
     def RUNTIME_LOGS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "logs"
+        return get_setta_paths().runtime_logs_root
 
     @classproperty
     def RUNTIME_MCP_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "mcp"
+        return get_setta_paths().runtime_mcp_root
 
     @classproperty
     def RUNTIME_SECRETS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "secrets"
+        return get_setta_paths().runtime_secrets_root
 
     @classproperty
     def DETACHED_RUNS_FOLDER(cls) -> Path:
-        return cls.RUNTIME_FOLDER / "detached_runs"
+        return get_setta_paths().runtime_detached_runs_root
 
     BINARY_FOLDER_NAME = "binary"
 
@@ -103,7 +103,7 @@ class C:
 
     @classproperty
     def SHARE_DEPLOYMENTS_FOLDER(cls) -> Path:
-        return cls.SETTA_FILES_FOLDER / "share_deployments"
+        return get_setta_paths().share_deployments_root
 
     SHARE_MODE = False
     SHARE_DEPLOYMENT_ROOT: Path | None = None

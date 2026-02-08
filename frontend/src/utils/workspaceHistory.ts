@@ -25,6 +25,9 @@ function normalizeNullableString(value: unknown): string | null {
 function normalizePathLike(value: string): string {
   let output = value.trim();
   while (output.length > 1 && (output.endsWith("/") || output.endsWith("\\"))) {
+    if (/^[A-Za-z]:[\\/]$/.test(output)) {
+      break;
+    }
     output = output.slice(0, -1);
   }
   return output;

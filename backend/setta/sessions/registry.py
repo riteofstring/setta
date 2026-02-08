@@ -46,7 +46,7 @@ class SessionRegistry:
         metadata_path = session_dir / SESSION_METADATA_FILENAME
         if not metadata_path.exists():
             return None
-        metadata = self._read_metadata_path(metadata_path)
+        metadata = self._read_metadata_path(metadata_path, prune_invalid=prune_stale)
         if metadata is None:
             return None
         if prune_stale and self._is_session_stale(metadata):
@@ -105,7 +105,9 @@ class SessionRegistry:
             metadata_path = session_dir / SESSION_METADATA_FILENAME
             if not metadata_path.exists():
                 continue
-            metadata = self._read_metadata_path(metadata_path)
+            metadata = self._read_metadata_path(
+                metadata_path, prune_invalid=prune_stale
+            )
             if metadata is None:
                 continue
             if prune_stale and self._is_session_stale(metadata):
@@ -197,7 +199,25 @@ class SessionRegistry:
             return False
         return (time.time() - mtime) <= seconds
 
-    def _read_metadata_path(self, path: Path) -> SessionMetadata | None:
+    def _prune_invalid_session_dir(self, path: Path, *, reason: str) -> None:
+        session_dir = path.parent
+        try:
+            shutil.rmtree(session_dir)
+        except OSError:
+            logger.warning(
+                "Failed to delete invalid session directory %s (%s).",
+                session_dir,
+                reason,
+                exc_info=True,
+            )
+            return
+        logger.warning(
+            "Deleted invalid session directory %s (%s).", session_dir, reason
+        )
+
+    def _read_metadata_path(
+        self, path: Path, *, prune_invalid: bool
+    ) -> SessionMetadata | None:
         raw_text: str
         try:
             raw_text = path.read_text(encoding="utf-8")
@@ -227,28 +247,39 @@ class SessionRegistry:
                     exc_info=True,
                 )
             else:
-                logger.warning(
-                    "Failed to parse session metadata JSON at %s; skipping.",
-                    path,
-                    exc_info=True,
-                )
+                if prune_invalid:
+                    self._prune_invalid_session_dir(path, reason="invalid session.json")
+                else:
+                    logger.warning(
+                        "Failed to parse session metadata JSON at %s; skipping.",
+                        path,
+                        exc_info=True,
+                    )
             return None
         try:
             metadata = SessionMetadata.model_validate(raw)
         except ValidationError:
-            logger.warning(
-                "Invalid session metadata at %s; skipping.",
-                path,
-                exc_info=True,
-            )
+            if prune_invalid and not self._is_recently_modified(path, seconds=2.0):
+                self._prune_invalid_session_dir(path, reason="invalid metadata schema")
+            else:
+                logger.warning(
+                    "Invalid session metadata at %s; skipping.",
+                    path,
+                    exc_info=True,
+                )
             return None
         secret_path = Path(metadata.secretPath)
         if not secret_path.is_absolute():
-            logger.warning(
-                "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
-                metadata.id,
-                path,
-            )
+            if prune_invalid and not self._is_recently_modified(path, seconds=2.0):
+                self._prune_invalid_session_dir(
+                    path, reason="secretPath must be absolute"
+                )
+            else:
+                logger.warning(
+                    "Invalid session metadata for %s at %s (secretPath must be absolute); skipping.",
+                    metadata.id,
+                    path,
+                )
             return None
         return metadata
 

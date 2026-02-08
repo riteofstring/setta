@@ -26,6 +26,12 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "FilesRootConflict"
 
+    def test_launch_returns_structured_error_for_value_error(self) -> None:
+        response = route_launch(LaunchRequest(workspaceRoot="bad\u0000path"))
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "BadRequest"
+
     def test_launch_over_ssh_returns_bootstrap_url(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
         ssh_stub_dir = repo_root / "scripts" / "test"

@@ -110,13 +110,28 @@ describe("C_ADDRESSES", () => {
     windowStub.location.origin = "http://remote.example:7777";
     localStorageStub.setItem(
       "setta.launcherOrigin",
-      "http://launcher.example:9999",
+      "http://remote.example:9999",
     );
 
     expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://remote.example:7777");
-    expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://launcher.example:9999");
+    expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://remote.example:9999");
     expect(C_ADDRESSES.LAUNCHER).toBe(
-      `http://launcher.example:9999${RouteEnum.PREFIX}`,
+      `http://remote.example:9999${RouteEnum.PREFIX}`,
+    );
+  });
+
+  it("ignores a launcher origin with a mismatched hostname in built mode", () => {
+    env["DEV"] = false;
+    windowStub.location.origin = "http://remote.example:7777";
+    localStorageStub.setItem(
+      "setta.launcherOrigin",
+      "http://attacker.example:9999",
+    );
+
+    expect(C_ADDRESSES.BACKEND_ORIGIN).toBe("http://remote.example:7777");
+    expect(C_ADDRESSES.LAUNCHER_ORIGIN).toBe("http://remote.example:7777");
+    expect(localStorageStub.getItem("setta.launcherOrigin")).toBe(
+      "http://remote.example:7777",
     );
   });
 

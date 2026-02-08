@@ -94,6 +94,23 @@ def test_resolve_remote_logs_dir_allows_spaces_in_workspace_and_roots() -> None:
     assert resolved == f"{computed.as_posix().rstrip('/')}/runtime/logs"
 
 
+def test_resolve_remote_setta_command_ignores_whitespace_remote_cmd(monkeypatch) -> None:
+    def fake_run_ssh_command(_ssh_target, _ssh_args, _remote_command, **_kwargs):
+        return subprocess.CompletedProcess([], 0, stdout="setta\n", stderr="")
+
+    monkeypatch.setattr(ssh_common, "run_ssh_command", fake_run_ssh_command)
+
+    resolved = ssh_common.resolve_remote_setta_command(
+        "user@host",
+        [],
+        "bash",
+        "/tmp/work",
+        "   ",
+        ssh_prefix=["ssh"],
+    )
+    assert resolved == "setta"
+
+
 def test_start_remote_setta_uses_unique_nohup_log_file(monkeypatch) -> None:
     captured: dict[str, str | None] = {"remote_command": None}
 
