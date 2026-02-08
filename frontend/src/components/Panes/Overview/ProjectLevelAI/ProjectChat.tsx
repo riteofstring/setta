@@ -25,7 +25,7 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
-import { RiChatHistoryLine } from "react-icons/ri";
+import { RiChatHistoryLine, RiToolsLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import {
@@ -34,6 +34,7 @@ import {
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
+import { ProjectChatCapabilities } from "./ProjectChatCapabilities";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -70,6 +71,7 @@ export function ProjectChat() {
     apiKeys,
     apiKeysInitialLoadComplete,
     viewHistory,
+    viewCapabilities,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -82,6 +84,7 @@ export function ProjectChat() {
       apiKeys: x.apiKeys,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
       viewHistory: x.viewHistory,
+      viewCapabilities: x.viewCapabilities,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -243,7 +246,7 @@ export function ProjectChat() {
       }
       setSelectedEngineId(nextEngineId);
       setChatId(undefined);
-      useAIStore.setState({ viewHistory: false });
+      useAIStore.setState({ viewHistory: false, viewCapabilities: false });
     },
     [selectedEngineId, setChatId],
   );
@@ -321,38 +324,73 @@ export function ProjectChat() {
                 setChatId(undefined);
                 useAIStore.setState({
                   viewHistory: false,
+                  viewCapabilities: false,
                 });
               }}
             >
               <MdAdd size={15} />
-              <span className="hidden @[17.5rem]:block">New</span>
+              <span className="hidden @[19.375rem]:block">New</span>
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               onClick={() => {
-                useAIStore.setState({ viewHistory: !viewHistory });
+                useAIStore.setState({
+                  viewHistory: !viewHistory,
+                  viewCapabilities: false,
+                });
               }}
               aria-label="View History"
             >
               {viewHistory ? (
                 <>
                   <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
+                  <span className="hidden @[19.375rem]:block">
+                    Return to chat
+                  </span>
                 </>
               ) : (
                 <>
                   <RiChatHistoryLine size={15} />
-                  <span className="hidden @[17.5rem]:block">History</span>
+                  <span className="hidden @[19.375rem]:block">History</span>
                 </>
               )}
             </button>
-            {!viewHistory ? (
+            <button
+              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+              onClick={() => {
+                useAIStore.setState({
+                  viewCapabilities: !viewCapabilities,
+                  viewHistory: false,
+                });
+              }}
+              aria-label="View Capabilities"
+            >
+              {viewCapabilities ? (
+                <>
+                  <IoMdArrowRoundBack />
+                  <span className="hidden @[19.375rem]:block">
+                    Return to chat
+                  </span>
+                </>
+              ) : (
+                <>
+                  <RiToolsLine size={15} />
+                  <span className="hidden @[19.375rem]:block">
+                    Capabilities
+                  </span>
+                </>
+              )}
+            </button>
+            {!viewHistory && !viewCapabilities ? (
               <Menubar.Root className="contents">
                 <FollowAIToggleButton />
               </Menubar.Root>
             ) : null}
-            {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
+            {!viewHistory && !viewCapabilities && showPlanModeBadge ? (
+              <PlanModeBadge />
+            ) : null}
             {!viewHistory &&
+            !viewCapabilities &&
             (engineType === EngineTypeEnum.setta_llm ||
               engineType === EngineTypeEnum.external_agent) ? (
               <button
@@ -366,7 +404,7 @@ export function ProjectChat() {
                 <span className="hidden @[33.5rem]:block">Thinking</span>
               </button>
             ) : null}
-            {!viewHistory ? (
+            {!viewHistory && !viewCapabilities ? (
               <div className="ml-auto flex items-center">
                 <ProjectAISettingsPopover
                   engineGroups={engineGroups}
@@ -385,6 +423,8 @@ export function ProjectChat() {
 
         {viewHistory ? (
           <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
+        ) : viewCapabilities ? (
+          <ProjectChatCapabilities chatId={chatId} />
         ) : (
           <>
             {externalStatusMessage ? (

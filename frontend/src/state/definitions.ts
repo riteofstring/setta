@@ -669,6 +669,7 @@ type ZustandAIStore = {
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
+  viewCapabilities: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
@@ -712,6 +713,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         chatDetails: {},
         pendingChatDetails: null,
         viewHistory: false,
+        viewCapabilities: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
@@ -745,6 +747,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
+          viewCapabilities: state.viewCapabilities,
         }),
         storage: getPersistStorage(),
       },

@@ -411,6 +411,7 @@ class AgentRunner:
                     system_prompt=context.system_prompt,
                     allowlist=context.allowlist,
                     agentic_scope=context.agentic_scope,
+                    run_inputs=context.run.inputs,
                 )
                 assistant_message = AssistantChatMessage(content=[])
                 tool_call_state = ManagedToolCallState()
@@ -736,7 +737,12 @@ class AgentRunner:
             tool_calls=allowed_calls,
             allowed_server_ids=self._resolve_allowed_server_ids(
                 context.allowlist,
-                set(self._resolve_mcp_server_ids(context.llm_config)),
+                set(
+                    self._resolve_mcp_server_ids(
+                        context.llm_config,
+                        context.run.inputs,
+                    )
+                ),
             ),
             share_session_id=self.share_session_id,
             agentic_context=context.agentic_context,
@@ -1479,6 +1485,7 @@ class AgentRunner:
         system_prompt: str,
         allowlist: ToolAllowlist | None,
         agentic_scope: AgenticScope,
+        run_inputs: dict[str, Any] | None,
     ) -> dict[str, Any]:
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
@@ -1495,7 +1502,7 @@ class AgentRunner:
             if api_key:
                 request["api_key"] = api_key
 
-        server_ids = self._resolve_mcp_server_ids(llm_config)
+        server_ids = self._resolve_mcp_server_ids(llm_config, run_inputs)
         use_tool_search = self._should_use_anthropic_tool_search(llm_config)
         allow_tool_reference = bool(server_ids) and use_tool_search
         self._strip_tool_reference_content(
@@ -1552,7 +1559,30 @@ class AgentRunner:
             update={"content": updated_content, "attachments": []}
         )
 
-    def _resolve_mcp_server_ids(self, llm_config: LLMConfig) -> list[str]:
+    def _resolve_mcp_server_ids(
+        self,
+        llm_config: LLMConfig,
+        run_inputs: dict[str, Any] | None,
+    ) -> list[str]:
+        if run_inputs and "enabledMcpServerIds" in run_inputs:
+            raw_ids = run_inputs["enabledMcpServerIds"]
+            if not isinstance(raw_ids, list):
+                raise TypeError("enabledMcpServerIds must be a list")
+            server_ids: list[str] = []
+            seen: set[str] = set()
+            for raw_id in raw_ids:
+                if not isinstance(raw_id, str):
+                    raise TypeError("enabledMcpServerIds entries must be strings")
+                server_id = raw_id.strip()
+                if not server_id or server_id in seen:
+                    continue
+                if server_id not in self.config.mcpServers:
+                    raise KeyError(
+                        f"enabledMcpServerIds references unknown MCP server '{server_id}'"
+                    )
+                seen.add(server_id)
+                server_ids.append(server_id)
+            return server_ids
         return self.config.resolve_mcp_server_ids(llm_config)
 
     def _build_tool_definitions(

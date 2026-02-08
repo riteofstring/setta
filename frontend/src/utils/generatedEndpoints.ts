@@ -347,6 +347,72 @@ export async function route_set_llm_config(
   return await post("/llm/config", config);
 }
 
+export async function route_get_skill_sources(): Promise<
+  ResponseDataAndStatus<Array<gt.SkillSource>>
+> {
+  return await get("/getSkillSources");
+}
+
+export async function route_set_skill_sources(
+  payload: gt.SetSkillSourcesRequestInput,
+): Promise<ResponseDataAndStatus<Array<gt.SkillSource>>> {
+  return await post("/setSkillSources", payload);
+}
+
+export async function route_get_skills_catalog(): Promise<
+  ResponseDataAndStatus<gt.SkillCatalogResponse>
+> {
+  return await get("/getSkillsCatalog");
+}
+
+export async function route_get_skill_details(
+  payload: gt.GetSkillDetailsRequestInput,
+): Promise<ResponseDataAndStatus<gt.SkillDetailsResponse>> {
+  return await post("/getSkillDetails", payload);
+}
+
+export async function route_import_skill_markdown(
+  payload: gt.ImportSkillMarkdownRequestInput,
+): Promise<ResponseDataAndStatus<gt.SkillEntry>> {
+  return await post("/importSkillMarkdown", payload);
+}
+
+export async function route_delete_skills(
+  payload: gt.DeleteSkillsRequestInput,
+): Promise<ResponseDataAndStatus<Array<string>>> {
+  return await post("/deleteSkills", payload);
+}
+
+export async function route_get_global_capability_defaults(): Promise<
+  ResponseDataAndStatus<gt.GlobalCapabilityDefaults>
+> {
+  return await get("/getGlobalCapabilityDefaults");
+}
+
+export async function route_set_global_capability_defaults(
+  payload: gt.GlobalCapabilityDefaultsInput,
+): Promise<ResponseDataAndStatus<gt.GlobalCapabilityDefaults>> {
+  return await post("/setGlobalCapabilityDefaults", payload);
+}
+
+export async function route_get_project_chat_capability_policy(
+  payload: gt.GetProjectChatCapabilityPolicyRequestInput,
+): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
+  return await post("/getProjectChatCapabilityPolicy", payload);
+}
+
+export async function route_set_project_chat_capability_policy(
+  payload: gt.SetProjectChatCapabilityPolicyRequestInput,
+): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
+  return await post("/setProjectChatCapabilityPolicy", payload);
+}
+
+export async function route_get_mcp_servers_runtime_state(): Promise<
+  ResponseDataAndStatus<gt.McpServersRuntimeStateResponse>
+> {
+  return await get("/getMcpServersRuntimeState");
+}
+
 export async function route_get_llm_api_keys(): Promise<
   ResponseDataAndStatus<Record<string, string>>
 > {
@@ -1209,6 +1275,18 @@ export async function route_set_chat_section_settings(
   x: gt.SetChatSectionSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionSettings", x);
+}
+
+export async function route_get_chat_section_capability_policy(
+  x: gt.GetChatSectionCapabilityPolicyRequestInput,
+): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
+  return await post("/getChatSectionCapabilityPolicy", x);
+}
+
+export async function route_set_chat_section_capability_policy(
+  x: gt.SetChatSectionCapabilityPolicyRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setChatSectionCapabilityPolicy", x);
 }
 
 export async function route_set_chat_section_state(

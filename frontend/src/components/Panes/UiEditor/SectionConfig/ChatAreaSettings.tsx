@@ -7,6 +7,21 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import {
+  getCapabilityModeLabel,
+  getUnavailableCapabilityIds,
+  setCapabilityPolicyMode,
+  toggleCapabilityMcpServerId,
+  toggleCapabilitySkillId,
+} from "components/Panes/Overview/ProjectLevelAI/capabilitiesPolicyUtils";
+import {
+  CapabilityMcpServerList,
+  CapabilitiesTab,
+  CapabilitiesTabToggle,
+  CapabilitySkillsList,
+  CapabilityStateToggle,
+} from "components/Panes/Overview/ProjectLevelAI/CapabilitiesSharedControls";
+import { useCapabilitiesCatalog } from "components/Panes/Overview/ProjectLevelAI/useCapabilitiesCatalog";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
@@ -14,6 +29,7 @@ import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReduce
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { HiChevronDown, HiChevronRight } from "react-icons/hi";
 import {
   createAgenticEdgeFromSections,
   deleteAgenticEdgesById,
@@ -36,6 +52,7 @@ import { useShareCapabilities } from "state/hooks/share";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_agentic_summary_cache_status,
+  route_set_chat_section_capability_policy,
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
 } from "utils/generatedEndpoints";
@@ -43,6 +60,9 @@ import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
   AgenticSummaryCacheStatus,
+  CapabilityModeEnum,
+  CapabilityPolicy,
+  createCapabilityPolicy,
   EngineTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -58,6 +78,28 @@ type ChatSectionSettingsPayload = {
   thinking: boolean;
 };
 
+const CONTEXT_LINKS_ACCORDION_STORAGE_KEY =
+  "setta.chatAreaSettings.contextLinksExpanded";
+const AGENTIC_SCOPE_ACCORDION_STORAGE_KEY =
+  "setta.chatAreaSettings.agenticScopeExpanded";
+
+function readAccordionExpandedState(storageKey: string): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(storageKey) === "1";
+}
+
+function writeAccordionExpandedState(
+  storageKey: string,
+  isExpanded: boolean,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(storageKey, isExpanded ? "1" : "0");
+}
+
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -65,21 +107,32 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const { canEditParams, canEditStructure } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
 
-  const { managed, engineConfigId, agentProfileId, thinking, isFrozen } =
-    useProjectState((state) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Chat,
-      );
-      return {
-        managed: impl.managed,
-        engineConfigId: impl.engineConfigId,
-        agentProfileId: impl.agentProfileId,
-        thinking: impl.thinking,
-        isFrozen: impl.isFrozen,
-      };
-    }, _.isEqual);
+  const {
+    managed,
+    engineConfigId,
+    agentProfileId,
+    thinking,
+    rawCapabilityPolicy,
+    isFrozen,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    return {
+      managed: impl.managed,
+      engineConfigId: impl.engineConfigId,
+      agentProfileId: impl.agentProfileId,
+      thinking: impl.thinking,
+      rawCapabilityPolicy: impl.capabilityPolicy,
+      isFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
+  const capabilityPolicy = useMemo(
+    () => createCapabilityPolicy(rawCapabilityPolicy ?? {}),
+    [rawCapabilityPolicy],
+  );
   const agenticEdges = useProjectState(
     (state) => state.projectConfig.agenticEdges,
     _.isEqual,
@@ -114,6 +167,15 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     }),
     _.isEqual,
   );
+  const {
+    skills: capabilitySkills,
+    sources: capabilitySources,
+    defaultValues: globalCapabilityDefaults,
+    mcpServerIds: availableMcpServerIds,
+    loading: capabilityCatalogLoading,
+    error: capabilityCatalogError,
+    refresh: refreshCapabilityCatalog,
+  } = useCapabilitiesCatalog();
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -356,6 +418,14 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const [summaryCacheStatusError, setSummaryCacheStatusError] = useState<
     string | null
   >(null);
+  const [activeCapabilityTab, setActiveCapabilityTab] =
+    useState<CapabilitiesTab>("skills");
+  const [isContextLinksExpanded, setIsContextLinksExpanded] = useState<boolean>(
+    () => readAccordionExpandedState(CONTEXT_LINKS_ACCORDION_STORAGE_KEY),
+  );
+  const [isAgenticScopeExpanded, setIsAgenticScopeExpanded] = useState<boolean>(
+    () => readAccordionExpandedState(AGENTIC_SCOPE_ACCORDION_STORAGE_KEY),
+  );
 
   const fetchSummaryCacheStatus = useCallback(async () => {
     if (summaryContextEdgeCount === 0) {
@@ -396,6 +466,20 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     void fetchSummaryCacheStatus();
   }, [fetchSummaryCacheStatus]);
 
+  useEffect(() => {
+    writeAccordionExpandedState(
+      CONTEXT_LINKS_ACCORDION_STORAGE_KEY,
+      isContextLinksExpanded,
+    );
+  }, [isContextLinksExpanded]);
+
+  useEffect(() => {
+    writeAccordionExpandedState(
+      AGENTIC_SCOPE_ACCORDION_STORAGE_KEY,
+      isAgenticScopeExpanded,
+    );
+  }, [isAgenticScopeExpanded]);
+
   const updateSettings = useCallback(
     (nextSettings: ChatSectionSettingsPayload) => {
       if (isDisabled) {
@@ -423,6 +507,88 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       });
     },
     [isDisabled, projectConfigId, sectionId],
+  );
+
+  const updateCapabilityPolicy = useCallback(
+    (nextPolicy: CapabilityPolicy) => {
+      if (isDisabled) {
+        return;
+      }
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            capabilityPolicy: nextPolicy,
+          });
+        },
+        send: (frontendOpId) =>
+          route_set_chat_section_capability_policy({
+            projectConfigId,
+            sectionId,
+            capabilityPolicy: nextPolicy,
+            frontendOpId,
+          }),
+      });
+    },
+    [isDisabled, projectConfigId, sectionId],
+  );
+
+  const editableCapabilityPolicyBaseline = useMemo<CapabilityPolicy>(() => {
+    if (capabilityPolicy.mode === CapabilityModeEnum.inherit) {
+      return createCapabilityPolicy({
+        mode: CapabilityModeEnum.custom,
+        enabledSkillIds: [...globalCapabilityDefaults.defaultSkillIds],
+        enabledMcpServerIds: [...capabilityPolicy.enabledMcpServerIds],
+      });
+    }
+    return createCapabilityPolicy({
+      mode: CapabilityModeEnum.custom,
+      enabledSkillIds: [...capabilityPolicy.enabledSkillIds],
+      enabledMcpServerIds: [...capabilityPolicy.enabledMcpServerIds],
+    });
+  }, [
+    capabilityPolicy.enabledMcpServerIds,
+    capabilityPolicy.enabledSkillIds,
+    capabilityPolicy.mode,
+    globalCapabilityDefaults.defaultSkillIds,
+  ]);
+
+  const handleCapabilityModeChange = useCallback(
+    (mode: (typeof CapabilityModeEnum)[keyof typeof CapabilityModeEnum]) => {
+      if (mode === CapabilityModeEnum.custom) {
+        // Preserve the stored custom selection when returning from
+        // inherit/disabled to custom.
+        updateCapabilityPolicy(setCapabilityPolicyMode(capabilityPolicy, mode));
+        return;
+      }
+      updateCapabilityPolicy(setCapabilityPolicyMode(capabilityPolicy, mode));
+    },
+    [
+      capabilityPolicy,
+      editableCapabilityPolicyBaseline,
+      updateCapabilityPolicy,
+    ],
+  );
+
+  const handleSkillSelection = useCallback(
+    (skillId: string, selected: boolean) => {
+      updateCapabilityPolicy(
+        toggleCapabilitySkillId(
+          editableCapabilityPolicyBaseline,
+          skillId,
+          selected,
+        ),
+      );
+    },
+    [editableCapabilityPolicyBaseline, updateCapabilityPolicy],
+  );
+
+  const handleMcpSelection = useCallback(
+    (serverId: string, selected: boolean) => {
+      updateCapabilityPolicy(
+        toggleCapabilityMcpServerId(capabilityPolicy, serverId, selected),
+      );
+    },
+    [capabilityPolicy, updateCapabilityPolicy],
   );
 
   const handleManagedChange = useCallback(
@@ -579,9 +745,55 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const agentOptionCount = agentItems[0]?.items.length ?? 0;
   const hasAgenticEdges =
     contextEdges.length + scopeEdges.length + linkedAgentEdges.length > 0;
+  const selectedCapabilitySkillIds = useMemo(
+    () =>
+      capabilityPolicy.mode === CapabilityModeEnum.inherit
+        ? [...globalCapabilityDefaults.defaultSkillIds]
+        : [...capabilityPolicy.enabledSkillIds],
+    [
+      capabilityPolicy.enabledSkillIds,
+      capabilityPolicy.mode,
+      globalCapabilityDefaults.defaultSkillIds,
+    ],
+  );
+  const selectedCapabilityMcpServerIds = useMemo(
+    () => [...capabilityPolicy.enabledMcpServerIds],
+    [capabilityPolicy.enabledMcpServerIds],
+  );
+  const availableSkillIds = useMemo(
+    () => new Set(capabilitySkills.map((skill) => skill.id)),
+    [capabilitySkills],
+  );
+  const unavailableSkillIds = useMemo(
+    () =>
+      getUnavailableCapabilityIds(
+        selectedCapabilitySkillIds,
+        availableSkillIds,
+      ),
+    [availableSkillIds, selectedCapabilitySkillIds],
+  );
+  const availableMcpIdSet = useMemo(
+    () => new Set(availableMcpServerIds),
+    [availableMcpServerIds],
+  );
+  const unavailableMcpServerIds = useMemo(
+    () =>
+      getUnavailableCapabilityIds(
+        selectedCapabilityMcpServerIds,
+        availableMcpIdSet,
+      ),
+    [availableMcpIdSet, selectedCapabilityMcpServerIds],
+  );
+  const capabilityModeLabel = useMemo(
+    () => getCapabilityModeLabel(capabilityPolicy),
+    [capabilityPolicy],
+  );
+  const capabilitiesEndpointsMissing =
+    capabilityCatalogError ===
+    "Capabilities endpoints returned 404. Restart backend and reload.";
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex h-full w-full flex-col gap-2 overflow-y-auto pr-1">
       <div className="flex w-full items-center justify-between gap-4">
         <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
           Managed Mode
@@ -683,226 +895,319 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         </>
       ) : null}
 
-      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Context & Links
-          </p>
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Add context sources, scope boundaries, or linked agents for this
-            chat.
-          </p>
+      <div className="@container mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              AI Capabilities
+            </p>
+            <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+              Skill state controls skill behavior. MCP server selection is
+              configured independently in the MCP tab.
+            </p>
+            <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
+              Disabled, Inherit, and Custom are skill states, not tabs.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
+            onClick={() => {
+              void refreshCapabilityCatalog();
+            }}
+            disabled={capabilityCatalogLoading}
+          >
+            Refresh
+          </button>
         </div>
 
-        <div className="mt-3 flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Context sources
-            </p>
-            <IdNameCombobox
-              allItems={contextItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddContextSection}
-              placeholder={
-                contextOptionCount > 0
-                  ? "Add a section"
-                  : "No sections available"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || contextOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {contextEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No context links yet.
+        <div className="mt-3">
+          <CapabilitiesTabToggle
+            activeTab={activeCapabilityTab}
+            onChange={setActiveCapabilityTab}
+          />
+        </div>
+
+        {capabilityCatalogLoading ? (
+          <p className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
+            Loading capabilities catalog...
+          </p>
+        ) : null}
+        {capabilityCatalogError ? (
+          <p className="mt-2 text-[11px] text-red-600 dark:text-red-400">
+            {capabilityCatalogError}
+          </p>
+        ) : null}
+
+        <div className="mt-3 grid gap-3">
+          {activeCapabilityTab === "skills" ? (
+            <div className="flex min-h-0 flex-col gap-2">
+              <p className="text-[11px] text-setta-500 dark:text-setta-400">
+                Skill state: {capabilityModeLabel}
               </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {contextEdges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                  >
-                    <span className="min-w-0 flex-1 truncate">
-                      {sectionLabelsById[edge.sourceSectionId] ??
-                        edge.sourceSectionId}
-                    </span>
-                    <select
-                      value={
-                        edge.contextMode ??
-                        AgenticEdgeContextModeEnum.reference_only
-                      }
-                      onChange={(event) =>
-                        updateAgenticEdgeContextMode(
-                          edge.id,
-                          event.target.value as AgenticEdgeContextModeEnum,
-                        )
-                      }
-                      disabled={!canEditLinks}
-                      className="h-6 rounded border border-setta-200 bg-white px-1 text-[10px] text-setta-600 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
-                    >
-                      {contextModeOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                      onClick={() => deleteAgenticEdgesById([edge.id])}
-                      disabled={!canEditLinks}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {summaryContextEdgeCount > 0 ? (
-              <div className="mt-2 rounded-md border border-setta-200/80 bg-white/80 p-2 text-[11px] text-setta-700 shadow-sm dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-setta-600 dark:text-setta-300">
-                    Summary cache
-                  </span>
+              <CapabilityStateToggle
+                mode={capabilityPolicy.mode}
+                onChange={handleCapabilityModeChange}
+                disabled={isDisabled}
+              />
+              {capabilityPolicy.mode === CapabilityModeEnum.inherit ? (
+                <div className="flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
+                  {capabilitiesEndpointsMissing ? (
+                    <p>
+                      Global defaults unavailable while capability endpoints are
+                      missing.
+                    </p>
+                  ) : (
+                    <p>
+                      Global skills:{" "}
+                      {globalCapabilityDefaults.defaultSkillIds.length > 0
+                        ? globalCapabilityDefaults.defaultSkillIds.join(", ")
+                        : "none"}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+              {capabilityPolicy.mode === CapabilityModeEnum.disabled ? (
+                <div className="flex flex-col gap-2 rounded-md border border-setta-200/70 bg-white/70 p-3 text-[11px] dark:border-setta-800 dark:bg-setta-900/40">
+                  <p className="text-setta-500 dark:text-setta-400">
+                    Skills are disabled for this section.
+                  </p>
                   <button
                     type="button"
-                    className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
-                    onClick={fetchSummaryCacheStatus}
-                    disabled={summaryCacheStatusLoading}
+                    className="h-7 w-fit rounded-md border border-setta-300 px-2 text-[11px] font-semibold text-setta-700 hover:border-setta-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200"
+                    onClick={() => handleCapabilityModeChange(CapabilityModeEnum.custom)}
+                    disabled={isDisabled}
                   >
-                    Refresh
+                    Enable Custom Skills
                   </button>
                 </div>
-                {summaryCacheStatusLoading ? (
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Loading summary cache status...
+              ) : (
+                <>
+                  <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+                    Skills ({capabilitySources.length} sources)
                   </p>
-                ) : summaryCacheStatusError ? (
-                  <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
-                    Failed to load summary cache status:{" "}
-                    {summaryCacheStatusError}
-                  </p>
-                ) : summaryCacheStatus ? (
-                  <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    <p>
-                      Cached: {summaryCacheStatus.cachedSectionIds.length}/
-                      {summaryCacheStatus.summarySectionIds.length}. Missing:{" "}
-                      {summaryCacheStatus.missingSectionIds.length}. Deferred
-                      due to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
-                      {Math.max(
-                        summaryCacheStatus.missingSectionIds.length -
-                          summaryCacheStatus.consideredSectionIds.length,
-                        0,
-                      )}
-                      .
-                    </p>
-                    {summaryCacheStatus.emptySourceSectionIds.length > 0 ? (
-                      <p>
-                        Empty deterministic sources:{" "}
-                        {summaryCacheStatus.emptySourceSectionIds.length}.
-                      </p>
-                    ) : null}
-                    <p>
-                      Missing summaries fall back to a deterministic excerpt in
-                      the Agentic Context message until cached.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    Summary cache status unavailable.
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Scope sections
-            </p>
-            <IdNameCombobox
-              allItems={scopeItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddScopeSection}
-              placeholder={
-                scopeOptionCount > 0 ? "Add a section" : "No sections available"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || scopeOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {scopeEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No scope links yet.
+                  <CapabilitySkillsList
+                    skills={capabilitySkills}
+                    selectedSkillIds={selectedCapabilitySkillIds}
+                    onToggleSkill={handleSkillSelection}
+                    isDisabled={isDisabled}
+                    emptyMessage="No skills available."
+                    maxHeightClassName="max-h-36"
+                  />
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-col gap-2">
+              <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+                MCP Servers
               </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {scopeEdges.map((edge) => (
-                  <div
-                    key={edge.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                  >
-                    <span className="truncate">
-                      {sectionLabelsById[edge.targetSectionId] ??
-                        edge.targetSectionId}
+              <CapabilityMcpServerList
+                serverIds={availableMcpServerIds}
+                selectedIds={selectedCapabilityMcpServerIds}
+                onToggleServer={handleMcpSelection}
+                isDisabled={isDisabled}
+                emptyMessage="No MCP servers configured."
+                maxHeightClassName="max-h-28"
+              />
+            </div>
+          )}
+        </div>
+
+        {unavailableSkillIds.length > 0 ? (
+          <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+            Unavailable selected skills: {unavailableSkillIds.join(", ")}
+          </p>
+        ) : null}
+        {unavailableMcpServerIds.length > 0 ? (
+          <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-300">
+            Unavailable selected MCP servers:{" "}
+            {unavailableMcpServerIds.join(", ")}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+        <button
+          type="button"
+          className="flex w-full items-start justify-between gap-2 text-left"
+          onClick={() => setIsContextLinksExpanded((value) => !value)}
+        >
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Context & Links
+            </p>
+            <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+              Add context sources, scope boundaries, or linked agents for this
+              chat.
+            </p>
+          </div>
+          {isContextLinksExpanded ? (
+            <HiChevronDown className="mt-0.5 text-[14px] text-setta-500 dark:text-setta-400" />
+          ) : (
+            <HiChevronRight className="mt-0.5 text-[14px] text-setta-500 dark:text-setta-400" />
+          )}
+        </button>
+
+        {isContextLinksExpanded ? (
+          <div className="mt-3 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+                Context sources
+              </p>
+              <IdNameCombobox
+                allItems={contextItems}
+                value={null}
+                small={false}
+                onSelectedItemChange={handleAddContextSection}
+                placeholder={
+                  contextOptionCount > 0
+                    ? "Add a section"
+                    : "No sections available"
+                }
+                outerDivClasses="justify-center"
+                isDisabled={!canEditLinks || contextOptionCount === 0}
+                selectedItemCanBeNull
+                clearInputAfterSelection
+              />
+              {contextEdges.length === 0 ? (
+                <p className="text-[11px] text-setta-500 dark:text-setta-500">
+                  No context links yet.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {contextEdges.map((edge) => (
+                    <div
+                      key={edge.id}
+                      className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {sectionLabelsById[edge.sourceSectionId] ??
+                          edge.sourceSectionId}
+                      </span>
+                      <select
+                        value={
+                          edge.contextMode ??
+                          AgenticEdgeContextModeEnum.reference_only
+                        }
+                        onChange={(event) =>
+                          updateAgenticEdgeContextMode(
+                            edge.id,
+                            event.target.value as AgenticEdgeContextModeEnum,
+                          )
+                        }
+                        disabled={!canEditLinks}
+                        className="h-6 rounded border border-setta-200 bg-white px-1 text-[10px] text-setta-600 shadow-sm focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-70 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+                      >
+                        {contextModeOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
+                        onClick={() => deleteAgenticEdgesById([edge.id])}
+                        disabled={!canEditLinks}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {summaryContextEdgeCount > 0 ? (
+                <div className="mt-2 rounded-md border border-setta-200/80 bg-white/80 p-2 text-[11px] text-setta-700 shadow-sm dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-setta-600 dark:text-setta-300">
+                      Summary cache
                     </span>
                     <button
                       type="button"
-                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
-                      onClick={() => deleteAgenticEdgesById([edge.id])}
-                      disabled={!canEditLinks}
+                      className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-70 dark:text-setta-400 dark:hover:text-setta-200"
+                      onClick={fetchSummaryCacheStatus}
+                      disabled={summaryCacheStatusLoading}
                     >
-                      Remove
+                      Refresh
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  {summaryCacheStatusLoading ? (
+                    <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+                      Loading summary cache status...
+                    </p>
+                  ) : summaryCacheStatusError ? (
+                    <p className="mt-1 text-[11px] text-red-600 dark:text-red-400">
+                      Failed to load summary cache status:{" "}
+                      {summaryCacheStatusError}
+                    </p>
+                  ) : summaryCacheStatus ? (
+                    <div className="mt-1 flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
+                      <p>
+                        Cached: {summaryCacheStatus.cachedSectionIds.length}/
+                        {summaryCacheStatus.summarySectionIds.length}. Missing:{" "}
+                        {summaryCacheStatus.missingSectionIds.length}. Deferred
+                        due to cap ({summaryCacheStatus.maxSummariesPerRun}):{" "}
+                        {Math.max(
+                          summaryCacheStatus.missingSectionIds.length -
+                            summaryCacheStatus.consideredSectionIds.length,
+                          0,
+                        )}
+                        .
+                      </p>
+                      {summaryCacheStatus.emptySourceSectionIds.length > 0 ? (
+                        <p>
+                          Empty deterministic sources:{" "}
+                          {summaryCacheStatus.emptySourceSectionIds.length}.
+                        </p>
+                      ) : null}
+                      <p>
+                        Missing summaries fall back to a deterministic excerpt
+                        in the Agentic Context message until cached.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+                      Summary cache status unavailable.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </div>
 
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
-              Linked agents
-            </p>
-            <IdNameCombobox
-              allItems={agentItems}
-              value={null}
-              small={true}
-              onSelectedItemChange={handleAddAgentLink}
-              placeholder={
-                agentOptionCount > 0 ? "Link a chat" : "No other chats"
-              }
-              outerDivClasses="justify-center"
-              inputOuterClasses="!h-7"
-              isDisabled={!canEditLinks || agentOptionCount === 0}
-              selectedItemCanBeNull
-              clearInputAfterSelection
-            />
-            {linkedAgentEdges.length === 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                No linked agents yet.
+            <div className="flex flex-col gap-2">
+              <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+                Scope sections
               </p>
-            ) : (
-              <div className="flex flex-col gap-1">
-                {linkedAgentEdges.map((edge) => {
-                  const otherId =
-                    edge.sourceSectionId === sectionId
-                      ? edge.targetSectionId
-                      : edge.sourceSectionId;
-                  return (
+              <IdNameCombobox
+                allItems={scopeItems}
+                value={null}
+                small={false}
+                onSelectedItemChange={handleAddScopeSection}
+                placeholder={
+                  scopeOptionCount > 0
+                    ? "Add a section"
+                    : "No sections available"
+                }
+                outerDivClasses="justify-center"
+                isDisabled={!canEditLinks || scopeOptionCount === 0}
+                selectedItemCanBeNull
+                clearInputAfterSelection
+              />
+              {scopeEdges.length === 0 ? (
+                <p className="text-[11px] text-setta-500 dark:text-setta-500">
+                  No scope links yet.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {scopeEdges.map((edge) => (
                     <div
                       key={edge.id}
                       className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
                     >
                       <span className="truncate">
-                        {sectionLabelsById[otherId] ?? otherId}
+                        {sectionLabelsById[edge.targetSectionId] ??
+                          edge.targetSectionId}
                       </span>
                       <button
                         type="button"
@@ -913,86 +1218,153 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                         Remove
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-            Agentic Scope
-          </p>
-          <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Edges define what this chat can read, write, and use as context.
-          </p>
-        </div>
-
-        <div className="mt-2 flex flex-col gap-1">
-          {!hasAgenticEdges ? (
-            <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-              No edges = no access.
-            </p>
-          ) : null}
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            Use Project Chat for full access.
-          </p>
-        </div>
-
-        <div className="mt-3 grid gap-3">
-          {[
-            {
-              label: "Read",
-              entries: scopeReadEntries,
-              labelClassName: "text-emerald-600 dark:text-emerald-300",
-              emptyText: "No readable sections.",
-            },
-            {
-              label: "Write",
-              entries: scopeWriteEntries,
-              labelClassName: "text-amber-600 dark:text-amber-300",
-              emptyText: "No writable sections.",
-            },
-            {
-              label: "Context",
-              entries: scopeContextEntries,
-              labelClassName: "text-sky-600 dark:text-sky-300",
-              emptyText: "No context sections.",
-            },
-          ].map((block) => (
-            <div key={block.label} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={`text-[11px] font-semibold ${block.labelClassName}`}
-                >
-                  {block.label}
-                </span>
-                <span className="text-[10px] text-setta-500 dark:text-setta-400">
-                  {block.entries.length}
-                </span>
-              </div>
-              {block.entries.length === 0 ? (
-                <p className="text-[11px] text-setta-500 dark:text-setta-500">
-                  {block.emptyText}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {block.entries.map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
-                    >
-                      <span className="truncate">{entry.label}</span>
-                    </div>
                   ))}
                 </div>
               )}
             </div>
-          ))}
-        </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+                Linked agents
+              </p>
+              <IdNameCombobox
+                allItems={agentItems}
+                value={null}
+                small={false}
+                onSelectedItemChange={handleAddAgentLink}
+                placeholder={
+                  agentOptionCount > 0 ? "Link a chat" : "No other chats"
+                }
+                outerDivClasses="justify-center"
+                isDisabled={!canEditLinks || agentOptionCount === 0}
+                selectedItemCanBeNull
+                clearInputAfterSelection
+              />
+              {linkedAgentEdges.length === 0 ? (
+                <p className="text-[11px] text-setta-500 dark:text-setta-500">
+                  No linked agents yet.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {linkedAgentEdges.map((edge) => {
+                    const otherId =
+                      edge.sourceSectionId === sectionId
+                        ? edge.targetSectionId
+                        : edge.sourceSectionId;
+                    return (
+                      <div
+                        key={edge.id}
+                        className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                      >
+                        <span className="truncate">
+                          {sectionLabelsById[otherId] ?? otherId}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-[10px] font-semibold text-setta-500 hover:text-setta-800 dark:text-setta-400 dark:hover:text-setta-200"
+                          onClick={() => deleteAgenticEdgesById([edge.id])}
+                          disabled={!canEditLinks}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+        <button
+          type="button"
+          className="flex w-full items-start justify-between gap-2 text-left"
+          onClick={() => setIsAgenticScopeExpanded((value) => !value)}
+        >
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Agentic Scope (Read-only)
+            </p>
+            <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+              Edges define what this chat can read, write, and use as context.
+              Configure edges in Context & Links.
+            </p>
+          </div>
+          {isAgenticScopeExpanded ? (
+            <HiChevronDown className="mt-0.5 text-[14px] text-setta-500 dark:text-setta-400" />
+          ) : (
+            <HiChevronRight className="mt-0.5 text-[14px] text-setta-500 dark:text-setta-400" />
+          )}
+        </button>
+
+        {isAgenticScopeExpanded ? (
+          <>
+            <div className="mt-2 flex flex-col gap-1">
+              {!hasAgenticEdges ? (
+                <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  No edges = no access.
+                </p>
+              ) : null}
+              <p className="text-[11px] text-setta-500 dark:text-setta-400">
+                Use Project Chat for full access.
+              </p>
+            </div>
+
+            <div className="mt-3 grid gap-3">
+              {[
+                {
+                  label: "Read",
+                  entries: scopeReadEntries,
+                  labelClassName: "text-emerald-600 dark:text-emerald-300",
+                  emptyText: "No readable sections.",
+                },
+                {
+                  label: "Write",
+                  entries: scopeWriteEntries,
+                  labelClassName: "text-amber-600 dark:text-amber-300",
+                  emptyText: "No writable sections.",
+                },
+                {
+                  label: "Context",
+                  entries: scopeContextEntries,
+                  labelClassName: "text-sky-600 dark:text-sky-300",
+                  emptyText: "No context sections.",
+                },
+              ].map((block) => (
+                <div key={block.label} className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`text-[11px] font-semibold ${block.labelClassName}`}
+                    >
+                      {block.label}
+                    </span>
+                    <span className="text-[10px] text-setta-500 dark:text-setta-400">
+                      {block.entries.length}
+                    </span>
+                  </div>
+                  {block.entries.length === 0 ? (
+                    <p className="text-[11px] text-setta-500 dark:text-setta-500">
+                      {block.emptyText}
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {block.entries.map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
+                        >
+                          <span className="truncate">{entry.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

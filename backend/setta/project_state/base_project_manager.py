@@ -130,6 +130,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetAppDefinitionRequest,
+    GetChatSectionCapabilityPolicyRequest,
     GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
@@ -162,6 +163,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetChatSectionCapabilityPolicyRequest,
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
     SetChatSectionStateRequest,
@@ -239,6 +241,7 @@ from setta.project_state.watch_code import (
 )
 from setta.types.agentic_edges import AgenticEdge
 from setta.types.app_definition import AppDefinition
+from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -303,6 +306,7 @@ from setta.types.helpers_lvl2 import (
     set_chart_area_data_path,
     set_chart_settings,
     set_chart_type,
+    set_chat_section_capability_policy,
     set_chat_section_chat_id,
     set_chat_section_settings,
     set_chat_section_state,
@@ -3590,6 +3594,30 @@ class BaseProjectManager(ABC):
             x.engineConfigId,
             x.agentProfileId,
             x.thinking,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def get_chat_section_capability_policy(
+        self, x: GetChatSectionCapabilityPolicyRequest
+    ) -> CapabilityPolicy:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            ChatSectionImpl,
+        )
+        return section_impl.capabilityPolicy
+
+    @enqueue_method
+    async def set_chat_section_capability_policy(
+        self, x: SetChatSectionCapabilityPolicyRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chat_section_capability_policy(
+            project_state,
+            x.sectionId,
+            x.capabilityPolicy,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

@@ -17,7 +17,7 @@ import { TextBlockSettings } from "./TextBlockSettings";
 
 function _SectionConfig({ sectionId }: { sectionId: string }) {
   return (
-    <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
+    <div className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto">
       <SpecializedConfiguration sectionId={sectionId} />
     </div>
   );

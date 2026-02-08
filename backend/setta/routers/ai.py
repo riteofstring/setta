@@ -21,6 +21,13 @@ from setta.agentic.store import (
     require_agent_profile,
 )
 from setta.database.utils import create_new_id
+from setta.llm.capabilities_config import (
+    get_global_capability_defaults,
+    get_project_chat_capability_policy,
+    resolve_capability_policy,
+    set_project_chat_capability_policy,
+)
+from setta.llm.skills_catalog import get_skills_catalog, load_skill_prompt_blocks
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -36,9 +43,12 @@ from setta.types.generated.chat_messages import (
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
 )
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
+from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
+from setta.types.section_impls import ChatSectionImpl
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
@@ -227,6 +237,71 @@ def _resolve_branch_root_chat_id(
     return parent_chat_id
 
 
+def _append_prompt_blocks(base_prompt: str, extra_prompts: list[str]) -> str:
+    prompt = base_prompt.strip()
+    for extra in extra_prompts:
+        normalized = extra.strip()
+        if not normalized:
+            continue
+        if prompt:
+            prompt = f"{prompt}\n\n{normalized}"
+        else:
+            prompt = normalized
+    return prompt
+
+
+def _build_enabled_skills_prompt(skill_blocks: list[str]) -> str | None:
+    if not skill_blocks:
+        return None
+    content = "\n\n".join(skill_blocks).strip()
+    if not content:
+        return None
+    return "## Enabled Skills\nApply the following skills for this chat.\n\n" + content
+
+
+def _resolve_capabilities_for_request(
+    *,
+    dbe,
+    llm_config,
+    project_config_id: ID,
+    section_id: ID | None,
+    policy_chat_id: ID | None,
+) -> tuple[list[str], list[str], str | None]:
+    catalog = get_skills_catalog(dbe)
+    known_skill_ids = {entry.id for entry in catalog.skills}
+    known_mcp_server_ids = set(llm_config.mcpServers.keys())
+    defaults = get_global_capability_defaults(dbe)
+
+    if section_id is not None:
+        project_state_backend = dbe.read_project_required()
+        project_state = convert_backend_to_single_config(
+            project_state_backend,
+            project_config_id,
+        )
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        policy = section_impl.capabilityPolicy
+    else:
+        policy = get_project_chat_capability_policy(
+            dbe,
+            project_config_id=project_config_id,
+            chat_id=policy_chat_id,
+        )
+
+    enabled_skill_ids, enabled_mcp_server_ids = resolve_capability_policy(
+        policy,
+        defaults=defaults,
+        known_skill_ids=known_skill_ids,
+        known_mcp_server_ids=known_mcp_server_ids,
+    )
+    skill_blocks = load_skill_prompt_blocks(dbe, enabled_skill_ids)
+    skills_prompt = _build_enabled_skills_prompt(skill_blocks)
+    return enabled_skill_ids, enabled_mcp_server_ids, skills_prompt
+
+
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -351,6 +426,32 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    capability_policy_chat_id = x.branchParentChatId if is_branch_request else x.chatId
+    try:
+        enabled_skill_ids, enabled_mcp_server_ids, skills_prompt = (
+            _resolve_capabilities_for_request(
+                dbe=ctx.state.dbe,
+                llm_config=ctx.state.agent_runner.config,
+                project_config_id=x.projectConfigId,
+                section_id=x.sectionId,
+                policy_chat_id=capability_policy_chat_id,
+            )
+        )
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if x.sectionId is None and capability_policy_chat_id != chat_id:
+        seed_policy = get_project_chat_capability_policy(
+            ctx.state.dbe,
+            project_config_id=x.projectConfigId,
+            chat_id=capability_policy_chat_id,
+        )
+        set_project_chat_capability_policy(
+            ctx.state.dbe,
+            project_config_id=x.projectConfigId,
+            chat_id=chat_id,
+            policy=seed_policy,
+        )
+
     app_generation_mode_prompt: str | None = None
     if x.appSpecStreamingEnabled:
         app_generation_mode_prompt = (
@@ -370,14 +471,13 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        existing_system_prompt = profile.systemPrompt or ""
-        combined_system_prompt = existing_system_prompt
-        if app_generation_mode_prompt is not None:
-            combined_system_prompt = (
-                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
-                if existing_system_prompt.strip()
-                else app_generation_mode_prompt.strip()
-            )
+        combined_system_prompt = _append_prompt_blocks(
+            profile.systemPrompt or "",
+            [
+                app_generation_mode_prompt or "",
+                skills_prompt or "",
+            ],
+        )
         profile = profile.model_copy(
             update={
                 "engineConfigId": x.engineConfigId,
@@ -393,6 +493,8 @@ async def route_get_llm_response(
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
+            "enabledSkillIds": enabled_skill_ids,
+            "enabledMcpServerIds": enabled_mcp_server_ids,
         }
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(
@@ -442,6 +544,23 @@ async def route_get_llm_response(
             )
             if error:
                 raise HTTPException(status_code=400, detail=error)
+        if skills_prompt:
+            if profile is None:
+                profile = AgentProfile(
+                    name="External chat",
+                    description="",
+                    systemPrompt=skills_prompt,
+                    engineConfigId=x.engineConfigId,
+                )
+            else:
+                profile = profile.model_copy(
+                    update={
+                        "systemPrompt": _append_prompt_blocks(
+                            profile.systemPrompt or "",
+                            [skills_prompt],
+                        )
+                    }
+                )
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
@@ -450,6 +569,8 @@ async def route_get_llm_response(
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
+            "enabledSkillIds": enabled_skill_ids,
+            "enabledMcpServerIds": enabled_mcp_server_ids,
         }
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(

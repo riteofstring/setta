@@ -20,8 +20,8 @@ from setta.project_state.project_manager_types import (
     SetAppDefinitionRequest,
 )
 from setta.share.policy import deny_in_deployment_mode
-from setta.types.chat_messages import JSONValue
 from setta.types.app_definition import AppRoute
+from setta.types.chat_messages import JSONValue
 
 
 class AppCatalogResponse(BaseModel):
