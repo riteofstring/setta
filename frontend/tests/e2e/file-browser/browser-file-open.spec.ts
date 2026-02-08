@@ -2,9 +2,9 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { type Page, expect, test } from "@playwright/test";
 import {
-  ensureAppReady,
-  getCurrentProjectConfigId,
+  cleanupIsolatedProject,
   getViewportBoundsForPlacement,
+  openIsolatedProject,
   postBackend,
 } from "../helpers";
 
@@ -30,6 +30,13 @@ type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
+
+function normalizePathForComparison(value: string): string {
+  const withoutPrivate = value.startsWith("/private")
+    ? value.slice("/private".length)
+    : value;
+  return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
 
 async function resolveProjectConfigName(
   page: Page,
@@ -92,6 +99,73 @@ function findSectionIdByText(
   return null;
 }
 
+async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+  const value = await page.evaluate((targetId) => {
+    const root = document.getElementById(targetId);
+    if (!root) {
+      return null;
+    }
+    const candidates = [
+      root,
+      root.querySelector(".cm-content"),
+      root.querySelector(".cm-editor"),
+      root.querySelector("[contenteditable='true']"),
+    ].filter(Boolean) as HTMLElement[];
+
+    for (const candidate of candidates) {
+      const maybeView = (candidate as HTMLElement & { cmView?: unknown }).cmView;
+      if (
+        maybeView &&
+        typeof maybeView === "object" &&
+        "state" in maybeView &&
+        typeof (maybeView as { state?: unknown }).state === "object" &&
+        (maybeView as { state?: { doc?: unknown } }).state?.doc &&
+        typeof (maybeView as { state: { doc: { toString: () => string } } }).state.doc
+          .toString === "function"
+      ) {
+        return (maybeView as { state: { doc: { toString: () => string } } }).state.doc.toString();
+      }
+    }
+    const content =
+      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
+    return content?.textContent ?? root.textContent ?? "";
+  }, id);
+  return value ?? "";
+}
+
+async function setBrowserPath(
+  page: Page,
+  sectionNode: ReturnType<Page["locator"]>,
+  sectionId: string,
+  targetPath: string,
+): Promise<string> {
+  const pathInputId = `CodeMirror-${sectionId}-browser-path`;
+  const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
+  await expect(pathInput).toBeVisible();
+  const currentValue = await readCodeMirrorValue(page, pathInputId);
+  const normalizedCurrent = normalizePathForComparison(currentValue);
+  const normalizedTarget = normalizePathForComparison(targetPath);
+  const nextValue =
+    normalizedCurrent === normalizedTarget &&
+    !targetPath.endsWith(path.sep)
+      ? `${targetPath}${path.sep}`
+      : targetPath;
+
+  const cmContent = pathInput.locator(".cm-content");
+  await expect(cmContent).toBeVisible();
+  await cmContent.click();
+  await cmContent.fill(nextValue);
+  await page.keyboard.press("Enter");
+
+  await expect
+    .poll(async () =>
+      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+    )
+    .toContain(normalizedTarget);
+
+  return pathInputId;
+}
+
 async function waitForTextSection(
   page: Page,
   projectConfigName: string,
@@ -112,110 +186,307 @@ async function waitForTextSection(
 test("browser opens markdown and text files in text sections", async ({
   page,
 }) => {
-  await ensureAppReady(page);
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
-  const projectConfigId = await getCurrentProjectConfigId(page);
-  const projectConfigName = await resolveProjectConfigName(
-    page,
-    projectConfigId,
-  );
-  const viewportBounds = await getViewportBoundsForPlacement(page);
-  if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for section placement.");
-  }
-
-  const browserSection = await postBackend<{ sectionId?: string }>(
-    page,
-    "/createTopLevelSection",
-    {
-      projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    },
-  );
-  const sectionId = browserSection?.sectionId;
-  if (!sectionId) {
-    throw new Error("Missing sectionId when creating browser section.");
-  }
-
-  const markdownName = "browser_test.md";
-  const textName = "browser_test.txt";
-  const markdownPath = path.join(workspaceRoot, markdownName);
-  const textPath = path.join(workspaceRoot, textName);
-  await fs.writeFile(markdownPath, "# Browser Test\n\nHello.");
-  await fs.writeFile(textPath, "Plaintext browser test.");
-
-  const createdSectionIds: string[] = [sectionId];
-
+  const projectContext = await openIsolatedProject(page);
   try {
-    const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
-    );
-    await expect(sectionNode).toBeVisible();
-
-    await sectionNode
-      .locator('button[aria-label="Carousel view"]')
-      .click();
-
-    const pathInput = sectionNode.locator("search input");
-    await expect(pathInput).toBeVisible();
-    await pathInput.fill(workspaceRoot);
-    await pathInput.press("Enter");
-
-    const thumbnailRow = sectionNode
-      .locator('[class*="overflow-x-scroll"]')
-      .first();
-    const readmeTile = thumbnailRow
-      .locator('div[role="button"]')
-      .filter({ hasText: markdownName })
-      .first();
-    await expect(readmeTile).toBeVisible();
-    await readmeTile.dblclick();
-
-    const markdownSectionId = await waitForTextSection(
+    const projectConfigId = projectContext.projectConfigId;
+    const projectConfigName = await resolveProjectConfigName(
       page,
-      projectConfigName,
-      markdownName,
+      projectConfigId,
+    );
+    const viewportBounds = await getViewportBoundsForPlacement(page);
+    if (!viewportBounds) {
+      throw new Error("Unable to resolve viewport bounds for section placement.");
+    }
+
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
       {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
+      },
+    );
+    const sectionId = browserSection?.sectionId;
+    if (!sectionId) {
+      throw new Error("Missing sectionId when creating browser section.");
+    }
+
+    const markdownName = "browser_test.md";
+    const textName = "browser_test.txt";
+    const markdownPath = path.join(workspaceRoot, markdownName);
+    const textPath = path.join(workspaceRoot, textName);
+    await fs.writeFile(markdownPath, "# Browser Test\n\nHello.");
+    await fs.writeFile(textPath, "Plaintext browser test.");
+
+    try {
+      const sectionNode = page.locator(
+        `.react-flow__node[data-id="${sectionId}"]`,
+      );
+      await expect(sectionNode).toBeVisible();
+
+      await expect(
+        sectionNode.locator('button[aria-label="Go back"]'),
+      ).toBeVisible();
+      await expect(
+        sectionNode.locator('button[aria-label="Go forward"]'),
+      ).toBeVisible();
+
+      await sectionNode
+        .locator('button[aria-label="Carousel view"]')
+        .click();
+
+      await setBrowserPath(page, sectionNode, sectionId, workspaceRoot);
+
+      const readmeTile = sectionNode
+        .locator(`button[aria-label="${markdownName}"]`)
+        .first();
+      await expect(readmeTile).toBeVisible({ timeout: 15000 });
+      await readmeTile.dblclick();
+
+      await waitForTextSection(page, projectConfigName, markdownName, {
         format: "Markdown",
         textDisplayMode: "Render",
         textIncludes: "Browser Test",
-      },
-    );
-    createdSectionIds.push(markdownSectionId);
+      });
 
-    const textTile = thumbnailRow
-      .locator('div[role="button"]')
-      .filter({ hasText: textName })
-      .first();
-    await expect(textTile).toBeVisible();
-    await textTile.dblclick();
+      const textTile = sectionNode.locator(`button[aria-label="${textName}"]`).first();
+      await expect(textTile).toBeVisible({ timeout: 15000 });
+      await textTile.dblclick();
 
-    const textSectionId = await waitForTextSection(
-      page,
-      projectConfigName,
-      textName,
-      {
+      await waitForTextSection(page, projectConfigName, textName, {
         format: "Plaintext",
         textDisplayMode: "Edit",
         textIncludes: "Plaintext browser test.",
-      },
-    );
-    createdSectionIds.push(textSectionId);
+      });
+    } finally {
+      await fs.rm(markdownPath, { force: true });
+      await fs.rm(textPath, { force: true });
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: [sectionId],
+      });
+    }
   } finally {
-    await postBackend(page, "/deleteSections", {
-      projectConfigId,
-      sectionIds: createdSectionIds,
-    });
-    await fs.rm(markdownPath, { force: true });
-    await fs.rm(textPath, { force: true });
+    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
 test("browser history buttons navigate folders", async ({ page }) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
+  const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
+  const projectContext = await openIsolatedProject(page);
+  try {
+    const projectConfigId = projectContext.projectConfigId;
+    const viewportBounds = await getViewportBoundsForPlacement(page);
+    if (!viewportBounds) {
+      throw new Error("Unable to resolve viewport bounds for section placement.");
+    }
+
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
+      },
+    );
+    const sectionId = browserSection?.sectionId;
+    if (!sectionId) {
+      throw new Error("Missing sectionId when creating browser section.");
+    }
+
+    const folderName = "browser_history_folder";
+    const folderPath = path.join(workspaceRoot, folderName);
+    await fs.mkdir(folderPath, { recursive: true });
+
+    try {
+      const sectionNode = page.locator(
+        `.react-flow__node[data-id="${sectionId}"]`,
+      );
+      await expect(sectionNode).toBeVisible();
+
+      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+
+      const pathInputId = await setBrowserPath(
+        page,
+        sectionNode,
+        sectionId,
+        workspaceRoot,
+      );
+
+      const resizeHandle = sectionNode.locator(
+        '[aria-label="Resize thumbnail strip"]',
+      );
+      await expect(resizeHandle).toBeVisible();
+      const thumbnailRow = resizeHandle
+        .locator("xpath=following-sibling::article")
+        .first();
+
+      const backendTile = thumbnailRow
+        .locator(`button[aria-label="${folderName}"]`)
+        .first();
+      await expect(backendTile).toBeVisible({ timeout: 15000 });
+      await backendTile.scrollIntoViewIfNeeded();
+      await backendTile.dblclick();
+
+      await expect
+        .poll(() => readCodeMirrorValue(page, pathInputId))
+        .toContain(folderName);
+
+      const backButton = sectionNode.locator('button[aria-label="Go back"]');
+      const forwardButton = sectionNode.locator(
+        'button[aria-label="Go forward"]',
+      );
+
+      await expect(backButton).toBeEnabled();
+      await backButton.click();
+      await expect
+        .poll(async () =>
+          normalizePathForComparison(
+            await readCodeMirrorValue(page, pathInputId),
+          ),
+        )
+        .toContain(normalizedWorkspaceRoot);
+
+      await expect(forwardButton).toBeEnabled();
+      await forwardButton.click();
+      await expect
+        .poll(() => readCodeMirrorValue(page, pathInputId))
+        .toContain(folderName);
+    } finally {
+      await fs.rm(folderPath, { recursive: true, force: true });
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: [sectionId],
+      });
+    }
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("browser list view opens folders on double click", async ({ page }) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
+  }
+  const normalizedWorkspaceRoot = normalizePathForComparison(workspaceRoot);
+  const projectContext = await openIsolatedProject(page);
+  try {
+    const projectConfigId = projectContext.projectConfigId;
+    const viewportBounds = await getViewportBoundsForPlacement(page);
+    if (!viewportBounds) {
+      throw new Error("Unable to resolve viewport bounds for section placement.");
+    }
+
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
+      },
+    );
+    const sectionId = browserSection?.sectionId;
+    if (!sectionId) {
+      throw new Error("Missing sectionId when creating browser section.");
+    }
+
+    const folderName = "browser_list_folder";
+    const folderPath = path.join(workspaceRoot, folderName);
+    await fs.mkdir(folderPath, { recursive: true });
+
+    try {
+      const sectionNode = page.locator(
+        `.react-flow__node[data-id="${sectionId}"]`,
+      );
+      await expect(sectionNode).toBeVisible();
+
+      await sectionNode.locator('button[aria-label="List view"]').click();
+
+      // List view is the default; ensure we're rooted at the workspace.
+      const pathInputId = await setBrowserPath(
+        page,
+        sectionNode,
+        sectionId,
+        workspaceRoot,
+      );
+
+      const explorer = sectionNode.locator(
+        '[role="region"][aria-label="File explorer"]',
+      );
+      await expect(explorer).toBeVisible();
+
+      const backButton = sectionNode.locator('button[aria-label="Go back"]');
+      const forwardButton = sectionNode.locator(
+        'button[aria-label="Go forward"]',
+      );
+
+      const folderButton = explorer
+        .getByRole("button", { name: folderName })
+        .first();
+      await expect(folderButton).toBeVisible();
+      await folderButton.scrollIntoViewIfNeeded();
+      await folderButton.dblclick();
+
+      await expect
+        .poll(async () =>
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+        )
+        .toContain(folderName);
+      await expect(backButton).toBeEnabled();
+
+      await backButton.click();
+      await expect
+        .poll(async () =>
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+        )
+        .toContain(normalizedWorkspaceRoot);
+
+      await expect(forwardButton).toBeEnabled();
+      await forwardButton.click();
+      await expect
+        .poll(async () =>
+          normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+        )
+        .toContain(folderName);
+    } finally {
+      await fs.rm(folderPath, { recursive: true, force: true });
+      await postBackend(page, "/deleteSections", {
+        projectConfigId,
+        sectionIds: [sectionId],
+      });
+    }
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("browser path commits latest value on blur after fast typing", async ({
+  page,
+}) => {
   await ensureAppReady(page);
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
@@ -241,7 +512,7 @@ test("browser history buttons navigate folders", async ({ page }) => {
     throw new Error("Missing sectionId when creating browser section.");
   }
 
-  const folderName = "browser_history_folder";
+  const folderName = `browser_blur_commit_${Date.now()}`;
   const folderPath = path.join(workspaceRoot, folderName);
   await fs.mkdir(folderPath, { recursive: true });
 
@@ -250,45 +521,46 @@ test("browser history buttons navigate folders", async ({ page }) => {
       `.react-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
-
     await sectionNode
       .locator('button[aria-label="Carousel view"]')
       .click();
 
-    const pathInput = sectionNode.locator("search input");
+    const pathInputId = `CodeMirror-${sectionId}-browser-path`;
+    const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
     await expect(pathInput).toBeVisible();
-    await pathInput.fill(workspaceRoot);
-    await pathInput.press("Enter");
 
-    const thumbnailRow = sectionNode
-      .locator('[class*="overflow-x-scroll"]')
-      .first();
-    const backendTile = thumbnailRow
-      .locator('div[role="button"]')
-      .filter({ hasText: folderName })
-      .first();
-    await expect(backendTile).toBeVisible();
-    await backendTile.dblclick();
+    // Establish a known starting value.
+    await pathInput.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.type(workspaceRoot);
+    await page.click(".react-flow__pane", {
+      position: { x: 8, y: 8 },
+      force: true,
+    });
+    await expect
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(normalizePathForComparison(workspaceRoot));
 
-    await expect(pathInput).toHaveValue(folderName);
+    // Repro: type fast, blur immediately. We should commit the latest value,
+    // not a stale pre-change inputValue.
+    await pathInput.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.type(folderPath);
+    await page.click(".react-flow__pane", {
+      position: { x: 8, y: 8 },
+      force: true,
+    });
 
-    const backButton = sectionNode.locator('button[aria-label="Go back"]');
-    const forwardButton = sectionNode.locator(
-      'button[aria-label="Go forward"]',
-    );
-
-    await expect(backButton).toBeEnabled();
-    await backButton.click();
-    await expect(pathInput).toHaveValue(workspaceRoot);
-
-    await expect(forwardButton).toBeEnabled();
-    await forwardButton.click();
-    await expect(pathInput).toHaveValue(folderName);
+    await expect
+      .poll(async () => await readCodeMirrorValue(page, pathInputId))
+      .toContain(folderName);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,
       sectionIds: [sectionId],
     });
-    await fs.rm(folderPath, { recursive: true, force: true });
+    await fs.rm(folderPath, { force: true, recursive: true });
   }
 });

@@ -135,7 +135,7 @@ def _get_share_session_artifacts(
 
 
 def _get_artifacts(ctx: RuntimeContextFromRequest):
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         return _get_share_session_artifacts(ctx)
     return ctx.state.artifacts
 
@@ -285,7 +285,7 @@ def _build_file_browser_download_url(token: str) -> str:
 def route_check_if_file_exists(
     x: CheckIfFileExistsRequests, ctx: RuntimeContextFromRequest
 ) -> bool:
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         target_path = ensure_share_deployment_path(x.filepath, ctx.deployment_root)
         return target_path.exists()
     return os.path.exists(x.filepath)
@@ -295,10 +295,10 @@ def route_check_if_file_exists(
 def route_get_file_browser_root(
     ctx: RuntimeContextFromRequest,
 ) -> GetFileBrowserRootResponse:
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
+            detail="File browsing is disabled in share mode.",
         )
     return GetFileBrowserRootResponse(
         rootPath=str(CWD.resolve()),
@@ -312,14 +312,14 @@ def route_get_folder_contents(
     x: GetFolderContentsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[FolderContentItem]:
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
+            detail="File browsing is disabled in share mode.",
         )
     path = _resolve_folder_path(
         x.folderPath,
-        share_mode=ctx.deployment_mode,
+        share_mode=ctx.share_mode,
         deployment_root=ctx.deployment_root,
     )
 
@@ -364,7 +364,7 @@ def route_get_folder_contents(
         entry: FolderContentItem = {
             "name": item.name,
             "type": "folder" if is_dir else "file",
-            "fullPath": _format_browser_path(item, share_mode=ctx.deployment_mode),
+            "fullPath": _format_browser_path(item, share_mode=ctx.share_mode),
         }
         if stat_result is not None:
             if include_mtime:
@@ -390,10 +390,10 @@ def route_get_file_browser_download_urls(
     x: GetFileBrowserDownloadUrlsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[FileBrowserDownloadUrlEntry]:
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
+            detail="File browsing is disabled in share mode.",
         )
     if not x.paths:
         return []
@@ -405,7 +405,7 @@ def route_get_file_browser_download_urls(
         resolved = _resolve_file_path_for_download(raw_path)
         if resolved is None:
             continue
-        normalized = _format_browser_path(resolved, share_mode=ctx.deployment_mode)
+        normalized = _format_browser_path(resolved, share_mode=ctx.share_mode)
         token = _FILE_BROWSER_TOKEN_MANAGER.mint(
             artifact_id=normalized,
             secret=secret,
@@ -426,10 +426,10 @@ def route_file_browser_download(
     token: str,
     ctx: RuntimeContextFromRequest,
 ):
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
+            detail="File browsing is disabled in share mode.",
         )
     secret = _require_session_secret()
     try:
@@ -460,10 +460,10 @@ async def route_import_files_to_artifacts(
     x: ImportFilesToArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ImportFilesToArtifactsResponseItem]:
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
+            detail="File browsing is disabled in share mode.",
         )
     if not x.paths:
         return []
@@ -541,7 +541,7 @@ def route_load_cached_image_artifacts(
     ctx: RuntimeContextFromRequest,
 ) -> list[ImageArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         return [
             _load_share_cached_image(artifacts, i, ctx.deployment_root) for i in x.paths
         ]
@@ -554,7 +554,7 @@ def route_load_cached_chart_data(
     ctx: RuntimeContextFromRequest,
 ) -> list[ChartDataArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         return [
             _load_share_cached_chart_data(artifacts, i, ctx.deployment_root)
             for i in x.paths
@@ -568,7 +568,7 @@ def route_load_cached_brush_strokes(
     ctx: RuntimeContextFromRequest,
 ) -> list[BrushStrokeArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         return [
             _load_share_cached_brush_stroke(artifacts, i, ctx.deployment_root)
             for i in x.paths
@@ -582,7 +582,7 @@ def route_load_cached_draw_area_layer_item_transform(
     ctx: RuntimeContextFromRequest,
 ) -> list[DrawAreaLayerItemTransformArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         return [
             _load_share_cached_transform(artifacts, i, ctx.deployment_root)
             for i in x.paths
@@ -609,7 +609,7 @@ async def route_update_artifacts(
                 label=artifact.id,
                 policy=policy,
             )
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
@@ -666,7 +666,7 @@ async def route_delete_artifacts(
                 ),
             )
     artifact_ids = [artifact.id for artifact in x.artifacts]
-    if ctx.deployment_mode:
+    if ctx.share_mode:
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
             denied_message="Share policy disallows parameter changes.",

@@ -769,7 +769,7 @@ function canStartParamDrag(sectionId: string) {
     return false;
   }
   const shareSession = useShareSession.getState();
-  if (shareSession.isDeploymentMode) {
+  if (shareSession.isShareMode) {
     return false;
   }
   const state = useProjectState.getState();

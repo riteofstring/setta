@@ -115,9 +115,11 @@ from setta.types.section_impls import (
     SectionSizeMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
+    BrowserSavedSearch,
     CodeFileBinding,
     TypeErrorIgnoreState,
-    CodeSectionDiagnosticsIgnoreState
+    CodeSectionDiagnosticsIgnoreState,
+    ChatSectionBranch,
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,

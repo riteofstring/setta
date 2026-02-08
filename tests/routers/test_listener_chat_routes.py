@@ -28,7 +28,6 @@ class _ListenerRouteState:
     agent_runner: _RunnerStub
     wmh_frontend_sender: WMHFrontendSender
     share_mode: bool = False
-    deployment_mode: bool = False
     share_runtime_state: None = None
 
 

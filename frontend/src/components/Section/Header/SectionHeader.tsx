@@ -91,7 +91,7 @@ function _SectionHeader({
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
   );
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
     _.isEqual,
@@ -139,7 +139,7 @@ function _SectionHeader({
     codeDiagnosticsLabel = `Suppressed ${suppressedCodes.length}`;
   }
   const showCodeDiagnosticsPopover =
-    !isDeploymentMode &&
+    !isShareMode &&
     sectionTypeName === SectionTypeEnum.Code &&
     (codeSectionDiagnostics.length > 0 ||
       suppressedCodes.length > 0 ||
@@ -164,7 +164,7 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
       />
       <div className="z-10 ml-auto flex items-center">
-        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
+        {!isShareMode && sectionTypeName === SectionTypeEnum.Code && (
           <button
             className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
             onClick={() =>
@@ -185,7 +185,7 @@ function _SectionHeader({
             )}
           </button>
         )}
-        {!isDeploymentMode && showCodeDiagnosticsPopover && (
+        {!isShareMode && showCodeDiagnosticsPopover && (
           <DiagnosticsPopover
             diagnostics={codeSectionDiagnostics}
             label={codeDiagnosticsLabel}
@@ -202,7 +202,7 @@ function _SectionHeader({
             inlineSuppressionHint={inlineSuppressionHint}
           />
         )}
-        {!isDeploymentMode &&
+        {!isShareMode &&
           sectionTypeName === SectionTypeEnum.GenPythonCode &&
           genCodeDiagnostics.length > 0 && (
             <DiagnosticsPopover
@@ -238,7 +238,7 @@ function _SectionHeader({
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
-        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
+        {!isShareMode && sectionTypeName === SectionTypeEnum.Chat && (
           <button
             aria-label="Follow chat"
             aria-pressed={isFollowSelected}
@@ -301,34 +301,39 @@ function DiagnosticsPopover({
   const hasDiagnostics = diagnostics.length > 0;
   return (
     <StandardPopover
-      arrowClasses="fill-white dark:fill-setta-800"
-      contentClasses="z-20"
+      arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
+      contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
       trigger={
         <button
-          className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide shadow-sm backdrop-blur-sm ${badgeClassName}`}
+          className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}
           type="button"
         >
           {label}
         </button>
       }
     >
-      <div className="flex w-80 flex-col gap-2 p-2 text-xs text-slate-700 dark:text-slate-100">
-        <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+      <div className="flex flex-col gap-1.5 p-1.5 text-[9px] text-slate-700 dark:text-slate-100">
+        <div className="flex items-center justify-between rounded-md border border-slate-200/70 bg-slate-50/90 px-1.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/70 dark:text-slate-400">
           <span>{title}</span>
-          <span>{diagnostics.length}</span>
+          <span className="rounded-full bg-white px-1.5 py-0.5 text-[8px] font-bold text-slate-600 shadow-sm dark:bg-slate-800 dark:text-slate-200">
+            {diagnostics.length}
+          </span>
         </div>
         {isMuted && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+          <div className="rounded-md border border-amber-200/80 bg-amber-50/90 px-1.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-amber-700 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
             Muted
           </div>
         )}
         {hasDiagnostics ? (
-          <div className="max-h-64 overflow-auto">
-            <ul className="flex flex-col gap-2">
+          <div className="max-h-48 overflow-auto pr-1">
+            <ul className="flex flex-col gap-1">
               {diagnostics.map((diagnostic, idx) => {
                 const { line, character } = diagnostic.range.start;
-                const { label: severityLabel, className: severityClassName } =
-                  getSeverityMeta(diagnostic.severity);
+                const {
+                  label: severityLabel,
+                  className: severityClassName,
+                  accentClassName: severityAccentClassName,
+                } = getSeverityMeta(diagnostic.severity);
                 const code = diagnostic.code;
                 const codeLabel =
                   code === null || code === undefined ? null : String(code);
@@ -339,31 +344,31 @@ function DiagnosticsPopover({
                   suppressHandler !== undefined;
                 return (
                   <li
-                    className="rounded-md border border-slate-200 bg-white/80 p-2 text-[11px] shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
+                    className={`rounded-md border border-slate-200/70 bg-white/90 p-1.5 text-[9px] shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] dark:border-slate-700/70 dark:bg-slate-900/70 ${severityAccentClassName}`}
                     key={`${diagnostic.message}-${idx}`}
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${severityClassName}`}
+                        className={`rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-sm ${severityClassName}`}
                       >
                         {severityLabel}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      <span className="text-[8px] font-medium text-slate-500 dark:text-slate-400">
                         Line {line + 1}, Col {character + 1}
                       </span>
                       {codeLabel && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                           {codeLabel}
                         </span>
                       )}
                       {diagnostic.source && (
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[8px] text-slate-400 dark:text-slate-500">
                           {diagnostic.source}
                         </span>
                       )}
                       {canSuppress && (
                         <button
-                          className="ml-auto rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
+                          className="ml-auto rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
                           onClick={() =>
                             void suppressHandler?.(
                               code as NonNullable<SettaLspDiagnostic["code"]>,
@@ -376,7 +381,7 @@ function DiagnosticsPopover({
                         </button>
                       )}
                     </div>
-                    <p className="mt-1 text-[11px] leading-snug text-slate-700 dark:text-slate-100">
+                    <p className="mt-0.5 text-[9px] leading-snug text-slate-700 dark:text-slate-100">
                       {diagnostic.message}
                     </p>
                   </li>
@@ -385,19 +390,19 @@ function DiagnosticsPopover({
             </ul>
           </div>
         ) : (
-          <div className="rounded-md border border-dashed border-slate-200 px-2 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          <div className="rounded-md border border-dashed border-slate-200/80 bg-slate-50/70 px-1.5 py-1 text-[9px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-400">
             No active diagnostics.
           </div>
         )}
         {hasSuppressedCodes && onSetSuppressedCode && (
           <div className="flex flex-col gap-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
               Suppressed codes
             </div>
             <div className="flex flex-wrap gap-2">
               {(suppressedCodes ?? []).map((code) => (
                 <button
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
                   key={`suppressed-${String(code)}`}
                   onClick={() => void onSetSuppressedCode(code, false)}
                   type="button"
@@ -410,7 +415,7 @@ function DiagnosticsPopover({
           </div>
         )}
         {inlineSuppressionHint && (
-          <div className="border-t border-slate-200 pt-2 text-[11px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          <div className="border-t border-slate-200 pt-2 text-[9px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
             {inlineSuppressionHint}
           </div>
         )}
@@ -442,15 +447,31 @@ function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
 
 function getSeverityMeta(severity: number | null | undefined) {
   if (severity === 1) {
-    return { label: "Error", className: "bg-red-500 text-white" };
+    return {
+      label: "Error",
+      className: "bg-red-500 text-white",
+      accentClassName: "border-l-4 border-red-400/80",
+    };
   }
   if (severity === 2) {
-    return { label: "Warning", className: "bg-amber-400 text-slate-900" };
+    return {
+      label: "Warning",
+      className: "bg-amber-400 text-slate-900",
+      accentClassName: "border-l-4 border-amber-300/80",
+    };
   }
   if (severity === 3) {
-    return { label: "Info", className: "bg-sky-500 text-white" };
+    return {
+      label: "Info",
+      className: "bg-sky-500 text-white",
+      accentClassName: "border-l-4 border-sky-400/80",
+    };
   }
-  return { label: "Hint", className: "bg-slate-300 text-slate-900" };
+  return {
+    label: "Hint",
+    className: "bg-slate-300 text-slate-900",
+    accentClassName: "border-l-4 border-slate-300/80",
+  };
 }
 
 function MaybeCardTitle({

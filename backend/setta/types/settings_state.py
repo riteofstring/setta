@@ -118,6 +118,8 @@ class SettingsGUI(BaseModel):
     gridPatternSize: int = 2
     gridColor: str = "#afbacf"
     gridColorDarkMode: str = "#2b364a"
+    wireColor: str = "#41506c"
+    wireColorDarkMode: str = "#bac2d3"
     defaultZoomLevel: float = 1.0
     minZoom: float = 0.1
     maxZoom: float = 10.0
@@ -136,7 +138,7 @@ class SettingsGUI(BaseModel):
 class SettingsBackend(BaseModel):
     showDefaultConfigOnLoad: bool = True
     autosave: bool = True
-    autobackup: bool = False
+    autobackup: bool = True
     autobackupFreq: int = 300
     autobackupKeepLastN: int = 10
     clearTerminalBeforeMarkingAsReady: bool = True

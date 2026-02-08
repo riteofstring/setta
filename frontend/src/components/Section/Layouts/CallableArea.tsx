@@ -7,7 +7,15 @@ import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 
-function _CallableArea({ sectionId, bgColor }) {
+function _CallableArea({
+  sectionId,
+  bgColor,
+  isMinimized,
+}: {
+  sectionId: string;
+  bgColor: string;
+  isMinimized: boolean;
+}) {
   const { callable, hideParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -25,7 +33,7 @@ function _CallableArea({ sectionId, bgColor }) {
   return (
     <>
       <SectionSearch sectionId={sectionId} callable={callable} />
-      {!hideParams && (
+      {!hideParams && !isMinimized && (
         <>
           <KwargsControls sectionId={sectionId} bgColor={bgColor} />
           <ParamGroupContainer

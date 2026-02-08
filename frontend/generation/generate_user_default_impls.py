@@ -209,7 +209,9 @@ from setta.types.section_impls import (
     SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
-    CodeFileBinding
+    BrowserSavedSearch,
+    CodeFileBinding,
+    ChatSectionBranch,
 )
 
 # Code object type imports

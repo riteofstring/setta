@@ -19,6 +19,7 @@ from setta.start import api, auth, tools
 from setta.types.routes import Route
 from setta.utils.constants import C
 from tests.utils.manager_fixture import _seed_minimal_setta_files
+from tests.utils.setta_test_paths import patched_setta_paths
 
 
 TOOLS_CALL_TIMEOUT_SECONDS = 15
@@ -28,49 +29,6 @@ def _select_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
-
-
-def _apply_fixture_constants(root: Path) -> dict[str, Path]:
-    originals = {
-        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
-        "CODE_FOLDER": C.CODE_FOLDER,
-        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
-        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
-        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
-        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
-        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
-        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
-        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
-        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
-        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
-    }
-    setta_root = root / "setta_files"
-    C.SETTA_FILES_FOLDER = setta_root
-    C.CODE_FOLDER = setta_root / "code"
-    C.ARTIFACTS_FOLDER = setta_root / "artifacts"
-    C.DB_BACKUP_FOLDER = setta_root / "backups"
-    C.RUNTIME_FOLDER = setta_root / "runtime"
-    C.RUNTIME_SESSIONS_FOLDER = C.RUNTIME_FOLDER / "sessions"
-    C.RUNTIME_LOGS_FOLDER = C.RUNTIME_FOLDER / "logs"
-    C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
-    C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
-    C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
-    C.DEPLOYMENTS_FOLDER = setta_root / "deployments"
-    return originals
-
-
-def _restore_fixture_constants(originals: dict[str, Path]) -> None:
-    C.SETTA_FILES_FOLDER = originals["SETTA_FILES_FOLDER"]
-    C.CODE_FOLDER = originals["CODE_FOLDER"]
-    C.ARTIFACTS_FOLDER = originals["ARTIFACTS_FOLDER"]
-    C.DB_BACKUP_FOLDER = originals["DB_BACKUP_FOLDER"]
-    C.RUNTIME_FOLDER = originals["RUNTIME_FOLDER"]
-    C.RUNTIME_SESSIONS_FOLDER = originals["RUNTIME_SESSIONS_FOLDER"]
-    C.RUNTIME_LOGS_FOLDER = originals["RUNTIME_LOGS_FOLDER"]
-    C.RUNTIME_MCP_FOLDER = originals["RUNTIME_MCP_FOLDER"]
-    C.RUNTIME_SECRETS_FOLDER = originals["RUNTIME_SECRETS_FOLDER"]
-    C.DETACHED_RUNS_FOLDER = originals["DETACHED_RUNS_FOLDER"]
-    C.DEPLOYMENTS_FOLDER = originals["DEPLOYMENTS_FOLDER"]
 
 
 def _write_auth_json(root: Path) -> Path:
@@ -120,70 +78,70 @@ def auth_env(tmp_path):
 
 
 @pytest.fixture(scope="class")
-def api_integration_env(request):
+def api_integration_env():
     temp_dir = tempfile.TemporaryDirectory()
     root = Path(temp_dir.name)
-    setta_root = root / "setta_files"
-    _seed_minimal_setta_files(setta_root)
-
-    originals = _apply_fixture_constants(root)
 
     original_cwd = Path.cwd()
     os.chdir(root)
 
+    handle = None
+    constants_module = None
+    server_module = None
+    backend_launcher_module = None
+    original_is_dev_mode = None
+    original_server_is_dev_mode = None
+    original_backend_launcher_is_dev_mode = None
     try:
-        import importlib
-        import setta.backend_launcher as backend_launcher
-        import setta.server as server
-        import setta.utils.constants as constants
+        with patched_setta_paths(root, seed_fn=_seed_minimal_setta_files) as setta_root:
+            import importlib
+            import setta.backend_launcher as backend_launcher
+            import setta.server as server
+            import setta.utils.constants as constants
 
-        original_is_dev_mode = constants.IS_DEV_MODE
-        original_server_is_dev_mode = server.IS_DEV_MODE
-        original_backend_launcher_is_dev_mode = backend_launcher.IS_DEV_MODE
-        constants.IS_DEV_MODE = "1"
-        server.IS_DEV_MODE = "1"
-        backend_launcher.IS_DEV_MODE = "1"
-        importlib.reload(server)
+            constants_module = constants
+            server_module = server
+            backend_launcher_module = backend_launcher
 
-        port = _select_free_port()
-        handle = backend_launcher.start_backend(
-            host="127.0.0.1",
-            port=port,
-            wait_for_ready=True,
-            open_browser=False,
-            ws_protocol="none",
-        )
-    except Exception as exc:  # pragma: no cover - environment dependent
-        os.chdir(original_cwd)
-        _restore_fixture_constants(originals)
-        temp_dir.cleanup()
-        pytest.skip(f"Setta backend unavailable: {exc}")
+            original_is_dev_mode = constants_module.IS_DEV_MODE
+            original_server_is_dev_mode = server_module.IS_DEV_MODE
+            original_backend_launcher_is_dev_mode = backend_launcher_module.IS_DEV_MODE
+            constants.IS_DEV_MODE = "1"
+            server.IS_DEV_MODE = "1"
+            backend_launcher.IS_DEV_MODE = "1"
+            importlib.reload(server_module)
 
-    env = SimpleNamespace(
-        root=root,
-        setta_root=setta_root,
-        handle=handle,
-        original_cwd=original_cwd,
-        originals=originals,
-        original_is_dev_mode=original_is_dev_mode,
-        original_server_is_dev_mode=original_server_is_dev_mode,
-        original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
-    )
+            port = _select_free_port()
+            handle = backend_launcher.start_backend(
+                host="127.0.0.1",
+                port=port,
+                wait_for_ready=True,
+                open_browser=False,
+                ws_protocol="none",
+            )
 
-    try:
-        yield env
+            env = SimpleNamespace(
+                root=root,
+                setta_root=setta_root,
+                handle=handle,
+                original_cwd=original_cwd,
+            )
+            try:
+                yield env
+            finally:
+                if handle is not None:
+                    handle.stop(join_timeout=30.0)
     finally:
-        if handle is not None:
-            handle.stop(join_timeout=30.0)
         os.chdir(original_cwd)
-        _restore_fixture_constants(originals)
-        import setta.utils.constants as constants
-        import setta.server as server
-        import setta.backend_launcher as backend_launcher
-
-        constants.IS_DEV_MODE = original_is_dev_mode
-        server.IS_DEV_MODE = original_server_is_dev_mode
-        backend_launcher.IS_DEV_MODE = original_backend_launcher_is_dev_mode
+        if constants_module is not None and original_is_dev_mode is not None:
+            constants_module.IS_DEV_MODE = original_is_dev_mode
+        if server_module is not None and original_server_is_dev_mode is not None:
+            server_module.IS_DEV_MODE = original_server_is_dev_mode
+        if (
+            backend_launcher_module is not None
+            and original_backend_launcher_is_dev_mode is not None
+        ):
+            backend_launcher_module.IS_DEV_MODE = original_backend_launcher_is_dev_mode
         temp_dir.cleanup()
 
 

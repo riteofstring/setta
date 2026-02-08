@@ -10,11 +10,8 @@ from setta.types.agentic_edges import (
     AgenticEdgeContextMode,
     AgenticEdgeKind,
 )
-from setta.types.app_definition import AppDefinition, AppRoute
-from setta.types.app_validation import AppCapabilities, AppValidationIssue
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
-from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge, EdgePort
@@ -37,6 +34,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    BrowserSavedSearch,
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
@@ -122,14 +120,6 @@ class RunCodeRequest(BaseModel):
     drawSnapshotsBySectionId: dict[ID, BinaryContentRef] | None = Field(
         default=None,
         description="Optional binary PNG payloads for draw sections keyed by section id.",
-    )
-    sectionVariantOverrides: dict[ID, ID] | None = Field(
-        default=None,
-        description="Optional section variant overrides keyed by section id.",
-    )
-    paramOverrides: dict[str, str] | None = Field(
-        default=None,
-        description='Optional parameter overrides keyed by "sectionId:paramId".',
     )
 
 
@@ -558,103 +548,6 @@ class SetProjectConfigCodegenTargetsRequest(ProjectManagerRequestWithProjectConf
     )
 
 
-class GetAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
-    """Fetch the stored app UI spec and definition."""
-
-
-class AppDefinitionResponse(BaseModel, extra="forbid"):
-    appSpec: JSONValue | None = None
-    appDefinition: AppDefinition | None = None
-
-
-class SetAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
-    """Replace the app UI spec and optionally update app definition metadata."""
-
-    appSpec: JSONValue = Field(
-        description="Full JSON app spec to persist.",
-    )
-    appSpecPath: str | None = Field(
-        default=None,
-        description="Optional override path for the app spec file.",
-    )
-    appSpecVersion: str | None = Field(
-        default=None,
-        description="Optional app spec version override.",
-    )
-    catalogId: str | None = Field(
-        default=None,
-        description="Optional catalog id override for the app spec.",
-    )
-    routes: list[AppRoute] | None = Field(
-        default=None,
-        description="Optional route definitions for the app.",
-    )
-    dataBindings: dict[str, JSONValue] | None = Field(
-        default=None,
-        description="Optional data binding overrides for the app.",
-    )
-    actions: dict[str, JSONValue] | None = Field(
-        default=None,
-        description="Optional action map overrides for the app.",
-    )
-    theme: dict[str, JSONValue] | None = Field(
-        default=None,
-        description="Optional theme overrides for the app.",
-    )
-    assets: list[JSONValue] | None = Field(
-        default=None,
-        description="Optional asset list for the app.",
-    )
-
-
-class ValidateAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
-    """Validate an app spec + definition overrides without persisting them."""
-
-    appSpec: JSONValue = Field(description="Full JSON app spec to validate.")
-    appSpecVersion: str | None = Field(
-        default=None,
-        description="Optional app spec version override.",
-    )
-    catalogId: str | None = Field(
-        default=None,
-        description="Optional catalog id override for the app spec.",
-    )
-    routes: list[AppRoute] | None = Field(
-        default=None,
-        description="Optional route definitions for the app.",
-    )
-    dataBindings: dict[str, JSONValue] | None = Field(
-        default=None,
-        description="Optional data binding overrides for the app.",
-    )
-    actions: dict[str, JSONValue] | None = Field(
-        default=None,
-        description="Optional action map overrides for the app.",
-    )
-    theme: dict[str, JSONValue] | None = Field(
-        default=None,
-        description="Optional theme overrides for the app.",
-    )
-    assets: list[JSONValue] | None = Field(
-        default=None,
-        description="Optional asset list for the app.",
-    )
-
-
-class ValidateAppDefinitionResponse(BaseModel, extra="forbid"):
-    errors: list[AppValidationIssue] = Field(default_factory=list)
-    warnings: list[AppValidationIssue] = Field(default_factory=list)
-    capabilities: AppCapabilities
-
-
-class UpdateAppDefinitionRequest(ProjectManagerRequestWithFrontendOp):
-    """Apply a JSON merge patch to the stored app UI spec."""
-
-    patch: JSONValue = Field(
-        description="Partial JSON payload to merge into the app spec.",
-    )
-
-
 class SetPromptTemplateRequest(ProjectManagerRequestWithSection):
     template: str
 
@@ -1033,6 +926,10 @@ class SetBrowserAreaViewModeRequest(ProjectManagerRequestWithSection):
 
 class SetBrowserHideColumnRequest(ProjectManagerRequestWithSection):
     hideColumn: bool
+
+
+class SetBrowserSavedSearchesRequest(ProjectManagerRequestWithSection):
+    savedSearches: list[BrowserSavedSearch]
 
 
 class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):

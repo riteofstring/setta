@@ -77,7 +77,7 @@ describe("formatActiveCodeSection", () => {
       },
       activeIds: [sectionId],
     });
-    useShareSession.setState({ isDeploymentMode: false });
+    useShareSession.setState({ isShareMode: false });
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
       state.sections = { [sectionId]: sectionCore };

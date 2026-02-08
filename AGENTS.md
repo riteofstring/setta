@@ -29,7 +29,9 @@
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
 - Prefer inlining Tailwind class strings in JSX/TSX instead of extracting them into variables, even if repetitive, unless there is a clear performance, dx, or programmatic benefit to reuse.
-- Avoid div soup: keep markup semantic, minimize unnecessary wrappers, and favor the smallest readable/performant DOM tree.
+- Avoid div soup: keep markup shallow and semantic, minimize unnecessary wrappers, and avoid deep nesting when it is not required.
+- Prefer semantic elements in JSX (`section`, `header`, `nav`, `main`, `article`, `button`, `ul/li`) over generic `div`/`span` when appropriate.
+- Frontend code must prioritize performance, assuming very large DOMs (for example, hundreds of complex sections on the React Flow canvas).
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
@@ -41,6 +43,8 @@
 ## Testing Guidelines
 
 - Default workflow: think, plan, write tests (Playwright, Vitest, Python unit tests), implement, then run tests. Stay flexible and update tests as the approach evolves or new components are introduced.
+- In general, do not skip tests. Avoid broad `try/except ...: pytest.skip(...)` patterns that hide coverage gaps; missing deps/capabilities should usually fail loudly (or be caught by a single preflight) so CI/dev environments get fixed. Exceptions: explicitly opt-in integration tests (API keys/external services) or environments that fundamentally cannot run the test (e.g., sandbox restrictions). Any skip should be narrow, documented, and include how to enable the test.
+- Ensure all tests are well commented so it's clear what each test is validating.
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts` files.
 - Always use chrome-devtools-mcp to verify any visual edits, even when Playwright/Vitest tests run.
@@ -51,6 +55,10 @@
 - You should never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset`; if chrome-devtools-mcp is needed, the developer runs it first.
 - Follow `docs/guides/verification-checklist.md` for the standard verification flow.
 - Always run relevant Vitest or Playwright tests if they exist for the task; if none exist, propose what tests should be created when appropriate.
+- Treat performance testing as a priority for frontend work; include coverage for large DOM scenarios and guard against costly render/update behavior.
+- Use chrome-devtools-mcp for performance profiling when needed (Performance/Rendering/Memory tooling in DevTools) and document the measurements or observations.
+- Playwright can capture automated performance signals (timings, traces, marks/measures), but DevTools profiling via chrome-devtools-mcp is required for deeper analysis.
+- New components must ship with Playwright tests, Vitest coverage where applicable, and deeper DevTools performance profiling results.
 - Playwright tests do not require running `pnpm ai`; when running Playwright tests as an AI, use `./scripts/run-playwright-e2e.sh`.
 - Backend tests live under `tests/` mirroring `backend/setta`; run them with `./scripts/run_backend_tests.sh` (pytest).
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace.
@@ -61,6 +69,13 @@
 ## Commit & Pull Request Guidelines
 
 - Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
+- Before merging branches, always run `./gcf.sh`.
+
+## Memory Logging
+
+- When a task is particularly difficult but is ultimately completed, document how it was achieved in `MEMORIES.md` so we can avoid repeating the same work. Keep entries succinct; telegraphic notes are fine. Always append; never edit or delete prior entries.
+- Only reference past memories when the user prompts for them or when they are directly relevant to avoid repeating a known hard issue.
+- Only append a new memory after asking for permission first, unless the user explicitly asks to log it.
 
 ## Environment & Tooling
 
@@ -73,7 +88,7 @@
 
 ## Worktrees & Ports
 
-- `./worktree.sh <branch...>` (or `pnpm -C frontend worktree` / `pnpm -C frontend worktrees`) creates worktrees, copies `.env*`, and runs `./dev_install.sh` per worktree.
+- `./worktree.sh <branch...>` (or `pnpm -C frontend worktree` / `pnpm -C frontend worktrees`) creates worktrees, copies `.env*`, runs `./dev_install.sh` per worktree, then enters the worktree by default only when creating a single worktree (multi-worktree runs imply `--stay`).
 - `./scripts/run-dev-instance.sh` starts a dev instance with per-worktree port offsets (defaults: `8000/3000` + offset). Use `--mode startr` or `SETTA_HOST/SETTA_PORT/SETTA_DEV_FRONTEND_PORT` for overrides.
 
 ## Endpoints
@@ -128,3 +143,25 @@ Do not use Iterable and Mapping unless really necessary.
 ## Refactoring
 
 We do NOT need backward compatibility!
+
+When refactoring, performance is a first-class requirement:
+- Try to reduce DOM tree complexity (fewer nodes, fewer wrappers, less layout/reflow work) when possible.
+- Try to improve JS/TS runtime performance (less work per render, fewer allocations, avoid repeated expensive computations, fewer renders).
+- Prefer simpler, flatter, more readable code when it does not harm performance; do not trade clarity for cleverness.
+
+For any refactor where performance is relevant:
+- Establish a baseline first (before refactor) using `chrome-devtools-mcp` (Performance/Rendering/Memory as appropriate).
+- After refactor, re-measure the same scenario and confirm performance improved (or clearly document the tradeoff).
+- Update tests: add new tests or modify existing ones to validate behavior (existing + intended new behavior). When feasible, add coverage for large DOM / large data scenarios and/or lightweight performance guard rails.
+
+Record before/after performance results in the repo under `perf/` (append-only reports; do not rewrite prior results, append corrections/new runs instead).
+
+Refactor definition (behavior-preserving):
+- Assume user-facing behavior must remain identical (unless the developer explicitly requests a behavior change). This includes UX flows, state changes, accessibility behavior, and visual UI output.
+- Even if the DOM structure changes significantly or the implementation is rewritten, the user should not notice any difference other than improved performance.
+- If you are not certain what behavior is intended (or whether a subtle UI/UX change is acceptable), stop and ask the developer clarifying questions before proceeding.
+
+Perf testing priority (automated-first):
+- Automated tests are paramount. Prefer Playwright (E2E) and Vitest (unit/integration) performance guardrails as the primary enforcement mechanism.
+- Use `chrome-devtools-mcp` for manual profiling and investigation while you work, but do not treat DevTools-only measurement as a substitute for automated coverage.
+- When adding performance tests, prefer stable/structural metrics (DOM node counts, render counts, expensive function call counts, payload sizes) and only add timing-based assertions when the threshold is robust enough to avoid flakiness.

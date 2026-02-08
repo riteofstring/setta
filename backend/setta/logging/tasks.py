@@ -56,18 +56,6 @@ def spawn_background_task(
             )
 
     task_name = name or label
-    # Avoid "coroutine was never awaited" warnings when task creation fails (for
-    # example, if the loop is closing during teardown).
-    to_close = None
-    if not callable(coroutine_or_factory) and asyncio.iscoroutine(coroutine_or_factory):
-        to_close = coroutine_or_factory
-    runner = _runner()
-    try:
-        if loop is not None:
-            return loop.create_task(runner, name=task_name)
-        return asyncio.create_task(runner, name=task_name)
-    except Exception:
-        runner.close()
-        if to_close is not None:
-            to_close.close()
-        raise
+    if loop is not None:
+        return loop.create_task(_runner(), name=task_name)
+    return asyncio.create_task(_runner(), name=task_name)

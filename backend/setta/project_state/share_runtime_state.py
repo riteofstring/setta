@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Union
 
@@ -6,10 +5,8 @@ from fastapi import HTTPException, status
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.database.db_objs import DBE
-from setta.deployments.deployment_utils import rewrite_project_state_paths
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
-from setta.project_state.base_project_manager import _apply_run_overrides
 from setta.project_state.code import (
     SnapshotSectionInput,
     build_bash_run_command,
@@ -22,10 +19,10 @@ from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
 from setta.project_state.project_manager_types import RunCodeRequest
+from setta.share.deployment_utils import rewrite_project_state_paths
 from setta.share.policy import (
     load_share_policy_from_dbe,
 )
-from setta.types.chat_messages import JSONValue
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
@@ -75,8 +72,7 @@ class ShareRuntimeState:
         self._validate_deployment_root()
         self._deployment_root_resolved = self.deployment_root.resolve()
         self.project_state_backend = self.load_initial_state()
-        self.manifest = self.dbe.read_deployment_manifest()
-        self.deployment_type = self.manifest.deploymentType
+        self.manifest = self.dbe.read_share_manifest()
         self.deployment_name = self._resolve_deployment_name()
         self.deployment_version = self._resolve_deployment_version()
         self.default_project_config_id = self._resolve_default_project_config_id()
@@ -87,13 +83,11 @@ class ShareRuntimeState:
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
         if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
             raise ValueError(
-                "Deployments do not support runSnapshotMode=never. "
+                "Share deployments do not support runSnapshotMode=never. "
                 "Use ephemeral or always."
             )
         self._session_backends: dict[str, ProjectStateBackend] = {}
         self._session_artifacts: dict[str, Artifacts] = {}
-        self._session_run_counts: dict[str, int] = {}
-        self._session_run_lock = asyncio.Lock()
         self._artifact_watcher = specific_file_watcher or SpecificFileWatcher()
         self._base_backend: ProjectStateBackend | None = None
 
@@ -126,18 +120,15 @@ class ShareRuntimeState:
             raise KeyError(f"Share session already exists: {session_id}")
         project_state = self._build_base_backend()
         self._session_backends[session_id] = project_state
-        self._ensure_session_run_count(session_id)
         return project_state
 
     def get_session_backend(self, session_id: str) -> ProjectStateBackend:
         if session_id not in self._session_backends:
             raise KeyError(f"Unknown share session backend: {session_id}")
-        self._ensure_session_run_count(session_id)
         return self._session_backends[session_id]
 
     def get_or_create_session_backend(self, session_id: str) -> ProjectStateBackend:
         if session_id in self._session_backends:
-            self._ensure_session_run_count(session_id)
             return self._session_backends[session_id]
         return self.create_session_backend(session_id)
 
@@ -180,18 +171,6 @@ class ShareRuntimeState:
         project_state = self.get_session_state(session_id, project_config_id)
         return self.format_project_state_for_client(project_state)
 
-    def get_app_spec(self) -> JSONValue | None:
-        app_definition = self.project_state_backend.appDefinition
-        if app_definition is None or not app_definition.appSpecPath:
-            return None
-        spec_path = self._resolve_deployment_path_to_absolute(
-            app_definition.appSpecPath
-        )
-        payload = self.dbe.read_json(spec_path)
-        if not payload:
-            return None
-        return payload
-
     def update_session_state(
         self,
         session_id: str,
@@ -214,44 +193,6 @@ class ShareRuntimeState:
         del self._session_backends[session_id]
         if session_id in self._session_artifacts:
             del self._session_artifacts[session_id]
-        self._session_run_counts.pop(session_id, None)
-
-    def get_session_run_count(self, session_id: str) -> int:
-        self._ensure_session_run_count(session_id)
-        return self._session_run_counts[session_id]
-
-    def increment_session_run_count(self, session_id: str) -> int:
-        self._ensure_session_run_count(session_id)
-        self._session_run_counts[session_id] += 1
-        return self._session_run_counts[session_id]
-
-    async def try_reserve_session_run_count(self, session_id: str) -> bool:
-        """
-        Atomically reserve a "run slot" for this session.
-
-        Returns True if the run slot was reserved (run count incremented), False if the
-        session already has at least one reserved/started run.
-        """
-        async with self._session_run_lock:
-            self._ensure_session_run_count(session_id)
-            if self._session_run_counts[session_id] > 0:
-                return False
-            self._session_run_counts[session_id] += 1
-            return True
-
-    async def rollback_reserved_session_run_count(self, session_id: str) -> int:
-        """
-        Roll back a previously reserved run slot (for example if the run fails to start).
-        """
-        async with self._session_run_lock:
-            self._ensure_session_run_count(session_id)
-            if self._session_run_counts[session_id] > 0:
-                self._session_run_counts[session_id] -= 1
-            return self._session_run_counts[session_id]
-
-    def _ensure_session_run_count(self, session_id: str) -> None:
-        if session_id not in self._session_run_counts:
-            self._session_run_counts[session_id] = 0
 
     def get_session_artifacts(self, session_id: str) -> Artifacts:
         if session_id in self._session_artifacts:
@@ -294,26 +235,17 @@ class ShareRuntimeState:
             self.update_session_state(
                 resolved_session_id, project_config_id, project_state
             )
-
-        run_state = project_state
-        if x.sectionVariantOverrides or x.paramOverrides:
-            run_state = project_state.model_copy(deep=True)
-            _apply_run_overrides(
-                run_state,
-                section_variant_overrides=x.sectionVariantOverrides,
-                param_overrides=x.paramOverrides,
-            )
         snapshot_root = self.share_runs_root / resolved_session_id
         python_codegen_enabled = project_config_has_codegen_language(
-            run_state.projectConfig,
+            project_state.projectConfig,
             ProjectCodegenLanguage.python,
         )
-        code_sections = self._collect_code_sections(run_state)
+        code_sections = self._collect_code_sections(project_state)
 
         if not section_id:
-            section_id = run_state.projectConfig.entryCodeBlockId
+            section_id = project_state.projectConfig.entryCodeBlockId
         if section_id:
-            section_impl = get_curr_effective_section_impl(run_state, section_id)
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
             if isinstance(
                 section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
             ):
@@ -351,8 +283,8 @@ class ShareRuntimeState:
                 section_inputs=snapshot_section_inputs,
             )
 
-        gen_binding = self._get_gen_code_binding(run_state)
-        gen_code, gen_meta_code = self._generate_gen_code(run_state)
+        gen_binding = self._get_gen_code_binding(project_state)
+        gen_code, gen_meta_code = self._generate_gen_code(project_state)
 
         def gen_command_builder(path: Path, snapshot_root=snapshot_root) -> str:
             return build_python_snapshot_module_run_command(snapshot_root, path)
@@ -501,7 +433,7 @@ class ShareRuntimeState:
             resolved = (self.deployment_root / raw_path).resolve()
         if not resolved.is_relative_to(self._deployment_root_resolved):
             raise ValueError(
-                f"Deployment path escapes deployment root: {raw_path.as_posix()}"
+                f"Share deployment path escapes deployment root: {raw_path.as_posix()}"
             )
         return resolved
 

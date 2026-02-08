@@ -33,7 +33,7 @@ def bootstrap_client(tmp_path, monkeypatch):
     monkeypatch.setenv(SESSION_ID_ENV_VAR, session.id)
 
     app = FastAPI()
-    app.state.setta = SimpleNamespace(share_mode=False, deployment_mode=False)
+    app.state.setta = SimpleNamespace(share_mode=False)
     app.add_middleware(AuthMiddleware)
     app.include_router(bootstrap_router)
 

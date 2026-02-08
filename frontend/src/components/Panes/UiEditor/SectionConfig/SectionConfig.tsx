@@ -2,6 +2,7 @@ import React from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { BrowserAreaSettings } from "./BrowserAreaSettings";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
@@ -57,5 +58,7 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <IframeSettings sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
       return <ChatAreaSettings sectionId={sectionId} />;
+    case SectionTypeEnum.Browser:
+      return <BrowserAreaSettings sectionId={sectionId} />;
   }
 }

@@ -29,6 +29,8 @@ from setta.types.id import ID
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    BrowserSavedSearch,
+    ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
@@ -46,12 +48,14 @@ class SharedModifier(TypedDict):
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     actionMode: NotRequired[ButtonActionMode]
+    activeBranchId: NotRequired[ID | None]
     activeLayerIdx: NotRequired[int]
     agentProfileId: NotRequired[ID | None]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
     attachedTerminalSectionId: NotRequired[ID | None]
+    branches: NotRequired[dict[ID, ChatSectionBranch]]
     brushColor: NotRequired[str]
     brushOpacity: NotRequired[float]
     brushShape: NotRequired[DrawAreaBrushShape]
@@ -130,6 +134,7 @@ class SharedModifier(TypedDict):
     requestHeaderValue: NotRequired[str]
     requestMethod: NotRequired[HttpRequestMethod]
     requestUrl: NotRequired[str]
+    savedSearches: NotRequired[list[BrowserSavedSearch]]
     selectedParams: NotRequired[list[ID]]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]

@@ -67,6 +67,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.id import ID
 from setta.types.listener import ListenerCoverageSnapshot
+from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
     ProjectCodegenPythonTarget,
@@ -78,6 +79,7 @@ from setta.types.project_config import (
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    BrowserSavedSearch,
     ChatSectionState,
     SectionSize,
     SectionType,
@@ -361,6 +363,11 @@ class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
     sectionId: ID
 
 
+class ListenerGetLatestLspDiagnosticsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+
+
 class ListenerGetLatestProjectStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -466,8 +473,6 @@ class ListenerRunCodeRequestPayload(TypedDict):
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
     drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
-    sectionVariantOverrides: NotRequired[dict[ID, ID] | None]
-    paramOverrides: NotRequired[dict[str, str] | None]
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):
@@ -513,6 +518,13 @@ class ListenerSetBrowserHideColumnRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     hideColumn: bool
+
+
+class ListenerSetBrowserSavedSearchesRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    savedSearches: list[BrowserSavedSearch]
 
 
 class ListenerSetCallableHideParamsRequestPayload(TypedDict):
@@ -1162,6 +1174,11 @@ class RouterEndpointAPI:
     ) -> str | None:
         return await self._caller("route_get_chat_section_chat_id", payload)
 
+    async def get_latest_lsp_diagnostics(
+        self, payload: ListenerGetLatestLspDiagnosticsRequestPayload
+    ) -> SettaLspDiagnosticsPayload:
+        return await self._caller("route_get_latest_lsp_diagnostics", payload)
+
     async def get_latest_project_state(
         self, payload: ListenerGetLatestProjectStateRequestPayload
     ) -> ProjectStateSingleConfigWithCompletedOpIds:
@@ -1259,6 +1276,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetBrowserHideColumnRequestPayload
     ) -> None:
         return await self._caller("route_set_browser_hide_column", payload)
+
+    async def set_browser_saved_searches(
+        self, payload: ListenerSetBrowserSavedSearchesRequestPayload
+    ) -> None:
+        return await self._caller("route_set_browser_saved_searches", payload)
 
     async def set_callable(
         self, payload: ListenerSetCallableRequestPayload

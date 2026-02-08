@@ -2,12 +2,14 @@ from typing import Literal
 
 AllImplFields = Literal[
     "actionMode",
+    "activeBranchId",
     "activeLayerIdx",
     "agentProfileId",
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
     "attachedTerminalSectionId",
+    "branches",
     "brushColor",
     "brushOpacity",
     "brushShape",
@@ -82,6 +84,7 @@ AllImplFields = Literal[
     "requestHeaderValue",
     "requestMethod",
     "requestUrl",
+    "savedSearches",
     "selectedParams",
     "showSectionTitle",
     "size",
