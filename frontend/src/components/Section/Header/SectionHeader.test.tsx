@@ -129,7 +129,7 @@ describe("SectionHeader diagnostics badges", () => {
     });
 
     resetProjectStores();
-    useShareSession.setState({ isShareMode: false });
+    useShareSession.setState({ isDeploymentMode: false });
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
       state.sections = { [sectionId]: sectionCore };
@@ -242,7 +242,7 @@ describe("SectionHeader follow button", () => {
     );
 
     resetProjectStores();
-    useShareSession.setState({ isShareMode: false });
+    useShareSession.setState({ isDeploymentMode: false });
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
       state.sections = { [sectionId]: sectionCore };

@@ -38,12 +38,8 @@ from setta.utils.attachment_policy import (
     resolve_attachment_policy_scope,
 )
 from setta.utils.attachment_tokens import AttachmentTokenManager
-from setta.utils.constants import C
-from setta.utils.paths import (
-    ensure_within_workspace_root,
-    get_setta_paths,
-    normalize_workspace_path,
-)
+from setta.utils.constants import CWD, C
+from setta.utils.utils import normalize_path
 
 router = SettaAPIRouter()
 TArtifact = TypeVar("TArtifact")
@@ -139,7 +135,7 @@ def _get_share_session_artifacts(
 
 
 def _get_artifacts(ctx: RuntimeContextFromRequest):
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         return _get_share_session_artifacts(ctx)
     return ctx.state.artifacts
 
@@ -211,44 +207,46 @@ def _resolve_folder_path(
 ) -> Path:
     if share_mode:
         return ensure_share_deployment_path(folder_path, deployment_root)
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(folder_path, workspace_root=workspace_root)
-    try:
-        return ensure_within_workspace_root(
-            resolved, label="Folder path", workspace_root=workspace_root
-        )
-    except ValueError as exc:
+    root = CWD.resolve()
+    path = Path(folder_path)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc),
-        ) from exc
+            detail="Folder path must be within the project root.",
+        )
+    return resolved
 
 
 def _resolve_file_path(path_str: str) -> Path:
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(path_str, workspace_root=workspace_root)
-    try:
-        return ensure_within_workspace_root(
-            resolved, label="File path", workspace_root=workspace_root
-        )
-    except ValueError as exc:
+    root = CWD.resolve()
+    path = Path(path_str)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc),
-        ) from exc
+            detail="File path must be within the project root.",
+        )
+    return resolved
 
 
 def _resolve_file_path_for_download(path_str: str) -> Path | None:
     trimmed = path_str.strip()
     if not trimmed:
         return None
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(trimmed, workspace_root=workspace_root)
-    try:
-        resolved = ensure_within_workspace_root(
-            resolved, label="File path", workspace_root=workspace_root
-        )
-    except ValueError:
+    root = CWD.resolve()
+    path = Path(trimmed)
+    if path.is_absolute():
+        resolved = path.resolve()
+    else:
+        resolved = (root / path).resolve()
+    if not resolved.is_relative_to(root):
         return None
     if not resolved.exists() or resolved.is_dir():
         return None
@@ -258,7 +256,7 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
-    return str(normalize_workspace_path(path))
+    return str(normalize_path(path))
 
 
 def _should_ignore(name: str, ignore_patterns: list[str]) -> bool:
@@ -287,37 +285,23 @@ def _build_file_browser_download_url(token: str) -> str:
 def route_check_if_file_exists(
     x: CheckIfFileExistsRequests, ctx: RuntimeContextFromRequest
 ) -> bool:
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         target_path = ensure_share_deployment_path(x.filepath, ctx.deployment_root)
         return target_path.exists()
-    raw_path = x.filepath.strip()
-    if not raw_path:
-        return False
-    workspace_root = get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(raw_path, workspace_root=workspace_root)
-    try:
-        resolved = ensure_within_workspace_root(
-            resolved, label="File path", workspace_root=workspace_root
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(exc),
-        ) from exc
-    return resolved.exists()
+    return os.path.exists(x.filepath)
 
 
 @router.post(Route.GET_FILE_BROWSER_ROOT)
 def route_get_file_browser_root(
     ctx: RuntimeContextFromRequest,
 ) -> GetFileBrowserRootResponse:
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
+            detail="File browsing is disabled in deployment mode.",
         )
     return GetFileBrowserRootResponse(
-        rootPath=str(get_setta_paths().workspace_root),
+        rootPath=str(CWD.resolve()),
         pathSeparator=os.sep,
         ignorePatterns=list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS),
     )
@@ -328,14 +312,14 @@ def route_get_folder_contents(
     x: GetFolderContentsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[FolderContentItem]:
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
+            detail="File browsing is disabled in deployment mode.",
         )
     path = _resolve_folder_path(
         x.folderPath,
-        share_mode=ctx.share_mode,
+        share_mode=ctx.deployment_mode,
         deployment_root=ctx.deployment_root,
     )
 
@@ -380,7 +364,7 @@ def route_get_folder_contents(
         entry: FolderContentItem = {
             "name": item.name,
             "type": "folder" if is_dir else "file",
-            "fullPath": _format_browser_path(item, share_mode=ctx.share_mode),
+            "fullPath": _format_browser_path(item, share_mode=ctx.deployment_mode),
         }
         if stat_result is not None:
             if include_mtime:
@@ -406,10 +390,10 @@ def route_get_file_browser_download_urls(
     x: GetFileBrowserDownloadUrlsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[FileBrowserDownloadUrlEntry]:
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
+            detail="File browsing is disabled in deployment mode.",
         )
     if not x.paths:
         return []
@@ -421,7 +405,7 @@ def route_get_file_browser_download_urls(
         resolved = _resolve_file_path_for_download(raw_path)
         if resolved is None:
             continue
-        normalized = _format_browser_path(resolved, share_mode=ctx.share_mode)
+        normalized = _format_browser_path(resolved, share_mode=ctx.deployment_mode)
         token = _FILE_BROWSER_TOKEN_MANAGER.mint(
             artifact_id=normalized,
             secret=secret,
@@ -442,10 +426,10 @@ def route_file_browser_download(
     token: str,
     ctx: RuntimeContextFromRequest,
 ):
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
+            detail="File browsing is disabled in deployment mode.",
         )
     secret = _require_session_secret()
     try:
@@ -476,10 +460,10 @@ async def route_import_files_to_artifacts(
     x: ImportFilesToArtifactsRequest,
     ctx: RuntimeContextFromRequest,
 ) -> list[ImportFilesToArtifactsResponseItem]:
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in share mode.",
+            detail="File browsing is disabled in deployment mode.",
         )
     if not x.paths:
         return []
@@ -557,7 +541,7 @@ def route_load_cached_image_artifacts(
     ctx: RuntimeContextFromRequest,
 ) -> list[ImageArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         return [
             _load_share_cached_image(artifacts, i, ctx.deployment_root) for i in x.paths
         ]
@@ -570,7 +554,7 @@ def route_load_cached_chart_data(
     ctx: RuntimeContextFromRequest,
 ) -> list[ChartDataArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         return [
             _load_share_cached_chart_data(artifacts, i, ctx.deployment_root)
             for i in x.paths
@@ -584,7 +568,7 @@ def route_load_cached_brush_strokes(
     ctx: RuntimeContextFromRequest,
 ) -> list[BrushStrokeArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         return [
             _load_share_cached_brush_stroke(artifacts, i, ctx.deployment_root)
             for i in x.paths
@@ -598,7 +582,7 @@ def route_load_cached_draw_area_layer_item_transform(
     ctx: RuntimeContextFromRequest,
 ) -> list[DrawAreaLayerItemTransformArtifact | None]:
     artifacts = _get_artifacts(ctx)
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         return [
             _load_share_cached_transform(artifacts, i, ctx.deployment_root)
             for i in x.paths
@@ -625,7 +609,7 @@ async def route_update_artifacts(
                 label=artifact.id,
                 policy=policy,
             )
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         session_id = ctx.session_id
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
@@ -682,7 +666,7 @@ async def route_delete_artifacts(
                 ),
             )
     artifact_ids = [artifact.id for artifact in x.artifacts]
-    if ctx.share_mode:
+    if ctx.deployment_mode:
         await ctx.enforce_policy(
             policy_flag="allowParamChanges",
             denied_message="Share policy disallows parameter changes.",
@@ -695,7 +679,7 @@ async def route_delete_artifacts(
         artifacts_root = (ctx.deployment_root / "artifacts").resolve()
         artifacts = ctx.state.share_runtime_state.get_session_artifacts(ctx.session_id)
     else:
-        artifacts_root = C.ARTIFACTS_FOLDER.resolve()
+        artifacts_root = (CWD / C.ARTIFACTS_FOLDER).resolve()
         artifacts = _get_artifacts(ctx)
     try:
         deleted_ids = artifacts.delete_file_artifacts(

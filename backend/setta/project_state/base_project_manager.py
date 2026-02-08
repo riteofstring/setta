@@ -27,6 +27,21 @@ from setta.agentic.chat_view import (
     SCRIPTABLE_CHAT_RUN_TYPE,
 )
 from setta.agentic.store import list_agent_run_ids_by_metadata
+from setta.app.definition_diagnostics import (
+    build_app_capabilities,
+    validate_app_definition_payload,
+    validate_app_theme_or_raise,
+)
+from setta.app.spec_store import (
+    default_app_spec_path,
+    normalize_app_spec_path,
+    read_app_spec,
+    write_app_spec,
+)
+from setta.app.spec_validation import (
+    validate_app_action_definitions,
+    validate_app_spec,
+)
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
     RenameReferenceChangedValue,
@@ -86,6 +101,7 @@ from setta.project_state.project_code import (
 from setta.project_state.project_manager_types import (
     AcceptRenameRefactorRequest,
     AddKwargRequest,
+    AppDefinitionResponse,
     AppendDrawAreaLayerItemRequest,
     AutoLayoutTopLevelSectionsRequest,
     ChangeParamImplRequest,
@@ -112,6 +128,7 @@ from setta.project_state.project_manager_types import (
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    GetAppDefinitionRequest,
     GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
@@ -133,6 +150,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetActiveViewModeRequest,
     SetAgenticEdgesRequest,
+    SetAppDefinitionRequest,
     SetBrowserAreaViewModeRequest,
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
@@ -205,8 +223,11 @@ from setta.project_state.project_manager_types import (
     UnindentParamsRequest,
     UnselectAllParamsRequest,
     UpdateAgenticEdgeRequest,
+    UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    ValidateAppDefinitionRequest,
+    ValidateAppDefinitionResponse,
 )
 from setta.project_state.watch_code import (
     WatchCodeManager,
@@ -215,6 +236,8 @@ from setta.project_state.watch_code import (
     normalize_watch_code_folders,
 )
 from setta.types.agentic_edges import AgenticEdge
+from setta.types.app_definition import AppDefinition
+from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
@@ -388,7 +411,7 @@ from setta.utils.name_validation import (
     validate_project_name,
     validate_view_mode_name,
 )
-from setta.utils.paths import get_setta_paths, normalize_workspace_path
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -475,6 +498,23 @@ def _apply_run_overrides(
             )
 
 
+def _apply_json_merge_patch(
+    base: JSONValue | None,
+    patch: JSONValue,
+) -> JSONValue:
+    if not isinstance(patch, dict):
+        return patch
+    base_obj: dict[str, JSONValue] = {}
+    if isinstance(base, dict):
+        base_obj = dict(base)
+    for key, value in patch.items():
+        if value is None:
+            base_obj.pop(key, None)
+            continue
+        base_obj[key] = _apply_json_merge_patch(base_obj.get(key), value)
+    return base_obj
+
+
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -542,7 +582,6 @@ class BaseProjectManager(ABC):
             str, tuple[str, list[RenameReferenceChangedValue]]
         ] = {}
         self._bootstrap_watch_code_baselines()
-        self.watch_code_manager.start()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         self.watch_json_source_files()
         self.watch_artifact_files()
@@ -621,21 +660,16 @@ class BaseProjectManager(ABC):
     ) -> _T:
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
-        self._raise_queue_task_issue_if_any()
 
-        if logger.isEnabledFor(logging.DEBUG):
-            queue_exception: BaseException | None = None
-            if self.queue_task.done() and not self.queue_task.cancelled():
-                queue_exception = self.queue_task.exception()
-            logger.debug(
-                "Queue task status: cancelled=%s, done=%s, exception=%s",
-                self.queue_task.cancelled(),
-                self.queue_task.done(),
-                queue_exception,
-            )
+        logger.debug(
+            "Queue task status: cancelled=%s, done=%s, exception=%s",
+            self.queue_task.cancelled(),
+            self.queue_task.done(),
+            self.queue_task.exception() if self.queue_task.done() else None,
+        )
 
         # Create a future to hold the result
-        future: asyncio.Future[_T] = asyncio.get_running_loop().create_future()
+        future: asyncio.Future[_T] = asyncio.Future()
         logger.debug("Created future %s", id(future))
 
         # Put the message in the queue
@@ -757,11 +791,7 @@ class BaseProjectManager(ABC):
             self._finalize_frontend_op(frontend_op_id, success=True)
         finally:
             if token is not None:
-                try:
-                    self._current_frontend_op_id.reset(token)
-                except ValueError:
-                    # See setta.logging.context.reset_logging_context for rationale.
-                    self._current_frontend_op_id.set(None)
+                self._current_frontend_op_id.reset(token)
 
     def _mark_current_frontend_op_completed_before_broadcast(self):
         # Mid-handler hook so the broadcast payload includes the already-completed op id
@@ -796,6 +826,10 @@ class BaseProjectManager(ABC):
         for project_config_id in self.project_state_backend.projectConfigs.keys():
             self._flush_code_files(project_config_id)
 
+    def flush_code_files_for_all_configs(self) -> None:
+        """Write any in-memory code buffers to disk for all configs."""
+        self._flush_code_files_for_all_configs()
+
     @enqueue_method
     async def create_run_command(
         self,
@@ -805,6 +839,7 @@ class BaseProjectManager(ABC):
         section_id = x.sectionId
         run_snapshot_mode = x.runSnapshotMode
         draw_snapshots_by_section_id = x.drawSnapshotsBySectionId
+        has_overrides = bool(x.sectionVariantOverrides) or bool(x.paramOverrides)
         lock = (
             self._project_state_lock.write_lock()
             if draw_snapshots_by_section_id
@@ -835,10 +870,89 @@ class BaseProjectManager(ABC):
                     )
                     if self.settings_file.settings.backend.autosave:
                         self.autosave_debouncer.trigger()
-            gen_code, code_entries = self._flush_code_files(project_config_id)
             resolved_run_snapshot_mode = (
                 run_snapshot_mode or self.settings_file.settings.backend.runSnapshotMode
             )
+            if has_overrides and resolved_run_snapshot_mode == RunSnapshotMode.never:
+                # Overrides must be applied to an isolated snapshot.
+                resolved_run_snapshot_mode = RunSnapshotMode.ephemeral
+
+            if has_overrides:
+                base_state = convert_backend_to_single_config(
+                    self.project_state_backend, project_config_id
+                )
+                run_state = base_state.model_copy(deep=True)
+                try:
+                    _apply_run_overrides(
+                        run_state,
+                        section_variant_overrides=x.sectionVariantOverrides,
+                        param_overrides=x.paramOverrides,
+                    )
+                except (KeyError, ValueError) as exc:
+                    detail = exc.args[0] if exc.args else str(exc)
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=str(detail),
+                    ) from exc
+
+                entry_section_id = (
+                    section_id or run_state.projectConfig.entryCodeBlockId
+                )
+                if entry_section_id:
+                    section_impl = get_curr_effective_section_impl(
+                        run_state, entry_section_id
+                    )
+                    if isinstance(
+                        section_impl,
+                        (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
+                    ):
+                        entry_section_id = None
+                    elif isinstance(section_impl, CodeSectionImpl):
+                        if section_impl.codeLanguage not in RUNNABLE_CODE_LANGUAGES:
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="Run is only available for Python and Bash.",
+                            )
+
+                section_inputs = _build_code_section_inputs(run_state)
+                if not python_codegen_enabled:
+                    if entry_section_id is None:
+                        raise KeyError(
+                            "Python codegen is disabled; select a code section to run."
+                        )
+                    if entry_section_id not in section_inputs:
+                        raise KeyError(
+                            f"Missing code section for run: {entry_section_id}"
+                        )
+                    return create_snapshot_run_command_from_code_sections_only(
+                        dbe=self.dbe,
+                        snapshot_root=self._resolve_run_snapshot_root(
+                            resolved_run_snapshot_mode
+                        ),
+                        entry_section_id=entry_section_id,
+                        section_inputs=section_inputs,
+                    )
+
+                dep_graph = DependencyGraph(run_state)
+                code_generator = build_python_code_generator(run_state, dep_graph)
+                code_generator.generate_code()
+                gen_binding = run_state.genCodeBinding
+                if gen_binding is None:
+                    raise ValueError("Project state missing generated code binding")
+                return create_snapshot_run_command_from_sections(
+                    dbe=self.dbe,
+                    snapshot_root=self._resolve_run_snapshot_root(
+                        resolved_run_snapshot_mode
+                    ),
+                    entry_section_id=entry_section_id,
+                    gen_code=code_generator.code,
+                    gen_meta_code=code_generator.meta_code,
+                    gen_binding=gen_binding,
+                    section_inputs=section_inputs,
+                    gen_command_builder=build_python_module_run_command,
+                )
+
+            gen_code, code_entries = self._flush_code_files(project_config_id)
             if not section_id:
                 section_id = project_config.entryCodeBlockId
             if section_id:
@@ -1309,8 +1423,10 @@ class BaseProjectManager(ABC):
                 allow_reserved_project_name=allow_reserved_project_name,
                 validate_name_rules=validate_name_rules,
             )
-            if self.lsp_writers.full is not None:
-                await self._refresh_codegen_state(projectState)
+            # Codegen state is required even when the LSP is disabled (e.g. in tests
+            # or headless/server contexts). _refresh_codegen_state already handles
+            # the no-LSP case by skipping sync and resetting diagnostics.
+            await self._refresh_codegen_state(projectState)
             self._merge_project_state_backend(
                 projectState,
                 updateFileWatcher=updateFileWatcher,
@@ -1611,6 +1727,129 @@ class BaseProjectManager(ABC):
             validate_name_rules=False,
         )
 
+    @enqueue_method(require_serialization=False)
+    @project_state_tool()
+    async def get_app_definition(
+        self, _x: GetAppDefinitionRequest
+    ) -> AppDefinitionResponse:
+        """Fetch the stored app UI spec and definition."""
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition
+        app_spec = None
+        if app_definition and app_definition.appSpecPath:
+            app_spec = read_app_spec(self.dbe, app_definition.appSpecPath)
+        return AppDefinitionResponse(appSpec=app_spec, appDefinition=app_definition)
+
+    @enqueue_method(require_serialization=False)
+    @project_state_tool()
+    async def validate_app_definition(
+        self, x: ValidateAppDefinitionRequest
+    ) -> ValidateAppDefinitionResponse:
+        """Validate an app spec + definition overrides without persisting them."""
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        updates: dict[str, JSONValue | str | None] = {}
+        if x.appSpecVersion is not None:
+            updates["appSpecVersion"] = x.appSpecVersion
+        if x.catalogId is not None:
+            updates["catalogId"] = x.catalogId
+        if x.routes is not None:
+            updates["routes"] = x.routes
+        if x.dataBindings is not None:
+            updates["dataBindings"] = x.dataBindings
+        if x.actions is not None:
+            updates["actions"] = x.actions
+        if x.theme is not None:
+            updates["theme"] = x.theme
+        if x.assets is not None:
+            updates["assets"] = x.assets
+
+        updated_definition = app_definition.model_copy(update=updates)
+        errors, warnings = validate_app_definition_payload(
+            x.appSpec, definition=updated_definition
+        )
+        capabilities = build_app_capabilities(updated_definition)
+        return ValidateAppDefinitionResponse(
+            errors=errors,
+            warnings=warnings,
+            capabilities=capabilities,
+        )
+
+    @enqueue_method
+    @project_state_tool()
+    async def set_app_definition(
+        self, x: SetAppDefinitionRequest
+    ) -> AppDefinitionResponse:
+        """Replace the stored app UI spec and update app definition metadata."""
+        self.add_new_history_entry()
+        project_state = self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        target_path = (
+            x.appSpecPath or app_definition.appSpecPath or default_app_spec_path()
+        )
+        normalized_path = normalize_app_spec_path(self.dbe, target_path)
+        updates: dict[str, JSONValue | str | None] = {"appSpecPath": normalized_path}
+        if x.appSpecVersion is not None:
+            updates["appSpecVersion"] = x.appSpecVersion
+        if x.catalogId is not None:
+            updates["catalogId"] = x.catalogId
+        if x.routes is not None:
+            updates["routes"] = x.routes
+        if x.dataBindings is not None:
+            updates["dataBindings"] = x.dataBindings
+        if x.actions is not None:
+            updates["actions"] = x.actions
+        if x.theme is not None:
+            updates["theme"] = x.theme
+        if x.assets is not None:
+            updates["assets"] = x.assets
+        updated_definition = app_definition.model_copy(update=updates)
+        validate_app_theme_or_raise(updated_definition.theme)
+        validate_app_action_definitions(updated_definition.actions)
+        validate_app_spec(
+            x.appSpec,
+            catalog_id=updated_definition.catalogId,
+            action_definitions=updated_definition.actions,
+            data_bindings=updated_definition.dataBindings,
+        )
+        self.project_state_backend = self.project_state_backend.model_copy(
+            update={"appDefinition": updated_definition}
+        )
+        write_app_spec(self.dbe, normalized_path, x.appSpec)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return AppDefinitionResponse(
+            appSpec=x.appSpec,
+            appDefinition=updated_definition,
+        )
+
+    @enqueue_method
+    @project_state_tool()
+    async def update_app_definition(
+        self, x: UpdateAppDefinitionRequest
+    ) -> AppDefinitionResponse:
+        """Apply a JSON merge patch to the stored app UI spec."""
+        self.add_new_history_entry()
+        self._get_default_project_state()
+        app_definition = self.project_state_backend.appDefinition
+        if app_definition is None or not app_definition.appSpecPath:
+            raise KeyError("App spec path is not configured for this project.")
+        existing = read_app_spec(self.dbe, app_definition.appSpecPath)
+        if existing is None:
+            raise KeyError("App spec not found for this project.")
+        merged = _apply_json_merge_patch(existing, x.patch)
+        validate_app_action_definitions(app_definition.actions)
+        validate_app_spec(
+            merged,
+            catalog_id=app_definition.catalogId,
+            action_definitions=app_definition.actions,
+            data_bindings=app_definition.dataBindings,
+        )
+        write_app_spec(self.dbe, app_definition.appSpecPath, merged)
+        return AppDefinitionResponse(
+            appSpec=merged,
+            appDefinition=app_definition,
+        )
+
     @enqueue_method
     @project_state_tool()
     async def set_show_param_display_names(self, x: SetShowParamDisplayNamesRequest):
@@ -1660,7 +1899,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if project_config_id not in self.project_state_backend.projectConfigs:
             return
-        normalized_path = normalize_workspace_path(path)
+        normalized_path = normalize_path(path)
         project_state = self.get_single_config_state(project_config_id)
         project_config = project_state.projectConfig
         if not baseline_only and not project_config.watchCodeEnabled:
@@ -1688,7 +1927,7 @@ class BaseProjectManager(ABC):
     ) -> None:
         if project_config_id not in self.project_state_backend.projectConfigs:
             return
-        normalized_path = normalize_workspace_path(path)
+        normalized_path = normalize_path(path)
         project_state = self.get_single_config_state(project_config_id)
         project_config = project_state.projectConfig
         if not project_config.watchCodeEnabled:
@@ -1995,7 +2234,7 @@ class BaseProjectManager(ABC):
     async def set_code_file_binding(self, x: SetCodeFileBindingRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        canonical_path = normalize_workspace_path(x.binding.canonical_path)
+        canonical_path = normalize_path(x.binding.canonical_path)
         updated_binding = CodeFileBinding(
             canonical_path=canonical_path,
             access_mode=x.binding.access_mode,
@@ -2840,7 +3079,7 @@ class BaseProjectManager(ABC):
                 detail="JSON source key edits are disabled for this project.",
             )
         variant = project_state.sectionVariants[x.variantId]
-        filename = normalize_workspace_path(variant.name)
+        filename = normalize_path(variant.name)
         processed = None
         if filename.exists():
             processed_updates = self.json_source.process_json_source_files([filename])
@@ -2899,14 +3138,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = False
         try:
-            target_path = normalize_workspace_path(x.filepath)
-            workspace_root = get_setta_paths().workspace_root
-            if not target_path.is_relative_to(workspace_root):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="File path must be within the project root.",
-                )
-            target_path.unlink()
+            Path(x.filepath).unlink()
             success = True
         except FileNotFoundError:
             await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
@@ -3562,6 +3794,12 @@ class BaseProjectManager(ABC):
             defaultId = self.project_state_backend.defaultProjectConfigId
             return self.project_state_backend.projectConfigs[defaultId].name
         return None
+
+    def _get_default_project_state(self) -> ProjectStateSingleConfig:
+        default_id = self.project_state_backend.defaultProjectConfigId
+        if default_id is None:
+            raise KeyError("Missing default project config.")
+        return self.get_single_config_state(default_id)
 
     def get_single_config_state(self, projectConfigId: ID):
         return convert_backend_to_single_config(

@@ -39,6 +39,7 @@ async def test_agentic_edge_routes_crud() -> None:
 
             state = SimpleNamespace(
                 share_mode=False,
+                deployment_mode=False,
                 wmh_frontend_sender=project_fixture.manager.websocket_msg_handler,
                 project_manager_switcher=ProjectManagerSwitcher(
                     main_manager=project_fixture.manager,

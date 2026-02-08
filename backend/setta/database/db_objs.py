@@ -8,6 +8,7 @@ import toml
 import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
+from pydantic import ValidationError
 
 from setta.types.id import (
     ID,
@@ -16,9 +17,8 @@ from setta.types.id import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.share_deployment import ShareDeploymentManifest
-from setta.utils.paths import normalize_state_path, normalize_workspace_path
-from setta.utils.utils import compute_md5_prefix
+from setta.types.share_deployment import DeploymentManifest
+from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
 class DBE:
@@ -29,16 +29,12 @@ class DBE:
         runtime_root: Path | None = None,
         lock_root: Path | None = None,
     ):
-        self.path = normalize_state_path(path)
+        self.path = normalize_path(path)
         self.runtime_root = (
-            normalize_state_path(runtime_root)
-            if runtime_root is not None
-            else self.path
+            normalize_path(runtime_root) if runtime_root is not None else self.path
         )
         self.lock_root = (
-            normalize_state_path(lock_root)
-            if lock_root is not None
-            else self.runtime_root
+            normalize_path(lock_root) if lock_root is not None else self.runtime_root
         )
         self.project = self.path / "project.json"
         self.temporary_id_map = self.runtime_root / "temporary_id_map.json"
@@ -54,8 +50,8 @@ class DBE:
         self.agent_run_index = self.path / "agent_run_index.json"
         self.prompts = self.path / "prompts"
         self.prompts_example = self.path / "prompts.example.json"
-        self.share_manifest = self.path / "manifest.json"
-        self.dot_env = normalize_workspace_path(".env")
+        self.deployment_manifest = self.path / "manifest.json"
+        self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
             self.runtime_root.mkdir(parents=True, exist_ok=True)
@@ -176,25 +172,28 @@ class DBE:
             raise ValueError(f"Project file is empty: {self.project}")
         return ProjectStateBackend.model_validate(payload)
 
-    def read_share_manifest(self) -> ShareDeploymentManifest:
-        if not self.share_manifest.exists():
+    def read_deployment_manifest(self) -> DeploymentManifest:
+        if not self.deployment_manifest.exists():
             raise FileNotFoundError(
-                f"Share deployment manifest not found: {self.share_manifest}"
+                f"Deployment manifest not found: {self.deployment_manifest}"
             )
-        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
+        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
         if not payload:
             raise ValueError(
-                f"Share deployment manifest is empty: {self.share_manifest}"
+                f"Deployment manifest is empty: {self.deployment_manifest}"
             )
-        return ShareDeploymentManifest.model_validate(payload)
+        return DeploymentManifest.model_validate(payload)
 
-    def read_share_manifest_optional(self) -> ShareDeploymentManifest | None:
-        if not self.share_manifest.exists():
+    def read_deployment_manifest_optional(self) -> DeploymentManifest | None:
+        if not self.deployment_manifest.exists():
             return None
-        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
+        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
         if not payload:
             return None
-        return ShareDeploymentManifest.model_validate(payload)
+        try:
+            return DeploymentManifest.model_validate(payload)
+        except ValidationError:
+            return None
 
     def read_temporary_id_map(self):
         raw_map = self.read_json(self.temporary_id_map)

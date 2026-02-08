@@ -12,152 +12,21 @@ import {
 } from "utils/tabbingLogic";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
-import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import {
   scrollSensitivityUpdater,
   terminalCleanup,
   terminalTheme,
+  useFitAddon,
 } from "./utils";
 
-type TerminalSessionKey = string;
-
-type TerminalSession = {
-  key: TerminalSessionKey;
-  projectConfigId: string;
-  sectionId: string;
-  shareSessionId: string | null;
-  isShareMode: boolean;
-  terminal: Terminal;
-  fitAddon: FitAddon;
-  ws: WebSocket;
-  wsId: string;
-  refCount: number;
-  disposeTimer: number | null;
-};
-
-const TERMINAL_SESSIONS: Record<TerminalSessionKey, TerminalSession> = {};
-const INITIAL_MESSAGES: Record<TerminalSessionKey, string[]> = {}; // sessionKey -> pending messages
-
-const TERMINAL_SESSION_DISPOSE_DELAY_MS = 750;
-
-function buildTerminalSessionKey({
-  projectConfigId,
-  sectionId,
-  isShareMode,
-  shareSessionId,
-}: {
-  projectConfigId: string;
-  sectionId: string;
-  isShareMode: boolean;
-  shareSessionId: string | null;
-}): TerminalSessionKey {
-  const shareKey = isShareMode ? `share:${shareSessionId ?? ""}` : "local";
-  return `${projectConfigId}::${sectionId}::${shareKey}`;
-}
-
-function attachExistingTerminalElementToContainer(
-  terminal: Terminal,
-  container: HTMLElement,
-) {
-  const element = terminal.element;
-  if (!element) {
-    return false;
-  }
-  if (container.contains(element)) {
-    return true;
-  }
-  container.textContent = "";
-  container.appendChild(element);
-  return true;
-}
-
-function ensureTerminalSession({
-  projectConfigId,
-  sectionId,
-  isShareMode,
-  shareSessionId,
-}: {
-  projectConfigId: string;
-  sectionId: string;
-  isShareMode: boolean;
-  shareSessionId: string | null;
-}): TerminalSession {
-  const key = buildTerminalSessionKey({
-    projectConfigId,
-    sectionId,
-    isShareMode,
-    shareSessionId,
-  });
-  const existing = TERMINAL_SESSIONS[key];
-  if (existing) {
-    if (existing.disposeTimer !== null) {
-      window.clearTimeout(existing.disposeTimer);
-      existing.disposeTimer = null;
-    }
-    existing.refCount += 1;
-    return existing;
-  }
-
-  const terminal = new Terminal({
-    cursorBlink: true,
-    theme: terminalTheme,
-    disableStdin: isShareMode,
-  });
-  const fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-
-  const { ws, wsId } = createTerminalWebsocket({
-    sessionKey: key,
-    projectConfigId,
-    sectionId,
-    shareSessionId,
-    isShareMode,
-    terminal,
-  });
-
-  const session: TerminalSession = {
-    key,
-    projectConfigId,
-    sectionId,
-    shareSessionId,
-    isShareMode,
-    terminal,
-    fitAddon,
-    ws,
-    wsId,
-    refCount: 1,
-    disposeTimer: null,
-  };
-  TERMINAL_SESSIONS[key] = session;
-  return session;
-}
-
-function releaseTerminalSession(key: TerminalSessionKey) {
-  const session = TERMINAL_SESSIONS[key];
-  if (!session) {
-    return;
-  }
-  session.refCount = Math.max(0, session.refCount - 1);
-  if (session.refCount > 0) {
-    return;
-  }
-  if (session.disposeTimer !== null) {
-    window.clearTimeout(session.disposeTimer);
-  }
-  session.disposeTimer = window.setTimeout(() => {
-    const latest = TERMINAL_SESSIONS[key];
-    if (!latest) {
-      return;
-    }
-    if (latest.refCount > 0) {
-      return;
-    }
-    delete TERMINAL_SESSIONS[key];
-    delete INITIAL_MESSAGES[key];
-    terminalCleanup(latest.ws, latest.terminal);
-  }, TERMINAL_SESSION_DISPOSE_DELAY_MS);
-}
+// Maps from sectionId to a list of websocket connections.
+// There should only be 1 websocket for a given section.
+// But in case of double renders (basically just StrictMode),
+// this keeps a list of websockets, so we can add the new websocket
+// while the old one gets deleted.
+const TERMINAL_WEBSOCKETS = {};
+const INITIAL_MESSAGES = {}; // maps from sectionId to a list of messages
 
 export function useTerminal({
   sectionId,
@@ -171,42 +40,27 @@ export function useTerminal({
   setHasScrollbar: (value: boolean) => void;
 }) {
   const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
-  const sessionKeyRef = useRef<TerminalSessionKey | null>(null);
-  const sessionRef = useRef<TerminalSession | null>(null);
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const terminalReadyRef = useRef(false);
+  const fitAddon = useFitAddon();
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useEffect(() => {
-    sessionRef.current = null;
-    if (isShareMode && !shareSessionId) {
+    terminalReadyRef.current = false;
+    if (isDeploymentMode && !shareSessionId) {
       clearPendingSectionTextFocus(sectionId);
       return;
     }
-    const projectConfigId = getCurrProjectConfigId();
-    const session = ensureTerminalSession({
-      projectConfigId,
-      sectionId,
-      isShareMode,
-      shareSessionId,
-    });
-    sessionKeyRef.current = session.key;
-    sessionRef.current = session;
-
-    const container = terminalRef.current;
-    if (container) {
-      const attached = attachExistingTerminalElementToContainer(
-        session.terminal,
-        container,
-      );
-      if (!attached) {
-        session.terminal.open(container);
-      }
-      // `open()` does not guarantee the terminal is sized correctly; fit after
-      // a layout tick so detached/attached transitions don't jitter.
-      requestAnimationFrame(() => {
-        session.fitAddon.fit();
-      });
-    }
+    const terminal = new Terminal({
+      cursorBlink: true,
+      theme: terminalTheme,
+      disableStdin: isDeploymentMode,
+      // fontFamily: fontFamily,
+      // letterSpacing: "0",
+      // fontSize: "14",
+    }); // Instantiate the terminal
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalRef.current); // Attach the terminal to the div
 
     const focusTerminalInput = (attempt = 0) => {
       if (!isPendingSectionTextFocus(sectionId)) {
@@ -217,9 +71,10 @@ export function useTerminal({
       );
       if (focusTarget instanceof HTMLElement) {
         focusTarget.focus({ preventScroll: true });
-        session.terminal.focus();
+        terminal.focus();
         const active = document.activeElement;
         if (
+          terminalReadyRef.current &&
           terminalRef.current &&
           active instanceof HTMLElement &&
           terminalRef.current.contains(active)
@@ -228,7 +83,7 @@ export function useTerminal({
           return;
         }
       }
-      session.terminal.focus();
+      terminal.focus();
       if (attempt < 240) {
         requestAnimationFrame(() => focusTerminalInput(attempt + 1));
       } else {
@@ -236,12 +91,13 @@ export function useTerminal({
       }
     };
 
-    if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+    if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
       requestAnimationFrame(() => focusTerminalInput());
     }
 
-    const ws = session.ws;
-    const resizeDisposable = session.terminal.onResize((size) => {
+    const { ws } = newTerminalWebsocket(sectionId, shareSessionId);
+
+    terminal.onResize((size) => {
       // Send the new size to the backend
       const message = JSON.stringify({
         messageType: C.WS_TERMINAL_RESIZE,
@@ -251,13 +107,18 @@ export function useTerminal({
       if (ws.readyState === 1) {
         ws.send(message);
       } else {
-        addTerminalInitialMessage(session.key, message);
+        addTerminalInitialMessage(sectionId, message);
       }
     });
 
-    function onInitialMessage(message: MessageEvent) {
+    function onInitialMessage(message) {
       if (message.data === C.SETTA_TERMINAL_READY) {
-        if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+        terminalReadyRef.current = true;
+        const attachAddon = new AttachAddon(ws, {
+          bidirectional: !isDeploymentMode,
+        });
+        terminal.loadAddon(attachAddon);
+        if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
           requestAnimationFrame(() => focusTerminalInput());
         }
         ws.removeEventListener("message", onInitialMessage);
@@ -266,43 +127,27 @@ export function useTerminal({
 
     ws.addEventListener("message", onInitialMessage);
 
-    const unsub = scrollSensitivityUpdater(session.terminal, setHasScrollbar);
+    const unsub = scrollSensitivityUpdater(terminal, setHasScrollbar);
 
     return () => {
       clearPendingSectionTextFocus(sectionId);
-      ws.removeEventListener("message", onInitialMessage);
-      resizeDisposable.dispose();
+      terminalCleanup(ws, terminal);
       unsub();
-      const key = sessionKeyRef.current;
-      sessionKeyRef.current = null;
-      if (key) {
-        releaseTerminalSession(key);
-      }
     };
-  }, [sectionId, isShareMode, shareSessionId, setHasScrollbar]);
+  }, [isDeploymentMode, shareSessionId]);
 
   useEffect(() => {
-    sessionRef.current?.fitAddon.fit();
+    fitAddon.fit();
   }, [width, height]);
 
   return terminalRef;
 }
 
-function createTerminalWebsocket({
-  sessionKey,
-  projectConfigId,
-  sectionId,
-  shareSessionId,
-  isShareMode,
-  terminal,
-}: {
-  sessionKey: TerminalSessionKey;
-  projectConfigId: string;
-  sectionId: string;
-  shareSessionId: string | null;
-  isShareMode: boolean;
-  terminal: Terminal;
-}) {
+function newTerminalWebsocket(
+  sectionId: string,
+  shareSessionId: string | null,
+) {
+  const projectConfigId = getCurrProjectConfigId();
   const id = createNewId();
   const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
     RouteEnum.TERMINAL,
@@ -313,10 +158,10 @@ function createTerminalWebsocket({
     : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
-    if (INITIAL_MESSAGES[sessionKey]?.length > 0) {
+    if (INITIAL_MESSAGES[sectionId]?.length > 0) {
       const sentMessageIdx = [];
       for (const [idx, initialMessage] of INITIAL_MESSAGES[
-        sessionKey
+        sectionId
       ].entries()) {
         // hack to get backend to receive distinct messages rather than 1 grouped message
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -325,22 +170,28 @@ function createTerminalWebsocket({
           sentMessageIdx.push(idx);
         }
       }
-      INITIAL_MESSAGES[sessionKey] = INITIAL_MESSAGES[sessionKey].filter(
+      INITIAL_MESSAGES[sectionId] = INITIAL_MESSAGES[sectionId].filter(
         (x, idx) => !sentMessageIdx.includes(idx),
       );
     }
   });
 
-  function onInitialMessage(message: MessageEvent) {
-    if (message.data === C.SETTA_TERMINAL_READY) {
-      const attachAddon = new AttachAddon(ws, {
-        bidirectional: !isShareMode,
-      });
-      terminal.loadAddon(attachAddon);
-      ws.removeEventListener("message", onInitialMessage);
+  function cleanupTerminalWebsockets() {
+    if (sectionId in TERMINAL_WEBSOCKETS) {
+      TERMINAL_WEBSOCKETS[sectionId] = removeWsFromArray(
+        TERMINAL_WEBSOCKETS[sectionId],
+        ws,
+      );
     }
   }
-  ws.addEventListener("message", onInitialMessage);
+
+  ws.addEventListener("close", cleanupTerminalWebsockets);
+  ws.addEventListener("error", cleanupTerminalWebsockets);
+
+  if (!(sectionId in TERMINAL_WEBSOCKETS)) {
+    TERMINAL_WEBSOCKETS[sectionId] = [];
+  }
+  TERMINAL_WEBSOCKETS[sectionId].push(ws);
 
   return { ws, wsId: id };
 }
@@ -350,14 +201,15 @@ function createTerminalWebsocket({
 //     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;',
 // };
 
-function addTerminalInitialMessage(
-  sessionKey: TerminalSessionKey,
-  msg: string,
-) {
-  if (!(sessionKey in INITIAL_MESSAGES)) {
-    INITIAL_MESSAGES[sessionKey] = [];
+function addTerminalInitialMessage(sectionId, msg) {
+  if (!(sectionId in INITIAL_MESSAGES)) {
+    INITIAL_MESSAGES[sectionId] = [];
   }
-  if (!INITIAL_MESSAGES[sessionKey].includes(msg)) {
-    INITIAL_MESSAGES[sessionKey].push(msg);
+  if (!INITIAL_MESSAGES[sectionId].includes(msg)) {
+    INITIAL_MESSAGES[sectionId].push(msg);
   }
+}
+
+function removeWsFromArray(x, ws) {
+  return x.filter((w) => w !== ws);
 }

@@ -52,6 +52,17 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
 
+type DropzoneInputTheme = {
+  wrapperBaseClassName?: string;
+  dragActiveClassName?: string;
+  controlsRowClassName?: string;
+  controlButtonClassName?: string;
+  uploadingTextClassName?: string;
+  attachmentsContainerClassName?: string;
+  attachmentSizeTextClassName?: string;
+  deleteButtonClassName?: string;
+};
+
 type DropzoneInputProps = {
   sectionId?: string;
   paramInfoId?: string;
@@ -63,6 +74,7 @@ type DropzoneInputProps = {
   isDisabled?: boolean;
   mode?: DropzoneModeEnum;
   maxAttachments?: number | null;
+  theme?: DropzoneInputTheme;
 };
 
 type DropzoneStatelessDisplayAttachment =
@@ -384,6 +396,7 @@ export function DropzoneInput({
   isDisabled = false,
   mode = DropzoneModeEnum.STATEFUL,
   maxAttachments = null,
+  theme,
 }: DropzoneInputProps) {
   const [statelessAttachments, setStatelessAttachments] = useState<
     DropzoneStatelessDisplayAttachment[]
@@ -392,8 +405,8 @@ export function DropzoneInput({
   const [isDragActive, setIsDragActive] = useState(false);
   const dragDepth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { isShareMode } = useShareSession((state) => ({
-    isShareMode: state.isShareMode,
+  const { isDeploymentMode } = useShareSession((state) => ({
+    isDeploymentMode: state.isDeploymentMode,
   }));
   const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
 
@@ -469,7 +482,8 @@ export function DropzoneInput({
 
   const remainingSlots = getRemainingSlots(getCurrentCount());
   const canAttachMore = remainingSlots === null || remainingSlots > 0;
-  const canUseServerPicker = !isShareMode && mode === DropzoneModeEnum.STATEFUL;
+  const canUseServerPicker =
+    !isDeploymentMode && mode === DropzoneModeEnum.STATEFUL;
 
   async function commitStatefulValue(
     updatedValue: string,
@@ -673,7 +687,7 @@ export function DropzoneInput({
       if (successfulUploads.length === 0) {
         return;
       }
-      const artifactBaseFolder = isShareMode ? "artifacts" : undefined;
+      const artifactBaseFolder = isDeploymentMode ? "artifacts" : undefined;
       const fileIds = successfulUploads.map(({ file }) =>
         createDropzoneFileArtifactId(file.name, artifactBaseFolder),
       );
@@ -964,10 +978,34 @@ export function DropzoneInput({
     }
   }
   const disabledClassName = isDisabled ? "opacity-60" : "";
-  const dragActiveClassName = isDragActive
-    ? "border-emerald-500 bg-emerald-200/80 text-emerald-900 ring-4 ring-emerald-400/60 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] dark:border-emerald-300 dark:bg-emerald-500/30 dark:text-emerald-100 dark:ring-emerald-300/60 dark:shadow-[0_0_0_6px_rgba(16,185,129,0.25)]"
-    : "";
-  const wrapperClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500 ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`;
+  const wrapperBaseClassName =
+    theme?.wrapperBaseClassName ??
+    "flex h-full w-full flex-1 items-center justify-center gap-2 rounded-xl border-4 border-dashed border-setta-300 bg-setta-50/70 px-4 py-3 text-center text-xs font-bold uppercase tracking-widest text-setta-500/80 dark:border-setta-700 dark:bg-setta-900/50 dark:text-setta-500";
+  const wrapperDragActiveClassName =
+    theme?.dragActiveClassName ??
+    "border-emerald-500 bg-emerald-200/80 text-emerald-900 ring-4 ring-emerald-400/60 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] dark:border-emerald-300 dark:bg-emerald-500/30 dark:text-emerald-100 dark:ring-emerald-300/60 dark:shadow-[0_0_0_6px_rgba(16,185,129,0.25)]";
+  const dragActiveClassName = isDragActive ? wrapperDragActiveClassName : "";
+  const wrapperClassName =
+    `${SETTA_PREVENT_SECTION_ACTIVE_CSS} section-value ${wrapperBaseClassName} ${dragActiveClassName} ${disabledClassName} ${className ?? ""}`.trim();
+
+  const controlsRowClassName =
+    theme?.controlsRowClassName ??
+    "flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-setta-400";
+  const controlButtonClassName =
+    theme?.controlButtonClassName ??
+    "rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300";
+  const uploadingTextClassName =
+    theme?.uploadingTextClassName ??
+    "text-[10px] font-semibold uppercase tracking-widest text-setta-300";
+  const attachmentsContainerClassName =
+    theme?.attachmentsContainerClassName ??
+    "flex flex-col gap-2 rounded-lg border border-setta-200/70 bg-white/60 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400";
+  const attachmentSizeTextClassName =
+    theme?.attachmentSizeTextClassName ??
+    "text-[10px] uppercase tracking-wide text-setta-400";
+  const deleteButtonClassName =
+    theme?.deleteButtonClassName ??
+    "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:bg-setta-100 hover:text-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-200";
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
@@ -992,10 +1030,10 @@ export function DropzoneInput({
         <FiUploadCloud className="text-base" />
         <span className="break-all">{label}</span>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-setta-400">
+      <div className={controlsRowClassName}>
         <button
           type="button"
-          className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300"
+          className={controlButtonClassName}
           onClick={openLocalFilePicker}
           disabled={isDisabled || isUploading || !canAttachMore}
         >
@@ -1004,7 +1042,7 @@ export function DropzoneInput({
         {canUseServerPicker && (
           <button
             type="button"
-            className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:border-setta-400 hover:text-setta-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-800 dark:text-setta-500 dark:hover:border-setta-600 dark:hover:text-setta-300"
+            className={controlButtonClassName}
             onClick={openServerFilePicker}
             disabled={isDisabled || isUploading || !canAttachMore}
           >
@@ -1012,13 +1050,11 @@ export function DropzoneInput({
           </button>
         )}
         {isUploading && (
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-setta-300">
-            Uploading...
-          </span>
+          <span className={uploadingTextClassName}>Uploading...</span>
         )}
       </div>
       {displayAttachments.length > 0 && (
-        <div className="flex flex-col gap-2 rounded-lg border border-setta-200/70 bg-white/60 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-400">
+        <div className={attachmentsContainerClassName}>
           {displayAttachments.map((attachment) => (
             <div
               key={attachment.key}
@@ -1029,7 +1065,7 @@ export function DropzoneInput({
                   {attachment.name}
                 </span>
                 {attachment.size !== null && attachment.size !== undefined && (
-                  <span className="text-[10px] uppercase tracking-wide text-setta-400">
+                  <span className={attachmentSizeTextClassName}>
                     {formatBytes(attachment.size)}
                   </span>
                 )}
@@ -1037,7 +1073,7 @@ export function DropzoneInput({
               {mode !== DropzoneModeEnum.STATELESS && (
                 <button
                   type="button"
-                  className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-setta-400 hover:bg-setta-100 hover:text-setta-600 dark:hover:bg-setta-850 dark:hover:text-setta-200"
+                  className={deleteButtonClassName}
                   onClick={() => {
                     if (isDisabled) {
                       return;

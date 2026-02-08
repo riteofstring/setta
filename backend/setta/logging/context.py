@@ -4,6 +4,7 @@ import contextvars
 import dataclasses
 import logging
 import re
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from types import MappingProxyType
@@ -69,15 +70,8 @@ def push_logging_context(
 
 def reset_logging_context(token: LoggingContextToken) -> None:
     """Reset the logging context to a previous token."""
-    try:
-        _LOGGING_CONTEXT_VAR.reset(token)
-    except ValueError:
-        # Contextvars tokens must be reset in the same logical context they were
-        # created in. During interpreter/task teardown (notably in pytest), the
-        # generator owning this context can be finalized in a different context.
-        # In that case the original context is already gone, so best-effort clear
-        # is enough and avoiding unraisable teardown warnings is more valuable.
-        _LOGGING_CONTEXT_VAR.set(_EMPTY_SNAPSHOT)
+
+    _LOGGING_CONTEXT_VAR.reset(token)
 
 
 @contextmanager
@@ -93,7 +87,17 @@ def logging_context(
     try:
         yield
     finally:
-        reset_logging_context(token)
+        exc_type = sys.exc_info()[0]
+        try:
+            reset_logging_context(token)
+        except ValueError:
+            # If an async task is garbage-collected during interpreter/event-loop
+            # shutdown, its coroutine may be finalized in a different contextvars
+            # Context than the one that created this token. Avoid raising an
+            # unraisable exception in that case.
+            if exc_type is GeneratorExit:
+                return
+            raise
 
 
 class LoggingContextFilter(logging.Filter):
