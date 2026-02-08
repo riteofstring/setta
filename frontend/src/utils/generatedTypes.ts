@@ -398,7 +398,6 @@ export const RouteEnum = {
   LOAD_SETTINGS: "/loadSettings",
   GET_BACKEND_INIT_STATUS: "/backendInitStatus",
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
-  LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
   TERMINAL: "/{projectConfigId}/{sectionId}/{id}",
@@ -444,6 +443,7 @@ export const RouteEnum = {
   GET_LLM_CHAT: "/getLLMChat",
   GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
   GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENTIC_SUMMARY_CACHE_STATUS: "/getAgenticSummaryCacheStatus",
   GET_AGENT_PROFILES: "/getAgentProfiles",
   GET_AGENT_PROFILE: "/getAgentProfile",
   CREATE_AGENT_PROFILE: "/createAgentProfile",
@@ -3896,7 +3896,7 @@ const AgenticEdgeSchema = z.object({
   selected: z.boolean().default(false),
 });
 
-type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
+export type AgenticEdge = z.infer<typeof AgenticEdgeSchema>;
 
 export function createAgenticEdge(
   options: Partial<AgenticEdge> = {},
@@ -5525,6 +5525,8 @@ const AgentProfileSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(true),
+  enableLlmChatTitles: z.boolean().default(true),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -5994,6 +5996,20 @@ const RunChainSpecSchema = z.object({
   stopOnFailure: z.boolean().default(true),
 });
 
+const AgenticSummaryCacheStatusSchema = z.object({
+  maxSummariesPerRun: z.int(),
+  summarySectionIds: z.array(IDSchema).default([]),
+  cachedSectionIds: z.array(IDSchema).default([]),
+  missingSectionIds: z.array(IDSchema).default([]),
+  emptySourceSectionIds: z.array(IDSchema).default([]),
+  consideredSectionIds: z.array(IDSchema).default([]),
+  wouldAttemptSectionIds: z.array(IDSchema).default([]),
+});
+
+export type AgenticSummaryCacheStatus = z.infer<
+  typeof AgenticSummaryCacheStatusSchema
+>;
+
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -6444,6 +6460,8 @@ const CreateAgentProfileRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(true),
+  enableLlmChatTitles: z.boolean().default(true),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6555,6 +6573,15 @@ const GetAgentRunRequestSchema = z.object({
 });
 
 export type GetAgentRunRequestInput = z.input<typeof GetAgentRunRequestSchema>;
+
+const GetAgenticSummaryCacheStatusRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatSectionId: IDSchema,
+});
+
+export type GetAgenticSummaryCacheStatusRequestInput = z.input<
+  typeof GetAgenticSummaryCacheStatusRequestSchema
+>;
 
 const GetEngineConfigRequestSchema = z.object({
   configId: IDSchema,
@@ -6931,47 +6958,6 @@ export type DocstringToMarkdownRequestInput = z.input<
   typeof DocstringToMarkdownRequestSchema
 >;
 
-const LaunchErrorPayloadSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-});
-
-const LaunchRequestSchema = z.object({
-  workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  filesRoot: z.union([z.string(), z.null()]).default(null),
-  filesRootBase: z.union([z.string(), z.null()]).default(null),
-  sshTarget: z.union([z.string(), z.null()]).default(null),
-  sshArgs: z.union([z.string(), z.null()]).default(null),
-  remoteCmd: z.union([z.string(), z.null()]).default(null),
-  localPort: z.union([z.int(), z.null()]).default(null),
-});
-
-export type LaunchRequestInput = z.input<typeof LaunchRequestSchema>;
-
-const LaunchSessionInfoSchema = z.object({
-  id: z.string(),
-  workspacePath: z.string(),
-  workspacePathCanonical: z.string(),
-  host: z.string(),
-  port: z.int(),
-  pid: z.int(),
-  startedAt: z.string(),
-});
-
-const LaunchResponseSchema = z.object({
-  ok: z.boolean(),
-  bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
-  workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  filesRoot: z.union([z.string(), z.null()]).default(null),
-  sessionId: z.union([z.string(), z.null()]).default(null),
-  startedNew: z.union([z.boolean(), z.null()]).default(null),
-  session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
-  remoteCmdResolved: z.union([z.string(), z.null()]).default(null),
-  error: z.union([LaunchErrorPayloadSchema, z.null()]).default(null),
-});
-
-export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
-
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
@@ -6989,6 +6975,7 @@ export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
 const MCPToolCallRequestSchema = z.object({
   tool: z.string(),
   arguments: z.union([z.any(), z.null()]).default(null),
+  agenticContext: z.any().default(null),
 });
 
 export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;

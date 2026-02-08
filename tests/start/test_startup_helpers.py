@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from pathlib import PureWindowsPath
 
 import click
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from setta.start import (
     _build_ssh_tunnel_command,
     _ensure_background_process_started,
+    _format_remote_path,
     _resolve_share_deployment_root,
 )
 from setta.share.deployment_utils import parse_share_deployment_version
@@ -61,6 +63,11 @@ def test_build_ssh_tunnel_command_uses_host() -> None:
     assert "10.0.0.5:61234" in command
     ipv6_command = _build_ssh_tunnel_command("2001:db8::1", 61235)
     assert "[2001:db8::1]:61235" in ipv6_command
+
+
+def test_format_remote_path_uses_posix_separators() -> None:
+    windows_path = PureWindowsPath("setta_files\\runtime\\logs")
+    assert _format_remote_path(windows_path) == "setta_files/runtime/logs"
 
 
 def test_ensure_background_process_started_raises_on_exit() -> None:

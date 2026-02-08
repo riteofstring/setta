@@ -14,7 +14,9 @@ from setta.mcp.tool_metadata import (
     SettaToolType,
     get_ai_follow_tool_arguments,
     get_ai_follow_tool_result,
+    get_tool_access,
     get_tool_argument_preview,
+    get_tool_result_filter,
     get_tool_search_category,
     get_tool_search_tags,
 )
@@ -163,14 +165,29 @@ def _build_tool_annotations(
     ai_follow_tool_arguments = get_ai_follow_tool_arguments(fn)
     ai_follow_tool_result = get_ai_follow_tool_result(fn)
     tool_argument_preview = get_tool_argument_preview(fn)
+    tool_access = get_tool_access(fn)
+    result_filter = get_tool_result_filter(fn)
     search_tags, search_category = _build_tool_search_metadata(
         fn.__name__,
         get_tool_search_tags(fn),
         get_tool_search_category(fn),
     )
+    access_type = "structural"
+    id_paths_by_type: dict[str, list[str]] = {}
+    default_target_singleton_section: str | None = None
+    if tool_access is not None:
+        access_type = tool_access.accessType
+        id_paths_by_type = dict(tool_access.idPathsByType)
+        default_target_singleton_section = tool_access.defaultTargetSingletonSection
+    if not id_paths_by_type and ai_follow_tool_arguments is not None:
+        id_paths_by_type = dict(ai_follow_tool_arguments.pathsByIdType)
     return ToolAnnotations.model_validate(
         SettaToolAnnotations(
             settaToolType=tool_type,
+            accessType=access_type,
+            idPathsByType=id_paths_by_type,
+            defaultTargetSingletonSection=default_target_singleton_section,
+            resultFilter=result_filter,
             aiFollowToolResult=ai_follow_tool_result,
             aiFollowToolArguments=ai_follow_tool_arguments,
             toolArgumentPreview=tool_argument_preview,

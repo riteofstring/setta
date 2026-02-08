@@ -1,6 +1,3 @@
-import os
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
 from fastapi import Body, Depends, Header, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -17,8 +14,6 @@ from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
-
-BACKEND_ORIGIN_QUERY_PARAM = "__setta_backend_origin"
 
 BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
@@ -315,65 +310,23 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     </main>
     <script>
       (function () {
-	        const redirectUrl = "__SETTA_REDIRECT_URL__";
-	        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
-	        const launcherOriginKey = "setta.launcherOrigin";
-	        const form = document.getElementById("bootstrap-form");
-	        const input = document.getElementById("token-input");
-	        const statusEl = document.getElementById("status");
-	        const errorEl = document.getElementById("error");
+        const redirectUrl = "__SETTA_REDIRECT_URL__";
+        const form = document.getElementById("bootstrap-form");
+        const input = document.getElementById("token-input");
+        const statusEl = document.getElementById("status");
+        const errorEl = document.getElementById("error");
 
         function setStatus(message) {
           statusEl.textContent = message;
         }
 
-	        function setError(message) {
-	          errorEl.textContent = message || "";
-	        }
-
-	        let hashParams;
-	        try {
-	          const hash = window.location.hash.startsWith("#")
-	            ? window.location.hash.slice(1)
-	            : window.location.hash;
-	          hashParams = new URLSearchParams(hash || "");
-	        } catch {
-	          hashParams = new URLSearchParams();
-	        }
-
-	        function hydrateWorkspaceHistoryFromHash() {
-	          try {
-	            const encoded = hashParams.get("wh");
-	            if (!encoded) {
-	              return;
-	            }
-	            localStorage.setItem(workspaceHistoryHandoffKey, encoded);
-	          } catch {
-	            /* ignore */
-	          }
-	        }
-
-	        function hydrateLauncherOriginFromHash() {
-	          try {
-	            const raw = hashParams.get("lo");
-	            if (!raw) {
-	              return;
-	            }
-	            const trimmed = raw.trim();
-	            if (!trimmed) {
-	              return;
-	            }
-	            const url = new URL(trimmed);
-	            if (url.protocol === "http:" || url.protocol === "https:") {
-	              localStorage.setItem(launcherOriginKey, url.origin);
-	            }
-	          } catch {
-	            /* ignore */
-	          }
-	        }
+        function setError(message) {
+          errorEl.textContent = message || "";
+        }
 
         function readTokenFromUrl() {
-          const hashToken = hashParams.get("token");
+          const hash = window.location.hash.slice(1);
+          const hashToken = new URLSearchParams(hash).get("token");
           if (hashToken) {
             return hashToken;
           }
@@ -408,9 +361,6 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           });
         });
 
-        hydrateWorkspaceHistoryFromHash();
-        hydrateLauncherOriginFromHash();
-
         const urlToken = readTokenFromUrl();
         if (urlToken) {
           input.value = urlToken;
@@ -436,53 +386,22 @@ def _bearer_token_from_header(
     return extract_bearer_token_value(authorization)
 
 
-def _request_origin(request: Request) -> str:
-    return f"{request.url.scheme}://{request.url.netloc}"
-
-
-def _set_query_param(url: str, *, key: str, value: str) -> str:
-    parts = urlsplit(url)
-    query = [
-        (entry_key, entry_value)
-        for entry_key, entry_value in parse_qsl(parts.query, keep_blank_values=True)
-        if entry_key != key
-    ]
-    query.append((key, value))
-    return urlunsplit(
-        (
-            parts.scheme,
-            parts.netloc,
-            parts.path,
-            urlencode(query),
-            parts.fragment,
-        )
-    )
-
-
-def _bootstrap_redirect_url(request: Request) -> str:
+def _bootstrap_redirect_url() -> str:
     if not IS_DEV_MODE:
         return "/"
-    hostname = request.url.hostname or C.HOST
-    host = format_host_for_url(hostname)
-    frontend_scheme = os.environ.get("SETTA_DEV_FRONTEND_SCHEME", "http") or "http"
-    frontend_scheme = frontend_scheme.strip().lower() or "http"
-    if frontend_scheme not in {"http", "https"}:
-        frontend_scheme = "http"
-    redirect_url = f"{frontend_scheme}://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
-    return _set_query_param(
-        redirect_url, key=BACKEND_ORIGIN_QUERY_PARAM, value=_request_origin(request)
-    )
+    host = format_host_for_url(C.HOST)
+    return f"http://{host}:{C.DEV_MODE_FRONTEND_PORT}/"
 
 
-def _render_bootstrap_html(request: Request) -> str:
+def _render_bootstrap_html() -> str:
     return BOOTSTRAP_HTML_TEMPLATE.replace(
-        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url()
     )
 
 
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)
-async def route_bootstrap_page(request: Request) -> str:
-    return _render_bootstrap_html(request)
+async def route_bootstrap_page() -> str:
+    return _render_bootstrap_html()
 
 
 @router.post(Route.BOOTSTRAP_CONSUME)
@@ -514,7 +433,5 @@ async def route_bootstrap_consume(
         )
 
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    set_auth_cookie(
-        response, auth_cookie, session_id=session_metadata.id, request=request
-    )
+    set_auth_cookie(response, auth_cookie, request=request)
     return {"status": "ok"}

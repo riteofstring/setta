@@ -121,6 +121,7 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
                 yield ExternalAgentStreamEvent(raw={"type": "stdout", "text": line})
                 continue
             _maybe_set_session_id(handle, raw)
+            _maybe_set_session_title(handle, raw)
             for event in parser.handle(raw):
                 yield event
         if stderr_task is not None:
@@ -829,6 +830,38 @@ def _maybe_set_session_id(
             if isinstance(nested, str) and nested:
                 handle.session_id = nested
                 return
+
+
+def _extract_opencode_session_title(payload: dict[str, Any]) -> str | None:
+    raw_type = payload.get("type")
+    if not isinstance(raw_type, str):
+        return None
+    normalized = raw_type.strip().lower()
+    if normalized not in {"session.created", "session.updated"}:
+        return None
+    properties = payload.get("properties")
+    if not isinstance(properties, dict):
+        return None
+    info = properties.get("info")
+    if not isinstance(info, dict):
+        return None
+    title = info.get("title")
+    if isinstance(title, str):
+        normalized_title = title.strip()
+        if normalized_title:
+            return normalized_title
+    return None
+
+
+def _maybe_set_session_title(
+    handle: ExternalAgentRunHandle,
+    payload: dict[str, Any],
+) -> None:
+    title = _extract_opencode_session_title(payload)
+    if not title:
+        return
+    handle.external_title = title
+    handle.external_title_kind = "opencode_session_title"
 
 
 def _extract_tool_call_payloads(payload: dict[str, Any]) -> list[dict[str, Any]]:
