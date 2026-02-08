@@ -82,9 +82,14 @@ def auth_env(tmp_path):
         process.wait()
         stack.close()
 
-
-@pytest.fixture(scope="class")
-def api_integration_env(request):
+@pytest.fixture
+def api_integration_env(
+    _reset_setta_paths_env,
+    _force_polling_watchdog_observer_on_darwin,
+):
+    # Function scope is required: tests/conftest.py resets SETTA_* path env vars
+    # for each test, so this fixture must re-apply temporary_setta_paths after
+    # that reset (otherwise the CLI looks in the wrong runtime/sessions dir).
     temp_dir = tempfile.TemporaryDirectory()
     root = Path(temp_dir.name)
     setta_root = root / "setta_files"
