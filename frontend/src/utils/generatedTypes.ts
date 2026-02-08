@@ -6966,6 +6966,7 @@ const LaunchResponseSchema = z.object({
   sessionId: z.union([z.string(), z.null()]).default(null),
   startedNew: z.union([z.boolean(), z.null()]).default(null),
   session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
+  remoteCmdResolved: z.union([z.string(), z.null()]).default(null),
   error: z.union([LaunchErrorPayloadSchema, z.null()]).default(null),
 });
 

@@ -31,4 +31,3 @@ def select_auth_cookie_name(cookie_names: list[str]) -> str | None:
         if name.startswith(prefix):
             return name
     return None
-

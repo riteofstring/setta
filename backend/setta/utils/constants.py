@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0") or 0)
 
-_HTTP_TOKEN_SEPARATORS = set("()<>@,;:\\\"/[]?={} \t")
+_HTTP_TOKEN_SEPARATORS = set('()<>@,;:\\"/[]?={} \t')
 
 
 def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> str:
@@ -121,7 +121,9 @@ class C:
     SHARE_DEPLOYMENT_ROOT: Path | None = None
 
     _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
-    AUTH_COOKIE_NAME = normalize_cookie_name(_raw_auth_cookie_name, default="setta_auth")
+    AUTH_COOKIE_NAME = normalize_cookie_name(
+        _raw_auth_cookie_name, default="setta_auth"
+    )
     if _raw_auth_cookie_name is not None:
         _trimmed_auth_cookie_name = _raw_auth_cookie_name.strip()
         if _trimmed_auth_cookie_name and _trimmed_auth_cookie_name != AUTH_COOKIE_NAME:

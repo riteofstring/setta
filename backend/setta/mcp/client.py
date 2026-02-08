@@ -125,6 +125,7 @@ def parse_args(argv: Sequence[str] | None = None) -> BridgeConfig:
         bootstrap_url=args.bootstrap_url,
     )
 
+
 def _resolve_bridge_token(config: BridgeConfig) -> str | None:
     if config.bootstrap_token:
         token = config.bootstrap_token.strip()
