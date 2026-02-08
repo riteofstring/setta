@@ -30,12 +30,13 @@ from setta.middleware import (
 from setta.routers import (
     agentic_router,
     ai_router,
+    app_deployments_router,
+    app_spec_streaming_router,
     artifact_router,
     attachments_router,
     binary_router,
     bootstrap_router,
     code_info_router,
-    launch_router,
     listener_router,
     llm_router,
     lsp_router,
@@ -58,7 +59,7 @@ from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.utils import get_absolute_path
 
-if not C.SHARE_MODE:
+if not (C.SHARE_MODE or C.APP_MODE):
     import setta.mcp.tools  # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -66,11 +67,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if C.SHARE_MODE:
+    if C.SHARE_MODE or C.APP_MODE:
+        deployment_root = (
+            C.SHARE_DEPLOYMENT_ROOT if C.SHARE_MODE else C.APP_DEPLOYMENT_ROOT
+        )
         app.state.setta = SettaFastAPIState(
             app,
-            share_mode=True,
-            share_deployment_root=C.SHARE_DEPLOYMENT_ROOT,
+            share_mode=C.SHARE_MODE,
+            app_mode=C.APP_MODE,
+            share_deployment_root=deployment_root,
         )
     else:
         app.state.setta = SettaFastAPIState(app)
@@ -85,8 +90,9 @@ async def lifespan(app: FastAPI):
             name="static",
         )
 
-        # {full_path:path} is to catch all paths not explicitly covered here
-        @app.get("/{full_path:path}", response_class=HTMLResponse)
+        # {_full_path:path} is to catch all paths not explicitly covered here.
+        # Keep the leading underscore so Ruff's unused-argument rule doesn't fire.
+        @app.get("/{_full_path:path}", response_class=HTMLResponse)
         async def read_root(_full_path: str):
             with open(dist_path / "index.html") as f:
                 content = f.read()
@@ -125,7 +131,7 @@ app = FastAPI(
 )
 
 app.add_middleware(LoggingContextMiddleware)
-if not C.SHARE_MODE:
+if not (C.SHARE_MODE or C.APP_MODE):
     app.add_middleware(AuthMiddleware)
 # Keep CORS outermost so auth failures return proper CORS headers.
 app.add_middleware(
@@ -156,14 +162,15 @@ app.include_router(artifact_router, **http_router_kwargs)
 app.include_router(attachments_router, **http_router_kwargs)
 app.include_router(binary_router, **http_router_kwargs)
 app.include_router(listener_router, **http_router_kwargs)
-app.include_router(launch_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
 app.include_router(agentic_router, **http_router_kwargs)
+app.include_router(app_spec_streaming_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
 app.include_router(share_deployments_router, **http_router_kwargs)
+app.include_router(app_deployments_router, **http_router_kwargs)
 
 
 async def _open_browser_after_startup(url: str) -> None:

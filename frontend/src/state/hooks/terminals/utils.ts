@@ -31,7 +31,7 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
 
   // Even though react flow calls preventDefault and stopPropagation when in pan scrolling mode,
   // xterm still picks up the scrolling. So this sets scrollSensitivity to a small number to disable scrolling when already moving via trackpad.
-  const unsubMisc = useMisc.subscribe(
+  const unsub = useMisc.subscribe(
     (x) => x.isPanScrolling,
     (isPanScrolling) => {
       if (isPanScrolling) {
@@ -45,20 +45,6 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
 
   return () => {
     renderDisposable.dispose();
-    unsubMisc();
+    unsub();
   };
-}
-
-export function terminalCleanup(ws, terminal) {
-  if (ws.readyState === 1) {
-    ws.close();
-    terminal.dispose();
-  } else {
-    ws.addEventListener("open", () => {
-      ws.close();
-      // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
-      // https://github.com/xtermjs/xterm.js/issues/4775
-      terminal.dispose();
-    });
-  }
 }

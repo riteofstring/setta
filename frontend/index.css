@@ -166,6 +166,31 @@ html.dark {
     grid-column: 1 / 2;
     grid-row: 1 / 2;
   }
+
+  /* CodeMirror single-line path inputs: hide scrollbars.
+     The Browser path uses an overlay for ellipsis while blurred. */
+  .setta-cm-browser-path-input .cm-scroller {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+  }
+
+  .setta-cm-browser-path-input .cm-scroller::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .setta-cm-browser-path-input:not(:focus-within) .cm-content,
+  .setta-cm-browser-path-input:not(:focus-within) .cm-content * {
+    color: transparent !important;
+  }
+
+  /* If the CodeMirror line overflows, don't let it steal clicks meant for sibling controls. */
+  .setta-cm-browser-path-input:not(:focus-within) .cm-line {
+    pointer-events: none;
+  }
+
+  /* Keep the carousel thumbnail strip scrollbar visible for discoverability. */
 }
 
 .top-bottom-fade {

@@ -53,8 +53,8 @@ describe("MediaCarousel", () => {
       <MediaCarousel items={imageItems} selectedId="image-1" showNavButtons />,
     );
 
-    const buttonCount = markup.split("<button").length - 1;
-    expect(buttonCount).toBe(2);
+    expect(markup).toContain('aria-label="Previous item"');
+    expect(markup).toContain('aria-label="Next item"');
   });
 
   it("omits navigation buttons by default", () => {
@@ -62,7 +62,8 @@ describe("MediaCarousel", () => {
       <MediaCarousel items={imageItems} selectedId="image-1" />,
     );
 
-    expect(markup).not.toContain("<button");
+    expect(markup).not.toContain('aria-label="Previous item"');
+    expect(markup).not.toContain('aria-label="Next item"');
   });
 
   it("marks preview and thumbnail row for scroll handling", () => {

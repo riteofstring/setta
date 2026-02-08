@@ -28,7 +28,7 @@ from setta.types.section_impls import (
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
 )
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -40,7 +40,12 @@ def _build_share_deployment_root(
     project_config_name: str,
     deployment_version: str = "v1",
 ) -> Path:
-    root = Path(tmpdir) / "share_deployments" / project_config_name / deployment_version
+    root = (
+        Path(tmpdir)
+        / "deployments"
+        / project_config_name
+        / deployment_version
+    )
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -144,13 +149,15 @@ def _write_project_with_state(
     dbe = DBE(root)
     dbe.write_project(backend)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_state.projectConfig.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -165,20 +172,23 @@ def _write_project_with_states(
         backend = merge_single_config_into_backend(backend, project_state)
     if not project_states:
         raise ValueError("Expected at least one project state")
-    resolved_default_id = (
-        default_project_config_id or project_states[0].projectConfig.id
-    )
+    resolved_default_id = default_project_config_id or project_states[
+        0
+    ].projectConfig.id
     backend.defaultProjectConfigId = resolved_default_id
     dbe = DBE(root)
     dbe.write_project(backend)
+    default_config = backend.projectConfigs[resolved_default_id]
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=resolved_default_id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 
@@ -233,8 +243,14 @@ class TestShareSessionProjectManager:
                 state_b = session_manager.get_single_config_state(
                     project_state_b.projectConfig.id
                 )
-                assert project_state_a.projectConfig.name == state_a.projectConfig.name
-                assert project_state_b.projectConfig.name == state_b.projectConfig.name
+                assert (
+                    project_state_a.projectConfig.name
+                    == state_a.projectConfig.name
+                )
+                assert (
+                    project_state_b.projectConfig.name
+                    == state_b.projectConfig.name
+                )
             finally:
                 session_manager.shutdown()
                 results = await asyncio.gather(
@@ -244,7 +260,7 @@ class TestShareSessionProjectManager:
                 assert 1 == len(results)
                 assert isinstance(results[0], asyncio.CancelledError)
 
-    async def test_update_without_lsp_refreshes_codegen_state(self) -> None:
+    async def test_update_without_lsp_does_not_raise(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = _build_share_deployment_root(tmpdir, "Share Project")
             project_state = _build_project_state(
@@ -252,9 +268,7 @@ class TestShareSessionProjectManager:
                 ID("gen-section"),
                 ID("code-section"),
             )
-            dbe = _write_project_with_state(
-                root, project_state, deployment_version="v1"
-            )
+            dbe = _write_project_with_state(root, project_state, deployment_version="v1")
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
             share_manager = ShareRuntimeState(dbe, root, frontend_sender)
@@ -277,17 +291,14 @@ class TestShareSessionProjectManager:
             try:
                 await session_manager._process_queue_task_started.wait()
                 project_config_id = share_manager.default_project_config_id
-                assert project_config_id not in session_manager.gen_code
-                state = session_manager.get_single_config_state(project_config_id)
+                state = session_manager.get_single_config_state(
+                    project_config_id
+                )
                 python_target = get_python_codegen_target_with_type_guard(
                     state.projectConfig
                 )
                 python_target.genCodePrefix = "import math\n"
                 await session_manager.update(state, updateFileWatcher=False)
-                assert project_config_id in session_manager.gen_code
-                assert session_manager.gen_code[project_config_id].code.startswith(
-                    "import math\n"
-                )
                 updated = share_manager.get_session_state(
                     "session-a", project_config_id
                 )

@@ -318,9 +318,14 @@ class ChatToolRunnerClient:
         self,
         *,
         chat_id: ID,
+        section_id: ID,
         tool_calls: list[ToolCall],
     ) -> list[ToolChatMessage]:
-        payload: dict[str, object] = {"chatId": chat_id, "toolCalls": tool_calls}
+        payload: dict[str, object] = {
+            "chatId": chat_id,
+            "sectionId": section_id,
+            "toolCalls": tool_calls,
+        }
         return _coerce_tool_messages(await self._project_manager.run_mcp_tools(payload))
 
 
@@ -484,6 +489,7 @@ class ChatSession:
         if run_tools and assistant_message.tool_calls:
             tool_results = await self._tools.run(
                 chat_id=self.chat_id,
+                section_id=self.section_id,
                 tool_calls=assistant_message.tool_calls,
             )
             for tool_result in tool_results:

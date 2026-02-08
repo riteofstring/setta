@@ -36,6 +36,7 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    BrowserSavedSearch,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -143,6 +144,7 @@ class CoreArgs(TypedDict):
                 "requestHeaderValue",
                 "requestMethod",
                 "requestUrl",
+                "savedSearches",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
@@ -663,6 +665,7 @@ class BrowserSectionImplArgs(BaseSectionImplArgs):
     columnWidth: NotRequired[float | None]
     typesColumnWidth: NotRequired[float | None]
     viewMode: NotRequired[BrowserAreaViewMode]
+    savedSearches: NotRequired[list[BrowserSavedSearch]]
 
 
 class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -676,6 +679,10 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     typesColumnWidth: NotRequired[float | None | Callable[[float | None], float | None]]
     viewMode: NotRequired[
         BrowserAreaViewMode | Callable[[BrowserAreaViewMode], BrowserAreaViewMode]
+    ]
+    savedSearches: NotRequired[
+        list[BrowserSavedSearch]
+        | Callable[[list[BrowserSavedSearch]], list[BrowserSavedSearch]]
     ]
 
 

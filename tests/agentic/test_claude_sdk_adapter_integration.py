@@ -32,9 +32,19 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
+from tests.utils.integration_flags import (
+    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
+    external_agent_integration_tests_enabled,
+)
 
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [
+    pytest.mark.asyncio,
+    pytest.mark.skipif(
+        not external_agent_integration_tests_enabled(),
+        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
+    ),
+]
 
 
 class TestClaudeSdkAdapterIntegration:
@@ -71,22 +81,34 @@ class TestClaudeSdkAdapterIntegration:
         return str(path)
 
     def _require_claude_sdk(self) -> str:
-        try:
-            version = importlib.metadata.version("claude-agent-sdk")
-        except importlib.metadata.PackageNotFoundError:
-            pytest.skip("claude-agent-sdk is not installed")
         if not os.environ.get("ANTHROPIC_API_KEY"):
             pytest.skip("ANTHROPIC_API_KEY not set")
         try:
             socket.getaddrinfo("api.anthropic.com", 443)
-            with socket.create_connection(("api.anthropic.com", 443), timeout=3):
+            with socket.create_connection(
+                ("api.anthropic.com", 443),
+                timeout=3,
+            ):
                 pass
         except OSError:
             pytest.skip("Cannot connect to api.anthropic.com:443")
+        try:
+            version = importlib.metadata.version("claude-agent-sdk")
+        except importlib.metadata.PackageNotFoundError:
+            pytest.skip("claude-agent-sdk is not installed")
+        try:
+            socket.getaddrinfo("api.anthropic.com", 443)
+            with socket.create_connection(
+                ("api.anthropic.com", 443),
+                timeout=3,
+            ):
+                pass
+        except OSError as exc:
+            pytest.skip(f"Anthropic API not reachable: {exc}")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:
-        for _ in range(240):
+        for _ in range(120):
             await asyncio.sleep(0.5)
             stored = dbe.read_agent_run(run_id)
             if stored and stored.get("status") in {
@@ -140,7 +162,7 @@ class TestClaudeSdkAdapterIntegration:
     async def _await_pending_question(
         self, runner: ExternalAgentRunner, run_id: ID
     ) -> str:
-        for _ in range(600):
+        for _ in range(200):
             for tool_call_id, state in runner._pending_questions.items():
                 if state.run_id == run_id and state.approval_id:
                     return tool_call_id
@@ -151,7 +173,7 @@ class TestClaudeSdkAdapterIntegration:
     async def _await_pending_approval(
         self, runner: ExternalAgentRunner, run_id: ID
     ) -> str:
-        for _ in range(600):
+        for _ in range(200):
             for approval_id, state in runner._pending_approvals.items():
                 if state.run_id == run_id:
                     return approval_id
@@ -264,7 +286,7 @@ class TestClaudeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config, "allowUnscoped": True},
             )
 
             handle = await self._await_run_handle(runner, run.id)
@@ -306,7 +328,7 @@ class TestClaudeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config, "allowUnscoped": True},
             )
 
             handle = await self._await_run_handle(runner, run.id)
@@ -356,7 +378,7 @@ class TestClaudeSdkAdapterIntegration:
                 config.id,
                 config,
                 None,
-                {"prompt": "Say hello.", "mcpConfig": mcp_config},
+                {"prompt": "Say hello.", "mcpConfig": mcp_config, "allowUnscoped": True},
             )
 
             await self._await_run_handle(runner, first_run.id)
@@ -378,6 +400,7 @@ class TestClaudeSdkAdapterIntegration:
                     "prompt": "Say hello again.",
                     "chatId": str(first_run.id),
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                 },
             )
 
@@ -436,6 +459,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["Read"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -522,6 +546,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["Bash"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -610,6 +635,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["TodoWrite"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 2,
                 },
             )
@@ -711,6 +737,7 @@ class TestClaudeSdkAdapterIntegration:
                             "after the tool result. Then reply with only OK."
                         ),
                         "allowedTools": ["list_mcp_tools"],
+                        "allowUnscoped": True,
                         "maxTurns": 1,
                     },
                 )
@@ -823,6 +850,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["Bash"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -911,6 +939,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "thinking": {"type": "enabled", "budget_tokens": 1024},
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 1,
                 },
             )
@@ -991,6 +1020,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["AskUserQuestion"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 2,
                 },
             )
@@ -1123,6 +1153,7 @@ class TestClaudeSdkAdapterIntegration:
                     ),
                     "allowedTools": ["AskUserQuestion"],
                     "mcpConfig": mcp_config,
+                    "allowUnscoped": True,
                     "maxTurns": 2,
                 },
             )

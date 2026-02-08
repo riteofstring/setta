@@ -18,6 +18,7 @@ from typing import (
     NotRequired,
     Set,
     Tuple,
+    TypeVar,
     Union,
     get_args,
     get_origin,
@@ -281,6 +282,9 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
     """Convert Python type to Zod schema string."""
 
     type_definitions = {}
+
+    if isinstance(python_type, TypeVar):
+        return "z.any()", type_definitions
 
     # Handle None type
     if python_type is type(None):

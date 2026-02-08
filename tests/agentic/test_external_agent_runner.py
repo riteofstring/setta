@@ -14,7 +14,6 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
     ExternalAgentRunHandle,
 )
-from setta.auth.cookies import auth_cookie_name
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
@@ -32,7 +31,13 @@ from setta.agentic.external_agent_runner import (
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
+from setta.database.utils import create_new_id
 from setta.types.agentic import AgentProfile, AgentRunStatus
+from setta.types.agentic_edges import (
+    AgenticEdge,
+    AgenticEdgeContextMode,
+    AgenticEdgeKind,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -57,9 +62,18 @@ from setta.types.external_agents import (
     ExternalAgentWorkingDirStrategy,
 )
 from setta.types.id import ID
+from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl2 import create_agentic_edge, create_top_level_section
 from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_config import Position
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.section_impls import SectionType
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.mcp.agentic_context_headers import (
+    AGENTIC_CONTEXT_CHAT_ID_HEADER,
+    AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+    AGENTIC_CONTEXT_SECTION_ID_HEADER,
+)
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.utils.constants import C
@@ -84,6 +98,47 @@ def _write_project_state(dbe: DBE) -> ProjectConfig:
     return project_config
 
 
+def _write_project_state_with_agentic_context(
+    dbe: DBE,
+) -> tuple[ProjectConfig, ID, ID]:
+    settings = SettingsState()
+    single = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="agentic"))
+    chat_section_id = create_top_level_section(
+        settings,
+        single,
+        SectionType.Chat,
+        Position(),
+    )
+    context_section_id = create_top_level_section(
+        settings,
+        single,
+        SectionType.TextBlock,
+        Position(),
+    )
+    create_agentic_edge(
+        single,
+        AgenticEdge(
+            id=create_new_id(),
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
+            contextMode=AgenticEdgeContextMode.inline_text,
+        ),
+    )
+    backend = ProjectStateBackend(
+        sections=single.sections,
+        sectionImpls=single.sectionImpls,
+        sectionVariants=single.sectionVariants,
+        codeObjs=single.codeObjs,
+        codeObjImpls=single.codeObjImpls,
+        codeObjVariants=single.codeObjVariants,
+        projectConfigs={single.projectConfig.id: single.projectConfig},
+        defaultProjectConfigId=single.projectConfig.id,
+    )
+    dbe.write_project(backend)
+    return single.projectConfig, chat_section_id, context_section_id
+
+
 def _build_runner(dbe: DBE) -> ExternalAgentRunner:
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
@@ -99,11 +154,17 @@ def _build_context_for_test(
     inputs: dict[str, Any] | None = None,
 ):
     resolved_engine_id = engine_config_id or ID("engine-1")
+    resolved_inputs = dict(inputs or {})
+    # External runs require either a chat section id (scoped run) or an explicit
+    # allowUnscoped flag (project-level run). Most unit tests don't care about
+    # section scoping, so default to allowUnscoped=true when omitted.
+    if "sectionId" not in resolved_inputs and "allowUnscoped" not in resolved_inputs:
+        resolved_inputs["allowUnscoped"] = True
     context, _ = runner._build_context(
         resolved_engine_id,
         config,
         profile,
-        inputs,
+        resolved_inputs,
     )
     return context
 
@@ -153,6 +214,87 @@ class TestExternalAgentRunnerContext:
                     engine_config_id=ID("engine-1"),
                     inputs={"engineConfigId": "engine-2"},
                 )
+
+    def test_context_injects_agentic_context_and_headers_for_opencode(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config, chat_section_id, context_section_id = (
+                _write_project_state_with_agentic_context(dbe)
+            )
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-opencode")
+            config = ExternalAgentConfig(
+                id="opencode-config",
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                inputs={"sectionId": str(chat_section_id)},
+            )
+
+            assert "## Agentic Context" in context.system_prompt
+            assert context.agentic_context_section_ids == (context_section_id,)
+
+            _, canonical_to_temporary = dbe.read_temporary_id_map()
+            tmp_context_section_id = canonical_to_temporary.get(context_section_id)
+            assert tmp_context_section_id is not None
+            assert str(tmp_context_section_id) in context.system_prompt
+            assert str(context_section_id) not in context.system_prompt
+
+            opencode_config_path = Path(str(context.env["OPENCODE_CONFIG"]))
+            payload = json.loads(opencode_config_path.read_text(encoding="utf-8"))
+            mcp = payload.get("mcp")
+            assert isinstance(mcp, dict)
+            setta_entry = mcp.get(SETTA_MCP_SERVER_ID)
+            assert isinstance(setta_entry, dict)
+            headers = setta_entry.get("headers")
+            assert isinstance(headers, dict)
+            assert headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER) == str(
+                project_config.id
+            )
+            assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
+            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
+
+    def test_context_injects_agentic_headers_for_codex(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config, chat_section_id, _ = _write_project_state_with_agentic_context(
+                dbe
+            )
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-codex")
+            config = ExternalAgentConfig(
+                id="codex-config",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                inputs={"sectionId": str(chat_section_id)},
+            )
+
+            codex_home = Path(str(context.env["CODEX_HOME"]))
+            payload = tomllib.loads((codex_home / "config.toml").read_text(encoding="utf-8"))
+            mcp_servers = payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            setta_entry = mcp_servers.get(SETTA_MCP_SERVER_ID)
+            assert isinstance(setta_entry, dict)
+            headers = setta_entry.get("http_headers")
+            assert isinstance(headers, dict)
+            assert headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER) == str(
+                project_config.id
+            )
+            assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
+            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
 
 
 async def _apply_claude_payloads(
@@ -407,7 +549,7 @@ class TestExternalAgentRunner:
                 engine_config_id,
                 config,
                 profile=None,
-                inputs={"chatId": "chat-4"},
+                inputs={"chatId": "chat-4", "allowUnscoped": True},
             )
             assert is_new
             assert context.run.id == ID("chat-4")
@@ -420,7 +562,7 @@ class TestExternalAgentRunner:
                 engine_config_id,
                 config,
                 profile=None,
-                inputs={"chatId": "chat-4"},
+                inputs={"chatId": "chat-4", "allowUnscoped": True},
             )
             assert not is_new_followup
             assert followup.run.id == context.run.id
@@ -470,6 +612,7 @@ class TestExternalAgentRunner:
                     inputs={
                         "chatId": "chat-5",
                         "projectConfigId": str(project_config_b.id),
+                        "allowUnscoped": True,
                     },
                 )
 
@@ -700,6 +843,119 @@ class TestExternalAgentRunner:
             )
             assert settings_paths.get("codex") == str(expected_codex_path)
 
+    def test_run_outputs_prefer_session_settings_paths_when_present(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-123")
+            codex_chat_id = "chat-codex-7"
+            opencode_chat_id = "chat-opencode-7"
+
+            codex_config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            codex_run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": codex_chat_id,
+                    "projectConfigId": "config-7",
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+                run_id=ID(codex_chat_id),
+            )
+            runtime_codex_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "codex"
+                / str(codex_config.id)
+                / "sessions"
+                / codex_chat_id
+                / "config.toml"
+            )
+            runtime_codex_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_codex_path.write_text("# test\n", encoding="utf-8")
+            message = AssistantChatMessage(
+                id="m7",
+                content=[MessageTextContent(text="Hello")],
+            )
+            state = runner._apply_stream_chunk_to_state(
+                codex_run,
+                MessageStartEvent(message=AssistantChatMessage(id="m7", content=[])),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                codex_run,
+                MessageDeltaEvent(
+                    message_id="m7",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                codex_run,
+                MessageFinalizedEvent(message=message),
+            )
+            runner._persist_outputs_from_state(codex_run, codex_config, state)
+
+            assert codex_run.outputs is not None
+            metadata = codex_run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            settings_paths = metadata.get("settingsPaths")
+            assert isinstance(settings_paths, dict)
+            assert settings_paths.get("codex") == str(runtime_codex_path)
+
+            opencode_config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            opencode_run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": opencode_chat_id,
+                    "projectConfigId": "config-7",
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                },
+                run_id=ID(opencode_chat_id),
+            )
+            runtime_opencode_path = (
+                dbe.path
+                / "external_agent_settings"
+                / "opencode"
+                / str(opencode_config.id)
+                / "sessions"
+                / opencode_chat_id
+                / "opencode.json"
+            )
+            runtime_opencode_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_opencode_path.write_text('{"test": true}\n', encoding="utf-8")
+            state = runner._apply_stream_chunk_to_state(
+                opencode_run,
+                MessageStartEvent(message=AssistantChatMessage(id="m7", content=[])),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                opencode_run,
+                MessageDeltaEvent(
+                    message_id="m7",
+                    content=[MessageTextDelta(index=0, text="Hello")],
+                ),
+            )
+            state = runner._apply_stream_chunk_to_state(
+                opencode_run,
+                MessageFinalizedEvent(message=message),
+            )
+            runner._persist_outputs_from_state(opencode_run, opencode_config, state)
+
+            assert opencode_run.outputs is not None
+            metadata = opencode_run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            settings_paths = metadata.get("settingsPaths")
+            assert isinstance(settings_paths, dict)
+            assert settings_paths.get("opencode") == str(runtime_opencode_path)
+
     def test_context_accepts_explicit_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -812,6 +1068,7 @@ class TestExternalAgentRunner:
             assert isinstance(allowed_tools, list)
             assert "mcp__setta__getProjectState" in allowed_tools
             assert "mcp__setta__runTool" in allowed_tools
+            assert "mcp__setta__set_agentic_context" in allowed_tools
 
             runner._cleanup_context(context)
             assert not path.exists()
@@ -836,13 +1093,21 @@ class TestExternalAgentRunner:
             assert path.exists()
             payload = json.loads(path.read_text(encoding="utf-8"))
             assert payload["mcp"]["setta"]["url"] == f"{C.BACKEND}/mcp"
-            expected_path = (
+            expected_base_path = (
                 dbe.path
                 / "external_agent_settings"
                 / "opencode"
                 / "opencode-config"
                 / "opencode.json"
             )
+            expected_path = (
+                expected_base_path.parent
+                / "sessions"
+                / str(context.chat_id)
+                / expected_base_path.name
+            )
+            # With agentic headers/session-scoped config we skip the base config write.
+            assert not expected_base_path.exists()
             assert path == expected_path
 
             runner._cleanup_context(context)
@@ -869,10 +1134,11 @@ class TestExternalAgentRunner:
             content = config_path.read_text(encoding="utf-8")
             assert "[mcp_servers.setta]" in content
             assert f"url = \"{C.BACKEND}/mcp/streamable/\"" in content
-            expected_dir = (
-                dbe.path / "external_agent_settings" / "codex" / "codex-config"
-            )
-            assert Path(str(codex_home)) == expected_dir
+            expected_dir = dbe.path / "external_agent_settings" / "codex" / "codex-config"
+            expected_runtime_dir = expected_dir / "sessions" / str(context.chat_id)
+            # With agentic headers/session-scoped home we skip writing the base config.
+            assert not (expected_dir / "config.toml").exists()
+            assert Path(str(codex_home)) == expected_runtime_dir
 
             runner._cleanup_context(context)
             assert config_path.exists()
@@ -982,7 +1248,11 @@ class TestExternalAgentRunner:
                 enabled_tools = server_entry.get("enabled_tools")
             else:
                 enabled_tools = None
-            assert enabled_tools == ["getProjectState", "runTool"]
+            assert enabled_tools == [
+                "getProjectState",
+                "runTool",
+                "set_agentic_context",
+            ]
 
             runner._cleanup_context(context)
             assert config_path.exists()
@@ -1042,6 +1312,7 @@ class TestExternalAgentRunner:
             assert isinstance(permissions, dict)
             assert permissions.get("setta_*") == "deny"
             assert permissions.get("setta_getProjectState") == "allow"
+            assert permissions.get("setta_set_agentic_context") == "allow"
 
             runner._cleanup_context(context)
 
@@ -1927,7 +2198,12 @@ class TestExternalAgentRunnerMcpAuth:
             session_id, sessions_root = self._create_session(root)
             with self._set_session_env(session_id, sessions_root):
                 runner = _build_runner(_build_dbe(tmpdir))
-                config_path = runner._write_claude_mcp_config(f"{C.BACKEND}/mcp")
+                auth_headers = runner._build_mcp_auth_headers()
+                assert auth_headers is not None
+                config_path = runner._write_claude_mcp_config(
+                    f"{C.BACKEND}/mcp",
+                    headers=auth_headers,
+                )
                 payload = json.loads(config_path.read_text(encoding="utf-8"))
                 server = payload.get("mcpServers", {}).get(SETTA_MCP_SERVER_ID)
                 assert isinstance(server, dict)
@@ -1939,7 +2215,7 @@ class TestExternalAgentRunnerMcpAuth:
                     cookie = None
                 assert isinstance(cookie, str)
                 if isinstance(cookie, str):
-                    assert cookie.startswith(f"{auth_cookie_name(session_id)}=")
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_opencode_config_includes_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1968,7 +2244,7 @@ class TestExternalAgentRunnerMcpAuth:
                     cookie = None
                 assert isinstance(cookie, str)
                 if isinstance(cookie, str):
-                    assert cookie.startswith(f"{auth_cookie_name(session_id)}=")
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_codex_config_includes_auth_cookie(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -2008,7 +2284,7 @@ class TestExternalAgentRunnerMcpAuth:
                     cookie = None
                 assert isinstance(cookie, str)
                 if isinstance(cookie, str):
-                    assert cookie.startswith(f"{auth_cookie_name(session_id)}=")
+                    assert f"{C.AUTH_COOKIE_NAME}=" in cookie
 
     def test_assistant_payload_persists_tool_calls(self) -> None:
         async def _run() -> None:
