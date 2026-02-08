@@ -233,48 +233,6 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
-export async function route_get_git_repo_info(): Promise<
-  ResponseDataAndStatus<gt.GitRepoInfoResponse>
-> {
-  return await post("/git/repoInfo", null);
-}
-
-export async function route_get_git_status(): Promise<
-  ResponseDataAndStatus<gt.GetGitStatusResponse>
-> {
-  return await post("/git/status", null);
-}
-
-export async function route_get_git_diff(
-  x: gt.GetGitDiffRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitDiffResponse>> {
-  return await post("/git/diff", x);
-}
-
-export async function route_get_git_log(
-  x: gt.GetGitLogRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitLogResponse>> {
-  return await post("/git/log", x);
-}
-
-export async function route_get_git_commit_details(
-  x: gt.GetGitCommitDetailsRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitCommitDetailsResponse>> {
-  return await post("/git/commitDetails", x);
-}
-
-export async function route_get_git_commit_file_diff(
-  x: gt.GetGitCommitFileDiffRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitCommitFileDiffResponse>> {
-  return await post("/git/commitFileDiff", x);
-}
-
-export async function route_get_git_commit_diff(
-  x: gt.GetGitCommitDiffRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitCommitDiffResponse>> {
-  return await post("/git/commitDiff", x);
-}
-
 export async function route_get_attachment_download_url(
   x: gt.GetAttachmentDownloadUrlRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadUrlResponse>> {

@@ -86,7 +86,7 @@ if [[ -f "${PID_FILE}" ]]; then
   PID="$(cat "${PID_FILE}" 2>/dev/null || true)"
   if [[ -n "${PID}" ]] && kill -0 "${PID}" 2>/dev/null; then
     CMD="$(ps -p "${PID}" -o command= 2>/dev/null || true)"
-    PORT="$(printf "%s" "${CMD}" | sed -n 's/.*--remote-debugging-port[= ]\\([0-9][0-9]*\\).*/\\1/p')"
+    PORT="$(printf "%s" "${CMD}" | sed -n 's/.*--remote-debugging-port[= ]\([0-9][0-9]*\).*/\1/p')"
     if [[ -n "${PORT}" ]]; then
       echo "${PORT}"
       exit 0

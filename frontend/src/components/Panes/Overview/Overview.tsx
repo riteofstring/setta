@@ -9,11 +9,12 @@ import {
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
-import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
+import { RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import {
   useBackendLogEvents,
   useLocalStorage,
+  useProjectState,
   useShareSession,
 } from "state/definitions";
 import {
@@ -31,7 +32,6 @@ import {
 import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
-import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
@@ -51,6 +51,15 @@ export function Overview() {
     order: 10,
     rootRef: overviewRef,
   });
+  const hasViewModeTabs = useProjectState((x) => {
+    const viewModes = x.projectConfig.viewModes;
+    for (const modeId in viewModes) {
+      if (viewModes[modeId]?.isTab) {
+        return true;
+      }
+    }
+    return false;
+  });
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
     vis: x.overviewVis,
@@ -61,7 +70,6 @@ export function Overview() {
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
   const showFileBrowserTab = !isDeploymentMode;
-  const showGitTab = !isDeploymentMode;
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
@@ -78,9 +86,6 @@ export function Overview() {
     !showFileBrowserTab &&
     selectedTabName === OverviewTabNameEnum.FileBrowser
   ) {
-    effectiveTabName = OverviewTabNameEnum.Overview;
-  }
-  if (!showGitTab && selectedTabName === OverviewTabNameEnum.Git) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
@@ -109,7 +114,13 @@ export function Overview() {
       ref={overviewRef}
       data-tab-scope="overview"
     >
-      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_36px)] w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
+      <div
+        className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        style={{
+          top: "calc(var(--setta-titlebar-height) + 36px)",
+          bottom: hasViewModeTabs ? "36px" : "0px",
+        }}
+      >
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
@@ -122,14 +133,6 @@ export function Overview() {
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Explorer" })}
             icon={<TbFolder size={18} />}
-          />
-        )}
-        {showGitTab && (
-          <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.Git}
-            {...commonProps}
-            {...getFloatingBoxHandlers({ content: "Git" })}
-            icon={<RiGitCommitLine size={18} />}
           />
         )}
         {showWatchCodeTab && (
@@ -260,8 +263,6 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
           listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
         />
       );
-    case OverviewTabNameEnum.Git:
-      return <GitPane />;
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
