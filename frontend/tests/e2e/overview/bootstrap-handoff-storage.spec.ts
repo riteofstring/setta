@@ -11,7 +11,7 @@ test("bootstrap does not persist handoff values before consuming a token", async
   });
   await page.evaluate(() => {
     localStorage.removeItem("setta.launcherOrigin");
-    localStorage.removeItem("setta.workspaceHistoryHandoff.v2");
+    localStorage.removeItem("setta.workspaceHistoryHandoff");
   });
 
   const launcherOrigin = encodeURIComponent("http://attacker.example:9999");
@@ -26,7 +26,7 @@ test("bootstrap does not persist handoff values before consuming a token", async
     return {
       launcherOrigin: localStorage.getItem("setta.launcherOrigin"),
       workspaceHistoryHandoff: localStorage.getItem(
-        "setta.workspaceHistoryHandoff.v2",
+        "setta.workspaceHistoryHandoff",
       ),
     };
   });
