@@ -26,7 +26,6 @@ from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.message import SessionMessage
 from mcp.types import Tool
 
-from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.logging.config import configure_logging
@@ -152,41 +151,23 @@ def _resolve_bridge_token(config: BridgeConfig) -> str | None:
     return None
 
 
-def _select_auth_cookie_name(cookie_names: list[str]) -> str | None:
-    prefix = f"{C.AUTH_COOKIE_NAME}_"
-    for name in cookie_names:
-        if name.startswith(prefix):
-            return name
-    for name in cookie_names:
-        if name == C.AUTH_COOKIE_NAME:
-            return name
-    return None
-
-
 async def _consume_bootstrap_token(backend_url: str, token: str) -> str:
     origin = _origin_from_backend_url(backend_url)
     consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
     async with create_mcp_http_client() as client:
         response = await client.post(consume_url, json={"token": token})
         response.raise_for_status()
-    cookie_map = {cookie.name: cookie.value for cookie in response.cookies.jar}
-    cookie_names = list(cookie_map.keys())
-    if not cookie_names:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    cookie_name = _select_auth_cookie_name(cookie_names)
-    if not cookie_name:
-        raise ValueError("Bootstrap response did not include auth cookie.")
-    cookie_value = cookie_map.get(cookie_name)
+    cookie_value = response.cookies.get(C.AUTH_COOKIE_NAME)
     if not cookie_value:
         raise ValueError("Bootstrap response did not include auth cookie.")
-    return f"{cookie_name}={cookie_value}"
+    return cookie_value
 
 
 async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
     token = _resolve_bridge_token(config)
     if token:
-        cookie_header = await _consume_bootstrap_token(config.backend_url, token)
-        return {"Cookie": cookie_header}
+        cookie_value = await _consume_bootstrap_token(config.backend_url, token)
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
     session_info = load_current_session_secret()
     if session_info is None:
         raise ValueError(
@@ -195,7 +176,7 @@ async def _resolve_stdio_bridge_headers(config: BridgeConfig) -> dict[str, str]:
         )
     session_metadata, secret = session_info
     cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-    return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+    return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
 
 @dataclass
@@ -484,7 +465,7 @@ class MultiMCPClient:
             return None
         session_metadata, secret = session_info
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+        return {"Cookie": f"{C.AUTH_COOKIE_NAME}={cookie_value}"}
 
     async def _keep_alive(self, server_id: str) -> None:
         session = self._sessions.get(server_id)

@@ -18,7 +18,7 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.utils.paths import normalize_state_path
+from setta.utils.utils import normalize_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -115,7 +115,7 @@ class TestFileWatcherCategory:
         main_category = f"{self.main_manager._file_watcher_category_prefix}_JSONSource"
         assert settings_category != main_category
 
-        settings_path = normalize_state_path(self.dbe.settings)
+        settings_path = normalize_path(self.dbe.settings)
         callbacks = self.specific_file_watcher.callbacks
         assert settings_category in callbacks
         assert main_category in callbacks

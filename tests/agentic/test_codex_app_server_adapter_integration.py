@@ -39,24 +39,24 @@ pytestmark = pytest.mark.asyncio
 
 class TestCodexAppServerAdapterIntegration:
     def _require_codex_cli(self) -> str:
-        codex_path = shutil.which("codex")
-        if codex_path is None:
-            pytest.skip("codex CLI not installed")
         if not os.environ.get("OPENAI_API_KEY"):
             pytest.skip("OPENAI_API_KEY not set")
+        codex_path = shutil.which("codex")
+        if codex_path is None:
+            pytest.fail("codex CLI not installed")
         result = subprocess.run(
             [codex_path, "app-server", "--help"],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
-            pytest.skip("codex app-server subcommand not available")
+            pytest.fail("codex app-server subcommand not available")
         try:
             socket.getaddrinfo("api.openai.com", 443)
             with socket.create_connection(("api.openai.com", 443), timeout=3):
                 pass
-        except OSError:
-            pytest.skip("Cannot connect to api.openai.com:443")
+        except OSError as exc:
+            pytest.skip(f"Cannot connect to api.openai.com:443 ({exc})")
         return codex_path
 
     async def _await_completed_run(
