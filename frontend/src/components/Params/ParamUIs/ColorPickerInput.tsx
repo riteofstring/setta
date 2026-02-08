@@ -1,6 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import _ from "lodash";
-import { useEffect, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -188,7 +187,6 @@ export function ColorPickerInput({
   colorChoices,
   value,
   onChange,
-  onCommit,
   onEscape,
   wrapperClassName,
   colorPickerChoicesClasses,
@@ -198,7 +196,6 @@ export function ColorPickerInput({
   colorChoices: ColorPickerConfigForFrontend["colorChoices"];
   value: string;
   onChange: (newColor: string) => void;
-  onCommit?: (newColor: string) => void;
   onEscape?: () => void;
   wrapperClassName: string;
   colorPickerChoicesClasses: string;
@@ -212,7 +209,6 @@ export function ColorPickerInput({
         colorChoices={colorChoices}
         value={_value}
         onChange={onChange}
-        onCommit={onCommit}
         onEscape={onEscape}
         colorPickerChoicesClasses={colorPickerChoicesClasses}
         isDisabled={isDisabled}
@@ -230,50 +226,15 @@ type ColorPickerInputTheme = {
   menuItemTextClassName?: string;
 };
 
-type ColorPickerProps = {
-  colorChoices: ColorPickerConfigForFrontend["colorChoices"];
-  value: string;
-  onChange: (newColor: string) => void;
-  onCommit?: (newColor: string) => void;
-  onEscape?: () => void;
-  colorPickerChoicesClasses: string;
-  isDisabled: boolean;
-  theme?: ColorPickerInputTheme;
-};
-
 function ColorPicker({
   colorChoices,
   value,
   onChange,
-  onCommit,
   onEscape,
   colorPickerChoicesClasses,
   isDisabled,
   theme,
-}: ColorPickerProps) {
-  const nativeInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!onCommit) {
-      return;
-    }
-    const input = nativeInputRef.current;
-    if (!(input instanceof HTMLInputElement)) {
-      return;
-    }
-    const handleNativeChange = (event: Event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLInputElement)) {
-        return;
-      }
-      onCommit(target.value);
-    };
-    input.addEventListener("change", handleNativeChange);
-    return () => {
-      input.removeEventListener("change", handleNativeChange);
-    };
-  }, [onCommit]);
-
+}) {
   const style = {
     // from https://codepen.io/devongovett/pen/QwLbRrW
     "--bg": value,
@@ -284,7 +245,6 @@ function ColorPicker({
     <ColorPickerFromColorChoices
       color={value}
       setColor={onChange}
-      onCommit={onCommit}
       colorChoices={colorChoices}
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
@@ -307,20 +267,10 @@ function ColorPicker({
           "!border-setta-500/20 dark:!border-setta-500/40";
         return (
           <input
-            ref={nativeInputRef}
             id="colorPicker"
             type="color"
             value={value}
-            onInput={(e) => onChange((e.target as HTMLInputElement).value)}
-            onChange={(e) => {
-              const nextColor = (e.target as HTMLInputElement).value;
-              if (onCommit) {
-                return;
-              }
-              if (nextColor !== value) {
-                onChange(nextColor);
-              }
-            }}
+            onChange={(e) => onChange(e.target.value)}
             className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${inputBorderClassName}`}
             disabled={isDisabled}
             onKeyDown={(e) => {
@@ -335,27 +285,15 @@ function ColorPicker({
   );
 }
 
-type ColorPickerFromColorChoicesProps = {
-  color: string;
-  setColor: (newColor: string) => void;
-  onCommit?: (newColor: string) => void;
-  colorChoices: ColorPickerConfigForFrontend["colorChoices"];
-  colorPickerChoicesClasses: string;
-  isDisabled: boolean;
-  onEscape?: () => void;
-  theme?: ColorPickerInputTheme;
-};
-
 function ColorPickerFromColorChoices({
   color,
   setColor,
-  onCommit,
   colorChoices,
   colorPickerChoicesClasses,
   isDisabled,
   onEscape,
   theme,
-}: ColorPickerFromColorChoicesProps) {
+}) {
   let selectedItem = colorChoices.find((c) => c.color === color);
   if (!selectedItem) {
     selectedItem = colorChoices[0];
@@ -417,10 +355,7 @@ function ColorPickerFromColorChoices({
             <DropdownMenu.Item
               key={index}
               className={menuItemClassName}
-              onSelect={() => {
-                setColor(item.color);
-                onCommit?.(item.color);
-              }}
+              onSelect={() => setColor(item.color)}
             >
               <div
                 className="mr-2 h-4 w-4 rounded-full"

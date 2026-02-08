@@ -89,8 +89,6 @@ AllImplFields = Literal[
     "showSectionTitle",
     "size",
     "step",
-    "styleColor",
-    "tagColor",
     "template",
     "text",
     "textDisplayMode",

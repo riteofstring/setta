@@ -96,8 +96,6 @@ from setta.project_state.project_manager_types import (
     SetSectionParamFilterRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
-    SetSectionStyleColorRequest,
-    SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetShowParamDisplayNamesRequest,
@@ -1094,24 +1092,6 @@ async def route_set_section_name(
         await manager.set_section_name(x)
     except InvalidSectionName as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.SET_SECTION_TAG_COLOR)
-async def route_set_section_tag_color(
-    x: SetSectionTagColorRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_tag_color(x)
-
-
-@router.post(Route.SET_SECTION_STYLE_COLOR)
-async def route_set_section_style_color(
-    x: SetSectionStyleColorRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_section_style_color(x)
 
 
 @router.post(Route.SET_META_CONTROL_SHOW_SECTION_TITLE)

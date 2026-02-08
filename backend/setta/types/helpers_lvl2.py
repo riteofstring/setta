@@ -2723,26 +2723,6 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     p._section_slug_cache = None
 
 
-def set_section_tag_color(
-    p: "ProjectStateSingleConfig", sectionId: ID, tagColor: str | None
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionImplArgsWithCallable(tagColor=tagColor),
-    )
-
-
-def set_section_style_color(
-    p: "ProjectStateSingleConfig", sectionId: ID, styleColor: str | None
-):
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionImplArgsWithCallable(styleColor=styleColor),
-    )
-
-
 def set_meta_control_show_section_title(
     p: "ProjectStateSingleConfig", sectionId: ID, showSectionTitle: bool
 ):

@@ -783,20 +783,6 @@ class ListenerSetSectionSizesRequestPayload(TypedDict):
     sectionSizes: dict[ID, SectionSize]
 
 
-class ListenerSetSectionStyleColorRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    styleColor: NotRequired[str | None]
-
-
-class ListenerSetSectionTagColorRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    tagColor: NotRequired[str | None]
-
-
 class ListenerSetSectionVariantNameRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1475,16 +1461,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSectionSizesRequestPayload
     ) -> None:
         return await self._caller("route_set_section_sizes", payload)
-
-    async def set_section_style_color(
-        self, payload: ListenerSetSectionStyleColorRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_style_color", payload)
-
-    async def set_section_tag_color(
-        self, payload: ListenerSetSectionTagColorRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_tag_color", payload)
 
     async def set_section_variant(
         self, payload: ListenerSetSectionVariantRequestPayload

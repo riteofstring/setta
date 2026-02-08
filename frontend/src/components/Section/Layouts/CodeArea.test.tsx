@@ -104,7 +104,6 @@ describe("CodeArea LSP diagnostics wiring", () => {
     name: "Code",
     isFrozen: false,
     isInOtherProjectConfigs: false,
-    tagColor: null,
     size: { width: 500, height: 300 },
     aspectRatio: false,
     aspectRatioExtraHeight: 0,
