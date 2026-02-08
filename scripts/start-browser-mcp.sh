@@ -11,56 +11,56 @@ WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || ec
 instance_offset() {
   local instance_name="$1"
   local segment="${instance_name}"
+  local suffix=""
 
   case "${segment}" in
     setta.*)
       segment="${segment#setta.}"
       ;;
   esac
-  case "${segment}" in
-    *-*)
-      segment="${segment##*-}"
-      ;;
-  esac
-  case "${segment}" in
-    *_*)
-      segment="${segment##*_}"
-      ;;
-  esac
-  case "${segment}" in
-    *.*)
-      segment="${segment##*.}"
-      ;;
-  esac
 
   local offset="${segment##*[!0-9]}"
-  if [ -z "${offset}" ] && [ "${#segment}" -eq 1 ]; then
-    case "${segment}" in
+  if [[ -n "${offset}" ]]; then
+    echo "$((10#${offset}))"
+    return 0
+  fi
+
+  suffix="${segment}"
+  suffix="${suffix##*-}"
+  suffix="${suffix##*_}"
+  suffix="${suffix##*.}"
+  if [ "${#suffix}" -eq 1 ]; then
+    case "${suffix}" in
       [a-z])
-        offset=$(( $(printf '%d' "'${segment}") - 97 ))
+        echo $(( $(printf '%d' "'${suffix}") - 97 ))
+        return 0
         ;;
       [A-Z])
-        offset=$(( $(printf '%d' "'${segment}") - 65 ))
+        echo $(( $(printf '%d' "'${suffix}") - 65 ))
+        return 0
         ;;
     esac
   fi
-  if [ -z "${offset}" ] && [ -n "${segment}" ]; then
-    if command -v cksum >/dev/null 2>&1; then
-      CKSUM_OUTPUT=$(printf "%s" "${segment}" | cksum)
-      CKSUM_VALUE=${CKSUM_OUTPUT%% *}
-      if [ -n "${CKSUM_VALUE}" ]; then
-        offset=$(( CKSUM_VALUE % 100 ))
-      fi
+
+  if command -v cksum >/dev/null 2>&1; then
+    CKSUM_OUTPUT=$(printf "%s" "${segment}" | cksum)
+    CKSUM_VALUE=${CKSUM_OUTPUT%% *}
+    if [ -n "${CKSUM_VALUE}" ]; then
+      echo $(( CKSUM_VALUE % 100 ))
+      return 0
     fi
   fi
-  echo "${offset:-0}"
+
+  echo 0
 }
 
 profile_suffix() {
   local root="$1"
 
   if command -v shasum >/dev/null 2>&1; then
-    printf "%s" "$root" | shasum -a 256 | awk '{print substr($1,1,12)}'
+    # shasum is a perl script on macOS and can crash if the caller has an
+    # unsupported locale (e.g. LC_ALL=C.UTF-8). Force a safe locale.
+    printf "%s" "$root" | LC_ALL=C LANG=C shasum -a 256 | awk '{print substr($1,1,12)}'
     return
   fi
 
@@ -393,8 +393,20 @@ fi
 
 if command -v lsof >/dev/null 2>&1; then
   if lsof -iTCP:"$DEBUG_PORT" -sTCP:LISTEN -n >/dev/null 2>&1; then
-    echo "Port $DEBUG_PORT is already in use. Set DEBUG_PORT to a free port." >&2
-    exit 1
+    original_debug_port="$DEBUG_PORT"
+    for ((i = 1; i <= 200; i++)); do
+      candidate=$((original_debug_port + i))
+      if ! lsof -iTCP:"$candidate" -sTCP:LISTEN -n >/dev/null 2>&1; then
+        DEBUG_PORT="$candidate"
+        break
+      fi
+    done
+
+    if [[ "$DEBUG_PORT" == "$original_debug_port" ]]; then
+      echo "Port $DEBUG_PORT is already in use. Set DEBUG_PORT to a free port." >&2
+      exit 1
+    fi
+    echo "Port ${original_debug_port} is in use; using ${DEBUG_PORT} instead." >&2
   fi
 fi
 

@@ -10,7 +10,9 @@ profile_suffix() {
   local root="$1"
 
   if command -v shasum >/dev/null 2>&1; then
-    printf "%s" "$root" | shasum -a 256 | awk '{print substr($1,1,12)}'
+    # shasum is a perl script on macOS and can crash if the caller has an
+    # unsupported locale (e.g. LC_ALL=C.UTF-8). Force a safe locale.
+    printf "%s" "$root" | LC_ALL=C LANG=C shasum -a 256 | awk '{print substr($1,1,12)}'
     return
   fi
 

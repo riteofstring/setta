@@ -90,7 +90,9 @@ if [[ -z "${EXPECTED_SHA}" ]]; then
 fi
 
 if command -v shasum >/dev/null 2>&1; then
-  ACTUAL_SHA="$(shasum -a 256 "${TMP_DIR}/${ARCHIVE}" | awk '{print $1}')"
+  # shasum is a perl script on macOS and can crash if the caller has an
+  # unsupported locale (e.g. LC_ALL=C.UTF-8). Force a safe locale.
+  ACTUAL_SHA="$(LC_ALL=C LANG=C shasum -a 256 "${TMP_DIR}/${ARCHIVE}" | awk '{print $1}')"
 elif command -v sha256sum >/dev/null 2>&1; then
   ACTUAL_SHA="$(sha256sum "${TMP_DIR}/${ARCHIVE}" | awk '{print $1}')"
 else

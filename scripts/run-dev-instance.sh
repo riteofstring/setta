@@ -27,43 +27,38 @@ if [ -z "${INSTANCE_NAME}" ]; then
   INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
 fi
 
-INSTANCE_SEGMENT="${INSTANCE_NAME}"
-case "${INSTANCE_SEGMENT}" in
+INSTANCE_KEY="${INSTANCE_NAME}"
+case "${INSTANCE_KEY}" in
   setta.*)
-    INSTANCE_SEGMENT="${INSTANCE_SEGMENT#setta.}"
+    INSTANCE_KEY="${INSTANCE_KEY#setta.}"
     ;;
 esac
-case "${INSTANCE_SEGMENT}" in
-  *-*)
-    INSTANCE_SEGMENT="${INSTANCE_SEGMENT##*-}"
-    ;;
+SUFFIX_SEGMENT="${INSTANCE_KEY}"
+case "${SUFFIX_SEGMENT}" in
+  *-*) SUFFIX_SEGMENT="${SUFFIX_SEGMENT##*-}" ;;
 esac
-case "${INSTANCE_SEGMENT}" in
-  *_*)
-    INSTANCE_SEGMENT="${INSTANCE_SEGMENT##*_}"
-    ;;
+case "${SUFFIX_SEGMENT}" in
+  *_*) SUFFIX_SEGMENT="${SUFFIX_SEGMENT##*_}" ;;
 esac
-case "${INSTANCE_SEGMENT}" in
-  *.*)
-    INSTANCE_SEGMENT="${INSTANCE_SEGMENT##*.}"
-    ;;
+case "${SUFFIX_SEGMENT}" in
+  *.*) SUFFIX_SEGMENT="${SUFFIX_SEGMENT##*.}" ;;
 esac
 
-# Derive a stable port offset from trailing digits or a single-letter segment.
-INSTANCE_OFFSET="${INSTANCE_SEGMENT##*[!0-9]}"
-if [ -z "${INSTANCE_OFFSET}" ] && [ "${#INSTANCE_SEGMENT}" -eq 1 ]; then
-  case "${INSTANCE_SEGMENT}" in
+# Derive a stable port offset from trailing digits or a single-letter suffix.
+INSTANCE_OFFSET="${INSTANCE_KEY##*[!0-9]}"
+if [ -z "${INSTANCE_OFFSET}" ] && [ "${#SUFFIX_SEGMENT}" -eq 1 ]; then
+  case "${SUFFIX_SEGMENT}" in
     [a-z])
-      INSTANCE_OFFSET=$(( $(printf '%d' "'${INSTANCE_SEGMENT}") - 97 ))
+      INSTANCE_OFFSET=$(( $(printf '%d' "'${SUFFIX_SEGMENT}") - 97 ))
       ;;
     [A-Z])
-      INSTANCE_OFFSET=$(( $(printf '%d' "'${INSTANCE_SEGMENT}") - 65 ))
+      INSTANCE_OFFSET=$(( $(printf '%d' "'${SUFFIX_SEGMENT}") - 65 ))
       ;;
   esac
 fi
-if [ -z "${INSTANCE_OFFSET}" ] && [ -n "${INSTANCE_SEGMENT}" ]; then
+if [ -z "${INSTANCE_OFFSET}" ] && [ -n "${INSTANCE_KEY}" ]; then
   if command -v cksum >/dev/null 2>&1; then
-    CKSUM_OUTPUT=$(printf "%s" "${INSTANCE_SEGMENT}" | cksum)
+    CKSUM_OUTPUT=$(printf "%s" "${INSTANCE_KEY}" | cksum)
     CKSUM_VALUE=${CKSUM_OUTPUT%% *}
     if [ -n "${CKSUM_VALUE}" ]; then
       INSTANCE_OFFSET=$(( CKSUM_VALUE % 100 ))
