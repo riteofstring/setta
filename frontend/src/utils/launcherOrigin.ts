@@ -1,5 +1,5 @@
-import { normalizeOrigin } from "utils/origin";
 import { isLocalHostname } from "utils/hostnames";
+import { normalizeOrigin } from "utils/origin";
 import { safeLocalStorage, safeSessionStorage } from "utils/storage";
 
 const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";

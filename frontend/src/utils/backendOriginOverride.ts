@@ -1,6 +1,6 @@
+import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
-import { isLocalHostname } from "utils/hostnames";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";

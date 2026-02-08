@@ -526,11 +526,9 @@ def _bootstrap_redirect_url(request: Request) -> str:
 
 def _render_bootstrap_html(request: Request) -> str:
     launcher_origin_storage = "sessionStorage" if IS_DEV_MODE else "localStorage"
-    return (
-        BOOTSTRAP_HTML_TEMPLATE.replace(
-            "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
-        ).replace("__SETTA_LAUNCHER_ORIGIN_STORAGE__", launcher_origin_storage)
-    )
+    return BOOTSTRAP_HTML_TEMPLATE.replace(
+        "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
+    ).replace("__SETTA_LAUNCHER_ORIGIN_STORAGE__", launcher_origin_storage)
 
 
 @router.get(Route.BOOTSTRAP_PAGE, response_class=HTMLResponse)

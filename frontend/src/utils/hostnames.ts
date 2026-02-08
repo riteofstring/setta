@@ -6,4 +6,3 @@ export function isLocalHostname(hostname: string): boolean {
     normalized === "::1"
   );
 }
-
