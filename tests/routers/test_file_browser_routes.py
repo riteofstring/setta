@@ -1,6 +1,5 @@
 import json
 import os
-from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -29,14 +28,16 @@ from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import (
+    DeploymentType,
+    DeploymentManifest,
+    SharePolicy,
+)
 from setta.types.artifact import ArtifactType, FileArtifact
 from setta.types.binary_content import BinaryContentRef
-from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
+from setta.utils.constants import C, CWD
 from tests.utils.runtime_context import runtime_context
 from tests.utils.manager_fixture import _seed_minimal_setta_files
-from tests.utils.setta_paths import temporary_setta_paths
 
 
 def _build_share_deployment_root(
@@ -46,7 +47,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -67,14 +68,21 @@ def _write_share_project(
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+
+def _write_share_policy(root: Path, policy: SharePolicy) -> None:
+    dbe = DBE(root)
+    dbe.write_json(root / "policy.json", policy.model_dump())
 
 
 async def _shutdown_state(state: SettaFastAPIState) -> None:
@@ -88,42 +96,80 @@ async def _shutdown_state(state: SettaFastAPIState) -> None:
         stop_file_watcher(state.lsp_writers)
 
 
+def _set_temp_constants(root: Path) -> dict[str, Path]:
+    previous = {
+        "SETTA_FILES_FOLDER": C.SETTA_FILES_FOLDER,
+        "CODE_FOLDER": C.CODE_FOLDER,
+        "DB_BACKUP_FOLDER": C.DB_BACKUP_FOLDER,
+        "ARTIFACTS_FOLDER": C.ARTIFACTS_FOLDER,
+        "RUNTIME_FOLDER": C.RUNTIME_FOLDER,
+        "RUNTIME_SESSIONS_FOLDER": C.RUNTIME_SESSIONS_FOLDER,
+        "RUNTIME_LOGS_FOLDER": C.RUNTIME_LOGS_FOLDER,
+        "RUNTIME_MCP_FOLDER": C.RUNTIME_MCP_FOLDER,
+        "RUNTIME_SECRETS_FOLDER": C.RUNTIME_SECRETS_FOLDER,
+        "DETACHED_RUNS_FOLDER": C.DETACHED_RUNS_FOLDER,
+        "DEPLOYMENTS_FOLDER": C.DEPLOYMENTS_FOLDER,
+    }
+    C.SETTA_FILES_FOLDER = root / "setta_files"
+    C.CODE_FOLDER = C.SETTA_FILES_FOLDER / "code"
+    C.DB_BACKUP_FOLDER = C.SETTA_FILES_FOLDER / "backups"
+    C.ARTIFACTS_FOLDER = C.SETTA_FILES_FOLDER / "artifacts"
+    C.RUNTIME_FOLDER = C.SETTA_FILES_FOLDER / "runtime"
+    C.RUNTIME_SESSIONS_FOLDER = C.RUNTIME_FOLDER / "sessions"
+    C.RUNTIME_LOGS_FOLDER = C.RUNTIME_FOLDER / "logs"
+    C.RUNTIME_MCP_FOLDER = C.RUNTIME_FOLDER / "mcp"
+    C.RUNTIME_SECRETS_FOLDER = C.RUNTIME_FOLDER / "secrets"
+    C.DETACHED_RUNS_FOLDER = C.RUNTIME_FOLDER / "detached_runs"
+    C.DEPLOYMENTS_FOLDER = C.SETTA_FILES_FOLDER / "deployments"
+    for path in (
+        C.SETTA_FILES_FOLDER,
+        C.CODE_FOLDER,
+        C.DB_BACKUP_FOLDER,
+        C.ARTIFACTS_FOLDER,
+        C.RUNTIME_FOLDER,
+        C.RUNTIME_SESSIONS_FOLDER,
+        C.RUNTIME_LOGS_FOLDER,
+        C.RUNTIME_MCP_FOLDER,
+        C.RUNTIME_SECRETS_FOLDER,
+        C.DETACHED_RUNS_FOLDER,
+        C.DEPLOYMENTS_FOLDER,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+    _seed_minimal_setta_files(C.SETTA_FILES_FOLDER)
+    return previous
+
+
+def _restore_constants(previous: dict[str, Path]) -> None:
+    C.SETTA_FILES_FOLDER = previous["SETTA_FILES_FOLDER"]
+    C.CODE_FOLDER = previous["CODE_FOLDER"]
+    C.DB_BACKUP_FOLDER = previous["DB_BACKUP_FOLDER"]
+    C.ARTIFACTS_FOLDER = previous["ARTIFACTS_FOLDER"]
+    C.RUNTIME_FOLDER = previous["RUNTIME_FOLDER"]
+    C.RUNTIME_SESSIONS_FOLDER = previous["RUNTIME_SESSIONS_FOLDER"]
+    C.RUNTIME_LOGS_FOLDER = previous["RUNTIME_LOGS_FOLDER"]
+    C.RUNTIME_MCP_FOLDER = previous["RUNTIME_MCP_FOLDER"]
+    C.RUNTIME_SECRETS_FOLDER = previous["RUNTIME_SECRETS_FOLDER"]
+    C.DETACHED_RUNS_FOLDER = previous["DETACHED_RUNS_FOLDER"]
+    C.DEPLOYMENTS_FOLDER = previous["DEPLOYMENTS_FOLDER"]
+
+
 class TestFileBrowserRoutes:
     pytestmark = pytest.mark.asyncio
 
     @pytest_asyncio.fixture(autouse=True)
     async def _setup(self):
         self._states: list[SettaFastAPIState] = []
+        self._temp_dirs: list[TemporaryDirectory] = []
         self._temp_dir = TemporaryDirectory()
-        root = Path(self._temp_dir.name)
-        self._stack = ExitStack()
-        self._stack.enter_context(
-            temporary_setta_paths(
-                workspace_root=root,
-                setta_files_root=root / "setta_files",
-            )
-        )
-        for path in (
-            C.SETTA_FILES_FOLDER,
-            C.CODE_FOLDER,
-            C.DB_BACKUP_FOLDER,
-            C.ARTIFACTS_FOLDER,
-            C.RUNTIME_FOLDER,
-            C.RUNTIME_SESSIONS_FOLDER,
-            C.RUNTIME_LOGS_FOLDER,
-            C.RUNTIME_MCP_FOLDER,
-            C.RUNTIME_SECRETS_FOLDER,
-            C.DETACHED_RUNS_FOLDER,
-            C.SHARE_DEPLOYMENTS_FOLDER,
-        ):
-            path.mkdir(parents=True, exist_ok=True)
-        _seed_minimal_setta_files(C.SETTA_FILES_FOLDER)
+        self._previous_constants = _set_temp_constants(Path(self._temp_dir.name))
         try:
             yield
         finally:
             for state in self._states:
                 await _shutdown_state(state)
-            self._stack.close()
+            for temp_dir in self._temp_dirs:
+                temp_dir.cleanup()
+            _restore_constants(self._previous_constants)
             self._temp_dir.cleanup()
 
     async def _build_state(
@@ -133,6 +179,35 @@ class TestFileBrowserRoutes:
         share_deployment_root: Path | None = None,
         app: FastAPI | None = None,
     ) -> SettaFastAPIState:
+        if not share_mode:
+            temp_dir = TemporaryDirectory()
+            self._temp_dirs.append(temp_dir)
+            setta_root = Path(temp_dir.name) / "setta_files"
+            _seed_minimal_setta_files(setta_root)
+            code_folder = setta_root / "code"
+            artifacts_folder = setta_root / "artifacts"
+            backup_folder = setta_root / "backups"
+            run_folder = setta_root / "runtime"
+            run_sessions_folder = run_folder / "sessions"
+            run_logs_folder = run_folder / "logs"
+            deployments_folder = setta_root / "deployments"
+            for path in (
+                code_folder,
+                artifacts_folder,
+                backup_folder,
+                run_sessions_folder,
+                run_logs_folder,
+                deployments_folder,
+            ):
+                path.mkdir(parents=True, exist_ok=True)
+            C.SETTA_FILES_FOLDER = setta_root
+            C.CODE_FOLDER = code_folder
+            C.ARTIFACTS_FOLDER = artifacts_folder
+            C.DB_BACKUP_FOLDER = backup_folder
+            C.RUNTIME_FOLDER = run_folder
+            C.RUNTIME_SESSIONS_FOLDER = run_sessions_folder
+            C.RUNTIME_LOGS_FOLDER = run_logs_folder
+            C.DEPLOYMENTS_FOLDER = deployments_folder
         if app is None:
             app = FastAPI()
         state = SettaFastAPIState(
@@ -151,7 +226,7 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         with runtime_context(state) as runtime_ctx:
             response = route_get_file_browser_root(runtime_ctx)
-        assert str(get_setta_paths().workspace_root) == response.rootPath
+        assert str(CWD.resolve()) == response.rootPath
         assert os.sep == response.pathSeparator
         assert ".git" in response.ignorePatterns
 
@@ -198,7 +273,7 @@ class TestFileBrowserRoutes:
 
     async def test_get_folder_contents_filters_hidden_and_ignored(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / "visible.txt").write_text("hello", encoding="utf-8")
             (root_path / "child").mkdir()
@@ -217,7 +292,7 @@ class TestFileBrowserRoutes:
 
     async def test_get_folder_contents_include_hidden_and_ignore_override(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / ".env").write_text("hidden", encoding="utf-8")
             (root_path / "node_modules").mkdir()
@@ -242,7 +317,7 @@ class TestFileBrowserRoutes:
 
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             (root_path / "a.txt").write_text("a", encoding="utf-8")
             (root_path / "b.txt").write_text("b", encoding="utf-8")
@@ -272,7 +347,7 @@ class TestFileBrowserRoutes:
 
     async def test_get_folder_contents_errors(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             root_path = Path(tmpdir)
             file_path = root_path / "file.txt"
             file_path.write_text("hi", encoding="utf-8")
@@ -318,7 +393,7 @@ class TestFileBrowserRoutes:
 
     async def test_import_files_to_artifacts_missing_path(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             missing_path = Path(tmpdir) / "missing.txt"
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
@@ -333,7 +408,7 @@ class TestFileBrowserRoutes:
 
     async def test_import_files_to_artifacts_directory_path(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             with runtime_context(state) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_import_files_to_artifacts(
@@ -347,7 +422,7 @@ class TestFileBrowserRoutes:
 
     async def test_import_files_to_artifacts_success(self) -> None:
         state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+        with TemporaryDirectory(dir=CWD) as tmpdir:
             file_path = Path(tmpdir) / "sample.txt"
             contents = b"hello world"
             file_path.write_bytes(contents)
@@ -516,7 +591,7 @@ class TestFileBrowserRoutes:
         original_prefixes = C.DROPZONE_ALLOWED_MIME_PREFIXES
         try:
             C.DROPZONE_ALLOWED_MIME_PREFIXES = ["image/"]
-            with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+            with TemporaryDirectory(dir=CWD) as tmpdir:
                 file_path = Path(tmpdir) / "notes.txt"
                 file_path.write_bytes(b"12345")
                 with runtime_context(state) as runtime_ctx:
@@ -539,7 +614,7 @@ class TestFileBrowserRoutes:
         try:
             C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 4
             C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "4 bytes"
-            with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+            with TemporaryDirectory(dir=CWD) as tmpdir:
                 file_path = Path(tmpdir) / "oversized.txt"
                 file_path.write_bytes(b"12345")
                 with runtime_context(state) as runtime_ctx:
@@ -573,7 +648,7 @@ class TestFileBrowserRoutes:
                 ),
                 runtime_ctx,
             )
-            file_path = (get_setta_paths().workspace_root / artifact_id).resolve()
+            file_path = (CWD / artifact_id).resolve()
             assert file_path.exists()
             deleted = await route_delete_artifacts(
                 DeleteArtifactsRequest(
@@ -622,11 +697,37 @@ class TestFileBrowserRoutes:
         assert response.status_code == 200
         ref = BinaryContentRef(**response.json())
         with runtime_context(state) as runtime_ctx:
-            response = route_binary_download(ref.contentId, runtime_ctx)
+            response = await route_binary_download(ref.contentId, runtime_ctx)
         binary_store = BinaryStore.from_dbe(state.dbe)
         assert binary_store.read_bytes(ref.contentId) == payload
         assert response.media_type == "application/octet-stream"
         assert Path(response.path).read_bytes() == payload
+
+    async def test_binary_download_blocks_when_policy_disallows(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-binary-download"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(root, SharePolicy(allowFileDownloads=False))
+            state = await self._build_state(
+                share_mode=True,
+                share_deployment_root=root,
+            )
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+            binary_store = BinaryStore.from_dbe(state.dbe)
+            ref = binary_store.store_bytes(
+                b"binary-payload", mime_type="application/octet-stream"
+            )
+            with runtime_context(state, session.id) as runtime_ctx:
+                with pytest.raises(HTTPException) as ctx:
+                    await route_binary_download(ref.contentId, runtime_ctx)
+            assert ctx.value.status_code == 403
+            await _shutdown_state(state)
 
     async def test_binary_upload_allows_non_durable(self) -> None:
         app = FastAPI()
@@ -651,7 +752,7 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         with runtime_context(state) as runtime_ctx:
             with pytest.raises(HTTPException) as ctx:
-                route_binary_download("..", runtime_ctx)
+                await route_binary_download("..", runtime_ctx)
         assert ctx.value.status_code == 400
 
     async def test_delete_artifacts_rejects_outside_artifacts_root(self) -> None:

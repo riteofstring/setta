@@ -29,6 +29,7 @@ from setta.types.id import ID
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
+    BrowserSavedSearch,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -133,6 +134,7 @@ class SharedModifier(TypedDict):
     requestHeaderValue: NotRequired[str]
     requestMethod: NotRequired[HttpRequestMethod]
     requestUrl: NotRequired[str]
+    savedSearches: NotRequired[list[BrowserSavedSearch]]
     selectedParams: NotRequired[list[ID]]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]

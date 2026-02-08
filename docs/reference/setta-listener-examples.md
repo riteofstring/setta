@@ -25,8 +25,27 @@ terminal process and streams stdout/stderr into the Terminal panel.
 3. Stop it with the Stop button when you are done.
 
 This is the same run pipeline as any other Code section, so it runs the section file
-in a managed terminal session. It is separate from share-mode listeners, which are
-started from a deployment entrypoint (`listener/app.py`).
+in a managed terminal session. It is separate from deployment-mode listeners
+(share/app), which are started from a deployment entrypoint (`listener/app.py`).
+
+## Deployment listener entrypoint (share/app deployments)
+Deployments can ship a listener entrypoint at `listener/app.py`. If the deployment
+manifest enables it, Setta starts a listener per deployment session.
+
+The entrypoint should define either `build_listener` or `build_callbacks` and
+register callbacks on the provided `SettaListener`:
+
+```python
+from setta.api import SettaListener
+
+
+def build_listener(listener: SettaListener) -> None:
+    @listener.listen(deps=["example__x"], run_on_refresh=True)
+    async def on_change(state, ctx) -> None:
+        await ctx.emit_to_frontend(dependency_values={"app_output": str(state.example__x)})
+```
+
+See `docs/examples/listener/app.py` for a concrete, runnable example.
 
 ## Basic dependency listener (sync)
 Strings: `Demo Project` is the project name; `hiding_river__x` is a param dependency (section `hiding_river` + param `x`, joined with `__`); `groups=%s` and `changed=%s` are log message templates.

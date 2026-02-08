@@ -115,6 +115,7 @@ from setta.types.section_impls import (
     SectionSizeMode,
     BrowserAreaViewMode,
     BrowserAreaItem,
+    BrowserSavedSearch,
     CodeFileBinding,
     TypeErrorIgnoreState,
     CodeSectionDiagnosticsIgnoreState,

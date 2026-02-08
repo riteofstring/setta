@@ -36,8 +36,8 @@ from setta.types.hierarchy_traversal import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import BaseDictSectionImpl
-from setta.utils.paths import normalize_workspace_path
 from setta.utils.structured_data import read_json_source_payload
+from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -187,7 +187,7 @@ class JSONSource:
                 await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 logger.debug(
                     "JSON source update: %s %s",
-                    coreUpdate.fileToRead,
+                    coreUpdate.relPath,
                     coreUpdate.eventType.value,
                 )
 
@@ -202,7 +202,7 @@ class JSONSource:
             for v in s.variants:
                 variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
                 if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-                    filepath = normalize_workspace_path(variant.name)
+                    filepath = normalize_path(variant.name)
                     filename_set.add(filepath)
                     new_json_source_to_variant_mapping[filepath].add((s.id, v))
 
@@ -213,7 +213,7 @@ class JSONSource:
     ) -> dict[Path, ProcessedJSONInfo]:
         json_sources: dict[Path, ProcessedJSONInfo] = {}
         for path in paths:
-            normalized = normalize_workspace_path(path)
+            normalized = normalize_path(path)
             if not normalized.exists():
                 continue
             payload = read_json_source_payload(normalized, self.dbe)
@@ -233,12 +233,10 @@ class JSONSource:
                 variant, _, impl = get_variant_base_and_effective_section_impl(
                     p, section, variant_id
                 )
-                json_source_path = normalize_workspace_path(variant.name)
-                update_path = normalize_workspace_path(coreUpdate.fileToRead)
                 if (
                     not isinstance(impl, BaseDictSectionImpl)
                     or not impl.isJsonSource
-                    or json_source_path != update_path
+                    or variant.name != str(coreUpdate.relPath)
                 ):
                     continue
 

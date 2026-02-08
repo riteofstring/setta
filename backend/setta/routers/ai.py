@@ -98,13 +98,13 @@ def _ensure_external_chat_id_compatible(
         return
     for run in external_runs:
         existing_engine = get_run_engine_config_id(run)
-        if existing_engine and existing_engine != engine_config_id:
+        if existing_engine != engine_config_id:
             raise HTTPException(
                 status_code=409,
                 detail="Chat engine mismatch; start a new chat.",
             )
         existing_project = get_run_project_config_id(run)
-        if existing_project and existing_project != project_config_id:
+        if existing_project != project_config_id:
             raise HTTPException(
                 status_code=409,
                 detail="Chat project config mismatch; start a new chat.",
@@ -235,8 +235,15 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
+    allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
+    appSpecStreamingEnabled: bool = Field(
+        default=False,
+        description=(
+            "Whether the UI is configured to stream app spec patches for live preview."
+        ),
+    )
 
 
 class GetLLMChatRequest(BaseModel):
@@ -276,6 +283,16 @@ async def route_get_llm_response(
     ctx: RuntimeContextFromRequest,
 ) -> str | None:
     await ctx.enforce_llm_allowed()
+    if x.sectionId is None and not x.allowUnscoped:
+        raise HTTPException(
+            status_code=400,
+            detail="sectionId is required unless allowUnscoped is true.",
+        )
+    if x.sectionId is not None and x.allowUnscoped:
+        raise HTTPException(
+            status_code=400,
+            detail="allowUnscoped requires sectionId to be omitted.",
+        )
     is_branch_request = (
         x.branchParentChatId is not None or x.branchFromMessageId is not None
     )
@@ -333,6 +350,16 @@ async def route_get_llm_response(
             profile = require_agent_profile(ctx.state.dbe, x.agentProfileId)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    app_generation_mode_prompt: str | None = None
+    if x.appSpecStreamingEnabled:
+        app_generation_mode_prompt = (
+            "## App spec generation mode\n"
+            "- streamingPreview: enabled\n"
+            "- If you are generating/updating the App spec (json-render):\n"
+            "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
+            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
+        )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -343,7 +370,20 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        profile = profile.model_copy(update={"engineConfigId": x.engineConfigId})
+        existing_system_prompt = profile.systemPrompt or ""
+        combined_system_prompt = existing_system_prompt
+        if app_generation_mode_prompt is not None:
+            combined_system_prompt = (
+                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
+                if existing_system_prompt.strip()
+                else app_generation_mode_prompt.strip()
+            )
+        profile = profile.model_copy(
+            update={
+                "engineConfigId": x.engineConfigId,
+                "systemPrompt": combined_system_prompt,
+            }
+        )
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
@@ -367,6 +407,8 @@ async def route_get_llm_response(
             )
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
+        if x.allowUnscoped:
+            inputs["allowUnscoped"] = True
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -422,6 +464,8 @@ async def route_get_llm_response(
             )
         if x.sectionId is not None:
             inputs["sectionId"] = str(x.sectionId)
+        if x.allowUnscoped:
+            inputs["allowUnscoped"] = True
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:

@@ -1,7 +1,10 @@
 from typing import Any
+from uuid import uuid4
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.fastmcp.server import Context
+from mcp.shared.context import RequestContext
 from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
 from pydantic import BaseModel, ValidationError
@@ -9,20 +12,38 @@ from pydantic import BaseModel, ValidationError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.id import ID
 from setta.types.routes import Route
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 
+class _MCPToolsCallSession:
+    """Synthetic MCP session for /__setta__/tools/call.
+
+    Must be weakrefable because SettaFastMCP stores agentic context by session.
+    """
+
+
 class MCPToolCallRequest(BaseModel):
     tool: str
     arguments: Any | None = None
+    agenticContext: "MCPToolCallAgenticContext | None" = None
+
+
+class MCPToolCallAgenticContext(BaseModel):
+    projectConfigId: ID
+    chatId: ID | None = None
+    sectionId: ID | None = None
+    allowUnscoped: bool = False
+    shareSessionId: str | None = None
 
 
 @router.post(Route.TOOLS_CALL)
 async def route_call_mcp_tool(
     payload: MCPToolCallRequest,
     ctx: RuntimeContextFromRequest,
+    request: Request,
 ) -> dict[str, Any]:
     tool_name = payload.tool.strip()
     if not tool_name:
@@ -48,7 +69,21 @@ async def route_call_mcp_tool(
             detail=f"Unknown tool: {tool_name}",
         )
     try:
-        context = ctx.state.mcp_server.get_context()
+        # `SettaFastMCP` scope enforcement relies on MCP request context. The
+        # `/__setta__/tools/call` route isn't an MCP transport, so we synthesize a
+        # request context from the HTTP request to avoid unscoped tool execution.
+        meta = payload.agenticContext
+        request_context = RequestContext(
+            request_id=str(uuid4()),
+            meta=meta,
+            session=_MCPToolsCallSession(),
+            lifespan_context=object(),
+            request=request,
+        )
+        context = Context(
+            fastmcp=ctx.state.mcp_server,
+            request_context=request_context,
+        )
         result = await tool.run(arguments, context=context, convert_result=True)
     except UrlElicitationRequiredError as exc:
         raise HTTPException(

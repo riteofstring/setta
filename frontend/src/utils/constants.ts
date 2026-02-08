@@ -19,6 +19,7 @@ export const OverviewTabNameEnum = {
   Overview: "Overview",
   FileBrowser: "FileBrowser",
   WatchCode: "WatchCode",
+  App: "App",
   RunInstructions: "RunInstructions",
   ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
@@ -34,6 +35,7 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.WatchCode]: "Watch Code",
+  [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
@@ -105,7 +107,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.IFrame]: [],
   [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Browser]: [],
+  [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
@@ -125,7 +127,6 @@ export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
 export const VIEW_MODE_ROUTER_PATH = "/:projectConfigName/view/:viewModeName";
-export const WORKSPACE_LAUNCH_ROUTER_PATH = "/launching";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
 export function buildSharePath(

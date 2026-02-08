@@ -9,13 +9,22 @@ chat agents can express context, scope, and peer relationships without affecting
 - `section_chat`: links a non-Chat section into a Chat section (context source).
 - `chat_section`: links a Chat section to a non-Chat section (scope boundary).
 
+Scope semantics (used by agentic scope enforcement):
+- `section_chat` grants read + context access to the source section.
+- `chat_section` grants read + write access to the target section.
+- `chat_chat` grants read access to the peer chat section.
+
 ## Data model
 Agentic edges live on `ProjectConfig.agenticEdges` and use the `AgenticEdge`
 model (`backend/setta/types/agentic_edges.py`):
 - `id`: edge id.
 - `sourceSectionId` / `targetSectionId`: section endpoints (no port ids).
 - `kind`: one of the edge kinds above.
-- `contextMode`: defaults to `reference_only` (reserved for future modes).
+- `contextMode`: controls how `section_chat` context is injected into the chat:
+  - `reference_only`: include label/type/id only (no content).
+  - `inline_text`: include a deterministic excerpt of the section content.
+  - `summary`: prefer a cached summary (when available), otherwise fall back to a
+    deterministic excerpt. Summaries are stored in `setta_files/agentic_summary_cache.json`.
 - `style`, `hidden`, `zIndex`, `selected`: UI-only rendering metadata.
 
 ## Persistence + validation
@@ -36,7 +45,9 @@ CRUD uses the same optimistic update flow as codegen edges:
 - Sections expose agentic handles on the left/right edges for drag links; valid
   connections require a Chat section endpoint.
 - Chat settings include a Context & Links panel to add context sources, scope
-  sections, and linked agents.
+  sections, and linked agents. Context sources let you pick `contextMode`
+  per-edge, and the UI can show summary-cache status when `summary` mode is in
+  use.
 - Agentic edges render in a dedicated overlay layer above codegen edges.
 - Selection + delete uses the same shortcuts as standard edges.
 

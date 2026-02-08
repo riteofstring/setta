@@ -49,10 +49,17 @@ type AgentProfileDraft = {
   name: string;
   description: string;
   systemPrompt: string;
+  enableBackgroundSummaryFill: boolean;
+  enableLlmChatTitles: boolean;
   engineConfigId: string;
   toolAllowlistText: string;
   memoryScope: string;
 };
+
+type AgentProfileDraftTextKey = Exclude<
+  keyof AgentProfileDraft,
+  "enableBackgroundSummaryFill" | "enableLlmChatTitles"
+>;
 
 type PromptTemplateDraft = {
   name: string;
@@ -124,8 +131,8 @@ const DEFAULT_CLAUDE_ASK_RULES = [
 
 export function ProjectAISettings() {
   useHydrateAgenticState();
-  const isShareMode = useShareSession((x) => x.isShareMode);
-  const canEdit = !isShareMode;
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const canEdit = !isDeploymentMode;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto pb-[15dvh] text-setta-700 dark:text-setta-300">
@@ -133,7 +140,7 @@ export function ProjectAISettings() {
         title="LLM API Keys"
         description="Manage API keys for built-in LLM engines."
       >
-        {isShareMode ? (
+        {isDeploymentMode ? (
           <ShareModeNotice />
         ) : (
           <ProjectLLMSettings className="pb-2" />
@@ -247,6 +254,8 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: "",
         description: "",
         systemPrompt: "",
+        enableBackgroundSummaryFill: false,
+        enableLlmChatTitles: false,
         engineConfigId: "",
         toolAllowlistText: "",
         memoryScope: "",
@@ -284,6 +293,8 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: draft.name.trim(),
         description: draft.description.trim(),
         systemPrompt: draft.systemPrompt,
+        enableBackgroundSummaryFill: draft.enableBackgroundSummaryFill,
+        enableLlmChatTitles: draft.enableLlmChatTitles,
         engineConfigId: normalizeOptionalText(draft.engineConfigId),
         toolAllowlist,
         memoryScope: normalizeOptionalText(draft.memoryScope),
@@ -303,6 +314,8 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: draft.name.trim(),
         description: draft.description.trim(),
         systemPrompt: draft.systemPrompt,
+        enableBackgroundSummaryFill: draft.enableBackgroundSummaryFill,
+        enableLlmChatTitles: draft.enableLlmChatTitles,
         engineConfigId: normalizeOptionalText(draft.engineConfigId),
         toolAllowlist,
         memoryScope: normalizeOptionalText(draft.memoryScope),
@@ -333,7 +346,19 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  const handleFieldChange = (key: keyof AgentProfileDraft, value: string) => {
+  const handleFieldChange = (key: AgentProfileDraftTextKey, value: string) => {
+    setDraft((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return { ...prev, [key]: value };
+    });
+  };
+
+  const handleToggleChange = (
+    key: "enableBackgroundSummaryFill" | "enableLlmChatTitles",
+    value: boolean,
+  ) => {
     setDraft((prev) => {
       if (!prev) {
         return prev;
@@ -442,6 +467,48 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
                   className={TEXTAREA_CLASS_NAME}
                   disabled={!canEdit}
                 />
+              </Field>
+              <Field
+                label="Background Summary Fill"
+                hint="When enabled, Setta may generate missing section summaries in the background during a chat run."
+              >
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={draft.enableBackgroundSummaryFill}
+                    onChange={(event) =>
+                      handleToggleChange(
+                        "enableBackgroundSummaryFill",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-4 w-4 accent-blue-600"
+                    disabled={!canEdit}
+                    aria-label="Enable Background Summary Fill"
+                  />
+                  <span>Enable</span>
+                </label>
+              </Field>
+              <Field
+                label="LLM Chat Titles"
+                hint="When enabled, Setta may call the LLM to generate chat titles after runs complete."
+              >
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={draft.enableLlmChatTitles}
+                    onChange={(event) =>
+                      handleToggleChange(
+                        "enableLlmChatTitles",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-4 w-4 accent-blue-600"
+                    disabled={!canEdit}
+                    aria-label="Enable LLM Chat Titles"
+                  />
+                  <span>Enable</span>
+                </label>
               </Field>
               <Field
                 label="Engine Config ID"
@@ -1575,6 +1642,8 @@ function buildAgentProfileDraft(profile: AgentProfile): AgentProfileDraft {
     name: profile.name ?? "",
     description: profile.description ?? "",
     systemPrompt: profile.systemPrompt ?? "",
+    enableBackgroundSummaryFill: profile.enableBackgroundSummaryFill ?? false,
+    enableLlmChatTitles: profile.enableLlmChatTitles ?? false,
     engineConfigId: profile.engineConfigId ?? "",
     toolAllowlistText: (profile.toolAllowlist ?? []).join("\n"),
     memoryScope: profile.memoryScope ?? "",
