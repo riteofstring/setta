@@ -112,7 +112,7 @@ Example:
 
 ```text
 plugins/
-  com.example.rust-tools/
+  setta-rust-tools/
     setta.plugin.json
     backend/
       entrypoint.py
@@ -148,7 +148,7 @@ Example:
 ```json
 {
   "schemaVersion": 1,
-  "id": "com.example.rust-tools",
+  "id": "setta-rust-tools",
   "name": "Rust Tools",
   "version": "0.1.0",
   "settaVersionRange": ">=0.0.0",
@@ -176,7 +176,7 @@ Example:
 Suggested fields:
 
 - `schemaVersion`: manifest schema version (integer).
-- `id`: stable plugin id (string). Recommended: reverse domain.
+- `id`: stable plugin id (string). Recommended: normalized package-style name (PEP 503 style), for example `setta-rust-tools`.
 - `name`: human name.
 - `version`: plugin version (semver string).
 - `settaVersionRange`: compatibility constraint.
@@ -188,6 +188,24 @@ Suggested fields:
 - `content.projectTemplatesDir`: optional folder for project template JSONs.
 - `content.promptsDir`: optional folder for prompt files.
 - `capabilities`: future-facing allowlist for permissions and UI messaging.
+
+### Manifest validation baseline
+
+- Manifest parsing should be strict (`extra=forbid`): unknown fields should fail validation instead of being ignored.
+- Validation errors should be surfaced with stable error codes (for example `PLUGIN_MANIFEST_INVALID`, `PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA`, `PLUGIN_MANIFEST_PATH_NOT_FOUND`).
+- Invalid plugins remain discoverable in status/debug output but are not activated.
+
+### Plugin identity and uniqueness
+
+Use a Python-ecosystem-friendly ID policy while keeping source identity explicit:
+
+- `id` in the manifest is the plugin's package-style identifier (for example `setta-rust-tools`).
+- Global uniqueness is not guaranteed without a central registry, so the host should track a canonical source key in plugin status/state:
+  - `pypi:setta-rust-tools`
+  - `github:acme/SettaRustTools`
+  - `gitlab:team/setta-rust-tools`
+- For GitHub or generic git installs, derive the plugin id from `pyproject.toml` `[project].name` when available; fallback to a source-derived id like `gh.acme.setta-rust-tools` when metadata is missing.
+- Status/installer output should include both `id` (human-facing plugin identity) and canonical source key (provenance identity).
 
 ## Backend Plugins
 
@@ -219,6 +237,7 @@ The context object should be the only stable surface plugins need. It should exp
 
 - `plugin_id` and `plugin_root`.
 - `server_mode` (one of `ide | share | app`) and/or `deployment_mode` flag.
+- `requested_capabilities` and `effective_capabilities` (post-policy filtering for current mode).
 - `register_router(router, *, prefix=...)`.
 - `register_static_dir(url_prefix, path)`.
 - `register_mcp_tool(func, *, name=None, annotations=None)`.
@@ -261,13 +280,21 @@ Generated frontend endpoints:
 
 Default policy:
 
-- Plugin discovery and execution is IDE-mode-only in the MVP.
-- In Share/App (deployment modes), plugins are disabled by default (no scanning workspace plugins, no executing backend plugin code).
-- Follow-on: allow content-only plugins that are packaged into the deployment root as read-only assets, with explicit capability gating.
+- Plugin discovery and loading is enabled in IDE and Share.
+- Share/App use capability gating: plugins can load, but only a mode-specific subset of capabilities can be activated.
+- Capability filtering should be deterministic and visible in both backend status and frontend plugin UI.
+
+Recommended mode policy (initial):
+
+- `ide`: allow all declared capabilities that pass normal compatibility checks.
+- `share`: allow UI/content-focused capabilities (`registerSectionKinds`, `registerPane`, `registerCommand`, content template/blueprint access).
+- `share`: block infrastructure/power capabilities (`registerMcpTools`, `registerLanguageServer`, `registerExternalAgentAdapter`, `registerCodegenTarget`, unrestricted router/file-write behaviors).
+- `app`: same as `share` for MVP, with room to tighten later if needed.
 
 Rationale:
 
-- Share/App are intentionally constrained runtimes (limited filesystem writes, different session model, no auth); executing arbitrary plugin backend code increases risk and makes deployments less predictable.
+- Share/App are intentionally constrained runtimes; capability gating preserves plugin UX while keeping deployment behavior predictable.
+- This is a product policy for deterministic behavior and UX, not a hard security sandbox.
 
 ## Frontend Plugins
 
@@ -312,6 +339,7 @@ The host should provide a registry-based API, with high-level primitives only:
 - `readSection(sectionId)` and `updateSection(sectionId, patch)`.
 - `openArtifact(artifactId)` and `createArtifact(...)`.
 - `apiFetch(path, init)` scoped to `/api/plugins/<pluginId>/...`.
+- `serverMode` and `effectiveCapabilities` for mode-aware plugin behavior.
 
 Performance note:
 
@@ -347,6 +375,16 @@ Use an imperative "mount/unmount/update" renderer API so plugin UIs can be self-
 Renderer shape:
 
 ```ts
+type PluginSectionProps = {
+  sectionId: string;
+  pluginId: string;
+  kind: string;
+  data: Record<string, unknown>;
+  readOnly: boolean;
+  serverMode: "ide" | "share" | "app";
+  effectiveCapabilities: string[];
+};
+
 type PluginSectionRenderer = {
   mount(el: HTMLElement, props: PluginSectionProps): void;
   update?(el: HTMLElement, props: PluginSectionProps): void;
@@ -363,6 +401,15 @@ Tradeoffs:
 
 - Pros: simplest interoperability, no import maps, no shared React version constraints.
 - Cons: plugin sections run their own rendering trees and can be harder to integrate with Setta keyboard shortcuts and theme unless the host API provides those hooks.
+
+Performance guardrails for plugin sections:
+
+- Keep `mount` lightweight; defer heavy widgets until the section is visible or user-activated.
+- Avoid broad subscriptions (`subscribeProjectContext` to whole project state) for each section; prefer selector-based subscriptions scoped to section-relevant data.
+- Ensure `update` is incremental and idempotent; avoid full rerenders when unchanged props arrive.
+- Share expensive services at plugin scope (for example one poller/store per plugin) rather than one per section instance.
+- `unmount` must clean up listeners/timers/observers to prevent leaks during section deletion, disable, and hot reload.
+- Add performance coverage for large-canvas scenarios (for example 100+ plugin sections) to catch update fanout regressions.
 
 Follow-on:
 
@@ -385,7 +432,7 @@ Later extension points:
 Recommended:
 
 - Plugin CSS is loaded only when the plugin is enabled.
-- Encourage plugins to scope styles under a root attribute, for example `[data-setta-plugin-root="com.example.rust-tools"]`.
+- Encourage plugins to scope styles under a root attribute, for example `[data-setta-plugin-root="setta-rust-tools"]`.
 - Provide host theme tokens as CSS variables so plugins can match Setta look without copying Tailwind internals.
 
 ## Content Plugins (Blueprints, Templates, Skills)
@@ -582,6 +629,8 @@ Recommended behavior:
 - `--global` installs into `<setta_home>/plugins/<pluginId>/` (using `resolve_setta_home()`, honoring `SETTA_HOME`).
 - Output should include both install scope and target path.
 - For URL installs, start with `.zip` bundles. Later, add Git URLs and/or a simple registry format.
+- For source installs, include canonical source identity in output and status (for example `pypi:setta-rust-tools`, `github:acme/SettaRustTools`), alongside `pluginId`.
+- For Git URL installs, derive `pluginId` from `[project].name` in `pyproject.toml` when present; fallback to a source-derived id (`gh.<owner>.<repo>`) when metadata is missing.
 - `setta plugins list` should show scope and whether the plugin is active or shadowed by a higher-precedence scope.
 
 Safety baseline (still assuming trusted plugins):
@@ -624,13 +673,21 @@ Follow-on CLI commands:
 Host needs to prevent hard-to-debug breakage:
 
 - Enforce `settaVersionRange` in manifest.
-- Require `schemaVersion` and reject unknown versions.
 - Keep a small "plugin API version" number for backend and frontend separately, exposed as `host.apiVersion`.
+- Validate manifest and plugin-state schemas strictly.
+
+Schema compatibility policy:
+
+- Host supports one current schema version per document type (manifest/state/plugin-section payload).
+- If incoming schema is older than current, run deterministic sequential migrations (for example `v1 -> v2 -> v3 -> v4`) before activation.
+- If incoming schema is newer than host supports, reject with a clear error (`PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA`).
+- Migration of data shape is separate from API compatibility checks (`settaVersionRange`, `host.apiVersion`); migration cannot fix removed host APIs.
 
 Data migrations:
 
-- For `PluginSectionImpl.data`, include `schemaVersion` to allow plugin-level migrations.
-- Provide backend hook `register_migrations(...)` as a later addition once plugins store persistent data beyond sections.
+- `PluginSectionImpl.data` should include `schemaVersion` to allow plugin-level data migrations over time.
+- Add explicit migration registries/hooks once plugins persist richer state beyond section payloads.
+- Optional follow-on: CLI command to rewrite files to current schemas (`setta plugins migrate --write`) for easier maintenance.
 
 ## Error Handling and Observability
 
@@ -638,11 +695,17 @@ Plugin failures must be visible and actionable:
 
 - Backend records plugin load events and errors, exposes them via `/api/plugins/status`.
 - Frontend shows a "Plugins" pane with installed plugins, enabled plugins, load failures, and registered contributions (sections, panes, tools).
+- Status should include mode-gating details per plugin:
+  - `requestedCapabilities`
+  - `effectiveCapabilities`
+  - `blockedCapabilities` with reason
+- Status should include source metadata (`pluginId`, canonical source key, source scope/path, shadowing details).
 
 Guardrails:
 
 - A missing plugin renderer must not break the whole UI.
 - A plugin backend load failure must not prevent the core server from starting unless it is explicitly marked "required".
+- Calling a blocked host API in Share/App should fail deterministically (`PLUGIN_CAPABILITY_DENIED`) instead of silently no-oping.
 
 ## Testing Strategy
 
@@ -651,12 +714,16 @@ Backend:
 - Unit tests for manifest parsing and directory scanning using temp directories.
 - Tests for loading a minimal backend plugin that registers one router and one MCP tool.
 - Tests for deterministic load order and proper error reporting.
+- Tests for mode capability gating (IDE vs Share/App) and blocked API errors.
+- Tests for schema migration paths (for example v1 manifests/state accepted and migrated to current).
 - Tests for uploading a plugin bundle and extracting it into `plugins/` (once the in-app installer exists).
 
 Frontend:
 
 - Playwright E2E with a fixture plugin under a test workspace that registers one section kind and one pane.
 - Verify plugin list loads, plugin section renders, and disabling plugin yields fallback UI.
+- Verify Share mode behavior for partially active plugins (allowed contributions render; blocked contributions show clear status).
+- Add large-canvas performance coverage for plugin sections (for example 100+ sections, update fanout checks).
 - Add coverage for the drag-and-drop install flow once the modal exists.
 
 ## Implementation Phases
@@ -696,11 +763,17 @@ Frontend:
 - AI: allow plugins to register external agent adapters and engine config templates; allow plugins to contribute MCP tools and prompt templates.
 - Codegen: allow plugin-defined codegen targets in a registry, without hardcoding new discriminated union variants per plugin.
 
+## Phase completion gates
+
+- Phase 1 complete when `/api/plugins/list` and `/api/plugins/status` are implemented with deterministic ordering, shadowing visibility, canonical source identity, and schema validation error coverage.
+- Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, and Share-mode capability filtering is visible in UI/status.
+- Phase 3 complete when `SectionType.Plugin` roundtrips through backend/frontend types, renders via registered plugin renderer, and missing renderer falls back without app instability.
+- Phase 4 complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
+- Phase 5 complete when at least one deeper integration (for example language-server registration) works end-to-end with mode-aware capability gating and failure reporting.
+
 ## Open Questions
 
 - Should plugin enablement be per workspace only, or per `ProjectConfig` as well?
 - Should we support optional global enable defaults (for example `<setta_home>/plugins_state.json`) so newly opened workspaces auto-enable selected global plugins?
-- Do we want to allow any plugin behavior in deployment modes (share/app) at all, or only packaged read-only content assets?
-- For plugin section rendering, should the MVP be imperative mount/unmount (recommended) or a constrained React-based API?
 - How do we want plugin-defined "language" to interact with existing `CodeLanguage` enum and file extension logic (`CODE_LANGUAGE_EXTENSIONS`)?
 - Do we want to support plugin packaging as a single zip file in addition to folders?
