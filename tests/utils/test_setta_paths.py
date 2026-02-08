@@ -1,9 +1,11 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
 
+from setta.database.db_objs import DBE
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.paths import (
     build_files_root_from_base,
@@ -94,6 +96,111 @@ def test_resolve_setta_paths_auto_uses_global_if_present(
 
     assert paths.setta_files_location == "global"
     assert paths.setta_files_root == global_root
+
+
+def test_resolve_setta_paths_auto_uses_local_when_global_missing(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    config_path = setta_home / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "globalSettaFilesBase": str((setta_home / "setta_files").resolve()),
+                "autoMode": "use_global_if_present",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    global_base = (setta_home / "setta_files").resolve()
+    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
+    assert not global_root.exists()
+
+    paths = resolve_setta_paths(workspace_root=workspace)
+
+    assert paths.setta_files_location == "local"
+    assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
+    assert not paths.setta_files_root.exists()
+
+
+def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    config_path = setta_home / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "globalSettaFilesBase": str((setta_home / "setta_files").resolve()),
+                "autoMode": "create_global",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    global_base = (setta_home / "setta_files").resolve()
+    expected_global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
+    )
+    assert not expected_global_root.exists()
+
+    paths = resolve_setta_paths(workspace_root=workspace)
+
+    assert paths.setta_files_location == "global"
+    assert paths.setta_files_root == expected_global_root
+    assert not paths.setta_files_root.exists()
+
+    DBE(paths.setta_files_root)
+    assert paths.setta_files_root.is_dir()
+
+
+def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    paths = resolve_setta_paths(workspace_root=workspace, setta_files_location="local")
+
+    assert paths.setta_files_location == "local"
+    assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
+    assert not paths.setta_files_root.exists()
+
+    DBE(paths.setta_files_root)
+    assert paths.setta_files_root.is_dir()
+
+
+def test_resolve_setta_paths_explicit_global_creates_root_with_dbe(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    global_base = (setta_home / "setta_files").resolve(strict=False)
+    expected_global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
+    )
+    assert not expected_global_root.exists()
+
+    paths = resolve_setta_paths(workspace_root=workspace, setta_files_location="global")
+
+    assert paths.setta_files_location == "global"
+    assert paths.setta_files_root == expected_global_root
+    assert not (workspace / "setta_files").exists()
+
+    DBE(paths.setta_files_root)
+    assert paths.setta_files_root.is_dir()
+    assert not (workspace / "setta_files").exists()
 
 
 def test_local_always_wins_even_when_global_requested(

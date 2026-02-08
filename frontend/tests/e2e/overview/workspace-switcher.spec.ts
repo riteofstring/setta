@@ -66,9 +66,14 @@ test("workspace switcher launches a session and persists history", async ({
 
   const modal = page.getByRole("dialog");
   await expect(modal.getByText("Switch Workspace")).toBeVisible();
+  await expect(modal.getByText(/Files Root Base/i)).toHaveCount(0);
+  await expect(modal.getByText(/Files Root/i)).toHaveCount(0);
+  await expect(
+    modal.getByRole("combobox", { name: "Setta Files Location" }),
+  ).toHaveValue("auto");
   await modal
     .getByRole("combobox", { name: "Setta Files Location" })
-    .selectOption("global");
+    .selectOption("auto");
   await modal.getByPlaceholder("user@host").fill("user@host");
   const scrollInfo = await page.evaluate(() => {
     const dialog = document.querySelector("[role='dialog']");
@@ -104,7 +109,7 @@ test("workspace switcher launches a session and persists history", async ({
 
   await expect(
     modalAfterError.getByRole("combobox", { name: "Setta Files Location" }),
-  ).toHaveValue("global");
+  ).toHaveValue("auto");
   await modalAfterError
     .getByPlaceholder("/path/to/workspace")
     .fill(initialWorkspaceRoot);
@@ -120,7 +125,7 @@ test("workspace switcher launches a session and persists history", async ({
     string,
     unknown
   >;
-  expect(requestBody.settaFilesLocation).toBe("global");
+  expect(requestBody.settaFilesLocation).toBe("auto");
   await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
     (origin) => sessionStorage.getItem("setta.backendOriginOverride") === origin,
@@ -147,7 +152,7 @@ test("workspace switcher launches a session and persists history", async ({
   const firstEntry = (storedHistory as Array<Record<string, unknown>>)[0];
   expect(firstEntry).toMatchObject({
     workspaceRoot: canonicalWorkspaceRoot,
-    settaFilesLocation: "global",
+    settaFilesLocation: "auto",
   });
 
   await page.getByRole("menuitem", { name: "Project" }).click();
@@ -155,7 +160,7 @@ test("workspace switcher launches a session and persists history", async ({
   const modalAfterSuccess = page.getByRole("dialog");
   await expect(modalAfterSuccess.getByText("Switch Workspace")).toBeVisible();
   await expect(
-    modalAfterSuccess.getByText("Setta files: global"),
+    modalAfterSuccess.getByText("Setta files: auto"),
   ).toBeVisible();
 });
 
