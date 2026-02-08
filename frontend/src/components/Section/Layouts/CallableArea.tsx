@@ -35,7 +35,7 @@ function _CallableArea({
       <SectionSearch sectionId={sectionId} callable={callable} />
       {!hideParams && !isMinimized && (
         <>
-          <KwargsControls sectionId={sectionId} />
+          <KwargsControls sectionId={sectionId} bgColor={bgColor} />
           <ParamGroupContainer
             sectionId={sectionId}
             bgColor={bgColor}

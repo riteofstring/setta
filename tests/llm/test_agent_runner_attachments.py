@@ -16,7 +16,6 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
 
-
 def _build_runner(dbe: DBE, config: AllLLMConfigs) -> AgentRunner:
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
@@ -29,14 +28,10 @@ def _build_runner(dbe: DBE, config: AllLLMConfigs) -> AgentRunner:
 
 def test_build_llm_request_payload_inlines_attachments() -> None:
     with TemporaryDirectory() as tmpdir:
-        workspace_root = Path(tmpdir)
-        dbe = DBE(workspace_root / "setta_files")
+        dbe = DBE(Path(tmpdir) / "setta_files")
         artifacts_root = dbe.path / "artifacts"
         artifacts_root.mkdir(parents=True, exist_ok=True)
-        with temporary_setta_paths(
-            workspace_root=workspace_root,
-            setta_files_location="local",
-        ):
+        with temporary_setta_paths(setta_files_root=dbe.path):
             attachment_path = artifacts_root / "notes.txt"
             attachment_text = "Hello from attachment."
             dbe.write(attachment_path, attachment_text, mode="w")
@@ -77,8 +72,7 @@ def test_build_llm_request_payload_inlines_attachments() -> None:
 
 def test_build_llm_request_payload_blocks_external_attachments() -> None:
     with TemporaryDirectory() as tmpdir:
-        workspace_root = Path(tmpdir)
-        dbe = DBE(workspace_root / "setta_files")
+        dbe = DBE(Path(tmpdir) / "setta_files")
         artifacts_root = dbe.path / "artifacts"
         artifacts_root.mkdir(parents=True, exist_ok=True)
         external_path = dbe.path / "attachments" / "notes.txt"
@@ -98,10 +92,7 @@ def test_build_llm_request_payload_blocks_external_attachments() -> None:
             configs={"primary": LLMConfig(id="primary", model="gpt-test")},
             mcpServers={},
         )
-        with temporary_setta_paths(
-            workspace_root=workspace_root,
-            setta_files_location="local",
-        ):
+        with temporary_setta_paths(setta_files_root=dbe.path):
             runner = _build_runner(dbe, config)
 
             payload = runner._build_llm_request_payload(

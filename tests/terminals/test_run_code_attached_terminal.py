@@ -87,7 +87,7 @@ class TestRunCodeAttachedTerminal:
         self._stack.enter_context(
             temporary_setta_paths(
                 workspace_root=self.workspace_root,
-                setta_files_location="local",
+                setta_files_root=self.setta_root,
             )
         )
 

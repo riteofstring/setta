@@ -55,7 +55,6 @@ const baseImpl = {
   name: "Browser",
   isFrozen: false,
   isInOtherProjectConfigs: false,
-  tagColor: null,
   size: { width: 640, height: 360 },
   aspectRatio: false,
   aspectRatioExtraHeight: 0,

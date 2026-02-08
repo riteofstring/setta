@@ -108,7 +108,7 @@ class TestCodegenTargetsBindings:
         self._stack.enter_context(
             temporary_setta_paths(
                 workspace_root=root,
-                setta_files_location="local",
+                setta_files_root=root / "setta_files",
             )
         )
         for path in (
@@ -179,7 +179,7 @@ class TestCodegenTargetsRunCommand:
         self._stack.enter_context(
             temporary_setta_paths(
                 workspace_root=root,
-                setta_files_location="local",
+                setta_files_root=root / "setta_files",
             )
         )
         for path in (

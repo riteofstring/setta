@@ -139,8 +139,6 @@ class SharedModifier(TypedDict):
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
-    styleColor: NotRequired[str | None]
-    tagColor: NotRequired[str | None]
     template: NotRequired[str]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]

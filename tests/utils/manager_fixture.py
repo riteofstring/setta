@@ -92,7 +92,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             stack.enter_context(
                 temporary_setta_paths(
                     workspace_root=root,
-                    setta_files_location="local",
+                    setta_files_root=setta_root,
                 )
             )
 
@@ -170,7 +170,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             stack.enter_context(
                 temporary_setta_paths(
                     workspace_root=root,
-                    setta_files_location="local",
+                    setta_files_root=setta_root,
                 )
             )
 
