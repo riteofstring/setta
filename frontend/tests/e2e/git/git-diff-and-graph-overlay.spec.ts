@@ -12,6 +12,7 @@ function runGit(
   return execFileSync("git", args, {
     cwd,
     encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
     env: envOverride ? { ...process.env, ...envOverride } : process.env,
   });
 }
