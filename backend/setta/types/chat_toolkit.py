@@ -39,10 +39,12 @@ class GetAllChatMetadataRequest(BaseModel):
 
 class RunMcpToolsRequest(BaseModel):
     chatId: ID
+    sectionId: ID
     toolCalls: list[ToolCall]
 
 
 class EmitChatStreamDeltaRequest(BaseModel):
+    projectConfigId: ID
     sectionId: ID
     chatId: ID
     chunk: LLMStreamingResponseChunk

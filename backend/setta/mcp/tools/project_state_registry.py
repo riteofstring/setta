@@ -11,10 +11,15 @@ from setta.mcp.tool_metadata import (
     AIFollowToolArgumentsMetadata,
     AIFollowToolResultMetadata,
     SettaToolType,
+    ToolAccessMetadata,
+    ToolAccessType,
     ToolArgumentPreviewMetadata,
+    ToolResultFilterType,
     attach_ai_follow_tool_arguments,
     attach_ai_follow_tool_result,
+    attach_tool_access,
     attach_tool_argument_preview,
+    attach_tool_result_filter,
     attach_tool_search_category,
     attach_tool_search_tags,
 )
@@ -32,6 +37,10 @@ def project_state_tool(
     ai_follow_tool_result: AIFollowToolResultMetadata | None = None,
     ai_follow_tool_arguments: AIFollowToolArgumentsMetadata | None = None,
     tool_argument_preview: ToolArgumentPreviewMetadata | None = None,
+    access_type: ToolAccessType | None = None,
+    id_paths_by_type: dict[str, list[str]] | None = None,
+    default_target_singleton_section: str | None = None,
+    result_filter: ToolResultFilterType | None = None,
     search_tags: list[str] | None = None,
     search_category: str | None = None,
 ):
@@ -50,6 +59,16 @@ def project_state_tool(
         attach_ai_follow_tool_result(tool_fn, ai_follow_tool_result)
         attach_ai_follow_tool_arguments(tool_fn, ai_follow_tool_arguments)
         attach_tool_argument_preview(tool_fn, tool_argument_preview)
+        attach_tool_result_filter(tool_fn, result_filter)
+        if access_type is not None:
+            attach_tool_access(
+                tool_fn,
+                ToolAccessMetadata(
+                    accessType=access_type,
+                    idPathsByType=id_paths_by_type or {},
+                    defaultTargetSingletonSection=default_target_singleton_section,
+                ),
+            )
         attach_tool_search_tags(tool_fn, search_tags)
         attach_tool_search_category(tool_fn, search_category)
         register = setta_init_tool if tool_type == SettaToolType.init else setta_tool

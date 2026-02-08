@@ -1,8 +1,5 @@
 import { scan } from "react-scan"; // must be imported before React and React DOM
 
-import "utils/backendOriginOverrideInit";
-import "utils/workspaceHistoryHandoffInit";
-
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "state/subscriptions";
