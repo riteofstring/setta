@@ -497,8 +497,19 @@ function GitGraphCell({
       aria-hidden="true"
     >
       {laneColorIds.map((colorId, idx) => {
-        const y1 = laneStartIndices.includes(idx) ? centerY : 0;
-        const y2 = laneEndIndices.includes(idx) ? centerY : height;
+        let y1 = laneStartIndices.includes(idx) ? centerY : 0;
+        let y2 = laneEndIndices.includes(idx) ? centerY : height;
+        // Join curves occupy the top half of the row for the source lane;
+        // drawing the vertical lane segment here creates a "tail" artifact.
+        if (joinFromLaneIndices.includes(idx)) {
+          y1 = Math.max(y1, centerY);
+        }
+        // Merge curves already occupy the bottom half of the row for the
+        // destination lane; drawing the vertical lane segment here creates the
+        // "tail" artifact (a straight line extending past the curve).
+        if (mergeToLaneIndices.includes(idx)) {
+          y2 = Math.min(y2, centerY);
+        }
         if (y1 === y2) {
           return null;
         }
