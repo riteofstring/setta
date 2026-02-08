@@ -235,7 +235,10 @@ export function getAttachedTerminalParentIdForTerminalSection(
   state: ZustandProjectState,
   terminalSectionId: string,
 ): string | null {
-  const terminalImpl = getCurrEffectiveSectionImpl(state, terminalSectionId);
+  const terminalImpl = getEffectiveSectionImplIfPresent(state, terminalSectionId);
+  if (!terminalImpl) {
+    return null;
+  }
   if (terminalImpl.type !== SectionTypeEnum.Terminal) {
     return null;
   }
@@ -243,7 +246,10 @@ export function getAttachedTerminalParentIdForTerminalSection(
   if (!parentId) {
     return null;
   }
-  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+  const parentImpl = getEffectiveSectionImplIfPresent(state, parentId);
+  if (!parentImpl) {
+    return null;
+  }
   if (!isBaseCodeSectionType(parentImpl.type)) {
     return null;
   }
@@ -264,7 +270,10 @@ export function getEmbeddedAttachedTerminalParentIdForTerminalSection(
   if (!parentId) {
     return null;
   }
-  const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
+  const parentImpl = getEffectiveSectionImplIfPresent(state, parentId);
+  if (!parentImpl) {
+    return null;
+  }
   if (!isBaseParentSectionImpl(parentImpl)) {
     return null;
   }
@@ -284,7 +293,10 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   sectionId: string,
   childIdsOverride?: string[],
 ): EmbeddedAttachedTerminalInfo | null {
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const impl = getEffectiveSectionImplIfPresent(state, sectionId);
+  if (!impl) {
+    return null;
+  }
   if (!isBaseCodeSectionType(impl.type)) {
     return null;
   }
@@ -309,7 +321,10 @@ export function getEmbeddedAttachedTerminalForCodeSection(
   if (!isEmbeddedCandidate) {
     return null;
   }
-  const terminalImpl = getCurrEffectiveSectionImpl(state, attachedTerminalId);
+  const terminalImpl = getEffectiveSectionImplIfPresent(state, attachedTerminalId);
+  if (!terminalImpl) {
+    return null;
+  }
   if (terminalImpl.type !== SectionTypeEnum.Terminal) {
     return null;
   }
