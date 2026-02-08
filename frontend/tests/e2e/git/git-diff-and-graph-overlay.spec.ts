@@ -36,6 +36,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
   const gitDir = path.join(workspaceRoot, ".git");
   const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
   const trackedPath = path.join(workspaceRoot, "tracked.py");
+  const legacyPath = path.join(workspaceRoot, "legacy.py");
   const historyPath = path.join(workspaceRoot, "history.txt");
   const untrackedPath = path.join(workspaceRoot, "new.py");
 
@@ -54,6 +55,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.writeFile(trackedPath, "def foo():\n  return 1\n", "utf8");
     runGit(workspaceRoot, ["add", "tracked.py"]);
     runGit(workspaceRoot, ["commit", "-m", "add tracked"]);
+    await fs.writeFile(legacyPath, "legacy\n", "utf8");
+    runGit(workspaceRoot, ["add", "legacy.py"]);
+    runGit(workspaceRoot, ["commit", "-m", "add legacy"]);
 
     // Seed enough history to require pagination/infinite loading in graph view.
     for (let i = 0; i < 260; i += 1) {
@@ -68,6 +72,8 @@ test("git diff overlay and git graph overlay render between panes", async ({
     runGit(workspaceRoot, ["add", "tracked.py"]);
     await fs.writeFile(trackedPath, "def foo():\n  return 3\n", "utf8");
     await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
+    await fs.rm(legacyPath, { force: true });
+    runGit(workspaceRoot, ["add", "legacy.py"]);
 
     await seedLocalStorage(page, {
       overviewTab: "Git",
@@ -88,7 +94,19 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const stagedTracked = stagedGroup.getByRole("button", {
       name: /tracked\.py/,
     });
+    const stagedLegacy = stagedGroup.getByRole("button", {
+      name: /legacy\.py/,
+    });
     await expect(stagedTracked).toBeVisible();
+    await expect(stagedLegacy).toBeVisible();
+    await expect(stagedTracked).toHaveAttribute(
+      "data-file-status-category",
+      "changed",
+    );
+    await expect(stagedLegacy).toHaveAttribute(
+      "data-file-status-category",
+      "deleted",
+    );
     await stagedTracked.click();
 
     const closeDiffButton = page.getByRole("button", {
@@ -115,7 +133,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const untrackedGroup = page
       .getByRole("heading", { name: "Untracked" })
       .locator("xpath=ancestor::section[1]");
-    await untrackedGroup.getByRole("button", { name: /new\.py/ }).click();
+    const untrackedNew = untrackedGroup.getByRole("button", { name: /new\.py/ });
+    await expect(untrackedNew).toHaveAttribute(
+      "data-file-status-category",
+      "added",
+    );
+    await untrackedNew.click();
 
     const closeDiffButton2 = page.getByRole("button", {
       name: "Close git diff",
@@ -624,7 +647,29 @@ test("git diff overlay and git graph overlay render between panes", async ({
       name: /tracked\.py/,
     });
     await expect(trackedFileButton).toBeVisible();
+    await expect(trackedFileButton).toHaveAttribute(
+      "data-file-status-category",
+      "added",
+    );
     await trackedFileButton.click();
+
+    await graphFilter.fill("history-259");
+    const historyCommit = graphOverlay.getByRole("button", {
+      name: /history-259.*lanes 1/,
+    });
+    await expect(historyCommit).toBeVisible();
+    await historyCommit.click();
+    const historyFileButton = graphOverlay.getByRole("button", {
+      name: /history\.txt/,
+    });
+    await expect(historyFileButton).toBeVisible();
+    await expect(historyFileButton).toHaveAttribute(
+      "data-file-status-category",
+      "changed",
+    );
+    await graphFilter.fill("add tracked");
+    await expect(addTrackedCommit).toBeVisible();
+    await addTrackedCommit.click();
 
     const graphDiffContent = graphOverlay.locator(".cm-content");
     await expect(graphDiffContent).toContainText(
@@ -648,6 +693,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
   } finally {
     await fs.rm(untrackedPath, { force: true });
     await fs.rm(trackedPath, { force: true });
+    await fs.rm(legacyPath, { force: true });
     await fs.rm(gitIgnorePath, { force: true });
     if (createdRepo) {
       await fs.rm(gitDir, { recursive: true, force: true });

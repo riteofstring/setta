@@ -1,5 +1,10 @@
 import { useEffect, useMemo } from "react";
 import {
+  gitFileStatusCategoryFromEntry,
+  gitFileStatusVisuals,
+  type GitFileStatusCategory,
+} from "components/Git/gitFileStatusVisuals";
+import {
   openGitDiffOverlay,
   openGitGraphOverlay,
   refreshGitStatus,
@@ -170,29 +175,39 @@ function GitGroup({
         </div>
       ) : (
         <ul className="overflow-hidden rounded-md border border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950">
-          {entries.map((entry) => (
-            <li key={`${entry.kind}-${entry.path}-${entry.oldPath ?? ""}`}>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-2 py-1 text-left text-xs text-setta-800 hover:bg-setta-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-50 dark:hover:bg-setta-900"
-                onClick={() => onClickEntry(entry)}
-              >
-                <StatusBadge entry={entry} />
-                <span className="min-w-0 flex-1 truncate">
-                  {entry.oldPath && entry.oldPath !== entry.path
-                    ? `${entry.oldPath} -> ${entry.path}`
-                    : entry.path}
-                </span>
-              </button>
-            </li>
-          ))}
+          {entries.map((entry) => {
+            const category = gitFileStatusCategoryFromEntry(entry);
+            return (
+              <li key={`${entry.kind}-${entry.path}-${entry.oldPath ?? ""}`}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-2 py-1 text-left text-xs text-setta-800 hover:bg-setta-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-50 dark:hover:bg-setta-900"
+                  onClick={() => onClickEntry(entry)}
+                  data-file-status-category={category}
+                >
+                  <StatusBadge entry={entry} category={category} />
+                  <span className="min-w-0 flex-1 truncate">
+                    {entry.oldPath && entry.oldPath !== entry.path
+                      ? `${entry.oldPath} -> ${entry.path}`
+                      : entry.path}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
   );
 }
 
-function StatusBadge({ entry }: { entry: GitStatusEntry }) {
+function StatusBadge({
+  entry,
+  category,
+}: {
+  entry: GitStatusEntry;
+  category: GitFileStatusCategory;
+}) {
   let label = `${entry.indexStatus}${entry.worktreeStatus}`;
   if (entry.kind === "staged") {
     label = entry.indexStatus;
@@ -201,9 +216,13 @@ function StatusBadge({ entry }: { entry: GitStatusEntry }) {
   } else if (entry.kind === "untracked") {
     label = "??";
   }
+  const visuals = gitFileStatusVisuals(category);
 
   return (
-    <span className="inline-flex w-8 shrink-0 items-center justify-center rounded-md bg-setta-100 px-1 py-0.5 font-mono text-[11px] font-semibold text-setta-600 dark:bg-setta-900 dark:text-setta-300">
+    <span
+      className={`inline-flex w-8 shrink-0 items-center justify-center rounded-md px-1 py-0.5 font-mono text-[11px] font-semibold ${visuals.badgeClassName}`}
+      data-file-status-category={category}
+    >
       {label}
     </span>
   );

@@ -1,4 +1,8 @@
 import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
+import {
+  gitFileStatusCategoryFromCommitFile,
+  gitFileStatusVisuals,
+} from "components/Git/gitFileStatusVisuals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { List, useDynamicRowHeight, useListRef } from "react-window";
 import {
@@ -1424,11 +1428,14 @@ function CommitFileRow({
   const background = isSelected
     ? "bg-blue-50 dark:bg-blue-950/40"
     : "hover:bg-setta-50 dark:hover:bg-setta-900/60";
+  const category = gitFileStatusCategoryFromCommitFile(file);
+  const visuals = gitFileStatusVisuals(category);
 
   return (
     <button
       type="button"
       className={`${base} ${background}`}
+      data-file-status-category={category}
       onClick={() =>
         void selectGitCommitFile({
           path: file.path,
@@ -1436,7 +1443,10 @@ function CommitFileRow({
         })
       }
     >
-      <span className="inline-flex w-10 shrink-0 items-center justify-center rounded-md bg-setta-100 px-1 py-0.5 font-mono text-[11px] font-semibold text-setta-600 dark:bg-setta-900 dark:text-setta-300">
+      <span
+        className={`inline-flex w-10 shrink-0 items-center justify-center rounded-md px-1 py-0.5 font-mono text-[11px] font-semibold ${visuals.badgeClassName}`}
+        data-file-status-category={category}
+      >
         {file.status}
       </span>
 
