@@ -1,6 +1,5 @@
 import json
 import tempfile
-from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -9,6 +8,7 @@ import toml
 import yaml
 from dotenv import dotenv_values, load_dotenv
 from filelock import FileLock
+from pydantic import ValidationError
 
 from setta.types.id import (
     ID,
@@ -17,7 +17,7 @@ from setta.types.id import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import DeploymentManifest
 from setta.utils.utils import compute_md5_prefix, normalize_path
 
 
@@ -48,10 +48,9 @@ class DBE:
         self.agent_profiles = self.path / "agent_profiles.json"
         self.agent_runs = self.path / "agent_runs"
         self.agent_run_index = self.path / "agent_run_index.json"
-        self.agentic_summary_cache = self.path / "agentic_summary_cache.json"
         self.prompts = self.path / "prompts"
         self.prompts_example = self.path / "prompts.example.json"
-        self.share_manifest = self.path / "manifest.json"
+        self.deployment_manifest = self.path / "manifest.json"
         self.dot_env = Path(".env")
         self.path.mkdir(parents=True, exist_ok=True)
         if self.runtime_root != self.path:
@@ -110,43 +109,6 @@ class DBE:
             )
 
         self.write(path, json.dumps(data, indent=2, sort_keys=True, default=default))
-
-    def update_json(self, path: Path, update_fn: Callable[[Any], Any]) -> Any:
-        """Atomically update a JSON file under a single file lock.
-
-        This prevents lost updates when multiple writers do a read/modify/write cycle
-        concurrently.
-        """
-
-        def default(obj: Any):
-            if isinstance(obj, Path):
-                return str(obj)
-            raise TypeError(
-                f"Object of type {obj.__class__.__name__} is not JSON serializable"
-            )
-
-        lock = self.get_file_lock(path)
-        with lock:
-            payload: Any
-            if path.exists():
-                raw = path.read_text(encoding="utf-8")
-                payload = json.loads(raw) if raw else {}
-            else:
-                payload = {}
-
-            updated = update_fn(payload)
-
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(
-                mode="w", dir=path.parent, delete=False, suffix=".tmp"
-            ) as tmp:
-                tmp.write(
-                    json.dumps(updated, indent=2, sort_keys=True, default=default)
-                )
-                tmp_path = tmp.name
-
-            Path(tmp_path).replace(path)
-            return updated
 
     def read_yaml(self, path: Path) -> Any:
         raw = self.read(path)
@@ -210,25 +172,28 @@ class DBE:
             raise ValueError(f"Project file is empty: {self.project}")
         return ProjectStateBackend.model_validate(payload)
 
-    def read_share_manifest(self) -> ShareDeploymentManifest:
-        if not self.share_manifest.exists():
+    def read_deployment_manifest(self) -> DeploymentManifest:
+        if not self.deployment_manifest.exists():
             raise FileNotFoundError(
-                f"Share deployment manifest not found: {self.share_manifest}"
+                f"Deployment manifest not found: {self.deployment_manifest}"
             )
-        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
+        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
         if not payload:
             raise ValueError(
-                f"Share deployment manifest is empty: {self.share_manifest}"
+                f"Deployment manifest is empty: {self.deployment_manifest}"
             )
-        return ShareDeploymentManifest.model_validate(payload)
+        return DeploymentManifest.model_validate(payload)
 
-    def read_share_manifest_optional(self) -> ShareDeploymentManifest | None:
-        if not self.share_manifest.exists():
+    def read_deployment_manifest_optional(self) -> DeploymentManifest | None:
+        if not self.deployment_manifest.exists():
             return None
-        payload = json.loads(self.share_manifest.read_text(encoding="utf-8"))
+        payload = json.loads(self.deployment_manifest.read_text(encoding="utf-8"))
         if not payload:
             return None
-        return ShareDeploymentManifest.model_validate(payload)
+        try:
+            return DeploymentManifest.model_validate(payload)
+        except ValidationError:
+            return None
 
     def read_temporary_id_map(self):
         raw_map = self.read_json(self.temporary_id_map)

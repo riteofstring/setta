@@ -24,7 +24,7 @@ from setta.types.listener import (
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import TextBlockSectionImpl
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgListenerError,
@@ -136,7 +136,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -151,13 +151,15 @@ def _write_project(root: Path) -> DBE:
     dbe = DBE(root)
     dbe.write_project(backend)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=state.projectConfig.id,
         deploymentVersion=root.name,
     )
     dbe.write_json(root / "manifest.json", manifest.model_dump())
+    dbe.write_json(root / "policy.json", SharePolicy().model_dump())
     return dbe
 
 

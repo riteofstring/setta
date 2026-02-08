@@ -29,7 +29,8 @@ class MockFileEvent:
     def __init__(self, src_path: Path):
         self.src_path = str(src_path)
         self.dest_path = str(src_path)
-        self.is_directory = False
+        # Match watchdog semantics so directory reads are skipped in handlers.
+        self.is_directory = src_path.is_dir()
 
 
 class SpecificFileWatcher:
@@ -151,7 +152,7 @@ class SpecificFileWatcher:
             if not files:
                 continue
             for file_path in files:
-                if file_path.exists():
+                if file_path.is_file():
                     self.request_read(file_path)
 
     def update_callbacks(
@@ -166,7 +167,7 @@ class SpecificFileWatcher:
 
         # Fire immediate reads if requested (only for new files)
         for f in fire_immediately:
-            if f in callbacks and f.exists():
+            if f in callbacks and f.is_file():
                 self.request_read(f)
 
     def start(self):
