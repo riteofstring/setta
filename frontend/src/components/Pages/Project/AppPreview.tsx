@@ -1,5 +1,5 @@
 import { AppRenderer } from "components/App/AppRenderer";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAllProjectMetadata,
@@ -13,6 +13,7 @@ import { route_load_project_config } from "utils/generatedEndpoints";
 import { createAppDefinition } from "utils/generatedTypes";
 
 export function AppPreview() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const previewConfigId = useAppPreview((x) => x.previewConfigId);
@@ -111,8 +112,25 @@ export function AppPreview() {
     };
   }, [activeConfigId, appConfigs, projectMetadata, resolvedConfigId]);
 
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) {
+      return;
+    }
+    node.scrollLeft = 0;
+  }, [
+    appSpec,
+    aiPreviewSpecOverride,
+    previewAssetsOverride,
+    previewSpecOverride,
+    previewThemeOverride,
+  ]);
+
   return (
-    <div className="flex h-full w-full flex-col overflow-auto bg-setta-50/70 dark:bg-setta-950/60">
+    <div
+      ref={containerRef}
+      className="flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-setta-50/70 dark:bg-setta-950/60"
+    >
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-6 py-6">
         <div className="flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400 dark:text-setta-500">

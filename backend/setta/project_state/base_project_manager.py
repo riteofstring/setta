@@ -30,6 +30,7 @@ from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
+    validate_app_routes_or_raise,
     validate_app_theme_or_raise,
 )
 from setta.app.spec_store import (
@@ -1830,6 +1831,7 @@ class BaseProjectManager(ABC):
             action_definitions=updated_definition.actions,
             data_bindings=updated_definition.dataBindings,
         )
+        validate_app_routes_or_raise(x.appSpec, updated_definition.routes)
         self.project_state_backend = self.project_state_backend.model_copy(
             update={"appDefinition": updated_definition}
         )
@@ -1862,6 +1864,7 @@ class BaseProjectManager(ABC):
             action_definitions=app_definition.actions,
             data_bindings=app_definition.dataBindings,
         )
+        validate_app_routes_or_raise(merged, app_definition.routes)
         write_app_spec(self.dbe, app_definition.appSpecPath, merged)
         return AppDefinitionResponse(
             appSpec=merged,
