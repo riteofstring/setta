@@ -121,7 +121,7 @@ export function SectionContainerCoreResizable({
       )}
       {isMetaControl ? (
         shouldRenderMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+          <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">
             <div className="flex h-12 w-10 items-center justify-end">
               <MetaControlMenuButton
                 sectionId={sectionId}
@@ -133,7 +133,7 @@ export function SectionContainerCoreResizable({
         )
       ) : textBlockMetaControlStyle ? (
         shouldRenderTextBlockMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
+          <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">
             <div className="flex h-12 w-10 items-center justify-end">
               <TextBlockMetaControlMenuButton
                 sectionId={sectionId}
@@ -155,12 +155,13 @@ export function SectionContainerCoreResizable({
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-      />
+      {!isMinimized && (
+        <AreaSwitch
+          sectionId={sectionId}
+          sectionTypeName={sectionTypeName}
+          bgColor={bgColor}
+        />
+      )}
     </CustomResizable>
   );
 }
@@ -169,25 +170,14 @@ function AreaSwitch({
   sectionId,
   sectionTypeName,
   bgColor,
-  isMinimized,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
-  isMinimized: boolean;
 }) {
-  if (isMinimized) {
-    return null;
-  }
   switch (sectionTypeName) {
     case SectionTypeEnum.Callable:
-      return (
-        <CallableArea
-          sectionId={sectionId}
-          bgColor={bgColor}
-          isMinimized={isMinimized}
-        />
-      );
+      return <CallableArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Dict:
       return <DictArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Image:

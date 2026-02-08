@@ -11,8 +11,9 @@ from setta.api.listener import SettaListener
 from setta.logging.tasks import spawn_background_task
 from setta.types.id import ID
 from setta.types.share_deployment import (
-    DeploymentManifest,
+    ShareDeploymentManifest,
 )
+from setta.utils.env_vars import RUNTIME_ROOT_ENV
 
 _ListenerBuilder = Callable[[SettaListener], None]
 _BUILDER_NAMES = ("build_listener", "build_callbacks")
@@ -30,7 +31,7 @@ class ShareListenerRuntime:
         self,
         *,
         deployment_root: Path,
-        manifest: DeploymentManifest | None,
+        manifest: ShareDeploymentManifest | None,
         runtime_root: Path | None = None,
     ) -> None:
         self._deployment_root = deployment_root
@@ -42,7 +43,7 @@ class ShareListenerRuntime:
             runtime_root.resolve() if runtime_root is not None else None
         )
         if self._runtime_root is not None:
-            os.environ.setdefault("SETTA_RUNTIME_ROOT", str(self._runtime_root))
+            os.environ.setdefault(RUNTIME_ROOT_ENV, str(self._runtime_root))
 
     def _resolve_entrypoint_path(self) -> Path | None:
         if self._listener_config is None:

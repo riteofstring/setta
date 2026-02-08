@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const BOOTSTRAP_TOKEN = process.env.SETTA_BOOTSTRAP_TOKEN ?? "";
+const AUTH_COOKIE_PREFIX = process.env.SETTA_AUTH_COOKIE_NAME ?? "setta_auth";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const PROJECT_URL =
   process.env.SETTA_PROJECT_URL ??
@@ -11,6 +12,7 @@ const PROJECT_URL =
     : BASE_URL);
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
+const READY_TIMEOUT_MS = 30000;
 const CANVAS_SELECTOR = ".react-flow";
 
 type ProjectMetadataEntry = { id: string; name: string };
@@ -53,6 +55,64 @@ test("new config opens with initial section in view", async ({ page }) => {
     await deleteProjectConfigByName(page, projectConfigName);
   }
 });
+
+async function ensureAppReady(page: Page): Promise<void> {
+  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  if (await isAppReady(page)) {
+    return;
+  }
+
+  const hasCookie = await hasAuthCookie(page);
+  if (!hasCookie && BOOTSTRAP_TOKEN) {
+    await page.goto(
+      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
+    );
+    try {
+      await waitForProjectUrl(page);
+    } catch {
+      // Fall through to final readiness check.
+    }
+  }
+
+  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
+  if (await isAppReady(page)) {
+    return;
+  }
+
+  if (!BOOTSTRAP_TOKEN && !hasCookie) {
+    throw new Error(
+      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
+    );
+  }
+  throw new Error("Setta UI did not become ready. Check bootstrap auth.");
+}
+
+async function isAppReady(page: Page): Promise<boolean> {
+  try {
+    await page.waitForSelector(READY_SELECTOR, { timeout: READY_TIMEOUT_MS });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForProjectUrl(page: Page): Promise<void> {
+  await page.waitForURL(
+    (url) => url.toString().startsWith(PROJECT_URL),
+    { timeout: READY_TIMEOUT_MS, waitUntil: "domcontentloaded" },
+  );
+}
+
+async function hasAuthCookie(page: Page): Promise<boolean> {
+  const cookies = await page
+    .context()
+    .cookies([PROJECT_URL, BACKEND_ORIGIN]);
+  return cookies.some(
+    (cookie) =>
+      cookie.name === AUTH_COOKIE_PREFIX ||
+      cookie.name.startsWith(`${AUTH_COOKIE_PREFIX}_`),
+  );
+}
 
 function getProjectConfigName(pageUrl: string, baseUrl: string): string {
   const pagePath = new URL(pageUrl).pathname;

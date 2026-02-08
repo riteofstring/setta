@@ -3,7 +3,6 @@ from mcp.types import TextContent
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.types.chat_messages import ToolCall, ToolChatMessage
-from setta.types.id import ID
 from setta.utils.timestamps import get_now_timestamp
 
 
@@ -14,17 +13,11 @@ class ToolRunner:
         *,
         allowed_server_ids: set[str] | None = None,
         share_session_id: str | None = None,
-        project_config_id: ID | None = None,
-        chat_id: ID | None = None,
-        section_id: ID | None = None,
         strict: bool = False,
     ) -> None:
         self._mcp_client = mcp_client
         self._allowed_server_ids = allowed_server_ids
         self._share_session_id = share_session_id
-        self._project_config_id = project_config_id
-        self._chat_id = chat_id
-        self._section_id = section_id
         self._strict = strict
 
     async def run(self, tool_calls: list[ToolCall]) -> list[ToolChatMessage]:
@@ -35,8 +28,6 @@ class ToolRunner:
 
     async def _run_single(self, tool_call: ToolCall) -> ToolChatMessage:
         tool_name = tool_call.function.name.strip()
-        if tool_name.startswith("mcp__"):
-            tool_name = tool_name[len("mcp__") :]
         arguments = dict(tool_call.function.arguments or {})
         started_at = get_now_timestamp()
         if not tool_name:
@@ -90,22 +81,13 @@ class ToolRunner:
         if server_id not in self._allowed_server_ids:
             raise KeyError(f"MCP tool '{tool_name}' is not allowed for this chat")
 
-    def _build_meta(self, tool_name: str) -> dict[str, str | None] | None:
-        meta: dict[str, str | None] = {}
-        if self._share_session_id:
-            meta["shareSessionId"] = self._share_session_id
+    def _build_meta(self, tool_name: str) -> dict[str, str] | None:
+        if not self._share_session_id:
+            return None
         server_id, _ = split_namespaced_tool_name(tool_name)
-        if server_id == SETTA_MCP_SERVER_ID:
-            if self._project_config_id is None:
-                raise ValueError(
-                    f"Setta MCP tool '{tool_name}' requires agentic project_config_id meta"
-                )
-            meta["projectConfigId"] = str(self._project_config_id)
-            meta["chatId"] = str(self._chat_id) if self._chat_id is not None else None
-            meta["sectionId"] = (
-                str(self._section_id) if self._section_id is not None else None
-            )
-        return meta or None
+        if server_id != SETTA_MCP_SERVER_ID:
+            return None
+        return {"shareSessionId": self._share_session_id}
 
     def _build_error_message(
         self,

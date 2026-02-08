@@ -119,13 +119,6 @@ export function KwargsControls({
     };
   }, _.isEqual);
 
-  const selectedAreAllEdgeInputs =
-    selectedParams.length > 0 &&
-    selectedParams.every((paramId) => edgeInputParams.includes(paramId));
-  const selectedHasAnyEdgeInputs = selectedParams.some((paramId) =>
-    edgeInputParams.includes(paramId),
-  );
-
   const canPinParams =
     selectedParams.length > 0 && !variantIsFrozen && canEditLayout;
   const pinParamsDisabled = !canPinParams;
@@ -143,7 +136,6 @@ export function KwargsControls({
     const nextPinnedParams = shouldUnpinSelected
       ? pinnedParams.filter((paramId) => !selectedParams.includes(paramId))
       : Array.from(new Set([...pinnedParams, ...selectedParams]));
-
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
@@ -166,52 +158,11 @@ export function KwargsControls({
         return res;
       },
     });
-
-    // If any selected args are currently edge connectors, pin/unpin also converts them
-    // back into normal params by removing them from `edgeInputParams`.
-    if (!canEditStructure || !selectedHasAnyEdgeInputs) {
-      return;
-    }
-    const nextEdgeInputs = edgeInputParams.filter(
-      (paramId) => !selectedParams.includes(paramId),
-    );
-    if (_.isEqual(nextEdgeInputs, edgeInputParams)) {
-      return;
-    }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-          state,
-          sectionId,
-          { edgeInputParams: nextEdgeInputs },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_edge_inputs({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          edgeInputParams: nextEdgeInputs,
-          frontendOpId,
-        }),
-    });
   }
 
   const canConvertToEdge =
     selectedParams.length > 0 && !variantIsFrozen && canEditStructure;
   const convertToEdgeDisabled = !canConvertToEdge;
-  const convertToEdgeAriaLabel = selectedAreAllEdgeInputs
-    ? "Convert selected edge args back to params"
-    : "Convert to edge connectors";
-  const convertToEdgeIconClassName = selectedAreAllEdgeInputs
-    ? "gg-unlink"
-    : "gg-link";
-  let convertToEdgeTooltip = "Convert selected args to edge connectors";
-  if (selectedAreAllEdgeInputs) {
-    convertToEdgeTooltip = "Convert selected edge args back to params";
-    if (canEditLayout) {
-      convertToEdgeTooltip = "Move selected edge args back to unpinned";
-    }
-  }
 
   const canDeleteSelected =
     deletableSelectedParamIds.length > 0 &&
@@ -235,72 +186,6 @@ export function KwargsControls({
     if (!canConvertToEdge) {
       return;
     }
-    if (selectedAreAllEdgeInputs) {
-      const nextInputs = edgeInputParams.filter(
-        (paramId) => !selectedParams.includes(paramId),
-      );
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-            state,
-            sectionId,
-            {
-              edgeInputParams: nextInputs,
-            },
-          );
-        },
-        send: (frontendOpId) => {
-          const payload = {
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            edgeInputParams: nextInputs,
-            frontendOpId,
-          };
-          const res = route_set_section_edge_inputs(payload);
-          return res;
-        },
-      });
-
-      // Requested UX: unlinking an edge arg should move it back into the unpinned
-      // params list (when allowed).
-      if (!canEditLayout) {
-        return;
-      }
-      const nextPinnedParams = pinnedParams.filter(
-        (paramId) => !selectedParams.includes(paramId),
-      );
-      if (_.isEqual(nextPinnedParams, pinnedParams)) {
-        return;
-      }
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-            state,
-            sectionId,
-            {
-              pinnedParams: nextPinnedParams,
-            },
-          );
-          updateShownParamIdsForPinnedParams(
-            state,
-            sectionId,
-            nextPinnedParams,
-          );
-        },
-        send: (frontendOpId) => {
-          const payload = {
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            pinnedParams: nextPinnedParams,
-            frontendOpId,
-          };
-          const res = route_set_section_pinned_params(payload);
-          return res;
-        },
-      });
-      return;
-    }
-
     const nextInputs = Array.from(
       new Set([...edgeInputParams, ...selectedParams]),
     );
@@ -393,10 +278,12 @@ export function KwargsControls({
               tabIndex={0}
               disabled={convertToEdgeDisabled}
               aria-disabled={convertToEdgeDisabled}
-              aria-label={convertToEdgeAriaLabel}
-              {...getFloatingBoxHandlers({ content: convertToEdgeTooltip })}
+              aria-label="Convert to edge connectors"
+              {...getFloatingBoxHandlers({
+                content: "Convert selected args to edge connectors",
+              })}
             >
-              <i className={`${convertToEdgeIconClassName} !scale-50`} />
+              <i className="gg-link !scale-50" />
             </button>
             <button
               className="nodrag flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-full bg-transparent text-setta-500 hover:text-blue-500 focus-visible:ring-2 dark:hover:text-blue-500"

@@ -5,19 +5,13 @@ import textwrap
 from pathlib import Path
 
 import pytest
-from setta.agentic.node_runtime import resolve_node_command
 
 
 class TestOpenCodeQuestionReply:
     def _run_node(self, script: str) -> list:
-        node_command = resolve_node_command(None)
-        node_path = shutil.which(node_command) or (
-            node_command if Path(node_command).exists() else None
-        )
+        node_path = shutil.which("node")
         if node_path is None:
-            pytest.fail(
-                "node executable not found; ensure it is installed and on PATH."
-            )
+            pytest.skip("node executable not found")
         result = subprocess.run(
             [node_path, "--input-type=module", "-e", script],
             capture_output=True,

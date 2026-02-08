@@ -45,7 +45,7 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         self.share_mode = share_mode
         self.share_runtime_state = share_runtime_state
         if share_mode and share_runtime_state is None:
-            raise ValueError("Deployment mode requires deployment runtime state")
+            raise ValueError("Share mode requires share runtime state")
 
     async def process_json_str(self, json_str: str, fromWebsocketId: str):
         m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_json(

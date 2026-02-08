@@ -1,5 +1,4 @@
-import { C } from "utils/c";
-import { createNewId } from "utils/idNameCreation";
+import { ARTIFACTS_ROOT, createNewId } from "utils/idNameCreation";
 
 type DropzoneStoredFileAttachment = {
   kind: "file";
@@ -170,7 +169,7 @@ export function createDropzoneFileArtifactId(
 ): string {
   const extension = extractFileExtension(fileName);
   const suffix = extension ?? ".bin";
-  const resolvedFolder = baseFolder ?? C.ARTIFACTS_FOLDER;
+  const resolvedFolder = baseFolder ?? ARTIFACTS_ROOT;
   return `${resolvedFolder}/${createNewId()}${suffix}`;
 }
 

@@ -33,7 +33,7 @@ def bootstrap_client(tmp_path, monkeypatch):
     monkeypatch.setenv(SESSION_ID_ENV_VAR, session.id)
 
     app = FastAPI()
-    app.state.setta = SimpleNamespace(share_mode=False, deployment_mode=False)
+    app.state.setta = SimpleNamespace(share_mode=False)
     app.add_middleware(AuthMiddleware)
     app.include_router(bootstrap_router)
 
@@ -74,8 +74,55 @@ def test_bootstrap_page_trailing_slash_redirects(bootstrap_client) -> None:
     assert location.endswith("/__setta__/bootstrap")
 
 
+def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
+    bootstrap_client,
+) -> None:
+    client, _, _ = bootstrap_client
+    response = client.get("/__setta__/bootstrap")
+    response.raise_for_status()
+    html = response.text
+
+    assert 'const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";' in html
+    assert "localStorage.setItem(workspaceHistoryHandoffKey, trimmed);" in html
+
+    assert 'const launcherOriginKey = "setta.launcherOrigin";' in html
+    assert (
+        "const launcherOriginStorage = localStorage;" in html
+        or "const launcherOriginStorage = sessionStorage;" in html
+    )
+    assert 'hashParams.get("lo")' in html
+    assert 'url.protocol !== "http:"' in html
+    assert 'url.protocol !== "https:"' in html
+    assert "launcherOriginStorage.setItem(launcherOriginKey, url.origin);" in html
+
+
 def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:
     client, _, _ = bootstrap_client
     response = client.post("/__setta__/tools/call")
     assert response.status_code == 401
     assert response.json() == {"detail": "Unauthorized"}
+
+
+def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch, tmp_path) -> None:
+    from setta.routers import bootstrap as bootstrap_module
+
+    monkeypatch.setattr(bootstrap_module, "IS_DEV_MODE", "1")
+    monkeypatch.delenv("SETTA_DEV_FRONTEND_SCHEME", raising=False)
+
+    app = FastAPI()
+    app.state.setta = SimpleNamespace(share_mode=False)
+    app.add_middleware(AuthMiddleware)
+    app.include_router(bootstrap_router)
+
+    with TestClient(app, base_url="https://backend.example:61234") as client:
+        response = client.get("/__setta__/bootstrap")
+        response.raise_for_status()
+        html = response.text
+
+    expected_prefix = (
+        f'const redirectUrl = "http://127.0.0.1:{bootstrap_module.C.DEV_MODE_FRONTEND_PORT}/'
+    )
+    assert expected_prefix in html
+    assert (
+        "__setta_backend_origin=https%3A%2F%2Fbackend.example%3A61234" in html
+    )

@@ -17,29 +17,8 @@ Run commands from the workspace that owns the Setta session. Use `setta tools`
 to list available tool names and schemas (bare names, no `setta__` prefix):
 
 ```sh
-setta api get_latest_project_state_summary \
-  --agentic-project-config-id "..." \
-  --agentic-section-id "..." \
-  --json '{"projectConfigId":"..."}' \
-  --json-output
+setta api get_latest_project_state_summary --json '{"projectConfigId":"..."}' --json-output
 ```
-
-Agentic scope enforcement is strict by default:
-- Without agentic context, `setta api` calls return `structuredContent.reason="missing_context"`.
-- With a project config id but no section id, calls return `structuredContent.reason="missing_section_id"`.
-
-To associate tool calls with a specific chat/run, also include the chat id:
-
-```sh
-setta api get_latest_project_state_summary \
-  --agentic-project-config-id "..." \
-  --agentic-chat-id "..." \
-  --agentic-section-id "..." \
-  --json '{"projectConfigId":"..."}' \
-  --json-output
-```
-
-IDs may be temporary or canonical.
 
 ## Auth fallback
 
@@ -49,8 +28,6 @@ generate auth JSON and reuse it:
 ```sh
 setta auth --json --latest > /tmp/setta_auth.json
 setta api get_latest_project_state_summary --auth-json /tmp/setta_auth.json \
-  --agentic-project-config-id "..." \
-  --agentic-section-id "..." \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 
@@ -58,8 +35,6 @@ You can also pass auth JSON via stdin:
 
 ```sh
 setta auth --json --latest | setta api get_latest_project_state_summary --auth-stdin \
-  --agentic-project-config-id "..." \
-  --agentic-section-id "..." \
   --json '{"projectConfigId":"..."}' --json-output
 ```
 

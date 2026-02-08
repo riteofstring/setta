@@ -47,6 +47,16 @@ export default defineConfig({
     host: devFrontendHost,
     port: devFrontendPort,
     open: false,
+    watch: {
+      // Playwright/Vitest output can churn rapidly during test runs. If Vite
+      // watches these folders it will trigger HMR reloads that can break E2E
+      // stability (and can leave the app stuck in a loading state).
+      ignored: [
+        "**/test-results/**",
+        "**/playwright-report/**",
+        "**/tests/e2e/.storageState*.json",
+      ],
+    },
   },
   preview: {
     host: devFrontendHost,

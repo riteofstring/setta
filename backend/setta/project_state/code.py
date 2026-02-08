@@ -15,7 +15,8 @@ from setta.project_state.utils import (
 )
 from setta.types.id import ID
 from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
-from setta.utils.utils import GEN_CODE_META_FILENAME, compute_md5_hex, normalize_path
+from setta.utils.paths import normalize_workspace_path, workspace_relative_path
+from setta.utils.utils import GEN_CODE_META_FILENAME, compute_md5_hex
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 if TYPE_CHECKING:
@@ -35,8 +36,7 @@ class SnapshotCodeSection:
 
 
 def build_python_module_run_command(path: Path) -> str:
-    normalized = normalize_path(path)
-    module_path = convert_path_to_module_path(normalized)
+    module_path = convert_path_to_module_path(workspace_relative_path(path))
     return f"python -m {module_path}"
 
 
@@ -57,7 +57,7 @@ def build_bash_run_command(
     use_absolute: bool = False,
     quote: bool = False,
 ) -> str:
-    resolved = path.resolve() if use_absolute else normalize_path(path)
+    resolved = path.resolve() if use_absolute else normalize_workspace_path(path)
     rendered = str(resolved)
     if quote:
         rendered = shlex.quote(rendered)

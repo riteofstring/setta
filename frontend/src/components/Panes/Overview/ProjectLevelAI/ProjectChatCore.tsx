@@ -9,7 +9,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 import { TbLayoutDashboard } from "react-icons/tb";
 import {
@@ -88,8 +87,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       branchIndex,
     });
   }, [branchIndex, chatId, messages]);
-  const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
-  const [draftMessage, setDraftMessage] = useState("");
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
@@ -99,14 +96,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
-
-  useEffect(() => {
-    if (!pendingPrompt) {
-      return;
-    }
-    setDraftMessage((current) => (current.trim() ? current : pendingPrompt));
-    useAIStore.setState({ pendingProjectChatPrompt: null });
-  }, [pendingPrompt]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -317,8 +306,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         waitingForResponse={waitingForResponse}
         submitDisabled={submitDisabled}
         disabled={isDisabled}
-        value={draftMessage}
-        onChange={setDraftMessage}
         onSubmit={handleSubmit}
         onStop={handleStop}
       />

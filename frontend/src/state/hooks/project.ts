@@ -6,6 +6,27 @@ import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { useHotReload } from "utils/hotReload";
 
+export function resolveProjectLoadIntent({
+  projectConfigName,
+  doneLoading,
+  pageLoadType,
+}: {
+  projectConfigName: string | undefined;
+  doneLoading: boolean;
+  pageLoadType: string | undefined;
+}): "load" | "change" | null {
+  if (!projectConfigName) {
+    return null;
+  }
+  if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
+    return "load";
+  }
+  if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+    return "change";
+  }
+  return null;
+}
+
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
   const { state } = useLocation();
@@ -36,18 +57,34 @@ export function useLoadProjectConfig() {
   }
 
   useEffect(() => {
-    if (isHotReload || useProjectLoading.getState().projectIsLoading) {
+    // Avoid kicking off a load while Vite is hot reloading. When a reload lands
+    // mid-navigation, we want to retry once the update settles instead of
+    // leaving the project in a permanently "loading" state.
+    if (isHotReload) {
+      return;
+    }
+
+    if (useProjectLoading.getState().projectIsLoading) {
+      return;
+    }
+
+    const intent = resolveProjectLoadIntent({
+      projectConfigName,
+      doneLoading,
+      pageLoadType,
+    });
+    if (!intent) {
       return;
     }
 
     useProjectLoading.setState({ projectIsLoading: true });
 
-    if (!doneLoading || pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG) {
-      loadFn();
-    } else if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+    if (intent === "load") {
+      void loadFn();
+    } else if (intent === "change") {
       changeFn();
     }
-  }, [pageLoadType, projectConfigName]);
+  }, [isHotReload, pageLoadType, projectConfigName]);
 
   return [doneLoading, is404];
 }

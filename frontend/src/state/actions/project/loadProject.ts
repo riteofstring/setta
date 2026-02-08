@@ -23,7 +23,7 @@ import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
-import { initializeServerMode } from "../serverMode";
+import { initializeShareSessionFromCurrentDeployment } from "../share";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
@@ -57,7 +57,7 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState({ ...p, previewSectionVariantMap: {} });
+  useProjectState.setState(p);
   applyPendingNameValidationErrors(p.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
@@ -99,8 +99,8 @@ export function useNavigateToAnotherConfig() {
 }
 
 export async function loadAllProjectMetadata() {
-  const mode = await initializeServerMode();
-  if (mode !== "ide") {
+  const shareLoaded = await initializeShareSessionFromCurrentDeployment();
+  if (shareLoaded) {
     return;
   }
   const res = await route_load_all_project_metadata();

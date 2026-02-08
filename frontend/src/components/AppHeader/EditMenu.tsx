@@ -38,7 +38,7 @@ export function EditMenu() {
 }
 
 function Items() {
-  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const isShareMode = useShareSession((x) => x.isShareMode);
   const { canEditLayout, canEditStructure } = useShareCapabilities();
   const colorMode = useLocalStorage((x) => x.colorMode);
   const shortcuts = useSettings((x) => {
@@ -76,14 +76,14 @@ function Items() {
       <MenuItem
         onClick={() => requestTypeCheck(true)}
         shortcut={shortcuts.typeCheckShortcut}
-        disabled={isDeploymentMode}
+        disabled={isShareMode}
       >
         Type Check
       </MenuItem>
       <MenuItem
         onClick={restartLanguageServer}
         shortcut={shortcuts.restartLanguageServerShortcut}
-        disabled={isDeploymentMode}
+        disabled={isShareMode}
       >
         Restart Language Server
       </MenuItem>

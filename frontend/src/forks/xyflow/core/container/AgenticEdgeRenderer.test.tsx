@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  useAgenticScopeHighlights,
   useAIFollow,
   useNodeInternals,
   useProjectState,
@@ -179,15 +178,6 @@ describe("AgenticEdgeRenderer", () => {
           "run-2": { section: [scopeSectionId] },
         },
       },
-      scopeViolationEdgesByProjectConfigId: {
-        [projectConfigId]: [
-          {
-            sourceSectionId: scopeSectionId,
-            targetSectionId: chatSectionId,
-            kind: AgenticEdgeKindEnum.section_chat,
-          },
-        ],
-      },
     });
 
     const nodes = new Map<string, Node>();
@@ -220,7 +210,6 @@ describe("AgenticEdgeRenderer", () => {
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useAIFollow);
     syncStoreInitialState(useNodeInternals);
-    syncStoreInitialState(useAgenticScopeHighlights);
   });
 
   afterEach(() => {
@@ -235,7 +224,6 @@ describe("AgenticEdgeRenderer", () => {
     expect(markup).toContain("agentic-edge--tool-result");
     expect(markup).toContain("agentic-edge--run");
     expect(markup).toContain("agentic-edge--chat-chat");
-    expect(markup).toContain("agentic-edge--missing");
     expect(markup).not.toContain("agentic-edge--chat_chat");
     expect(markup).not.toContain("agentic-edge-chat");
   });
