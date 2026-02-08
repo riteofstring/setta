@@ -4,6 +4,7 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import BinaryIO, Callable
 
@@ -19,14 +20,21 @@ class GitCommandOutput:
 
 
 def is_git_available() -> bool:
-    return shutil.which("git") is not None
+    return _get_git_binary_path() is not None
+
+
+@lru_cache(maxsize=1)
+def _get_git_binary_path() -> str | None:
+    return shutil.which("git")
 
 
 def get_workspace_repo_root(workspace_root: Path) -> Path | None:
-    if not is_git_available():
+    git_binary = _get_git_binary_path()
+    if git_binary is None:
         return None
     result = _run_git(
         ["-C", str(workspace_root), "rev-parse", "--show-toplevel"],
+        git_binary=git_binary,
         cwd=workspace_root,
         timeout_s=1.5,
         max_stdout_bytes=4096,
@@ -48,7 +56,8 @@ def run_git(
     max_stdout_bytes: int,
     max_stderr_bytes: int = 64_000,
 ) -> GitCommandOutput:
-    if not is_git_available():
+    git_binary = _get_git_binary_path()
+    if git_binary is None:
         return GitCommandOutput(
             returncode=127,
             stdout="",
@@ -59,6 +68,7 @@ def run_git(
         )
     return _run_git(
         args,
+        git_binary=git_binary,
         cwd=cwd,
         timeout_s=timeout_s,
         max_stdout_bytes=max_stdout_bytes,
@@ -69,13 +79,14 @@ def run_git(
 def _run_git(
     args: list[str],
     *,
+    git_binary: str,
     cwd: Path,
     timeout_s: float,
     max_stdout_bytes: int,
     max_stderr_bytes: int,
 ) -> GitCommandOutput:
     cmd = [
-        "git",
+        git_binary,
         "-c",
         "color.ui=false",
         "-c",

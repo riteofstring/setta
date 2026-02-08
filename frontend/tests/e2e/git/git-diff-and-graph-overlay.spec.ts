@@ -34,30 +34,77 @@ function getWorkspaceRootOrThrow(): string {
   return workspaceRoot;
 }
 
-async function initializeDisposableGitRepo(
+const GIT_FIXTURE_DIR_NAME = ".setta-git-e2e-fixture";
+const GIT_FIXTURE_SENTINEL_NAME = ".setta-git-e2e-sentinel";
+
+function toRepoRelativePath(workspaceRoot: string, targetPath: string): string {
+  return path.relative(workspaceRoot, targetPath).split(path.sep).join("/");
+}
+
+type DisposableGitRepo = {
+  gitDir: string;
+  fixtureRoot: string;
+};
+
+async function ensureDisposableFixtureDirectory(
   workspaceRoot: string,
 ): Promise<string> {
+  const fixtureRoot = path.join(workspaceRoot, GIT_FIXTURE_DIR_NAME);
+  await fs.mkdir(fixtureRoot, { recursive: true });
+  const entries = await fs.readdir(fixtureRoot);
+  const nonSentinelEntries = entries.filter(
+    (entry) => entry !== GIT_FIXTURE_SENTINEL_NAME,
+  );
+  if (nonSentinelEntries.length > 0) {
+    throw new Error(
+      `Refusing to run git e2e fixture in non-disposable directory: ${fixtureRoot}. Remove unexpected entries: ${nonSentinelEntries.join(
+        ", ",
+      )}`,
+    );
+  }
+  await fs.writeFile(
+    path.join(fixtureRoot, GIT_FIXTURE_SENTINEL_NAME),
+    "setta git e2e fixture sentinel\n",
+    "utf8",
+  );
+  return fixtureRoot;
+}
+
+async function initializeDisposableGitRepo(
+  workspaceRoot: string,
+): Promise<DisposableGitRepo> {
   const gitDir = path.join(workspaceRoot, ".git");
   if (await pathExists(gitDir)) {
     throw new Error(
       `Git e2e tests require a disposable workspace root. Refusing to mutate existing repo: ${gitDir}`,
     );
   }
+  const fixtureRoot = await ensureDisposableFixtureDirectory(workspaceRoot);
   runGit(workspaceRoot, ["init"]);
   runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
   runGit(workspaceRoot, ["config", "user.name", "E2E"]);
-  return gitDir;
+  await fs.writeFile(
+    path.join(gitDir, "info", "exclude"),
+    "setta_files/\n",
+    "utf8",
+  );
+  return { gitDir, fixtureRoot };
 }
 
 type GitOverlayFixture = {
-  gitDir: string;
-  gitIgnorePath: string;
+  repo: DisposableGitRepo;
   trackedPath: string;
+  trackedRepoPath: string;
   legacyPath: string;
+  legacyRepoPath: string;
   renameOldPath: string;
+  renameOldRepoPath: string;
   renameNewPath: string;
+  renameNewRepoPath: string;
   historyPath: string;
+  historyRepoPath: string;
   untrackedPath: string;
+  untrackedRepoPath: string;
   latestHistoryLabel: string | null;
 };
 
@@ -65,46 +112,53 @@ async function seedGitOverlayFixture(
   workspaceRoot: string,
   { historyCommitCount }: { historyCommitCount: number },
 ): Promise<GitOverlayFixture> {
-  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
-  const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
-  const trackedPath = path.join(workspaceRoot, "tracked.py");
-  const legacyPath = path.join(workspaceRoot, "legacy.py");
-  const renameOldPath = path.join(workspaceRoot, "rename-old.py");
-  const renameNewPath = path.join(workspaceRoot, "rename-new.py");
-  const historyPath = path.join(workspaceRoot, "history.txt");
-  const untrackedPath = path.join(workspaceRoot, "new.py");
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
+  const trackedPath = path.join(repo.fixtureRoot, "tracked.py");
+  const trackedRepoPath = toRepoRelativePath(workspaceRoot, trackedPath);
+  const legacyPath = path.join(repo.fixtureRoot, "legacy.py");
+  const legacyRepoPath = toRepoRelativePath(workspaceRoot, legacyPath);
+  const renameOldPath = path.join(repo.fixtureRoot, "rename-old.py");
+  const renameOldRepoPath = toRepoRelativePath(workspaceRoot, renameOldPath);
+  const renameNewPath = path.join(repo.fixtureRoot, "rename-new.py");
+  const renameNewRepoPath = toRepoRelativePath(workspaceRoot, renameNewPath);
+  const historyPath = path.join(repo.fixtureRoot, "history.txt");
+  const historyRepoPath = toRepoRelativePath(workspaceRoot, historyPath);
+  const untrackedPath = path.join(repo.fixtureRoot, "new.py");
+  const untrackedRepoPath = toRepoRelativePath(workspaceRoot, untrackedPath);
+  const initPath = path.join(repo.fixtureRoot, "init.txt");
+  const initRepoPath = toRepoRelativePath(workspaceRoot, initPath);
 
-  await fs.writeFile(gitIgnorePath, "setta_files/\n", "utf8");
-  runGit(workspaceRoot, ["add", ".gitignore"]);
+  await fs.writeFile(initPath, "git fixture init\n", "utf8");
+  runGit(workspaceRoot, ["add", initRepoPath]);
   runGit(workspaceRoot, ["commit", "-m", "init"]);
 
   await fs.writeFile(trackedPath, "def foo():\n  return 1\n", "utf8");
-  runGit(workspaceRoot, ["add", "tracked.py"]);
+  runGit(workspaceRoot, ["add", trackedRepoPath]);
   runGit(workspaceRoot, ["commit", "-m", "add tracked"]);
 
   await fs.writeFile(legacyPath, "legacy\n", "utf8");
-  runGit(workspaceRoot, ["add", "legacy.py"]);
+  runGit(workspaceRoot, ["add", legacyRepoPath]);
   runGit(workspaceRoot, ["commit", "-m", "add legacy"]);
 
   await fs.writeFile(renameOldPath, "rename me\n", "utf8");
-  runGit(workspaceRoot, ["add", "rename-old.py"]);
+  runGit(workspaceRoot, ["add", renameOldRepoPath]);
   runGit(workspaceRoot, ["commit", "-m", "add rename source"]);
 
   for (let i = 0; i < historyCommitCount; i += 1) {
     const label = i.toString().padStart(3, "0");
     await fs.writeFile(historyPath, `history ${label}\n`, "utf8");
-    runGit(workspaceRoot, ["add", "history.txt"]);
+    runGit(workspaceRoot, ["add", historyRepoPath]);
     runGit(workspaceRoot, ["commit", "-m", `history-${label}`]);
   }
 
   // Create both staged + unstaged changes for the same file.
   await fs.writeFile(trackedPath, "def foo():\n  return 2\n", "utf8");
-  runGit(workspaceRoot, ["add", "tracked.py"]);
+  runGit(workspaceRoot, ["add", trackedRepoPath]);
   await fs.writeFile(trackedPath, "def foo():\n  return 3\n", "utf8");
   await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
   await fs.rm(legacyPath, { force: true });
-  runGit(workspaceRoot, ["add", "legacy.py"]);
-  runGit(workspaceRoot, ["mv", "rename-old.py", "rename-new.py"]);
+  runGit(workspaceRoot, ["add", legacyRepoPath]);
+  runGit(workspaceRoot, ["mv", renameOldRepoPath, renameNewRepoPath]);
 
   const latestHistoryLabel =
     historyCommitCount > 0
@@ -112,14 +166,19 @@ async function seedGitOverlayFixture(
       : null;
 
   return {
-    gitDir,
-    gitIgnorePath,
+    repo,
     trackedPath,
+    trackedRepoPath,
     legacyPath,
+    legacyRepoPath,
     renameOldPath,
+    renameOldRepoPath,
     renameNewPath,
+    renameNewRepoPath,
     historyPath,
+    historyRepoPath,
     untrackedPath,
+    untrackedRepoPath,
     latestHistoryLabel,
   };
 }
@@ -127,14 +186,8 @@ async function seedGitOverlayFixture(
 async function cleanupGitOverlayFixture(
   fixture: GitOverlayFixture,
 ): Promise<void> {
-  await fs.rm(fixture.untrackedPath, { force: true });
-  await fs.rm(fixture.historyPath, { force: true });
-  await fs.rm(fixture.trackedPath, { force: true });
-  await fs.rm(fixture.legacyPath, { force: true });
-  await fs.rm(fixture.renameOldPath, { force: true });
-  await fs.rm(fixture.renameNewPath, { force: true });
-  await fs.rm(fixture.gitIgnorePath, { force: true });
-  await fs.rm(fixture.gitDir, { recursive: true, force: true });
+  await fs.rm(fixture.repo.fixtureRoot, { recursive: true, force: true });
+  await fs.rm(fixture.repo.gitDir, { recursive: true, force: true });
 }
 
 async function openGitOverview(page: Page): Promise<void> {
@@ -172,7 +225,7 @@ test("git diff overlay renders staged, unstaged, rename, and untracked diffs", a
       name: /legacy\.py/,
     });
     const stagedRename = stagedGroup.getByRole("button", {
-      name: /rename-old\.py -> rename-new\.py/,
+      name: /rename-old\.py -> .*rename-new\.py/,
     });
     await expect(stagedTracked).toBeVisible();
     await expect(stagedLegacy).toBeVisible();
@@ -194,12 +247,16 @@ test("git diff overlay renders staged, unstaged, rename, and untracked diffs", a
 
     const diffOverlay = closeDiffButton.locator("xpath=ancestor::section[1]");
     const diffContent = diffOverlay.locator(".cm-content");
-    await expect(diffContent).toContainText("rename from rename-old.py");
-    await expect(diffContent).toContainText("rename to rename-new.py");
+    await expect(diffContent).toContainText(
+      `rename from ${fixture.renameOldRepoPath}`,
+    );
+    await expect(diffContent).toContainText(
+      `rename to ${fixture.renameNewRepoPath}`,
+    );
 
     await stagedTracked.click();
     await expect(diffContent).toContainText(
-      "diff --git a/tracked.py b/tracked.py",
+      `diff --git a/${fixture.trackedRepoPath} b/${fixture.trackedRepoPath}`,
     );
     await expect(diffContent).toContainText("-  return 1");
     await expect(diffContent).toContainText("+  return 2");
@@ -233,6 +290,9 @@ test("git diff overlay renders staged, unstaged, rename, and untracked diffs", a
     const diffOverlay2 = closeDiffButton2.locator("xpath=ancestor::section[1]");
     const diffContent2 = diffOverlay2.locator(".cm-content");
     await expect(diffContent2).toContainText("new file mode");
+    await expect(diffContent2).toContainText(
+      `diff --git a/${fixture.untrackedRepoPath} b/${fixture.untrackedRepoPath}`,
+    );
     await expect(diffContent2).toContainText("+def bar():");
     await expect(
       diffOverlay2.locator(".cm-gitdiff-syntax").first(),
@@ -743,11 +803,9 @@ test("git graph shows an explicit empty-history state for unborn HEAD", async ({
   page,
 }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
-  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
-  const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
 
   try {
-    await fs.writeFile(gitIgnorePath, "setta_files/\n", "utf8");
     await openGitOverview(page);
 
     await page.getByRole("button", { name: "Graph" }).click();
@@ -762,8 +820,8 @@ test("git graph shows an explicit empty-history state for unborn HEAD", async ({
       graphOverlay.getByRole("button", { name: /lanes/i }),
     ).toHaveCount(0);
   } finally {
-    await fs.rm(gitIgnorePath, { force: true });
-    await fs.rm(gitDir, { recursive: true, force: true });
+    await fs.rm(repo.fixtureRoot, { recursive: true, force: true });
+    await fs.rm(repo.gitDir, { recursive: true, force: true });
   }
 });
 
@@ -887,7 +945,7 @@ test("git graph paginates, filters, and loads commit file diffs", async ({
 
     const graphDiffContent = graphOverlay.locator(".cm-content");
     await expect(graphDiffContent).toContainText(
-      "diff --git a/tracked.py b/tracked.py",
+      `diff --git a/${fixture.trackedRepoPath} b/${fixture.trackedRepoPath}`,
     );
     await expect(graphDiffContent).toContainText("+def foo():");
     await expect(
@@ -906,13 +964,152 @@ test("git graph paginates, filters, and loads commit file diffs", async ({
     await cleanupGitOverlayFixture(fixture);
   }
 });
+
+test("git graph pauses auto-pagination after a load-more error until Retry is clicked", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 260,
+  });
+  let failedPaginationRequests = 0;
+
+  await page.route("**/git/log*", async (route) => {
+    const req = route.request();
+    if (req.method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    const body = req.postDataJSON() as { offset?: unknown } | null;
+    if (typeof body?.offset === "number" && body.offset > 0) {
+      failedPaginationRequests += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: "intentional pagination failure for e2e",
+        }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  try {
+    await openGitOverview(page);
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    await expect(
+      graphOverlay.getByRole("button", { name: /history-259/ }),
+    ).toBeVisible();
+    const commitListScroller = graphOverlay
+      .getByTestId("git-graph-commit-list-wrapper")
+      .locator(":scope > div")
+      .first();
+
+    for (let i = 0; i < 3; i += 1) {
+      await commitListScroller.evaluate((el) => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+    await expect.poll(() => failedPaginationRequests).toBe(1);
+    await expect(
+      graphOverlay.getByTestId("git-graph-load-more-status"),
+    ).toContainText("intentional pagination failure for e2e");
+
+    await commitListScroller.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await commitListScroller.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect.poll(() => failedPaginationRequests).toBe(1);
+
+    await graphOverlay.getByTestId("git-graph-load-more-retry").click();
+    await expect.poll(() => failedPaginationRequests).toBe(2);
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph shows a warning when commit details are truncated", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 0,
+  });
+
+  await page.route("**/git/commitDetails*", async (route) => {
+    const body = route.request().postDataJSON() as { commitHash?: unknown };
+    if (typeof body.commitHash !== "string") {
+      throw new Error("Expected commitHash in getGitCommitDetails request.");
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        repoRoot: workspaceRoot,
+        commitHash: body.commitHash,
+        parents: [],
+        authorName: "E2E",
+        authorEmail: "e2e@example.com",
+        authorTimeMs: 1,
+        committerName: "E2E",
+        committerEmail: "e2e@example.com",
+        committerTimeMs: 1,
+        subject: "truncated details",
+        body: "",
+        files: [
+          {
+            path: fixture.trackedRepoPath,
+            oldPath: null,
+            status: "M",
+            additions: 1,
+            deletions: 1,
+          },
+        ],
+        isTruncated: true,
+      }),
+    });
+  });
+
+  try {
+    await openGitOverview(page);
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+
+    await graphFilter.fill("add tracked");
+    const addTrackedCommit = graphOverlay.getByRole("button", {
+      name: /add tracked.*lanes 1/,
+    });
+    await expect(addTrackedCommit).toBeVisible();
+    await addTrackedCommit.click();
+    await expect(graphOverlay.getByText("Files changed")).toBeVisible();
+
+    await expect(
+      graphOverlay.getByTestId("git-graph-commit-details-truncated-warning"),
+    ).toContainText(
+      "Commit details were truncated. The changed-file list may be incomplete.",
+    );
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
 test("git graph keeps lanes aligned across join boundaries", async ({
   page,
 }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
-  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
-  const mainPath = path.join(workspaceRoot, "graph-test-main.txt");
-  const sidePath = path.join(workspaceRoot, "graph-test-side.txt");
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
+  const mainPath = path.join(repo.fixtureRoot, "graph-test-main.txt");
+  const sidePath = path.join(repo.fixtureRoot, "graph-test-side.txt");
+  const mainRepoPath = toRepoRelativePath(workspaceRoot, mainPath);
+  const sideRepoPath = toRepoRelativePath(workspaceRoot, sidePath);
   const commitEnv = (isoTime: string): Record<string, string> => ({
     GIT_AUTHOR_DATE: isoTime,
     GIT_COMMITTER_DATE: isoTime,
@@ -921,7 +1118,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
   try {
     // Root commit: graph-test A
     await fs.writeFile(mainPath, "A\n", "utf8");
-    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(workspaceRoot, ["add", mainRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-test A"],
@@ -936,7 +1133,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     // Side branch from A (will be merged later).
     runGit(workspaceRoot, ["checkout", "-b", "graph-test-side"]);
     await fs.writeFile(sidePath, "D\n", "utf8");
-    runGit(workspaceRoot, ["add", "graph-test-side.txt"]);
+    runGit(workspaceRoot, ["add", sideRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-test D"],
@@ -946,7 +1143,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     // Mainline commit: A -> B
     runGit(workspaceRoot, ["checkout", defaultBranch]);
     await fs.writeFile(mainPath, "B\n", "utf8");
-    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(workspaceRoot, ["add", mainRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-test B"],
@@ -956,7 +1153,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     // Branch1 from B (newest head, to force traversal order: C1 first).
     runGit(workspaceRoot, ["checkout", "-b", "graph-test-branch1"]);
     await fs.writeFile(mainPath, "C1\n", "utf8");
-    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(workspaceRoot, ["add", mainRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-test C1"],
@@ -967,7 +1164,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     // Branch2 from B: C2 then merge side branch: M
     runGit(workspaceRoot, ["checkout", "-b", "graph-test-branch2"]);
     await fs.writeFile(mainPath, "C2\n", "utf8");
-    runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
+    runGit(workspaceRoot, ["add", mainRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-test C2"],
@@ -1074,9 +1271,8 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);
   } finally {
-    await fs.rm(mainPath, { force: true });
-    await fs.rm(sidePath, { force: true });
-    await fs.rm(gitDir, { recursive: true, force: true });
+    await fs.rm(repo.fixtureRoot, { recursive: true, force: true });
+    await fs.rm(repo.gitDir, { recursive: true, force: true });
   }
 });
 
@@ -1084,11 +1280,12 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
   page,
 }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
-  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
-  const basePath = path.join(workspaceRoot, "graph-color-base.txt");
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
+  const basePath = path.join(repo.fixtureRoot, "graph-color-base.txt");
   const topicPaths = Array.from({ length: 9 }, (_, idx) =>
-    path.join(workspaceRoot, `graph-color-topic-${idx + 1}.txt`),
+    path.join(repo.fixtureRoot, `graph-color-topic-${idx + 1}.txt`),
   );
+  const baseRepoPath = toRepoRelativePath(workspaceRoot, basePath);
   const commitEnv = (isoTime: string): Record<string, string> => ({
     GIT_AUTHOR_DATE: isoTime,
     GIT_COMMITTER_DATE: isoTime,
@@ -1096,7 +1293,7 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
 
   try {
     await fs.writeFile(basePath, "base\n", "utf8");
-    runGit(workspaceRoot, ["add", path.basename(basePath)]);
+    runGit(workspaceRoot, ["add", baseRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-color base"],
@@ -1116,7 +1313,10 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
 
       runGit(workspaceRoot, ["checkout", "-b", branch]);
       await fs.writeFile(topicPaths[idx]!, `topic ${idx + 1}\n`, "utf8");
-      runGit(workspaceRoot, ["add", path.basename(topicPaths[idx]!)]);
+      runGit(workspaceRoot, [
+        "add",
+        toRepoRelativePath(workspaceRoot, topicPaths[idx]!),
+      ]);
       runGit(
         workspaceRoot,
         ["commit", "-m", `graph-color T${idx + 1}`],
@@ -1255,11 +1455,8 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);
   } finally {
-    for (const topicPath of topicPaths) {
-      await fs.rm(topicPath, { force: true });
-    }
-    await fs.rm(basePath, { force: true });
-    await fs.rm(gitDir, { recursive: true, force: true });
+    await fs.rm(repo.fixtureRoot, { recursive: true, force: true });
+    await fs.rm(repo.gitDir, { recursive: true, force: true });
   }
 });
 
@@ -1267,10 +1464,13 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
   page,
 }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
-  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
-  const mainPath = path.join(workspaceRoot, "graph-gap-main.txt");
-  const sidePath1 = path.join(workspaceRoot, "graph-gap-side-1.txt");
-  const sidePath2 = path.join(workspaceRoot, "graph-gap-side-2.txt");
+  const repo = await initializeDisposableGitRepo(workspaceRoot);
+  const mainPath = path.join(repo.fixtureRoot, "graph-gap-main.txt");
+  const sidePath1 = path.join(repo.fixtureRoot, "graph-gap-side-1.txt");
+  const sidePath2 = path.join(repo.fixtureRoot, "graph-gap-side-2.txt");
+  const mainRepoPath = toRepoRelativePath(workspaceRoot, mainPath);
+  const sideRepoPath1 = toRepoRelativePath(workspaceRoot, sidePath1);
+  const sideRepoPath2 = toRepoRelativePath(workspaceRoot, sidePath2);
   const commitEnv = (isoTime: string): Record<string, string> => ({
     GIT_AUTHOR_DATE: isoTime,
     GIT_COMMITTER_DATE: isoTime,
@@ -1278,7 +1478,7 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
 
   try {
     await fs.writeFile(mainPath, "A\n", "utf8");
-    runGit(workspaceRoot, ["add", path.basename(mainPath)]);
+    runGit(workspaceRoot, ["add", mainRepoPath]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-gap A"],
@@ -1293,7 +1493,7 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
 
     runGit(workspaceRoot, ["checkout", "-b", "graph-gap-side"]);
     await fs.writeFile(sidePath1, "S1\n", "utf8");
-    runGit(workspaceRoot, ["add", path.basename(sidePath1)]);
+    runGit(workspaceRoot, ["add", sideRepoPath1]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-gap S1"],
@@ -1319,7 +1519,7 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
     // merge commit when showing `--all` refs.
     runGit(workspaceRoot, ["checkout", "graph-gap-side"]);
     await fs.writeFile(sidePath2, "S2\n", "utf8");
-    runGit(workspaceRoot, ["add", path.basename(sidePath2)]);
+    runGit(workspaceRoot, ["add", sideRepoPath2]);
     runGit(
       workspaceRoot,
       ["commit", "-m", "graph-gap S2"],
@@ -1437,9 +1637,7 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
     await page.keyboard.press("Escape");
     await expect(graphFilter).toHaveCount(0);
   } finally {
-    await fs.rm(mainPath, { force: true });
-    await fs.rm(sidePath1, { force: true });
-    await fs.rm(sidePath2, { force: true });
-    await fs.rm(gitDir, { recursive: true, force: true });
+    await fs.rm(repo.fixtureRoot, { recursive: true, force: true });
+    await fs.rm(repo.gitDir, { recursive: true, force: true });
   }
 });

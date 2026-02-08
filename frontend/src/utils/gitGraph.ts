@@ -160,7 +160,3 @@ export function computeGitGraphRowsWithState(commits: readonly GitCommit[]): {
 } {
   return appendGitGraphRows(commits, createEmptyGitGraphRowComputationState());
 }
-
-export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
-  return computeGitGraphRowsWithState(commits).rows;
-}

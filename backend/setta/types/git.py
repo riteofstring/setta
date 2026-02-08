@@ -95,6 +95,7 @@ class GetGitCommitDetailsResponse(BaseModel):
     subject: str
     body: str
     files: list[GitCommitChangedFile]
+    isTruncated: bool
 
 
 class GetGitCommitFileDiffRequest(BaseModel):

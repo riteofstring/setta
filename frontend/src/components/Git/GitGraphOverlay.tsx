@@ -957,6 +957,7 @@ export function GitGraphOverlay() {
                   if (
                     graphState.isLoading ||
                     graphState.isLoadingMore ||
+                    graphState.loadMoreError !== null ||
                     graphState.nextOffset === null ||
                     !graphState.hasMore ||
                     isFilterActive
@@ -1004,7 +1005,7 @@ export function GitGraphOverlay() {
                     type="button"
                     data-testid="git-graph-load-more-retry"
                     className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                    onClick={() => void loadMoreGitGraphCommits()}
+                    onClick={() => void loadMoreGitGraphCommits({ force: true })}
                   >
                     Retry
                   </button>
@@ -1096,6 +1097,16 @@ export function GitGraphOverlay() {
           {graphState.selectedCommitFileDiffResponse?.isTruncated && (
             <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
               Diff output truncated for performance.
+            </div>
+          )}
+
+          {graphState.selectedCommitDetails?.isTruncated && (
+            <div
+              data-testid="git-graph-commit-details-truncated-warning"
+              className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              Commit details were truncated. The changed-file list may be
+              incomplete.
             </div>
           )}
 

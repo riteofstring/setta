@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   appendGitGraphRows,
-  computeGitGraphRows,
   computeGitGraphRowsWithState,
   createEmptyGitGraphRowComputationState,
 } from "./gitGraph";
@@ -18,10 +17,14 @@ function commit(hash: string, parents: string[]) {
   };
 }
 
+function computeRows(commits: ReturnType<typeof commit>[]) {
+  return computeGitGraphRowsWithState(commits).rows;
+}
+
 describe("computeGitGraphRows", () => {
   it("assigns a single lane for linear history", () => {
     const commits = [commit("C", ["B"]), commit("B", ["A"]), commit("A", [])];
-    const rows = computeGitGraphRows(commits);
+    const rows = computeRows(commits);
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.laneIndex)).toEqual([0, 0, 0]);
     expect(rows.every((r) => r.laneColorIds.length === 1)).toBe(true);
@@ -43,7 +46,7 @@ describe("computeGitGraphRows", () => {
       commit("B", ["A"]),
       commit("A", []),
     ];
-    const rows = computeGitGraphRows(commits);
+    const rows = computeRows(commits);
     expect(rows).toHaveLength(5);
 
     // Merge commit introduces 2 lanes and draws a connector to the second parent lane.
@@ -66,7 +69,7 @@ describe("computeGitGraphRows", () => {
       commit("B", ["A"]),
       commit("A", []),
     ];
-    const rows = computeGitGraphRows(commits);
+    const rows = computeRows(commits);
     expect(rows).toHaveLength(4);
 
     const bRow = rows.find((r) => r.commit.hash === "B");
@@ -84,7 +87,7 @@ describe("computeGitGraphRows", () => {
       commit("graph-test B", ["graph-test A"]),
       commit("graph-test A", []),
     ];
-    const rows = computeGitGraphRows(commits);
+    const rows = computeRows(commits);
     expect(rows).toHaveLength(5);
 
     const bRow = rows.find((r) => r.commit.subject === "graph-test B");
@@ -120,7 +123,7 @@ describe("computeGitGraphRows", () => {
     );
 
     const paginatedRows = firstResult.rows.concat(secondResult.rows);
-    const fullRows = computeGitGraphRows(commits);
+    const fullRows = computeRows(commits);
     expect(paginatedRows).toEqual(fullRows);
   });
 

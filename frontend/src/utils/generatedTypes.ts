@@ -6674,6 +6674,7 @@ const GetGitCommitDetailsResponseSchema = z.object({
   subject: z.string(),
   body: z.string(),
   files: z.array(GitCommitChangedFileSchema),
+  isTruncated: z.boolean(),
 });
 
 export type GetGitCommitDetailsResponse = z.infer<

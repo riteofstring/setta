@@ -2,6 +2,9 @@ import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
+import setta.utils.git as git_utils
 from setta.utils.git import run_git
 
 
@@ -58,3 +61,25 @@ def test_run_git_truncates_stderr_at_requested_cap() -> None:
     assert res.stderr_truncated is True
     assert len(res.stderr.encode("utf-8")) <= 24
     assert res.timed_out is False
+
+
+def test_git_binary_lookup_is_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def fake_which(binary: str) -> str | None:
+        nonlocal calls
+        calls += 1
+        if binary != "git":
+            return None
+        return "/usr/bin/git"
+
+    git_utils._get_git_binary_path.cache_clear()
+    monkeypatch.setattr(git_utils.shutil, "which", fake_which)
+
+    assert git_utils.is_git_available() is True
+    assert git_utils.is_git_available() is True
+    assert calls == 1
+
+    git_utils._get_git_binary_path.cache_clear()

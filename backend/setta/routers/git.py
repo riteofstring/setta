@@ -833,6 +833,7 @@ def route_get_git_commit_details(
         subject=subject,
         body=body.rstrip("\n"),
         files=changed_files,
+        isTruncated=show_res.stdout_truncated,
     )
 
 

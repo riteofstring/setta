@@ -73,9 +73,11 @@ function createLogResponse({
 function setGraphOverlayState({
   response,
   filterText = "",
+  loadMoreError = null,
 }: {
   response: GetGitLogResponse;
   filterText?: string;
+  loadMoreError?: string | null;
 }): void {
   const rowResult = computeGitGraphRowsWithState(response.commits);
   useGitStore.setState((state) => ({
@@ -91,7 +93,7 @@ function setGraphOverlayState({
         isLoading: false,
         isLoadingMore: false,
         error: null,
-        loadMoreError: null,
+        loadMoreError,
         hasMore: response.hasMore,
         nextOffset: response.nextOffset,
         pageSize: response.pageSize,
@@ -266,6 +268,40 @@ describe("git graph actions", () => {
     expect(overlay.graph.nextOffset).toBe(2);
   });
 
+  it("does not auto-load more again after a load-more error until retry is explicit", async () => {
+    const c1 = commit("c1", []);
+    const c2 = commit("c2", ["c1"]);
+    setGraphOverlayState({
+      response: createLogResponse({
+        commits: [c2, c1],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: 2,
+        hasMore: true,
+        isCapped: false,
+      }),
+      loadMoreError: "backend failed while loading more commits",
+    });
+    vi.mocked(route_get_git_log).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createLogResponse({
+        commits: [],
+        offset: 2,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    await loadMoreGitGraphCommits();
+    expect(route_get_git_log).not.toHaveBeenCalled();
+
+    await loadMoreGitGraphCommits({ force: true });
+    expect(route_get_git_log).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves oldPath when requesting diffs across mode toggles", async () => {
     setGitStatusResponse([
       {
@@ -390,6 +426,7 @@ describe("git graph actions", () => {
               committerTimeMs: 1,
               subject: "A",
               body: "",
+              isTruncated: false,
               files: [
                 {
                   path: "a.txt",
@@ -417,6 +454,7 @@ describe("git graph actions", () => {
             committerTimeMs: 2,
             subject: "B",
             body: "",
+            isTruncated: false,
             files: [
               {
                 path: "b.txt",
@@ -497,6 +535,7 @@ describe("git graph actions", () => {
         committerTimeMs: 1,
         subject: "A",
         body: "",
+        isTruncated: false,
         files: [
           {
             path: "a.txt",
@@ -578,5 +617,36 @@ describe("git graph actions", () => {
     expect(firstCommit?.hash).toBe("abc123");
     expect(overlay.graph.allRefs).toBe(false);
     expect(overlay.graph.selectedCommitHash).toBeNull();
+  });
+
+  it("does not duplicate preload state writes when opening git graph overlay", async () => {
+    vi.mocked(route_get_git_log).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createLogResponse({
+        commits: [
+          createGitCommit({
+            hash: "abc123",
+            parents: [],
+            authorName: "A",
+            authorEmail: "a@example.com",
+            authorTimeMs: 1,
+            subject: "subject",
+            decorations: [],
+          }),
+        ],
+        offset: 0,
+        pageSize: 250,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+    const setStateSpy = vi.spyOn(useGitStore, "setState");
+
+    await openGitGraphOverlay();
+
+    expect(setStateSpy).toHaveBeenCalledTimes(2);
+    setStateSpy.mockRestore();
   });
 });

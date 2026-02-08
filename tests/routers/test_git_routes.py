@@ -407,6 +407,7 @@ class TestGitRoutes:
         assert len(details.files) == 1
         assert details.files[0].path == "tracked.txt"
         assert details.files[0].status == "A"
+        assert details.isTruncated is False
         assert file_diff.repoRoot
         assert file_diff.commitHash == head
         assert file_diff.path == "tracked.txt"
@@ -433,6 +434,7 @@ class TestGitRoutes:
         assert tab_entry.status == "A"
         assert tab_entry.additions == 1
         assert tab_entry.deletions == 0
+        assert details.isTruncated is False
 
     async def test_commit_details_parses_rename_numstat_with_nul_delimiters(
         self,
@@ -462,6 +464,7 @@ class TestGitRoutes:
         assert renamed.status.startswith("R")
         assert renamed.additions == 0
         assert renamed.deletions == 0
+        assert details.isTruncated is False
 
     async def test_commit_details_uses_single_git_show_call(
         self, monkeypatch: pytest.MonkeyPatch
@@ -504,6 +507,7 @@ class TestGitRoutes:
         assert details.commitHash == head
         assert len(details.files) == 1
         assert details.files[0].path == "tracked.txt"
+        assert details.isTruncated is False
 
     async def test_commit_routes_accept_sha256_length_hash_when_git_verifies(
         self, monkeypatch: pytest.MonkeyPatch
@@ -581,7 +585,58 @@ class TestGitRoutes:
         assert len(captured_rev_parse_args) == 2
         assert details.commitHash == sha256_hash
         assert details.files[0].path == "tracked.txt"
+        assert details.isTruncated is False
         assert file_diff.commitHash == sha256_hash
+
+    async def test_commit_details_flags_truncated_output(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+        original_run_git = git_router.run_git
+
+        def truncated_show_run_git(
+            args: list[str],
+            *,
+            cwd: Path,
+            timeout_s: float,
+            max_stdout_bytes: int,
+            max_stderr_bytes: int = 64_000,
+        ) -> GitCommandOutput:
+            if args and args[0] == "show" and "--raw" in args and "--numstat" in args:
+                show_payload = (
+                    f"{head}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
+                    "A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e\n"
+                    ":100644 100644 0000000 1111111 M\0tracked.txt\0"
+                    "1\t1\ttracked.txt\0"
+                )
+                return GitCommandOutput(
+                    returncode=0,
+                    stdout=show_payload,
+                    stderr="",
+                    stdout_truncated=True,
+                    stderr_truncated=False,
+                    timed_out=False,
+                )
+            return original_run_git(
+                args,
+                cwd=cwd,
+                timeout_s=timeout_s,
+                max_stdout_bytes=max_stdout_bytes,
+                max_stderr_bytes=max_stderr_bytes,
+            )
+
+        monkeypatch.setattr(git_router, "run_git", truncated_show_run_git)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+
+        assert details.commitHash == head
+        assert details.isTruncated is True
+        assert len(details.files) == 1
+        assert details.files[0].path == "tracked.txt"
 
     async def test_log_pagination_offsets_without_overlap(self) -> None:
         # Build enough history to span multiple pages.
