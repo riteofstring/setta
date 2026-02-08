@@ -4,14 +4,6 @@ from pathlib import Path
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
 
-from setta.database.db_objs import DBE
-from setta.deployments.router_utils import (
-    deployment_metadata_kwargs_from_manifest,
-    get_latest_deployment_metadata_from_disk,
-    get_or_create_share_session_id,
-    list_deployment_versions_metadata,
-    list_deployments_metadata,
-)
 from setta.deployments.publish_utils import (
     copy_file,
     copy_listener_entrypoint,
@@ -21,6 +13,13 @@ from setta.deployments.publish_utils import (
     normalize_deployment_name,
     rebase_project_state_paths,
     resolve_deployment_relative_path,
+)
+from setta.deployments.router_utils import (
+    deployment_metadata_kwargs_from_manifest,
+    get_latest_deployment_metadata_from_disk,
+    get_or_create_share_session_id,
+    list_deployment_versions_metadata,
+    list_deployments_metadata,
 )
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.jsonSource.save import build_json_source_dicts
@@ -51,9 +50,7 @@ from setta.types.share_deployment import (
     DeploymentType,
     SharePolicy,
 )
-from setta.utils.constants import C
 from setta.utils.structured_data import write_json_source_payload
-from setta.utils.utils import normalize_path
 
 logger = logging.getLogger(__name__)
 

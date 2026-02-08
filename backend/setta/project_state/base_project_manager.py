@@ -895,13 +895,16 @@ class BaseProjectManager(ABC):
                         detail=str(detail),
                     ) from exc
 
-                entry_section_id = section_id or run_state.projectConfig.entryCodeBlockId
+                entry_section_id = (
+                    section_id or run_state.projectConfig.entryCodeBlockId
+                )
                 if entry_section_id:
                     section_impl = get_curr_effective_section_impl(
                         run_state, entry_section_id
                     )
                     if isinstance(
-                        section_impl, (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl)
+                        section_impl,
+                        (GenPythonCodeSectionImpl, GenPythonMetadataSectionImpl),
                     ):
                         entry_section_id = None
                     elif isinstance(section_impl, CodeSectionImpl):
@@ -938,7 +941,9 @@ class BaseProjectManager(ABC):
                     raise ValueError("Project state missing generated code binding")
                 return create_snapshot_run_command_from_sections(
                     dbe=self.dbe,
-                    snapshot_root=self._resolve_run_snapshot_root(resolved_run_snapshot_mode),
+                    snapshot_root=self._resolve_run_snapshot_root(
+                        resolved_run_snapshot_mode
+                    ),
                     entry_section_id=entry_section_id,
                     gen_code=code_generator.code,
                     gen_meta_code=code_generator.meta_code,

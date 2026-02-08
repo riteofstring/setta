@@ -482,7 +482,8 @@ export function DropzoneInput({
 
   const remainingSlots = getRemainingSlots(getCurrentCount());
   const canAttachMore = remainingSlots === null || remainingSlots > 0;
-  const canUseServerPicker = !isDeploymentMode && mode === DropzoneModeEnum.STATEFUL;
+  const canUseServerPicker =
+    !isDeploymentMode && mode === DropzoneModeEnum.STATEFUL;
 
   async function commitStatefulValue(
     updatedValue: string,

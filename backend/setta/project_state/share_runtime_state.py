@@ -9,6 +9,7 @@ from setta.database.db_objs import DBE
 from setta.deployments.deployment_utils import rewrite_project_state_paths
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.artifacts import Artifacts
+from setta.project_state.base_project_manager import _apply_run_overrides
 from setta.project_state.code import (
     SnapshotSectionInput,
     build_bash_run_command,
@@ -20,7 +21,6 @@ from setta.project_state.draw_snapshots import apply_draw_snapshot_updates
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import build_python_code_generator
-from setta.project_state.base_project_manager import _apply_run_overrides
 from setta.project_state.project_manager_types import RunCodeRequest
 from setta.share.policy import (
     load_share_policy_from_dbe,

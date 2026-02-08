@@ -12,7 +12,8 @@ export function WatchCodeToggleButton() {
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
-  const disabled = isDeploymentMode || projectConfigId === NULL_PROJECT_CONFIG_ID;
+  const disabled =
+    isDeploymentMode || projectConfigId === NULL_PROJECT_CONFIG_ID;
 
   const label = enabled ? "Enabled" : "Disabled";
   const actionLabel = enabled ? "Disable Watch Code" : "Enable Watch Code";

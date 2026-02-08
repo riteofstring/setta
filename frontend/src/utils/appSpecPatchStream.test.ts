@@ -29,4 +29,3 @@ describe("appSpecPatchStream", () => {
     expect(spec.elements.foo?.props?.title).toBe("Hello");
   });
 });
-

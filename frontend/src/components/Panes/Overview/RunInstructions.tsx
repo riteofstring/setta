@@ -869,7 +869,9 @@ export function RunInstructions() {
                         ) : (
                           <select
                             className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
-                            disabled={isDeploymentMode || representationDisabled}
+                            disabled={
+                              isDeploymentMode || representationDisabled
+                            }
                             value={entry.override.representation}
                             onChange={(event) => {
                               const nextRepresentation = event.target

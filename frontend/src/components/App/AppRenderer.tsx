@@ -266,8 +266,13 @@ export function AppRenderer({
           ? null
           : toStringRecord(rawSectionVariantOverrides);
       const paramOverrides =
-        rawParamOverrides === undefined ? null : toStringRecord(rawParamOverrides);
-      if (rawSectionVariantOverrides !== undefined && !sectionVariantOverrides) {
+        rawParamOverrides === undefined
+          ? null
+          : toStringRecord(rawParamOverrides);
+      if (
+        rawSectionVariantOverrides !== undefined &&
+        !sectionVariantOverrides
+      ) {
         addTemporaryNotification(
           "Invalid sectionVariantOverrides (expected object of string -> string).",
         );
