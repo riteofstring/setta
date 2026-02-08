@@ -349,6 +349,8 @@ function GitCommitRow({
   const date = DATE_FORMATTER.format(new Date(commit.authorTimeMs));
   const shortHash = commit.hash.slice(0, 8);
   const laneCount = row.laneColorIds.length;
+  const commitColorId = row.laneColorIds[row.laneIndex] ?? 0;
+  const commitColor = palette[commitColorId % palette.length]!;
 
   const allChips = commit.decorations
     .map(parseDecorationChip)
@@ -385,7 +387,11 @@ function GitCommitRow({
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-1 overflow-hidden">
           {chips.map((chip) => (
-            <DecorationPill key={`${chip.kind}-${chip.label}`} chip={chip} />
+            <DecorationPill
+              key={`${chip.kind}-${chip.label}`}
+              chip={chip}
+              laneColor={commitColor}
+            />
           ))}
           {extraChipCount > 0 && (
             <span className="inline-flex shrink-0 items-center rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300">
@@ -409,13 +415,53 @@ function GitCommitRow({
   );
 }
 
-function DecorationPill({ chip }: { chip: DecorationChip }) {
+function rgbFromHex(hex: string): [number, number, number] | null {
+  const value = hex.startsWith("#") ? hex.slice(1) : hex;
+  if (value.length !== 6) {
+    return null;
+  }
+  const r = Number.parseInt(value.slice(0, 2), 16);
+  const g = Number.parseInt(value.slice(2, 4), 16);
+  const b = Number.parseInt(value.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+    return null;
+  }
+  return [r, g, b];
+}
+
+function rgbaFromHex(hex: string, alpha: number): string {
+  const rgb = rgbFromHex(hex);
+  if (!rgb) {
+    return hex;
+  }
+  const [r, g, b] = rgb;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function DecorationPill({
+  chip,
+  laneColor,
+}: {
+  chip: DecorationChip;
+  laneColor: string;
+}) {
   const base =
     "inline-flex shrink-0 max-w-[160px] items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold";
-  if (chip.kind === "head") {
+
+  if (
+    chip.kind === "head" ||
+    chip.kind === "branch" ||
+    chip.kind === "remote" ||
+    chip.kind === "symbolic"
+  ) {
     return (
       <span
-        className={`${base} border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/40 dark:text-blue-200`}
+        className={base}
+        style={{
+          borderColor: rgbaFromHex(laneColor, 0.6),
+          backgroundColor: rgbaFromHex(laneColor, 0.12),
+          color: laneColor,
+        }}
         title={chip.label}
       >
         {chip.label}
@@ -426,26 +472,6 @@ function DecorationPill({ chip }: { chip: DecorationChip }) {
     return (
       <span
         className={`${base} border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200`}
-        title={chip.label}
-      >
-        {chip.label}
-      </span>
-    );
-  }
-  if (chip.kind === "remote") {
-    return (
-      <span
-        className={`${base} border-setta-200 bg-setta-50 text-setta-700 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-200`}
-        title={chip.label}
-      >
-        {chip.label}
-      </span>
-    );
-  }
-  if (chip.kind === "symbolic") {
-    return (
-      <span
-        className={`${base} border-setta-200 bg-setta-50 text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300`}
         title={chip.label}
       >
         {chip.label}
