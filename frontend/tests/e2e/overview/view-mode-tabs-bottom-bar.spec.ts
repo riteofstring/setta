@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   openIsolatedProject,
   postBackend,
@@ -7,7 +7,9 @@ import {
 } from "../helpers";
 
 const READY_SELECTOR = ".react-flow__pane";
-const VIEW_MODE_TABS_SELECTOR = ".row-start-3.row-end-4";
+const VIEW_MODE_TABS_SELECTOR = '[data-testid="view-mode-tabs-bar"]';
+const IS_DARWIN = process.platform === "darwin";
+let warnedAboutCrossPlatformScreenshots = false;
 
 type LoadProjectConfigWithViewModes = {
   projectConfig?: {
@@ -17,6 +19,23 @@ type LoadProjectConfigWithViewModes = {
 
 async function waitForReady(page: Page) {
   await page.waitForSelector(READY_SELECTOR);
+}
+
+async function expectMacOnlyScreenshot(locator: Locator, name: string) {
+  if (!IS_DARWIN) {
+    if (!warnedAboutCrossPlatformScreenshots) {
+      warnedAboutCrossPlatformScreenshots = true;
+      console.warn(
+        "[view-mode-tabs-bottom-bar] Screenshot assertions are currently macOS-only. This still needs cross-platform baselines.",
+      );
+    }
+    return;
+  }
+  await expect(locator).toHaveScreenshot(name, {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+  });
 }
 
 async function ensureNoTabbedViewModes(page: Page, projectConfigId: string) {
@@ -76,9 +95,9 @@ test.describe("view mode bottom tab bar layout", () => {
 
       await expect(page.locator(VIEW_MODE_TABS_SELECTOR)).toHaveCount(0);
 
-      const overviewRail = page.locator("#OverviewPane > div").first();
+      const overviewRail = page.getByTestId("overview-icon-rail");
       await expect(overviewRail).toBeVisible();
-      const uiEditorRail = page.locator("#UiEditorPane > div").first();
+      const uiEditorRail = page.getByTestId("ui-editor-icon-rail");
       await expect(uiEditorRail).toBeVisible();
 
       const viewport = page.viewportSize();
@@ -100,11 +119,7 @@ test.describe("view mode bottom tab bar layout", () => {
         viewport.height - 2,
       );
 
-      await expect(overviewRail).toHaveScreenshot("overview-rail-no-tabs.png", {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-      });
+      await expectMacOnlyScreenshot(overviewRail, "overview-rail-no-tabs.png");
     } finally {
       await postBackend(page, "/deleteProjectConfigs", {
         ids: [projectConfigId],
@@ -158,9 +173,9 @@ test.describe("view mode bottom tab bar layout", () => {
       expect(tabStyles.borderTopWidth).toBe("1px");
       expect(tabStyles.borderTopColor).not.toBe(tabStyles.backgroundColor);
 
-      const overviewRail = page.locator("#OverviewPane > div").first();
+      const overviewRail = page.getByTestId("overview-icon-rail");
       await expect(overviewRail).toBeVisible();
-      const uiEditorRail = page.locator("#UiEditorPane > div").first();
+      const uiEditorRail = page.getByTestId("ui-editor-icon-rail");
       await expect(uiEditorRail).toBeVisible();
       const barBox = await tabsBar.boundingBox();
       const railBox = await overviewRail.boundingBox();
@@ -186,22 +201,9 @@ test.describe("view mode bottom tab bar layout", () => {
 
       // These are the smallest, most stable screenshots and are meant to catch
       // regressions like losing the visible tab outline.
-      await expect(tabA).toHaveScreenshot("view-mode-tab-a-dark.png", {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-      });
-      await expect(tabB).toHaveScreenshot("view-mode-tab-b-dark.png", {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-      });
-
-      await expect(tabsBar).toHaveScreenshot("view-mode-tabs-bar-dark.png", {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-      });
+      await expectMacOnlyScreenshot(tabA, "view-mode-tab-a-dark.png");
+      await expectMacOnlyScreenshot(tabB, "view-mode-tab-b-dark.png");
+      await expectMacOnlyScreenshot(tabsBar, "view-mode-tabs-bar-dark.png");
     } finally {
       await postBackend(page, "/deleteProjectConfigs", {
         ids: [projectConfigId],
@@ -256,11 +258,7 @@ test.describe("view mode bottom tab bar layout", () => {
         tabBackgroundColors.some((color) => color !== "rgb(255, 255, 255)"),
       ).toBeTruthy();
 
-      await expect(tabsBar).toHaveScreenshot("view-mode-tabs-bar-light.png", {
-        animations: "disabled",
-        caret: "hide",
-        maxDiffPixelRatio: 0.02,
-      });
+      await expectMacOnlyScreenshot(tabsBar, "view-mode-tabs-bar-light.png");
     } finally {
       await postBackend(page, "/deleteProjectConfigs", {
         ids: [projectConfigId],

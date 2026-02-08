@@ -34,7 +34,10 @@ export function ViewModeTabs() {
   };
 
   return (
-    <div className="relative z-[18] col-start-1 col-end-2 row-start-3 row-end-4 flex h-9 min-h-9 items-end border-t border-setta-200/75 bg-white dark:border-setta-850 dark:bg-setta-925">
+    <div
+      data-testid="view-mode-tabs-bar"
+      className="relative z-[18] col-start-1 col-end-2 row-start-3 row-end-4 flex h-9 min-h-9 items-end border-t border-setta-200/75 bg-white dark:border-setta-850 dark:bg-setta-925"
+    >
       <div className="flex w-full items-end gap-1 overflow-x-auto px-2">
         {tabModes.map((mode) => {
           const isActive = activeViewModeId === mode.id;

@@ -10,6 +10,7 @@ import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
+import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   PaneNameEnum,
   UIEditorTabName,
@@ -36,15 +37,7 @@ export function UiEditor() {
     order: 30,
     rootRef: uiEditorRef,
   });
-  const hasViewModeTabs = useProjectState((x) => {
-    const viewModes = x.projectConfig.viewModes;
-    for (const modeId in viewModes) {
-      if (viewModes[modeId]?.isTab) {
-        return true;
-      }
-    }
-    return false;
-  });
+  const hasViewModeTabs = useHasViewModeTabs();
   const sectionIds = useProjectState(
     (x) => x.projectConfig.activeIds,
     _.isEqual,
@@ -79,6 +72,7 @@ export function UiEditor() {
       data-tab-scope="ui-editor"
     >
       <div
+        data-testid="ui-editor-icon-rail"
         className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",

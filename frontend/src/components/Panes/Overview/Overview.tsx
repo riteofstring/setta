@@ -14,9 +14,9 @@ import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import {
   useBackendLogEvents,
   useLocalStorage,
-  useProjectState,
   useShareSession,
 } from "state/definitions";
+import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   OverviewTabName,
   OverviewTabNameEnum,
@@ -51,15 +51,7 @@ export function Overview() {
     order: 10,
     rootRef: overviewRef,
   });
-  const hasViewModeTabs = useProjectState((x) => {
-    const viewModes = x.projectConfig.viewModes;
-    for (const modeId in viewModes) {
-      if (viewModes[modeId]?.isTab) {
-        return true;
-      }
-    }
-    return false;
-  });
+  const hasViewModeTabs = useHasViewModeTabs();
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
     selectedTabName: x.overviewTab,
     vis: x.overviewVis,
@@ -115,6 +107,7 @@ export function Overview() {
       data-tab-scope="overview"
     >
       <div
+        data-testid="overview-icon-rail"
         className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",

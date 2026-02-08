@@ -3,23 +3,11 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { syncStoreInitialState } from "../paneTestUtils";
 import { UiEditor } from "./UiEditor";
 
-function syncStoreInitialState(store: {
-  getState: () => Record<string, unknown>;
-  getInitialState?: () => Record<string, unknown>;
-}) {
-  // `renderToStaticMarkup` uses Zustand's getInitialState() snapshot rather than getState().
-  // Keep the server snapshot aligned with our test's updated state.
-  if (!store.getInitialState) {
-    return;
-  }
-  const initial = store.getInitialState();
-  Object.assign(initial, store.getState());
-}
-
 function extractRailStyle(markup: string): string {
-  const match = markup.match(/class="fixed right-0[^"]*" style="([^"]*)"/);
+  const match = markup.match(/data-testid="ui-editor-icon-rail"[^>]*style="([^"]*)"/);
   if (!match) {
     throw new Error("Unable to locate UiEditor rail in markup.");
   }
