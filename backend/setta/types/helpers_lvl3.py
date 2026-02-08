@@ -283,9 +283,7 @@ def build_project_state_summary(
             if variant_id in allowed_variant_ids
         ]
         required_decoded_images = [
-            path
-            for path in required_decoded_images
-            if path in allowed_draw_asset_paths
+            path for path in required_decoded_images if path in allowed_draw_asset_paths
         ]
 
     return ProjectStateSummary(

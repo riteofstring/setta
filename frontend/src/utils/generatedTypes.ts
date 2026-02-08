@@ -5525,6 +5525,8 @@ const AgentProfileSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(true),
+  enableLlmChatTitles: z.boolean().default(true),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6458,6 +6460,8 @@ const CreateAgentProfileRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   systemPrompt: z.string().default("" as const),
+  enableBackgroundSummaryFill: z.boolean().default(true),
+  enableLlmChatTitles: z.boolean().default(true),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
   toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
@@ -6971,6 +6975,7 @@ export type TypeCheckRequestInput = z.input<typeof TypeCheckRequestSchema>;
 const MCPToolCallRequestSchema = z.object({
   tool: z.string(),
   arguments: z.union([z.any(), z.null()]).default(null),
+  agenticContext: z.any().default(null),
 });
 
 export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;

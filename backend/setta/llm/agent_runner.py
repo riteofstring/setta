@@ -94,7 +94,6 @@ from setta.mcp.namespacing import (
     split_namespaced_tool_name,
 )
 from setta.mcp.tool_metadata import FollowIdType
-from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -982,7 +981,9 @@ class AgentRunner:
                 summary_by_section=summary_by_section,
                 missing_section_ids=missing_section_ids,
             )
-        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        temporary_to_canonical, canonical_to_temporary = (
+            self.dbe.read_temporary_id_map()
+        )
         payload = build_agentic_context_payload_with_temporary_ids(
             self.dbe,
             project_state,

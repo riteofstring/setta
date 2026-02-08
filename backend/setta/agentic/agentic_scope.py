@@ -336,8 +336,7 @@ def build_scope_blocked_tool_result(
     }:
         unmapped = ", ".join(str(entry) for entry in unmapped_sorted)
         message = (
-            f"Tool '{tool_name}' blocked: unknown code objects "
-            f"(unmapped=[{unmapped}])."
+            f"Tool '{tool_name}' blocked: unknown code objects (unmapped=[{unmapped}])."
         )
         if blocked_sorted:
             blocked = ", ".join(str(entry) for entry in blocked_sorted)
