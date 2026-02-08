@@ -5,7 +5,6 @@ import {
   loadWorkspaceHistory,
   upsertWorkspaceHistoryEntry,
   workspaceHistoryEntryKey,
-  type WorkspaceHistoryEntry,
 } from "./workspaceHistory";
 
 describe("workspaceHistory", () => {
@@ -75,10 +74,11 @@ describe("workspaceHistory", () => {
         workspaceRoot: "/tmp/work",
         sshTarget: null,
         localPort: null,
-        settaFilesLocation: "auto",
+        filesRoot: null,
+        filesRootBase: null,
         lastUsedAt: 1,
       },
-    ] satisfies WorkspaceHistoryEntry[];
+    ];
     const nextEntry = {
       ...existing[0],
       workspaceRoot: "/tmp/work/",
@@ -96,10 +96,11 @@ describe("workspaceHistory", () => {
         workspaceRoot: "C:\\\\repo\\\\",
         sshTarget: null,
         localPort: null,
-        settaFilesLocation: "auto",
+        filesRoot: null,
+        filesRootBase: null,
         lastUsedAt: 1,
       },
-    ] satisfies WorkspaceHistoryEntry[];
+    ];
     const nextEntry = {
       ...existing[0],
       workspaceRoot: "C:\\\\repo",
@@ -115,9 +116,10 @@ describe("workspaceHistory", () => {
       workspaceRoot: "C:\\",
       sshTarget: null,
       localPort: null,
-      settaFilesLocation: "auto",
+      filesRoot: null,
+      filesRootBase: null,
       lastUsedAt: 1,
-    } satisfies WorkspaceHistoryEntry;
+    };
     const parsed = JSON.parse(workspaceHistoryEntryKey(entry));
     expect(parsed.workspaceRoot).toBe("C:\\");
   });
@@ -127,42 +129,22 @@ describe("workspaceHistory", () => {
       workspaceRoot: "a",
       sshTarget: "b::c",
       localPort: null,
-      settaFilesLocation: "auto",
+      filesRoot: null,
+      filesRootBase: null,
       lastUsedAt: 1,
-    } satisfies WorkspaceHistoryEntry;
+    };
     const entryB = {
       workspaceRoot: "a::b",
       sshTarget: "c",
       localPort: null,
-      settaFilesLocation: "auto",
+      filesRoot: null,
+      filesRootBase: null,
       lastUsedAt: 1,
-    } satisfies WorkspaceHistoryEntry;
+    };
 
     expect(workspaceHistoryEntryKey(entryA)).not.toBe(
       workspaceHistoryEntryKey(entryB),
     );
-  });
-
-  it("does not dedupe entries that differ by settaFilesLocation", () => {
-    const existing = [
-      {
-        workspaceRoot: "/tmp/work",
-        sshTarget: null,
-        localPort: null,
-        settaFilesLocation: "auto",
-        lastUsedAt: 1,
-      },
-    ] satisfies WorkspaceHistoryEntry[];
-    const nextEntry = {
-      ...existing[0],
-      settaFilesLocation: "global",
-      lastUsedAt: 2,
-    };
-
-    const merged = upsertWorkspaceHistoryEntry(existing, nextEntry);
-    expect(merged).toHaveLength(2);
-    expect(merged[0].settaFilesLocation).toBe("global");
-    expect(merged[1].settaFilesLocation).toBe("auto");
   });
 
   it("dedupes entries that only differ by localPort", () => {
@@ -171,10 +153,11 @@ describe("workspaceHistory", () => {
         workspaceRoot: "/tmp/work",
         sshTarget: "user@host",
         localPort: 61000,
-        settaFilesLocation: "auto",
+        filesRoot: null,
+        filesRootBase: null,
         lastUsedAt: 1,
       },
-    ] satisfies WorkspaceHistoryEntry[];
+    ];
     const nextEntry = {
       ...existing[0],
       localPort: 62000,
@@ -188,7 +171,7 @@ describe("workspaceHistory", () => {
 
   it("coerces partial entries from localStorage safely", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: " /tmp/work/ ",
@@ -211,67 +194,16 @@ describe("workspaceHistory", () => {
         workspaceRoot: "/tmp/work",
         sshTarget: null,
         localPort: null,
-        settaFilesLocation: "auto",
+        filesRoot: null,
+        filesRootBase: null,
         lastUsedAt: 123,
-      },
-    ]);
-  });
-
-  it("coerces invalid settaFilesLocation values to auto", () => {
-    memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
-      JSON.stringify([
-        {
-          workspaceRoot: "/tmp/work",
-          sshTarget: null,
-          localPort: null,
-          settaFilesLocation: "not-a-real-mode",
-          lastUsedAt: 1,
-        },
-      ]),
-    );
-
-    const loaded = loadWorkspaceHistory();
-    expect(loaded).toEqual([
-      {
-        workspaceRoot: "/tmp/work",
-        sshTarget: null,
-        localPort: null,
-        settaFilesLocation: "auto",
-        lastUsedAt: 1,
-      },
-    ]);
-  });
-
-  it("normalizes settaFilesLocation case and whitespace", () => {
-    memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
-      JSON.stringify([
-        {
-          workspaceRoot: "/tmp/work",
-          sshTarget: null,
-          localPort: null,
-          settaFilesLocation: "  GLOBAL ",
-          lastUsedAt: 1,
-        },
-      ]),
-    );
-
-    const loaded = loadWorkspaceHistory();
-    expect(loaded).toEqual([
-      {
-        workspaceRoot: "/tmp/work",
-        sshTarget: null,
-        localPort: null,
-        settaFilesLocation: "global",
-        lastUsedAt: 1,
       },
     ]);
   });
 
   it("coerces localPort values", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: "/tmp/work",
@@ -293,13 +225,14 @@ describe("workspaceHistory", () => {
 
   it("consumes a workspace history handoff payload and merges entries", () => {
     memoryStorage.setItem(
-      "setta.workspaceHistory.v2",
+      "setta.workspaceHistory",
       JSON.stringify([
         {
           workspaceRoot: "/tmp/work",
           sshTarget: null,
           localPort: null,
-          settaFilesLocation: "auto",
+          filesRoot: null,
+          filesRootBase: null,
           lastUsedAt: 10,
         },
       ]),
@@ -309,27 +242,27 @@ describe("workspaceHistory", () => {
         workspaceRoot: "/tmp/work",
         sshTarget: null,
         localPort: null,
-        settaFilesLocation: "auto",
+        filesRoot: null,
+        filesRootBase: null,
         lastUsedAt: 20,
       },
       {
         workspaceRoot: "/tmp/other",
         sshTarget: null,
         localPort: null,
-        settaFilesLocation: "auto",
+        filesRoot: null,
+        filesRootBase: null,
         lastUsedAt: 5,
       },
     ];
     const encoded = encodeBase64Url(
       new TextEncoder().encode(JSON.stringify(incoming)),
     );
-    memoryStorage.setItem("setta.workspaceHistoryHandoff.v2", encoded);
+    memoryStorage.setItem("setta.workspaceHistoryHandoff", encoded);
 
     consumeWorkspaceHistoryHandoff();
 
-    expect(
-      memoryStorage.getItem("setta.workspaceHistoryHandoff.v2"),
-    ).toBeNull();
+    expect(memoryStorage.getItem("setta.workspaceHistoryHandoff")).toBeNull();
     const loaded = loadWorkspaceHistory();
     expect(loaded[0]?.workspaceRoot).toBe("/tmp/work");
     expect(loaded[0]?.lastUsedAt).toBe(20);
