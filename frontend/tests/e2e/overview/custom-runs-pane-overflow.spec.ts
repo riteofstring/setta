@@ -19,10 +19,7 @@ test("custom runs pane avoids horizontal overflow at narrow overview width", asy
   await expect(heading).toBeVisible();
 
   // The tab content root should keep its own horizontal overflow hidden.
-  const tabRoot = heading.locator("xpath=following-sibling::*[1]");
-  const scrollRegion = tabRoot
-    .locator(".overflow-x-hidden.overflow-y-auto")
-    .first();
+  const scrollRegion = page.getByTestId("run-instructions-scroll-region");
   await expect(scrollRegion).toBeVisible();
 
   // Validate both scroll metrics and rendered geometry so content cannot bleed right.

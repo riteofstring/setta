@@ -487,7 +487,10 @@ export function RunInstructions() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1"
+        data-testid="run-instructions-scroll-region"
+      >
         <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
           Codegen Policy
         </h3>
@@ -591,7 +594,7 @@ export function RunInstructions() {
                     return (
                       <div
                         key={sectionType}
-                        className="col-span-2 flex flex-col gap-1"
+                        className="flex flex-col gap-1"
                       >
                         <label className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300">
                           <input
