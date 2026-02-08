@@ -9,7 +9,7 @@ import {
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
-import { RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
+import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import {
   useBackendLogEvents,
@@ -31,6 +31,7 @@ import {
 import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
+import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
@@ -60,6 +61,7 @@ export function Overview() {
     allowLLM: x.sharePolicy?.allowLLM ?? false,
   }));
   const showFileBrowserTab = !isDeploymentMode;
+  const showGitTab = !isDeploymentMode;
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
@@ -76,6 +78,9 @@ export function Overview() {
     !showFileBrowserTab &&
     selectedTabName === OverviewTabNameEnum.FileBrowser
   ) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
+  if (!showGitTab && selectedTabName === OverviewTabNameEnum.Git) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
@@ -117,6 +122,14 @@ export function Overview() {
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Explorer" })}
             icon={<TbFolder size={18} />}
+          />
+        )}
+        {showGitTab && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.Git}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "Git" })}
+            icon={<RiGitCommitLine size={18} />}
           />
         )}
         {showWatchCodeTab && (
@@ -247,6 +260,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
           listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
         />
       );
+    case OverviewTabNameEnum.Git:
+      return <GitPane />;
     case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
