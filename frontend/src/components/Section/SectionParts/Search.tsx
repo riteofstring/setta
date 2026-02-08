@@ -33,6 +33,7 @@ import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   NO_PAN_CLASS_NAME,
   getSectionSearchHeightKey,
+  getSectionStylePreviewColorKey,
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -59,9 +60,17 @@ export function SectionSearch({
     );
     return impl.styleColor ?? null;
   });
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const hasSectionStyleTheme = Boolean(
-    styleColor ? deriveSectionStyleTheme(styleColor, darkMode) : null,
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
   );
   const lspEnabled = !isDeploymentMode;
 

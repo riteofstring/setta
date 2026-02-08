@@ -85,7 +85,8 @@ export function LockPositionButton({
       backgroundClassName = "bg-[color:var(--setta-section-style-bg)]";
       textClassName = "text-[color:var(--setta-section-style-outline)]";
     } else {
-      backgroundClassName = "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]";
+      backgroundClassName =
+        "bg-transparent hover:bg-[color:var(--setta-section-style-bg)]";
       textClassName =
         "text-[color:var(--setta-section-style-muted-text)] hover:text-[color:var(--setta-section-style-outline)]";
     }
@@ -105,7 +106,9 @@ export function LockPositionButton({
           ? "focus-visible:ring-[var(--setta-section-style-outline)]"
           : ""
       } ${backgroundClassName} ${iconSize} ${textClassName} mr-1 rounded-full p-0 ${
-        hasSectionStyleTheme ? "" : "hover:text-orange-500 dark:hover:text-orange-700"
+        hasSectionStyleTheme
+          ? ""
+          : "hover:text-orange-500 dark:hover:text-orange-700"
       } ${
         isGroup ? "h-5 w-5" : "h-4 w-4"
       } ${canEditLayout ? "" : "cursor-not-allowed opacity-50"}`}

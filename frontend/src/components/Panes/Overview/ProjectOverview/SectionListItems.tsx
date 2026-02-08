@@ -75,7 +75,7 @@ function _SectionItem({
   return (
     <li
       id={`${sectionId}-OverviewListItem`}
-      className="cursor-pointer flex min-w-0 items-center gap-2 rounded px-2 py-0.5 text-xs text-setta-700 hover:bg-white hover:shadow-md focus-visible:border-transparent focus-visible:bg-blue-500 focus-visible:text-white focus-visible:outline-none focus-visible:ring-0 dark:text-setta-200 dark:hover:bg-setta-700 dark:focus-visible:!text-white"
+      className="flex min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-0.5 text-xs text-setta-700 hover:bg-white hover:shadow-md focus-visible:border-transparent focus-visible:bg-blue-500 focus-visible:text-white focus-visible:outline-none focus-visible:ring-0 dark:text-setta-200 dark:hover:bg-setta-700 dark:focus-visible:!text-white"
       onClick={onClick}
       onKeyDown={onKeyDown}
       style={{ marginLeft: `${0.75 * depth}rem` }}

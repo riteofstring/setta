@@ -1,7 +1,8 @@
 type Rgb = { r: number; g: number; b: number };
 
-export type DerivedSectionStyleTheme = {
+type DerivedSectionStyleTheme = {
   bg: string;
+  panelBg: string;
   border: string;
   outline: string;
   text: string;
@@ -109,6 +110,8 @@ export function deriveSectionStyleTheme(
 
   // V1 rules from docs/temporary/section-style-colors.md
   const bgRgb = mixSrgb(base, mixTarget, darkMode ? 0.18 : 0.12);
+  // Slightly stronger tint used for nested strips/panels that need separation from section bg.
+  const panelBgRgb = mixSrgb(base, mixTarget, darkMode ? 0.26 : 0.2);
   const borderRgb = mixSrgb(base, mixTarget, darkMode ? 0.4 : 0.35);
   // Outline should be more saturated than the border so it reads as a chrome/selection accent.
   const outlineRgb = mixSrgb(base, mixTarget, darkMode ? 0.7 : 0.65);
@@ -117,6 +120,7 @@ export function deriveSectionStyleTheme(
 
   const theme: DerivedSectionStyleTheme = {
     bg: rgbToHex(bgRgb),
+    panelBg: rgbToHex(panelBgRgb),
     border: rgbToHex(borderRgb),
     outline: rgbToHex(outlineRgb),
     text: rgbToHex(textRgb),

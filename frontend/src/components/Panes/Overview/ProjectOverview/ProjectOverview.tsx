@@ -9,11 +9,15 @@ import {
   getSectionShouldRender,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSettings, ZustandProjectState } from "state/definitions";
+import {
+  useProjectState,
+  useSettings,
+  ZustandProjectState,
+} from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import {
-  isBaseParentSectionImpl,
   createSettingsState,
+  isBaseParentSectionImpl,
   type BaseSectionImplUnion,
   type ColorPickerChoice,
   type Core,
@@ -28,7 +32,10 @@ const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
 const TAG_FILTER_ALL = "__all__" as const;
 const TAG_FILTER_UNTAGGED = "__untagged__" as const;
 
-type TagFilterValue = typeof TAG_FILTER_ALL | typeof TAG_FILTER_UNTAGGED | string;
+type TagFilterValue =
+  | typeof TAG_FILTER_ALL
+  | typeof TAG_FILTER_UNTAGGED
+  | string;
 
 export function ProjectOverview() {
   const sectionList = useOverviewListing();
@@ -41,10 +48,9 @@ function ProjectOverviewCore({
   sectionList: Array<OverviewListingType>;
 }) {
   const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
-  const sectionTagColorChoices = useSettings(
-    (x) => x.gui.sectionTagColorChoices,
-    _.isEqual,
-  ) || DEFAULT_SECTION_TAG_COLOR_CHOICES;
+  const sectionTagColorChoices =
+    useSettings((x) => x.gui.sectionTagColorChoices, _.isEqual) ||
+    DEFAULT_SECTION_TAG_COLOR_CHOICES;
 
   const [tagFilter, setTagFilter] = useState<TagFilterValue>(TAG_FILTER_ALL);
 
@@ -149,7 +155,10 @@ function TagFilterDropdown({
           aria-hidden="true"
         />
         <span className="max-w-28 truncate">{selectedLabel}</span>
-        <i className="gg-chevron-down !scale-75 opacity-70" aria-hidden="true" />
+        <i
+          className="gg-chevron-down !scale-75 opacity-70"
+          aria-hidden="true"
+        />
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content

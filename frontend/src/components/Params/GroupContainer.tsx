@@ -37,6 +37,7 @@ import {
   getEdgesStripHeightKey,
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
+  getSectionStylePreviewColorKey,
   getUnpinnedParamsAreaHeightKey,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
@@ -421,8 +422,16 @@ function EdgesStrip({
     };
   }, _.isEqual);
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
   const hasSectionStyleTheme = Boolean(
-    styleColor ? deriveSectionStyleTheme(styleColor, darkMode) : null,
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
   );
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
@@ -453,6 +462,9 @@ function EdgesStrip({
   const dividerColorClassName = hasSectionStyleTheme
     ? "bg-[color:var(--setta-section-style-border)]"
     : "bg-setta-200/80 dark:bg-setta-700/60";
+  const edgeStripBgColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-panel-bg)]"
+    : bgColor;
 
   useLayoutEffect(() => {
     if (!hasEdges) {
@@ -538,7 +550,7 @@ function EdgesStrip({
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${stripBorderColorClassName} ${bgColor} ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${stripBorderColorClassName} ${edgeStripBgColorClassName} ${roundedBottomClassName}`}
       ref={stripRef}
       data-params-fixed="true"
     >
@@ -709,8 +721,16 @@ function GetPinnedParams({
     };
   }, _.isEqual);
   const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
   const hasSectionStyleTheme = Boolean(
-    styleColor ? deriveSectionStyleTheme(styleColor, darkMode) : null,
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
   );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
@@ -764,7 +784,9 @@ function PinnedParamsArea({
   headerRef,
   rowsRef,
 }: PinnedParamsAreaProps) {
-  const pinnedBgClassName = getPinnedParamsBgClassName(sectionTypeName);
+  const pinnedBgClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-panel-bg)]"
+    : getPinnedParamsBgClassName(sectionTypeName);
   const pinnedBorderColorClassName = hasSectionStyleTheme
     ? "border-[color:var(--setta-section-style-border)]"
     : "border-white dark:border-setta-700/30";
@@ -794,7 +816,9 @@ function PinnedParamsArea({
           <i
             className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
           />
-          <p className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}>
+          <p
+            className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
+          >
             Pinned Params
           </p>
         </header>

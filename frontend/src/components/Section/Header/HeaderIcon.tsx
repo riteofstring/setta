@@ -172,7 +172,8 @@ export function HeaderIcon({
           className={
             themedIconClassName
               ? `[&_*]:!scale-120 ${themedIconClassName}`
-              : "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600  dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]\n          "
+              : "[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600  dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]
+          "
           }
         />
       );
@@ -181,7 +182,8 @@ export function HeaderIcon({
         <FaChartPie
           className={
             themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]\n          "
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
+          "
           }
         />
       );
@@ -190,7 +192,8 @@ export function HeaderIcon({
         <IoChatbox
           className={
             themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]\n          "
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
+          "
           }
         />
       );
@@ -199,7 +202,8 @@ export function HeaderIcon({
         <TbFolderFilled
           className={
             themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]\n          "
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
+          "
           }
         />
       );
@@ -230,7 +234,7 @@ function IsInOtherProjectConfigsIcon({
   if (hasSectionStyleTheme) {
     return (
       <i
-        className={`gg-link group/card-section:hover:bg transition-colors text-[color:var(--setta-section-style-muted-text)] group-hover/card-section:text-[color:var(--setta-section-style-outline)] ${
+        className={`gg-link group/card-section:hover:bg text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)] ${
           isGroup ? "-rotate-45 !scale-75" : ""
         }`}
       />
@@ -379,7 +383,11 @@ function TextBlockIcon({
   // <i className="gg-pen -rotate-45 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff] " />
 }
 
-function PromptIcon({ hasSectionStyleTheme }: { hasSectionStyleTheme: boolean }) {
+function PromptIcon({
+  hasSectionStyleTheme,
+}: {
+  hasSectionStyleTheme: boolean;
+}) {
   if (hasSectionStyleTheme) {
     return (
       <PiTextTFill className="text-[color:var(--setta-section-style-muted-text)] transition-colors group-hover/card-section:text-[color:var(--setta-section-style-outline)]" />

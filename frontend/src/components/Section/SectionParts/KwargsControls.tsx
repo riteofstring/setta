@@ -16,7 +16,10 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { getKwargsControlsHeightKey } from "utils/constants";
+import {
+  getKwargsControlsHeightKey,
+  getSectionStylePreviewColorKey,
+} from "utils/constants";
 import {
   route_add_kwarg,
   route_delete_kwarg,
@@ -37,9 +40,7 @@ type KwargsControlsProps = {
   sectionId: string;
 };
 
-export function KwargsControls({
-  sectionId,
-}: KwargsControlsProps) {
+export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
@@ -98,9 +99,20 @@ export function KwargsControls({
     _.isEqual,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const hasSectionStyleTheme = Boolean(
-    styleColor ? deriveSectionStyleTheme(styleColor, darkMode) : null,
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
   );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
+  const argsBgColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-bg)]"
+    : "";
   const argsBorderColorClassName = hasSectionStyleTheme
     ? "border-[color:var(--setta-section-style-border)]"
     : "border-white dark:border-setta-700";
@@ -351,7 +363,7 @@ export function KwargsControls({
       <section
         className={`section-args z-10 ${
           isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1"
-        } flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container ${argsBorderColorClassName}`}
+        } flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container ${argsBgColorClassName} ${argsBorderColorClassName}`}
         ref={controlsRef}
       >
         <article

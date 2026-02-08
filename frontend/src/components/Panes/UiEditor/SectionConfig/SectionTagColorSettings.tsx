@@ -1,4 +1,7 @@
-import { AvailableColors, ColorPickerInput } from "components/Params/ParamUIs/ColorPickerInput";
+import {
+  AvailableColors,
+  ColorPickerInput,
+} from "components/Params/ParamUIs/ColorPickerInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -8,10 +11,20 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useSettings, useShareSession } from "state/definitions";
+import {
+  useProjectState,
+  useSettings,
+  useShareSession,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { route_save_settings, route_set_section_tag_color } from "utils/generatedEndpoints";
-import { createSettingsState, type ColorPickerChoice } from "utils/generatedTypes";
+import {
+  route_save_settings,
+  route_set_section_tag_color,
+} from "utils/generatedEndpoints";
+import {
+  createSettingsState,
+  type ColorPickerChoice,
+} from "utils/generatedTypes";
 
 const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
   createSettingsState().gui.sectionTagColorChoices;
@@ -29,10 +42,9 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
     };
   }, _.isEqual);
 
-  const sectionTagColorChoices = useSettings(
-    (x) => x.gui.sectionTagColorChoices,
-    _.isEqual,
-  ) || DEFAULT_SECTION_TAG_COLOR_CHOICES;
+  const sectionTagColorChoices =
+    useSettings((x) => x.gui.sectionTagColorChoices, _.isEqual) ||
+    DEFAULT_SECTION_TAG_COLOR_CHOICES;
 
   const [localTagColor, setLocalTagColor] = useState<string | null>(tagColor);
 
@@ -165,22 +177,24 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
                 }
                 removeColor={(removeIdx) =>
                   setSectionTagColorChoices(
-                    sectionTagColorChoices.filter((_, idx) => idx !== removeIdx),
+                    sectionTagColorChoices.filter(
+                      (_, idx) => idx !== removeIdx,
+                    ),
                   )
                 }
                 updateColor={(updateIdx, newColor) =>
                   setSectionTagColorChoices(
                     sectionTagColorChoices.map((choice, idx) =>
-                      idx === updateIdx ? { ...choice, color: newColor } : choice,
+                      idx === updateIdx
+                        ? { ...choice, color: newColor }
+                        : choice,
                     ),
                   )
                 }
                 updateDescription={(updateIdx, description) =>
                   setSectionTagColorChoices(
                     sectionTagColorChoices.map((choice, idx) =>
-                      idx === updateIdx
-                        ? { ...choice, description }
-                        : choice,
+                      idx === updateIdx ? { ...choice, description } : choice,
                     ),
                   )
                 }
@@ -195,7 +209,9 @@ export function SectionTagColorSettings({ sectionId }: { sectionId: string }) {
         <div className="single-cell-container h-8 min-h-0 w-36 min-w-0">
           <ColorPickerInput
             colorChoices={sectionTagColorChoices}
-            value={localTagColor ?? sectionTagColorChoices[0]?.color ?? "#3b82f6"}
+            value={
+              localTagColor ?? sectionTagColorChoices[0]?.color ?? "#3b82f6"
+            }
             onChange={(v) => setTagColor(v)}
             isDisabled={!canEditTagColor}
             wrapperClassName="single-cell-container h-8 min-h-0 w-full min-w-0"

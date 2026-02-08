@@ -7,8 +7,13 @@ import {
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, useShareSession } from "state/definitions";
+import {
+  useProjectState,
+  useShareSession,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getSectionStylePreviewColorKey } from "utils/constants";
 import { route_set_section_style_color } from "utils/generatedEndpoints";
 
 export function SectionStyleColorSettings({
@@ -31,19 +36,32 @@ export function SectionStyleColorSettings({
   const [localStyleColor, setLocalStyleColor] = useState<string | null>(
     styleColor,
   );
+  const previewColorKey = getSectionStylePreviewColorKey(sectionId);
+
+  const clearPreviewStyleColor = useCallback(() => {
+    useTemporaryMiscState.setState(
+      (state) => _.omit(state, [previewColorKey]),
+      true,
+    );
+  }, [previewColorKey]);
 
   useEffect(() => {
     setLocalStyleColor(styleColor);
-  }, [styleColor]);
+    clearPreviewStyleColor();
+  }, [clearPreviewStyleColor, styleColor]);
 
   const canEditStyleColor = (!isDeploymentMode || canEditLayout) && !isFrozen;
 
-  const setStyleColor = useCallback(
+  const commitStyleColor = useCallback(
     (nextStyleColor: string | null) => {
       if (!canEditStyleColor) {
         return;
       }
       setLocalStyleColor(nextStyleColor);
+      clearPreviewStyleColor();
+      if (nextStyleColor === styleColor) {
+        return;
+      }
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"BaseSection">(state, sectionId, {
@@ -59,7 +77,26 @@ export function SectionStyleColorSettings({
           }),
       });
     },
-    [canEditStyleColor, projectConfigId, sectionId],
+    [
+      canEditStyleColor,
+      clearPreviewStyleColor,
+      projectConfigId,
+      sectionId,
+      styleColor,
+    ],
+  );
+
+  const previewStyleColor = useCallback(
+    (nextStyleColor: string) => {
+      if (!canEditStyleColor) {
+        return;
+      }
+      setLocalStyleColor(nextStyleColor);
+      useTemporaryMiscState.setState({
+        [previewColorKey]: nextStyleColor,
+      });
+    },
+    [canEditStyleColor, previewColorKey],
   );
 
   const isResetDisabled = !canEditStyleColor || localStyleColor === null;
@@ -73,7 +110,7 @@ export function SectionStyleColorSettings({
         <button
           type="button"
           className="rounded-full border border-setta-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-setta-600 shadow-sm transition hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850"
-          onClick={() => setStyleColor(null)}
+          onClick={() => commitStyleColor(null)}
           disabled={isResetDisabled}
           title="Reset to default (no custom style)"
         >
@@ -86,7 +123,12 @@ export function SectionStyleColorSettings({
           <ColorPickerInput
             colorChoices={[]}
             value={localStyleColor ?? "#3b82f6"}
-            onChange={(v) => setStyleColor(v)}
+            onChange={(v) => previewStyleColor(v)}
+            onCommit={(v) => commitStyleColor(v)}
+            onEscape={() => {
+              setLocalStyleColor(styleColor);
+              clearPreviewStyleColor();
+            }}
             isDisabled={!canEditStyleColor}
             wrapperClassName="single-cell-container h-8 min-h-0 w-full min-w-0"
             colorPickerChoicesClasses="flex w-full cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 min-w-0 items-center text-white disabled:cursor-not-allowed disabled:opacity-70"
