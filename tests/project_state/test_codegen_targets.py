@@ -57,6 +57,7 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
 
+
 class CodegenTargetsProjectManager(BaseProjectManager):
     def __init__(
         self,
@@ -230,7 +231,9 @@ class TestCodegenTargetsRunCommand:
         self._stack.close()
         self._tmpdir.cleanup()
 
-    async def test_create_run_command_runs_manual_code_when_python_disabled(self) -> None:
+    async def test_create_run_command_runs_manual_code_when_python_disabled(
+        self,
+    ) -> None:
         code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.bash)
         code_impl.code = "echo test"
         variant = Variant(
@@ -673,12 +676,7 @@ class TestCodegenTargetsRunCommand:
 class TestShareRuntimeStateCodegenTargets:
     def test_share_runtime_state_skips_gen_code_binding_without_python(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = (
-                Path(tmpdir)
-                / "share_deployments"
-                / "no_python"
-                / "v1"
-            )
+            root = Path(tmpdir) / "share_deployments" / "no_python" / "v1"
             root.mkdir(parents=True, exist_ok=True)
             project_config = ProjectConfig(name="no_python", codegenTargets=[])
             project_state = ProjectStateSingleConfig(projectConfig=project_config)
@@ -709,12 +707,7 @@ class TestShareRuntimeStateCodegenTargets:
 class TestShareRuntimeStateRunCommand:
     async def test_share_runtime_state_rejects_non_runnable_language(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = (
-                Path(tmpdir)
-                / "share_deployments"
-                / "no_run"
-                / "v1"
-            )
+            root = Path(tmpdir) / "share_deployments" / "no_run" / "v1"
             root.mkdir(parents=True, exist_ok=True)
             code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
             code_impl.code = '{"ok": true}'
@@ -777,12 +770,7 @@ class TestShareRuntimeStateRunCommand:
 
     async def test_share_runtime_state_snapshots_non_runnable_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = (
-                Path(tmpdir)
-                / "share_deployments"
-                / "with_assets"
-                / "v1"
-            )
+            root = Path(tmpdir) / "share_deployments" / "with_assets" / "v1"
             root.mkdir(parents=True, exist_ok=True)
             entry_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
             entry_impl.code = "print('hi')"
@@ -877,3 +865,189 @@ class TestShareRuntimeStateRunCommand:
             snapshot_dir = snapshots[0]
             assert (snapshot_dir / "entry.py").exists()
             assert (snapshot_dir / "sample.json").exists()
+
+    async def test_share_runtime_state_ignores_unbound_code_sections(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "share_deployments" / "with_unbound" / "v1"
+            root.mkdir(parents=True, exist_ok=True)
+            entry_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
+            entry_impl.code = "print('hi')"
+            entry_impl.codeFileBinding = CodeFileBinding(
+                canonical_path=Path("code/entry.py"),
+                access_mode=CodeFileAccessMode.read_write,
+            )
+            unbound_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
+            unbound_impl.code = "print('unbound')"
+            unbound_impl.codeFileBinding = None
+            entry_variant = Variant(
+                impl=entry_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(entry_impl),
+            )
+            unbound_variant = Variant(
+                impl=unbound_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(unbound_impl),
+            )
+            entry_section = Core(
+                name="Block",
+                variants=[entry_variant.id],
+                defaultVariant=entry_variant.id,
+            )
+            unbound_section = Core(
+                # Use a colliding section slug so validate_code_file_bindings leaves
+                # the section unbound.
+                name="Block",
+                variants=[unbound_variant.id],
+                defaultVariant=unbound_variant.id,
+            )
+            project_config = ProjectConfig(
+                name="with_unbound",
+                codegenTargets=[],
+                entryCodeBlockId=entry_section.id,
+                sectionVariantMap={
+                    entry_section.id: entry_variant.id,
+                    unbound_section.id: unbound_variant.id,
+                },
+                topLevelSections={
+                    entry_section.id: TopLevelSectionLayout(),
+                    unbound_section.id: TopLevelSectionLayout(),
+                },
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={
+                    entry_section.id: entry_section,
+                    unbound_section.id: unbound_section,
+                },
+                sectionImpls={
+                    entry_impl.id: entry_impl,
+                    unbound_impl.id: unbound_impl,
+                },
+                sectionVariants={
+                    entry_variant.id: entry_variant,
+                    unbound_variant.id: unbound_variant,
+                },
+            )
+            project_state.validate_for_update(validate_code_file_bindings=False)
+            backend = merge_single_config_into_backend(
+                ProjectStateBackend(),
+                project_state,
+            )
+            backend.defaultProjectConfigId = project_config.id
+            dbe = DBE(root)
+            dbe.write_project(backend)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                deploymentName=root.parent.name,
+                defaultProjectConfigId=project_config.id,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            frontend_sender = WMHFrontendSender(WebsocketManager())
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
+            manager.create_session_backend("session-a")
+
+            await manager.create_run_command(
+                "session-a",
+                RunCodeRequest(
+                    projectConfigId=project_config.id,
+                    sectionId=None,
+                    runSnapshotMode=RunSnapshotMode.ephemeral,
+                ),
+            )
+
+            runs_root = manager.share_runs_root / "session-a"
+            snapshots = [path for path in runs_root.iterdir() if path.is_dir()]
+            assert 1 == len(snapshots)
+            snapshot_dir = snapshots[0]
+            assert (snapshot_dir / "entry.py").exists()
+            assert 1 == len([p for p in snapshot_dir.iterdir() if p.is_file()])
+
+    async def test_share_runtime_state_rejects_unbound_entry_section(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir) / "share_deployments" / "unbound_entry" / "v1"
+            root.mkdir(parents=True, exist_ok=True)
+            entry_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
+            entry_impl.code = "print('hi')"
+            entry_impl.codeFileBinding = None
+            entry_variant = Variant(
+                impl=entry_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(entry_impl),
+            )
+            other_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
+            other_impl.code = "print('other')"
+            other_impl.codeFileBinding = None
+            other_variant = Variant(
+                impl=other_impl.id,
+                nonPresetImpls=compute_initial_nonPresetImpls(other_impl),
+            )
+            entry_section = Core(
+                name="Block",
+                variants=[entry_variant.id],
+                defaultVariant=entry_variant.id,
+            )
+            other_section = Core(
+                # Collide slug so validate_code_file_bindings keeps entry unbound.
+                name="Block",
+                variants=[other_variant.id],
+                defaultVariant=other_variant.id,
+            )
+            project_config = ProjectConfig(
+                name="unbound_entry",
+                codegenTargets=[],
+                entryCodeBlockId=entry_section.id,
+                sectionVariantMap={
+                    entry_section.id: entry_variant.id,
+                    other_section.id: other_variant.id,
+                },
+                topLevelSections={
+                    entry_section.id: TopLevelSectionLayout(),
+                    other_section.id: TopLevelSectionLayout(),
+                },
+            )
+            project_state = ProjectStateSingleConfig(
+                projectConfig=project_config,
+                sections={
+                    entry_section.id: entry_section,
+                    other_section.id: other_section,
+                },
+                sectionImpls={
+                    entry_impl.id: entry_impl,
+                    other_impl.id: other_impl,
+                },
+                sectionVariants={
+                    entry_variant.id: entry_variant,
+                    other_variant.id: other_variant,
+                },
+            )
+            project_state.validate_for_update(validate_code_file_bindings=False)
+            backend = merge_single_config_into_backend(
+                ProjectStateBackend(),
+                project_state,
+            )
+            backend.defaultProjectConfigId = project_config.id
+            dbe = DBE(root)
+            dbe.write_project(backend)
+            manifest = ShareDeploymentManifest(
+                version=1,
+                deploymentName=root.parent.name,
+                defaultProjectConfigId=project_config.id,
+                deploymentVersion=root.name,
+            )
+            dbe.write_json(root / "manifest.json", manifest.model_dump())
+
+            frontend_sender = WMHFrontendSender(WebsocketManager())
+            manager = ShareRuntimeState(dbe, root, frontend_sender)
+            manager.create_session_backend("session-a")
+
+            with pytest.raises(HTTPException) as ctx:
+                await manager.create_run_command(
+                    "session-a",
+                    RunCodeRequest(
+                        projectConfigId=project_config.id,
+                        sectionId=None,
+                        runSnapshotMode=RunSnapshotMode.ephemeral,
+                    ),
+                )
+            assert 400 == ctx.value.status_code
+            assert "Missing code binding for section" in ctx.value.detail

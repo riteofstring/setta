@@ -108,11 +108,6 @@ class ShareRuntimeState:
     def load_initial_state(self) -> ProjectStateBackend:
         project_state = self.dbe.read_project_required()
         self._rebase_deployment_paths(project_state)
-        for project_config_id in project_state.projectConfigs.keys():
-            single_config = convert_backend_to_single_config(
-                project_state, project_config_id
-            )
-            self._require_code_section_bindings(single_config)
         return project_state
 
     def create_session_backend(self, session_id: str) -> ProjectStateBackend:
@@ -255,6 +250,11 @@ class ShareRuntimeState:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Run is only available for Python and Bash.",
+                    )
+                if section_impl.codeFileBinding is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Missing code binding for section {section_id}.",
                     )
 
         # Share mode always snapshots; runSnapshotMode only controls cleanup scheduling.
@@ -539,16 +539,6 @@ class ShareRuntimeState:
             raise KeyError("Share run missing generated code binding")
         return gen_binding
 
-    def _require_code_section_bindings(
-        self, project_state: "ProjectStateSingleConfig"
-    ) -> None:
-        for section_id in project_state.sections.keys():
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if not isinstance(section_impl, CodeSectionImpl):
-                continue
-            if section_impl.codeFileBinding is None:
-                raise KeyError(f"Missing code binding for section {section_id}")
-
     def _collect_code_sections(
         self, project_state: "ProjectStateSingleConfig"
     ) -> dict[ID, tuple[str, "CodeFileBinding", CodeLanguage]]:
@@ -557,11 +547,12 @@ class ShareRuntimeState:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, CodeSectionImpl):
                 continue
-            if section_impl.codeFileBinding is None:
-                raise KeyError(f"Missing code binding for section {section_id}")
+            binding = section_impl.codeFileBinding
+            if binding is None:
+                continue
             output[section_id] = (
                 section_impl.code,
-                section_impl.codeFileBinding,
+                binding,
                 section_impl.codeLanguage,
             )
         return output

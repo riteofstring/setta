@@ -1309,8 +1309,7 @@ class BaseProjectManager(ABC):
                 allow_reserved_project_name=allow_reserved_project_name,
                 validate_name_rules=validate_name_rules,
             )
-            if self.lsp_writers.full is not None:
-                await self._refresh_codegen_state(projectState)
+            await self._refresh_codegen_state(projectState)
             self._merge_project_state_backend(
                 projectState,
                 updateFileWatcher=updateFileWatcher,
