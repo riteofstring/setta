@@ -4,6 +4,9 @@ export type GitGraphRow = {
   commit: GitCommit;
   laneIndex: number;
   laneColorIds: number[];
+  laneStartIndices: number[];
+  laneEndIndices: number[];
+  joinFromLaneIndices: number[];
   mergeToLaneIndices: number[];
 };
 
@@ -18,10 +21,21 @@ export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
   let nextColorId = 0;
 
   for (const commit of commits) {
-    let laneIndex = lanes.findIndex((lane) => lane.nextHash === commit.hash);
-    if (laneIndex === -1) {
-      laneIndex = lanes.length;
+    const laneStartIndices: number[] = [];
+    const matchingLaneIndices: number[] = [];
+    for (let idx = 0; idx < lanes.length; idx += 1) {
+      if (lanes[idx]!.nextHash === commit.hash) {
+        matchingLaneIndices.push(idx);
+      }
+    }
+
+    const laneIndex =
+      matchingLaneIndices.length > 0 ? matchingLaneIndices[0]! : lanes.length;
+    const joinFromLaneIndices = matchingLaneIndices.slice(1);
+
+    if (matchingLaneIndices.length === 0) {
       lanes.push({ nextHash: commit.hash, colorId: nextColorId++ });
+      laneStartIndices.push(laneIndex);
     }
 
     const mergeToLaneIndices: number[] = [];
@@ -30,18 +44,32 @@ export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
       if (parentLaneIndex === -1) {
         parentLaneIndex = lanes.length;
         lanes.push({ nextHash: parent, colorId: nextColorId++ });
+        laneStartIndices.push(parentLaneIndex);
       }
       mergeToLaneIndices.push(parentLaneIndex);
     }
 
     const laneColorIds = lanes.map((lane) => lane.colorId);
+    const laneEndIndices =
+      commit.parents.length === 0
+        ? [...joinFromLaneIndices, laneIndex]
+        : joinFromLaneIndices;
 
     rows.push({
       commit,
       laneIndex,
       laneColorIds,
+      laneStartIndices,
+      laneEndIndices,
+      joinFromLaneIndices,
       mergeToLaneIndices,
     });
+
+    // Branch splits show up as multiple lanes pointing at the same next commit hash.
+    // Keep them distinct until we render this commit, then merge the lanes here.
+    for (let idx = joinFromLaneIndices.length - 1; idx >= 0; idx -= 1) {
+      lanes.splice(joinFromLaneIndices[idx]!, 1);
+    }
 
     if (commit.parents.length > 0) {
       lanes[laneIndex] = {
@@ -50,22 +78,6 @@ export function computeGitGraphRows(commits: GitCommit[]): GitGraphRow[] {
       };
     } else {
       lanes.splice(laneIndex, 1);
-    }
-
-    // Collapse converged lanes so we don't keep duplicate "next" hashes around.
-    const seen = new Set<string>();
-    const toRemove: number[] = [];
-    for (let idx = 0; idx < lanes.length; idx += 1) {
-      const nextHash = lanes[idx]!.nextHash;
-      if (seen.has(nextHash)) {
-        toRemove.push(idx);
-        continue;
-      }
-      seen.add(nextHash);
-    }
-    for (let idx = toRemove.length - 1; idx >= 0; idx -= 1) {
-      const laneIdx = toRemove[idx]!;
-      lanes.splice(laneIdx, 1);
     }
   }
 

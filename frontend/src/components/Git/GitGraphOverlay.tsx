@@ -14,6 +14,7 @@ import type { GitGraphRow } from "utils/gitGraph";
 
 const ROW_HEIGHT = 28;
 const GRAPH_CELL_WIDTH = 120;
+const MAX_ROW_DECORATIONS = 3;
 const DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   month: "short",
   day: "2-digit",
@@ -41,6 +42,61 @@ const LANE_COLORS_DARK = [
   "#facc15",
   "#22d3ee",
 ];
+
+type DecorationKind =
+  | "head"
+  | "branch"
+  | "remote"
+  | "tag"
+  | "symbolic"
+  | "other";
+
+type DecorationChip = {
+  label: string;
+  kind: DecorationKind;
+};
+
+const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
+  head: 0,
+  branch: 1,
+  remote: 2,
+  tag: 3,
+  symbolic: 4,
+  other: 5,
+};
+
+function parseDecorationChip(raw: string): DecorationChip | null {
+  const text = raw.trim();
+  if (!text) {
+    return null;
+  }
+  if (text.startsWith("HEAD -> ")) {
+    const branch = text.slice("HEAD -> ".length).trim();
+    if (!branch) {
+      return null;
+    }
+    return { label: branch, kind: "head" };
+  }
+  if (text.startsWith("tag: ")) {
+    const tag = text.slice("tag: ".length).trim();
+    if (!tag) {
+      return null;
+    }
+    return { label: tag, kind: "tag" };
+  }
+  const arrowIdx = text.indexOf(" -> ");
+  if (arrowIdx !== -1) {
+    const left = text.slice(0, arrowIdx).trim();
+    if (!left) {
+      return null;
+    }
+    return { label: left, kind: "symbolic" };
+  }
+  if (text.startsWith("origin/")) {
+    return { label: text, kind: "remote" };
+  }
+  return { label: text, kind: "branch" };
+}
 
 export function GitGraphOverlay() {
   const graphState = useGitStore((x) =>
@@ -294,6 +350,16 @@ function GitCommitRow({
   const shortHash = commit.hash.slice(0, 8);
   const laneCount = row.laneColorIds.length;
 
+  const allChips = commit.decorations
+    .map(parseDecorationChip)
+    .filter((chip): chip is DecorationChip => chip !== null)
+    .sort(
+      (a, b) =>
+        DECORATION_KIND_PRIORITY[a.kind] - DECORATION_KIND_PRIORITY[b.kind],
+    );
+  const chips = allChips.slice(0, MAX_ROW_DECORATIONS);
+  const extraChipCount = Math.max(0, allChips.length - chips.length);
+
   const background = isSelected
     ? "bg-blue-50 dark:bg-blue-950/40"
     : "bg-transparent hover:bg-setta-50 dark:hover:bg-setta-900/60";
@@ -309,11 +375,26 @@ function GitCommitRow({
         <GitGraphCell
           laneIndex={row.laneIndex}
           laneColorIds={row.laneColorIds}
+          laneStartIndices={row.laneStartIndices}
+          laneEndIndices={row.laneEndIndices}
+          joinFromLaneIndices={row.joinFromLaneIndices}
           mergeToLaneIndices={row.mergeToLaneIndices}
           palette={palette}
         />
       </div>
-      <div className="min-w-0 truncate">{commit.subject}</div>
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-1 overflow-hidden">
+          {chips.map((chip) => (
+            <DecorationPill key={`${chip.kind}-${chip.label}`} chip={chip} />
+          ))}
+          {extraChipCount > 0 && (
+            <span className="inline-flex shrink-0 items-center rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300">
+              +{extraChipCount}
+            </span>
+          )}
+          <span className="min-w-0 flex-1 truncate">{commit.subject}</span>
+        </div>
+      </div>
       <div className="min-w-0 truncate text-setta-500 dark:text-setta-400">
         {commit.authorName}
       </div>
@@ -328,14 +409,73 @@ function GitCommitRow({
   );
 }
 
+function DecorationPill({ chip }: { chip: DecorationChip }) {
+  const base =
+    "inline-flex shrink-0 max-w-[160px] items-center truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold";
+  if (chip.kind === "head") {
+    return (
+      <span
+        className={`${base} border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/70 dark:bg-blue-950/40 dark:text-blue-200`}
+        title={chip.label}
+      >
+        {chip.label}
+      </span>
+    );
+  }
+  if (chip.kind === "tag") {
+    return (
+      <span
+        className={`${base} border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200`}
+        title={chip.label}
+      >
+        {chip.label}
+      </span>
+    );
+  }
+  if (chip.kind === "remote") {
+    return (
+      <span
+        className={`${base} border-setta-200 bg-setta-50 text-setta-700 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-200`}
+        title={chip.label}
+      >
+        {chip.label}
+      </span>
+    );
+  }
+  if (chip.kind === "symbolic") {
+    return (
+      <span
+        className={`${base} border-setta-200 bg-setta-50 text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300`}
+        title={chip.label}
+      >
+        {chip.label}
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`${base} border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-200`}
+      title={chip.label}
+    >
+      {chip.label}
+    </span>
+  );
+}
+
 function GitGraphCell({
   laneIndex,
   laneColorIds,
+  laneStartIndices,
+  laneEndIndices,
+  joinFromLaneIndices,
   mergeToLaneIndices,
   palette,
 }: {
   laneIndex: number;
   laneColorIds: number[];
+  laneStartIndices: number[];
+  laneEndIndices: number[];
+  joinFromLaneIndices: number[];
   mergeToLaneIndices: number[];
   palette: string[];
 }) {
@@ -357,6 +497,11 @@ function GitGraphCell({
       aria-hidden="true"
     >
       {laneColorIds.map((colorId, idx) => {
+        const y1 = laneStartIndices.includes(idx) ? centerY : 0;
+        const y2 = laneEndIndices.includes(idx) ? centerY : height;
+        if (y1 === y2) {
+          return null;
+        }
         const x = xForLane(idx);
         const color = palette[colorId % palette.length]!;
         return (
@@ -364,11 +509,30 @@ function GitGraphCell({
             key={`lane-${idx}`}
             x1={x}
             x2={x}
-            y1={0}
-            y2={height}
+            y1={y1}
+            y2={y2}
             stroke={color}
             strokeWidth={2}
+            strokeLinecap="round"
             opacity={0.35}
+          />
+        );
+      })}
+
+      {joinFromLaneIndices.map((fromIdx) => {
+        const x1 = xForLane(fromIdx);
+        const x2 = xForLane(laneIndex);
+        const fromColorId = laneColorIds[fromIdx] ?? commitColorId;
+        const fromColor = palette[fromColorId % palette.length]!;
+        return (
+          <path
+            key={`join-${fromIdx}-to-${laneIndex}`}
+            d={`M ${x1} 0 Q ${x1} ${centerY} ${x2} ${centerY}`}
+            stroke={fromColor}
+            strokeWidth={2}
+            strokeLinecap="round"
+            fill="none"
+            opacity={0.75}
           />
         );
       })}
@@ -377,14 +541,13 @@ function GitGraphCell({
         const x1 = xForLane(laneIndex);
         const x2 = xForLane(toIdx);
         return (
-          <line
+          <path
             key={`merge-${laneIndex}-${toIdx}`}
-            x1={x1}
-            x2={x2}
-            y1={centerY}
-            y2={centerY}
+            d={`M ${x1} ${centerY} Q ${x2} ${centerY} ${x2} ${height}`}
             stroke={commitColor}
             strokeWidth={2}
+            strokeLinecap="round"
+            fill="none"
             opacity={0.6}
           />
         );

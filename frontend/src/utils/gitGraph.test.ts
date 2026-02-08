@@ -20,9 +20,17 @@ describe("computeGitGraphRows", () => {
     expect(rows).toHaveLength(3);
     expect(rows.map((r) => r.laneIndex)).toEqual([0, 0, 0]);
     expect(rows.every((r) => r.laneColorIds.length === 1)).toBe(true);
+    expect(rows[0]!.laneStartIndices).toEqual([0]);
+    expect(rows[1]!.laneStartIndices).toEqual([]);
+    expect(rows[2]!.laneStartIndices).toEqual([]);
+    expect(rows[0]!.laneEndIndices).toEqual([]);
+    expect(rows[1]!.laneEndIndices).toEqual([]);
+    expect(rows[2]!.laneEndIndices).toEqual([0]);
+    expect(rows.every((r) => r.joinFromLaneIndices.length === 0)).toBe(true);
+    expect(rows.every((r) => r.mergeToLaneIndices.length === 0)).toBe(true);
   });
 
-  it("introduces a lane for merge parents and collapses converged lanes", () => {
+  it("introduces a lane for merge parents and records joins when history reconverges", () => {
     const commits = [
       commit("M", ["B", "D"]),
       commit("D", ["C"]),
@@ -35,9 +43,31 @@ describe("computeGitGraphRows", () => {
 
     // Merge commit introduces 2 lanes and draws a connector to the second parent lane.
     expect(rows[0]!.laneColorIds.length).toBe(2);
+    expect(rows[0]!.laneStartIndices.sort()).toEqual([0, 1]);
     expect(rows[0]!.mergeToLaneIndices).toEqual([1]);
 
-    // After history converges back to A, lane count should collapse back down.
-    expect(rows[rows.length - 1]!.laneColorIds.length).toBe(1);
+    // When history converges back to A, the converging lane should be recorded.
+    const aRow = rows.find((r) => r.commit.hash === "A");
+    expect(aRow).not.toBeNull();
+    expect(aRow!.laneColorIds.length).toBe(2);
+    expect(aRow!.joinFromLaneIndices).toEqual([1]);
+    expect(aRow!.laneEndIndices.sort()).toEqual([0, 1]);
+  });
+
+  it("records lane joins when multiple lanes converge on a shared parent commit", () => {
+    const commits = [
+      commit("C2", ["B"]),
+      commit("C1", ["B"]),
+      commit("B", ["A"]),
+      commit("A", []),
+    ];
+    const rows = computeGitGraphRows(commits);
+    expect(rows).toHaveLength(4);
+
+    const bRow = rows.find((r) => r.commit.hash === "B");
+    expect(bRow).not.toBeNull();
+    expect(bRow!.laneColorIds.length).toBe(2);
+    expect(bRow!.joinFromLaneIndices).toEqual([1]);
+    expect(bRow!.laneEndIndices).toEqual([1]);
   });
 });

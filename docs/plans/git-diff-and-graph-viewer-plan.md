@@ -82,6 +82,13 @@ Surface:
 
 1. A central overlay (same overlay system as diff), between panes.
 
+Reference:
+
+1. VS Code-style graph view (see user screenshot "Image #2" from the feature request thread) for:
+   - branch/ref labels rendered at the ref tip commit
+   - clearer merge/join line aesthetics
+   - visibility of branches checked out in other worktrees (still just refs in the same repo)
+
 V1 graph viewer features:
 
 1. Commit graph list (virtualized) with lanes/topology.

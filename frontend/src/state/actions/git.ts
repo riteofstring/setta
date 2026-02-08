@@ -274,12 +274,13 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
 }
 
 export async function openGitGraphOverlay(): Promise<void> {
+  const allRefs = true;
   useGitStore.setState((state) => ({
     ...state,
     overlay: {
       kind: "graph",
       graph: {
-        allRefs: false,
+        allRefs,
         response: null,
         rows: [],
         filterText: "",
@@ -292,7 +293,7 @@ export async function openGitGraphOverlay(): Promise<void> {
       },
     },
   }));
-  await refreshGitGraph(false);
+  await refreshGitGraph(allRefs);
 }
 
 export async function refreshGitGraphOverlay(): Promise<void> {
