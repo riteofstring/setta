@@ -73,6 +73,18 @@ const TOGGLE_ROOT_CLASSES =
 const TOGGLE_THUMB_CLASSES =
   "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 const TOGGLE_LABEL_CLASSES = "text-[10px] text-setta-500 dark:text-setta-400";
+const PANEL_CARD_CLASSES =
+  "mx-[2px] rounded-md bg-setta-100/30 p-2 text-xs dark:bg-setta-900/40";
+const PANEL_ROW_CLASSES =
+  "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1 text-xs dark:bg-setta-900/40";
+const PANEL_SELECT_CLASSES =
+  "min-w-0 rounded border border-setta-200 bg-white/70 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
+const PANEL_COMPACT_SELECT_CLASSES =
+  "min-w-0 rounded border border-setta-200 bg-white/70 px-1.5 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:bg-setta-950/40 dark:text-setta-200";
+const PANEL_ICON_BUTTON_CLASSES =
+  "inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100";
+const PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES =
+  "inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400";
 const CODEGEN_SECTION_TYPES: SectionType[] = [
   SectionTypeEnum.Callable,
   SectionTypeEnum.Dict,
@@ -417,13 +429,13 @@ export function RunInstructions() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
       <p className="mx-[2px] text-xs text-setta-500 dark:text-setta-300">
         Define custom run types (once or continuous) and choose which ones
         appear in the main Run dropdown.
       </p>
       {!isDeploymentMode && (
-        <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+        <div className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-2`}>
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
               Run Snapshot Mode
@@ -436,7 +448,7 @@ export function RunInstructions() {
             </div>
           </div>
           <select
-            className="rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
+            className={`${PANEL_SELECT_CLASSES} w-full`}
             value={selectedRunSnapshotMode}
             onChange={handleRunSnapshotModeChange}
             {...getFloatingBoxHandlers({ content: "Run snapshot mode" })}
@@ -450,7 +462,9 @@ export function RunInstructions() {
         </div>
       )}
       {!isDeploymentMode && (
-        <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+        <div
+          className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-wrap items-center gap-2`}
+        >
           <div className="min-w-0 flex-1">
             <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
               Codegen Targets
@@ -459,7 +473,7 @@ export function RunInstructions() {
               Enable generated code sections for this project.
             </div>
           </div>
-          <div className="ml-2 flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1">
             <span className={TOGGLE_LABEL_CLASSES}>Python</span>
             <Switch.Root
               className={TOGGLE_ROOT_CLASSES}
@@ -473,7 +487,10 @@ export function RunInstructions() {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      <div
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1"
+        data-testid="run-instructions-scroll-region"
+      >
         <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
           Codegen Policy
         </h3>
@@ -483,7 +500,9 @@ export function RunInstructions() {
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+            <div
+              className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-wrap items-center gap-2`}
+            >
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                   Generated Metadata
@@ -492,7 +511,7 @@ export function RunInstructions() {
                   Attach project and section metadata to state.__state__.
                 </div>
               </div>
-              <div className="ml-2 flex items-center gap-1">
+              <div className="ml-auto flex items-center gap-1">
                 <span className={TOGGLE_LABEL_CLASSES}>Meta</span>
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}
@@ -510,8 +529,8 @@ export function RunInstructions() {
               </div>
             </div>
 
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-              <div className="flex items-center gap-2">
+            <div className={PANEL_CARD_CLASSES}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                     Section Allowlist
@@ -520,7 +539,7 @@ export function RunInstructions() {
                     Choose which section types emit code by default.
                   </div>
                 </div>
-                <div className="ml-2 flex items-center gap-1">
+                <div className="ml-auto flex items-center gap-1">
                   <span className={TOGGLE_LABEL_CLASSES}>Allowlist</span>
                   <Switch.Root
                     className={TOGGLE_ROOT_CLASSES}
@@ -539,7 +558,7 @@ export function RunInstructions() {
                 </div>
               </div>
               {allowlistEnabled ? (
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                <div className="mt-2 grid grid-cols-1 gap-y-1">
                   {CODEGEN_SECTION_TYPES.map((sectionType) => {
                     const isChecked = allowlist.includes(sectionType);
                     if (sectionType !== SectionTypeEnum.MetaControl) {
@@ -575,7 +594,7 @@ export function RunInstructions() {
                     return (
                       <div
                         key={sectionType}
-                        className="col-span-2 flex flex-col gap-1"
+                        className="flex flex-col gap-1"
                       >
                         <label className="flex items-center gap-2 text-[11px] text-setta-600 dark:text-setta-300">
                           <input
@@ -600,7 +619,7 @@ export function RunInstructions() {
                           <span>{sectionType}</span>
                         </label>
                         {isChecked ? (
-                          <div className="ml-6 grid grid-cols-2 gap-x-3 gap-y-1">
+                          <div className="ml-6 grid grid-cols-1 gap-y-1">
                             {META_CONTROL_CODE_OBJ_TYPES.map((codeObjType) => {
                               const isTypeChecked =
                                 metaControlAllowlist.includes(codeObjType);
@@ -656,14 +675,9 @@ export function RunInstructions() {
               )}
             </div>
 
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+            <div className={PANEL_CARD_CLASSES}>
               <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 Section Type Defaults
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                <div className="flex-1">Type</div>
-                <div className="w-20 text-right">Mode</div>
-                <div className="w-24 text-right">Representation</div>
               </div>
               <div className="mt-1 space-y-1">
                 {CODEGEN_SECTION_TYPES.map((sectionType) => {
@@ -680,12 +694,15 @@ export function RunInstructions() {
                   const representationDisabled =
                     representationOptionsWithFallback.length === 1;
                   return (
-                    <div key={sectionType} className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
+                    <div
+                      key={sectionType}
+                      className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
+                    >
+                      <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                         {sectionType}
                       </div>
                       <select
-                        className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
+                        className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-20`}
                         disabled={isDeploymentMode}
                         value={typePolicy.mode}
                         onChange={(event) => {
@@ -710,12 +727,12 @@ export function RunInstructions() {
                         ))}
                       </select>
                       {isMetaControl ? (
-                        <div className="w-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
+                        <div className="min-w-0 flex-1 basis-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
                           code obj policy
                         </div>
                       ) : (
                         <select
-                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                          className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
                           disabled={isDeploymentMode || representationDisabled}
                           value={typePolicy.representation}
                           onChange={(event) => {
@@ -746,7 +763,7 @@ export function RunInstructions() {
               </div>
             </div>
 
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+            <div className={PANEL_CARD_CLASSES}>
               <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 Section Overrides
               </div>
@@ -754,9 +771,9 @@ export function RunInstructions() {
                 Include or exclude individual sections and set their
                 representation.
               </div>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex min-w-0 flex-col gap-1.5">
                 <select
-                  className="min-w-0 flex-1 rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
+                  className={`${PANEL_SELECT_CLASSES} w-full`}
                   disabled={
                     isDeploymentMode || availableOverrideSections.length === 0
                   }
@@ -772,36 +789,38 @@ export function RunInstructions() {
                     </option>
                   ))}
                 </select>
-                <button
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
-                  disabled={isDeploymentMode || !pendingOverrideId}
-                  onClick={() => {
-                    const selected =
-                      sectionOptionsById.get(pendingOverrideId) ?? null;
-                    if (!selected) {
-                      return;
-                    }
-                    const basePolicy =
-                      sectionPolicy.typePolicies[selected.type];
-                    const nextOverrides = {
-                      ...sectionPolicy.sectionOverrides,
-                      [pendingOverrideId]: {
-                        mode: "inherit",
-                        representation:
-                          basePolicy?.representation ?? "expression",
-                      },
-                    };
-                    updateSectionPolicy({
-                      ...sectionPolicy,
-                      sectionOverrides: nextOverrides,
-                    });
-                    setPendingOverrideId("");
-                  }}
-                  type="button"
-                  {...getFloatingBoxHandlers({ content: "Add override" })}
-                >
-                  <i className="gg-add" />
-                </button>
+                <div className="flex justify-end">
+                  <button
+                    className={PANEL_ICON_BUTTON_CLASSES}
+                    disabled={isDeploymentMode || !pendingOverrideId}
+                    onClick={() => {
+                      const selected =
+                        sectionOptionsById.get(pendingOverrideId) ?? null;
+                      if (!selected) {
+                        return;
+                      }
+                      const basePolicy =
+                        sectionPolicy.typePolicies[selected.type];
+                      const nextOverrides = {
+                        ...sectionPolicy.sectionOverrides,
+                        [pendingOverrideId]: {
+                          mode: "inherit",
+                          representation:
+                            basePolicy?.representation ?? "expression",
+                        },
+                      };
+                      updateSectionPolicy({
+                        ...sectionPolicy,
+                        sectionOverrides: nextOverrides,
+                      });
+                      setPendingOverrideId("");
+                    }}
+                    type="button"
+                    {...getFloatingBoxHandlers({ content: "Add override" })}
+                  >
+                    <i className="gg-add" />
+                  </button>
+                </div>
               </div>
               {overrideEntries.length === 0 ? (
                 <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
@@ -809,12 +828,6 @@ export function RunInstructions() {
                 </div>
               ) : (
                 <div className="mt-2 space-y-1">
-                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                    <div className="flex-1">Section</div>
-                    <div className="w-20 text-right">Mode</div>
-                    <div className="w-24 text-right">Representation</div>
-                    <div className="w-6" />
-                  </div>
                   {overrideEntries.map((entry) => {
                     const isMetaControl =
                       entry.type === SectionTypeEnum.MetaControl;
@@ -832,13 +845,13 @@ export function RunInstructions() {
                     return (
                       <div
                         key={entry.sectionId}
-                        className="flex items-center gap-2"
+                        className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
                       >
-                        <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
+                        <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                           {entry.name}
                         </div>
                         <select
-                          className="w-20 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
+                          className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-20`}
                           disabled={isDeploymentMode}
                           value={entry.override.mode}
                           onChange={(event) => {
@@ -863,12 +876,12 @@ export function RunInstructions() {
                           ))}
                         </select>
                         {isMetaControl ? (
-                          <div className="w-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
+                          <div className="min-w-0 flex-1 basis-24 text-right text-[11px] text-setta-500 dark:text-setta-400">
                             code obj policy
                           </div>
                         ) : (
                           <select
-                            className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                            className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
                             disabled={
                               isDeploymentMode || representationDisabled
                             }
@@ -896,7 +909,7 @@ export function RunInstructions() {
                           </select>
                         )}
                         <button
-                          className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
+                          className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
                           disabled={isDeploymentMode}
                           onClick={() => {
                             const nextOverrides = {
@@ -922,16 +935,12 @@ export function RunInstructions() {
               )}
             </div>
 
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+            <div className={PANEL_CARD_CLASSES}>
               <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 Code Obj Type Defaults
               </div>
               <div className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
                 Choose how param values are formatted by default.
-              </div>
-              <div className="mt-2 flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                <div className="flex-1">Type</div>
-                <div className="w-24 text-right">Representation</div>
               </div>
               <div className="mt-1 space-y-1">
                 {CODEGEN_CODE_OBJ_TYPES.map((codeObjType) => {
@@ -950,12 +959,15 @@ export function RunInstructions() {
                   const representationDisabled =
                     representationOptionsWithFallback.length === 1;
                   return (
-                    <div key={codeObjType} className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
+                    <div
+                      key={codeObjType}
+                      className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
+                    >
+                      <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                         {codeObjType}
                       </div>
                       <select
-                        className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                        className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
                         disabled={isDeploymentMode || representationDisabled}
                         value={typePolicy.representation}
                         onChange={(event) => {
@@ -985,16 +997,16 @@ export function RunInstructions() {
               </div>
             </div>
 
-            <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs dark:border-setta-800 dark:bg-setta-900/40">
+            <div className={PANEL_CARD_CLASSES}>
               <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
                 Code Obj Overrides
               </div>
               <div className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
                 Override representation for individual params.
               </div>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex min-w-0 flex-col gap-1.5">
                 <select
-                  className="min-w-0 flex-1 rounded border border-setta-200 bg-transparent px-2 py-1 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
+                  className={`${PANEL_SELECT_CLASSES} w-full`}
                   disabled={
                     isDeploymentMode || availableCodeObjOverrides.length === 0
                   }
@@ -1010,37 +1022,40 @@ export function RunInstructions() {
                     </option>
                   ))}
                 </select>
-                <button
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-40 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
-                  disabled={isDeploymentMode || !pendingCodeObjOverrideId}
-                  onClick={() => {
-                    const selected =
-                      codeObjOptionsById.get(pendingCodeObjOverrideId) ?? null;
-                    if (!selected) {
-                      return;
-                    }
-                    const basePolicy =
-                      codeObjValuePolicy.typePolicies[selected.type] ??
-                      defaultCodeObjValuePolicy.typePolicies[selected.type];
-                    const nextOverrides = {
-                      ...codeObjValuePolicy.codeObjOverrides,
-                      [pendingCodeObjOverrideId]: {
-                        representation:
-                          basePolicy?.representation ??
-                          CodeObjValueRepresentationModeEnum.expression,
-                      },
-                    };
-                    updateCodeObjValuePolicy({
-                      ...codeObjValuePolicy,
-                      codeObjOverrides: nextOverrides,
-                    });
-                    setPendingCodeObjOverrideId("");
-                  }}
-                  type="button"
-                  {...getFloatingBoxHandlers({ content: "Add override" })}
-                >
-                  <i className="gg-add" />
-                </button>
+                <div className="flex justify-end">
+                  <button
+                    className={PANEL_ICON_BUTTON_CLASSES}
+                    disabled={isDeploymentMode || !pendingCodeObjOverrideId}
+                    onClick={() => {
+                      const selected =
+                        codeObjOptionsById.get(pendingCodeObjOverrideId) ??
+                        null;
+                      if (!selected) {
+                        return;
+                      }
+                      const basePolicy =
+                        codeObjValuePolicy.typePolicies[selected.type] ??
+                        defaultCodeObjValuePolicy.typePolicies[selected.type];
+                      const nextOverrides = {
+                        ...codeObjValuePolicy.codeObjOverrides,
+                        [pendingCodeObjOverrideId]: {
+                          representation:
+                            basePolicy?.representation ??
+                            CodeObjValueRepresentationModeEnum.expression,
+                        },
+                      };
+                      updateCodeObjValuePolicy({
+                        ...codeObjValuePolicy,
+                        codeObjOverrides: nextOverrides,
+                      });
+                      setPendingCodeObjOverrideId("");
+                    }}
+                    type="button"
+                    {...getFloatingBoxHandlers({ content: "Add override" })}
+                  >
+                    <i className="gg-add" />
+                  </button>
+                </div>
               </div>
               {codeObjOverrideEntries.length === 0 ? (
                 <div className="mt-2 text-[11px] text-setta-500 dark:text-setta-400">
@@ -1048,11 +1063,6 @@ export function RunInstructions() {
                 </div>
               ) : (
                 <div className="mt-2 space-y-1">
-                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                    <div className="flex-1">Param</div>
-                    <div className="w-24 text-right">Representation</div>
-                    <div className="w-6" />
-                  </div>
                   {codeObjOverrideEntries.map((entry) => {
                     const representationOptions =
                       getCodeObjRepresentationOptions(entry.type);
@@ -1067,13 +1077,13 @@ export function RunInstructions() {
                     return (
                       <div
                         key={entry.codeObjId}
-                        className="flex items-center gap-2"
+                        className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
                       >
-                        <div className="min-w-0 flex-1 truncate text-[11px] text-setta-700 dark:text-setta-200">
+                        <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                           {entry.label}
                         </div>
                         <select
-                          className="w-24 rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 disabled:opacity-60 dark:border-setta-800 dark:text-setta-200"
+                          className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
                           disabled={isDeploymentMode || representationDisabled}
                           value={entry.override.representation}
                           onChange={(event) => {
@@ -1098,7 +1108,7 @@ export function RunInstructions() {
                           ))}
                         </select>
                         <button
-                          className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
+                          className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
                           disabled={isDeploymentMode}
                           onClick={() => {
                             const nextOverrides = {
@@ -1130,7 +1140,9 @@ export function RunInstructions() {
           Run Button Dropdown Items
         </h3>
         {customRuns.length === 0 ? (
-          <div className="mx-[2px] rounded border border-setta-100 bg-white/40 p-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
+          <div
+            className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
+          >
             No custom runs yet.
           </div>
         ) : (
@@ -1190,54 +1202,58 @@ function CustomRunRow({
   }
 
   return (
-    <div className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40">
-      <input
-        type="checkbox"
-        checked={run.includeInRunDropdown}
-        onChange={() => toggleCustomRunInDropdown(projectConfigId, run.id)}
-        className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
-        {...getFloatingBoxHandlers({ content: "Show in Run dropdown" })}
-      />
-      <div className="min-w-0 flex-1 truncate text-setta-800 dark:text-setta-200">
-        {run.name}
+    <div className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-1.5`}>
+      <div className="flex min-w-0 items-center gap-2">
+        <input
+          type="checkbox"
+          checked={run.includeInRunDropdown}
+          onChange={() => toggleCustomRunInDropdown(projectConfigId, run.id)}
+          className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+          {...getFloatingBoxHandlers({ content: "Show in Run dropdown" })}
+        />
+        <div className="min-w-0 flex-1 truncate text-setta-800 dark:text-setta-200">
+          {run.name}
+        </div>
       </div>
-      <select
-        className="rounded border border-setta-200 bg-transparent px-1 py-0.5 text-[11px] text-setta-700 dark:border-setta-800 dark:text-setta-200"
-        value={run.runMode}
-        onChange={(e) =>
-          setCustomRunMode(
-            projectConfigId,
-            run.id,
-            e.target.value === "continuous" ? "continuous" : "once",
-          )
-        }
-        {...getFloatingBoxHandlers({ content: "Run mode" })}
-      >
-        <option value="once">once</option>
-        <option value="continuous">continuous</option>
-      </select>
-      <button
-        className={`inline-flex h-6 w-6 items-center justify-center rounded focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-          isActiveContinuousRun
-            ? "bg-blue-800 text-white hover:bg-blue-700"
-            : "text-setta-600 hover:bg-green-500/10 hover:text-green-600 dark:text-setta-300 dark:hover:text-green-400"
-        }`}
-        onClick={() => {
-          void runCustomRun(projectConfigId, run.id);
-        }}
-        type="button"
-        {...getFloatingBoxHandlers({ content: runTooltip })}
-      >
-        {runIcon}
-      </button>
-      <button
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400"
-        onClick={() => deleteCustomRun(projectConfigId, run.id)}
-        type="button"
-        {...getFloatingBoxHandlers({ content: "Delete" })}
-      >
-        <i className="gg-trash" />
-      </button>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <select
+          className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
+          value={run.runMode}
+          onChange={(e) =>
+            setCustomRunMode(
+              projectConfigId,
+              run.id,
+              e.target.value === "continuous" ? "continuous" : "once",
+            )
+          }
+          {...getFloatingBoxHandlers({ content: "Run mode" })}
+        >
+          <option value="once">once</option>
+          <option value="continuous">continuous</option>
+        </select>
+        <button
+          className={`inline-flex h-6 w-6 items-center justify-center rounded focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            isActiveContinuousRun
+              ? "bg-blue-800 text-white hover:bg-blue-700"
+              : "text-setta-600 hover:bg-green-500/10 hover:text-green-600 dark:text-setta-300 dark:hover:text-green-400"
+          }`}
+          onClick={() => {
+            void runCustomRun(projectConfigId, run.id);
+          }}
+          type="button"
+          {...getFloatingBoxHandlers({ content: runTooltip })}
+        >
+          {runIcon}
+        </button>
+        <button
+          className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
+          onClick={() => deleteCustomRun(projectConfigId, run.id)}
+          type="button"
+          {...getFloatingBoxHandlers({ content: "Delete" })}
+        >
+          <i className="gg-trash" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -1251,11 +1267,11 @@ function AddCodeBlockRow({
 }) {
   return (
     <div
-      className="mx-[2px] flex items-center gap-2 rounded border border-setta-100 bg-white/40 px-2 py-1 text-xs dark:border-setta-800 dark:bg-setta-900/40"
-      style={{ marginLeft: `${0.5 * item.depth}rem` }}
+      className={`${PANEL_ROW_CLASSES} flex min-w-0 items-center gap-2`}
+      style={{ paddingLeft: `${0.5 + 0.5 * item.depth}rem` }}
     >
       <button
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-setta-600 hover:bg-setta-200/40 hover:text-setta-900 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-300 dark:hover:bg-setta-800/40 dark:hover:text-setta-100"
+        className={PANEL_ICON_BUTTON_CLASSES}
         onClick={() =>
           addOrGetCustomRunForCodeBlock(
             projectConfigId,
