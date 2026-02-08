@@ -1413,7 +1413,55 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
                 for impl_id in variant.nonPresetImpls:
                     del p.sectionImpls[impl_id]
 
+    _prune_unused_code_objs(p)
     p.validate_active_ids()
+
+
+def _prune_unused_code_objs(p: "ProjectStateSingleConfig") -> None:
+    # Sections own large param graphs. Repeated create/delete cycles can leave
+    # orphaned code objs behind, ballooning loadProjectConfig payload sizes.
+    used_code_obj_ids: set[ID] = set()
+
+    for section_id, core in p.sections.items():
+        for variant_id in core.variants:
+            impl = get_variant_effective_section_impl(p, section_id, variant_id)
+            code_obj_variant_map = getattr(impl, "codeObjVariantMap", None)
+            if code_obj_variant_map is None:
+                continue
+            if not isinstance(code_obj_variant_map, dict):
+                raise TypeError(
+                    f"Expected codeObjVariantMap to be dict for section {section_id}."
+                )
+            used_code_obj_ids.update(code_obj_variant_map.keys())
+
+    pending: list[ID] = list(used_code_obj_ids)
+    reachable: set[ID] = set()
+    while pending:
+        code_obj_id = pending.pop()
+        if code_obj_id in reachable:
+            continue
+        if code_obj_id not in p.codeObjs:
+            raise KeyError(f"Missing code obj {code_obj_id}.")
+        reachable.add(code_obj_id)
+        code_obj = p.codeObjs[code_obj_id]
+        for variant_id in code_obj.variants:
+            if variant_id not in p.codeObjVariants:
+                raise KeyError(
+                    f"Missing code obj variant {variant_id} for code obj {code_obj_id}."
+                )
+            variant = p.codeObjVariants[variant_id]
+            impl_id = variant.impl
+            if impl_id not in p.codeObjImpls:
+                raise KeyError(
+                    f"Missing code obj impl {impl_id} for code obj variant {variant_id}."
+                )
+            impl = p.codeObjImpls[impl_id]
+            if isinstance(impl, BaseParentCodeObjImpl):
+                pending.extend([child_id for child_id in impl.children if child_id])
+
+    for code_obj_id in list(p.codeObjs.keys()):
+        if code_obj_id not in reachable:
+            delete_code_obj(p, code_obj_id)
 
 
 def delete_child_sections_via_decrementer(

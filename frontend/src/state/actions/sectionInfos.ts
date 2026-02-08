@@ -14,6 +14,7 @@ import {
 } from "state/actions/renameRefactors";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
+  NULL_PROJECT_CONFIG_ID,
   PendingOperation,
   useAllProjectMetadata,
   useMisc,
@@ -1303,6 +1304,14 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   const snapshot = pendingTopLevelLayoutRef.snapshot;
   pendingTopLevelLayoutRef.hasQueuedSend = false;
   const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    removePendingOp(opId);
+    if (pendingTopLevelLayoutRef.opId === opId) {
+      pendingTopLevelLayoutRef.opId = null;
+    }
+    pendingTopLevelLayoutRef.snapshot = null;
+    return;
+  }
   const result = route_set_top_level_section_layout({
     projectConfigId,
     topLevelSections: snapshot,
@@ -1355,6 +1364,9 @@ export function debounced_route_set_top_level_section_layout() {
     shareSession.isDeploymentMode &&
     shareSession.sharePolicy?.allowLayoutChanges === false
   ) {
+    return;
+  }
+  if (getCurrProjectConfigId() === NULL_PROJECT_CONFIG_ID) {
     return;
   }
   const projectState = useProjectState.getState();
@@ -1603,6 +1615,10 @@ export function updateAllProjectMetadata(x: AllProjectMetadata) {
 }
 
 function dispatchViewportUpdate(viewport: Viewport | null) {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
   if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
     return;
   }
@@ -1613,7 +1629,7 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
     },
     send: (frontendOpId) =>
       route_set_viewport({
-        projectConfigId: getCurrProjectConfigId(),
+        projectConfigId,
         viewport,
         frontendOpId,
       }),
