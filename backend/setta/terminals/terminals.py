@@ -2,11 +2,9 @@ import asyncio
 import errno
 import json
 import logging
-import os
 import platform
 import select
 import shlex
-import signal
 import time
 import warnings
 from asyncio import CancelledError
@@ -31,13 +29,6 @@ SETTA_CLEAR_CMD = "SETTA_CLEAR_CMD"
 TERMINAL_ID_SEPARATOR = "::"
 IS_WINDOWS = platform.system() == "Windows"
 IS_MACOS = platform.system() == "Darwin"
-# If the PTY never echoes the clear command marker for some reason, we still
-# need to mark the terminal as ready so websocket clients don't hang forever.
-TERMINAL_PROMPT_READY_FALLBACK_SECONDS = 5.0
-# Helps keep echoed commands reflowable in xterm when the attached terminal is narrow.
-# zsh's line editor can emit hard newlines during redisplay at small widths, which
-# xterm cannot "un-wrap" on widen because those lines are not marked as wrapped.
-RUN_COMMAND_ECHO_COLS = 512
 
 
 if IS_WINDOWS:
@@ -45,22 +36,10 @@ if IS_WINDOWS:
 
     from .utils import windows_has_child_processes as has_child_processes
 
-    TERMINAL_TERMINATE_EXCEPTIONS: tuple[type[Exception], ...] = (
-        ChildProcessError,
-        ProcessLookupError,
-    )
-
 else:
     from ptyprocess import PtyProcessUnicode as PtyProcess
-    from ptyprocess.util import PtyProcessError
 
     from .utils import linux_has_child_processes as has_child_processes
-
-    TERMINAL_TERMINATE_EXCEPTIONS: tuple[type[Exception], ...] = (
-        PtyProcessError,
-        ChildProcessError,
-        ProcessLookupError,
-    )
 
 
 def get_terminal_shell(defaultTerminalShell: str | None):
@@ -116,8 +95,7 @@ class Terminals:
                 "shareSessionId": share_session_id,
                 "process": pty_process,
                 "history": deque(maxlen=1000),
-                "rows": None,
-                "cols": None,
+                "wasJustResized": False,
                 "terminalPromptIsReady": asyncio.Event(),
             }
             pty_info = self.PTY_PIDS[sectionId]
@@ -132,12 +110,6 @@ class Terminals:
                 pty_process.write(
                     f"alias {SETTA_CLEAR_CMD}='clear'\n{SETTA_CLEAR_CMD}\n"
                 )
-                spawn_background_task(
-                    self._terminal_prompt_ready_fallback(sectionId),
-                    label="terminal-prompt-ready-fallback",
-                    context=self._terminal_logging_context(sectionId),
-                    **self._terminal_context_kwargs(sectionId),
-                )
             spawn_background_task(
                 self.start_reading_from_terminal(sectionId),
                 label="terminal-reader",
@@ -146,38 +118,6 @@ class Terminals:
             )
             return True
         return False
-
-    async def _terminal_prompt_ready_fallback(self, section_id: str) -> None:
-        """Fail-safe for prompt readiness.
-
-        When clearTerminalBeforeMarkingAsReady=True, we normally wait until the PTY
-        echoes our clear marker before marking readiness. If the marker never
-        appears (rare, but observed in E2E), waiting clients would hang forever.
-        """
-
-        await asyncio.sleep(TERMINAL_PROMPT_READY_FALLBACK_SECONDS)
-        info = self.PTY_PIDS.get(section_id)
-        if info is None:
-            return
-        prompt_ready = info.get("terminalPromptIsReady")
-        if not isinstance(prompt_ready, asyncio.Event):
-            return
-        if prompt_ready.is_set():
-            return
-
-        # Prevent connect() from sending a duplicate ready message once we set the
-        # event. (Duplicate ready messages would render in xterm after AttachAddon.)
-        for ws_id in list(self.section_to_socket_ids.get(section_id, set())):
-            socket_info = self.sockets.get(ws_id)
-            if socket_info is not None:
-                socket_info["sentReadyMsg"] = True
-
-        prompt_ready.set()
-        await self.send_output_to_sectionId(
-            section_id,
-            C.SETTA_TERMINAL_READY,
-            setSentReadyMsg=True,
-        )
 
     async def connect(self, websocket: WebSocket, sectionId: str, id: str) -> bool:
         try:
@@ -220,68 +160,19 @@ class Terminals:
 
     async def delete_terminal(self, sectionId):
         logger.debug("delete terminal %s", sectionId)
-        pty_info = self.PTY_PIDS.get(sectionId)
-        if pty_info is not None:
-            process = pty_info.get("process")
-            pid = pty_info.get("pid")
-            if process is not None:
-                try:
-                    await asyncio.to_thread(process.terminate, force=True)
-                except TERMINAL_TERMINATE_EXCEPTIONS as exc:
-                    logger.debug(
-                        "terminal %s terminate failed (already gone): %s",
-                        sectionId,
-                        exc,
-                    )
-                except OSError as exc:
-                    if exc.errno == errno.ESRCH:
-                        logger.debug(
-                            "terminal %s terminate failed (already gone): %s",
-                            sectionId,
-                            exc,
-                        )
-                    else:
-                        logger.exception("terminal %s terminate failed", sectionId)
-                        if isinstance(pid, int) and pid > 0:
-                            await self._force_kill_terminal_pid(sectionId, pid)
-                except Exception:
-                    logger.exception("terminal %s terminate failed", sectionId)
-                    if isinstance(pid, int) and pid > 0:
-                        await self._force_kill_terminal_pid(sectionId, pid)
-
-        # Remove terminal state even if termination fails; the caller requested deletion.
-        self.PTY_PIDS.pop(sectionId, None)
+        if sectionId in self.PTY_PIDS:
+            try:
+                await asyncio.to_thread(
+                    self.PTY_PIDS[sectionId]["process"].terminate, force=True
+                )
+                del self.PTY_PIDS[sectionId]
+            except KeyError:
+                pass
 
         # make copy to avoid set size changing while iterating
         to_disconnect = set(self.section_to_socket_ids[sectionId])
         for id in to_disconnect:
             self.disconnect(sectionId, id)
-
-    async def _force_kill_terminal_pid(self, section_id: str, pid: int) -> None:
-        """Best-effort kill when PTY termination fails for unexpected reasons."""
-
-        def _kill() -> None:
-            try:
-                proc = psutil.Process(pid)
-            except psutil.NoSuchProcess:
-                return
-            try:
-                proc.kill()
-            except psutil.NoSuchProcess:
-                return
-            except psutil.AccessDenied:
-                logger.warning(
-                    "terminal %s kill access denied pid=%s",
-                    section_id,
-                    pid,
-                )
-                return
-            try:
-                proc.wait(timeout=1.0)
-            except (psutil.TimeoutExpired, psutil.NoSuchProcess):
-                return
-
-        await asyncio.to_thread(_kill)
 
     async def delete_terminals(self, sectionIds):
         await asyncio.gather(*(self.delete_terminal(s) for s in sectionIds))
@@ -319,7 +210,9 @@ class Terminals:
                             sectionId, C.SETTA_TERMINAL_READY, setSentReadyMsg=True
                         )
                     continue
-                history.append(output)
+                if not pty_info["wasJustResized"]:
+                    history.append(output)
+                pty_info["wasJustResized"] = False
                 await self.send_output_to_sectionId(sectionId, output)
             except (WebSocketDisconnect, CancelledError, ConnectionClosedOK):
                 break
@@ -352,24 +245,8 @@ class Terminals:
                 if isinstance(json_val, dict):
                     doResize = json_val["messageType"] == C.WS_TERMINAL_RESIZE
                     if doResize:
-                        requested_rows = json_val["rows"]
-                        requested_cols = json_val["cols"]
-                        pty_info["rows"] = requested_rows
-                        pty_info["cols"] = requested_cols
-                        pty_process.setwinsize(requested_rows, requested_cols)
-                        sigwinch_pgid: int | None = None
-                        if not IS_WINDOWS:
-                            try:
-                                sigwinch_pgid = os.tcgetpgrp(pty_process.fd)
-                            except OSError:
-                                sigwinch_pgid = None
-                            try:
-                                if sigwinch_pgid is not None and sigwinch_pgid > 0:
-                                    os.killpg(sigwinch_pgid, signal.SIGWINCH)
-                                else:
-                                    os.kill(pty_process.pid, signal.SIGWINCH)
-                            except OSError:
-                                pass
+                        pty_process.setwinsize(json_val["rows"], json_val["cols"])
+                    pty_info["wasJustResized"] = doResize
                     continue
                 if allow_input and input_data:
                     pty_process.write(input_data)
@@ -424,79 +301,7 @@ class Terminals:
     async def run_command_in_terminal(self, terminal_id, command):
         info = self.PTY_PIDS[terminal_id]
         await info["terminalPromptIsReady"].wait()
-        pty_process = info["process"]
-
-        base_rows: int | None = (
-            info.get("rows") if isinstance(info.get("rows"), int) else None
-        )
-        base_cols: int | None = (
-            info.get("cols") if isinstance(info.get("cols"), int) else None
-        )
-        override_cols: int | None = None
-        if not IS_WINDOWS:
-            if base_rows is None or base_cols is None:
-                try:
-                    winsize = os.get_terminal_size(pty_process.fd)
-                except OSError:
-                    winsize = None
-                if winsize is not None:
-                    base_rows = winsize.lines
-                    base_cols = winsize.columns
-            if (
-                base_rows is not None
-                and base_cols is not None
-                and base_cols > 0
-                and base_cols < RUN_COMMAND_ECHO_COLS
-                and len(command) >= base_cols
-            ):
-                override_cols = RUN_COMMAND_ECHO_COLS
-
-        if override_cols is not None and base_rows is not None:
-            pty_process.setwinsize(base_rows, override_cols)
-            if not IS_WINDOWS:
-                sigwinch_pgid: int | None = None
-                try:
-                    sigwinch_pgid = os.tcgetpgrp(pty_process.fd)
-                except OSError:
-                    sigwinch_pgid = None
-                try:
-                    if sigwinch_pgid is not None and sigwinch_pgid > 0:
-                        os.killpg(sigwinch_pgid, signal.SIGWINCH)
-                    else:
-                        os.kill(pty_process.pid, signal.SIGWINCH)
-                except OSError:
-                    pass
-
-        try:
-            pty_process.write(f"\x15{command}\n")
-        finally:
-            if override_cols is not None:
-                desired_rows = (
-                    info.get("rows") if isinstance(info.get("rows"), int) else base_rows
-                )
-                desired_cols = (
-                    info.get("cols") if isinstance(info.get("cols"), int) else base_cols
-                )
-                if desired_rows is None or desired_cols is None:
-                    return
-
-                pty_process.setwinsize(desired_rows, desired_cols)
-                if not IS_WINDOWS:
-                    sigwinch_restore_pgid: int | None = None
-                    try:
-                        sigwinch_restore_pgid = os.tcgetpgrp(pty_process.fd)
-                    except OSError:
-                        sigwinch_restore_pgid = None
-                    try:
-                        if (
-                            sigwinch_restore_pgid is not None
-                            and sigwinch_restore_pgid > 0
-                        ):
-                            os.killpg(sigwinch_restore_pgid, signal.SIGWINCH)
-                        else:
-                            os.kill(pty_process.pid, signal.SIGWINCH)
-                    except OSError:
-                        pass
+        info["process"].write(f"\x15{command}\n")
         self.set_terminal_start_time(terminal_id)
 
     def kill_processes(self, ids):

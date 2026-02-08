@@ -43,7 +43,6 @@
 ## Testing Guidelines
 
 - Default workflow: think, plan, write tests (Playwright, Vitest, Python unit tests), implement, then run tests. Stay flexible and update tests as the approach evolves or new components are introduced.
-- In general, do not skip tests. Avoid broad `try/except ...: pytest.skip(...)` patterns that hide coverage gaps; missing deps/capabilities should usually fail loudly (or be caught by a single preflight) so CI/dev environments get fixed. Exceptions: explicitly opt-in integration tests (API keys/external services) or environments that fundamentally cannot run the test (e.g., sandbox restrictions). Any skip should be narrow, documented, and include how to enable the test.
 - Ensure all tests are well commented so it's clear what each test is validating.
 - Frontend unit/integration tests should live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts` files.

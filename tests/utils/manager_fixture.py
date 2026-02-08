@@ -4,7 +4,6 @@ from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -36,6 +35,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
+from tests.utils.setta_paths import temporary_setta_paths
 __all__ = [
     "ProjectManagerFixture",
     "SettingsManagerFixture",
@@ -95,10 +95,12 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             path.mkdir(parents=True, exist_ok=True)
 
         async with AsyncExitStack() as stack:
-            stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
-            stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
-            stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
-            stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
+            stack.enter_context(
+                temporary_setta_paths(
+                    workspace_root=root,
+                    setta_files_root=setta_root,
+                )
+            )
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
@@ -113,11 +115,11 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
             lsp_writers = LSPWriters(lsps)
             lsp_readers = LSPReaders(lsps, frontend_sender)
 
-            specific_file_watcher_instance = SpecificFileWatcher()
-            artifacts = Artifacts(frontend_sender, specific_file_watcher_instance, dbe)
-            code_files = CodeFiles(frontend_sender, specific_file_watcher_instance, dbe)
+            specific_file_watcher = SpecificFileWatcher()
+            artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
             json_source = JSONSource(
-                frontend_sender, settings_file, specific_file_watcher_instance, dbe
+                frontend_sender, settings_file, specific_file_watcher, dbe
             )
 
             manager = SessionProjectManager(
@@ -125,7 +127,7 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 frontend_sender=frontend_sender,
                 python_script_sender=python_script_sender,
                 settings_file=settings_file,
-                specific_file_watcher=specific_file_watcher_instance,
+                specific_file_watcher=specific_file_watcher,
                 dbe=dbe,
                 artifacts=artifacts,
                 json_source=json_source,
@@ -149,9 +151,9 @@ async def real_settings_manager() -> AsyncIterator[SettingsManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
-            specific_file_watcher_instance.start()
+            specific_file_watcher.start()
             stack.push_async_callback(
-                _stop_specific_file_watcher, specific_file_watcher_instance
+                _stop_specific_file_watcher, specific_file_watcher
             )
 
             fixture = SettingsManagerFixture(
@@ -190,10 +192,12 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
         _seed_minimal_setta_files(setta_root)
 
         async with AsyncExitStack() as stack:
-            stack.enter_context(patch.object(C, "SETTA_FILES_FOLDER", setta_root))
-            stack.enter_context(patch.object(C, "CODE_FOLDER", code_folder))
-            stack.enter_context(patch.object(C, "ARTIFACTS_FOLDER", artifacts_folder))
-            stack.enter_context(patch.object(C, "DB_BACKUP_FOLDER", backup_folder))
+            stack.enter_context(
+                temporary_setta_paths(
+                    workspace_root=root,
+                    setta_files_root=setta_root,
+                )
+            )
 
             websocket_manager = WebsocketManager()
             frontend_sender = WMHFrontendSender(websocket_manager)
@@ -208,11 +212,11 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
             lsp_writers = LSPWriters(lsps)
             lsp_readers = LSPReaders(lsps, frontend_sender)
 
-            specific_file_watcher_instance = SpecificFileWatcher()
-            artifacts = Artifacts(frontend_sender, specific_file_watcher_instance, dbe)
-            code_files = CodeFiles(frontend_sender, specific_file_watcher_instance, dbe)
+            specific_file_watcher = SpecificFileWatcher()
+            artifacts = Artifacts(frontend_sender, specific_file_watcher, dbe)
+            code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
             json_source = JSONSource(
-                frontend_sender, settings_file, specific_file_watcher_instance, dbe
+                frontend_sender, settings_file, specific_file_watcher, dbe
             )
 
             manager = SessionProjectManager(
@@ -220,7 +224,7 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 frontend_sender=frontend_sender,
                 python_script_sender=python_script_sender,
                 settings_file=settings_file,
-                specific_file_watcher=specific_file_watcher_instance,
+                specific_file_watcher=specific_file_watcher,
                 dbe=dbe,
                 artifacts=artifacts,
                 json_source=json_source,
@@ -244,9 +248,9 @@ async def real_project_manager() -> AsyncIterator[ProjectManagerFixture]:
                 _stop_lsps_and_file_watcher, lsps, lsp_readers, lsp_writers
             )
 
-            specific_file_watcher_instance.start()
+            specific_file_watcher.start()
             stack.push_async_callback(
-                _stop_specific_file_watcher, specific_file_watcher_instance
+                _stop_specific_file_watcher, specific_file_watcher
             )
 
             fixture = ProjectManagerFixture(
@@ -340,7 +344,8 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 state = SettaState()
 """
 
-
+def _populate_project_fixture_files(setta_root: Path) -> None:
+    _seed_minimal_setta_files(setta_root)
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")

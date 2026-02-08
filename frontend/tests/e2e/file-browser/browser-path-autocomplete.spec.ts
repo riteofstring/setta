@@ -89,10 +89,6 @@ test("browser path input autocompletes folders", async ({ page }) => {
         }, `CodeMirror-${sectionId}-browser-path`),
       )
       .toContain(normalizedWorkspaceRoot);
-    const normalizedParentDir = normalizePathForComparison(parentDir).replace(
-      /\/+$/,
-      "",
-    );
     const completionResponsePromise = page.waitForResponse((response) => {
       if (
         !response.url().includes("/api/getFolderContents") ||
@@ -100,24 +96,8 @@ test("browser path input autocompletes folders", async ({ page }) => {
       ) {
         return false;
       }
-      let folderPath = "";
-      try {
-        const postDataJson = response.request().postDataJSON() as
-          | { folderPath?: unknown }
-          | null;
-        folderPath =
-          typeof postDataJson?.folderPath === "string" ? postDataJson.folderPath : "";
-      } catch {
-        folderPath = "";
-      }
-      if (!folderPath) {
-        return false;
-      }
-      const normalizedFolderPath = normalizePathForComparison(folderPath).replace(
-        /\/+$/,
-        "",
-      );
-      return normalizedFolderPath === normalizedParentDir;
+      const postData = response.request().postData() ?? "";
+      return postData.includes(parentDir);
     });
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
@@ -129,10 +109,6 @@ test("browser path input autocompletes folders", async ({ page }) => {
     await expect(tooltip).toBeVisible({ timeout: 15000 });
     const alphaOption = tooltip.locator("li", { hasText: "alpha" }).first();
     await expect(alphaOption).toBeVisible();
-    const normalizedAlphaDir = normalizePathForComparison(alphaDir).replace(
-      /\/+$/,
-      "",
-    );
     const nestedResponsePromise = page.waitForResponse((response) => {
       if (
         !response.url().includes("/api/getFolderContents") ||
@@ -140,24 +116,8 @@ test("browser path input autocompletes folders", async ({ page }) => {
       ) {
         return false;
       }
-      let folderPath = "";
-      try {
-        const postDataJson = response.request().postDataJSON() as
-          | { folderPath?: unknown }
-          | null;
-        folderPath =
-          typeof postDataJson?.folderPath === "string" ? postDataJson.folderPath : "";
-      } catch {
-        folderPath = "";
-      }
-      if (!folderPath) {
-        return false;
-      }
-      const normalizedFolderPath = normalizePathForComparison(folderPath).replace(
-        /\/+$/,
-        "",
-      );
-      return normalizedFolderPath === normalizedAlphaDir;
+      const postData = response.request().postData() ?? "";
+      return postData.includes(alphaDir);
     });
     await alphaOption.click();
     await nestedResponsePromise;

@@ -17,6 +17,7 @@ from setta.sessions.constants import (
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.network import build_bootstrap_urls
+from setta.utils.paths import clear_setta_paths_cache, get_setta_paths
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -164,12 +165,13 @@ def start_backend(
 
     _ensure_frontend_bundle_available()
 
+    clear_setta_paths_cache()
     resolved_host = host or C.DEFAULT_HOST
     resolved_port = port or C.DEFAULT_PORT
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    workspace_root = Path.cwd()
+    workspace_root = get_setta_paths().workspace_root
     sessions_root = resolve_sessions_root(workspace_root)
     session_registry = SessionRegistry(sessions_root=sessions_root)
     session = session_registry.create_session(

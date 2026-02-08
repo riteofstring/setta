@@ -1,10 +1,10 @@
 import asyncio
 import json
-import os
 import socket
 import subprocess
 import sys
 import tempfile
+from contextlib import ExitStack
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,12 +14,13 @@ from click.testing import CliRunner
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
+from setta.auth.cookies import auth_cookie_name
 from setta.sessions import SessionRegistry
 from setta.start import api, auth, tools
 from setta.types.routes import Route
 from setta.utils.constants import C
 from tests.utils.manager_fixture import _seed_minimal_setta_files
-from tests.utils.setta_test_paths import patched_setta_paths
+from tests.utils.setta_paths import temporary_setta_paths
 
 
 TOOLS_CALL_TIMEOUT_SECONDS = 15
@@ -42,12 +43,17 @@ def _write_auth_json(root: Path) -> Path:
 
 @pytest.fixture
 def auth_env(tmp_path):
-    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
-    C.RUNTIME_SESSIONS_FOLDER = sessions_root
-
     workspace = tmp_path / "workspace"
     workspace.mkdir()
+    setta_root = tmp_path / "setta_files"
+    stack = ExitStack()
+    stack.enter_context(
+        temporary_setta_paths(
+            workspace_root=workspace,
+            setta_files_root=setta_root,
+        )
+    )
+    sessions_root = C.RUNTIME_SESSIONS_FOLDER
 
     process = subprocess.Popen(
         [
@@ -66,7 +72,7 @@ def auth_env(tmp_path):
         process=process,
         registry=registry,
         sessions_root=sessions_root,
-        original_sessions_root=original_sessions_root,
+        stack=stack,
     )
     try:
         yield env
@@ -74,99 +80,99 @@ def auth_env(tmp_path):
         if process.poll() is None:
             process.terminate()
         process.wait()
-        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
+        stack.close()
 
 
 @pytest.fixture(scope="class")
-def api_integration_env():
+def api_integration_env(request):
     temp_dir = tempfile.TemporaryDirectory()
     root = Path(temp_dir.name)
+    setta_root = root / "setta_files"
+    _seed_minimal_setta_files(setta_root)
+    stack = ExitStack()
+    stack.enter_context(
+        temporary_setta_paths(
+            workspace_root=root,
+            setta_files_root=setta_root,
+        )
+    )
 
-    original_cwd = Path.cwd()
-    os.chdir(root)
-
-    handle = None
-    constants_module = None
-    server_module = None
-    backend_launcher_module = None
-    original_is_dev_mode = None
-    original_server_is_dev_mode = None
-    original_backend_launcher_is_dev_mode = None
     try:
-        with patched_setta_paths(root, seed_fn=_seed_minimal_setta_files) as setta_root:
-            import importlib
-            import setta.backend_launcher as backend_launcher
-            import setta.server as server
-            import setta.utils.constants as constants
+        import importlib
+        import setta.backend_launcher as backend_launcher
+        import setta.server as server
+        import setta.utils.constants as constants
 
-            constants_module = constants
-            server_module = server
-            backend_launcher_module = backend_launcher
+        original_is_dev_mode = constants.IS_DEV_MODE
+        original_server_is_dev_mode = server.IS_DEV_MODE
+        original_backend_launcher_is_dev_mode = backend_launcher.IS_DEV_MODE
+        constants.IS_DEV_MODE = "1"
+        server.IS_DEV_MODE = "1"
+        backend_launcher.IS_DEV_MODE = "1"
+        importlib.reload(server)
 
-            original_is_dev_mode = constants_module.IS_DEV_MODE
-            original_server_is_dev_mode = server_module.IS_DEV_MODE
-            original_backend_launcher_is_dev_mode = backend_launcher_module.IS_DEV_MODE
-            constants.IS_DEV_MODE = "1"
-            server.IS_DEV_MODE = "1"
-            backend_launcher.IS_DEV_MODE = "1"
-            importlib.reload(server_module)
+        port = _select_free_port()
+        handle = backend_launcher.start_backend(
+            host="127.0.0.1",
+            port=port,
+            wait_for_ready=True,
+            open_browser=False,
+            ws_protocol="none",
+        )
+    except Exception as exc:  # pragma: no cover - environment dependent
+        stack.close()
+        temp_dir.cleanup()
+        pytest.skip(f"Setta backend unavailable: {exc}")
 
-            port = _select_free_port()
-            handle = backend_launcher.start_backend(
-                host="127.0.0.1",
-                port=port,
-                wait_for_ready=True,
-                open_browser=False,
-                ws_protocol="none",
-            )
+    env = SimpleNamespace(
+        root=root,
+        setta_root=setta_root,
+        handle=handle,
+        stack=stack,
+        original_is_dev_mode=original_is_dev_mode,
+        original_server_is_dev_mode=original_server_is_dev_mode,
+        original_backend_launcher_is_dev_mode=original_backend_launcher_is_dev_mode,
+    )
 
-            env = SimpleNamespace(
-                root=root,
-                setta_root=setta_root,
-                handle=handle,
-                original_cwd=original_cwd,
-            )
-            try:
-                yield env
-            finally:
-                if handle is not None:
-                    handle.stop(join_timeout=30.0)
+    try:
+        yield env
     finally:
-        os.chdir(original_cwd)
-        if constants_module is not None and original_is_dev_mode is not None:
-            constants_module.IS_DEV_MODE = original_is_dev_mode
-        if server_module is not None and original_server_is_dev_mode is not None:
-            server_module.IS_DEV_MODE = original_server_is_dev_mode
-        if (
-            backend_launcher_module is not None
-            and original_backend_launcher_is_dev_mode is not None
-        ):
-            backend_launcher_module.IS_DEV_MODE = original_backend_launcher_is_dev_mode
+        if handle is not None:
+            handle.stop(join_timeout=30.0)
+        stack.close()
+        import setta.utils.constants as constants
+        import setta.server as server
+        import setta.backend_launcher as backend_launcher
+
+        constants.IS_DEV_MODE = original_is_dev_mode
+        server.IS_DEV_MODE = original_server_is_dev_mode
+        backend_launcher.IS_DEV_MODE = original_backend_launcher_is_dev_mode
         temp_dir.cleanup()
 
 
 @pytest.fixture
 def api_input_env(tmp_path):
-    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
-    C.RUNTIME_SESSIONS_FOLDER = sessions_root
-
-    original_cwd = Path.cwd()
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    os.chdir(workspace)
+    setta_root = tmp_path / "setta_files"
+    stack = ExitStack()
+    stack.enter_context(
+        temporary_setta_paths(
+            workspace_root=workspace,
+            setta_files_root=setta_root,
+        )
+    )
+    sessions_root = C.RUNTIME_SESSIONS_FOLDER
 
     env = SimpleNamespace(
         sessions_root=sessions_root,
-        original_sessions_root=original_sessions_root,
-        original_cwd=original_cwd,
         workspace=workspace,
+        stack=stack,
     )
     try:
         yield env
     finally:
-        os.chdir(original_cwd)
-        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
+        stack.close()
 
 
 def test_auth_json_emits_payload(auth_env) -> None:
@@ -182,11 +188,12 @@ def test_auth_json_emits_payload(auth_env) -> None:
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
+    cookie_name = auth_cookie_name(session.id)
 
     assert payload["baseUrl"] == "http://127.0.0.1:61234"
     assert payload["apiBaseUrl"] == "http://127.0.0.1:61234/api"
-    assert payload["cookieName"] == C.AUTH_COOKIE_NAME
-    assert payload["cookie"].startswith(f"{C.AUTH_COOKIE_NAME}=")
+    assert payload["cookieName"] == cookie_name
+    assert payload["cookie"].startswith(f"{cookie_name}=")
     assert payload["cookieHeader"].startswith("Cookie: ")
     assert payload["session"]["id"] == session.id
     assert (

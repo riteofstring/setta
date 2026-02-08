@@ -22,10 +22,42 @@ from setta.server_state import SettaFastAPIState
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.types.artifact import FileArtifact
-from setta.utils.constants import C, CWD
-from tests.utils.manager_fixture import _seed_minimal_setta_files
+from setta.utils.constants import C
+from setta.utils.paths import get_setta_paths
+from tests.utils.manager_fixture import _populate_project_fixture_files
 from tests.utils.runtime_context import runtime_context
-from tests.utils.setta_test_paths import patched_setta_paths
+from tests.utils.setta_paths import temporary_setta_paths
+
+
+@contextmanager
+def _patched_setta_paths(tmpdir: str) -> Path:
+    root = Path(tmpdir)
+    setta_root = root / "setta_files"
+    code_folder = setta_root / "code"
+    artifacts_folder = setta_root / "artifacts"
+    backup_folder = setta_root / "backups"
+    run_folder = setta_root / "run"
+    run_sessions_folder = run_folder / "sessions"
+    run_logs_folder = run_folder / "logs"
+    share_deployments_folder = setta_root / "share_deployments"
+
+    for path in (
+        code_folder,
+        artifacts_folder,
+        backup_folder,
+        run_sessions_folder,
+        run_logs_folder,
+        share_deployments_folder,
+    ):
+        path.mkdir(parents=True, exist_ok=True)
+
+    _populate_project_fixture_files(setta_root)
+
+    with temporary_setta_paths(
+        workspace_root=root,
+        setta_files_root=setta_root,
+    ):
+        yield setta_root
 
 
 @contextmanager
@@ -95,7 +127,7 @@ class TestAttachmentRoutes:
 
     async def test_get_attachment_download_url_blocks_invalid_path(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -113,15 +145,47 @@ class TestAttachmentRoutes:
                     finally:
                         await _shutdown_state(state)
 
-    async def test_get_attachment_download_url_blocks_outside_artifacts(self) -> None:
+    async def test_get_attachment_download_url_supports_state_relative_ids(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
                     state = await _build_state()
                     try:
-                        with TemporaryDirectory(dir=CWD) as outside_dir:
+                        artifact_rel = Path("artifacts") / "notes.txt"
+                        artifact_path = (
+                            Path(C.ARTIFACTS_FOLDER) / artifact_rel.name
+                        ).resolve()
+                        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+                        artifact_path.write_text("hello", encoding="utf-8")
+                        request = GetAttachmentDownloadUrlRequest(
+                            artifactId=artifact_rel.as_posix()
+                        )
+                        with runtime_context(state) as runtime_ctx:
+                            response = await route_get_attachment_download_url(
+                                request, runtime_ctx
+                            )
+                        token = _extract_token(response.url)
+                        with runtime_context(state) as runtime_ctx:
+                            downloaded = await route_download_attachment(
+                                token, runtime_ctx
+                            )
+                        assert downloaded.body == b"hello"
+                    finally:
+                        await _shutdown_state(state)
+
+    async def test_get_attachment_download_url_blocks_outside_artifacts(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            with _patched_setta_paths(tmpdir):
+                root = Path(tmpdir)
+                session_id, sessions_root = _create_session(root)
+                with _set_session_env(session_id, sessions_root):
+                    state = await _build_state()
+                    try:
+                        with TemporaryDirectory(
+                            dir=get_setta_paths().workspace_root
+                        ) as outside_dir:
                             outside_path = Path(outside_dir) / "outside.txt"
                             outside_path.write_text("secret", encoding="utf-8")
                             request = GetAttachmentDownloadUrlRequest(
@@ -138,7 +202,7 @@ class TestAttachmentRoutes:
 
     async def test_download_attachment_returns_404_when_missing(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -167,7 +231,7 @@ class TestAttachmentRoutes:
 
     async def test_download_attachment_returns_403_when_token_expired(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -196,7 +260,7 @@ class TestAttachmentRoutes:
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -219,7 +283,7 @@ class TestAttachmentRoutes:
 
     async def test_download_attachment_validates_project_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -247,7 +311,7 @@ class TestAttachmentRoutes:
 
     async def test_download_attachment_handles_unicode_filename(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -284,7 +348,7 @@ class TestAttachmentRoutes:
 
     async def test_get_attachment_download_urls_skips_invalid_entries(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -319,7 +383,7 @@ class TestAttachmentRoutes:
 
     async def test_update_artifacts_blocks_disallowed_mime(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):
@@ -351,7 +415,7 @@ class TestAttachmentRoutes:
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
-            with patched_setta_paths(Path(tmpdir), seed_fn=_seed_minimal_setta_files):
+            with _patched_setta_paths(tmpdir):
                 root = Path(tmpdir)
                 session_id, sessions_root = _create_session(root)
                 with _set_session_env(session_id, sessions_root):

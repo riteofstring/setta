@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { useMisc } from "state/definitions";
+import { FitAddon } from "xterm-addon-fit";
 
 export const terminalTheme = {
   foreground: "#B8C2D5",
@@ -24,6 +26,16 @@ export const terminalTheme = {
   brightWhite: "#f9f8f5",
 };
 
+function useFitAddon() {
+  const fitAddon = useRef(null);
+
+  if (!fitAddon.current) {
+    fitAddon.current = new FitAddon();
+  }
+
+  return fitAddon.current;
+}
+
 export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
   const renderDisposable = terminal.onRender(() => {
     setHasScrollbar(terminal.buffer.active.baseY > 0);
@@ -31,7 +43,7 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
 
   // Even though react flow calls preventDefault and stopPropagation when in pan scrolling mode,
   // xterm still picks up the scrolling. So this sets scrollSensitivity to a small number to disable scrolling when already moving via trackpad.
-  const unsub = useMisc.subscribe(
+  const unsubMisc = useMisc.subscribe(
     (x) => x.isPanScrolling,
     (isPanScrolling) => {
       if (isPanScrolling) {
@@ -45,6 +57,20 @@ export function scrollSensitivityUpdater(terminal, setHasScrollbar) {
 
   return () => {
     renderDisposable.dispose();
-    unsub();
+    unsubMisc();
   };
+}
+
+export function terminalCleanup(ws, terminal) {
+  if (ws.readyState === 1) {
+    ws.close();
+    terminal.dispose();
+  } else {
+    ws.addEventListener("open", () => {
+      ws.close();
+      // Causes Uncaught TypeError: Cannot read properties of undefined (reading 'dimensions')
+      // https://github.com/xtermjs/xterm.js/issues/4775
+      terminal.dispose();
+    });
+  }
 }
