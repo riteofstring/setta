@@ -14,6 +14,7 @@ class SettaToolType(str, Enum):
 FollowIdType = Literal["section", "codeObj"]
 ToolArgumentPreviewIdType = Literal["section", "codeObj"]
 ToolAccessType = Literal["read", "write", "structural"]
+ToolResultFilterType = Literal["project_state_summary", "lsp_diagnostics"]
 
 
 class ToolArgumentPreviewKind(str, Enum):
@@ -32,6 +33,7 @@ TOOL_ARGUMENT_PREVIEW_ATTR = "_setta_tool_argument_preview"
 TOOL_SEARCH_TAGS_ATTR = "_setta_tool_search_tags"
 TOOL_SEARCH_CATEGORY_ATTR = "_setta_tool_search_category"
 TOOL_ACCESS_ATTR = "_setta_tool_access"
+TOOL_RESULT_FILTER_ATTR = "_setta_tool_result_filter"
 
 
 def attach_ai_follow_tool_result(
@@ -120,6 +122,7 @@ class SettaToolAnnotations(ToolAnnotations):
     accessType: ToolAccessType = "structural"
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     defaultTargetSingletonSection: str | None = None
+    resultFilter: ToolResultFilterType | None = None
     aiFollowToolResult: AIFollowToolResultMetadata | None = None
     aiFollowToolArguments: AIFollowToolArgumentsMetadata | None = None
     toolArgumentPreview: ToolArgumentPreviewMetadata | None = None
@@ -144,3 +147,16 @@ def attach_tool_access(
 
 def get_tool_access(fn: Callable[..., Any]) -> ToolAccessMetadata | None:
     return getattr(fn, TOOL_ACCESS_ATTR, None)
+
+
+def attach_tool_result_filter(
+    fn: Callable[..., Any],
+    result_filter: ToolResultFilterType | None,
+) -> None:
+    if result_filter is None:
+        return
+    setattr(fn, TOOL_RESULT_FILTER_ATTR, result_filter)
+
+
+def get_tool_result_filter(fn: Callable[..., Any]) -> ToolResultFilterType | None:
+    return getattr(fn, TOOL_RESULT_FILTER_ATTR, None)

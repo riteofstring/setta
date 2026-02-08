@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.id import ID
 from setta.types.routes import Route
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
@@ -27,6 +28,14 @@ class _MCPToolsCallSession:
 class MCPToolCallRequest(BaseModel):
     tool: str
     arguments: Any | None = None
+    agenticContext: "MCPToolCallAgenticContext | None" = None
+
+
+class MCPToolCallAgenticContext(BaseModel):
+    projectConfigId: ID
+    chatId: ID | None = None
+    sectionId: ID | None = None
+    shareSessionId: str | None = None
 
 
 @router.post(Route.TOOLS_CALL)
@@ -62,9 +71,10 @@ async def route_call_mcp_tool(
         # `SettaFastMCP` scope enforcement relies on MCP request context. The
         # `/__setta__/tools/call` route isn't an MCP transport, so we synthesize a
         # request context from the HTTP request to avoid unscoped tool execution.
+        meta = payload.agenticContext
         request_context = RequestContext(
             request_id=str(uuid4()),
-            meta=None,
+            meta=meta,
             session=_MCPToolsCallSession(),
             lifespan_context=object(),
             request=request,

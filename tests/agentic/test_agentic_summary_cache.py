@@ -5,11 +5,10 @@ import setta.agentic.agentic_summary_cache as summary_cache
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
-    get_cached_agentic_summary,
+    get_cached_agentic_summary_from_entries,
     load_cached_agentic_summary_texts_for_chat_section,
     read_agentic_summary_cache,
     write_cached_agentic_summaries,
-    write_cached_agentic_summary,
 )
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -48,17 +47,27 @@ def test_agentic_summary_cache_read_write_roundtrip() -> None:
             variant_id="variant-1",
             content_hash="hash-1",
         )
-        write_cached_agentic_summary(
+        write_cached_agentic_summaries(
             dbe,
-            cache_key=cache_key,
-            summary="  - hello  ",
-            metadata={"x": 1},
+            updates={
+                cache_key: {
+                    "summary": "  - hello  ",
+                    "createdAtMs": 0,
+                    "metadata": {"x": 1},
+                }
+            },
         )
-        assert get_cached_agentic_summary(dbe, cache_key=cache_key) == "- hello"
+        entries = read_agentic_summary_cache(dbe)["entries"]
+        assert isinstance(entries, dict)
+        assert get_cached_agentic_summary_from_entries(entries, cache_key=cache_key) == "- hello"
 
-        # Blank summaries are ignored.
-        write_cached_agentic_summary(dbe, cache_key=cache_key, summary="   ")
-        assert get_cached_agentic_summary(dbe, cache_key=cache_key) == "- hello"
+        write_cached_agentic_summaries(
+            dbe,
+            updates={cache_key: {"summary": "   ", "createdAtMs": 0}},
+        )
+        entries = read_agentic_summary_cache(dbe)["entries"]
+        assert isinstance(entries, dict)
+        assert get_cached_agentic_summary_from_entries(entries, cache_key=cache_key) is None
 
 
 def test_load_cached_agentic_summary_texts_for_chat_section_returns_summary_entries() -> None:
@@ -100,7 +109,10 @@ def test_load_cached_agentic_summary_texts_for_chat_section_returns_summary_entr
             variant_id=variant_id,
             content_hash=source.content_hash,
         )
-        write_cached_agentic_summary(dbe, cache_key=cache_key, summary="- cached")
+        write_cached_agentic_summaries(
+            dbe,
+            updates={cache_key: {"summary": "- cached", "createdAtMs": 0}},
+        )
 
         summaries = load_cached_agentic_summary_texts_for_chat_section(
             dbe,

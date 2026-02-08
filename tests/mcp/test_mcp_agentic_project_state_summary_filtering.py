@@ -249,7 +249,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_meta(tmp_path)
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-    assert manager.summary_calls == 1
+    assert manager.summary_calls == 0
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
@@ -308,7 +308,7 @@ async def test_get_latest_project_state_summary_filtered_by_scope_headers(tmp_pa
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-    assert manager.summary_calls == 1
+    assert manager.summary_calls == 0
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
@@ -370,7 +370,7 @@ async def test_get_latest_project_state_summary_allows_temporary_agentic_context
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-    assert manager.summary_calls == 1
+    assert manager.summary_calls == 0
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
@@ -493,7 +493,7 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
     result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-    assert manager.summary_calls == 1
+    assert manager.summary_calls == 0
 
     temporary_to_canonical, _ = dbe.read_temporary_id_map()
     canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)

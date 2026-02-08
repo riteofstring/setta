@@ -5,7 +5,7 @@ import pytest
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
-    write_cached_agentic_summary,
+    write_cached_agentic_summaries,
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import (
@@ -110,11 +110,9 @@ async def test_route_get_agentic_summary_cache_status() -> None:
                     variant_id=variant_id,
                     content_hash=summary_source.content_hash,
                 )
-                write_cached_agentic_summary(
+                write_cached_agentic_summaries(
                     project_fixture.dbe,
-                    cache_key=cache_key,
-                    summary="- cached",
-                    metadata=None,
+                    updates={cache_key: {"summary": "- cached", "createdAtMs": 0}},
                 )
                 cached_status = await route_get_agentic_summary_cache_status(
                     GetAgenticSummaryCacheStatusRequest(

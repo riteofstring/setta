@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from setta.agentic.agentic_scope import resolve_context_edges
 from setta.types.agentic_edges import AgenticEdgeContextMode
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
-from setta.types.helpers_lvl3 import build_project_state_summary
+from setta.types.helpers_lvl3 import build_project_state_summary_section_index
 from setta.types.id import ID
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
@@ -59,33 +59,43 @@ def build_agentic_context_payload(
     if not context_edges:
         return AgenticContextPayload(text="", section_ids=[])
 
-    needs_project_summary = False
+    resolved_summary_by_section: dict[ID, object] = summary_by_section or {}
     if summary_by_section is None:
+        needed_section_ids: set[ID] = set()
         for section_id, context_mode in context_edges:
             if section_id not in project_state.sections:
                 continue
             if context_mode == AgenticEdgeContextMode.reference_only:
                 continue
-            cached = (
-                summary_text_by_section_id.get(section_id)
-                if summary_text_by_section_id is not None
-                else None
-            )
-            if (
-                context_mode == AgenticEdgeContextMode.summary
-                and isinstance(cached, str)
-                and cached.strip()
+            if context_mode == AgenticEdgeContextMode.summary:
+                cached = (
+                    summary_text_by_section_id.get(section_id)
+                    if summary_text_by_section_id is not None
+                    else None
+                )
+                if isinstance(cached, str) and cached.strip():
+                    continue
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if isinstance(section_impl, (CallableSectionImpl, DrawSectionImpl)):
+                needed_section_ids.add(section_id)
+            elif not isinstance(
+                section_impl,
+                (
+                    TextBlockSectionImpl,
+                    ImageSectionImpl,
+                    BaseCodeSectionImpl,
+                    ChartSectionImpl,
+                    PromptSectionImpl,
+                    SocialSectionImpl,
+                    BrowserSectionImpl,
+                ),
             ):
-                continue
-            needs_project_summary = True
-            break
-
-    resolved_summary_by_section: dict[ID, object] = summary_by_section or {}
-    if needs_project_summary:
-        summary = build_project_state_summary(project_state)
-        resolved_summary_by_section = {
-            entry.sectionId: entry for entry in summary.sections
-        }
+                needed_section_ids.add(section_id)
+        if needed_section_ids:
+            resolved_summary_by_section = build_project_state_summary_section_index(
+                project_state,
+                needed_section_ids,
+            )
 
     blocks: list[str] = []
     section_ids: list[ID] = []
@@ -288,10 +298,10 @@ def build_agentic_section_summary_source(
 
     resolved_summary_by_section = summary_by_section
     if resolved_summary_by_section is None:
-        summary = build_project_state_summary(project_state)
-        resolved_summary_by_section = {
-            entry.sectionId: entry for entry in summary.sections
-        }
+        resolved_summary_by_section = build_project_state_summary_section_index(
+            project_state,
+            {section_id},
+        )
     raw_text = _extract_section_text(
         project_state, resolved_summary_by_section, section_id
     )

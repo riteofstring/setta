@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 from setta.agentic.agentic_context import build_agentic_section_summary_source
 from setta.agentic.agentic_summary_cache import (
     build_agentic_summary_cache_key,
-    write_cached_agentic_summary,
+    write_cached_agentic_summaries,
 )
 from setta.agentic.agentic_summary_status import (
     build_agentic_summary_cache_status_for_chat_section,
@@ -155,11 +155,9 @@ def test_agentic_summary_cache_status_reports_cached_and_empty_sources() -> None
             variant_id=variant_id,
             content_hash=source.content_hash,
         )
-        write_cached_agentic_summary(
+        write_cached_agentic_summaries(
             dbe,
-            cache_key=cache_key,
-            summary="- cached",
-            metadata=None,
+            updates={cache_key: {"summary": "- cached", "createdAtMs": 0}},
         )
 
         status = build_agentic_summary_cache_status_for_chat_section(

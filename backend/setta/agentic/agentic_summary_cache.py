@@ -1,4 +1,3 @@
-import time
 from typing import Any
 
 from setta.agentic.agentic_context import build_agentic_section_summary_source
@@ -47,18 +46,6 @@ def get_cached_agentic_summary_from_entries(
     if isinstance(summary, str) and summary.strip():
         return summary.strip()
     return None
-
-
-def get_cached_agentic_summary(
-    dbe: DBE,
-    *,
-    cache_key: str,
-) -> str | None:
-    payload = read_agentic_summary_cache(dbe)
-    entries = payload.get("entries")
-    if not isinstance(entries, dict):
-        return None
-    return get_cached_agentic_summary_from_entries(entries, cache_key=cache_key)
 
 
 def _agentic_summary_entry_timestamp_ms(entry: Any) -> int:
@@ -137,25 +124,6 @@ def write_cached_agentic_summaries(
         dbe.agentic_summary_cache,
         {"version": AGENTIC_SUMMARY_CACHE_VERSION, "entries": pruned},
     )
-
-
-def write_cached_agentic_summary(
-    dbe: DBE,
-    *,
-    cache_key: str,
-    summary: str,
-    metadata: dict[str, Any] | None = None,
-) -> None:
-    normalized = summary.strip()
-    if not normalized:
-        return
-    entry: dict[str, Any] = {
-        "summary": normalized,
-        "createdAtMs": int(time.time() * 1000),
-    }
-    if metadata:
-        entry["metadata"] = dict(metadata)
-    write_cached_agentic_summaries(dbe, updates={cache_key: entry})
 
 
 def load_cached_agentic_summary_texts_for_chat_section(

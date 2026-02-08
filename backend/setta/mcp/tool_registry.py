@@ -16,6 +16,7 @@ from setta.mcp.tool_metadata import (
     get_ai_follow_tool_result,
     get_tool_access,
     get_tool_argument_preview,
+    get_tool_result_filter,
     get_tool_search_category,
     get_tool_search_tags,
 )
@@ -165,6 +166,7 @@ def _build_tool_annotations(
     ai_follow_tool_result = get_ai_follow_tool_result(fn)
     tool_argument_preview = get_tool_argument_preview(fn)
     tool_access = get_tool_access(fn)
+    result_filter = get_tool_result_filter(fn)
     search_tags, search_category = _build_tool_search_metadata(
         fn.__name__,
         get_tool_search_tags(fn),
@@ -185,6 +187,7 @@ def _build_tool_annotations(
             accessType=access_type,
             idPathsByType=id_paths_by_type,
             defaultTargetSingletonSection=default_target_singleton_section,
+            resultFilter=result_filter,
             aiFollowToolResult=ai_follow_tool_result,
             aiFollowToolArguments=ai_follow_tool_arguments,
             toolArgumentPreview=tool_argument_preview,

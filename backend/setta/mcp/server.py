@@ -63,6 +63,7 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
+from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_registry import register_setta_tool
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
@@ -71,6 +72,7 @@ from setta.mcp.utils import (
     convert_temporary_ids_to_canonical,
 )
 from setta.types.helpers_lvl3 import (
+    build_project_state_summary,
     convert_backend_to_single_config,
     filter_lsp_diagnostics_payload,
     filter_project_state_summary,
@@ -90,7 +92,7 @@ class _CachedAgenticScope:
     project_state_revision: int
     project_state_single: object
     scope: AgenticScope
-    code_obj_id_to_section_ids: dict[ID, set[ID]]
+    code_obj_id_to_section_ids: dict[ID, set[ID]] | None = None
 
 
 def _parse_meta_id(value: Any) -> ID | None:
@@ -742,6 +744,12 @@ class SettaFastMCP(FastMCP):
         session = self._resolve_agentic_session(ctx)
         if session is None:
             raise ValueError("Unable to resolve MCP session for agentic context.")
+        try:
+            weakref.ref(session)
+        except TypeError as exc:
+            raise TypeError(
+                "MCP session is not weakrefable; provide agentic context via MCP meta or request headers instead."
+            ) from exc
         self._agentic_context_by_session[session] = context
 
     def _resolve_agentic_context(self, ctx: Context) -> AgenticContext | None:
@@ -854,12 +862,14 @@ class SettaFastMCP(FastMCP):
                         agentic_context=None,
                         missing_edges=[],
                     )
+                    map_size_before = len(self.canonical_to_temporary)
                     result = convert_canonical_ids_to_temporary(
                         result,
                         self.canonical_to_temporary,
                         self.temporary_to_canonical,
                     )
-                    self.dbe.write_temporary_id_map(self.canonical_to_temporary)
+                    if len(self.canonical_to_temporary) != map_size_before:
+                        self.dbe.write_temporary_id_map(self.canonical_to_temporary)
                     return result
             kwargs = convert_temporary_ids_to_canonical(
                 kwargs, self.temporary_to_canonical
@@ -867,6 +877,11 @@ class SettaFastMCP(FastMCP):
             scope = None
             project_state = None
             code_obj_id_to_section_ids = None
+            scope_cache = None
+            cache_key = None
+            session = None
+            project_state_revision = None
+            annotations = None
             if tool_name != "set_agentic_context" and agentic_context is not None:
                 share_session_id = (
                     self._resolve_share_session_id(ctx)
@@ -918,14 +933,11 @@ class SettaFastMCP(FastMCP):
                         scope = resolve_agentic_scope(
                             project_state, agentic_context.section_id
                         )
-                        code_obj_id_to_section_ids = (
-                            build_code_obj_id_to_section_ids_index(project_state)
-                        )
                         scope_cache[cache_key] = _CachedAgenticScope(
                             project_state_revision=project_state_revision,
                             project_state_single=project_state,
                             scope=scope,
-                            code_obj_id_to_section_ids=code_obj_id_to_section_ids,
+                            code_obj_id_to_section_ids=None,
                         )
                         if len(scope_cache) > 8:
                             scope_cache.clear()
@@ -936,9 +948,6 @@ class SettaFastMCP(FastMCP):
                     )
                     scope = resolve_agentic_scope(
                         project_state, agentic_context.section_id
-                    )
-                    code_obj_id_to_section_ids = build_code_obj_id_to_section_ids_index(
-                        project_state
                     )
                 logger.debug(
                     "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
@@ -952,6 +961,43 @@ class SettaFastMCP(FastMCP):
                 )
                 tool = self._tool_manager.get_tool(tool_name)
                 annotations = tool.annotations if tool else None
+                if (
+                    code_obj_id_to_section_ids is None
+                    and annotations is not None
+                    and project_state is not None
+                ):
+                    id_paths_by_type = dict(
+                        getattr(annotations, "idPathsByType", {}) or {}
+                    )
+                    if id_paths_by_type.get("codeObj"):
+                        ids_by_type, _ = collect_ai_follow_ids_from_paths(
+                            kwargs,
+                            id_paths_by_type,
+                            allow_dict_keys=True,
+                        )
+                        code_obj_ids = set(ids_by_type.get("codeObj", set()))
+                        if self.temporary_to_canonical:
+                            code_obj_ids = {
+                                self.temporary_to_canonical.get(entry, entry)
+                                for entry in code_obj_ids
+                            }
+                        if code_obj_ids:
+                            code_obj_id_to_section_ids = (
+                                build_code_obj_id_to_section_ids_index(project_state)
+                            )
+                            if (
+                                session is not None
+                                and scope_cache is not None
+                                and cache_key is not None
+                                and project_state_revision is not None
+                                and scope is not None
+                            ):
+                                scope_cache[cache_key] = _CachedAgenticScope(
+                                    project_state_revision=project_state_revision,
+                                    project_state_single=project_state,
+                                    scope=scope,
+                                    code_obj_id_to_section_ids=code_obj_id_to_section_ids,
+                                )
                 scope_check = check_agentic_scope_for_tool(
                     tool_args=kwargs,
                     annotations=annotations,
@@ -981,40 +1027,60 @@ class SettaFastMCP(FastMCP):
                         agentic_context=agentic_context,
                         missing_edges=missing_edges,
                     )
+                    map_size_before = len(self.canonical_to_temporary)
                     result = convert_canonical_ids_to_temporary(
                         result,
                         self.canonical_to_temporary,
                         self.temporary_to_canonical,
                     )
-                    self.dbe.write_temporary_id_map(self.canonical_to_temporary)
+                    if len(self.canonical_to_temporary) != map_size_before:
+                        self.dbe.write_temporary_id_map(self.canonical_to_temporary)
                     return result
-            result = func(**kwargs, **context_kwargs)
-            if is_async:
-                result = await result
+            result_filter = (
+                getattr(annotations, "resultFilter", None)
+                if annotations is not None
+                else None
+            )
             if (
-                tool_name == "get_latest_project_state_summary"
+                result_filter == "project_state_summary"
                 and scope is not None
                 and project_state is not None
             ):
                 allowed_ids = scope.effective_read_section_ids()
-                result = filter_project_state_summary(result, allowed_ids)
-            if (
-                tool_name == "get_latest_lsp_diagnostics"
-                and scope is not None
-                and project_state is not None
-            ):
-                allowed_ids = scope.effective_read_section_ids()
-                result = filter_lsp_diagnostics_payload(
-                    result,
-                    allowed_ids,
-                    include_unmapped=scope.structural_allowed,
+                result = build_project_state_summary(
+                    project_state,
+                    allowed_section_ids=allowed_ids,
                 )
+            else:
+                result = func(**kwargs, **context_kwargs)
+                if is_async:
+                    result = await result
+                if (
+                    result_filter == "project_state_summary"
+                    and scope is not None
+                    and project_state is not None
+                ):
+                    allowed_ids = scope.effective_read_section_ids()
+                    result = filter_project_state_summary(result, allowed_ids)
+                if (
+                    result_filter == "lsp_diagnostics"
+                    and scope is not None
+                    and project_state is not None
+                ):
+                    allowed_ids = scope.effective_read_section_ids()
+                    result = filter_lsp_diagnostics_payload(
+                        result,
+                        allowed_ids,
+                        include_unmapped=scope.structural_allowed,
+                    )
+            map_size_before = len(self.canonical_to_temporary)
             result = convert_canonical_ids_to_temporary(
                 result,
                 self.canonical_to_temporary,
                 self.temporary_to_canonical,
             )
-            self.dbe.write_temporary_id_map(self.canonical_to_temporary)
+            if len(self.canonical_to_temporary) != map_size_before:
+                self.dbe.write_temporary_id_map(self.canonical_to_temporary)
             return result
 
         return wrapper

@@ -459,14 +459,6 @@ class TestManagedActionExecutor:
                     structured = tool_message.result["structuredContent"]
                     assert structured["error"] == "ScopeViolation"
 
-                    missing_edges = structured.get("missingEdges")
-                    assert isinstance(missing_edges, list)
-                    assert missing_edges
-                    assert missing_edges[0]["sourceSectionId"] == str(
-                        canonical_to_temporary[chat_section_id]
-                    )
-                    assert missing_edges[0]["targetSectionId"] == str(tmp_blocked_section_id)
-
                     missing_edges_canonical = structured.get("missingEdgesCanonical")
                     assert isinstance(missing_edges_canonical, list)
                     assert missing_edges_canonical

@@ -10,7 +10,9 @@ from typing import Any
 
 from mcp.types import TextContent
 
-from setta.agentic.agentic_context import build_agentic_context_payload
+from setta.agentic.agentic_context_payload_builder import (
+    build_agentic_context_payload_with_temporary_ids,
+)
 from setta.agentic.agentic_summary_cache import (
     resolve_cached_agentic_summaries_for_chat_section,
 )
@@ -482,15 +484,6 @@ class ExternalAgentRunner:
                 project_config_id,
             )
 
-            def _format_section_id(entry: ID) -> str:
-                return str(
-                    convert_canonical_ids_to_temporary(
-                        entry,
-                        canonical_to_temporary,
-                        temporary_to_canonical,
-                    )
-                )
-
             summary_text_by_section_id, summary_by_section, _ = (
                 resolve_cached_agentic_summaries_for_chat_section(
                     self.dbe,
@@ -499,12 +492,15 @@ class ExternalAgentRunner:
                     chat_section_id=section_id,
                 )
             )
-            payload = build_agentic_context_payload(
+            payload = build_agentic_context_payload_with_temporary_ids(
+                self.dbe,
                 project_state_single,
                 section_id,
-                format_section_id=_format_section_id,
+                canonical_to_temporary=canonical_to_temporary,
+                temporary_to_canonical=temporary_to_canonical,
                 summary_text_by_section_id=summary_text_by_section_id,
                 summary_by_section=summary_by_section,
+                persist_temp_id_map=False,
             )
             if payload.text.strip():
                 system_prompt = f"{system_prompt}\n\n{payload.text.strip()}".strip()

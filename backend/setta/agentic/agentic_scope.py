@@ -145,6 +145,15 @@ def check_agentic_scope_for_tool(
     )
     target_section_ids = section_ids | mapped_sections
     if not target_section_ids and access_type == "write":
+        if unmapped_code_objs:
+            return AgenticScopeCheck(
+                allowed=False,
+                access_type=access_type,
+                target_section_ids=target_section_ids,
+                blocked_section_ids=set(),
+                unmapped_code_obj_ids=unmapped_code_objs,
+                reason="unmapped_code_obj",
+            )
         default_singleton = (
             getattr(annotations, "defaultTargetSingletonSection", None)
             if annotations is not None
@@ -181,6 +190,15 @@ def check_agentic_scope_for_tool(
             reason="empty_scope",
         )
     if not target_section_ids:
+        if unmapped_code_objs:
+            return AgenticScopeCheck(
+                allowed=False,
+                access_type=access_type,
+                target_section_ids=target_section_ids,
+                blocked_section_ids=set(),
+                unmapped_code_obj_ids=unmapped_code_objs,
+                reason="unmapped_code_obj",
+            )
         if access_type == "write":
             return AgenticScopeCheck(
                 allowed=scope.structural_allowed,
@@ -202,16 +220,19 @@ def check_agentic_scope_for_tool(
         )
 
     blocked = target_section_ids - allowed_ids
-    if unmapped_code_objs:
-        blocked = set(blocked) | set(target_section_ids)
-    allowed = not blocked
+    allowed = not blocked and not unmapped_code_objs
+    reason = "allowed" if allowed else "out_of_scope"
+    if not allowed and unmapped_code_objs:
+        reason = (
+            "out_of_scope_and_unmapped_code_obj" if blocked else "unmapped_code_obj"
+        )
     return AgenticScopeCheck(
         allowed=allowed,
         access_type=access_type,
         target_section_ids=target_section_ids,
         blocked_section_ids=blocked,
         unmapped_code_obj_ids=unmapped_code_objs,
-        reason="allowed" if allowed else "out_of_scope",
+        reason=reason,
     )
 
 
@@ -306,8 +327,24 @@ def build_scope_blocked_tool_result(
             f"Tool '{tool_name}' blocked: missing agentic context. "
             "Provide agentic context via MCP meta (projectConfigId/chatId/sectionId), "
             "request headers (x-setta-project-config-id/x-setta-chat-id/x-setta-section-id), "
+            "the /__setta__/tools/call request body (agenticContext), "
             "or call 'set_agentic_context' first."
         )
+    elif scope_check.reason in {
+        "unmapped_code_obj",
+        "out_of_scope_and_unmapped_code_obj",
+    }:
+        unmapped = ", ".join(str(entry) for entry in unmapped_sorted)
+        message = (
+            f"Tool '{tool_name}' blocked: unknown code objects "
+            f"(unmapped=[{unmapped}])."
+        )
+        if blocked_sorted:
+            blocked = ", ".join(str(entry) for entry in blocked_sorted)
+            message = (
+                f"{message} Tool is also out of scope "
+                f"(access={scope_check.access_type}, blocked=[{blocked}])."
+            )
     elif scope_check.reason == "write_without_targets":
         message = (
             f"Tool '{tool_name}' blocked by agentic scope "
@@ -329,7 +366,6 @@ def build_scope_blocked_tool_result(
         "targetSectionIds": target_sorted,
         "unmappedCodeObjIds": unmapped_sorted,
         "reason": scope_check.reason,
-        "missingEdges": missing_edges,
         "missingEdgesCanonical": _render_missing_edges_canonical(),
     }
     if agentic_context is not None:

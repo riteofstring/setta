@@ -13,8 +13,10 @@ from pydantic import BaseModel
 
 from setta.agentic.agentic_context import (
     AgenticContextPayload,
-    build_agentic_context_payload,
     build_agentic_section_summary_source,
+)
+from setta.agentic.agentic_context_payload_builder import (
+    build_agentic_context_payload_with_temporary_ids,
 )
 from setta.agentic.agentic_scope import (
     AgenticContext,
@@ -971,7 +973,7 @@ class AgentRunner:
             project_config_id=context.project_config_id,
             llm_config=context.llm_config,
         )
-        if missing_section_ids:
+        if missing_section_ids and context.profile.enableBackgroundSummaryFill:
             self._maybe_spawn_agentic_summary_cache_fill(
                 project_state,
                 chat_section_id=section_id,
@@ -980,29 +982,16 @@ class AgentRunner:
                 summary_by_section=summary_by_section,
                 missing_section_ids=missing_section_ids,
             )
-        temporary_to_canonical, canonical_to_temporary = (
-            self.dbe.read_temporary_id_map()
-        )
-        map_size_before = len(canonical_to_temporary)
-
-        def _format_section_id(entry: ID) -> str:
-            return str(
-                convert_canonical_ids_to_temporary(
-                    entry,
-                    canonical_to_temporary,
-                    temporary_to_canonical,
-                )
-            )
-
-        payload = build_agentic_context_payload(
+        temporary_to_canonical, canonical_to_temporary = self.dbe.read_temporary_id_map()
+        payload = build_agentic_context_payload_with_temporary_ids(
+            self.dbe,
             project_state,
             section_id,
-            format_section_id=_format_section_id,
+            canonical_to_temporary=canonical_to_temporary,
+            temporary_to_canonical=temporary_to_canonical,
             summary_text_by_section_id=summary_text_by_section_id,
             summary_by_section=summary_by_section,
         )
-        if len(canonical_to_temporary) != map_size_before:
-            self.dbe.write_temporary_id_map(canonical_to_temporary)
         if not payload.text.strip():
             return None
         return payload
@@ -1276,7 +1265,7 @@ class AgentRunner:
         outputs["name"] = title_result.title
         outputs["nameInputHash"] = title_input_hash
         outputs["nameSource"] = "deterministic"
-        if not allow_llm:
+        if not allow_llm or not context.profile.enableLlmChatTitles:
             return
 
         raw_title_input = build_chat_title_input(messages)
@@ -1591,6 +1580,9 @@ class AgentRunner:
     ) -> list[str]:
         if not tool_names:
             return tool_names
+        has_structural = agentic_scope.structural_allowed
+        has_read = bool(agentic_scope.effective_read_section_ids())
+        has_write = bool(agentic_scope.write_section_ids)
         filtered: list[str] = []
         for name in tool_names:
             if not is_setta_tool_name(name):
@@ -1600,11 +1592,11 @@ class AgentRunner:
             access_type = (
                 "structural" if annotations is None else annotations.accessType
             )
-            if access_type == "structural" and not agentic_scope.structural_allowed:
+            if access_type == "structural" and not has_structural:
                 continue
-            if access_type == "read" and not agentic_scope.effective_read_section_ids():
+            if access_type == "read" and not has_read:
                 continue
-            if access_type == "write" and not agentic_scope.write_section_ids:
+            if access_type == "write" and not has_write:
                 continue
             filtered.append(name)
         return filtered

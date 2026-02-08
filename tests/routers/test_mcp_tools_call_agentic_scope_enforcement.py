@@ -282,7 +282,100 @@ async def test_tools_call_enforces_scope_with_agentic_context_headers(tmp_path) 
     assert response.status_code == 200
     payload = response.json()
     assert payload["isError"] is False
-    assert manager.summary_calls == 1
+    assert manager.summary_calls == 0
+
+    content = payload.get("content") or []
+    assert isinstance(content, list) and content, "Expected text content in tool result."
+    summary_text = content[0].get("text")
+    assert isinstance(summary_text, str) and summary_text.strip()
+    summary = json.loads(summary_text)
+
+    allowed_ids = {
+        str(canonical_to_temporary[allowed_section_id]),
+        str(canonical_to_temporary[peer_chat_section_id]),
+    }
+    assert {entry["sectionId"] for entry in summary["sections"]} == allowed_ids
+    assert set(summary["projectConfig"]["sectionVariantMap"].keys()) == allowed_ids
+    assert str(canonical_to_temporary[blocked_section_id]) not in summary["parentSectionMap"]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+            ID("chat-1"),
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_chat_id = canonical_to_temporary[ID("chat-1")]
+    tmp_chat_section_id = canonical_to_temporary[chat_section_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "get_latest_project_state_summary",
+                "arguments": {"projectConfigId": str(tmp_project_id)},
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_chat_id),
+                    "sectionId": str(tmp_chat_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is False
+    assert manager.summary_calls == 0
 
     content = payload.get("content") or []
     assert isinstance(content, list) and content, "Expected text content in tool result."

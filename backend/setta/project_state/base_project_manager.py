@@ -3748,7 +3748,11 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
-    @project_state_tool(tool_type=SettaToolType.init, access_type="read")
+    @project_state_tool(
+        tool_type=SettaToolType.init,
+        access_type="read",
+        result_filter="project_state_summary",
+    )
     async def get_latest_project_state_summary(
         self, x: GetLatestProjectStateSummaryRequest
     ):
@@ -3759,7 +3763,11 @@ class BaseProjectManager(ABC):
         return build_project_state_summary(project_state)
 
     @enqueue_method(require_serialization=False)
-    @project_state_tool(tool_type=SettaToolType.init, access_type="read")
+    @project_state_tool(
+        tool_type=SettaToolType.init,
+        access_type="read",
+        result_filter="lsp_diagnostics",
+    )
     async def get_latest_lsp_diagnostics(
         self, x: GetLatestLspDiagnosticsRequest
     ) -> SettaLspDiagnosticsPayload:

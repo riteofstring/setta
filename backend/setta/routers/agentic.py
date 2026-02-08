@@ -70,6 +70,8 @@ class CreateAgentProfileRequest(BaseModel):
     name: str
     description: str = ""
     systemPrompt: str = ""
+    enableBackgroundSummaryFill: bool = True
+    enableLlmChatTitles: bool = True
     engineConfigId: ID | None = None
     toolAllowlist: list[str] = Field(default_factory=list)
     memoryScope: str | None = None
@@ -235,6 +237,8 @@ async def route_create_agent_profile(
         name=x.name,
         description=x.description,
         systemPrompt=x.systemPrompt,
+        enableBackgroundSummaryFill=x.enableBackgroundSummaryFill,
+        enableLlmChatTitles=x.enableLlmChatTitles,
         engineConfigId=x.engineConfigId,
         toolAllowlist=x.toolAllowlist,
         memoryScope=x.memoryScope,
