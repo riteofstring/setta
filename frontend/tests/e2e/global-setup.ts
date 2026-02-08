@@ -1,3 +1,4 @@
+import type { ConsoleMessage } from "@playwright/test";
 import { chromium, type FullConfig } from "@playwright/test";
 
 const BACKEND_ORIGIN =
@@ -24,13 +25,62 @@ async function globalSetup(config: FullConfig) {
   const browser = await chromium.launch();
   const context = await browser.newContext();
   const page = await context.newPage();
-  await page.goto(
-    `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
-  );
-  await page.waitForURL(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".app-shell, .app-base");
-  await context.storageState({ path: storagePath });
-  await browser.close();
+  const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
+  const onPageError = (err: Error) => {
+    const message = err?.stack || err?.message || String(err);
+    if (message && !pageErrors.includes(message)) {
+      pageErrors.push(message);
+    }
+  };
+  const onConsole = (msg: ConsoleMessage) => {
+    if (msg.type() !== "error") {
+      return;
+    }
+    const message = msg.text();
+    if (message && !consoleErrors.includes(message)) {
+      consoleErrors.push(message);
+    }
+  };
+  page.on("pageerror", onPageError);
+  page.on("console", onConsole);
+  try {
+    await page.goto(
+      `${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`,
+    );
+    const expectedProjectUrl = new URL(PROJECT_URL);
+    await page.waitForURL(
+      (url) =>
+        url.origin === expectedProjectUrl.origin &&
+        url.pathname === expectedProjectUrl.pathname,
+      { waitUntil: "domcontentloaded" },
+    );
+    // `.app-shell` exists in static index.html, but `.setta-titlebar-offset` only
+    // appears once React renders `AppShell`.
+    await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });
+
+    await context.storageState({ path: storagePath });
+  } catch (err) {
+    const debugLines: string[] = [];
+    debugLines.push(`Current URL: ${page.url()}`);
+    if (pageErrors.length) {
+      debugLines.push("");
+      debugLines.push("Page errors:");
+      debugLines.push(...pageErrors.slice(0, 5));
+    }
+    if (consoleErrors.length) {
+      debugLines.push("");
+      debugLines.push("Console errors:");
+      debugLines.push(...consoleErrors.slice(0, 10));
+    }
+    throw new Error(
+      `Playwright global setup failed: ${String(err)}\n${debugLines.join("\n")}`,
+    );
+  } finally {
+    page.off("pageerror", onPageError);
+    page.off("console", onConsole);
+    await browser.close();
+  }
 }
 
 export default globalSetup;

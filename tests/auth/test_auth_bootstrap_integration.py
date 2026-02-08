@@ -110,7 +110,7 @@ def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch, tmp_path) -
     monkeypatch.delenv("SETTA_DEV_FRONTEND_SCHEME", raising=False)
 
     app = FastAPI()
-    app.state.setta = SimpleNamespace(share_mode=False)
+    app.state.setta = SimpleNamespace(share_mode=False, deployment_mode=False)
     app.add_middleware(AuthMiddleware)
     app.include_router(bootstrap_router)
 

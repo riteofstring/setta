@@ -466,12 +466,18 @@ function findImageSectionIdByPath(
   state: ProjectStateResponse,
   expectedImagePath: string,
 ): string | null {
+  const expectedNormalized = normalizePathForComparison(expectedImagePath);
   for (const [sectionId, variantId] of Object.entries(
     state.projectConfig.sectionVariantMap,
   )) {
     const implId = state.sectionVariants[variantId]?.impl;
     const impl = implId ? state.sectionImpls[implId] : null;
-    if (impl && impl.type === "Image" && impl.imagePath === expectedImagePath) {
+    if (
+      impl &&
+      impl.type === "Image" &&
+      typeof impl.imagePath === "string" &&
+      normalizePathForComparison(impl.imagePath) === expectedNormalized
+    ) {
       return sectionId;
     }
   }
@@ -536,7 +542,7 @@ test("browser opens image files in image sections on double click", async ({
     );
     const imageName = "browser_image_open.png";
     const imagePath = path.join(parentDir, imageName);
-    const expectedImageBrowserPath = path.relative(workspaceRoot, imagePath);
+    const expectedImageBrowserPath = imagePath;
     await fs.writeFile(imagePath, Buffer.from(ONE_BY_ONE_PNG_BASE64, "base64"));
     let imageSectionId: string | null = null;
 

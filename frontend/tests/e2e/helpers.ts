@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { ConsoleMessage, Page } from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -10,9 +10,23 @@ const PROJECT_URL =
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
+const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
+
+function withBackendOriginOverride(rawUrl: string): string {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return rawUrl;
+  }
+  if (!url.searchParams.has(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM)) {
+    url.searchParams.set(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM, BACKEND_ORIGIN);
+  }
+  return url.toString();
+}
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -68,41 +82,88 @@ export type ProjectStateSingleConfigResponse = {
 };
 
 export async function ensureAppReady(page: Page): Promise<void> {
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  if (await isAppReady(page)) {
-    return;
-  }
+  const pageErrors: string[] = [];
+  const consoleErrors: string[] = [];
+  const onPageError = (err: Error) => {
+    const message = err?.stack || err?.message || String(err);
+    if (message && !pageErrors.includes(message)) {
+      pageErrors.push(message);
+    }
+  };
+  const onConsole = (msg: ConsoleMessage) => {
+    if (msg.type() !== "error") {
+      return;
+    }
+    const message = msg.text();
+    if (message && !consoleErrors.includes(message)) {
+      consoleErrors.push(message);
+    }
+  };
+  page.on("pageerror", onPageError);
+  page.on("console", onConsole);
+  try {
+    await page.goto(withBackendOriginOverride(PROJECT_URL), {
+      waitUntil: "domcontentloaded",
+    });
+    if (await isAppReady(page)) {
+      return;
+    }
 
-  const hasCookie = await hasAuthCookie(page);
-  if (!hasCookie) {
-    // In Playwright E2E, auth should already be established via global-setup storageState.
-    // Avoid consuming the bootstrap token here; it is one-time and reserved for global-setup.
-    throw new Error(
-      `Missing auth cookie (${AUTH_COOKIE_PREFIX}). Ensure global-setup seeded storageState correctly.`,
-    );
-  }
+    const hasCookie = await hasAuthCookie(page);
+    if (!hasCookie) {
+      // In Playwright E2E, auth should already be established via global-setup storageState.
+      // Avoid consuming the bootstrap token here; it is one-time and reserved for global-setup.
+      throw new Error(
+        `Missing auth cookie (${AUTH_COOKIE_PREFIX}). Ensure global-setup seeded storageState correctly.`,
+      );
+    }
 
-  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-    await navigateToDefaultProject(page);
-  } else {
-    await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
-  }
-  if (await isAppReady(page)) {
-    return;
-  }
+    if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
+      await navigateToDefaultProject(page);
+    } else {
+      await page.goto(withBackendOriginOverride(PROJECT_URL), {
+        waitUntil: "domcontentloaded",
+      });
+    }
+    if (await isAppReady(page)) {
+      return;
+    }
 
-  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-    const defaultConfig = await getDefaultConfigNameResult(page);
-    if (defaultConfig.name) {
-      const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
-      await page.goto(defaultUrl, { waitUntil: "domcontentloaded" });
-      if (await isAppReady(page)) {
-        return;
+    if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
+      const defaultConfig = await getDefaultConfigNameResult(page);
+      if (defaultConfig.name) {
+        const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
+        await page.goto(withBackendOriginOverride(defaultUrl), {
+          waitUntil: "domcontentloaded",
+        });
+        if (await isAppReady(page)) {
+          return;
+        }
       }
     }
-  }
 
-  throw new Error("Setta UI did not become ready. Check bootstrap auth.");
+    const debugLines: string[] = [];
+    debugLines.push(`Current URL: ${page.url()}`);
+    if (pageErrors.length) {
+      debugLines.push("");
+      debugLines.push("Page errors:");
+      debugLines.push(...pageErrors.slice(0, 5));
+    }
+    if (consoleErrors.length) {
+      debugLines.push("");
+      debugLines.push("Console errors:");
+      debugLines.push(...consoleErrors.slice(0, 10));
+    }
+
+    throw new Error(
+      `Setta UI did not become ready. Check bootstrap auth.\n${debugLines.join(
+        "\n",
+      )}`,
+    );
+  } finally {
+    page.off("pageerror", onPageError);
+    page.off("console", onConsole);
+  }
 }
 
 export async function seedLocalStorage(
@@ -696,7 +757,9 @@ async function navigateToDefaultProject(page: Page): Promise<void> {
     }
 
     const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
-    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+    await page.goto(withBackendOriginOverride(targetUrl), {
+      waitUntil: "domcontentloaded",
+    });
   } catch {
     // Ignore failures; callers will fall back to readiness checks.
   }

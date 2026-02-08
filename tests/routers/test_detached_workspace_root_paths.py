@@ -76,7 +76,7 @@ def _detached_roots(tmpdir: str):
 
 
 def _ide_runtime_context() -> RuntimeContext:
-    state = SimpleNamespace(share_mode=False)
+    state = SimpleNamespace(share_mode=False, deployment_mode=False)
     return RuntimeContext(state)
 
 

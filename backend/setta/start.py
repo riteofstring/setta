@@ -1092,9 +1092,8 @@ def backups_restore(
     if not selected.is_file():
         raise click.ClickException(f"Backup path is not a file: {selected}")
 
-    sessions_root = resolve_sessions_root(Path.cwd())
-    registry = SessionRegistry(sessions_root=sessions_root)
-    sessions = registry.find_sessions_by_workspace(Path.cwd())
+    registry = SessionRegistry()
+    sessions = registry.find_sessions_by_workspace(get_setta_paths().workspace_root)
     if sessions and not force:
         session_ids = ", ".join(session.id for session in sessions)
         raise click.ClickException(
