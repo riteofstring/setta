@@ -1,7 +1,8 @@
 import React from "react";
 import {
+  getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
 import {
   useAgenticScopeHighlights,
@@ -27,11 +28,19 @@ import {
 type SectionContainerCoreProps = {
   sectionId: string;
   isUserView: boolean;
+  forceHideOutline?: boolean;
+  hideAgenticEdgeHandles?: boolean;
+  omitAgenticHandleScopeClass?: boolean;
+  joinedCorners?: "none" | "code-terminal-parent";
 };
 
 function _SectionContainerCore({
   sectionId,
   isUserView,
+  forceHideOutline = false,
+  hideAgenticEdgeHandles = false,
+  omitAgenticHandleScopeClass = false,
+  joinedCorners = "none",
 }: SectionContainerCoreProps) {
   const {
     isActiveSection,
@@ -43,17 +52,14 @@ function _SectionContainerCore({
     projectConfigId,
     isAttachedTerminalChild,
     styleColor,
+    isJoinedAttachedTerminalChild,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const parentId = x.parentSectionMap[sectionId] ?? null;
-    let isAttachedTerminalChild = false;
-    if (parentId) {
-      const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
-      isAttachedTerminalChild =
-        impl.type === SectionTypeEnum.Terminal &&
-        isBaseCodeSectionType(parentImpl.type) &&
-        parentImpl.attachedTerminalSectionId === sectionId;
-    }
+    const isAttachedTerminalChild =
+      getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null;
+    const isJoinedAttachedTerminalChild =
+      getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
+        null && !impl.isMinimized;
     return {
       isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
@@ -65,6 +71,7 @@ function _SectionContainerCore({
       projectConfigId: x.projectConfig.id,
       isAttachedTerminalChild,
       styleColor: impl.styleColor,
+      isJoinedAttachedTerminalChild,
     };
   }, shallow);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
@@ -151,23 +158,40 @@ function _SectionContainerCore({
   const outlineClassName = useMetaControlStyle
     ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
     : sectionStyleOutlineClassName;
-  const outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+  const shouldHideOutline = forceHideOutline || isJoinedAttachedTerminalChild;
+  let outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+  if (shouldHideOutline) {
+    outlineSizeClassName = "outline-0";
+  }
   const themedHandleScopeClassName = hasSectionStyleTheme
     ? "agentic-handle-scope--themed"
     : "";
+  let joinedCornerClassName = "";
+  if (joinedCorners === "code-terminal-parent") {
+    joinedCornerClassName = "rounded-b-none";
+  } else if (isJoinedAttachedTerminalChild) {
+    joinedCornerClassName = "rounded-t-none";
+  }
+  const handleScopeClassName = omitAgenticHandleScopeClass
+    ? ""
+    : "agentic-handle-scope";
+  const shouldRenderAgenticEdgeHandles =
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`agentic-handle-scope ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       style={sectionStyleVars}
     >
-      <AgenticEdgeHandles isUserView={isUserView} />
+      {shouldRenderAgenticEdgeHandles && (
+        <AgenticEdgeHandles isUserView={isUserView} />
+      )}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}

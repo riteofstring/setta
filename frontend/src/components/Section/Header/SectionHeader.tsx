@@ -10,6 +10,7 @@ import {
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
+  isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
 import {
   useAIFollow,
@@ -29,6 +30,7 @@ import {
   type SectionType,
 } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
+import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
 import MenuButton from "./MenuButton/MenuButton";
@@ -259,6 +261,12 @@ function _SectionHeader({
               sectionTypeName={sectionTypeName}
             />
           </>
+        )}
+        {isBaseCodeSectionType(sectionTypeName) && (
+          <AttachedTerminalControls
+            sectionId={sectionId}
+            isUserView={isUserView}
+          />
         )}
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />

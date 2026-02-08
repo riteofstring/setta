@@ -1,6 +1,7 @@
 import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
   getHighestAncestor,
   getSectionDescendants,
   setCurrEffectiveSectionImplValue,
@@ -22,6 +23,24 @@ export function setSelfParentSiblingChildrenWidths(
     [sectionId]: newSize,
   };
   if (!_.isNil(changedSize.width)) {
+    const embeddedTerminalParentId =
+      getEmbeddedAttachedTerminalParentIdForTerminalSection(state, sectionId);
+    if (embeddedTerminalParentId !== null) {
+      updatedSectionSizes[embeddedTerminalParentId] = setSectionSize(
+        embeddedTerminalParentId,
+        { width: changedSize.width },
+        state,
+      );
+      updatedSectionSizes = {
+        ...updatedSectionSizes,
+        ...setAllOtherWidths(
+          embeddedTerminalParentId,
+          changedSize.width,
+          state,
+        ),
+      };
+      return updatedSectionSizes;
+    }
     updatedSectionSizes = {
       ...updatedSectionSizes,
       ...setAllOtherWidths(sectionId, changedSize.width, state),
