@@ -586,13 +586,16 @@ function GitGraphCell({
       {joinFromLaneIndices.map((fromIdx) => {
         const x1 = xForLane(fromIdx);
         const x2 = xForLane(laneIndex);
+        // Use a cubic Bezier so the curve is tangent to the vertical lanes at
+        // both ends (avoids a right-angle join at the commit dot).
+        const controlY = centerY / 2;
         const fromColorIdRaw = laneColorIds[fromIdx] ?? commitColorId;
         const fromColorId = fromColorIdRaw < 0 ? commitColorId : fromColorIdRaw;
         const fromColor = palette[fromColorId % palette.length]!;
         return (
           <path
             key={`join-${fromIdx}-to-${laneIndex}`}
-            d={`M ${x1} 0 Q ${x1} ${centerY} ${x2} ${centerY}`}
+            d={`M ${x1} 0 C ${x1} ${controlY} ${x2} ${controlY} ${x2} ${centerY}`}
             stroke={fromColor}
             strokeWidth={2}
             strokeLinecap="round"
@@ -605,13 +608,16 @@ function GitGraphCell({
       {mergeToLaneIndices.map((toIdx) => {
         const x1 = xForLane(laneIndex);
         const x2 = xForLane(toIdx);
+        // Use a cubic Bezier so the curve is tangent to the vertical lanes at
+        // both ends (avoids a right-angle turn at the commit dot).
+        const controlY = (centerY + height) / 2;
         const toColorIdRaw = laneColorIds[toIdx] ?? commitColorId;
         const toColorId = toColorIdRaw < 0 ? commitColorId : toColorIdRaw;
         const toColor = palette[toColorId % palette.length]!;
         return (
           <path
             key={`merge-${laneIndex}-${toIdx}`}
-            d={`M ${x1} ${centerY} Q ${x2} ${centerY} ${x2} ${height}`}
+            d={`M ${x1} ${centerY} C ${x1} ${controlY} ${x2} ${controlY} ${x2} ${height}`}
             stroke={toColor}
             strokeWidth={2}
             strokeLinecap="round"

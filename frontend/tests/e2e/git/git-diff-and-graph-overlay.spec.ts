@@ -285,7 +285,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({ page }) =>
           continue;
         }
         const d = path.getAttribute("d") ?? "";
-        const match = d.match(/M\s*([-\d.]+)[ ,]+([-\d.]+)\s*Q/);
+        const match = d.match(/M\s*([-\d.]+)[ ,]+([-\d.]+)\s*C/);
         if (!match) {
           continue;
         }
