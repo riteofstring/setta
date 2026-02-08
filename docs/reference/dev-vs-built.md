@@ -14,6 +14,7 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Workspace vs `setta_files`:
   `--workspace` (or `SETTA_WORKSPACE_ROOT`) controls code operations.
   `setta_files` is either local (`<workspace>/setta_files`) or global (under
+  `<globalSettaFilesBase>/<workspace-name>-<hash>`, defaulting to
   `<setta_home>/setta_files/<workspace-name>-<hash>`). Local always wins when it
   exists. Control selection via `--setta-files-location` / `SETTA_FILES_LOCATION`
   and `<setta_home>/config.json` (see `docs/reference/setta-files.md`).
