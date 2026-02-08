@@ -12,21 +12,6 @@ experience around resizing.
   `"auto"` when the section allows auto sizing.
 - If snap-to-grid is enabled in settings, resizing snaps to the configured grid.
 
-## Attached terminal UX
-- Code-family sections (Code / GenPythonCode / GenPythonMetadata) expose a
-  terminal toggle button in the section header while editing.
-- If no terminal is attached, the button creates one as an attached child.
-- If an attached terminal exists, the button toggles terminal minimized state
-  (hide/show) without detaching it.
-- A visible embedded attached terminal renders as a joined code+terminal group:
-  one shared outer outline, joined corners, and one pair of agentic handles.
-- A minimized attached terminal remains attached in state, but is hidden from
-  the nested child render list so the code section renders standalone again.
-- Embedded attached terminals hide their own header and show a compact trash
-  button in the terminal area for fast deletion.
-- Detached terminals revert to the normal standalone terminal layout with a
-  header.
-
 ## Auto sizing rules
 - `SectionSize.width` and `SectionSize.height` can be numeric pixels or
   `"auto"` to defer to layout heuristics.
@@ -38,14 +23,6 @@ experience around resizing.
   parent Code/GenPython section height to at least
   `min(Code) + min(Terminal) + 80` via
   `backend/setta/types/helpers_lvl2.py:ensure_code_section_embedded_terminal_size`.
-- Attached terminals are normalized to concrete dimensions (no `"auto"` height):
-  creation and run-attach flows seed height from Terminal defaults and align
-  width to the parent code section when available.
-- Width stays synchronized for embedded attachments:
-  - attaching via move/drag into a code section aligns terminal width to the
-    code width.
-  - resizing an embedded attached terminal width also updates the parent code
-    width so both stay in lockstep.
 - Size modes restrict which dimensions are user-resizable:
   - Terminal and Chart sections are manual-only for both width and height.
   - Callables with hidden params, Twitter embeds, and some MetaControl param

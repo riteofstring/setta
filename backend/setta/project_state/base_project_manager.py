@@ -192,6 +192,8 @@ from setta.project_state.project_manager_types import (
     SetSectionParamFilterRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
+    SetSectionStyleColorRequest,
+    SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetShowParamDisplayNamesRequest,
@@ -327,6 +329,8 @@ from setta.types.helpers_lvl2 import (
     set_section_param_filter,
     set_section_pinned_params,
     set_section_sizes,
+    set_section_style_color,
+    set_section_tag_color,
     set_section_variant,
     set_section_variant_name,
     set_social_url,
@@ -3453,6 +3457,40 @@ class BaseProjectManager(ABC):
             project_state,
             validate_name_rules=False,
         )
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        ),
+        access_type="write",
+    )
+    async def set_section_tag_color(self, x: SetSectionTagColorRequest):
+        """Set or clear the per-section color tag."""
+        self.add_new_history_entry(
+            coalesce_key=f"sectionTagColor:{x.projectConfigId}:{x.sectionId}",
+            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_tag_color(project_state, x.sectionId, x.tagColor)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        ),
+        access_type="write",
+    )
+    async def set_section_style_color(self, x: SetSectionStyleColorRequest):
+        """Set or clear the per-section style chrome color."""
+        self.add_new_history_entry(
+            coalesce_key=f"sectionStyleColor:{x.projectConfigId}:{x.sectionId}",
+            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
+        )
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_style_color(project_state, x.sectionId, x.styleColor)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
     @project_state_tool(
