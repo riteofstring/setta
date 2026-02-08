@@ -49,6 +49,13 @@ import {
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
+  DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
+  DEFAULT_GIT_GRAPH_SPLIT_PCT,
+} from "utils/gitGraphLayoutDefaults";
+import {
   createJSONStorage,
   persist,
   subscribeWithSelector,
@@ -849,6 +856,11 @@ type ZustandLocalStorage = {
   overviewWidth: number;
   overviewTrueWidth: number;
   overviewTab: OverviewTabName;
+  gitGraphSplitPct: number;
+  gitGraphColWidthPx: number;
+  gitGraphAuthorWidthPx: number;
+  gitGraphDateWidthPx: number;
+  gitGraphHashWidthPx: number;
   uiEditorVis: boolean;
   uiEditorWidth: number;
   uiEditorTrueWidth: number;
@@ -874,6 +886,11 @@ export const useLocalStorage = createWithEqualityFn(
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTab: OverviewTabNameEnum.Overview,
+      gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
+      gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
+      gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
+      gitGraphDateWidthPx: DEFAULT_GIT_GRAPH_DATE_WIDTH_PX,
+      gitGraphHashWidthPx: DEFAULT_GIT_GRAPH_HASH_WIDTH_PX,
       uiEditorVis: false,
       uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,

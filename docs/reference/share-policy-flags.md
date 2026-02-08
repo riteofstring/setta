@@ -11,6 +11,10 @@ Notes:
 - CodeParam edits are always blocked in deployment mode, regardless of
   `allowParamChanges`.
 - `runSnapshotMode=never` is rejected for deployments.
+- Git features are always disabled in deployment mode: the Overview Git tab is
+  hidden, and git API routes return 403 (`Route.GET_GIT_STATUS`,
+  `Route.GET_GIT_DIFF`, `Route.GET_GIT_LOG`, `Route.GET_GIT_COMMIT_DETAILS`,
+  `Route.GET_GIT_COMMIT_FILE_DIFF`).
 
 ## Defaults (When Publishing From The IDE)
 

@@ -30,6 +30,8 @@ is configurable.
 - P: show the Params (UI config) tab in the UI editor (requires an active
   section).
 - O: show the Project Overview tab.
+- Escape: close the Git diff/graph overlay when one is open (unless focus is
+  inside an editable input/textarea/contenteditable target).
 
 ## Canvas view controls
 
