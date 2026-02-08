@@ -1036,7 +1036,9 @@ def share(
     default=None,
     help="Seconds to wait for session startup (defaults to 30s).",
 )
+@click.pass_context
 def launch(
+    ctx: click.Context,
     json_output: bool,
     workspace: Path | None,
     files_root: Path | None,
@@ -1046,12 +1048,42 @@ def launch(
     if not json_output:
         raise click.ClickException("Use --json with launch.")
 
+    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
+    group_workspace = ctx_obj.get("workspace")
+    group_files_root = ctx_obj.get("files_root")
+    group_files_root_base = ctx_obj.get("files_root_base")
+
+    def resolve_path_option(
+        *, value: Path | None, group_value: Path | None, label: str
+    ) -> Path | None:
+        if value is None:
+            return group_value
+        if group_value is None:
+            return value
+        if value.resolve(strict=False) != group_value.resolve(strict=False):
+            raise click.ClickException(
+                f"Conflicting {label} provided at both the global CLI level and the launch subcommand."
+            )
+        return value
+
+    resolved_workspace = resolve_path_option(
+        value=workspace, group_value=group_workspace, label="--workspace"
+    )
+    resolved_files_root = resolve_path_option(
+        value=files_root, group_value=group_files_root, label="--files-root"
+    )
+    resolved_files_root_base = resolve_path_option(
+        value=files_root_base,
+        group_value=group_files_root_base,
+        label="--files-root-base",
+    )
+
     try:
         timeout_seconds = timeout if timeout is not None else 30.0
         result = launch_workspace_session(
-            workspace_root=workspace,
-            files_root=files_root,
-            files_root_base=files_root_base,
+            workspace_root=resolved_workspace,
+            files_root=resolved_files_root,
+            files_root_base=resolved_files_root_base,
             timeout_seconds=timeout_seconds,
         )
     except LaunchError as exc:

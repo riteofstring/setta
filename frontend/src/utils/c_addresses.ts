@@ -1,10 +1,13 @@
 import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride";
 import { C } from "utils/c";
 import { RouteEnum } from "utils/generatedTypes";
+import { getOrInitLauncherOrigin } from "utils/launcherOrigin";
 import { normalizeOrigin } from "utils/origin";
 
 export class C_ADDRESSES {
-  static DEV_MODE = import.meta.env?.DEV;
+  static get DEV_MODE() {
+    return import.meta.env?.DEV;
+  }
 
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
     if (typeof sessionStorage === "undefined") {
@@ -52,6 +55,18 @@ export class C_ADDRESSES {
       return `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
     }
     return location.origin;
+  }
+
+  static get LAUNCHER_ORIGIN() {
+    const fallback = this.DEV_MODE
+      ? this.DEV_BACKEND_ORIGIN_OVERRIDE ??
+        `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`
+      : location.origin;
+    return getOrInitLauncherOrigin(fallback);
+  }
+
+  static get LAUNCHER() {
+    return `${this.LAUNCHER_ORIGIN}${RouteEnum.PREFIX}`;
   }
 
   static get BACKEND() {

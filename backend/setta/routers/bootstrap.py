@@ -314,196 +314,38 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
     </main>
     <script>
       (function () {
-        const redirectUrl = "__SETTA_REDIRECT_URL__";
-        const workspaceHistoryKey = "setta.workspaceHistory";
-        const workspaceHistoryLimit = 6;
-        const launcherOriginKey = "setta.launcherOrigin";
-        const form = document.getElementById("bootstrap-form");
-        const input = document.getElementById("token-input");
-        const statusEl = document.getElementById("status");
-        const errorEl = document.getElementById("error");
+	        const redirectUrl = "__SETTA_REDIRECT_URL__";
+	        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
+	        const launcherOriginKey = "setta.launcherOrigin";
+	        const form = document.getElementById("bootstrap-form");
+	        const input = document.getElementById("token-input");
+	        const statusEl = document.getElementById("status");
+	        const errorEl = document.getElementById("error");
 
         function setStatus(message) {
           statusEl.textContent = message;
         }
 
-        function setError(message) {
-          errorEl.textContent = message || "";
-        }
+	        function setError(message) {
+	          errorEl.textContent = message || "";
+	        }
 
-        function decodeBase64Url(value) {
-          let base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-          while (base64.length % 4) {
-            base64 += "=";
-          }
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let idx = 0; idx < binary.length; idx++) {
-            bytes[idx] = binary.charCodeAt(idx);
-          }
-          if (typeof TextDecoder !== "undefined") {
-            return new TextDecoder().decode(bytes);
-          }
-          let output = "";
-          for (let idx = 0; idx < bytes.length; idx++) {
-            output += String.fromCharCode(bytes[idx]);
-          }
-          return output;
-        }
-
-        function normalizeNullableString(value) {
-          if (typeof value !== "string") {
-            return null;
-          }
-          const trimmed = value.trim();
-          return trimmed ? trimmed : null;
-        }
-
-        function normalizePathLike(value) {
-          let output = value.trim();
-          while (
-            output.length > 1 &&
-            (output.endsWith("/") || output.endsWith("\\\\"))
-          ) {
-            output = output.slice(0, -1);
-          }
-          return output;
-        }
-
-        function normalizeNullablePathLike(value) {
-          const normalized = normalizeNullableString(value);
-          if (normalized === null) {
-            return null;
-          }
-          const trimmed = normalizePathLike(normalized);
-          return trimmed || null;
-        }
-
-        function normalizeNullablePort(value) {
-          if (typeof value === "number") {
-            if (!Number.isFinite(value)) {
-              return null;
-            }
-            const port = Math.trunc(value);
-            if (port < 1 || port > 65535) {
-              return null;
-            }
-            return port;
-          }
-          if (typeof value === "string") {
-            const trimmed = value.trim();
-            if (!trimmed) {
-              return null;
-            }
-            const parsed = Number(trimmed);
-            if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) {
-              return null;
-            }
-            if (parsed < 1 || parsed > 65535) {
-              return null;
-            }
-            return parsed;
-          }
-          return null;
-        }
-
-        function normalizeWorkspaceHistoryEntry(value) {
-          if (!value || typeof value !== "object") {
-            return null;
-          }
-          const record = value;
-          const workspaceRoot = normalizeNullablePathLike(record.workspaceRoot);
-          if (!workspaceRoot) {
-            return null;
-          }
-          const lastUsedAt =
-            typeof record.lastUsedAt === "number" && Number.isFinite(record.lastUsedAt)
-              ? record.lastUsedAt
-              : null;
-          if (lastUsedAt === null) {
-            return null;
-          }
-          return {
-            workspaceRoot: workspaceRoot,
-            sshTarget: normalizeNullableString(record.sshTarget),
-            localPort: normalizeNullablePort(record.localPort),
-            filesRoot: normalizeNullablePathLike(record.filesRoot),
-            filesRootBase: normalizeNullablePathLike(record.filesRootBase),
-            lastUsedAt: lastUsedAt,
-          };
-        }
-
-        function workspaceHistoryEntryKey(entry) {
-          const normalized = {
-            workspaceRoot: normalizePathLike(entry.workspaceRoot),
-            sshTarget: normalizeNullableString(entry.sshTarget),
-            localPort: entry.localPort ?? null,
-            filesRoot: normalizeNullablePathLike(entry.filesRoot),
-            filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
-          };
-          return JSON.stringify(normalized);
-        }
-
-        function mergeWorkspaceHistory(incoming, existing) {
-          const merged = new Map();
-          const combined = [].concat(incoming || [], existing || []);
-          for (let idx = 0; idx < combined.length; idx++) {
-            const entry = normalizeWorkspaceHistoryEntry(combined[idx]);
-            if (!entry) {
-              continue;
-            }
-            let key;
-            try {
-              key = workspaceHistoryEntryKey(entry);
-            } catch {
-              continue;
-            }
-            const previous = merged.get(key);
-            if (!previous || entry.lastUsedAt > previous.lastUsedAt) {
-              merged.set(key, entry);
-            }
-          }
-          const output = Array.from(merged.values());
-          output.sort(function (a, b) {
-            return b.lastUsedAt - a.lastUsedAt;
-          });
-          return output.slice(0, workspaceHistoryLimit);
-        }
-
-        function hydrateWorkspaceHistoryFromHash() {
-          try {
-            const hash = window.location.hash.slice(1);
-            if (!hash) {
-              return;
-            }
-            const params = new URLSearchParams(hash);
-            const encoded = params.get("wh");
-            if (!encoded) {
-              return;
-            }
-            const decoded = decodeBase64Url(encoded);
-            const incoming = JSON.parse(decoded);
-            if (!Array.isArray(incoming)) {
-              return;
-            }
-            let existing = null;
-            try {
-              const rawExisting = localStorage.getItem(workspaceHistoryKey);
-              if (rawExisting) {
-                const parsed = JSON.parse(rawExisting);
-                if (Array.isArray(parsed)) {
-                  existing = parsed;
-                }
-              }
-            } catch {
-              /* ignore */
-            }
-            const merged = mergeWorkspaceHistory(incoming, existing);
-            localStorage.setItem(workspaceHistoryKey, JSON.stringify(merged));
-          } catch {
-            /* ignore */
-          }
-        }
+	        function hydrateWorkspaceHistoryFromHash() {
+	          try {
+	            const hash = window.location.hash.slice(1);
+	            if (!hash) {
+	              return;
+	            }
+	            const params = new URLSearchParams(hash);
+	            const encoded = params.get("wh");
+	            if (!encoded) {
+	              return;
+	            }
+	            localStorage.setItem(workspaceHistoryHandoffKey, encoded);
+	          } catch {
+	            /* ignore */
+	          }
+	        }
 
         function hydrateLauncherOriginFromHash() {
           try {

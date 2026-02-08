@@ -1,4 +1,5 @@
 import type { LaunchRequestInput } from "utils/generatedTypes";
+import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
 import { safeSessionStorage } from "utils/storage";
 
 type PendingWorkspaceLaunch = {
@@ -12,30 +13,6 @@ const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
 const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
 const PENDING_LAUNCH_HASH_KEY = "pl";
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = bytes.slice(offset, offset + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  const base64 = btoa(binary);
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function fromBase64Url(value: string): Uint8Array {
-  let base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  while (base64.length % 4) {
-    base64 += "=";
-  }
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let idx = 0; idx < binary.length; idx++) {
-    bytes[idx] = binary.charCodeAt(idx);
-  }
-  return bytes;
-}
 
 function parsePendingWorkspaceLaunch(
   candidate: unknown,
@@ -73,7 +50,7 @@ export function encodePendingWorkspaceLaunchForUrlHash(
   try {
     const json = JSON.stringify(pending);
     const encoder = new TextEncoder();
-    return toBase64Url(encoder.encode(json));
+    return encodeBase64Url(encoder.encode(json));
   } catch (error) {
     console.warn(
       "Failed to encode pending workspace launch for URL hash",
@@ -99,11 +76,17 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
     if (!encoded) {
       return null;
     }
-    const bytes = fromBase64Url(encoded);
+    const bytes = decodeBase64Url(encoded);
     const decoded = new TextDecoder().decode(bytes);
     const pending = parsePendingWorkspaceLaunch(JSON.parse(decoded));
     params.delete(PENDING_LAUNCH_HASH_KEY);
-    window.location.hash = params.toString();
+    try {
+      const url = new URL(window.location.href);
+      url.hash = params.toString();
+      window.history.replaceState(window.history.state, "", url.toString());
+    } catch (error) {
+      console.warn("Failed to clean pending workspace launch from URL hash", error);
+    }
     return pending;
   } catch (error) {
     console.warn(

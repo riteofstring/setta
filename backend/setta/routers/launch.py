@@ -63,6 +63,16 @@ class LaunchResponse(BaseModel):
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
+        if (
+            x.filesRoot is not None
+            and x.filesRoot.strip()
+            and x.filesRootBase is not None
+            and x.filesRootBase.strip()
+        ):
+            raise LaunchError(
+                "FilesRootConflict",
+                "Choose either filesRoot or filesRootBase (not both).",
+            )
         if x.sshTarget:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,

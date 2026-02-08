@@ -44,8 +44,15 @@ export function WorkspaceSwitcherModal() {
       setLocalPort(
         typeof draft.localPort === "number" ? String(draft.localPort) : "",
       );
-      setFilesRoot(draft.filesRoot ?? "");
-      setFilesRootBase(draft.filesRootBase ?? "");
+      const draftFilesRoot = draft.filesRoot ?? "";
+      const draftFilesRootBase = draft.filesRootBase ?? "";
+      if (draftFilesRoot.trim() && draftFilesRootBase.trim()) {
+        setFilesRoot(draftFilesRoot);
+        setFilesRootBase("");
+      } else {
+        setFilesRoot(draftFilesRoot);
+        setFilesRootBase(draftFilesRootBase);
+      }
       setShowAdvanced(
         Boolean(
           draft.sshArgs ||
@@ -102,6 +109,10 @@ export function WorkspaceSwitcherModal() {
     setError(null);
     if (!trimmedWorkspace) {
       setError("Enter a workspace path to continue.");
+      return;
+    }
+    if (trimmedFilesRoot && trimmedFilesRootBase) {
+      setError("Choose either Files Root or Files Root Base (not both).");
       return;
     }
     let parsedLocalPort: number | undefined = undefined;
@@ -272,7 +283,13 @@ export function WorkspaceSwitcherModal() {
                   className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                   placeholder="/path/to/setta_files"
                   value={filesRoot}
-                  onChange={(event) => setFilesRoot(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFilesRoot(next);
+                    if (next.trim()) {
+                      setFilesRootBase("");
+                    }
+                  }}
                   spellCheck={false}
                 />
               </div>
@@ -284,16 +301,21 @@ export function WorkspaceSwitcherModal() {
                   className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                   placeholder="/path/to/setta_state"
                   value={filesRootBase}
-                  onChange={(event) => setFilesRootBase(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFilesRootBase(next);
+                    if (next.trim()) {
+                      setFilesRoot("");
+                    }
+                  }}
                   spellCheck={false}
                 />
               </div>
               <p className="text-xs text-setta-500 dark:text-setta-400">
-                Setta stores state under the files root. When using a base,
-                Setta will create a per-workspace folder under that base named
-                like{" "}
+                Choose either a files root or a files root base. When using a
+                base, Setta will create a per-workspace folder under that base
+                named like{" "}
                 <span className="font-semibold">workspace-name-1a2b3c4d</span>.
-                Files root overrides the base when both are provided.
               </p>
             </div>
           )}

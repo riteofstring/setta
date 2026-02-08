@@ -1,14 +1,25 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  consumeWorkspaceHistoryHandoff,
   loadWorkspaceHistory,
   upsertWorkspaceHistoryEntry,
   workspaceHistoryEntryKey,
 } from "./workspaceHistory";
+import { encodeBase64Url } from "./base64Url";
 
 describe("workspaceHistory", () => {
   let memoryStorage: Storage;
+  let originalBtoa: unknown;
+  let originalAtob: unknown;
 
   beforeAll(() => {
+    originalBtoa = (globalThis as { btoa?: unknown }).btoa;
+    originalAtob = (globalThis as { atob?: unknown }).atob;
+    (globalThis as { btoa?: unknown }).btoa = (value: string) =>
+      Buffer.from(value, "binary").toString("base64");
+    (globalThis as { atob?: unknown }).atob = (value: string) =>
+      Buffer.from(value, "base64").toString("binary");
+
     const storage = new Map<string, string>();
     memoryStorage = {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -35,6 +46,16 @@ describe("workspaceHistory", () => {
 
   afterAll(() => {
     delete (globalThis as { localStorage?: Storage }).localStorage;
+    if (originalBtoa === undefined) {
+      delete (globalThis as { btoa?: unknown }).btoa;
+    } else {
+      (globalThis as { btoa?: unknown }).btoa = originalBtoa;
+    }
+    if (originalAtob === undefined) {
+      delete (globalThis as { atob?: unknown }).atob;
+    } else {
+      (globalThis as { atob?: unknown }).atob = originalAtob;
+    }
   });
 
   it("dedupes entries that only differ by trailing slashes", () => {
@@ -155,5 +176,53 @@ describe("workspaceHistory", () => {
     const loaded = loadWorkspaceHistory();
     expect(loaded[0]?.localPort).toBe(54321);
     expect(loaded[1]?.localPort).toBeNull();
+  });
+
+  it("consumes a workspace history handoff payload and merges entries", () => {
+    memoryStorage.setItem(
+      "setta.workspaceHistory",
+      JSON.stringify([
+        {
+          workspaceRoot: "/tmp/work",
+          sshTarget: null,
+          localPort: null,
+          filesRoot: null,
+          filesRootBase: null,
+          lastUsedAt: 10,
+        },
+      ]),
+    );
+    const incoming = [
+      {
+        workspaceRoot: "/tmp/work",
+        sshTarget: null,
+        localPort: null,
+        filesRoot: null,
+        filesRootBase: null,
+        lastUsedAt: 20,
+      },
+      {
+        workspaceRoot: "/tmp/other",
+        sshTarget: null,
+        localPort: null,
+        filesRoot: null,
+        filesRootBase: null,
+        lastUsedAt: 5,
+      },
+    ];
+    const encoded = encodeBase64Url(
+      new TextEncoder().encode(JSON.stringify(incoming)),
+    );
+    memoryStorage.setItem("setta.workspaceHistoryHandoff", encoded);
+
+    consumeWorkspaceHistoryHandoff();
+
+    expect(memoryStorage.getItem("setta.workspaceHistoryHandoff")).toBeNull();
+    const loaded = loadWorkspaceHistory();
+    expect(loaded[0]?.workspaceRoot).toBe("/tmp/work");
+    expect(loaded[0]?.lastUsedAt).toBe(20);
+    expect(loaded.some((entry) => entry.workspaceRoot === "/tmp/other")).toBe(
+      true,
+    );
   });
 });

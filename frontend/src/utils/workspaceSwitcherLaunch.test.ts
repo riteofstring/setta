@@ -51,13 +51,15 @@ describe("workspaceSwitcherLaunch", () => {
           url: string | URL | null | undefined,
         ) {
           this.state = state;
+          let nextHref: string | null = null;
           if (typeof url === "string") {
-            windowStub.location.href = new URL(
-              url,
-              windowStub.location.href,
-            ).toString();
+            nextHref = new URL(url, windowStub.location.href).toString();
           } else if (url instanceof URL) {
-            windowStub.location.href = url.toString();
+            nextHref = url.toString();
+          }
+          if (nextHref) {
+            windowStub.location.href = nextHref;
+            windowStub.location.hash = new URL(nextHref).hash;
           }
         },
       },
@@ -108,6 +110,7 @@ describe("workspaceSwitcherLaunch", () => {
     const pending = readPendingWorkspaceLaunch();
     expect(pending?.requestedAt).toBe(456);
     expect(windowStub.location.hash).not.toContain("pl=");
+    expect(windowStub.location.href).not.toContain("pl=");
   });
 
   it("consumes the open-switcher request from the URL", () => {

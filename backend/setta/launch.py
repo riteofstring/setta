@@ -26,6 +26,14 @@ class LaunchError(RuntimeError):
         self.code = code
 
 
+def _has_explicit_optional_path(value: Path | str | None) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, Path):
+        return True
+    return bool(value.strip())
+
+
 @dataclass(frozen=True)
 class LaunchResult:
     session: SessionMetadata
@@ -43,6 +51,14 @@ def launch_workspace_session(
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
     ignore_env_files_root: bool = False,
 ) -> LaunchResult:
+    if _has_explicit_optional_path(files_root) and _has_explicit_optional_path(
+        files_root_base
+    ):
+        raise LaunchError(
+            "FilesRootConflict",
+            "Choose either files root or files root base (not both).",
+        )
+
     paths = resolve_setta_paths(
         workspace_root=workspace_root,
         files_root=files_root,
@@ -65,19 +81,17 @@ def launch_workspace_session(
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
     sessions = registry.find_sessions_by_workspace(paths.workspace_root)
     if sessions:
-        reachable_sessions = [
-            session for session in sessions if _can_connect_to_session(session)
-        ]
-        if reachable_sessions:
-            session = max(reachable_sessions, key=lambda entry: entry.startedAt)
-            return LaunchResult(
-                session=session,
-                registry=registry,
-                paths=paths,
-                started_new=False,
-            )
+        sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
+        for session in sessions:
+            if _can_connect_to_session(session):
+                return LaunchResult(
+                    session=session,
+                    registry=registry,
+                    paths=paths,
+                    started_new=False,
+                )
 
-        latest = max(sessions, key=lambda entry: entry.startedAt)
+        latest = sessions[0]
         grace_deadline = time.monotonic() + min(
             timeout_seconds, DEFAULT_EXISTING_SESSION_GRACE_SECONDS
         )

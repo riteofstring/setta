@@ -1,3 +1,5 @@
+import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
   sshTarget: string | null;
@@ -8,6 +10,7 @@ export type WorkspaceHistoryEntry = {
 };
 
 const HISTORY_KEY = "setta.workspaceHistory";
+const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff";
 const HISTORY_LIMIT = 6;
 
 function normalizeNullableString(value: unknown): string | null {
@@ -166,15 +169,26 @@ export function upsertWorkspaceHistoryEntry(
   return merged;
 }
 
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = bytes.slice(offset, offset + chunkSize);
-    binary += String.fromCharCode(...chunk);
+function mergeWorkspaceHistoryEntries(
+  incoming: WorkspaceHistoryEntry[],
+  existing: WorkspaceHistoryEntry[],
+): WorkspaceHistoryEntry[] {
+  const merged = new Map<string, WorkspaceHistoryEntry>();
+  for (const entry of [...incoming, ...existing]) {
+    let key: string;
+    try {
+      key = buildEntryKey(entry);
+    } catch {
+      continue;
+    }
+    const previous = merged.get(key);
+    if (!previous || entry.lastUsedAt > previous.lastUsedAt) {
+      merged.set(key, entry);
+    }
   }
-  const base64 = btoa(binary);
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  const output = Array.from(merged.values());
+  output.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+  return output.slice(0, HISTORY_LIMIT);
 }
 
 function encodeWorkspaceHistoryForUrlHash(
@@ -183,11 +197,51 @@ function encodeWorkspaceHistoryForUrlHash(
   try {
     const json = JSON.stringify(entries.slice(0, HISTORY_LIMIT));
     const encoder = new TextEncoder();
-    return toBase64Url(encoder.encode(json));
+    return encodeBase64Url(encoder.encode(json));
   } catch (error) {
     console.warn("Failed to encode workspace history for URL hash", error);
     return null;
   }
+}
+
+export function consumeWorkspaceHistoryHandoff(): void {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+
+  let encoded: string | null = null;
+  try {
+    encoded = localStorage.getItem(HISTORY_HANDOFF_KEY);
+  } catch {
+    return;
+  }
+
+  if (!encoded) {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(HISTORY_HANDOFF_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
+
+  let incoming: WorkspaceHistoryEntry[] = [];
+  try {
+    const bytes = decodeBase64Url(encoded);
+    const decoded = new TextDecoder().decode(bytes);
+    incoming = parseValidEntries(JSON.parse(decoded));
+  } catch (error) {
+    console.warn("Failed to decode workspace history handoff payload", error);
+    return;
+  }
+
+  if (incoming.length === 0) {
+    return;
+  }
+
+  const merged = mergeWorkspaceHistoryEntries(incoming, loadWorkspaceHistory());
+  saveWorkspaceHistory(merged);
 }
 
 export function appendWorkspaceHistoryToBootstrapUrlFragment(

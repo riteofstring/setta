@@ -50,7 +50,7 @@ function writeLauncherOrigin(origin: string): void {
   }
 }
 
-function getOrInitLauncherOrigin(fallbackOrigin: string): string {
+export function getOrInitLauncherOrigin(fallbackOrigin: string): string {
   const existing = readLauncherOrigin();
   if (existing) {
     return existing;

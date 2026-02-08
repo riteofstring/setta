@@ -43,13 +43,16 @@ export class C {
     js_code += "}"
 
     js_code_2 = """
-import { RouteEnum } from "utils/generatedTypes"
-import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride"
-import { C } from "utils/c"
-import { normalizeOrigin } from "utils/origin"
-    
-export class C_ADDRESSES {
-  static DEV_MODE = import.meta.env?.DEV;
+	import { RouteEnum } from "utils/generatedTypes"
+	import { BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY } from "utils/backendOriginOverride"
+	import { C } from "utils/c"
+	import { getOrInitLauncherOrigin } from "utils/launcherOrigin"
+	import { normalizeOrigin } from "utils/origin"
+	    
+	export class C_ADDRESSES {
+	  static get DEV_MODE() {
+	    return import.meta.env?.DEV;
+	  }
 
   static get DEV_BACKEND_ORIGIN_SESSION_OVERRIDE() {
     if (typeof sessionStorage === "undefined") {
@@ -83,24 +86,36 @@ export class C_ADDRESSES {
   }
 
   // Computed properties that mirror the Python class
-  static get BACKEND_ORIGIN() {
-    if (this.DEV_MODE) {
-      const sessionOverride = this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE;
-      if (sessionOverride) {
-        return sessionOverride;
+	  static get BACKEND_ORIGIN() {
+	    if (this.DEV_MODE) {
+	      const sessionOverride = this.DEV_BACKEND_ORIGIN_SESSION_OVERRIDE;
+	      if (sessionOverride) {
+	        return sessionOverride;
       }
       const override = this.DEV_BACKEND_ORIGIN_OVERRIDE;
       if (override) {
         return override;
       }
       return `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`;
-    }
-    return location.origin;
-  }
+	    }
+	    return location.origin;
+	  }
+	  
+	  static get LAUNCHER_ORIGIN() {
+	    const fallback = this.DEV_MODE
+	      ? this.DEV_BACKEND_ORIGIN_OVERRIDE ??
+	        `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}`
+	      : location.origin;
+	    return getOrInitLauncherOrigin(fallback);
+	  }
+	  
+	  static get LAUNCHER() {
+	    return `${this.LAUNCHER_ORIGIN}${RouteEnum.PREFIX}`;
+	  }
 
-  static get BACKEND() {
-    return `${this.BACKEND_ORIGIN}${RouteEnum.PREFIX}`;
-  }
+	  static get BACKEND() {
+	    return `${this.BACKEND_ORIGIN}${RouteEnum.PREFIX}`;
+	  }
 
   static get WEBSOCKET() {
     const originUrl = new URL(this.BACKEND_ORIGIN);

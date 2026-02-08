@@ -45,6 +45,9 @@ test("workspace switcher launches a session and persists history", async ({
   await page.setViewportSize({ width: 1000, height: 560 });
   await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
   await page.evaluate(() =>
+    localStorage.removeItem("setta.workspaceHistoryHandoff"),
+  );
+  await page.evaluate(() =>
     sessionStorage.removeItem("setta.backendOriginOverride"),
   );
   await page.evaluate(() => sessionStorage.removeItem("setta.launcherOrigin"));
@@ -156,6 +159,29 @@ test("workspace switcher launches a session and persists history", async ({
   ).toBeVisible();
 });
 
+test("workspace switcher enforces mutually exclusive files roots", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.getByRole("menuitem", { name: "Project" }).click();
+  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
+
+  const modal = page.getByRole("dialog");
+  await expect(modal.getByText("Switch Workspace")).toBeVisible();
+  await modal.getByRole("button", { name: "Show" }).click();
+
+  const filesRoot = modal.getByPlaceholder("/path/to/setta_files");
+  const filesRootBase = modal.getByPlaceholder("/path/to/setta_state");
+  await filesRoot.fill("/tmp/setta_files");
+  await expect(filesRootBase).toHaveValue("");
+  await filesRootBase.fill("/tmp/setta_state");
+  await expect(filesRoot).toHaveValue("");
+  await filesRoot.fill("/tmp/setta_files_again");
+  await expect(filesRootBase).toHaveValue("");
+
+  await modal.getByRole("button", { name: "Cancel" }).click();
+});
+
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
@@ -175,6 +201,9 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
 
   await ensureAppReady(page);
   await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
+  await page.evaluate(() =>
+    localStorage.removeItem("setta.workspaceHistoryHandoff"),
+  );
   await page.evaluate(() =>
     sessionStorage.removeItem("setta.backendOriginOverride"),
   );

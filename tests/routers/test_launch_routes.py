@@ -14,6 +14,18 @@ from tests.utils.setta_paths import temporary_setta_paths
 
 
 class TestLaunchRoutes:
+    def test_launch_rejects_files_root_conflicts(self) -> None:
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                filesRoot="/tmp/setta_files",
+                filesRootBase="/tmp/state_base",
+            )
+        )
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "FilesRootConflict"
+
     def test_launch_over_ssh_returns_bootstrap_url(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
         ssh_stub_dir = repo_root / "scripts" / "test"

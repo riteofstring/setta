@@ -27,6 +27,17 @@ from setta.utils.constants import C
 from setta.utils.paths import get_setta_paths
 
 
+def _select_auth_cookie_name(cookie_names: list[str]) -> str | None:
+    prefix = f"{C.AUTH_COOKIE_NAME}_"
+    for name in cookie_names:
+        if name.startswith(prefix):
+            return name
+    for name in cookie_names:
+        if name == C.AUTH_COOKIE_NAME:
+            return name
+    return None
+
+
 @dataclass(slots=True)
 class VariantLookup:
     _variants_by_name: dict[str, ID]
@@ -324,11 +335,14 @@ class SettaRunner:
         consume_url = f"{origin}{Route.BOOTSTRAP_CONSUME.value}"
         response = self._session.post(consume_url, json={"token": token})
         response.raise_for_status()
-        cookies = list(response.cookies)
-        if not cookies:
+        cookie_map = response.cookies.get_dict()
+        cookie_names = list(cookie_map.keys())
+        if not cookie_names:
             raise ValueError("Bootstrap response did not include auth cookie.")
-        cookie_name = cookies[0]
-        cookie_value = response.cookies.get(cookie_name)
+        cookie_name = _select_auth_cookie_name(cookie_names)
+        if not cookie_name:
+            raise ValueError("Bootstrap response did not include auth cookie.")
+        cookie_value = cookie_map.get(cookie_name)
         if not cookie_value:
             raise ValueError("Bootstrap response did not include auth cookie.")
         return f"{cookie_name}={cookie_value}"
