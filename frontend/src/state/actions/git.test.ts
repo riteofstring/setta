@@ -474,7 +474,7 @@ describe("git graph actions", () => {
     });
   });
 
-  it("keeps last successful git status payload when a refresh fails", async () => {
+  it("clears stale git status payload when a refresh fails", async () => {
     setGitStatusResponse([
       {
         path: "tracked.py",
@@ -493,11 +493,8 @@ describe("git graph actions", () => {
     await refreshGitStatus();
 
     const status = useGitStore.getState().status;
-    expect(status.response?.entries).toHaveLength(1);
-    expect(status.diffAvailabilityByPath.get("tracked.py")).toEqual({
-      hasStaged: true,
-      hasUnstaged: false,
-    });
+    expect(status.response).toBeNull();
+    expect(status.diffAvailabilityByPath.size).toBe(0);
     expect(status.error).toBe("status backend failed");
   });
 
@@ -912,7 +909,7 @@ describe("git graph actions", () => {
     expect(overlay.graph.selectedCommitFileDiffError).toBeNull();
   });
 
-  it("keeps last successful git graph rows when refresh fails", async () => {
+  it("clears stale git graph rows when refresh fails", async () => {
     const c1 = commit("c1", []);
     const c2 = commit("c2", ["c1"]);
     const firstPage = createLogResponse({
@@ -937,11 +934,12 @@ describe("git graph actions", () => {
     if (overlay.kind !== "graph") {
       return;
     }
-    expect(overlay.graph.response?.commits.map((entry) => entry.hash)).toEqual([
-      "c2",
-      "c1",
-    ]);
-    expect(overlay.graph.rows).toHaveLength(2);
+    expect(overlay.graph.response).toBeNull();
+    expect(overlay.graph.rows).toHaveLength(0);
+    expect(overlay.graph.seenCommitHashes.size).toBe(0);
+    expect(overlay.graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.selectedCommitDetails).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
     expect(overlay.graph.error).toBe("git log failed on refresh");
     expect(overlay.graph.isLoading).toBe(false);
   });

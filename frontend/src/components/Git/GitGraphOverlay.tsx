@@ -218,7 +218,76 @@ const DECORATION_KIND_PRIORITY: Record<DecorationKind, number> = {
   other: 5,
 };
 
-function parseDecorationChip(raw: string): DecorationChip | null {
+export function buildGitCommitSearchBlob(commit: GitCommit): string {
+  const normalizedDecorations = commit.decorations.join(" ").toLowerCase();
+  return (
+    `${commit.hash} ${commit.subject} ${commit.authorName} ${normalizedDecorations}`
+  ).toLowerCase();
+}
+
+export function collectRemoteDecorationPrefixes(
+  decorations: readonly string[],
+): Set<string> {
+  const plainRefNames = new Set<string>();
+  const remotePrefixes = new Set<string>();
+
+  for (const raw of decorations) {
+    const text = raw.trim();
+    if (!text || text.startsWith("tag: ")) {
+      continue;
+    }
+
+    const arrowIdx = text.indexOf(" -> ");
+    if (arrowIdx !== -1) {
+      const left = text.slice(0, arrowIdx).trim();
+      const right = text.slice(arrowIdx + " -> ".length).trim();
+      if (left.endsWith("/HEAD")) {
+        const prefix = left.slice(0, -"/HEAD".length).trim();
+        if (prefix) {
+          remotePrefixes.add(prefix);
+        }
+      }
+      if (right && !right.includes("/")) {
+        plainRefNames.add(right);
+      }
+      continue;
+    }
+
+    if (!text.includes("/")) {
+      plainRefNames.add(text);
+    }
+  }
+
+  for (const raw of decorations) {
+    const text = raw.trim();
+    if (!text || text.startsWith("tag: ") || text.includes(" -> ")) {
+      continue;
+    }
+    const slashIdx = text.indexOf("/");
+    if (slashIdx <= 0) {
+      continue;
+    }
+    const prefix = text.slice(0, slashIdx);
+    const suffix = text.slice(slashIdx + 1);
+    if (!suffix) {
+      continue;
+    }
+    if (prefix === "origin" || prefix === "upstream") {
+      remotePrefixes.add(prefix);
+      continue;
+    }
+    if (plainRefNames.has(suffix)) {
+      remotePrefixes.add(prefix);
+    }
+  }
+
+  return remotePrefixes;
+}
+
+function parseDecorationChip(
+  raw: string,
+  remoteDecorationPrefixes: ReadonlySet<string>,
+): DecorationChip | null {
   const text = raw.trim();
   if (!text) {
     return null;
@@ -245,7 +314,14 @@ function parseDecorationChip(raw: string): DecorationChip | null {
     }
     return { label: left, kind: "symbolic" };
   }
-  if (text.startsWith("origin/")) {
+  const slashIdx = text.indexOf("/");
+  if (slashIdx > 0) {
+    const prefix = text.slice(0, slashIdx);
+    if (remoteDecorationPrefixes.has(prefix)) {
+      return { label: text, kind: "remote" };
+    }
+  }
+  if (text.startsWith("origin/") || text.startsWith("upstream/")) {
     return { label: text, kind: "remote" };
   }
   return { label: text, kind: "branch" };
@@ -253,9 +329,12 @@ function parseDecorationChip(raw: string): DecorationChip | null {
 
 function summarizeDecorationChips(
   decorations: readonly string[],
+  remoteDecorationPrefixes: ReadonlySet<string>,
 ): DecorationChipSummary {
   const allChips = decorations
-    .map(parseDecorationChip)
+    .map((decoration) =>
+      parseDecorationChip(decoration, remoteDecorationPrefixes),
+    )
     .filter((chip): chip is DecorationChip => chip !== null)
     .sort(
       (a, b) =>
@@ -271,9 +350,19 @@ function summarizeDecorationChips(
 function buildDecorationChipSummaryByHash(
   commits: readonly GitCommit[],
 ): Map<string, DecorationChipSummary> {
+  const allDecorations: string[] = [];
+  for (const commit of commits) {
+    allDecorations.push(...commit.decorations);
+  }
+  const remoteDecorationPrefixes =
+    collectRemoteDecorationPrefixes(allDecorations);
+
   const chipSummaryByHash = new Map<string, DecorationChipSummary>();
   for (const commit of commits) {
-    chipSummaryByHash.set(commit.hash, summarizeDecorationChips(commit.decorations));
+    chipSummaryByHash.set(
+      commit.hash,
+      summarizeDecorationChips(commit.decorations, remoteDecorationPrefixes),
+    );
   }
   return chipSummaryByHash;
 }
@@ -445,6 +534,13 @@ export function GitGraphOverlay() {
   const commitsByHash = useMemo(() => {
     return buildGitCommitLookupByHash(commits);
   }, [commits]);
+  const commitSearchBlobByHash = useMemo(() => {
+    const byHash = new Map<string, string>();
+    for (const commit of commits) {
+      byHash.set(commit.hash, buildGitCommitSearchBlob(commit));
+    }
+    return byHash;
+  }, [commits]);
   const selectedCommit = graphState?.selectedCommitHash
     ? commitsByHash.get(graphState.selectedCommitHash) ?? null
     : null;
@@ -466,22 +562,12 @@ export function GitGraphOverlay() {
       return rows;
     }
     return rows.filter((row) => {
-      const c = row.commit;
-      if (c.hash.toLowerCase().includes(q)) {
-        return true;
-      }
-      if (c.subject.toLowerCase().includes(q)) {
-        return true;
-      }
-      if (c.authorName.toLowerCase().includes(q)) {
-        return true;
-      }
-      if (c.decorations.some((d) => d.toLowerCase().includes(q))) {
-        return true;
-      }
-      return false;
+      const blob =
+        commitSearchBlobByHash.get(row.commit.hash) ??
+        buildGitCommitSearchBlob(row.commit);
+      return blob.includes(q);
     });
-  }, [rows, filterText]);
+  }, [commitSearchBlobByHash, rows, filterText]);
   const decorationChipSummaryByHash = useMemo(() => {
     return buildDecorationChipSummaryByHash(commits);
   }, [commits]);
@@ -1732,6 +1818,7 @@ function DecorationPill({
     return (
       <span
         className={base}
+        data-decoration-kind={chip.kind}
         style={{
           borderColor: rgbaFromHex(laneColor, 0.6),
           backgroundColor: rgbaFromHex(laneColor, 0.12),
@@ -1747,6 +1834,7 @@ function DecorationPill({
     return (
       <span
         className={`${base} border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200`}
+        data-decoration-kind={chip.kind}
         title={chip.label}
       >
         {chip.label}
@@ -1756,6 +1844,7 @@ function DecorationPill({
   return (
     <span
       className={`${base} border-setta-200 bg-white text-setta-700 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-200`}
+      data-decoration-kind={chip.kind}
       title={chip.label}
     >
       {chip.label}

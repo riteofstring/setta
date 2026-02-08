@@ -112,6 +112,124 @@ test("git diff overlay renders staged, unstaged, rename, and untracked diffs", a
   }
 });
 
+test("git pane clears stale status entries when refresh fails", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 0,
+  });
+
+  try {
+    await openGitOverview(page);
+
+    const stagedGroup = page
+      .getByRole("heading", { name: "Staged Changes" })
+      .locator("xpath=ancestor::section[1]");
+    const stagedTracked = stagedGroup.getByRole("button", {
+      name: /tracked\.py/,
+    });
+    await expect(stagedTracked).toBeVisible();
+
+    let shouldFailRefresh = false;
+    await page.route("**/git/status*", async (route) => {
+      if (route.request().method() !== "POST" || !shouldFailRefresh) {
+        await route.continue();
+        return;
+      }
+      shouldFailRefresh = false;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "intentional status refresh failure" }),
+      });
+    });
+
+    shouldFailRefresh = true;
+    await page.getByRole("button", { name: "Refresh" }).click();
+
+    await expect(page.getByText("intentional status refresh failure")).toBeVisible();
+    await expect(stagedTracked).toHaveCount(0);
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph clears stale rows when refresh fails", async ({ page }) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 20,
+  });
+
+  try {
+    await openGitOverview(page);
+    await page.getByRole("button", { name: "Graph" }).click();
+
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+
+    if (!fixture.latestHistoryLabel) {
+      throw new Error("Expected latest history label for stale graph refresh test.");
+    }
+    const latestCommitButton = graphOverlay.getByRole("button", {
+      name: new RegExp(fixture.latestHistoryLabel),
+    });
+    await expect(latestCommitButton).toBeVisible();
+
+    let shouldFailRefresh = false;
+    await page.route("**/git/log*", async (route) => {
+      if (route.request().method() !== "POST" || !shouldFailRefresh) {
+        await route.continue();
+        return;
+      }
+      const body = route.request().postDataJSON() as { offset?: unknown } | null;
+      if (body?.offset !== 0) {
+        await route.continue();
+        return;
+      }
+      shouldFailRefresh = false;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "intentional graph refresh failure" }),
+      });
+    });
+
+    shouldFailRefresh = true;
+    await graphOverlay.getByRole("button", { name: "Refresh" }).click();
+
+    await expect(graphOverlay.getByText("intentional graph refresh failure")).toBeVisible();
+    await expect(latestCommitButton).toHaveCount(0);
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
+test("git graph marks non-origin remote refs as remote chips", async ({ page }) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const fixture = await seedGitOverlayFixture(workspaceRoot, {
+    historyCommitCount: 0,
+  });
+
+  try {
+    runGit(workspaceRoot, ["update-ref", "refs/remotes/upstream/main", "HEAD"]);
+
+    await openGitOverview(page);
+    await page.getByRole("button", { name: "Graph" }).click();
+    const graphFilter = page.getByPlaceholder(/Filter commits/);
+    await expect(graphFilter).toBeVisible();
+
+    const graphOverlay = graphFilter.locator("xpath=ancestor::section[1]");
+    const upstreamChip = graphOverlay
+      .locator('[data-decoration-kind="remote"]')
+      .filter({ hasText: "upstream/main" });
+    await expect(upstreamChip.first()).toBeVisible();
+  } finally {
+    await cleanupGitOverlayFixture(fixture);
+  }
+});
+
 test("git graph panes and columns resize without overlap or geometry drift", async ({
   page,
 }) => {

@@ -18,11 +18,6 @@ class GitCommandOutput:
     stderr_truncated: bool
     timed_out: bool
 
-
-def is_git_available() -> bool:
-    return _get_git_binary_path() is not None
-
-
 @lru_cache(maxsize=1)
 def _get_git_binary_path() -> str | None:
     return shutil.which("git")

@@ -3,18 +3,31 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildGitCommitLookupByHash,
+  buildGitCommitSearchBlob,
   buildGitGraphRowHeightCacheKey,
+  collectRemoteDecorationPrefixes,
 } from "./GitGraphOverlay";
 
-function commit(hash: string) {
+function commit(
+  hash: string,
+  {
+    subject = hash,
+    authorName = "A",
+    decorations = [],
+  }: {
+    subject?: string;
+    authorName?: string;
+    decorations?: string[];
+  } = {},
+) {
   return createGitCommit({
     hash,
     parents: [],
-    authorName: "A",
+    authorName,
     authorEmail: "a@example.com",
     authorTimeMs: 1,
-    subject: hash,
-    decorations: [],
+    subject,
+    decorations,
   });
 }
 
@@ -85,5 +98,37 @@ describe("buildGitCommitLookupByHash", () => {
     expect(lookup.get("a1")?.subject).toBe("a1");
     expect(lookup.get("b2")?.subject).toBe("b2");
     expect(lookup.get("c3")?.subject).toBe("c3");
+  });
+});
+
+describe("buildGitCommitSearchBlob", () => {
+  it("normalizes commit fields for case-insensitive filtering", () => {
+    const blob = buildGitCommitSearchBlob(
+      commit("AbCd", {
+        subject: "Fix Parser",
+        authorName: "Jane Doe",
+        decorations: ["HEAD -> Main", "upstream/main"],
+      }),
+    );
+
+    expect(blob).toContain("abcd");
+    expect(blob).toContain("fix parser");
+    expect(blob).toContain("jane doe");
+    expect(blob).toContain("upstream/main");
+  });
+});
+
+describe("collectRemoteDecorationPrefixes", () => {
+  it("detects remote prefixes from remote-head and matching local refs", () => {
+    const remotePrefixes = collectRemoteDecorationPrefixes([
+      "HEAD -> main",
+      "upstream/main",
+      "mirror/HEAD -> mirror/main",
+      "feature/scope",
+    ]);
+
+    expect(remotePrefixes.has("upstream")).toBe(true);
+    expect(remotePrefixes.has("mirror")).toBe(true);
+    expect(remotePrefixes.has("feature")).toBe(false);
   });
 });

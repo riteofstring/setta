@@ -78,8 +78,8 @@ def test_git_binary_lookup_is_cached(
     git_utils._get_git_binary_path.cache_clear()
     monkeypatch.setattr(git_utils.shutil, "which", fake_which)
 
-    assert git_utils.is_git_available() is True
-    assert git_utils.is_git_available() is True
+    assert git_utils._get_git_binary_path() == "/usr/bin/git"
+    assert git_utils._get_git_binary_path() == "/usr/bin/git"
     assert calls == 1
 
     git_utils._get_git_binary_path.cache_clear()

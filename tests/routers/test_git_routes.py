@@ -10,6 +10,7 @@ import pytest_asyncio
 
 import setta.routers.git as git_router
 from setta.routers.git import (
+    _parse_porcelain_head_commit,
     _parse_porcelain_head_branch,
     _parse_porcelain_status,
     _trim_to_last_complete_nul_record,
@@ -125,18 +126,24 @@ class TestGitRoutes:
     async def test_parse_porcelain_status_handles_unstaged_rename_and_copy(
         self,
     ) -> None:
-        # Unstaged rename/copy use worktree status R/C and include an extra old-path token.
-        output = " R new.txt\0old.txt\0 C copy.txt\0source.txt\0?? loose.txt\0"
+        # Porcelain v2 rename/copy entries include an extra old-path token.
+        output = (
+            "# branch.oid abc123\0"
+            "# branch.head main\0"
+            "2 R. N... 100644 100644 100644 a b R100 new.txt\0old.txt\0"
+            "2 C. N... 100644 100644 100644 a b C100 copy.txt\0source.txt\0"
+            "? loose.txt\0"
+        )
         entries = _parse_porcelain_status(output)
 
         assert len(entries) == 3
         rename = entries[0]
         copy = entries[1]
         untracked = entries[2]
-        assert rename.kind == "unstaged"
+        assert rename.kind == "staged"
         assert rename.path == "new.txt"
         assert rename.oldPath == "old.txt"
-        assert copy.kind == "unstaged"
+        assert copy.kind == "staged"
         assert copy.path == "copy.txt"
         assert copy.oldPath == "source.txt"
         assert untracked.kind == "untracked"
@@ -156,14 +163,27 @@ class TestGitRoutes:
         self,
     ) -> None:
         assert (
-            _parse_porcelain_head_branch("## main...origin/main [ahead 1]\0")
+            _parse_porcelain_head_branch(
+                "# branch.oid abc123\0# branch.head main\0"
+            )
             == "main"
         )
         assert (
-            _parse_porcelain_head_branch("## No commits yet on feature/new\0")
+            _parse_porcelain_head_branch(
+                "# branch.oid (initial)\0# branch.head feature/new\0"
+            )
             == "feature/new"
         )
-        assert _parse_porcelain_head_branch("## HEAD (no branch)\0") is None
+        assert _parse_porcelain_head_branch("# branch.head (detached)\0") is None
+
+    async def test_parse_porcelain_head_commit_parses_oid_and_initial_state(
+        self,
+    ) -> None:
+        assert (
+            _parse_porcelain_head_commit("# branch.oid abc123\0# branch.head main\0")
+            == "abc123"
+        )
+        assert _parse_porcelain_head_commit("# branch.oid (initial)\0") is None
 
     async def test_status_staged_unstaged_untracked(self) -> None:
         # Stage a change, then modify again to get staged + unstaged on the same file.
@@ -417,26 +437,24 @@ class TestGitRoutes:
             max_stdout_bytes: int,
             max_stderr_bytes: int = 64_000,
         ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
             if args and args[0] == "status":
                 return GitCommandOutput(
                     returncode=0,
                     stdout=(
-                        "## main...origin/main\0"
-                        " M tracked.txt\0"
-                        "?? complete.txt\0"
-                        "?? partial"
+                        "# branch.oid abc123\0"
+                        "# branch.head main\0"
+                        "1 .M N... 100644 100644 100644 a b tracked.txt\0"
+                        "? complete.txt\0"
+                        "? partial"
                     ),
                     stderr="",
                     stdout_truncated=True,
-                    stderr_truncated=False,
-                    timed_out=False,
-                )
-            if args == ["rev-parse", "--verify", "--short", "HEAD"]:
-                return GitCommandOutput(
-                    returncode=128,
-                    stdout="",
-                    stderr="fatal: Needed a single revision",
-                    stdout_truncated=False,
                     stderr_truncated=False,
                     timed_out=False,
                 )
@@ -449,14 +467,14 @@ class TestGitRoutes:
 
         assert status_res.isTruncated is True
         assert status_res.repo.headBranch == "main"
-        assert status_res.repo.headCommit is None
+        assert status_res.repo.headCommit == "abc123"
         paths = sorted(entry.path for entry in status_res.entries)
         assert paths == ["complete.txt", "tracked.txt"]
 
-    async def test_status_route_runs_rev_parse_for_head_commit(
+    async def test_status_route_parses_porcelain_v2_head_metadata(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Status should rely on porcelain branch metadata and fetch HEAD hash once.
+        # Status should parse branch and full HEAD hash directly from porcelain v2 output.
         original_run_git = git_router.run_git
         captured_args: list[list[str]] = []
 
@@ -483,18 +501,16 @@ class TestGitRoutes:
             status_res = route_get_git_status(ctx)
 
         assert status_res.repo.isGitRepo is True
-        expected_head_commit = _run_git(
-            self._workspace_root, ["rev-parse", "--verify", "--short", "HEAD"]
-        ).strip()
+        expected_head_commit = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
         assert status_res.repo.headCommit == expected_head_commit
         assert any(
-            args and args[0] == "status" and "--branch" in args
+            args
+            and args[0] == "status"
+            and "--porcelain=v2" in args
+            and "--branch" in args
             for args in captured_args
         )
-        assert any(
-            args == ["rev-parse", "--verify", "--short", "HEAD"]
-            for args in captured_args
-        )
+        assert not any(args and args[0] == "rev-parse" for args in captured_args)
 
     async def test_log_rejects_option_like_revision(self) -> None:
         state = await self._build_state()
@@ -619,6 +635,27 @@ class TestGitRoutes:
         assert head_commit is not None
         assert "feature,comma" in head_commit.decorations
         assert "tag: release,1" in head_commit.decorations
+
+    async def test_log_parses_subjects_with_ascii_field_separator_bytes(self) -> None:
+        # NUL-safe parsing must not drop commits whose subjects contain older separator bytes.
+        special_subject = "subject-with-\x1f-unit-and-\x1e-record"
+        (self._workspace_root / "separator-subject.txt").write_text(
+            "separator\n", encoding="utf-8"
+        )
+        _run_git(self._workspace_root, ["add", "separator-subject.txt"])
+        _run_git(self._workspace_root, ["commit", "-m", special_subject])
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            log = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=20, offset=0, allRefs=False),
+                ctx,
+            )
+
+        matching_commit = next(
+            (commit for commit in log.commits if commit.subject == special_subject), None
+        )
+        assert matching_commit is not None
 
     async def test_commit_file_diff_treats_special_characters_as_literal_pathspecs(
         self,
@@ -855,6 +892,33 @@ class TestGitRoutes:
         assert details.files[0].path == "tracked.txt"
         assert details.isTruncated is False
 
+    async def test_commit_details_parses_control_separator_bytes_in_subject_and_body(
+        self,
+    ) -> None:
+        # NUL-safe metadata parsing should preserve commit text containing old separators.
+        special_subject = "subject-with-\x1f-unit-and-\x1e-record"
+        special_body = "body-line-1\x1fwith-unit\nbody-line-2\x1erecord"
+        (self._workspace_root / "separator-body.txt").write_text(
+            "separator-body\n", encoding="utf-8"
+        )
+        _run_git(self._workspace_root, ["add", "separator-body.txt"])
+        _run_git(
+            self._workspace_root,
+            ["commit", "-m", special_subject, "-m", special_body],
+        )
+        head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
+
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            details = route_get_git_commit_details(
+                GetGitCommitDetailsRequest(commitHash=head),
+                ctx,
+            )
+
+        assert details.subject == special_subject
+        assert "\x1f" in details.body
+        assert "\x1e" in details.body
+
     async def test_diff_commands_disable_external_diff_and_textconv(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -927,6 +991,12 @@ class TestGitRoutes:
             max_stdout_bytes: int,
             max_stderr_bytes: int = 64_000,
         ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
             if args[:4] == ["rev-parse", "--verify", "--quiet", "--end-of-options"]:
                 captured_rev_parse_args.append(args)
                 return GitCommandOutput(
@@ -939,8 +1009,9 @@ class TestGitRoutes:
                 )
             if "show" in args and "--raw" in args and "--numstat" in args:
                 show_payload = (
-                    f"{sha256_hash}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
-                    f"A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e\n"
+                    f"{sha256_hash}\0\0A\0a@example.com\0"
+                    "1\0A\0a@example.com\0"
+                    "1\0subject\0body\0\n"
                     ":100644 100644 0000000 1111111 M\0tracked.txt\0"
                     "1\t1\ttracked.txt\0"
                 )
@@ -1008,8 +1079,9 @@ class TestGitRoutes:
         ) -> GitCommandOutput:
             if args and args[0] == "show" and "--raw" in args and "--numstat" in args:
                 show_payload = (
-                    f"{head}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
-                    "A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e\n"
+                    f"{head}\0\0A\0a@example.com\0"
+                    "1\0A\0a@example.com\0"
+                    "1\0subject\0body\0\n"
                     ":100644 100644 0000000 1111111 M\0tracked.txt\0"
                     "1\t1\ttracked.txt\0"
                 )
@@ -1056,6 +1128,12 @@ class TestGitRoutes:
             max_stdout_bytes: int,
             max_stderr_bytes: int = 64_000,
         ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
             if args[:4] == ["rev-parse", "--verify", "--quiet", "--end-of-options"]:
                 return GitCommandOutput(
                     returncode=0,
@@ -1068,7 +1146,7 @@ class TestGitRoutes:
             if args and args[0] == "show" and "--raw" in args and "--numstat" in args:
                 return GitCommandOutput(
                     returncode=0,
-                    stdout=f"{head}\x1f\x1fA\x1fa@example.com",
+                    stdout=f"{head}\0\0A\0a@example.com",
                     stderr="",
                     stdout_truncated=True,
                     stderr_truncated=False,
@@ -1078,8 +1156,9 @@ class TestGitRoutes:
                 return GitCommandOutput(
                     returncode=0,
                     stdout=(
-                        f"{head}\x1f\x1fA\x1fa@example.com\x1f1\x1f"
-                        "A\x1fa@example.com\x1f1\x1fsubject\x1fbody\x1e"
+                        f"{head}\0\0A\0a@example.com\0"
+                        "1\0A\0a@example.com\0"
+                        "1\0subject\0body\0"
                     ),
                     stderr="",
                     stdout_truncated=False,
@@ -1206,6 +1285,23 @@ class TestGitRoutes:
         assert beyond.nextOffset is None
         assert beyond.isCapped is True
 
+    async def test_log_high_offset_does_not_claim_cap_in_small_repos(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Offsets beyond the cap should only report capped when older history exists.
+        monkeypatch.setattr(git_router, "_MAX_LOG_COUNT", 50)
+        state = await self._build_state()
+        with runtime_context(state) as ctx:
+            page = route_get_git_log(
+                GetGitLogRequest(rev="HEAD", pageSize=10, offset=99, allRefs=False),
+                ctx,
+            )
+
+        assert page.commits == []
+        assert page.hasMore is False
+        assert page.nextOffset is None
+        assert page.isCapped is False
+
     async def test_log_truncated_without_parsed_commits_does_not_loop_pagination(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1217,6 +1313,12 @@ class TestGitRoutes:
             max_stdout_bytes: int,
             max_stderr_bytes: int = 64_000,
         ) -> GitCommandOutput:
+            assert cwd.resolve(strict=False) == self._workspace_root.resolve(
+                strict=False
+            )
+            assert timeout_s > 0
+            assert max_stdout_bytes > 0
+            assert max_stderr_bytes > 0
             if args and args[0] == "log":
                 return GitCommandOutput(
                     returncode=0,

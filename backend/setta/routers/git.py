@@ -38,9 +38,9 @@ _MAX_SHOW_BYTES = 2_000_000
 _MAX_LOG_COUNT = 5000
 _MAX_LOG_PAGE_SIZE = 500
 
-_RECORD_SEP = "\x1e"
-_FIELD_SEP = "\x1f"
 _DECORATION_SEP = "\x1d"
+_LOG_METADATA_FIELD_COUNT = 7
+_COMMIT_METADATA_FIELD_COUNT = 10
 
 _PATH_CHECK_TIMEOUT_S = 1.5
 
@@ -352,28 +352,46 @@ def _trim_to_last_complete_nul_record(output: str) -> str:
     return output[: last_nul + 1]
 
 
+def _parse_nul_delimited_fields(
+    output: str, *, field_count: int
+) -> tuple[list[str], str] | None:
+    fields: list[str] = []
+    cursor = 0
+    for _ in range(field_count):
+        sep_idx = output.find("\0", cursor)
+        if sep_idx == -1:
+            return None
+        fields.append(output[cursor:sep_idx])
+        cursor = sep_idx + 1
+    return fields, output[cursor:]
+
+
 def _parse_porcelain_head_branch(output: str) -> str | None:
     tokens = output.split("\0")
     for token in tokens:
-        if not token.startswith("## "):
+        if not token.startswith("# branch.head "):
             continue
-        header = token[3:]
-        branch = (
-            header.removeprefix("No commits yet on ")
-            if header.startswith("No commits yet on ")
-            else header.split("...", 1)[0]
-        )
-        normalized = branch.strip()
-        if normalized in {"", "HEAD", "HEAD (no branch)"}:
+        branch = token.removeprefix("# branch.head ").strip()
+        if branch in {"", "(detached)", "(unknown)", "HEAD", "HEAD (no branch)"}:
             return None
-        return normalized
+        return branch
+    return None
+
+
+def _parse_porcelain_head_commit(output: str) -> str | None:
+    tokens = output.split("\0")
+    for token in tokens:
+        if not token.startswith("# branch.oid "):
+            continue
+        head_commit = token.removeprefix("# branch.oid ").strip()
+        if head_commit in {"", "(initial)", "(unknown)"}:
+            return None
+        return head_commit
     return None
 
 
 def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
-    # `git status --porcelain -z` returns NUL-delimited records.
-    # Normal record: "XY <path>"
-    # Rename/copy: "R? <new_path>\\0<old_path>" (same for C?)
+    # `git status --porcelain=v2 -z --branch` returns NUL-delimited records.
     tokens = output.split("\0")
     if tokens and tokens[-1] == "":
         tokens.pop()
@@ -385,36 +403,65 @@ def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
         i += 1
         if not token:
             continue
-        if token.startswith("## "):
-            # `git status --porcelain -z --branch` prepends one branch header token.
+        if token.startswith("# "):
             continue
-        if len(token) < 4:
-            continue
-        index_status = token[0]
-        worktree_status = token[1]
-        # token[2] is expected to be a space.
-        path = token[3:]
+
         old_path: str | None = None
+        index_status: str | None = None
+        worktree_status: str | None = None
+        path: str | None = None
 
-        if (index_status in {"R", "C"} or worktree_status in {"R", "C"}) and i < len(
-            tokens
-        ):
-            old_path = tokens[i] or None
-            i += 1
-
-        status_pair = f"{index_status}{worktree_status}"
-
-        if status_pair == "??":
+        if token.startswith("1 "):
+            parts = token.split(" ", 8)
+            if len(parts) != 9:
+                continue
+            status_pair = parts[1]
+            path = parts[8]
+            if len(status_pair) != 2:
+                continue
+            index_status = status_pair[0]
+            worktree_status = status_pair[1]
+        elif token.startswith("2 "):
+            parts = token.split(" ", 9)
+            if len(parts) != 10:
+                continue
+            status_pair = parts[1]
+            path = parts[9]
+            if len(status_pair) != 2:
+                continue
+            index_status = status_pair[0]
+            worktree_status = status_pair[1]
+            if i < len(tokens):
+                old_path = tokens[i] or None
+                i += 1
+        elif token.startswith("u "):
+            parts = token.split(" ", 10)
+            if len(parts) != 11:
+                continue
+            status_pair = parts[1]
+            path = parts[10]
+            if len(status_pair) != 2:
+                continue
+            index_status = status_pair[0]
+            worktree_status = status_pair[1]
+        elif token.startswith("? "):
             entries.append(
                 GitStatusEntry(
-                    path=path,
-                    oldPath=old_path,
-                    indexStatus=index_status,
-                    worktreeStatus=worktree_status,
+                    path=token[2:],
+                    oldPath=None,
+                    indexStatus="?",
+                    worktreeStatus="?",
                     kind="untracked",
                 )
             )
             continue
+        else:
+            continue
+
+        if path is None or index_status is None or worktree_status is None:
+            continue
+
+        status_pair = f"{index_status}{worktree_status}"
 
         is_conflict = "U" in status_pair or status_pair in {
             "DD",
@@ -437,7 +484,7 @@ def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
             continue
 
         # Match VS Code: show staged and unstaged entries separately if both exist.
-        if index_status != " ":
+        if index_status != ".":
             entries.append(
                 GitStatusEntry(
                     path=path,
@@ -447,7 +494,7 @@ def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
                     kind="staged",
                 )
             )
-        if worktree_status != " ":
+        if worktree_status != ".":
             entries.append(
                 GitStatusEntry(
                     path=path,
@@ -461,83 +508,29 @@ def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
     return entries
 
 
-@router.post(Route.GET_GIT_STATUS)
-def route_get_git_status(
-    ctx: RuntimeContextFromRequest,
-) -> GetGitStatusResponse:
-    repo_root = _get_repo_root_or_none(ctx=ctx)
-    if repo_root is None:
-        return GetGitStatusResponse(
-            repo=_build_repo_info(None), entries=[], isTruncated=False
-        )
-
-    result = run_git(
-        ["status", "--porcelain", "-z", "--branch", "--untracked-files=all"],
-        cwd=repo_root,
-        timeout_s=_STATUS_TIMEOUT_S,
-        max_stdout_bytes=_MAX_STATUS_BYTES,
-        max_stderr_bytes=200_000,
-    )
-    if result.timed_out:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Timed out running git status.",
-        )
-    if result.returncode != 0 and not result.stdout_truncated:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"git status failed: {result.stderr.strip() or 'unknown error'}",
-        )
-
-    status_output = result.stdout
-    if result.stdout_truncated or (status_output and not status_output.endswith("\0")):
-        status_output = _trim_to_last_complete_nul_record(status_output)
-
-    entries = _parse_porcelain_status(status_output)
-    head_branch = _parse_porcelain_head_branch(status_output)
-    head_commit = None
-    head_commit_res = run_git(
-        ["rev-parse", "--verify", "--short", "HEAD"],
-        cwd=repo_root,
-        timeout_s=1.5,
-        max_stdout_bytes=256,
-        max_stderr_bytes=4096,
-    )
-    if (
-        not head_commit_res.timed_out
-        and head_commit_res.returncode == 0
-        and head_commit_res.stdout.strip()
-    ):
-        head_commit = head_commit_res.stdout.strip()
-    return GetGitStatusResponse(
-        repo=GitRepoInfoResponse(
-            isGitRepo=True,
-            repoRoot=str(repo_root),
-            headBranch=head_branch,
-            headCommit=head_commit,
-        ),
-        entries=entries,
-        isTruncated=result.stdout_truncated,
-    )
-
-
 def _parse_commit_metadata_parts(
-    raw_record: str,
-) -> tuple[str, str, str, str, str, str, str, str, str, str] | None:
-    parts = raw_record.split(_FIELD_SEP)
-    if len(parts) != 10:
+    output: str,
+) -> tuple[tuple[str, str, str, str, str, str, str, str, str, str], str] | None:
+    parsed = _parse_nul_delimited_fields(
+        output.lstrip("\r\n"), field_count=_COMMIT_METADATA_FIELD_COUNT
+    )
+    if parsed is None:
         return None
+    fields, remainder = parsed
     return (
-        parts[0],
-        parts[1],
-        parts[2],
-        parts[3],
-        parts[4],
-        parts[5],
-        parts[6],
-        parts[7],
-        parts[8],
-        parts[9],
+        (
+            fields[0],
+            fields[1],
+            fields[2],
+            fields[3],
+            fields[4],
+            fields[5],
+            fields[6],
+            fields[7],
+            fields[8],
+            fields[9],
+        ),
+        remainder,
     )
 
 
@@ -570,9 +563,87 @@ def _load_commit_metadata_without_diff(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=metadata_res.stderr.strip() or "Unknown commit hash.",
         )
-    raw_record, _sep, _rest = metadata_res.stdout.partition(_RECORD_SEP)
-    raw_record = raw_record.lstrip("\r\n")
-    return _parse_commit_metadata_parts(raw_record)
+    parsed = _parse_commit_metadata_parts(metadata_res.stdout)
+    if parsed is None:
+        return None
+    parts, _remainder = parsed
+    return parts
+
+
+def _probe_history_beyond_cap(
+    repo_root: Path, *, all_refs: bool, rev: str
+) -> bool:
+    cap_probe_args = [
+        "log",
+        "--topo-order",
+        f"--skip={_MAX_LOG_COUNT}",
+        "--max-count=1",
+        "--no-color",
+        "--pretty=format:%H",
+    ]
+    if all_refs:
+        cap_probe_args.append("--all")
+    else:
+        cap_probe_args.append(rev)
+    cap_probe = run_git(
+        cap_probe_args,
+        cwd=repo_root,
+        timeout_s=_LOG_TIMEOUT_S,
+        max_stdout_bytes=512,
+        max_stderr_bytes=200_000,
+    )
+    return (
+        not cap_probe.timed_out
+        and cap_probe.returncode == 0
+        and bool(cap_probe.stdout.strip())
+    )
+
+
+@router.post(Route.GET_GIT_STATUS)
+def route_get_git_status(
+    ctx: RuntimeContextFromRequest,
+) -> GetGitStatusResponse:
+    repo_root = _get_repo_root_or_none(ctx=ctx)
+    if repo_root is None:
+        return GetGitStatusResponse(
+            repo=_build_repo_info(None), entries=[], isTruncated=False
+        )
+
+    result = run_git(
+        ["status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all"],
+        cwd=repo_root,
+        timeout_s=_STATUS_TIMEOUT_S,
+        max_stdout_bytes=_MAX_STATUS_BYTES,
+        max_stderr_bytes=200_000,
+    )
+    if result.timed_out:
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Timed out running git status.",
+        )
+    if result.returncode != 0 and not result.stdout_truncated:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"git status failed: {result.stderr.strip() or 'unknown error'}",
+        )
+
+    status_output = result.stdout
+    if result.stdout_truncated or (status_output and not status_output.endswith("\0")):
+        status_output = _trim_to_last_complete_nul_record(status_output)
+
+    entries = _parse_porcelain_status(status_output)
+    head_branch = _parse_porcelain_head_branch(status_output)
+    head_commit = _parse_porcelain_head_commit(status_output)
+    return GetGitStatusResponse(
+        repo=GitRepoInfoResponse(
+            isGitRepo=True,
+            repoRoot=str(repo_root),
+            headBranch=head_branch,
+            headCommit=head_commit,
+        ),
+        entries=entries,
+        isTruncated=result.stdout_truncated,
+    )
 
 
 def _is_untracked_path(repo_root: Path, rel_path: str) -> bool:
@@ -744,22 +815,6 @@ def route_get_git_log(
     repo_root = _get_repo_root_or_400(ctx=ctx)
     offset = max(0, int(x.offset))
     page_size = max(1, min(int(x.pageSize), _MAX_LOG_PAGE_SIZE))
-    head_branch = _get_head_branch(repo_root) if offset == 0 else None
-
-    if offset >= _MAX_LOG_COUNT:
-        return GetGitLogResponse(
-            repoRoot=str(repo_root),
-            headBranch=head_branch,
-            commits=[],
-            offset=offset,
-            pageSize=page_size,
-            nextOffset=None,
-            hasMore=False,
-            isCapped=True,
-        )
-
-    remaining_budget = _MAX_LOG_COUNT - offset
-    fetch_count = min(page_size + 1, remaining_budget)
     rev = x.rev.strip()
     if not x.allRefs:
         if not rev:
@@ -772,6 +827,26 @@ def route_get_git_log(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid revision.",
             )
+
+    head_branch = _get_head_branch(repo_root) if offset == 0 else None
+
+    if offset >= _MAX_LOG_COUNT:
+        is_capped = _probe_history_beyond_cap(
+            repo_root, all_refs=x.allRefs, rev=rev
+        )
+        return GetGitLogResponse(
+            repoRoot=str(repo_root),
+            headBranch=head_branch,
+            commits=[],
+            offset=offset,
+            pageSize=page_size,
+            nextOffset=None,
+            hasMore=False,
+            isCapped=is_capped,
+        )
+
+    remaining_budget = _MAX_LOG_COUNT - offset
+    fetch_count = min(page_size + 1, remaining_budget)
 
     if not x.allRefs and offset == 0 and rev == "HEAD":
         verify_head = run_git(
@@ -799,9 +874,8 @@ def route_get_git_log(
             )
 
     fmt = (
-        f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}"
-        f"%at{_FIELD_SEP}%s{_FIELD_SEP}"
-        f"%(decorate:prefix=,suffix=,separator=%x1d){_RECORD_SEP}"
+        "%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00"
+        "%(decorate:prefix=,suffix=,separator=%x1d)%x00"
     )
 
     args = [
@@ -810,6 +884,7 @@ def route_get_git_log(
         f"--skip={offset}",
         f"--max-count={fetch_count}",
         "--no-color",
+        "-z",
         f"--pretty=format:{fmt}",
     ]
     if x.allRefs:
@@ -842,16 +917,19 @@ def route_get_git_log(
         )
 
     commits: list[GitCommit] = []
-    for raw_record in result.stdout.split(_RECORD_SEP):
-        # git log inserts newlines between records even when using a custom format.
-        # Our record separator is ASCII 0x1e, and our field separator is 0x1f; both
-        # are treated as whitespace by Python, so avoid `.strip()` here.
-        raw_record = raw_record.lstrip("\r\n")
-        if not raw_record:
-            continue
-        parts = raw_record.split(_FIELD_SEP)
-        if len(parts) != 7:
-            continue
+    remaining_log_output = result.stdout.lstrip("\r\n")
+    while remaining_log_output:
+        parsed = _parse_nul_delimited_fields(
+            remaining_log_output, field_count=_LOG_METADATA_FIELD_COUNT
+        )
+        if parsed is None:
+            break
+        parts, remaining_log_output = parsed
+        if remaining_log_output.startswith("\0"):
+            # `git log -z` adds an additional record separator NUL between commits.
+            remaining_log_output = remaining_log_output[1:]
+        remaining_log_output = remaining_log_output.lstrip("\r\n")
+
         (
             commit_hash,
             parents_raw,
@@ -893,35 +971,10 @@ def route_get_git_log(
         # Prevent infinite pagination loops when output is truncated before a full record.
         has_more = False
 
-    # If we reached the backend safety cap, check whether older commits exist
-    # beyond the cap so UI can communicate that this is a cap, not true history end.
     is_capped = False
     at_cap_boundary = offset + len(commits) >= _MAX_LOG_COUNT
     if at_cap_boundary:
-        cap_probe_args = [
-            "log",
-            "--topo-order",
-            f"--skip={_MAX_LOG_COUNT}",
-            "--max-count=1",
-            "--no-color",
-            "--pretty=format:%H",
-        ]
-        if x.allRefs:
-            cap_probe_args.append("--all")
-        else:
-            cap_probe_args.append(rev)
-        cap_probe = run_git(
-            cap_probe_args,
-            cwd=repo_root,
-            timeout_s=_LOG_TIMEOUT_S,
-            max_stdout_bytes=512,
-            max_stderr_bytes=200_000,
-        )
-        is_capped = (
-            not cap_probe.timed_out
-            and cap_probe.returncode == 0
-            and bool(cap_probe.stdout.strip())
-        )
+        is_capped = _probe_history_beyond_cap(repo_root, all_refs=x.allRefs, rev=rev)
         if is_capped:
             has_more = False
 
@@ -948,8 +1001,8 @@ def route_get_git_commit_details(
     commit_hash = _resolve_commit_hash(repo_root, x.commitHash)
 
     fmt = (
-        f"%H{_FIELD_SEP}%P{_FIELD_SEP}%an{_FIELD_SEP}%ae{_FIELD_SEP}%at{_FIELD_SEP}"
-        f"%cn{_FIELD_SEP}%ce{_FIELD_SEP}%ct{_FIELD_SEP}%s{_FIELD_SEP}%b{_RECORD_SEP}"
+        "%H%x00%P%x00%an%x00%ae%x00%at%x00"
+        "%cn%x00%ce%x00%ct%x00%s%x00%b%x00"
     )
     show_res = run_git(
         [
@@ -980,9 +1033,9 @@ def route_get_git_commit_details(
             detail=show_res.stderr.strip() or "Unknown commit hash.",
         )
 
-    raw_record, _sep, diff_payload = show_res.stdout.partition(_RECORD_SEP)
-    raw_record = raw_record.lstrip("\r\n")
-    parts = _parse_commit_metadata_parts(raw_record)
+    parsed = _parse_commit_metadata_parts(show_res.stdout)
+    parts = parsed[0] if parsed is not None else None
+    diff_payload = parsed[1] if parsed is not None else ""
     if parts is None and show_res.stdout_truncated:
         parts = _load_commit_metadata_without_diff(
             repo_root,
