@@ -55,7 +55,7 @@ export function useTerminal({
   const terminalRef = useRef<HTMLDivElement | null>(null); // Ref for the terminal container
   const terminalReadyRef = useRef(false);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
 
   useLayoutEffect(() => {
@@ -64,7 +64,7 @@ export function useTerminal({
     if (!container) {
       return;
     }
-    if (isShareMode && !shareSessionId) {
+    if (isDeploymentMode && !shareSessionId) {
       clearPendingSectionTextFocus(sectionId);
       return;
     }
@@ -82,7 +82,7 @@ export function useTerminal({
       projectConfigId,
       sectionId,
       shareSessionId,
-      isShareMode,
+      isDeploymentMode,
       container,
     });
     const { terminal, ws, fitAddon } = session;
@@ -134,14 +134,14 @@ export function useTerminal({
       }
     };
 
-    if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+    if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
       requestAnimationFrame(() => focusTerminalInput());
     }
 
     let onReady: ((message: MessageEvent) => void) | null = null;
     const markReady = () => {
       terminalReadyRef.current = true;
-      if (!isShareMode && isPendingSectionTextFocus(sectionId)) {
+      if (!isDeploymentMode && isPendingSectionTextFocus(sectionId)) {
         requestAnimationFrame(() => focusTerminalInput());
       }
     };
@@ -178,7 +178,7 @@ export function useTerminal({
       releaseTerminalSession(sessionKey);
     };
   }, [
-    isShareMode,
+    isDeploymentMode,
     shareSessionId,
     projectConfigId,
     sectionId,
@@ -206,14 +206,14 @@ function acquireTerminalSession({
   projectConfigId,
   sectionId,
   shareSessionId,
-  isShareMode,
+  isDeploymentMode,
   container,
 }: {
   sessionKey: string;
   projectConfigId: string;
   sectionId: string;
   shareSessionId: string | null;
-  isShareMode: boolean;
+  isDeploymentMode: boolean;
   container: HTMLDivElement;
 }): TerminalSession {
   const existing = TERMINAL_SESSIONS[sessionKey];
@@ -232,7 +232,7 @@ function acquireTerminalSession({
         existing.closeTimeoutId = null;
       }
       attachTerminalToContainer(existing, container);
-      existing.terminal.options.disableStdin = isShareMode;
+      existing.terminal.options.disableStdin = isDeploymentMode;
       return existing;
     }
   }
@@ -241,7 +241,7 @@ function acquireTerminalSession({
   const terminal = new Terminal({
     cursorBlink: true,
     theme: terminalTheme,
-    disableStdin: isShareMode,
+    disableStdin: isDeploymentMode,
   });
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
@@ -275,7 +275,7 @@ function acquireTerminalSession({
   session.inputDisposable.dispose();
   session.inputDisposable = terminal.onData((data) => {
     const shareSession = useShareSession.getState();
-    if (shareSession.isShareMode) {
+    if (shareSession.isDeploymentMode) {
       return;
     }
     if (!session.isReady) {

@@ -7,6 +7,7 @@
 - `guides/remote-ssh-manual.md` – manual SSH tunnel steps for remote Setta without a local install.
 
 ## Reference
+- `reference/app-spec-patching.md` – how appSpec/appDefinition updates are applied (merge patch vs streaming patch ops).
 - `reference/code-temp-file-workflow.md` – how Setta stores code files on disk and makes short-lived copies for autocomplete.
 - `reference/ai-follow.md` – how AIFollow tags tool calls and drives viewport + highlights in the UI.
 - `reference/agentic-edges.md` – agentic edge data model, routes, and UI behavior.
@@ -25,10 +26,13 @@
 - `reference/setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.
 - `reference/setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `reference/setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
-- `reference/share-policy-flags.md` – share policy flag coverage for route families and behavior.
-- `reference/sharing-mode-vs-ide-mode.md` – how share mode differs from IDE mode, how share sessions work, and deployment examples.
+- `reference/share-policy-flags.md` – deployment policy flag coverage for share/app route families and behavior.
+- `reference/sharing-mode-vs-ide-mode.md` – runtime modes (IDE vs share/app deployments), how deployment sessions work, and deployment examples.
 - `reference/urls-and-routes.md` – frontend URL paths, routing behavior, and API route separation.
 - `reference/view-modes.md` – view mode ordering, layout/viewport storage, and settings defaults.
+
+## Examples
+- `examples/listener/app.py` – example deployment listener entrypoint (`listener/app.py`).
 
 ## Other Docs
 - `reference/agent-cli-integration.md` – CLI integration notes for agent workflows.
@@ -53,7 +57,8 @@
 - `notes/setta-assessment.md` – product/market assessment and positioning notes.
 
 ## Plans
-- `plans/ai-gen-standalone-app-plan.md` – standalone app planning notes.
+- `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
+- `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
 - `plans/plugin-system-plan.md` – planning notes for a Setta plugin system (frontend, backend, content).

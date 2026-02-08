@@ -37,7 +37,6 @@ def _select_free_port() -> int:
         sock.bind(("127.0.0.1", 0))
         return sock.getsockname()[1]
 
-
 def _write_auth_json(root: Path) -> Path:
     runner = CliRunner()
     result = runner.invoke(auth, ["--json", "--latest"])

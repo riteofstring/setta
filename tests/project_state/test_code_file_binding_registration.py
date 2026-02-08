@@ -43,7 +43,7 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-class TestProjectManager(BaseProjectManager):
+class ProjectManagerForTest(BaseProjectManager):
     def __init__(
         self,
         lsp_writers: LSPWriters,
@@ -137,7 +137,7 @@ class TestCodeFileBindingRegistration:
         )
         backend.validate_default_project_id()
 
-        self.manager = TestProjectManager(
+        self.manager = ProjectManagerForTest(
             self.lsp_writers,
             self.frontend_sender,
             self.python_script_sender,
@@ -292,7 +292,7 @@ class TestCodeFileBindingRegistration:
             defaultProjectConfigId=settings_config.id,
         )
         settings_backend.validate_default_project_id()
-        settings_manager = TestProjectManager(
+        settings_manager = ProjectManagerForTest(
             self.lsp_writers,
             self.frontend_sender,
             self.python_script_sender,

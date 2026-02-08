@@ -40,6 +40,7 @@ async def test_force_refresh_broadcasts_latest_snapshot() -> None:
                 wmh_python_script_sender=project_fixture.python_script_sender,
                 wmh_frontend_sender=frontend_sender,
                 share_mode=False,
+                deployment_mode=False,
             ),
         )
         default_project_config_id = (
@@ -109,6 +110,7 @@ async def test_force_refresh_missing_project_raises_http_error() -> None:
                 wmh_python_script_sender=project_fixture.python_script_sender,
                 wmh_frontend_sender=frontend_sender,
                 share_mode=False,
+                deployment_mode=False,
             ),
         )
 

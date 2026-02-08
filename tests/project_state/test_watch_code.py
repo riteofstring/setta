@@ -82,9 +82,23 @@ def _capture_logger(
 @pytest.mark.asyncio
 class TestWatchCode:
     @pytest_asyncio.fixture(autouse=True)
-    async def _setup(self) -> None:
-        self._tmp_dir = TemporaryDirectory(dir=Path.cwd())
+    async def _setup(self, monkeypatch) -> None:
+        self._tmp_dir = TemporaryDirectory()
         root = Path(self._tmp_dir.name)
+        self._original_cwd = Path.cwd()
+        monkeypatch.chdir(root)
+
+        # Treat the temp dir as the repo root for all path normalization and
+        # the language server workspace folder. Several modules cache `CWD` at
+        # import time via `from setta.utils.constants import CWD`, so we patch
+        # those module-level bindings directly here.
+        import setta.lsp.managers as lsp_managers
+        import setta.utils.constants as setta_constants
+        import setta.utils.utils as setta_utils
+
+        monkeypatch.setattr(setta_constants, "CWD", root)
+        monkeypatch.setattr(setta_utils, "CWD", root)
+        monkeypatch.setattr(lsp_managers, "CWD", root)
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
@@ -166,6 +180,7 @@ class TestWatchCode:
         await _shutdown_manager(self.manager)
         for name, value in self._original_constants.items():
             setattr(C, name, value)
+        monkeypatch.chdir(self._original_cwd)
         self._tmp_dir.cleanup()
 
     def _build_project_state(self) -> tuple[ProjectStateSingleConfig, ID, ID]:

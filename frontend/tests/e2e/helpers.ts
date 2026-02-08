@@ -12,6 +12,7 @@ const PROJECT_URL =
     : BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
+const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -72,40 +73,35 @@ export async function ensureAppReady(page: Page): Promise<void> {
     return;
   }
 
-  let defaultConfig = await getDefaultConfigNameResult(page);
-  if (
-    !defaultConfig.name &&
-    (defaultConfig.status === 401 || defaultConfig.status === 403) &&
-    BOOTSTRAP_TOKEN
-  ) {
-    await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap#token=${BOOTSTRAP_TOKEN}`);
-    try {
-      await waitForProjectUrl(page);
-    } catch {
-      // Fall through to the final readiness check below.
-    }
-    defaultConfig = await getDefaultConfigNameResult(page);
+  const hasCookie = await hasAuthCookie(page);
+  if (!hasCookie) {
+    // In Playwright E2E, auth should already be established via global-setup storageState.
+    // Avoid consuming the bootstrap token here; it is one-time and reserved for global-setup.
+    throw new Error(
+      `Missing auth cookie (${AUTH_COOKIE_NAME}). Ensure global-setup seeded storageState correctly.`,
+    );
   }
 
-  if (defaultConfig.name) {
-    const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
-    await page.goto(defaultUrl, { waitUntil: "domcontentloaded" });
-    if (await isAppReady(page)) {
-      return;
-    }
+  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
+    await navigateToDefaultProject(page);
+  } else {
+    await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
   }
-
-  await page.goto(PROJECT_URL, { waitUntil: "domcontentloaded" });
   if (await isAppReady(page)) {
     return;
   }
 
-  const hasCookie = await hasAuthCookie(page);
-  if (!BOOTSTRAP_TOKEN && !hasCookie) {
-    throw new Error(
-      "Missing SETTA_BOOTSTRAP_TOKEN and no auth cookie present. Open /__setta__/bootstrap to mint one.",
-    );
+  if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
+    const defaultConfig = await getDefaultConfigNameResult(page);
+    if (defaultConfig.name) {
+      const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
+      await page.goto(defaultUrl, { waitUntil: "domcontentloaded" });
+      if (await isAppReady(page)) {
+        return;
+      }
+    }
   }
+
   throw new Error("Setta UI did not become ready. Check bootstrap auth.");
 }
 
@@ -667,6 +663,42 @@ async function isAppReady(page: Page): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function navigateToDefaultProject(page: Page): Promise<void> {
+  try {
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      return;
+    }
+
+    // Prefer the configured default; otherwise fall back to the first project.
+    let targetName =
+      metadata.projectMetadata.find(
+        (entry) => entry.id === metadata.defaultProjectConfigId,
+      )?.name ?? metadata.projectMetadata[0]?.name;
+
+    // If the workspace has no projects (possible if a prior test deleted them),
+    // create one so IDE-mode tests can proceed.
+    if (!targetName) {
+      targetName = await postBackend<string>(page, "/createProjectConfig", {
+        previewImgColor: "bg-blue-500/60",
+      });
+    }
+
+    if (!targetName) {
+      return;
+    }
+
+    const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
+    await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
+  } catch {
+    // Ignore failures; callers will fall back to readiness checks.
   }
 }
 

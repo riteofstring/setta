@@ -63,7 +63,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams, canEditStructure } = useShareCapabilities();
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
 
   const { managed, engineConfigId, agentProfileId, thinking, isFrozen } =
     useProjectState((state) => {
@@ -143,7 +143,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     );
   }, [agentProfileId, agentProfiles]);
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
-  const canEditSettings = !isShareMode || canEditParams;
+  const canEditSettings = !isDeploymentMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;

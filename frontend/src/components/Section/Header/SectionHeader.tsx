@@ -91,7 +91,7 @@ function _SectionHeader({
   const pythonCodegenEnabled = useProjectState((x) =>
     projectConfigHasPythonCodegen(x.projectConfig),
   );
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
     _.isEqual,
@@ -139,7 +139,7 @@ function _SectionHeader({
     codeDiagnosticsLabel = `Suppressed ${suppressedCodes.length}`;
   }
   const showCodeDiagnosticsPopover =
-    !isShareMode &&
+    !isDeploymentMode &&
     sectionTypeName === SectionTypeEnum.Code &&
     (codeSectionDiagnostics.length > 0 ||
       suppressedCodes.length > 0 ||
@@ -164,7 +164,7 @@ function _SectionHeader({
         sectionTypeName={sectionTypeName}
       />
       <div className="z-10 ml-auto flex items-center">
-        {!isShareMode && sectionTypeName === SectionTypeEnum.Code && (
+        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Code && (
           <button
             className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
             onClick={() =>
@@ -185,7 +185,7 @@ function _SectionHeader({
             )}
           </button>
         )}
-        {!isShareMode && showCodeDiagnosticsPopover && (
+        {!isDeploymentMode && showCodeDiagnosticsPopover && (
           <DiagnosticsPopover
             diagnostics={codeSectionDiagnostics}
             label={codeDiagnosticsLabel}
@@ -202,7 +202,7 @@ function _SectionHeader({
             inlineSuppressionHint={inlineSuppressionHint}
           />
         )}
-        {!isShareMode &&
+        {!isDeploymentMode &&
           sectionTypeName === SectionTypeEnum.GenPythonCode &&
           genCodeDiagnostics.length > 0 && (
             <DiagnosticsPopover
@@ -238,7 +238,7 @@ function _SectionHeader({
         {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
           <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
         )}
-        {!isShareMode && sectionTypeName === SectionTypeEnum.Chat && (
+        {!isDeploymentMode && sectionTypeName === SectionTypeEnum.Chat && (
           <button
             aria-label="Follow chat"
             aria-pressed={isFollowSelected}

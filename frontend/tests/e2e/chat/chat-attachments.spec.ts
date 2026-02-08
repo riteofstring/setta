@@ -9,6 +9,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { ensureAppReady } from "../helpers";
 
+import { ensureAppReady } from "../helpers";
+
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";

@@ -474,6 +474,8 @@ class ListenerRunCodeRequestPayload(TypedDict):
     cliId: NotRequired[str | None]
     runSnapshotMode: NotRequired[RunSnapshotMode | None]
     drawSnapshotsBySectionId: NotRequired[dict[ID, BinaryContentRef] | None]
+    sectionVariantOverrides: NotRequired[dict[ID, ID] | None]
+    paramOverrides: NotRequired[dict[str, str] | None]
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):

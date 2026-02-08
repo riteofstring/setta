@@ -86,6 +86,7 @@ from setta.llm.chat_toolkit.managed.tool_runner import (
 from setta.llm.chat_toolkit.managed.utils import is_setta_tool_name
 from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.llm.config import AllLLMConfigs
+from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import (
@@ -129,7 +130,11 @@ from setta.types.helpers_lvl3 import (
 )
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
-from setta.types.notifications import SettaBackendLogEventSeverity
+from setta.types.notifications import (
+    SettaBackendLogEventSeverity,
+    SettaNotification,
+    SettaNotificationType,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import ChatSectionState
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
@@ -571,6 +576,18 @@ class AgentRunner:
                         self._record_event(run, "run_cancelled", {})
                     raise
                 except Exception as exc:
+                    user_facing_message = get_user_facing_llm_error_message(exc)
+                    chat_error_text = (
+                        user_facing_message
+                        if user_facing_message
+                        else "AI request failed. See Backend Logs for details."
+                    )
+                    # Ensure the chat shows something actionable even if the LLM fails
+                    # before producing any content.
+                    assistant_message.content.append(
+                        MessageTextContent(text=f"[Error] {chat_error_text}")
+                    )
+
                     if not stop_event_sent:
                         await self._apply_actions(
                             [
@@ -607,11 +624,28 @@ class AgentRunner:
                     await self.websocket_msg_handler.log_failure_and_broadcast_backend_log_event(
                         exc,
                         label="agent-run",
-                        message="Agent run failed; aborting response",
+                        message=(
+                            f"Agent run failed: {user_facing_message}"
+                            if user_facing_message
+                            else "Agent run failed; aborting response"
+                        ),
                         severity=SettaBackendLogEventSeverity.error,
                         project_config_id=context.project_config_id,
                         logger=logger,
                         context={"run_id": str(run.id)},
+                    )
+                    await self.websocket_msg_handler.broadcast_notification(
+                        SettaNotification(
+                            projectConfigId=context.project_config_id,
+                            type=SettaNotificationType.error,
+                            message=(
+                                f"AI request failed: {user_facing_message}"
+                                if user_facing_message
+                                else "AI request failed. See Backend Logs for details."
+                            ),
+                            temporary=True,
+                        ),
+                        share_session_id=self.share_session_id,
                     )
                     await self._apply_actions(
                         [

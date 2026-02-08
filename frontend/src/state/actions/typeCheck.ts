@@ -111,7 +111,7 @@ function mergeTypeErrorsBySection(previous: TypeErrors, incoming: TypeErrors) {
 }
 
 export async function requestTypeCheck(userRequested: boolean = false) {
-  if (useShareSession.getState().isShareMode) {
+  if (useShareSession.getState().isDeploymentMode) {
     return;
   }
   if (userRequested) {

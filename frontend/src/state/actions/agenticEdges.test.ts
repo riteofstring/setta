@@ -101,7 +101,7 @@ describe("agentic edge optimistic create", () => {
   beforeEach(() => {
     resetProjectStores();
     seedChatSections();
-    useShareSession.setState({ isShareMode: false });
+    useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
 
@@ -148,7 +148,7 @@ describe("agentic edge context mode updates", () => {
   beforeEach(() => {
     resetProjectStores();
     seedChatSections();
-    useShareSession.setState({ isShareMode: false });
+    useShareSession.setState({ isDeploymentMode: false });
     vi.clearAllMocks();
   });
 

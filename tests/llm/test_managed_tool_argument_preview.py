@@ -86,3 +86,48 @@ class TestManagedToolArgumentPreview:
                 tool_argument_metadata_by_name={tool_name: metadata},
             )
             assert repeat_event is None
+
+    def test_builds_preview_event_without_target_ids(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            tool_name = build_namespaced_tool_name(
+                SETTA_MCP_SERVER_ID, "preview_tool"
+            )
+            assistant = AssistantChatMessage(
+                content=[],
+                tool_calls=[
+                    ToolCall(
+                        id="tool-call-1",
+                        function=ToolCallFunction(
+                            name=tool_name,
+                            arguments={},
+                        ),
+                    )
+                ],
+            )
+
+            buffer = '{"patches":"{\\"op\\":\\"set\\""}'
+            tool_call_state = ManagedToolCallState(argument_buffers={0: buffer})
+            preview_state = ManagedToolArgumentPreviewState()
+            metadata = ToolArgumentPreviewMetadata(
+                targetIdPathsByType={},
+                previewValuePath="patches",
+                previewKind=ToolArgumentPreviewKind.appSpecPatch,
+            )
+            tokens = scan_partial_json_strings(buffer)
+
+            event = build_preview_event(
+                assistant_message=assistant,
+                tool_call_state=tool_call_state,
+                preview_state=preview_state,
+                tool_call_index=0,
+                arguments_delta='"{\\"op\\":\\"set\\""',
+                tokens=tokens,
+                dbe=DBE(Path(temp_dir)),
+                tool_argument_metadata_by_name={tool_name: metadata},
+            )
+
+            assert event is not None
+            if event is None:
+                raise AssertionError("Expected preview event")
+            assert event.preview_kind == ToolArgumentPreviewKind.appSpecPatch
+            assert event.target_ids_by_type == {}

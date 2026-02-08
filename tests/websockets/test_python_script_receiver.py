@@ -272,6 +272,8 @@ class _StubWebsocketManager:
         self.sockets: dict[str, SimpleNamespace] = {}
         self._state = SimpleNamespace(
             share_mode=False,
+            deployment_mode=False,
+            app_mode=False,
             wait_until_ready=_noop_wait_until_ready,
         )
         for websocket_id in _DEFAULT_SOCKET_IDS:

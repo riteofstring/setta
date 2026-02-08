@@ -68,6 +68,12 @@ importers:
       '@fontsource/work-sans':
         specifier: 4.5.7
         version: 4.5.7
+      '@json-render/core':
+        specifier: 0.4.3
+        version: 0.4.3(zod@4.1.3)
+      '@json-render/react':
+        specifier: 0.4.3
+        version: 0.4.3(react@19.1.1)(zod@4.1.3)
       '@lezer/highlight':
         specifier: 1.2.0
         version: 1.2.0
@@ -1048,6 +1054,16 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@json-render/core@0.4.3':
+    resolution: {integrity: sha512-Hq2N/HPQ7bFY+tLT8QOrnrz8OlXM4J/+pkM81K0yFd54GGjymQaM+yUFbmovQI+Bp19tPknrc/cKAt5gnyxlZQ==}
+    peerDependencies:
+      zod: ^4.0.0
+
+  '@json-render/react@0.4.3':
+    resolution: {integrity: sha512-YeSYtepsX8/ATwuxRBLx0aA+HazxhSXbPSvg4p132Soibb7xeRoOIq1NiD8AbtTEjiow2OYH8VXa90s7bRcKpA==}
+    peerDependencies:
+      react: ^19.0.0
 
   '@kurkle/color@0.3.4':
     resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
@@ -5515,6 +5531,17 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@json-render/core@0.4.3(zod@4.1.3)':
+    dependencies:
+      zod: 4.1.3
+
+  '@json-render/react@0.4.3(react@19.1.1)(zod@4.1.3)':
+    dependencies:
+      '@json-render/core': 0.4.3(zod@4.1.3)
+      react: 19.1.1
+    transitivePeerDependencies:
+      - zod
 
   '@kurkle/color@0.3.4': {}
 

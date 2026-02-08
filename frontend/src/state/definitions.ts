@@ -23,6 +23,7 @@ import {
   AllLLMConfigs,
   AllProjectMetadata,
   APIKeys,
+  AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
@@ -154,35 +155,94 @@ export const useProjectState = withProjectState(
   ),
 );
 
+type AppDefinitionState = {
+  appDefinition: AppDefinition | null;
+  appSpec: unknown | null;
+};
+
+export const useAppDefinition = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppDefinitionState>(() => ({
+      appDefinition: null,
+      appSpec: null,
+    })),
+  ),
+);
+
+type AppConfigState = ZustandProjectState;
+
+type AppConfigsState = {
+  configs: Record<string, AppConfigState>;
+};
+
+export const useAppConfigs = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppConfigsState>(() => ({
+      configs: {},
+    })),
+  ),
+);
+
 type ShareSessionState = {
-  isShareMode: boolean;
+  isDeploymentMode: boolean;
   shareSessionId: string | null;
+  sessionRunCount: number;
   sharePolicy: SharePolicy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
+  deploymentMode: "share" | "app" | null;
 };
 
 export const useShareSession = withProjectState(
   createWithEqualityFn(
     withResetFn<ShareSessionState>(() => ({
-      isShareMode: false,
+      isDeploymentMode: false,
       shareSessionId: null,
+      sessionRunCount: 0,
       sharePolicy: null,
       shareDeploymentName: null,
       shareDeploymentVersion: null,
+      deploymentMode: null,
     })),
   ),
 );
 
 type ServerModeState = {
-  isShareServer: boolean;
+  mode: "ide" | "share" | "app" | null;
   modeResolved: boolean;
+  modeError: string | null;
 };
 
 export const useServerMode = createWithEqualityFn<ServerModeState>(() => ({
-  isShareServer: false,
+  mode: null,
   modeResolved: false,
+  modeError: null,
 }));
+
+type AppPreviewState = {
+  isPreviewEnabled: boolean;
+  previewConfigId: string | null;
+  // Draft-only overrides used for live preview while editing App Config.
+  // `undefined` means "no override"; `null` means "explicitly cleared".
+  previewSpecOverride?: unknown | null;
+  // AI-streaming override used while `setta__stream_app_definition` is streaming patches.
+  aiPreviewSpecOverride?: unknown | null;
+  previewThemeOverride?: unknown | null;
+  previewAssetsOverride?: unknown[] | null;
+};
+
+export const useAppPreview = withProjectState(
+  createWithEqualityFn(
+    withResetFn<AppPreviewState>(() => ({
+      isPreviewEnabled: false,
+      previewConfigId: null,
+      previewSpecOverride: undefined,
+      aiPreviewSpecOverride: undefined,
+      previewThemeOverride: undefined,
+      previewAssetsOverride: undefined,
+    })),
+  ),
+);
 
 export const useAllProjectMetadata = createWithEqualityFn(
   withResetFn<AllProjectMetadata>(() => ({
@@ -634,6 +694,7 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
+  pendingProjectChatPrompt: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -675,6 +736,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
+        pendingProjectChatPrompt: null,
       }),
       {
         name: "setta_ai_data",
@@ -782,6 +844,7 @@ type ZustandLocalStorage = {
   colorMode: ColorModePreference;
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
+  appSpecStreamingEnabled: boolean;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -806,6 +869,7 @@ export const useLocalStorage = createWithEqualityFn(
       colorMode: "dark",
       showMinimap: true,
       projectConfigPreviewEnabled: true,
+      appSpecStreamingEnabled: false,
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,

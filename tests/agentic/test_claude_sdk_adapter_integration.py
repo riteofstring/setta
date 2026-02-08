@@ -95,7 +95,16 @@ class TestClaudeSdkAdapterIntegration:
         try:
             version = importlib.metadata.version("claude-agent-sdk")
         except importlib.metadata.PackageNotFoundError:
-            pytest.fail("claude-agent-sdk is not installed")
+            pytest.skip("claude-agent-sdk is not installed")
+        try:
+            socket.getaddrinfo("api.anthropic.com", 443)
+            with socket.create_connection(
+                ("api.anthropic.com", 443),
+                timeout=3,
+            ):
+                pass
+        except OSError as exc:
+            pytest.skip(f"Anthropic API not reachable: {exc}")
         return version
 
     async def _await_completed_run(self, dbe: DBE, run_id: ID) -> dict:

@@ -1218,7 +1218,7 @@ export function getAncestorSameVisibility(
 
 export function deleteAllActiveSections() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return;
   }
   route_delete_sections({
@@ -1352,7 +1352,7 @@ function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
 export function debounced_route_set_top_level_section_layout() {
   const shareSession = useShareSession.getState();
   if (
-    shareSession.isShareMode &&
+    shareSession.isDeploymentMode &&
     shareSession.sharePolicy?.allowLayoutChanges === false
   ) {
     return;
@@ -1423,7 +1423,7 @@ export function getSectionChildren(
 
 export async function groupActiveSections() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return;
   }
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
@@ -1436,7 +1436,7 @@ export async function groupActiveSections() {
 
 export async function ungroupActiveGroups() {
   const shareSession = useShareSession.getState();
-  if (shareSession.isShareMode) {
+  if (shareSession.isDeploymentMode) {
     return;
   }
   const groupIds = useProjectState.getState().projectConfig.activeIds;

@@ -23,6 +23,7 @@ from setta.routers.ai import (
     GetLLMChatRequest,
     StopLLMChatRequest,
     _build_branch_messages,
+    _ensure_external_chat_id_compatible,
     _get_prior_messages_for_engine,
     route_get_external_agent_chat,
     route_get_llm_chat,
@@ -51,7 +52,7 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.runtime_context import runtime_context
@@ -101,7 +102,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -123,9 +124,10 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )
@@ -136,7 +138,7 @@ def _write_share_project(
 def _write_share_policy(root: Path, *, allow_llm: bool) -> None:
     dbe = DBE(root)
     policy = SharePolicy(allowLLM=allow_llm)
-    dbe.write_json(root / "share_policy.json", policy.model_dump())
+    dbe.write_json(root / "policy.json", policy.model_dump())
 
 
 def _build_run(
@@ -189,6 +191,7 @@ def _build_external_run(
     *,
     chat_id: ID,
     project_config_id: ID,
+    engine_config_id: ID | None = None,
     started_at: datetime,
     status: AgentRunStatus,
     input_messages: list[UserChatMessage | AssistantChatMessage],
@@ -201,6 +204,8 @@ def _build_external_run(
         "projectConfigId": str(project_config_id),
         "messages": [message.model_dump(mode="json") for message in input_messages],
     }
+    if engine_config_id is not None:
+        inputs["engineConfigId"] = str(engine_config_id)
     outputs = None
     if output_messages is not None:
         outputs = {
@@ -227,6 +232,7 @@ class _TestState:
     wmh_frontend_sender: WMHFrontendSender
     external_agent_runner: ExternalAgentRunner | None = None
     share_mode: bool = False
+    deployment_mode: bool = False
     share_runtime_state: None = None
     chat_manager: None = None
 
@@ -269,7 +275,7 @@ class TestAgentRunChatRoutes:
                     )
 
             assert ctx.value.status_code == 403
-            assert ctx.value.detail == "Share LLM support is not enabled."
+            assert ctx.value.detail == "Deployment LLM support is not enabled."
 
     async def test_get_llm_chat_from_agent_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -529,6 +535,57 @@ class TestAgentRunChatRoutes:
             assert (
                 exc.value.detail
                 == "sectionId is required unless allowUnscoped is true."
+            )
+
+    async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("chat-external-legacy")
+            project_config_id = ID("project-external-legacy")
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=None,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[],
+                output_messages=[],
+            )
+            save_agent_run(dbe, run)
+
+            with pytest.raises(HTTPException) as exc:
+                _ensure_external_chat_id_compatible(
+                    dbe=dbe,
+                    chat_id=chat_id,
+                    engine_config_id=ID("engine-external"),
+                    project_config_id=project_config_id,
+                )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_external_chat_id_allows_matching_engine_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("chat-external-metadata-ok")
+            project_config_id = ID("project-external-metadata-ok")
+            engine_config_id = ID("engine-external")
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[],
+                output_messages=[],
+            )
+            save_agent_run(dbe, run)
+
+            _ensure_external_chat_id_compatible(
+                dbe=dbe,
+                chat_id=chat_id,
+                engine_config_id=engine_config_id,
+                project_config_id=project_config_id,
             )
 
     async def test_get_external_agent_chat_from_outputs(self) -> None:

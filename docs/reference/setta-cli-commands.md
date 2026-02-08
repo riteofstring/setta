@@ -1,10 +1,23 @@
 # Setta CLI Commands
 
 This doc covers the commands exposed by the `setta` CLI (implemented in
-`backend/setta/start.py`). Local commands read/write `setta_files/` in the
-current working directory, so run the CLI from the workspace you want to manage
-(for example `setta`, `setta backups`, `setta status`, or `setta stop`). `setta connect`
-can be run from anywhere because it targets a remote workspace via `--workspace`.
+`backend/setta/start.py`). Most local commands read/write `setta_files/` in the
+current working directory, so run them from the workspace you want to manage
+(for example `setta`, `setta backups`, `setta status`, or `setta stop`).
+`setta connect` can be run from anywhere because it targets a remote workspace
+via `--workspace`.
+
+Deployment commands (`setta share`, `setta app`) serve a published deployment
+snapshot:
+- With `--deployment-name`, deployments are resolved under
+  `setta_files/deployments/` relative to the current working directory (so run
+  from the workspace).
+- With `--deployment-root`, you can point at an absolute deployment folder and
+  run from anywhere.
+
+Only IDE mode sessions started via `setta` are recorded in the session
+registry, so `setta status`, `setta auth`, `setta stop`, and `setta connect`
+apply to those sessions (not `setta share` / `setta app` servers).
 
 There are two types of CLI commands: local commands that operate on the
 workspace where they are executed, and remote helpers that use SSH to target
@@ -13,6 +26,8 @@ another host.
 | Command | Local workspace | Remote helper | Notes |
 | --- | --- | --- | --- |
 | `setta` | yes | no | Start the server in the current workspace. |
+| `setta share` | yes | no | Start the server in share deployment mode. |
+| `setta app` | yes | no | Start the server in app deployment mode. |
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Placeholder export command. |
 | `setta backups` | yes | no | List and restore local project backups. |
@@ -39,6 +54,51 @@ Examples:
 ```sh
 setta
 setta --host 127.0.0.1 --port 8000 --no-open
+```
+
+## `setta share` (serve a share deployment)
+
+Starts the backend server in share deployment mode. In deployment mode, auth is
+disabled and all stateful routes require a `shareSessionId` (created via
+`POST /share/deployments/current/session`).
+
+Options:
+- `--deployment-root PATH` uses an explicit deployment root (must contain
+  `manifest.json` + `project.json` + `policy.json`).
+- `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
+  Pair this with:
+  - `--version vN` or `--latest`.
+- `--reload` is rejected in deployment mode.
+- Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
+  `--no-open`.
+
+Examples:
+```sh
+setta share --deployment-name demo-share --latest
+setta share --deployment-name demo-share --version v3 --host 0.0.0.0 --port 8000 --no-open
+setta share --deployment-root /opt/setta/deployments/demo-share/v5 --host 0.0.0.0 --port 8000
+```
+
+## `setta app` (serve an app deployment)
+
+Starts the backend server in app deployment mode. App mode serves an app
+deployment snapshot (AppSpec + theme + assets) using the same session + policy
+model as share mode.
+
+Options:
+- `--deployment-root PATH` uses an explicit app deployment root.
+- `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
+  Pair this with:
+  - `--version vN` or `--latest`.
+- `--reload` is rejected in deployment mode.
+- Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
+  `--no-open`.
+
+Examples:
+```sh
+setta app --deployment-name demo-app --latest
+setta app --deployment-name demo-app --version v2 --host 0.0.0.0 --port 8000 --no-open
+setta app --deployment-root /opt/setta/deployments/demo-app/v2 --host 0.0.0.0 --port 8000
 ```
 
 ## `setta version`

@@ -109,7 +109,7 @@ function _UIElement({
   sectionId: string;
   paramInfo: { id: string; name: string };
 }) {
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams, canEditStructure } = useShareCapabilities();
   const { id, name } = paramInfo;
   const { description, displayName, trueName, isKwarg, codeObjType } =
@@ -126,7 +126,7 @@ function _UIElement({
     }, _.isEqual);
   const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
   const canEditDescription =
-    canEditStructure && canEditParams && (!isShareMode || !isCodeParam);
+    canEditStructure && canEditParams && (!isDeploymentMode || !isCodeParam);
   const [localDisplayName, setLocalDisplayName] = useLocalPendingValue(
     displayName,
     (pendingValue: string) => {

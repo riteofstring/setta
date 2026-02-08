@@ -7,6 +7,8 @@ import {
 } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 
+import { ensureAppReady } from "../helpers";
+
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -315,7 +317,6 @@ test("lsp diagnostics persist after hard refresh", async ({ page }) => {
     await deleteProjectConfigByName(page, projectConfigName);
   }
 });
-
 function resolveProjectUrl(): string {
   const configuredUrl = process.env.SETTA_PROJECT_URL;
   if (configuredUrl) {

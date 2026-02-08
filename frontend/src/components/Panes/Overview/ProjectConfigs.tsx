@@ -18,7 +18,7 @@ const TOGGLE_THUMB_CLASSES =
   "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
 export function ProjectConfigs() {
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
   const currProjectConfigId = useProjectState((x) => x.projectConfig.id);
   const allProjectMetadata = useAllProjectMetadata(
@@ -56,7 +56,7 @@ export function ProjectConfigs() {
               config={m}
               currProjectConfigId={currProjectConfigId}
               currProjectConfigName={currProjectConfigName}
-              isShareMode={isShareMode}
+              isDeploymentMode={isDeploymentMode}
               previewEnabled={previewEnabled}
             />
           ))}
@@ -70,7 +70,7 @@ type ProjectConfigRowProps = {
   config: ProjectConfig;
   currProjectConfigId: string;
   currProjectConfigName: string;
-  isShareMode: boolean;
+  isDeploymentMode: boolean;
   previewEnabled: boolean;
 };
 
@@ -78,7 +78,7 @@ function ProjectConfigRow({
   config,
   currProjectConfigId,
   currProjectConfigName,
-  isShareMode,
+  isDeploymentMode,
   previewEnabled,
 }: ProjectConfigRowProps) {
   const isActive = config.name === currProjectConfigName;
@@ -87,7 +87,7 @@ function ProjectConfigRow({
 
   const labelClassName = `${isActive ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`;
 
-  if (isShareMode) {
+  if (isDeploymentMode) {
     return (
       <button
         type="button"

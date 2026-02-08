@@ -14,7 +14,7 @@ export function HeaderContainer({ path }: { path: string }) {
     projectIsLoading: x.projectIsLoading,
     projectIs404: x.projectIs404,
   }));
-  const isShareMode = useShareSession((x) => x.isShareMode);
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const headerRef = useRef<HTMLElement>(null);
   useTabScope({
     scopeId: "header",
@@ -33,7 +33,7 @@ export function HeaderContainer({ path }: { path: string }) {
         <>
           <ProjectNav />
           <SearchSwitch path={path} />
-          {isShareMode && (
+          {isDeploymentMode && (
             <span className="ml-2 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.25em] text-amber-700">
               Sharing Mode
             </span>
