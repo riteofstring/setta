@@ -16,7 +16,6 @@ AllImplFields = Literal[
     "brushSize",
     "callable",
     "canvasMode",
-    "capabilityPolicy",
     "chartSettings",
     "chatId",
     "children",

@@ -11,7 +11,7 @@ from watchdog.observers.polling import PollingObserver
 import setta.file_watchers.lsp as lsp_file_watcher
 import setta.file_watchers.specific_file_watcher as specific_file_watcher
 import setta.mcp.tools  # noqa: F401
-from setta.agentic.agentic_scope import AgenticContext
+from setta.agentic.agentic_scope import AgenticContext, AgenticScope
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
@@ -20,6 +20,7 @@ from setta.llm.chat_store import AgentRunChatStore
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tools.tool_search import search_mcp_tools
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.terminals.terminals import Terminals
@@ -86,10 +87,7 @@ class TestMCPServerToolRegistration:
                 ctx=ctx,
             )
             search_result_names = [result.name for result in search_results.results]
-            assert (
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes")
-                in search_result_names
-            )
+            assert "set_section_sizes" in search_result_names
             assert C.SEARCH_MCP_TOOLS_NAME not in search_result_names
 
             search_tool = next(
@@ -106,10 +104,7 @@ class TestMCPServerToolRegistration:
             )
             parsed_results = results_via_tool_run.results
             parsed_result_names = [result.name for result in parsed_results]
-            assert (
-                build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "set_section_sizes")
-                in parsed_result_names
-            )
+            assert "set_section_sizes" in parsed_result_names
             assert C.SEARCH_MCP_TOOLS_NAME not in parsed_result_names
 
     async def test_search_finds_create_top_level_section(self) -> None:
@@ -146,12 +141,7 @@ class TestMCPServerToolRegistration:
                     ctx=ctx,
                 )
                 result_names = [result.name for result in results.results]
-                assert (
-                    build_namespaced_tool_name(
-                        SETTA_MCP_SERVER_ID, "create_top_level_section"
-                    )
-                    in result_names
-                ), (
+                assert "create_top_level_section" in result_names, (
                     f"search results for '{query}' did not include "
                     "create_top_level_section"
                 )
@@ -253,6 +243,7 @@ class TestMCPServerToolRegistration:
             )
 
             chat_id = ID("chat-uuid")
+            scope_section_id = ID("scope-section")
             execute_action = build_execute_tool_calls_action(
                 project_config_id=ID(
                     fixture.manager.project_state_backend.defaultProjectConfigId

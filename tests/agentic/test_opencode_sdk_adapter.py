@@ -5,7 +5,6 @@ import pytest
 from setta.agentic.external_adapters.opencode_sdk import (
     OpenCodeSdkAdapter,
     _OPENCODE_STDERR_MAX_LINES,
-    _normalize_opencode_system_prompt,
 )
 
 
@@ -36,20 +35,3 @@ class TestOpenCodeSdkStderr:
         assert len(stderr_lines) == _OPENCODE_STDERR_MAX_LINES
         expected_start = f"line-{total_lines - _OPENCODE_STDERR_MAX_LINES}"
         assert stderr_lines[0] == expected_start
-
-
-class TestOpenCodeSystemPromptNormalization:
-    def test_rewrites_setta_namespaces_for_opencode(self) -> None:
-        prompt = "\n".join(
-            [
-                "MCP tool names are always namespaced as `<serverId>__<toolName>`.",
-                "Use `setta__list_mcp_tools` before calling `setta__set_code`.",
-            ]
-        )
-
-        normalized = _normalize_opencode_system_prompt(prompt)
-
-        assert "MCP tool names in OpenCode are `<serverId>_<toolName>`." in normalized
-        assert "`setta_list_mcp_tools`" in normalized
-        assert "`setta_set_code`" in normalized
-        assert "setta__" not in normalized

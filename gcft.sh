@@ -9,7 +9,7 @@ usage() {
 Usage: ./gcft.sh [--all]
 
 Options:
-  --all            Enable opt-in agent integration tests.
+  --all            Enable opt-in external agent integration tests.
   -h, --help       Show this help.
 EOF
 }
@@ -17,7 +17,7 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --all)
-      export SETTA_RUN_AGENT_INTEGRATION_TESTS=1
+      export SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1
       shift
       ;;
     -h|--help)

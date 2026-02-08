@@ -36,7 +36,6 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetAppDefinitionRequest,
-    GetChatSectionCapabilityPolicyRequest,
     GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
@@ -67,7 +66,6 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
-    SetChatSectionCapabilityPolicyRequest,
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
     SetChatSectionStateRequest,
@@ -153,7 +151,6 @@ from setta.share.policy import (
     ensure_share_param_value_allowed,
 )
 from setta.terminals.terminals import build_terminal_id
-from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import SectionsClipboardData
 from setta.types.code_obj_impls import PasswordParamCodeObjImpl
@@ -1259,24 +1256,6 @@ async def route_set_chat_section_settings(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_chat_section_settings(x)
-
-
-@router.post(Route.GET_CHAT_SECTION_CAPABILITY_POLICY)
-async def route_get_chat_section_capability_policy(
-    x: GetChatSectionCapabilityPolicyRequest, ctx: RuntimeContextFromRequest
-) -> CapabilityPolicy:
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    return await manager.get_chat_section_capability_policy(x)
-
-
-@router.post(Route.SET_CHAT_SECTION_CAPABILITY_POLICY)
-async def route_set_chat_section_capability_policy(
-    x: SetChatSectionCapabilityPolicyRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_chat_section_capability_policy(x)
 
 
 @router.post(Route.SET_CHAT_SECTION_STATE)

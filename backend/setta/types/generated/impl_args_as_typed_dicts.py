@@ -8,7 +8,6 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
-from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -77,7 +76,6 @@ class CoreArgs(TypedDict):
                 "brushSize",
                 "callable",
                 "canvasMode",
-                "capabilityPolicy",
                 "chartSettings",
                 "chatId",
                 "children",
@@ -611,7 +609,6 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     thinking: NotRequired[bool]
-    capabilityPolicy: NotRequired[CapabilityPolicy]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -634,9 +631,6 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     thinking: NotRequired[bool | Callable[[bool], bool]]
-    capabilityPolicy: NotRequired[
-        CapabilityPolicy | Callable[[CapabilityPolicy], CapabilityPolicy]
-    ]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

@@ -21,7 +21,7 @@ test("app config pane persists catalog, version, and spec path", async ({
   await versionInput.fill("v2");
   await pathInput.fill("app_specs/custom.json");
 
-  const saveButton = page.getByRole("button", { name: "Save", exact: true });
+  const saveButton = page.getByRole("button", { name: "Save" });
   await expect(saveButton).toBeEnabled();
   await Promise.all([
     page.waitForResponse((response) => {

@@ -33,16 +33,16 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.mcp_test_server import run_test_mcp_server
 from tests.utils.integration_flags import (
-    AGENT_INTEGRATION_SKIP_REASON,
-    agent_integration_tests_enabled,
+    EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
+    external_agent_integration_tests_enabled,
 )
 
 
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.skipif(
-        not agent_integration_tests_enabled(),
-        reason=AGENT_INTEGRATION_SKIP_REASON,
+        not external_agent_integration_tests_enabled(),
+        reason=EXTERNAL_AGENT_INTEGRATION_SKIP_REASON,
     ),
 ]
 
@@ -251,9 +251,8 @@ class TestCodexAppServerAdapterIntegration:
                             if path.exists():
                                 contents = path.read_text(encoding="utf-8")
                                 redacted = (
-                                    TestCodexAppServerAdapterIntegration._redact_settings_text(
-                                        contents
-                                    )
+                                    CodexAppServerAdapterIntegrationTests
+                                    ._redact_settings_text(contents)
                                 )
                                 settings_dump = (
                                     f" codexConfigPath={codex_path} "

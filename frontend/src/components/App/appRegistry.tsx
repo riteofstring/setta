@@ -11,15 +11,17 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import "katex/dist/katex.min.css";
 import _ from "lodash";
 import React from "react";
-import { BiMenu, BiX } from "react-icons/bi";
 import ReactMarkdown from "react-markdown";
-import { Link, useLocation } from "react-router-dom";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImpl,
+  getParamDisplayName,
+} from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
   sendRealtimeSectionParamLiteral,
@@ -48,7 +50,6 @@ import {
 } from "utils/generatedEndpoints";
 import {
   BaseChildlessCodeObjImplUnion,
-  BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
@@ -56,7 +57,6 @@ import {
   DependencyValueTypeEnum,
   DropzoneModeEnum,
   isBaseChildlessCodeObjImpl,
-  isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
   LiteralDependencyValue,
   SectionTypeEnum,
@@ -413,121 +413,6 @@ function Tab({ element, children }: AppComponentProps) {
   return <div className={className}>{children}</div>;
 }
 
-type NavBarContextValue = {
-  closeMobileMenu: () => void;
-};
-
-const NavBarContext = React.createContext<NavBarContextValue | null>(null);
-
-function normalizeRoutePath(path: string) {
-  const withSlash = path.startsWith("/") ? path : `/${path}`;
-  if (withSlash.length > 1 && withSlash.endsWith("/")) {
-    return withSlash.slice(0, -1);
-  }
-  return withSlash;
-}
-
-function NavBar({ element, children }: AppComponentProps) {
-  const props = element.props ?? {};
-  const title = typeof props.title === "string" ? props.title : null;
-  const className = typeof props.className === "string" ? props.className : "";
-  const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname]);
-
-  const ctx = React.useMemo(
-    () => ({ closeMobileMenu: () => setMobileMenuOpen(false) }),
-    [],
-  );
-
-  return (
-    <NavBarContext.Provider value={ctx}>
-      <header
-        className={`rounded-xl border border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 ${className}`.trim()}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileMenuOpen}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-surface)] text-[color:var(--app-text)] transition-colors hover:bg-[color:var(--app-surface-alt)] md:hidden"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-            >
-              {mobileMenuOpen ? (
-                <BiX className="h-5 w-5" />
-              ) : (
-                <BiMenu className="h-5 w-5" />
-              )}
-            </button>
-            {title && (
-              <div className="min-w-0 truncate font-semibold text-[color:var(--app-text)] [font-size:var(--app-text-sm)]">
-                {title}
-              </div>
-            )}
-          </div>
-
-          <nav
-            aria-label="Navigation"
-            className="hidden items-center gap-1 md:flex"
-          >
-            {children}
-          </nav>
-        </div>
-
-        {mobileMenuOpen && (
-          <nav
-            aria-label="Navigation"
-            className="mt-3 flex flex-col gap-2 md:hidden"
-          >
-            {children}
-          </nav>
-        )}
-      </header>
-    </NavBarContext.Provider>
-  );
-}
-
-function NavLink({ element }: AppComponentProps) {
-  const props = element.props ?? {};
-  const to = typeof props.to === "string" ? props.to : null;
-  const label = typeof props.label === "string" ? props.label : null;
-  const className = typeof props.className === "string" ? props.className : "";
-  const location = useLocation();
-  const ctx = React.useContext(NavBarContext);
-
-  if (!to || !label) {
-    return (
-      <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Missing nav link binding.
-      </div>
-    );
-  }
-
-  const normalizedTo = normalizeRoutePath(to);
-  const normalizedPath = normalizeRoutePath(location.pathname);
-  const isActive =
-    normalizedPath === normalizedTo ||
-    (normalizedTo !== "/" && normalizedPath.endsWith(normalizedTo));
-
-  return (
-    <Link
-      to={to}
-      className={`rounded-full px-3 py-2 font-semibold transition-colors [font-size:var(--app-text-xs)] ${
-        isActive
-          ? "bg-[color:var(--app-accent)] text-[color:var(--app-accent-text)] hover:bg-[color:var(--app-accent-hover)]"
-          : "bg-[color:var(--app-surface)] text-[color:var(--app-muted)] hover:bg-[color:var(--app-surface-alt)]"
-      } ${className}`.trim()}
-      onClick={() => ctx?.closeMobileMenu()}
-    >
-      {label}
-    </Link>
-  );
-}
-
 function Heading({ element }: AppComponentProps) {
   const props = element.props ?? {};
   const runtime = useAppRuntime();
@@ -651,7 +536,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
   if (!configState) {
     return (
       <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        Loading config...
+        Loading config…
       </div>
     );
   }
@@ -664,163 +549,119 @@ function ParamInputBlock({ element }: AppComponentProps) {
     );
   }
 
-  const { canRenderParam, displayName, sectionImpl, codeObjImpl, failureText } =
-    (() => {
-      const variantId =
-        configState.previewSectionVariantMap[sectionId] ??
-        configState.projectConfig.sectionVariantMap[sectionId];
-      if (variantId === undefined) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: null,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-      const variant = configState.sectionVariants[variantId];
-      if (!variant) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: null,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-      const baseSectionImpl = configState.sectionImpls[variant.impl];
-      if (!baseSectionImpl || !configState.sections[sectionId]) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: null,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-      const previewActive =
-        configState.previewSectionVariantMap[sectionId] !== undefined;
-      const effectiveSectionImpl = getCurrEffectiveSectionImpl(
-        configState,
-        sectionId,
-        previewActive,
-      );
-
-      let codeObjVariantId: string | null = null;
-      if (effectiveSectionImpl.type === SectionTypeEnum.MetaControl) {
-        const controlParamId = effectiveSectionImpl.metaControlParamId;
-        if (!controlParamId || controlParamId !== paramId) {
-          return {
-            canRenderParam: false,
-            displayName: null,
-            sectionImpl: effectiveSectionImpl,
-            codeObjImpl: null,
-            failureText: "Missing param binding.",
-          };
-        }
-        codeObjVariantId =
-          effectiveSectionImpl.codeObjVariantMap[paramId] ?? null;
-      } else if (isBaseSectionWithParamsImpl(effectiveSectionImpl)) {
-        codeObjVariantId =
-          effectiveSectionImpl.codeObjVariantMap[paramId] ?? null;
-      } else {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: effectiveSectionImpl,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-
-      if (!codeObjVariantId) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: effectiveSectionImpl,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-      const codeObjVariant = configState.codeObjVariants[codeObjVariantId];
-      if (!codeObjVariant) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: effectiveSectionImpl,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-      const baseCodeObjImpl = configState.codeObjImpls[codeObjVariant.impl];
-      if (!baseCodeObjImpl) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: effectiveSectionImpl,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-      const codeObjCore = configState.codeObjs[paramId];
-      if (!codeObjCore) {
-        return {
-          canRenderParam: false,
-          displayName: null,
-          sectionImpl: effectiveSectionImpl,
-          codeObjImpl: null,
-          failureText: "Missing param binding.",
-        };
-      }
-
-      const effectiveCodeObjImpl: BaseCodeObjImplUnion =
-        _.cloneDeep(baseCodeObjImpl);
-      Object.assign(effectiveCodeObjImpl, {
-        ...codeObjCore.sharedModifier,
-        ...codeObjVariant.modifier,
-      });
-
-      const resolvedDisplayName = (() => {
-        const name =
-          typeof codeObjCore.name === "string" ? codeObjCore.name : paramId;
-        if (!configState.projectConfig.showParamDisplayNames) {
-          return name;
-        }
-        if (
-          isBaseParamCodeObjImpl(effectiveCodeObjImpl) &&
-          effectiveCodeObjImpl.coreNameEditable
-        ) {
-          return name;
-        }
-        const displayName =
-          typeof codeObjCore.displayName === "string"
-            ? codeObjCore.displayName.trim()
-            : "";
-        return displayName.length > 0 ? codeObjCore.displayName : name;
-      })();
-
-      if (!isBaseChildlessCodeObjImpl(effectiveCodeObjImpl)) {
-        return {
-          canRenderParam: false,
-          displayName: resolvedDisplayName,
-          sectionImpl: effectiveSectionImpl,
-          codeObjImpl: null,
-          failureText: `Unsupported param type: ${effectiveCodeObjImpl.type}.`,
-        };
-      }
+  const { canRenderParam, displayName, sectionImpl, codeObjImpl } = (() => {
+    const variantId =
+      configState.previewSectionVariantMap[sectionId] ??
+      configState.projectConfig.sectionVariantMap[sectionId];
+    if (variantId === undefined) {
       return {
-        canRenderParam: true,
-        displayName: resolvedDisplayName,
-        sectionImpl: effectiveSectionImpl,
-        codeObjImpl: effectiveCodeObjImpl,
-        failureText: null,
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
       };
-    })();
+    }
+    const variant = configState.sectionVariants[variantId];
+    if (!variant) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+    const sectionImpl = configState.sectionImpls[variant.impl];
+    if (!sectionImpl || !configState.sections[sectionId]) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+
+    let codeObjVariantId: string | null = null;
+    if (sectionImpl.type === SectionTypeEnum.MetaControl) {
+      const controlParamId = sectionImpl.metaControlParamId;
+      if (!controlParamId || controlParamId !== paramId) {
+        return {
+          canRenderParam: false,
+          displayName: null,
+          sectionImpl: null,
+          codeObjImpl: null,
+        };
+      }
+      codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
+    } else if (isBaseSectionWithParamsImpl(sectionImpl)) {
+      codeObjVariantId = sectionImpl.codeObjVariantMap[paramId] ?? null;
+    } else {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+
+    if (!codeObjVariantId) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+    const codeObjVariant = configState.codeObjVariants[codeObjVariantId];
+    if (!codeObjVariant) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+    if (!configState.codeObjImpls[codeObjVariant.impl]) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+    if (!configState.codeObjs[paramId]) {
+      return {
+        canRenderParam: false,
+        displayName: null,
+        sectionImpl: null,
+        codeObjImpl: null,
+      };
+    }
+    const previewActive =
+      configState.previewSectionVariantMap[sectionId] !== undefined;
+    const effectiveSectionImpl = getCurrEffectiveSectionImpl(
+      configState,
+      sectionId,
+      previewActive,
+    );
+    const effectiveCodeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+      configState,
+      sectionId,
+      paramId,
+      isBaseChildlessCodeObjImpl,
+      previewActive,
+    );
+    return {
+      canRenderParam: true,
+      displayName: getParamDisplayName(configState, sectionId, paramId),
+      sectionImpl: effectiveSectionImpl,
+      codeObjImpl: effectiveCodeObjImpl,
+    };
+  })();
 
   if (!canRenderParam || !sectionImpl || !codeObjImpl) {
     return (
       <div className="rounded-md border border-dashed border-[color:var(--app-border)] bg-[color:var(--app-surface)] px-3 py-2 text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-        {failureText ?? "Missing param binding."}
+        Missing param binding.
       </div>
     );
   }
@@ -1607,7 +1448,7 @@ function ImageOutput({ element }: AppComponentProps) {
         />
       ) : (
         <div className="text-[color:var(--app-muted)] [font-size:var(--app-text-xs)]">
-          Waiting for image output...
+          Waiting for image output…
         </div>
       )}
     </figure>
@@ -1736,8 +1577,6 @@ export const appRegistry: Record<
   ConfigScope,
   Tabs,
   Tab,
-  NavBar,
-  NavLink,
   Heading,
   Text,
   ParamInput: ParamInputBlock,
