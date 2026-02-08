@@ -1,6 +1,12 @@
 import re
 
 from setta.app.catalog import APP_CATALOG_ID, APP_CATALOG_VERSION
+from setta.app.spec_utils import (
+    get_data_path as _get_data_path,
+    is_ui_element as _is_ui_element,
+    resolve_binding_record as _resolve_binding_record,
+    resolve_binding_string as _resolve_binding_string,
+)
 from setta.app.spec_validation import (
     collect_app_action_definition_issues,
     collect_app_spec_validation_issues,
@@ -686,80 +692,11 @@ def _validate_assets(assets: list[JSONValue]) -> list[AppValidationIssue]:
     ]
 
 
-def _is_ui_element(value: JSONValue | None) -> bool:
-    if not isinstance(value, dict):
-        return False
-    return isinstance(value.get("key"), str) and isinstance(value.get("type"), str)
-
-
 def _resolve_element_props(element: dict[str, JSONValue]) -> dict[str, JSONValue]:
     raw = element.get("props")
     if isinstance(raw, dict):
         return raw
     return {}
-
-
-def _get_data_path(props: dict[str, JSONValue]) -> str | None:
-    value = props.get("dataPath")
-    if isinstance(value, str):
-        return value
-    return None
-
-
-def _decode_pointer_segment(segment: str) -> str:
-    return segment.replace("~1", "/").replace("~0", "~")
-
-
-def _resolve_pointer(value: JSONValue, pointer: str) -> JSONValue | None:
-    if pointer == "":
-        return value
-    if not pointer.startswith("/"):
-        return None
-    current: JSONValue = value
-    segments = [_decode_pointer_segment(segment) for segment in pointer.split("/")[1:]]
-    for segment in segments:
-        if isinstance(current, list):
-            if not segment.isdigit():
-                return None
-            index = int(segment)
-            if index < 0 or index >= len(current):
-                return None
-            current = current[index]
-            continue
-        if not isinstance(current, dict):
-            return None
-        if segment not in current:
-            return None
-        current = current[segment]
-    return current
-
-
-def _resolve_binding_record(
-    data_bindings: dict[str, JSONValue],
-    data_path: str | None,
-) -> dict[str, JSONValue] | None:
-    if not data_bindings or data_path is None:
-        return None
-    resolved: JSONValue | None
-    if data_path == "" or data_path.startswith("/"):
-        resolved = _resolve_pointer(data_bindings, data_path)
-    else:
-        resolved = data_bindings.get(data_path)
-    if isinstance(resolved, dict):
-        return resolved
-    return None
-
-
-def _resolve_binding_string(
-    binding: dict[str, JSONValue] | None,
-    key: str,
-) -> str | None:
-    if binding is None:
-        return None
-    value = binding.get(key)
-    if isinstance(value, str):
-        return value
-    return None
 
 
 def _resolve_action_type(action_name: str, definition: JSONValue | None) -> str:

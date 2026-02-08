@@ -133,7 +133,7 @@ def _sanitize_cookie_token(value: str) -> str:
 def _hosts_equivalent(left: str, right: str) -> bool:
     if left == right:
         return True
-    return {left, right} <= {"127.0.0.1", "localhost"}
+    return {left, right} <= {"127.0.0.1", "localhost", "::1"}
 
 
 def _find_workspace_sessions_root(start_dir: Path) -> tuple[Path, Path] | None:

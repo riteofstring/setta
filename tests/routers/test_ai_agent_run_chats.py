@@ -22,6 +22,7 @@ from setta.routers.ai import (
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
+    _ensure_external_chat_id_compatible,
     _get_prior_messages_for_engine,
     route_get_external_agent_chat,
     route_get_llm_chat,
@@ -189,6 +190,7 @@ def _build_external_run(
     *,
     chat_id: ID,
     project_config_id: ID,
+    engine_config_id: ID | None = None,
     started_at: datetime,
     status: AgentRunStatus,
     input_messages: list[UserChatMessage | AssistantChatMessage],
@@ -201,6 +203,8 @@ def _build_external_run(
         "projectConfigId": str(project_config_id),
         "messages": [message.model_dump(mode="json") for message in input_messages],
     }
+    if engine_config_id is not None:
+        inputs["engineConfigId"] = str(engine_config_id)
     outputs = None
     if output_messages is not None:
         outputs = {
@@ -444,6 +448,57 @@ class TestAgentRunChatRoutes:
 
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("chat-external-legacy")
+            project_config_id = ID("project-external-legacy")
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=None,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[],
+                output_messages=[],
+            )
+            save_agent_run(dbe, run)
+
+            with pytest.raises(HTTPException) as exc:
+                _ensure_external_chat_id_compatible(
+                    dbe=dbe,
+                    chat_id=chat_id,
+                    engine_config_id=ID("engine-external"),
+                    project_config_id=project_config_id,
+                )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_external_chat_id_allows_matching_engine_metadata(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("chat-external-metadata-ok")
+            project_config_id = ID("project-external-metadata-ok")
+            engine_config_id = ID("engine-external")
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[],
+                output_messages=[],
+            )
+            save_agent_run(dbe, run)
+
+            _ensure_external_chat_id_compatible(
+                dbe=dbe,
+                chat_id=chat_id,
+                engine_config_id=engine_config_id,
+                project_config_id=project_config_id,
+            )
 
     async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:

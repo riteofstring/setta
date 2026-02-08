@@ -42,7 +42,7 @@ def _build_manifest(
 
 @pytest.mark.asyncio
 class TestShareListenerRuntime:
-    def test_missing_entrypoint_raises(self) -> None:
+    async def test_missing_entrypoint_raises(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             project_config_id = ID("proj-missing")

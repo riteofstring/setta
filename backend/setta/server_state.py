@@ -207,6 +207,7 @@ class SettaFastAPIState:
                 seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
+            # share_mode enables per-viewer session scoping in deployment mode (share or app).
             share_mode=self.deployment_mode,
         )
         self.detached_run_manager = DetachedRunManager(self.dbe)

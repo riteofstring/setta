@@ -87,7 +87,7 @@ class ShareRuntimeState:
         self.share_policy: "SharePolicy" = load_share_policy_from_dbe(self.dbe)
         if self.share_policy.runSnapshotMode == RunSnapshotMode.never:
             raise ValueError(
-                "Share deployments do not support runSnapshotMode=never. "
+                "Deployments do not support runSnapshotMode=never. "
                 "Use ephemeral or always."
             )
         self._session_backends: dict[str, ProjectStateBackend] = {}
@@ -501,7 +501,7 @@ class ShareRuntimeState:
             resolved = (self.deployment_root / raw_path).resolve()
         if not resolved.is_relative_to(self._deployment_root_resolved):
             raise ValueError(
-                f"Share deployment path escapes deployment root: {raw_path.as_posix()}"
+                f"Deployment path escapes deployment root: {raw_path.as_posix()}"
             )
         return resolved
 

@@ -9,6 +9,7 @@ from setta.deployments.publish_utils import (
     copy_listener_entrypoint,
     create_deployment_root,
     deployment_relative_path,
+    ensure_snapshot_view_modes,
     external_filename,
     normalize_deployment_name,
     rebase_project_state_paths,
@@ -36,10 +37,6 @@ from setta.types.app_deployment import (
     AppDeploymentMetadata,
     AppDeploymentSessionResponse,
     AppDeploymentStateResponse,
-)
-from setta.types.helpers_lvl3 import (
-    convert_backend_to_single_config,
-    merge_single_config_into_backend,
 )
 from setta.types.id import ID
 from setta.types.routes import Route
@@ -237,6 +234,11 @@ def route_get_latest_app_deployment(
     state: AppStateFromRequest,
 ) -> AppDeploymentMetadata:
     deployment_name = normalize_deployment_name(deploymentName)
+    if state.deployment_mode and not state.app_mode:
+        raise HTTPException(
+            status_code=404,
+            detail=f"App deployment not found: {deployment_name}",
+        )
     if state.app_mode:
         expected_name = state.share_runtime_state.deployment_name
         if deployment_name != expected_name:
@@ -435,10 +437,7 @@ async def route_publish_app_deployment(
 
     snapshot = project_state_backend.model_copy(deep=True)
     snapshot.defaultProjectConfigId = x.projectConfigId
-    for project_config_id in list(snapshot.projectConfigs.keys()):
-        single_state = convert_backend_to_single_config(snapshot, project_config_id)
-        single_state.validate_view_modes()
-        snapshot = merge_single_config_into_backend(snapshot, single_state)
+    snapshot = ensure_snapshot_view_modes(snapshot)
     rebase_project_state_paths(snapshot, deployment_root)
     strip_password_values(snapshot, force_has_secret=False)
     json_source_payloads = build_json_source_dicts(snapshot)

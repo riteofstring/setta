@@ -1,4 +1,12 @@
+from functools import lru_cache
+
 from setta.app.catalog import APP_CATALOG, APP_CATALOG_ID
+from setta.app.spec_utils import (
+    get_data_path as _get_data_path,
+    is_ui_element as _is_ui_element,
+    resolve_binding_record as _resolve_binding_record,
+    resolve_binding_string as _resolve_binding_string,
+)
 from setta.types.app_validation import AppValidationIssue
 from setta.types.chat_messages import JSONValue
 
@@ -489,10 +497,11 @@ def _collect_push_children(
         )
 
 
-def _list_catalog_actions() -> set[str]:
+@lru_cache(maxsize=1)
+def _cached_catalog_actions() -> frozenset[str]:
     actions = APP_CATALOG.get("actions")
     if not isinstance(actions, list):
-        return set()
+        return frozenset()
     output: set[str] = set()
     for action in actions:
         if not isinstance(action, dict):
@@ -500,7 +509,11 @@ def _list_catalog_actions() -> set[str]:
         name = action.get("name")
         if isinstance(name, str):
             output.add(name)
-    return output
+    return frozenset(output)
+
+
+def _list_catalog_actions() -> set[str]:
+    return set(_cached_catalog_actions())
 
 
 def _collect_run_action_names(
@@ -516,6 +529,7 @@ def _collect_run_action_names(
     return run_names
 
 
+@lru_cache(maxsize=1)
 def _build_component_schema_map() -> dict[str, dict[str, JSONValue]]:
     components = APP_CATALOG.get("components")
     if not isinstance(components, list):
@@ -551,6 +565,11 @@ def _resolve_app_spec(
                 raise ValueError(
                     f"Invalid app spec element for key '{key}': each element must be an object with top-level string fields 'key' and 'type' (example: {example})."
                 )
+            element_key = value.get("key")
+            if element_key != key:
+                raise ValueError(
+                    f"App spec element map key '{key}' does not match element.key '{element_key}'."
+                )
             elements[key] = value
 
     if _is_ui_element(root_value):
@@ -565,14 +584,6 @@ def _resolve_app_spec(
         raise ValueError("App spec root must be a UI element or element key.")
 
     return root_element, elements
-
-
-def _get_data_path(props: dict[str, JSONValue]) -> str | None:
-    value = props.get("dataPath")
-    if isinstance(value, str):
-        return value
-    return None
-
 
 def _is_missing_required_value(value: JSONValue) -> bool:
     if value is None:
@@ -686,25 +697,6 @@ def _validate_scalar_prop_value(
             )
 
 
-def _validate_action_binding(
-    key: str,
-    action_name: str,
-    allowed_actions: set[str],
-) -> None:
-    if action_name not in allowed_actions:
-        raise ValueError(
-            f"App spec action '{action_name}' is not registered (element '{key}')."
-        )
-
-
-def _is_ui_element(value: JSONValue | None) -> bool:
-    if not isinstance(value, dict):
-        return False
-    key = value.get("key")
-    element_type = value.get("type")
-    return isinstance(key, str) and isinstance(element_type, str)
-
-
 def _get_prop_string(
     element: dict[str, JSONValue],
     key: str,
@@ -742,78 +734,6 @@ def _resolve_action_name(
     if isinstance(value, str):
         return value
     return None
-
-
-def _resolve_binding_record(
-    data_bindings: dict[str, JSONValue] | None,
-    data_path: str | None,
-) -> dict[str, JSONValue] | None:
-    if not data_bindings or data_path is None:
-        return None
-    if data_path == "" or data_path.startswith("/"):
-        resolved = _resolve_pointer(data_bindings, data_path)
-    else:
-        resolved = data_bindings.get(data_path)
-    if isinstance(resolved, dict):
-        return resolved
-    return None
-
-
-def _resolve_pointer(value: JSONValue, pointer: str) -> JSONValue | None:
-    if pointer == "":
-        return value
-    if not pointer.startswith("/"):
-        return None
-    current: JSONValue = value
-    segments = [_decode_pointer_segment(segment) for segment in pointer.split("/")[1:]]
-    for segment in segments:
-        if isinstance(current, list):
-            if not segment.isdigit():
-                return None
-            index = int(segment)
-            if index < 0 or index >= len(current):
-                return None
-            current = current[index]
-            continue
-        if not isinstance(current, dict):
-            return None
-        if segment not in current:
-            return None
-        current = current[segment]
-    return current
-
-
-def _decode_pointer_segment(segment: str) -> str:
-    return segment.replace("~1", "/").replace("~0", "~")
-
-
-def _resolve_binding_string(
-    binding: dict[str, JSONValue] | None,
-    key: str,
-) -> str | None:
-    if binding is None:
-        return None
-    value = binding.get(key)
-    if isinstance(value, str):
-        return value
-    return None
-
-
-def _validate_param_binding(
-    element_key: str,
-    element: dict[str, JSONValue],
-    binding: dict[str, JSONValue] | None,
-) -> None:
-    section_id = _get_prop_string(element, "sectionId") or _resolve_binding_string(
-        binding, "sectionId"
-    )
-    param_id = _get_prop_string(element, "paramId") or _resolve_binding_string(
-        binding, "paramId"
-    )
-    if not section_id or not param_id:
-        raise ValueError(
-            f"ParamInput requires sectionId and paramId (element '{element_key}')."
-        )
 
 
 def _apply_config_scope_guardrail(

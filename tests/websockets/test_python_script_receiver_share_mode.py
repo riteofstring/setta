@@ -54,6 +54,8 @@ async def _noop_wait_until_ready() -> None:
 def _build_share_state() -> SimpleNamespace:
     return SimpleNamespace(
         share_mode=True,
+        deployment_mode=True,
+        app_mode=False,
         wait_until_ready=_noop_wait_until_ready,
     )
 

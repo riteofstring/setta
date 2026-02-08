@@ -566,7 +566,7 @@ class BaseProjectManager(ABC):
         logger.debug("Creating queue task in BaseProjectManager.__init__")
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = spawn_background_task(
-            self._process_queue(),
+            self._process_queue,
             label=f"{type(self).__name__}-queue",
             extra_values={"project_manager": type(self).__name__},
         )

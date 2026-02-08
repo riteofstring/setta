@@ -18,7 +18,7 @@ def resolve_app_spec_path(dbe: DBE, app_spec_path: str) -> Path:
         resolved = (dbe.path / raw_path).resolve()
     if not resolved.is_relative_to(root):
         raise ValueError(
-            "App spec path must live under the app_specs folder in the project root."
+            "App spec path must live under the app_specs folder in the Setta DB root (setta_files)."
         )
     return resolved
 

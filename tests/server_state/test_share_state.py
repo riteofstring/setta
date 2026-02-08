@@ -157,7 +157,7 @@ class TestShareState:
             ).resolve()
             assert expected == state.dbe.runtime_root
 
-    def test_share_state_requires_project_file(self) -> None:
+    async def test_share_state_requires_project_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             app = FastAPI()

@@ -5,6 +5,20 @@ from setta.app.spec_validation import validate_app_spec
 
 
 class TestAppSpecValidation:
+    def test_rejects_element_key_mismatch(self) -> None:
+        app_spec = {
+            "root": "root",
+            "elements": {
+                "root": {
+                    "key": "mismatch",
+                    "type": "Stack",
+                }
+            },
+        }
+
+        with pytest.raises(ValueError, match="does not match element.key"):
+            validate_app_spec(app_spec, catalog_id=APP_CATALOG_ID)
+
     def test_rejects_param_input_without_binding(self) -> None:
         app_spec = {
             "root": {

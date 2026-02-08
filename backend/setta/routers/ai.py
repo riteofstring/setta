@@ -95,13 +95,13 @@ def _ensure_external_chat_id_compatible(
         return
     for run in external_runs:
         existing_engine = get_run_engine_config_id(run)
-        if existing_engine and existing_engine != engine_config_id:
+        if existing_engine != engine_config_id:
             raise HTTPException(
                 status_code=409,
                 detail="Chat engine mismatch; start a new chat.",
             )
         existing_project = get_run_project_config_id(run)
-        if existing_project and existing_project != project_config_id:
+        if existing_project != project_config_id:
             raise HTTPException(
                 status_code=409,
                 detail="Chat project config mismatch; start a new chat.",

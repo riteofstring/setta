@@ -1,3 +1,4 @@
+import logging
 import json
 import tempfile
 from io import StringIO
@@ -19,6 +20,8 @@ from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.share_deployment import DeploymentManifest
 from setta.utils.utils import compute_md5_prefix, normalize_path
+
+logger = logging.getLogger(__name__)
 
 
 class DBE:
@@ -192,7 +195,12 @@ class DBE:
             return None
         try:
             return DeploymentManifest.model_validate(payload)
-        except ValidationError:
+        except ValidationError as exc:
+            logger.warning(
+                "Invalid deployment manifest at %s: %s",
+                self.deployment_manifest,
+                exc,
+            )
             return None
 
     def read_temporary_id_map(self):

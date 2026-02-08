@@ -9,6 +9,10 @@ from setta.deployments.deployment_utils import (
     iter_deployment_versions,
     rewrite_project_state_paths,
 )
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import CodeFileBinding
 from setta.types.share_deployment import DeploymentListenerConfig, DeploymentManifest
@@ -199,6 +203,17 @@ def rebase_project_state_paths(
             json_path_map,
         ),
     )
+
+
+def ensure_snapshot_view_modes(
+    snapshot: "ProjectStateBackend",
+) -> "ProjectStateBackend":
+    updated = snapshot
+    for project_config_id in list(snapshot.projectConfigs.keys()):
+        single_state = convert_backend_to_single_config(updated, project_config_id)
+        single_state.validate_view_modes()
+        updated = merge_single_config_into_backend(updated, single_state)
+    return updated
 
 
 def resolve_deployment_relative_path(path: Path, deployment_root: Path) -> Path:

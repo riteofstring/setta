@@ -105,6 +105,13 @@ const JUSTIFY_CLASS: Record<string, string> = {
   between: "justify-between",
 };
 
+const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
+  background: "var(--app-background)",
+  surface: "var(--app-surface)",
+  surfaceAlt: "var(--app-surface-alt)",
+  card: "var(--app-card-bg)",
+};
+
 function resolveConfigId(
   bindingConfigId: string | null,
   runtimeConfigId: string | null,
@@ -168,13 +175,7 @@ function Box({ element, children }: AppComponentProps) {
     style.borderRadius = typeof radius === "number" ? `${radius}px` : radius;
   }
 
-  const backgroundByRole: Record<string, string> = {
-    background: "var(--app-background)",
-    surface: "var(--app-surface)",
-    surfaceAlt: "var(--app-surface-alt)",
-    card: "var(--app-card-bg)",
-  };
-  const resolvedBackground = backgroundByRole[background];
+  const resolvedBackground = BOX_BACKGROUND_BY_ROLE[background];
   if (resolvedBackground) {
     style.background = resolvedBackground;
   }
@@ -950,9 +951,11 @@ function AppParamUI({
       const min = "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0;
       const max = "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100;
       const step = "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1;
+      const numericValue = _.toNumber(value);
+      const resolvedValue = Number.isFinite(numericValue) ? numericValue : min;
       return (
         <SliderInput
-          value={Number.isFinite(_.toNumber(value)) ? _.toNumber(value) : min}
+          value={resolvedValue}
           onChange={(next) => onChange(next)}
           onEscape={onEscape}
           min={min}
@@ -972,9 +975,11 @@ function AppParamUI({
       const min = "min" in codeObjImpl ? codeObjImpl.min ?? 0 : 0;
       const max = "max" in codeObjImpl ? codeObjImpl.max ?? 100 : 100;
       const step = "step" in codeObjImpl ? codeObjImpl.step ?? 1 : 1;
+      const numericValue = _.toNumber(value);
+      const resolvedValue = Number.isFinite(numericValue) ? numericValue : min;
       return (
         <RotaryInput
-          value={Number.isFinite(_.toNumber(value)) ? _.toNumber(value) : min}
+          value={resolvedValue}
           onChange={onChange}
           onEscape={onEscape}
           min={min}
@@ -1205,8 +1210,8 @@ function ActionButton({ element, onAction }: AppComponentProps) {
   const isDownloadAction =
     actionType === "downloadArtifact" || actionType === "downloadBinary";
   const isExternalLink = actionType === "openExternalLink";
-  const allowDownloads = runtime?.allowFileDownloads ?? true;
-  const allowLinks = runtime?.allowExternalLinks ?? true;
+  const allowDownloads = runtime?.allowFileDownloads ?? false;
+  const allowLinks = runtime?.allowExternalLinks ?? false;
   let isDisabled = false;
   if (isRunAction) {
     isDisabled = !canRun || isRunning;

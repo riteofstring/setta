@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel
@@ -8,6 +7,7 @@ from pydantic import BaseModel
 from setta.deployments.publish_utils import (
     copy_listener_entrypoint,
     create_deployment_root,
+    ensure_snapshot_view_modes,
     normalize_deployment_name,
     rebase_project_state_paths,
     resolve_deployment_relative_path,
@@ -33,10 +33,6 @@ from setta.routers.dependencies import (
     require_share_session_id,
 )
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
-from setta.types.helpers_lvl3 import (
-    convert_backend_to_single_config,
-    merge_single_config_into_backend,
-)
 from setta.types.id import ID
 from setta.types.routes import Route
 from setta.types.settings_state import RunSnapshotMode
@@ -53,9 +49,6 @@ from setta.utils.structured_data import write_json_source_payload
 logger = logging.getLogger(__name__)
 
 router = SettaProjectContextAPIRouter()
-
-if TYPE_CHECKING:
-    from setta.types.project_state import ProjectStateBackend
 
 
 class SharePolicyOverrides(BaseModel, extra="forbid"):
@@ -80,17 +73,6 @@ class PublishShareDeploymentRequest(BaseModel, extra="forbid"):
 
 class LoadShareProjectConfigRequest(BaseModel, extra="forbid"):
     projectConfigId: ID
-
-
-def _ensure_snapshot_view_modes(
-    snapshot: "ProjectStateBackend",
-) -> "ProjectStateBackend":
-    updated = snapshot
-    for project_config_id in list(snapshot.projectConfigs.keys()):
-        single_state = convert_backend_to_single_config(updated, project_config_id)
-        single_state.validate_view_modes()
-        updated = merge_single_config_into_backend(updated, single_state)
-    return updated
 
 
 def _apply_share_policy_overrides(
@@ -192,6 +174,11 @@ def route_get_latest_share_deployment(
     state: AppStateFromRequest,
 ) -> ShareDeploymentMetadata:
     deployment_name = normalize_deployment_name(deploymentName)
+    if state.deployment_mode and not state.share_mode:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Share deployment not found: {deployment_name}",
+        )
     if state.share_mode:
         expected_name = state.share_runtime_state.deployment_name
         if deployment_name != expected_name:
@@ -388,7 +375,7 @@ async def route_publish_share_deployment(
 
     snapshot = project_state_backend.model_copy(deep=True)
     snapshot.defaultProjectConfigId = x.projectConfigId
-    snapshot = _ensure_snapshot_view_modes(snapshot)
+    snapshot = ensure_snapshot_view_modes(snapshot)
     rebase_project_state_paths(snapshot, deployment_root)
     strip_password_values(snapshot, force_has_secret=False)
     json_source_payloads = build_json_source_dicts(snapshot)

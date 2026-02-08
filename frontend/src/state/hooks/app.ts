@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ensureAppSessionFromCurrentDeployment,
   loadAppDeploymentState,
@@ -9,14 +9,9 @@ import { resetProjectStores } from "state/utils";
 export function useLoadAppDeployment() {
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
-  const loadKeyRef = useRef("app");
-  const resolvedDoneLoading =
-    loadKeyRef.current === "app" ? doneLoading : false;
-  const resolvedIs404 = loadKeyRef.current === "app" ? is404 : false;
 
   useEffect(() => {
     let isMounted = true;
-    loadKeyRef.current = "app";
 
     async function load() {
       setDoneLoading(false);
@@ -53,5 +48,5 @@ export function useLoadAppDeployment() {
     };
   }, []);
 
-  return [resolvedDoneLoading, resolvedIs404] as const;
+  return [doneLoading, is404] as const;
 }

@@ -180,6 +180,38 @@ describe("AppRenderer policy enforcement", () => {
     expect(markup).toContain("File downloads are disabled by policy.");
   });
 
+  it("defaults to denying downloads and external links when runtime is missing", () => {
+    const ActionButton = appRegistry.ActionButton;
+
+    const downloadMarkup = renderToStaticMarkup(
+      <ActionButton
+        element={{
+          props: {
+            action: "downloadArtifact",
+            label: "Download",
+          },
+        }}
+        onAction={() => {}}
+      />,
+    );
+    expect(downloadMarkup).toContain("cursor-not-allowed");
+    expect(downloadMarkup).toContain("File downloads are disabled by policy.");
+
+    const linkMarkup = renderToStaticMarkup(
+      <ActionButton
+        element={{
+          props: {
+            action: "openExternalLink",
+            label: "External Link",
+          },
+        }}
+        onAction={() => {}}
+      />,
+    );
+    expect(linkMarkup).toContain("cursor-not-allowed");
+    expect(linkMarkup).toContain("External links are disabled by policy.");
+  });
+
   it("resolves text output using config scope", () => {
     const sectionId = "section-1";
     const variantAId = "variant-a";
