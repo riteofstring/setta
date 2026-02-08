@@ -92,6 +92,44 @@ describe("applyBackendOriginOverrideFromUrl", () => {
     );
   });
 
+  it("falls back to clearing history state when replaceState fails", () => {
+    window.location.href =
+      "http://localhost/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8000#hash";
+    memoryStorage.removeItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY);
+
+    window.history.state = { from: "fallback-test" };
+    const startingHistoryState = window.history.state;
+    const originalReplaceState = window.history.replaceState;
+    const seenStates: unknown[] = [];
+    const historyStub = window.history as unknown as {
+      replaceState: typeof window.history.replaceState;
+    };
+    historyStub.replaceState = function (
+      state: unknown,
+      _title: string,
+      url: string | URL | null | undefined,
+    ) {
+      seenStates.push(state);
+      if (state !== null) {
+        throw new Error("DataCloneError");
+      }
+      return originalReplaceState.call(this, state, _title, url);
+    };
+
+    try {
+      applyBackendOriginOverrideFromUrl();
+    } finally {
+      historyStub.replaceState = originalReplaceState;
+    }
+
+    expect(seenStates[0]).toBe(startingHistoryState);
+    expect(seenStates[1]).toBeNull();
+    expect(window.location.href).not.toContain("__setta_backend_origin");
+    expect(memoryStorage.getItem(BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY)).toBe(
+      "http://127.0.0.1:8000",
+    );
+  });
+
   it("rejects non-local hostname overrides by default", () => {
     window.location.href =
       "http://127.0.0.1/?__setta_backend_origin=https%3A%2F%2Fevil.example#hash";

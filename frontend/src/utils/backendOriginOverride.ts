@@ -70,9 +70,6 @@ export function applyBackendOriginOverrideFromUrl(): void {
   if (typeof window === "undefined") {
     return;
   }
-  if (!import.meta.env?.DEV) {
-    return;
-  }
 
   let url: URL;
   try {
@@ -82,24 +79,42 @@ export function applyBackendOriginOverrideFromUrl(): void {
   }
 
   const rawOverride = url.searchParams.get(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
+  const shouldPersistOverride = import.meta.env?.DEV;
+
+  if (rawOverride) {
+    if (shouldPersistOverride) {
+      const override = normalizeOrigin(rawOverride, "backend origin");
+      if (override && isOverrideAllowed(override, url.origin)) {
+        writeBackendOriginOverrideToStorage(override);
+      } else if (override) {
+        console.warn(
+          "Ignoring backend origin override due to hostname mismatch. Set VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE=1 to allow.",
+        );
+      }
+    }
+    url.searchParams.delete(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
+  }
+
   if (!rawOverride) {
     return;
   }
 
-  const override = normalizeOrigin(rawOverride, "backend origin");
-  if (override && isOverrideAllowed(override, url.origin)) {
-    writeBackendOriginOverrideToStorage(override);
-  } else if (override) {
-    console.warn(
-      "Ignoring backend origin override due to hostname mismatch. Set VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE=1 to allow.",
-    );
-  }
-  url.searchParams.delete(BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM);
-
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const nextUrl = url.toString();
   try {
     window.history.replaceState(window.history.state, "", nextUrl);
+    return;
+  } catch {
+    // Some browsers/extensions can leave a non-cloneable state in history.state.
+    // Falling back to null is better than leaving the handoff URL behind.
+  }
+  try {
+    window.history.replaceState(null, "", nextUrl);
   } catch (error) {
     console.warn("Failed to clean backend origin override from URL", error);
+    try {
+      window.location.replace(nextUrl);
+    } catch {
+      // ignore
+    }
   }
 }
