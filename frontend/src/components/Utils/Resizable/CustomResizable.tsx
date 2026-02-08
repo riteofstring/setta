@@ -47,7 +47,6 @@ export function CustomResizable({
   isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
-  hasSectionStyleTheme = false,
   allowPointerEventsDuringDnd = false,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -64,7 +63,6 @@ export function CustomResizable({
       isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
-      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
@@ -87,7 +85,6 @@ function CustomResizableCore({
   isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
-  hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -391,7 +388,6 @@ function CustomResizableCore({
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
-      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       size={size}
       minHeight={minHeight}
@@ -425,7 +421,6 @@ function CustomResizableSuperCore({
   isYouTube,
   isActiveSection,
   isMetaControl,
-  hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -481,12 +476,9 @@ function CustomResizableSuperCore({
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
-  const sectionStyleChromeClassName = hasSectionStyleTheme
-    ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
-    : "";
   const inputClasses = `${
     shouldDisablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${zIndexClass} ${metaHoverZIndexClass} ${frameClassName} ${sectionStyleChromeClassName}`;
+  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${zIndexClass} ${metaHoverZIndexClass} ${frameClassName}`;
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {

@@ -1,4 +1,3 @@
-import type { ButtonHTMLAttributes } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
@@ -8,18 +7,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { route_toggle_minimized } from "utils/generatedEndpoints";
 
-type MinimizeButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  sectionId: string;
-  twClasses?: string;
-  grid?: boolean;
-  hasSectionStyleTheme?: boolean;
-};
-
-export function MinimizeButton({
-  sectionId,
-  hasSectionStyleTheme = false,
-  ...props
-}: MinimizeButtonProps) {
+export function MinimizeButton({ sectionId, ...props }) {
   const { twClasses, grid, ...buttonProps } = props;
 
   const isMinimized = useProjectState((x) => {
@@ -43,15 +31,11 @@ export function MinimizeButton({
     });
   }
 
-  const colorClassName = hasSectionStyleTheme
-    ? "text-[color:var(--setta-section-style-muted-text)] hover:bg-[color:var(--setta-section-style-bg)] hover:text-[color:var(--setta-section-style-outline)] focus-visible:ring-[var(--setta-section-style-outline)]"
-    : "text-setta-600 hover:bg-blue-500 hover:text-white";
-
   return (
     <button
       className={`focus-visible:ring-2 ${
         grid ? "grid place-items-center" : "inline-flex items-center"
-      } nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 ${colorClassName} ${twClasses ?? ""}`}
+      } nodrag justify-content-center mr-1 flex h-4 w-4 cursor-pointer justify-center rounded-full bg-transparent p-0 text-setta-600 hover:bg-blue-500 hover:text-white ${twClasses ?? ""}`}
       onClick={onClick}
       {...buttonProps}
     >

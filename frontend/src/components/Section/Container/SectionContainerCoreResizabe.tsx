@@ -44,7 +44,6 @@ type SectionContainerCoreResizableProps = {
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
-  hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
 };
 
@@ -55,7 +54,6 @@ export function SectionContainerCoreResizable({
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
-  hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
   const {
@@ -112,7 +110,6 @@ export function SectionContainerCoreResizable({
       isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
-      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
@@ -155,7 +152,6 @@ export function SectionContainerCoreResizable({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
           isRoot={isRoot}
-          hasSectionStyleTheme={hasSectionStyleTheme}
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}

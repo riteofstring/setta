@@ -18,7 +18,6 @@ import {
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
-  useLocalStorage,
   useMisc,
   useProjectSearch,
   useProjectState,
@@ -30,7 +29,6 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
@@ -146,13 +144,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const {
-    paramIsSelected,
-    isKwarg,
-    paramChildren,
-    isNestedParam,
-    styleColor,
-  } =
+  const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
     useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplWithTypeGuard(
         x,
@@ -171,13 +163,8 @@ function RealParamSwitch(props: ParamSwitchProps) {
         isKwarg: codeObjImpl.coreNameEditable,
         paramChildren: isNestedParam ? codeObjImpl.children : [],
         isNestedParam,
-        styleColor: impl.styleColor ?? null,
       };
     }, _.isEqual);
-  const darkMode = useLocalStorage((x) => x.darkMode);
-  const hasSectionStyleTheme = Boolean(
-    styleColor ? deriveSectionStyleTheme(styleColor, darkMode) : null,
-  );
 
   const dndContext = useParamDndContext();
   const dndEnabled = Boolean(dndContext?.enabled);
@@ -239,11 +226,8 @@ function RealParamSwitch(props: ParamSwitchProps) {
   const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
   const onMouseDownAlways = handleParamMouseDown;
 
-  const selectedBgClassName = hasSectionStyleTheme
-    ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
-    : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
   const bg = paramIsSelected
-    ? `transition-colors rounded-sm ${selectedBgClassName}`
+    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
     : "transition-colors rounded-sm";
 
   let border = "";
@@ -260,7 +244,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
       {...props}
       isKwarg={isKwarg}
       isNestedParam={isNestedParam}
-      hasSectionStyleTheme={hasSectionStyleTheme}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
       onClick={handleParamClick}
