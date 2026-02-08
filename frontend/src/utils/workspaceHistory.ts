@@ -1,12 +1,15 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+import {
+  normalizeSettaFilesLocation,
+  type SettaFilesLocation,
+} from "utils/settaFilesLocation";
 import { safeLocalStorage } from "utils/storage";
 
 export type WorkspaceHistoryEntry = {
   workspaceRoot: string;
   sshTarget: string | null;
   localPort: number | null;
-  filesRoot: string | null;
-  filesRootBase: string | null;
+  settaFilesLocation: SettaFilesLocation;
   lastUsedAt: number;
 };
 
@@ -73,14 +76,12 @@ function normalizeNullablePort(value: unknown): number | null {
 function buildEntryKey(entry: {
   workspaceRoot: string;
   sshTarget: string | null;
-  filesRoot: string | null;
-  filesRootBase: string | null;
+  settaFilesLocation: SettaFilesLocation;
 }) {
   const normalized = {
     workspaceRoot: normalizePathLike(entry.workspaceRoot),
     sshTarget: normalizeNullableString(entry.sshTarget),
-    filesRoot: normalizeNullablePathLike(entry.filesRoot),
-    filesRootBase: normalizeNullablePathLike(entry.filesRootBase),
+    settaFilesLocation: normalizeSettaFilesLocation(entry.settaFilesLocation),
   };
   return JSON.stringify(normalized);
 }
@@ -102,8 +103,7 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot?: unknown;
       sshTarget?: unknown;
       localPort?: unknown;
-      filesRoot?: unknown;
-      filesRootBase?: unknown;
+      settaFilesLocation?: unknown;
       lastUsedAt?: unknown;
     };
     if (typeof record.workspaceRoot !== "string") {
@@ -125,8 +125,9 @@ function parseValidEntries(raw: unknown): WorkspaceHistoryEntry[] {
       workspaceRoot: normalizedWorkspaceRoot,
       sshTarget: normalizeNullableString(record.sshTarget),
       localPort: normalizeNullablePort(record.localPort),
-      filesRoot: normalizeNullablePathLike(record.filesRoot),
-      filesRootBase: normalizeNullablePathLike(record.filesRootBase),
+      settaFilesLocation: normalizeSettaFilesLocation(
+        record.settaFilesLocation,
+      ),
       lastUsedAt: record.lastUsedAt,
     });
   }

@@ -1,6 +1,9 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { DNDSortable } from "forks/dnd-kit/DNDSortable";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalForCodeSection,
+} from "state/actions/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -40,14 +43,28 @@ function ManyNestedSections({
   layoutVariant: "default" | "tight";
 }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
+  const hiddenAttachedTerminalId = useProjectState((x) => {
+    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+      x,
+      sectionId,
+      tempChildIds,
+    );
+    if (!embeddedTerminal || !embeddedTerminal.isTerminalMinimized) {
+      return null;
+    }
+    return embeddedTerminal.attachedTerminalId;
+  });
+  const childIds = hiddenAttachedTerminalId
+    ? tempChildIds.filter((id) => id !== hiddenAttachedTerminalId)
+    : tempChildIds;
 
   return (
-    <DNDSortable sectionId={sectionId} items={tempChildIds}>
+    <DNDSortable sectionId={sectionId} items={childIds}>
       {layoutVariant === "tight" ? (
-        <NestedSectionsTight childIds={tempChildIds} />
+        <NestedSectionsTight childIds={childIds} />
       ) : (
         <NestedSectionsWithMargin
-          childIds={tempChildIds}
+          childIds={childIds}
           sectionId={sectionId}
           isGroup={isGroup}
         />

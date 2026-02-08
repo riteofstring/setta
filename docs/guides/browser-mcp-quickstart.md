@@ -51,6 +51,7 @@ chrome-devtools-mcp and performance profiling.
 - The debug Chrome profile lives under `${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>` by default.
   Override with `MCP_RUN_DIR` (base dir) or `PROFILE_DIR` (exact profile path).
 - Stop browser MCP processes for this repo with `./scripts/stop-browser-mcp.sh --devtools`.
+- `scripts/chrome-devtools-mcp.sh` writes MCP stderr logs to `${TMPDIR:-/tmp}/setta-mcp-logs/` so MCP transport stdout remains clean.
 - If the agent struggles to target elements, add stable `data-testid` or
   `aria-label` attributes for key controls and the graph canvas.
 

@@ -54,9 +54,8 @@ test.describe.serial("agentic summary cache status", () => {
       await expect(uiEditorPane).toBeVisible();
 
       const summaryCachePanel = uiEditorPane
-        .getByText("Summary cache")
-        .locator("..")
-        .locator("..");
+        .getByText("Summary cache", { exact: true })
+        .locator("xpath=ancestor::div[contains(@class,'rounded-md')][1]");
       await expect(summaryCachePanel).toContainText("Cached: 0/8");
       await expect(summaryCachePanel).toContainText("Missing: 8");
       await expect(summaryCachePanel).toContainText("Deferred due to cap (6): 2");

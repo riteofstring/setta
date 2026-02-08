@@ -120,9 +120,22 @@ function moveSectionsInState({
   });
   if (isCodeSection(state, newParentId)) {
     if (sectionIds.length === 1 && isTerminalSection(state, sectionIds[0])) {
+      const terminalSectionId = sectionIds[0];
+      const parentImpl = getCurrEffectiveSectionImpl(state, newParentId);
       setCurrEffectiveSectionImplValue<"BaseCodeSection">(state, newParentId, {
-        attachedTerminalSectionId: sectionIds[0],
+        attachedTerminalSectionId: terminalSectionId,
       });
+      if (
+        isBaseCodeSectionType(parentImpl.type) &&
+        parentImpl.size.width !== "auto"
+      ) {
+        setCurrEffectiveSectionImplValue(state, terminalSectionId, {
+          size: (currSize) => ({
+            ...currSize,
+            width: parentImpl.size.width,
+          }),
+        });
+      }
     }
   }
   for (const sectionId of sectionIds) {

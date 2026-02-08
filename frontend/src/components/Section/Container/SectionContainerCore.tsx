@@ -1,11 +1,19 @@
 import React from "react";
 import {
+  getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
+  getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
-import { useAgenticScopeHighlights, useProjectState } from "state/definitions";
+import {
+  useAgenticScopeHighlights,
+  useLocalStorage,
+  useProjectState,
+  useTemporaryMiscState,
+} from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
@@ -20,11 +28,19 @@ import {
 type SectionContainerCoreProps = {
   sectionId: string;
   isUserView: boolean;
+  forceHideOutline?: boolean;
+  hideAgenticEdgeHandles?: boolean;
+  omitAgenticHandleScopeClass?: boolean;
+  joinedCorners?: "none" | "code-terminal-parent";
 };
 
 function _SectionContainerCore({
   sectionId,
   isUserView,
+  forceHideOutline = false,
+  hideAgenticEdgeHandles = false,
+  omitAgenticHandleScopeClass = false,
+  joinedCorners = "none",
 }: SectionContainerCoreProps) {
   const {
     isActiveSection,
@@ -35,17 +51,15 @@ function _SectionContainerCore({
     textBlockMetaControlStyle,
     projectConfigId,
     isAttachedTerminalChild,
+    styleColor,
+    isJoinedAttachedTerminalChild,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const parentId = x.parentSectionMap[sectionId] ?? null;
-    let isAttachedTerminalChild = false;
-    if (parentId) {
-      const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
-      isAttachedTerminalChild =
-        impl.type === SectionTypeEnum.Terminal &&
-        isBaseCodeSectionType(parentImpl.type) &&
-        parentImpl.attachedTerminalSectionId === sectionId;
-    }
+    const isAttachedTerminalChild =
+      getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null;
+    const isJoinedAttachedTerminalChild =
+      getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
+        null && !impl.isMinimized;
     return {
       isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
@@ -56,6 +70,8 @@ function _SectionContainerCore({
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       projectConfigId: x.projectConfig.id,
       isAttachedTerminalChild,
+      styleColor: impl.styleColor,
+      isJoinedAttachedTerminalChild,
     };
   }, shallow);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
@@ -82,6 +98,35 @@ function _SectionContainerCore({
   const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
   const isMetaControl = sectionTypeName === SectionTypeEnum.MetaControl;
   const useMetaControlStyle = isMetaControl || textBlockMetaControlStyle;
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const sectionStyleTheme =
+    resolvedStyleColor && !useMetaControlStyle
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null;
+  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const sectionStyleVars = sectionStyleTheme
+    ? ({
+        "--setta-section-style-bg": sectionStyleTheme.bg,
+        "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
+        "--setta-section-style-border": sectionStyleTheme.border,
+        "--setta-section-style-outline": sectionStyleTheme.outline,
+        "--setta-section-style-text": sectionStyleTheme.text,
+        "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
+        "--setta-section-style-arg-handle": sectionStyleTheme.border,
+        "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
+        "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
+        "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
+      } as React.CSSProperties)
+    : undefined;
+  const sectionStyleChromeClassName = hasSectionStyleTheme
+    ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
+    : "";
 
   // const boxShadow = !positionAndSizeLocked
   //   ? isActiveSection
@@ -99,6 +144,11 @@ function _SectionContainerCore({
     isInOtherProjectConfigs,
     // jsonSourceMissing,
   });
+  const sectionStyleOutlineClassName = hasSectionStyleTheme
+    ? isActiveSection
+      ? "outline-[color:var(--setta-section-style-outline)]"
+      : "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-[color:var(--setta-section-style-outline)]"
+    : outlineColor;
   const containerBgClass = useMetaControlStyle
     ? "bg-transparent dark:bg-transparent"
     : "bg-white dark:bg-setta-925";
@@ -107,20 +157,41 @@ function _SectionContainerCore({
     : "";
   const outlineClassName = useMetaControlStyle
     ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
-    : outlineColor;
-  const outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+    : sectionStyleOutlineClassName;
+  const shouldHideOutline = forceHideOutline || isJoinedAttachedTerminalChild;
+  let outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+  if (shouldHideOutline) {
+    outlineSizeClassName = "outline-0";
+  }
+  const themedHandleScopeClassName = hasSectionStyleTheme
+    ? "agentic-handle-scope--themed"
+    : "";
+  let joinedCornerClassName = "";
+  if (joinedCorners === "code-terminal-parent") {
+    joinedCornerClassName = "rounded-b-none";
+  } else if (isJoinedAttachedTerminalChild) {
+    joinedCornerClassName = "rounded-t-none";
+  }
+  const handleScopeClassName = omitAgenticHandleScopeClass
+    ? ""
+    : "agentic-handle-scope";
+  const shouldRenderAgenticEdgeHandles =
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`agentic-handle-scope group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
+      style={sectionStyleVars}
     >
-      <AgenticEdgeHandles isUserView={isUserView} />
+      {shouldRenderAgenticEdgeHandles && (
+        <AgenticEdgeHandles isUserView={isUserView} />
+      )}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
@@ -130,6 +201,7 @@ function _SectionContainerCore({
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
+        hasSectionStyleTheme={hasSectionStyleTheme}
       />
     </section>
   );

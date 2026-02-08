@@ -1144,6 +1144,16 @@ def _maybe_clear_code_section_attached_terminal(
             )
 
 
+def _get_terminal_default_height(settings: SettingsState) -> float:
+    terminal_defaults = get_user_default_section_from_settings(
+        settings, SectionType.Terminal
+    )
+    terminal_height = terminal_defaults.size.height
+    if terminal_height == SectionSizeMode.auto:
+        raise ValueError("Terminal default height must not be auto.")
+    return float(terminal_height)
+
+
 def ensure_code_section_embedded_terminal_size(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -1155,7 +1165,9 @@ def ensure_code_section_embedded_terminal_size(
     code_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseCodeSectionImpl
     )
-    get_curr_effective_section_impl_with_type_guard(p, terminalId, TerminalSectionImpl)
+    terminal_impl = get_curr_effective_section_impl_with_type_guard(
+        p, terminalId, TerminalSectionImpl
+    )
     sizing_policy = settings.sectionSizingPolicy.byType
     expected_min_height = (
         float(sizing_policy.Code.minHeight)
@@ -1169,13 +1181,42 @@ def ensure_code_section_embedded_terminal_size(
     current_height = code_impl.size.height
     if current_height != SectionSizeMode.auto:
         if float(current_height) >= expected_min_height:
-            return
+            code_height = current_height
+        else:
+            code_height = expected_min_height
+    else:
+        code_height = expected_min_height
 
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {"size": SectionSize(width=code_impl.size.width, height=expected_min_height)},
-    )
+    if code_height != current_height:
+        set_curr_effective_section_impl_value(
+            p,
+            sectionId,
+            {"size": SectionSize(width=code_impl.size.width, height=code_height)},
+        )
+
+    # Keep embedded terminal dimensions in lockstep with code width and a
+    # concrete terminal height so attached-first terminals can reflow text
+    # correctly before/after detach.
+    code_width = code_impl.size.width
+    next_terminal_width = terminal_impl.size.width
+    if code_width != SectionSizeMode.auto:
+        next_terminal_width = code_width
+    next_terminal_height = terminal_impl.size.height
+    if next_terminal_height == SectionSizeMode.auto:
+        next_terminal_height = _get_terminal_default_height(settings)
+    if (
+        next_terminal_width != terminal_impl.size.width
+        or next_terminal_height != terminal_impl.size.height
+    ):
+        set_curr_effective_section_impl_value(
+            p,
+            terminalId,
+            {
+                "size": SectionSize(
+                    width=next_terminal_width, height=next_terminal_height
+                )
+            },
+        )
 
 
 def ensure_code_section_attached_terminal(
@@ -1231,7 +1272,10 @@ def ensure_code_section_attached_terminal(
             )
             return attached_terminal_id
         attached_terminal_id = None
-    size = SectionSize(width=code_impl.size.width)
+    size = SectionSize(
+        width=code_impl.size.width,
+        height=_get_terminal_default_height(settings),
+    )
     terminal_id = create_section(
         settings,
         p,
@@ -1314,6 +1358,14 @@ def create_child_sections(
         parentId, effectiveImpl, impl_type, numChildren
     )
     size = SectionSize(width=effectiveImpl.size.width)
+    if (
+        isinstance(effectiveImpl, BaseCodeSectionImpl)
+        and impl_type == SectionType.Terminal
+    ):
+        size = SectionSize(
+            width=effectiveImpl.size.width,
+            height=_get_terminal_default_height(settings),
+        )
     newIds = [
         create_section(settings, p, impl_type, {"size": size})
         for _ in range(numChildren)
@@ -2721,6 +2773,26 @@ def set_section_name(p: "ProjectStateSingleConfig", sectionId: ID, name: str):
     normalized = validate_section_name(p, sectionId, name)
     p.sections[sectionId].name = normalized
     p._section_slug_cache = None
+
+
+def set_section_tag_color(
+    p: "ProjectStateSingleConfig", sectionId: ID, tagColor: str | None
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionImplArgsWithCallable(tagColor=tagColor),
+    )
+
+
+def set_section_style_color(
+    p: "ProjectStateSingleConfig", sectionId: ID, styleColor: str | None
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionImplArgsWithCallable(styleColor=styleColor),
+    )
 
 
 def set_meta_control_show_section_title(

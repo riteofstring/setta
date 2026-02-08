@@ -23,6 +23,7 @@
 - `reference/meta-controls.md` – how MetaControl sections store values, emit actions, and map into generated code.
 - `reference/remote-built-install.md` – upload + install steps for a locally built Setta package on a remote server.
 - `reference/setta-cli-commands.md` – summary of all `setta` CLI commands and their options.
+- `reference/setta-files.md` – how `setta_files` resolves (local vs global) and how to configure global state under `<setta_home>`.
 - `reference/setta-listener-examples.md` – example-driven guide to listener callbacks, actions, emits, and router endpoints.
 - `reference/setta-listener-hot-reload.md` – how to keep a listener running while editing its callbacks.
 - `reference/setta-realtime-behavior.md` – what happens when listeners get a fresh snapshot or realtime updates.
@@ -45,12 +46,12 @@
 - `reference/draw-image-representation.md` – how Draw and Image sections are represented in realtime and packaged runtime.
 - `reference/external-agents.md` – how external agent adapters work and how Codex uses app-server.
 - `reference/file-browser-pane.md` – how the Overview Explorer tab browses files, filters, and opens Code sections.
-- `reference/git-pane.md` – Git Overview tab behavior, graph/diff overlays, and backend git route contracts.
 - `reference/json_source_formats.md` – JSON source schema formats and validation.
 - `reference/json_source_sections.md` – how JSON source sections load from disk, merge values, and save back to JSON.
 - `reference/keyboard-shortcuts.md` – keyboard navigation, selection, and manipulation shortcuts in the UI.
 - `reference/name-validation.md` – name validation rules and error messaging.
 - `reference/param-sweeps.md` – how to run parameter sweeps via the Python runner API.
+- `reference/section-colors.md` – section `tagColor`/`styleColor` model, routes, UI behavior, and guardrails.
 - `reference/section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
 - `reference/watch-code.md` – watch-mode notes for code sections.
 

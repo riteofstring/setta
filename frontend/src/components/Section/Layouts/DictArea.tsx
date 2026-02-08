@@ -6,7 +6,7 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 function _DictArea({ sectionId, bgColor }) {
   return (
     <>
-      <KwargsControls sectionId={sectionId} bgColor={bgColor} />
+      <KwargsControls sectionId={sectionId} />
       <ParamGroupContainer
         sectionId={sectionId}
         bgColor={bgColor}
