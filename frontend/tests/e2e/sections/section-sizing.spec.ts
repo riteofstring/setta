@@ -17,12 +17,19 @@ async function createSection(
   if (!viewportBounds) {
     throw new Error("Unable to resolve viewport bounds for section placement.");
   }
+  // Place the section away from the viewport edges so outboard controls (meta
+  // menus, resize handles) are still hittable.
+  const position = {
+    x: viewportBounds.x + viewportBounds.w * 0.35,
+    y: viewportBounds.y + viewportBounds.h * 0.35,
+  };
   const response = await postBackend<{ sectionId?: string }>(
     page,
     "/createTopLevelSection",
     {
       projectConfigId,
       implType,
+      position,
       viewportBounds,
     },
   );
@@ -131,7 +138,11 @@ test("meta control slider only shows width resize handle", async ({ page }) => {
     );
     await expect(sectionNode).toBeVisible();
 
-    await sectionNode.hover();
+    const sectionCard = sectionNode.locator(
+      `section[data-section-id="${sectionId}"]`,
+    );
+    await expect(sectionCard).toBeVisible();
+    await sectionCard.hover();
 
     await expect(sectionNode.locator(".cursor-col-resize")).toHaveCount(1);
     await expect(sectionNode.locator(".cursor-row-resize")).toHaveCount(0);
@@ -155,14 +166,31 @@ test("meta control slider only shows width resize handle", async ({ page }) => {
 
     expect(menuPoint.x).toBeLessThan(sectionBox.x);
 
-    const menuHit = await menuTrigger.evaluate(
+    const hitInfo = await menuTrigger.evaluate(
       (el, point) => {
         const hit = document.elementFromPoint(point.x, point.y);
-        return !!hit && el.contains(hit);
+        const style = window.getComputedStyle(el);
+        const hitStyle = hit ? window.getComputedStyle(hit as Element) : null;
+        return {
+          menuPointerEvents: style.pointerEvents,
+          menuOpacity: style.opacity,
+          menuZIndex: style.zIndex,
+          hitTag: hit?.tagName ?? null,
+          hitId: hit instanceof HTMLElement ? hit.id : null,
+          hitClass: hit instanceof HTMLElement ? hit.className : null,
+          hitAriaLabel:
+            hit instanceof HTMLElement ? hit.getAttribute("aria-label") : null,
+          hitZIndex: hitStyle?.zIndex ?? null,
+          contained: !!hit && el.contains(hit),
+        };
       },
       menuPoint,
     );
-    expect(menuHit).toBe(true);
+    if (!hitInfo.contained) {
+      throw new Error(
+        `MetaControl menu trigger is not hittable at (${Math.round(menuPoint.x)},${Math.round(menuPoint.y)}).\n\nDetails:\n${JSON.stringify(hitInfo, null, 2)}`,
+      );
+    }
 
     const rightHandle = sectionNode.locator(".cursor-col-resize");
     await expect(rightHandle).toHaveCount(1);

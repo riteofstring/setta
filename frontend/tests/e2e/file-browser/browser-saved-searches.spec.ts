@@ -14,6 +14,26 @@ const SELECT_ALL_SHORTCUT =
 const ONE_BY_ONE_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6pR5cAAAAASUVORK5CYII=";
 
+function normalizePathForComparison(value: string): string {
+  const withoutPrivate = value.startsWith("/private")
+    ? value.slice("/private".length)
+    : value;
+  return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
+
+async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+  const value = await page.evaluate((targetId) => {
+    const root = document.getElementById(targetId);
+    if (!root) {
+      return null;
+    }
+    const content =
+      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
+    return content?.textContent ?? root.textContent ?? "";
+  }, id);
+  return value ?? "";
+}
+
 async function setBrowserPath({
   page,
   sectionNode,
@@ -33,6 +53,12 @@ async function setBrowserPath({
   await cmContent.click();
   await cmContent.fill(targetPath);
   await page.keyboard.press("Enter");
+  const normalizedTarget = normalizePathForComparison(targetPath);
+  await expect
+    .poll(async () =>
+      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+    )
+    .toContain(normalizedTarget);
 }
 
 async function setBrowserFilter({

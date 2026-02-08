@@ -121,7 +121,7 @@ export function SectionContainerCoreResizable({
       )}
       {isMetaControl ? (
         shouldRenderMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">
+          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
             <div className="flex h-12 w-10 items-center justify-end">
               <MetaControlMenuButton
                 sectionId={sectionId}
@@ -133,7 +133,7 @@ export function SectionContainerCoreResizable({
         )
       ) : textBlockMetaControlStyle ? (
         shouldRenderTextBlockMetaMenu && (
-          <div className="absolute left-0 top-1/2 z-30 -translate-x-full -translate-y-1/2">
+          <div className="absolute left-0 top-1/2 z-[200] -translate-x-full -translate-y-1/2">
             <div className="flex h-12 w-10 items-center justify-end">
               <TextBlockMetaControlMenuButton
                 sectionId={sectionId}
