@@ -31,7 +31,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
-from setta.types.share_deployment import ShareDeploymentManifest, SharePolicy
+from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from setta.utils.constants import C
 from setta.utils.structured_data import read_json_source_payload
 
@@ -49,13 +49,13 @@ def _write_text(path: Path, content: str = "{}") -> None:
 
 
 @contextmanager
-def _override_share_deployments_root(root: Path):
-    original_share_root = C.SHARE_DEPLOYMENTS_FOLDER
-    C.SHARE_DEPLOYMENTS_FOLDER = root
+def _override_deployments_root(root: Path):
+    original_share_root = C.DEPLOYMENTS_FOLDER
+    C.DEPLOYMENTS_FOLDER = root
     try:
         yield
     finally:
-        C.SHARE_DEPLOYMENTS_FOLDER = original_share_root
+        C.DEPLOYMENTS_FOLDER = original_share_root
 
 
 
@@ -89,8 +89,8 @@ class TestShareDeploymentPublish:
             real_project_manager() as project_fixture,
             real_settings_manager() as settings_fixture,
         ):
-            with _override_share_deployments_root(
-                project_fixture.setta_root / "share_deployments"
+            with _override_deployments_root(
+                project_fixture.setta_root / "deployments"
             ):
                 project_config_id = (
                     project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -209,8 +209,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     switcher = ProjectManagerSwitcher(
                         main_manager=project_fixture.manager,
@@ -237,14 +237,14 @@ class TestShareDeploymentPublish:
                     metadata = await route_publish_share_deployment(request, state)
 
                     manifest_path = metadata.deploymentRoot / "manifest.json"
-                    policy_path = metadata.deploymentRoot / "share_policy.json"
+                    policy_path = metadata.deploymentRoot / "policy.json"
                     project_path = metadata.deploymentRoot / "project.json"
 
                     assert manifest_path.exists()
                     assert policy_path.exists()
                     assert project_path.exists()
 
-                    manifest = ShareDeploymentManifest.model_validate(
+                    manifest = DeploymentManifest.model_validate(
                         project_fixture.dbe.read_json(manifest_path)
                     )
                     policy = SharePolicy.model_validate(
@@ -269,7 +269,7 @@ class TestShareDeploymentPublish:
                     assert manifest.listener is None
                     assert not policy.allowRun
                     assert not policy.allowLLM
-                    assert metadata.sharePolicyPath == policy_path
+                    assert metadata.policyPath == policy_path
         except RuntimeError as exc:
             pytest.skip(str(exc))
 
@@ -279,8 +279,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     switcher = ProjectManagerSwitcher(
                         main_manager=project_fixture.manager,
@@ -348,8 +348,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -493,8 +493,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     project_config_id = (
                         project_fixture.manager.project_state_backend.defaultProjectConfigId
@@ -760,8 +760,8 @@ class TestShareDeploymentPublish:
                 real_project_manager() as project_fixture,
                 real_settings_manager() as settings_fixture,
             ):
-                with _override_share_deployments_root(
-                    project_fixture.setta_root / "share_deployments"
+                with _override_deployments_root(
+                    project_fixture.setta_root / "deployments"
                 ):
                     switcher = ProjectManagerSwitcher(
                         main_manager=project_fixture.manager,

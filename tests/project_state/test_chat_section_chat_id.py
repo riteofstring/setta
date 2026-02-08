@@ -1,7 +1,8 @@
 import asyncio
-from contextlib import ExitStack, suppress
+from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -34,12 +35,12 @@ from setta.types.project_config import (
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.agentic import AgentRun, AgentRunStatus, RunEvent
 from setta.types.section_impls import ChatSectionImpl, SectionType
+from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 
-from tests.utils.setta_paths import temporary_setta_paths
 
 class ChatSectionChatIdManager(BaseProjectManager):
     def __init__(
@@ -84,7 +85,6 @@ class TestChatSectionChatId:
     async def _setup(self):
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
-        self.workspace_root = root
         self.setta_root = root / "setta_files"
         self.code_folder = self.setta_root / "code"
         self.artifacts_folder = self.setta_root / "artifacts"
@@ -93,13 +93,14 @@ class TestChatSectionChatId:
         for path in (self.code_folder, self.artifacts_folder, self.backup_folder):
             path.mkdir(parents=True, exist_ok=True)
 
-        self._stack = ExitStack()
-        self._stack.enter_context(
-            temporary_setta_paths(
-                workspace_root=self.workspace_root,
-                setta_files_root=self.setta_root,
-            )
-        )
+        self._patchers = [
+            patch.object(C, "SETTA_FILES_FOLDER", self.setta_root),
+            patch.object(C, "CODE_FOLDER", self.code_folder),
+            patch.object(C, "ARTIFACTS_FOLDER", self.artifacts_folder),
+            patch.object(C, "DB_BACKUP_FOLDER", self.backup_folder),
+        ]
+        for patcher in self._patchers:
+            patcher.start()
 
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
@@ -160,7 +161,8 @@ class TestChatSectionChatId:
             await self.manager.queue_task
         with suppress(RuntimeError):
             self.specific_file_watcher.stop()
-        self._stack.close()
+        for patcher in self._patchers:
+            patcher.stop()
         self._tmpdir.cleanup()
 
     def _build_project_state(self) -> ProjectStateSingleConfig:

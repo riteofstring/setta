@@ -5,6 +5,7 @@ import logging
 import os
 from ast import literal_eval
 from dataclasses import dataclass
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -23,7 +24,6 @@ from pydantic import BaseModel, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
 from setta.api.generated_listener_endpoints import RouterEndpointAPI
-from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.code_gen.dependency_graph import (
@@ -40,6 +40,7 @@ from setta.logging.config import configure_listener_logging
 from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.project_state.project_code import build_python_code_generator
+from setta.sessions import SessionMetadata, SessionRegistry
 from setta.types.dependency_key import (
     SectionDependencyKey,
     SectionParamDependencyKey,
@@ -115,6 +116,72 @@ _RECOVERABLE_SNAPSHOT_ERRORS: tuple[type[Exception], ...] = (
     NameError,
     RuntimeError,
 )
+
+
+# Worktree/dev helpers ---------------------------------------------------------
+
+
+def _hosts_equivalent(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    return {left, right} <= {"127.0.0.1", "localhost"}
+
+
+def _find_workspace_sessions_root(start_dir: Path) -> tuple[Path, Path] | None:
+    """Return (workspace_root, sessions_root) if setta_files runtime sessions exist."""
+    sessions_root = C.RUNTIME_SESSIONS_FOLDER
+    if sessions_root.is_absolute():
+        # Best-effort inference. Common layout: <workspace>/setta_files/runtime/sessions
+        workspace_root = sessions_root
+        try:
+            parts = list(sessions_root.parts)
+            suffix = ("setta_files", "runtime", "sessions")
+            if tuple(parts[-3:]) == suffix:
+                workspace_root = Path(*parts[:-3])
+        except Exception:
+            workspace_root = start_dir.resolve()
+        return workspace_root, sessions_root
+
+    start = start_dir.resolve()
+    for parent in (start, *start.parents):
+        candidate = parent / sessions_root
+        if candidate.is_dir():
+            return parent, candidate
+    return None
+
+
+def _load_latest_local_session(
+    start_dir: Path,
+) -> tuple[SessionMetadata, bytes] | None:
+    """Resolve the latest running Setta session for this workspace (if any)."""
+    roots = _find_workspace_sessions_root(start_dir)
+    if roots is None:
+        return None
+    workspace_root, sessions_root = roots
+    if not sessions_root.exists():
+        return None
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    sessions = registry.find_sessions_by_workspace(
+        workspace_root,
+        prune_stale=False,
+        track_suspicious=True,
+    )
+    sessions = [
+        session for session in sessions if registry.is_session_process_setta(session)
+    ]
+    if not sessions:
+        return None
+    sessions.sort(key=lambda session: session.startedAt)
+
+    suspicious = registry.suspicious_session_ids()
+    preferred = [session for session in sessions if session.id not in suspicious]
+    selected = preferred[-1] if preferred else sessions[-1]
+    try:
+        secret = registry.load_secret(selected)
+    except FileNotFoundError:
+        return None
+    return selected, secret
 
 
 # Listener callbacks may either complete synchronously or return an awaitable.
@@ -274,8 +341,8 @@ class SettaListener:
         share_session_id: str | None = None,
         use_temporary_ids: bool = False,
         refresh_concurrency: int = 8,
-        host: str = C.HOST,
-        port: int = C.PORT,
+        host: str | None = None,
+        port: int | None = None,
         reconnect_delay: float = 5.0,
         auth_headers: dict[str, str] | None = None,
     ) -> None:
@@ -290,8 +357,10 @@ class SettaListener:
         self._refresh_concurrency = refresh_concurrency
         self._refresh_callback_semaphore = asyncio.Semaphore(refresh_concurrency)
         self._callbacks: dict[str, ListenerCallbackSpec] = {}
-        self._host = host
-        self._port = port
+        self._explicit_host = host is not None
+        self._explicit_port = port is not None
+        self._host = host or C.HOST
+        self._port = port or C.PORT
         self._reconnect_delay = reconnect_delay
         self._auth_headers = dict(auth_headers) if auth_headers is not None else None
         self._stop_event = asyncio.Event()
@@ -310,6 +379,9 @@ class SettaListener:
         self._pending_router_endpoint_calls: dict[str, asyncio.Future[Any]] = {}
         self._router_endpoint_api: RouterEndpointAPI | None = None
         self._logging_configured = False
+        self._auto_session_metadata: SessionMetadata | None = None
+        self._auto_session_secret: bytes | None = None
+        self._set_binary_base_url = False
         base_url = os.environ.get("SETTA_BINARY_BASE_URL")
         if base_url is None:
             if "://" in self._host:
@@ -317,6 +389,49 @@ class SettaListener:
             else:
                 base_url = f"http://{self._host}:{self._port}{Route.PREFIX.value}"
             os.environ["SETTA_BINARY_BASE_URL"] = base_url
+            self._set_binary_base_url = True
+
+    def _maybe_autoconnect_to_latest_local_session(self) -> None:
+        if self._share_session_id is not None:
+            return
+        if self._auth_headers is not None:
+            return
+        if self._explicit_host or self._explicit_port:
+            return
+        raw_autoconnect = os.environ.get("SETTA_LISTENER_AUTOCONNECT")
+        if raw_autoconnect is None:
+            return
+        normalized = raw_autoconnect.strip().lower()
+        if normalized in {"0", "false", "no"}:
+            return
+        if normalized not in {"1", "true", "yes"}:
+            return
+        # If the caller didn't pass host/port, prefer the latest session recorded in
+        # this workspace (dev worktrees use per-worktree ports + cookie names).
+        session_info = _load_latest_local_session(Path.cwd())
+        if session_info is None:
+            return
+        metadata, secret = session_info
+        logger.info(
+            "SettaListener autoconnecting to session %s at %s:%s (workspace=%s)",
+            metadata.id,
+            metadata.host,
+            metadata.port,
+            Path(metadata.workspacePath).name,
+        )
+        self._auto_session_metadata = metadata
+        self._auto_session_secret = secret
+        self._host = metadata.host
+        self._port = metadata.port
+        if self._set_binary_base_url:
+            if "://" in self._host:
+                os.environ["SETTA_BINARY_BASE_URL"] = (
+                    f"{self._host.rstrip('/')}{Route.PREFIX.value}"
+                )
+            else:
+                os.environ["SETTA_BINARY_BASE_URL"] = (
+                    f"http://{self._host}:{self._port}{Route.PREFIX.value}"
+                )
 
     @property
     def _log_identifier(self) -> str:
@@ -378,18 +493,47 @@ class SettaListener:
             return dict(self._auth_headers)
         if self._share_session_id is not None:
             return None
-        if self._host != C.HOST or self._port != C.PORT:
-            return None
         session_info = load_current_session_secret()
+        if session_info is None and self._auto_session_metadata is not None:
+            if self._auto_session_secret is None:
+                return None
+            session_info = (self._auto_session_metadata, self._auto_session_secret)
         if session_info is None:
             return None
         session_metadata, secret = session_info
+        if not _hosts_equivalent(session_metadata.host, self._host):
+            return None
+        if session_metadata.port != self._port:
+            return None
+
         cookie_value = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
-        return {"Cookie": f"{auth_cookie_name(session_metadata.id)}={cookie_value}"}
+        cookie_names: list[str] = []
+        if C.AUTH_COOKIE_NAME:
+            cookie_names.append(C.AUTH_COOKIE_NAME)
+        # Default cookie name (when not using worktree isolation).
+        cookie_names.append("setta_auth")
+        # Worktree mode cookie (run-dev-instance.sh).
+        workspace_name = Path(session_metadata.workspacePath).name
+        if workspace_name:
+            cookie_names.append(f"setta_auth_{workspace_name}")
+        # Keep order stable + unique.
+        seen: set[str] = set()
+        resolved_names: list[str] = []
+        for name in cookie_names:
+            if name in seen:
+                continue
+            seen.add(name)
+            resolved_names.append(name)
+
+        cookie_payload = "; ".join(
+            f"{cookie_name}={cookie_value}" for cookie_name in resolved_names
+        )
+        return {"Cookie": cookie_payload}
 
     async def run_forever(self) -> None:
         """Maintain a websocket connection, reconnecting when needed."""
         self._ensure_logging()
+        self._maybe_autoconnect_to_latest_local_session()
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         with logging_context(

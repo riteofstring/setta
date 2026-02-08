@@ -37,7 +37,7 @@ from setta.routers.sections import (
 from setta.server_state import SettaFastAPIState
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.share_deployment import ShareDeploymentManifest
+from setta.types.share_deployment import DeploymentManifest, DeploymentType
 from tests.utils.runtime_context import runtime_context
 
 
@@ -48,7 +48,7 @@ def _build_share_deployment_root(
 ) -> Path:
     root = (
         Path(tmpdir)
-        / "share_deployments"
+        / "deployments"
         / project_config_name
         / deployment_version
     )
@@ -70,9 +70,10 @@ def _write_share_project(
     )
     dbe.write_project(project_state)
     deployment_name = root.parent.name
-    manifest = ShareDeploymentManifest(
+    manifest = DeploymentManifest(
         version=1,
         deploymentName=deployment_name,
+        deploymentType=DeploymentType.share,
         defaultProjectConfigId=project_config.id,
         deploymentVersion=deployment_version,
     )

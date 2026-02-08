@@ -5,7 +5,9 @@ from fastapi import HTTPException, WebSocket, status
 
 from setta.share.policy import (
     enforce_share_policy,
+    ensure_share_download_allowed,
     ensure_share_llm_allowed,
+    ensure_share_multiple_runs_allowed,
     ensure_share_run_allowed,
     ensure_share_run_allowed_ws,
 )
@@ -96,6 +98,12 @@ class RuntimeContext:
             share_session_id=self._share_session_id,
         )
 
+    async def enforce_multiple_runs_allowed(self) -> None:
+        await ensure_share_multiple_runs_allowed(
+            self.state,
+            share_session_id=self._share_session_id,
+        )
+
     async def enforce_run_allowed_ws(
         self,
         websocket: WebSocket,
@@ -103,6 +111,12 @@ class RuntimeContext:
         return await ensure_share_run_allowed_ws(
             self.state,
             websocket,
+            share_session_id=self._share_session_id,
+        )
+
+    async def enforce_download_allowed(self) -> None:
+        await ensure_share_download_allowed(
+            self.state,
             share_session_id=self._share_session_id,
         )
 

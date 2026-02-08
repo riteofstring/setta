@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import time
-from contextlib import ExitStack
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,7 +14,6 @@ from click.testing import CliRunner
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.start import status, stop
 from setta.utils.constants import C
-from tests.utils.setta_paths import temporary_setta_paths
 
 
 def _decode_connect_info(output: str) -> dict:
@@ -28,18 +26,13 @@ def _decode_connect_info(output: str) -> dict:
 
 @pytest.fixture
 def status_env(tmp_path):
+    sessions_root = tmp_path / "setta_files" / "runtime" / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
+    C.RUNTIME_SESSIONS_FOLDER = sessions_root
+
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_root = tmp_path / "setta_files"
-    stack = ExitStack()
-    stack.enter_context(
-        temporary_setta_paths(
-            workspace_root=workspace,
-            setta_files_root=setta_root,
-        )
-    )
-    sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    sessions_root.mkdir(parents=True, exist_ok=True)
 
     process = subprocess.Popen(
         [
@@ -70,7 +63,6 @@ def status_env(tmp_path):
         process=process,
         registry=registry,
         create_session=_create_session,
-        stack=stack,
     )
     try:
         yield env
@@ -78,7 +70,7 @@ def status_env(tmp_path):
         if process.poll() is None:
             process.terminate()
         process.wait()
-        stack.close()
+        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
 
 
 @pytest.fixture
@@ -87,16 +79,10 @@ def status_workspace_env(tmp_path):
     workspace.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
-    setta_root = workspace / "setta_files"
-    stack = ExitStack()
-    stack.enter_context(
-        temporary_setta_paths(
-            workspace_root=workspace,
-            setta_files_root=setta_root,
-        )
-    )
-    sessions_root = C.RUNTIME_SESSIONS_FOLDER
-    sessions_root.mkdir(parents=True, exist_ok=True)
+
+    original_sessions_root = C.RUNTIME_SESSIONS_FOLDER
+    C.RUNTIME_SESSIONS_FOLDER = Path("setta_files") / "runtime" / "sessions"
+
     original_cwd = Path.cwd()
 
     process = subprocess.Popen(
@@ -125,8 +111,7 @@ def status_workspace_env(tmp_path):
         process=process,
         create_session=_create_session,
         original_cwd=original_cwd,
-        sessions_root=sessions_root,
-        stack=stack,
+        original_sessions_root=original_sessions_root,
     )
     try:
         yield env
@@ -135,7 +120,7 @@ def status_workspace_env(tmp_path):
         if process.poll() is None:
             process.terminate()
         process.wait()
-        stack.close()
+        C.RUNTIME_SESSIONS_FOLDER = original_sessions_root
 
 
 def test_status_connect_info_json_emits_payload(status_env) -> None:
@@ -355,7 +340,7 @@ def test_status_connect_info_uses_workspace_from_other_cwd(
 def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
     os.chdir(status_workspace_env.workspace)
     session = status_workspace_env.create_session(port=61235)
-    session_dir = status_workspace_env.sessions_root / session.id
+    session_dir = status_workspace_env.workspace / C.RUNTIME_SESSIONS_FOLDER / session.id
     assert session_dir.exists()
     os.chdir(status_workspace_env.outside)
 
