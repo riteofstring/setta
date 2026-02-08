@@ -25,18 +25,10 @@ Optional overrides:
 SETTA_HOST=localhost SETTA_PORT=8100 SETTA_DEV_FRONTEND_PORT=3100 ./scripts/run-dev-instance.sh
 ```
 
-Centralize `setta_files` outside worktrees (global state):
-
-1. Configure global state base in `<setta_home>/config.json` (see `docs/reference/setta-files.md`). For example:
-```json
-{
-  "globalSettaFilesBase": "~/setta_state",
-  "openWorkspaceFallback": "use_global_if_present",
-  "defaultCreateLocation": "global"
-}
-```
-2. Ensure the worktree does not already contain a local `setta_files/` folder (local always wins when it exists).
-3. Run the instance normally (or force global for that run):
+Centralize `setta_files` outside worktrees:
 ```sh
-SETTA_FILES_LOCATION=global ./scripts/run-dev-instance.sh
+SETTA_FILES_ROOT_BASE=~/setta_state ./scripts/run-dev-instance.sh
 ```
+Each worktree gets its own hashed subfolder under `SETTA_FILES_ROOT_BASE`, while
+code operations still point at the worktree root unless `SETTA_WORKSPACE_ROOT`
+is explicitly set.

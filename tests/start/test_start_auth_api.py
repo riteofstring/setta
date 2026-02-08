@@ -61,8 +61,7 @@ def _write_auth_json(root: Path) -> Path:
 def auth_env(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_root = workspace / "setta_files"
-    setta_root.mkdir(parents=True, exist_ok=True)
+    setta_root = tmp_path / "setta_files"
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
@@ -186,8 +185,7 @@ def api_integration_env(
 def api_input_env(tmp_path):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_root = workspace / "setta_files"
-    setta_root.mkdir(parents=True, exist_ok=True)
+    setta_root = tmp_path / "setta_files"
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(

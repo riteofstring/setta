@@ -22,12 +22,11 @@ export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const [workspaceRoot, setWorkspaceRoot] = useState("");
   const [sshTarget, setSshTarget] = useState("");
-  const [settaFilesLocation, setSettaFilesLocation] = useState<
-    "auto" | "local" | "global"
-  >("auto");
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
   const [localPort, setLocalPort] = useState("");
+  const [filesRoot, setFilesRoot] = useState("");
+  const [filesRootBase, setFilesRootBase] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [history, setHistory] = useState<WorkspaceHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -40,22 +39,28 @@ export function WorkspaceSwitcherModal() {
     if (draft) {
       setWorkspaceRoot(draft.workspaceRoot ?? "");
       setSshTarget(draft.sshTarget ?? "");
-      if (
-        draft.settaFilesLocation === "auto" ||
-        draft.settaFilesLocation === "local" ||
-        draft.settaFilesLocation === "global"
-      ) {
-        setSettaFilesLocation(draft.settaFilesLocation);
-      } else {
-        setSettaFilesLocation("auto");
-      }
       setSshArgs(draft.sshArgs ?? "");
       setRemoteCmd(draft.remoteCmd ?? "");
       setLocalPort(
         typeof draft.localPort === "number" ? String(draft.localPort) : "",
       );
+      const draftFilesRoot = draft.filesRoot ?? "";
+      const draftFilesRootBase = draft.filesRootBase ?? "";
+      if (draftFilesRoot.trim() && draftFilesRootBase.trim()) {
+        setFilesRoot(draftFilesRoot);
+        setFilesRootBase("");
+      } else {
+        setFilesRoot(draftFilesRoot);
+        setFilesRootBase(draftFilesRootBase);
+      }
       setShowAdvanced(
-        Boolean(draft.sshArgs || draft.remoteCmd || draft.localPort),
+        Boolean(
+          draft.sshArgs ||
+            draft.remoteCmd ||
+            draft.localPort ||
+            draft.filesRoot ||
+            draft.filesRootBase,
+        ),
       );
     }
   }, []);
@@ -65,6 +70,8 @@ export function WorkspaceSwitcherModal() {
   const trimmedSshArgs = sshArgs.trim();
   const trimmedRemoteCmd = remoteCmd.trim();
   const trimmedLocalPort = localPort.trim();
+  const trimmedFilesRoot = filesRoot.trim();
+  const trimmedFilesRootBase = filesRootBase.trim();
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
 
   const orderedHistory = useMemo(() => {
@@ -74,11 +81,22 @@ export function WorkspaceSwitcherModal() {
   function onSelectHistory(entry: WorkspaceHistoryEntry) {
     setWorkspaceRoot(entry.workspaceRoot);
     setSshTarget(entry.sshTarget ?? "");
-    setSettaFilesLocation(entry.settaFilesLocation);
     setSshArgs("");
     setRemoteCmd("");
     setLocalPort(entry.localPort ? String(entry.localPort) : "");
-    setShowAdvanced(Boolean(entry.localPort));
+    if (entry.filesRootBase) {
+      setFilesRoot("");
+      setFilesRootBase(entry.filesRootBase);
+    } else if (entry.filesRoot) {
+      setFilesRoot(entry.filesRoot);
+      setFilesRootBase("");
+    } else {
+      setFilesRoot("");
+      setFilesRootBase("");
+    }
+    setShowAdvanced(
+      Boolean(entry.localPort || entry.filesRoot || entry.filesRootBase),
+    );
     setError(null);
   }
 
@@ -91,6 +109,10 @@ export function WorkspaceSwitcherModal() {
     setError(null);
     if (!trimmedWorkspace) {
       setError("Enter a workspace path to continue.");
+      return;
+    }
+    if (trimmedFilesRoot && trimmedFilesRootBase) {
+      setError("Choose either Files Root or Files Root Base (not both).");
       return;
     }
     let parsedLocalPort: number | undefined = undefined;
@@ -110,11 +132,12 @@ export function WorkspaceSwitcherModal() {
 
     const request: LaunchRequestInput = {
       workspaceRoot: trimmedWorkspace,
-      settaFilesLocation,
       sshTarget: trimmedSshTarget || null,
       sshArgs: trimmedSshArgs || null,
       remoteCmd: trimmedRemoteCmd || null,
       localPort: parsedLocalPort ?? null,
+      filesRoot: trimmedFilesRoot || null,
+      filesRootBase: trimmedFilesRootBase || null,
     };
 
     writeWorkspaceSwitcherDraft(request);
@@ -199,42 +222,8 @@ export function WorkspaceSwitcherModal() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3">
-            <label
-              htmlFor="setta-files-location"
-              className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400"
-            >
-              Setta Files Location
-            </label>
-            <select
-              id="setta-files-location"
-              aria-label="Setta Files Location"
-              className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-              value={settaFilesLocation}
-              onChange={(event) => {
-                const next = event.target.value;
-                if (
-                  next === "auto" ||
-                  next === "local" ||
-                  next === "global"
-                ) {
-                  setSettaFilesLocation(next);
-                }
-              }}
-            >
-              <option value="auto">Default (auto)</option>
-              <option value="local">Local (workspace)</option>
-              <option value="global">Global (&lt;setta_home&gt;)</option>
-            </select>
-            <p className="text-xs text-setta-500 dark:text-setta-400">
-              If the workspace already has a local{" "}
-              <span className="font-semibold">setta_files/</span>, Setta will use
-              it even when Global is selected.
-            </p>
-          </div>
-
           <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-            <span>Advanced</span>
+            <span>Advanced Paths</span>
             <button
               className="rounded-full border border-setta-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
               onClick={() => setShowAdvanced((prev) => !prev)}
@@ -286,6 +275,48 @@ export function WorkspaceSwitcherModal() {
                   </div>
                 </>
               )}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Files Root (Optional)
+                </label>
+                <input
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  placeholder="/path/to/setta_files"
+                  value={filesRoot}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFilesRoot(next);
+                    if (next.trim()) {
+                      setFilesRootBase("");
+                    }
+                  }}
+                  spellCheck={false}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                  Files Root Base (Optional)
+                </label>
+                <input
+                  className="w-full rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-800 shadow-sm focus:border-blue-400 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  placeholder="/path/to/setta_state"
+                  value={filesRootBase}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setFilesRootBase(next);
+                    if (next.trim()) {
+                      setFilesRoot("");
+                    }
+                  }}
+                  spellCheck={false}
+                />
+              </div>
+              <p className="text-xs text-setta-500 dark:text-setta-400">
+                Choose either a files root or a files root base. When using a
+                base, Setta will create a per-workspace folder under that base
+                named like{" "}
+                <span className="font-semibold">workspace-name-1a2b3c4d</span>.
+              </p>
             </div>
           )}
 
@@ -312,9 +343,13 @@ export function WorkspaceSwitcherModal() {
                     <span className="truncate font-medium">
                       {entry.workspaceRoot}
                     </span>
-                    <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                      Setta files: {entry.settaFilesLocation}
-                    </span>
+                    {(entry.filesRoot || entry.filesRootBase) && (
+                      <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                        {entry.filesRootBase
+                          ? `Files base: ${entry.filesRootBase}`
+                          : `Files root: ${entry.filesRoot}`}
+                      </span>
+                    )}
                     {entry.sshTarget && (
                       <span className="truncate text-[11px] text-setta-500 dark:text-setta-400">
                         SSH: {entry.sshTarget}

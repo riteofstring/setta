@@ -314,9 +314,9 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
       </section>
     </main>
 	    <script>
-		      (function () {
+	      (function () {
 		        const redirectUrl = "__SETTA_REDIRECT_URL__";
-		        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff.v2";
+		        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
 		        const launcherOriginKey = "setta.launcherOrigin";
 		        const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
 		        const maxHandoffLength = 8192;
