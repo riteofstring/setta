@@ -18,6 +18,7 @@ export type PaneName = ObjectValues<typeof PaneNameEnum>;
 export const OverviewTabNameEnum = {
   Overview: "Overview",
   FileBrowser: "FileBrowser",
+  Git: "Git",
   WatchCode: "WatchCode",
   App: "App",
   RunInstructions: "RunInstructions",
@@ -34,6 +35,7 @@ export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
+  [OverviewTabNameEnum.Git]: "Git",
   [OverviewTabNameEnum.WatchCode]: "Watch Code",
   [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
@@ -170,7 +172,6 @@ const UNPINNED_PARAMS_AREA_HEIGHT_KEY_PREFIX = "unpinned-params-area-height";
 const PARAMS_FIXED_HEIGHT_KEY_PREFIX = "params-fixed-height";
 const SECTION_HEADER_HEIGHT_KEY_PREFIX = "section-header-height";
 const SECTION_SEARCH_HEIGHT_KEY_PREFIX = "section-search-height";
-const SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX = "section-style-preview-color";
 
 export function getEdgesStripHeightKey(sectionId: string) {
   return `${EDGES_STRIP_HEIGHT_KEY_PREFIX}-${sectionId}`;
@@ -198,10 +199,6 @@ export function getSectionHeaderHeightKey(sectionId: string) {
 
 export function getSectionSearchHeightKey(sectionId: string) {
   return `${SECTION_SEARCH_HEIGHT_KEY_PREFIX}-${sectionId}`;
-}
-
-export function getSectionStylePreviewColorKey(sectionId: string) {
-  return `${SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX}-${sectionId}`;
 }
 
 const MODEL_GROUPS = [

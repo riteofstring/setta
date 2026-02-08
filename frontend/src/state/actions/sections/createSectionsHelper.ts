@@ -35,12 +35,12 @@ export function useCreateSectionsList() {
   );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
-    { name: "Param Dict", implSpecs: { type: SectionTypeEnum.Dict } },
+    { name: "Dict", implSpecs: { type: SectionTypeEnum.Dict } },
     {
       name: "List of Objects",
       implSpecs: { type: SectionTypeEnum.ListRoot },
     },
-    { name: "Dict", implSpecs: { type: SectionTypeEnum.Group } },
+    { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
     { name: "Prompt", implSpecs: { type: SectionTypeEnum.Prompt } },
   ];

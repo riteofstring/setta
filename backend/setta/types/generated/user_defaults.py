@@ -35,8 +35,6 @@ from setta.types.section_impls import (
 
 class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     isFrozen: bool = False
-    tagColor: str | None = None
-    styleColor: str | None = None
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool | float = False
     isMinimized: bool = False

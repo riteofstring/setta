@@ -1,3 +1,4 @@
+import { GitOverlayLayer } from "components/Git/GitOverlayLayer";
 import { Overview } from "components/Panes/Overview/Overview";
 import { UiEditor } from "components/Panes/UiEditor/UiEditor";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
@@ -14,7 +15,6 @@ import { LoadingSpinner } from "./LoadingSpinner";
 import { NotFound } from "./NotFound/NotFound";
 import { AppPreview } from "./Project/AppPreview";
 import { UIPage } from "./Project/UiPage";
-import { ViewModeTabs } from "./Project/ViewModeTabs";
 
 type MainContainerCoreProps = {
   doneLoading: boolean;
@@ -47,7 +47,7 @@ export function MainContainerCore({
       <GridWrapper>
         {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
       </GridWrapper>
-      <ViewModeTabs />
+      <GitOverlayLayer />
       <FloatingBox />
     </>
   );
