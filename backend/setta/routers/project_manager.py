@@ -498,7 +498,7 @@ async def route_get_latest_project_state(
 async def route_get_latest_lsp_diagnostics(
     x: GetLatestLspDiagnosticsRequest, ctx: RuntimeContextFromRequest
 ) -> SettaLspDiagnosticsPayload:
-    await _deny_share_mode_lsp(ctx)
+    await _deny_deployment_mode_lsp(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     return await manager.get_latest_lsp_diagnostics(x)
 
