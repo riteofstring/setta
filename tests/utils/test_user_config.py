@@ -145,6 +145,34 @@ def test_load_setta_user_config_resolves_relative_global_base() -> None:
     assert config.global_setta_files_base == (setta_home / "state").resolve(strict=False)
 
 
+def test_load_setta_user_config_expands_env_vars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    setta_home = resolve_setta_home()
+    config_path = resolve_setta_user_config_path(setta_home=setta_home)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    base = tmp_path / "state_base"
+    monkeypatch.setenv("SETTA_STATE_BASE", str(base))
+
+    config_path.write_text(
+        json.dumps(
+            {
+                "globalSettaFilesBase": "$SETTA_STATE_BASE/subdir",
+                "autoMode": "create_local",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    clear_setta_user_config_cache()
+    config = load_setta_user_config(setta_home=setta_home)
+    assert config.global_setta_files_base == (base / "subdir").resolve(strict=False)
+
+
 def test_load_setta_user_config_rejects_invalid_auto_mode() -> None:
     setta_home = resolve_setta_home()
     config_path = resolve_setta_user_config_path(setta_home=setta_home)

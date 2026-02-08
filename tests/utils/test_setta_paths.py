@@ -66,6 +66,22 @@ def test_resolve_setta_paths_honors_files_location_env_global(
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
 
+def test_resolve_setta_paths_strips_files_location_env_whitespace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    monkeypatch.setenv("SETTA_FILES_LOCATION", "  GLOBAL  ")
+
+    paths = resolve_setta_paths(workspace_root=workspace)
+
+    assert paths.setta_files_location == "global"
+    base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
+    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
+    assert paths.setta_files_root == expected_root.resolve(strict=False)
+
+
 def test_resolve_setta_paths_rejects_invalid_files_location_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

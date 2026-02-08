@@ -13,6 +13,16 @@ def test_resolve_setta_home_honors_env_override(tmp_path: Path, monkeypatch: pyt
     assert resolve_setta_home() == override.resolve(strict=False)
 
 
+def test_resolve_setta_home_expands_env_vars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "base"
+    monkeypatch.setenv("SETTA_HOME_BASE", str(base))
+    monkeypatch.setenv("SETTA_HOME", "$SETTA_HOME_BASE/subdir")
+
+    assert resolve_setta_home() == (base / "subdir").resolve(strict=False)
+
+
 def test_resolve_setta_home_win32_uses_appdata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SETTA_HOME", raising=False)
     monkeypatch.setattr(sys, "platform", "win32")
