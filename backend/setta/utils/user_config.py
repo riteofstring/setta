@@ -136,3 +136,40 @@ def load_setta_user_config(*, setta_home: Path | None = None) -> SettaUserConfig
 
 def clear_setta_user_config_cache() -> None:
     load_setta_user_config.cache_clear()
+
+
+def ensure_setta_user_config_exists(*, setta_home: Path | None = None) -> str | None:
+    """Create a default <setta_home>/config.json if it does not exist.
+
+    This is intended to be called from the CLI/server entrypoint, not during
+    import-time path resolution.
+
+    Returns an error message string if creation fails; otherwise returns None.
+    """
+
+    resolved_home = (setta_home or resolve_setta_home()).resolve(strict=False)
+    config_path = resolve_setta_user_config_path(setta_home=resolved_home)
+
+    if config_path.exists():
+        if config_path.is_file():
+            return None
+        return f"Setta config path exists but is not a file: {config_path}"
+
+    try:
+        resolved_home.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return f"Failed to create Setta home directory: {resolved_home} ({exc})"
+
+    payload = _build_default_config_payload(setta_home=resolved_home)
+    try:
+        with config_path.open("x", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+    except FileExistsError:
+        # Another process won the race; treat as success.
+        return None
+    except OSError as exc:
+        return f"Failed to write Setta config: {config_path} ({exc})"
+
+    clear_setta_user_config_cache()
+    return None

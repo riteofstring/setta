@@ -61,6 +61,7 @@ from setta.utils.paths import (
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.user_config import ensure_setta_user_config_exists
 from setta.utils.utils import normalize_path
 
 _DEFAULT_LOCAL_PORT = 61000
@@ -2174,6 +2175,11 @@ def cli(
     ctx.obj["no_open"] = no_open
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
+
+    config_error = ensure_setta_user_config_exists()
+    if config_error:
+        logging.getLogger(__name__).warning(config_error)
+
     paths_override = None
     if workspace is not None or setta_files_location is not None:
         paths_override = _resolve_cli_paths(

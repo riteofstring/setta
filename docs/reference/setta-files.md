@@ -18,7 +18,8 @@ Local always wins when it exists.
 ## Config File
 
 Config lives at `<setta_home>/config.json`.
-If the file is missing, Setta uses the defaults shown below.
+Setta will create the file with defaults on first start (when possible). If the
+file is missing, Setta uses the defaults shown below.
 
 ```json
 {
