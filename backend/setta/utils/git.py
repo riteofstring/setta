@@ -4,8 +4,8 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from typing import BinaryIO, Callable
 from pathlib import Path
+from typing import BinaryIO, Callable
 
 
 @dataclass(frozen=True)
