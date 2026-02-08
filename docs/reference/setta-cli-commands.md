@@ -109,9 +109,9 @@ JSON output schema:
 {
   "baseUrl": "http://127.0.0.1:8000",
   "apiBaseUrl": "http://127.0.0.1:8000/api",
-  "cookieHeader": "Cookie: setta_auth=....",
-  "cookie": "setta_auth=....",
-  "cookieName": "setta_auth",
+  "cookieHeader": "Cookie: setta_auth_<sessionId>=....",
+  "cookie": "setta_auth_<sessionId>=....",
+  "cookieName": "setta_auth_<sessionId>",
   "session": {
     "id": "...",
     "workspacePath": "...",
@@ -237,6 +237,9 @@ Remote stop:
   `setta stop user@host --workspace /path` (or `-w`).
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
+- To control where the remote host stores `setta_files`, pass `--files-root` or
+  `--files-root-base` before the subcommand. Example:
+  `setta --files-root-base '~/setta_state' stop user@host -w '~/work/project' --latest`.
 
 Examples:
 ```sh
@@ -253,13 +256,17 @@ opens the browser to the bootstrap URL.
 Required:
 - `ssh_target` (e.g., `user@host`)
 - `--workspace PATH` (`-w` works too)
-  - Remote paths can use `~` (e.g., `~/work/project`).
+  - Remote paths can use `~`, but quote it so your local shell does not expand it
+    (e.g., `-w '~/work/project'`).
 
 Options:
 - `--session ID` selects a specific session.
 - `--latest` selects the newest session.
 - `--ssh-args` passes extra SSH options.
 - `--remote-cmd` overrides the remote Setta command.
+- To control where the remote host stores `setta_files`, pass `--files-root` or
+  `--files-root-base` before the subcommand (they are forwarded to the remote
+  `setta` invocation).
 - `--local-port` pins the local tunnel port.
 - `--detach` backgrounds the tunnel process.
 - `--print-only` prints the tunnel command and URLs without running them.
