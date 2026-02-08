@@ -57,6 +57,16 @@ These links live on `ProjectConfig.agenticEdges`, render as a separate edge laye
 and are editable via the Chat settings "Context & Links" panel or by dragging the
 agentic handles on sections.
 
+Context sources also define how context is injected:
+- `reference_only`: include label/type/id only.
+- `inline_text`: include a deterministic excerpt of the section content.
+- `summary`: prefer a cached summary (when available), otherwise fall back to an excerpt.
+
+Agentic edges are also used for agentic scope enforcement: MCP tool calls made on
+behalf of a scoped Chat section are restricted to the sections reachable via
+these edges. If a Chat section has no edges, it effectively has no tool access.
+Use Project Chat (unscoped) for full access.
+
 ## Realtime action events
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
 
