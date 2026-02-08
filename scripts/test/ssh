@@ -35,12 +35,18 @@ def _load_session_metadata() -> tuple[str, dict[str, Any], bytes]:
     if sessions_root_raw:
         sessions_root = Path(sessions_root_raw)
     else:
-        workspace_root = os.environ.get("SETTA_WORKSPACE_ROOT", "").strip()
-        if not workspace_root:
-            raise RuntimeError(
-                "SETTA_SESSIONS_ROOT (or SETTA_WORKSPACE_ROOT) must be set for ssh stub."
+        files_root = os.environ.get("SETTA_FILES_ROOT", "").strip()
+        if files_root:
+            sessions_root = Path(files_root) / "runtime" / "sessions"
+        else:
+            workspace_root = os.environ.get("SETTA_WORKSPACE_ROOT", "").strip()
+            if not workspace_root:
+                raise RuntimeError(
+                    "SETTA_SESSIONS_ROOT (or SETTA_FILES_ROOT / SETTA_WORKSPACE_ROOT) must be set for ssh stub."
+                )
+            sessions_root = (
+                Path(workspace_root) / "setta_files" / "runtime" / "sessions"
             )
-        sessions_root = Path(workspace_root) / "setta_files" / "runtime" / "sessions"
 
     if not sessions_root.exists():
         raise RuntimeError(f"Sessions root does not exist: {sessions_root}")
@@ -208,19 +214,6 @@ def _extract_cd_path(command: str) -> str | None:
     return raw
 
 
-def _extract_setta_files_location(command: str) -> str | None:
-    match = re.search(r"--setta-files-location\\s+([^\\s&;]+)", command)
-    if not match:
-        return None
-    raw = match.group(1).strip()
-    if raw.startswith(("'", '"')) and raw.endswith(("'", '"')) and len(raw) >= 2:
-        raw = raw[1:-1]
-    trimmed = raw.strip().lower()
-    if trimmed in {"auto", "local", "global"}:
-        return trimmed
-    return None
-
-
 def _handle_remote_command(command: str) -> int:
     command = command.strip()
 
@@ -275,28 +268,8 @@ def _handle_remote_command(command: str) -> int:
         bootstrap_url_fragment, bootstrap_url_plain = _build_bootstrap_urls(
             host, port, token
         )
+        files_root = os.environ.get("SETTA_FILES_ROOT", "").strip()
         runtime_root = os.environ.get("SETTA_RUNTIME_ROOT", "").strip()
-        requested_location = _extract_setta_files_location(command)
-        env_location = os.environ.get("SETTA_FILES_LOCATION", "").strip().lower()
-        if env_location not in ("auto", "local", "global"):
-            env_location = ""
-        candidate_location = requested_location or env_location or "auto"
-
-        cd_path = _extract_cd_path(command) or os.environ.get("SETTA_WORKSPACE_ROOT", "").strip() or "/tmp"
-        has_local_root = False
-        try:
-            has_local_root = (Path(cd_path) / "setta_files").is_dir()
-        except Exception:
-            has_local_root = False
-
-        if has_local_root:
-            resolved_location = "local"
-        elif candidate_location in ("local", "global"):
-            resolved_location = candidate_location
-        elif env_location in ("local", "global"):
-            resolved_location = env_location
-        else:
-            resolved_location = "local"
         payload = {
             "session": {
                 "id": metadata.get("id", session_id),
@@ -312,7 +285,7 @@ def _handle_remote_command(command: str) -> int:
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": "ssh -N -L ${LOCAL_PORT}:127.0.0.1:1234 user@host -o ExitOnForwardFailure=yes",
-            "settaFilesLocation": resolved_location,
+            "filesRoot": files_root or None,
             "runtimeRoot": runtime_root or None,
         }
         _emit_json(payload)
