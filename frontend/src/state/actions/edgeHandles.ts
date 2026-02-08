@@ -130,7 +130,10 @@ function updateEdgeHandlePositionsForSections(sectionIds: string[]) {
   }
   const sectionIdSet = new Set(sectionIds);
   const { handles } = useEdgeHandleRegistry.getState();
-  const flowPositionsByElement = new Map<HTMLElement, { x: number; y: number }>();
+  const flowPositionsByElement = new Map<
+    HTMLElement,
+    { x: number; y: number }
+  >();
   const updates: Array<{
     key: string;
     record: EdgeHandleRecord;

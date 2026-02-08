@@ -98,7 +98,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`agentic-handle-scope group/card-section relative transition-radius ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
+      className={`agentic-handle-scope group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${outlineClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}

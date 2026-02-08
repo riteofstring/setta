@@ -23,9 +23,7 @@ from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 logger = logging.getLogger(__name__)
 
 
-def _merge_missing_defaults(
-    existing: object, defaults: object
-) -> tuple[object, bool]:
+def _merge_missing_defaults(existing: object, defaults: object) -> tuple[object, bool]:
     """Return (merged, changed), where merged includes any missing default keys.
 
     Only merges nested dict shapes; existing values are never overwritten.
@@ -41,9 +39,7 @@ def _merge_missing_defaults(
             merged[key] = copy.deepcopy(default_value)
             changed = True
             continue
-        next_value, child_changed = _merge_missing_defaults(
-            merged[key], default_value
-        )
+        next_value, child_changed = _merge_missing_defaults(merged[key], default_value)
         if child_changed:
             merged[key] = next_value
             changed = True
@@ -100,9 +96,7 @@ class SettingsFile:
             changed = False
             for settings_slice in path_to_slices.get(p, []):
                 if settings_slice not in default_settings:
-                    raise KeyError(
-                        f"Missing default settings for {settings_slice}."
-                    )
+                    raise KeyError(f"Missing default settings for {settings_slice}.")
                 defaults_slice = default_settings[settings_slice]
                 if settings_slice not in payload:
                     payload[settings_slice] = copy.deepcopy(defaults_slice)

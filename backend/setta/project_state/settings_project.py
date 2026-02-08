@@ -568,7 +568,7 @@ def _ensure_settings_model_code_objs(
             if preset_impl is None:
                 preset_impl = DropdownParamCodeObjImpl(
                     name=preset_name,
-                    choices=[f'\"{b.value}\"' for b in annotation],
+                    choices=[f'"{b.value}"' for b in annotation],
                     isPreset=True,
                 )
                 preset_code_obj_impls[preset_name] = preset_impl

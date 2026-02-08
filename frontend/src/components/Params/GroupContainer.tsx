@@ -376,48 +376,46 @@ function EdgesStrip({
     positionAndSizeLocked,
     selectedParams,
   } = useProjectState((state) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        state,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      const selectedParams = impl.selectedParams ?? [];
-      const pinned = getCurrShownParamIds(state, sectionId, true, true);
-      const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-      const requiredParamIdsToPaths = {
-        ...pinned.requiredParamIdsToPaths,
-        ...unpinned.requiredParamIdsToPaths,
-      };
-      const inputPorts = impl.edgeInputParams.map((paramId) => {
-        const path = requiredParamIdsToPaths[paramId];
-        const rawLabel = path
-          ? paramNameFromPathArray(state, sectionId, path)
-          : getParamDisplayName(state, sectionId, paramId);
-        const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
-        return { id: paramId, label };
-      });
-      const outputPorts = impl.edgeOutputPorts.map((port) => ({
-        id: port.id,
-        label:
-          port.accessor.trim() === ""
-            ? C.EDGE_OUTPUT_BASE_LABEL
-            : port.accessor,
-      }));
-      const filteredPinned = filterEdgeInputs(
-        pinned.requiredParamIdsToPaths,
-        pinned.topLevelParamIds,
-        impl.edgeInputParams,
-      );
-      const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
-      const showsUnpinnedParams = !impl.hideUnpinnedParams;
-      return {
-        inputPorts,
-        outputPorts,
-        shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
-        positionAndSizeLocked: impl.positionAndSizeLocked,
-        selectedParams,
-      };
-    }, _.isEqual);
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const selectedParams = impl.selectedParams ?? [];
+    const pinned = getCurrShownParamIds(state, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
+    const requiredParamIdsToPaths = {
+      ...pinned.requiredParamIdsToPaths,
+      ...unpinned.requiredParamIdsToPaths,
+    };
+    const inputPorts = impl.edgeInputParams.map((paramId) => {
+      const path = requiredParamIdsToPaths[paramId];
+      const rawLabel = path
+        ? paramNameFromPathArray(state, sectionId, path)
+        : getParamDisplayName(state, sectionId, paramId);
+      const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
+      return { id: paramId, label };
+    });
+    const outputPorts = impl.edgeOutputPorts.map((port) => ({
+      id: port.id,
+      label:
+        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
+    }));
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+    const showsUnpinnedParams = !impl.hideUnpinnedParams;
+    return {
+      inputPorts,
+      outputPorts,
+      shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      selectedParams,
+    };
+  }, _.isEqual);
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
   const selectedParamIdSet = new Set(selectedParams);
@@ -529,7 +527,7 @@ function EdgesStrip({
                 key={port.id}
                 className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${
                   selectedParamIdSet.has(port.id)
-                    ? "active:!bg-cyan-300 !bg-blue-700 !text-white"
+                    ? "!bg-blue-700 !text-white active:!bg-cyan-300"
                     : "text-setta-600 dark:text-setta-200"
                 } ${isSelectingParams ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
                 onMouseDown={(e) => {

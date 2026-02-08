@@ -1,8 +1,8 @@
-import { useMemo } from "react";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
+import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
 import { HandlePosition } from "forks/xyflow/core/types";
+import { useMemo } from "react";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
   createAgenticEdgeFromConnection,
@@ -18,7 +18,9 @@ import {
 export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const agenticEdges = useProjectState((state) => state.projectConfig.agenticEdges);
+  const agenticEdges = useProjectState(
+    (state) => state.projectConfig.agenticEdges,
+  );
   const connectionMask = useMemo(() => {
     if (!sectionId) {
       return 0;

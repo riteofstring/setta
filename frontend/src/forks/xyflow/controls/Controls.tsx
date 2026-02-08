@@ -1,5 +1,5 @@
-import "forks/xyflow/controls/style.css";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import "forks/xyflow/controls/style.css";
 import {
   resetZoom,
   zoomIn,

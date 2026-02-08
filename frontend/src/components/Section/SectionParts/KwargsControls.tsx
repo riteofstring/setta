@@ -281,7 +281,11 @@ export function KwargsControls({
               pinnedParams: nextPinnedParams,
             },
           );
-          updateShownParamIdsForPinnedParams(state, sectionId, nextPinnedParams);
+          updateShownParamIdsForPinnedParams(
+            state,
+            sectionId,
+            nextPinnedParams,
+          );
         },
         send: (frontendOpId) => {
           const payload = {

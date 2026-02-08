@@ -68,6 +68,7 @@
 ## Commit & Pull Request Guidelines
 
 - Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
+- Before merging branches, always run `./gcf.sh`.
 
 ## Memory Logging
 
