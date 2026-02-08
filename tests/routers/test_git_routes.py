@@ -3,24 +3,23 @@ from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from fastapi import HTTPException
 from fastapi import FastAPI
 import pytest
 import pytest_asyncio
 
 import setta.routers.git as git_router
 from setta.routers.git import (
+    _parse_porcelain_status,
     route_get_git_commit_details,
-    route_get_git_commit_diff,
     route_get_git_commit_file_diff,
     route_get_git_diff,
     route_get_git_log,
-    route_get_git_repo_info,
     route_get_git_status,
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.git import (
     GetGitCommitDetailsRequest,
-    GetGitCommitDiffRequest,
     GetGitCommitFileDiffRequest,
     GetGitDiffRequest,
     GetGitLogRequest,
@@ -120,13 +119,25 @@ class TestGitRoutes:
         await state.wait_until_ready()
         return state
 
-    async def test_repo_info_is_git_repo(self) -> None:
-        state = await self._build_state()
-        with runtime_context(state) as ctx:
-            info = route_get_git_repo_info(ctx)
-        assert info.isGitRepo is True
-        assert info.repoRoot is not None
-        assert info.headCommit is not None
+    async def test_parse_porcelain_status_handles_unstaged_rename_and_copy(
+        self,
+    ) -> None:
+        # Unstaged rename/copy use worktree status R/C and include an extra old-path token.
+        output = " R new.txt\0old.txt\0 C copy.txt\0source.txt\0?? loose.txt\0"
+        entries = _parse_porcelain_status(output)
+
+        assert len(entries) == 3
+        rename = entries[0]
+        copy = entries[1]
+        untracked = entries[2]
+        assert rename.kind == "unstaged"
+        assert rename.path == "new.txt"
+        assert rename.oldPath == "old.txt"
+        assert copy.kind == "unstaged"
+        assert copy.path == "copy.txt"
+        assert copy.oldPath == "source.txt"
+        assert untracked.kind == "untracked"
+        assert untracked.path == "loose.txt"
 
     async def test_status_staged_unstaged_untracked(self) -> None:
         # Stage a change, then modify again to get staged + unstaged on the same file.
@@ -187,7 +198,63 @@ class TestGitRoutes:
         assert "diff --git a/new.txt b/new.txt" in untracked.diff
         assert "+hello" in untracked.diff
 
-    async def test_log_and_commit_diff(self) -> None:
+    async def test_diff_staged_rename_uses_old_path_when_provided(self) -> None:
+        _run_git(self._workspace_root, ["mv", "tracked.txt", "renamed.txt"])
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            rename_diff = route_get_git_diff(
+                GetGitDiffRequest(
+                    path="renamed.txt",
+                    oldPath="tracked.txt",
+                    mode="staged",
+                ),
+                ctx,
+            )
+            single_path_diff = route_get_git_diff(
+                GetGitDiffRequest(path="renamed.txt", mode="staged"),
+                ctx,
+            )
+
+        assert "rename from tracked.txt" in rename_diff.diff
+        assert "rename to renamed.txt" in rename_diff.diff
+        assert "rename from tracked.txt" not in single_path_diff.diff
+        assert "rename to renamed.txt" not in single_path_diff.diff
+
+    async def test_status_marks_truncation_when_output_is_capped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        for idx in range(300):
+            (self._workspace_root / f"untracked-{idx:03d}.txt").write_text(
+                "x\n", encoding="utf-8"
+            )
+        monkeypatch.setattr(git_router, "_MAX_STATUS_BYTES", 64)
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            status_res = route_get_git_status(ctx)
+
+        assert status_res.isTruncated is True
+
+    async def test_log_rejects_option_like_revision(self) -> None:
+        state = await self._build_state()
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc:
+                route_get_git_log(
+                    GetGitLogRequest(
+                        rev="--all",
+                        pageSize=20,
+                        offset=0,
+                        allRefs=False,
+                    ),
+                    ctx,
+                )
+
+        assert exc.value.status_code == 400
+        assert "Invalid revision" in str(exc.value.detail)
+
+    async def test_log_commit_details_and_file_diff(self) -> None:
         head = _run_git(self._workspace_root, ["rev-parse", "HEAD"]).strip()
 
         state = await self._build_state()
@@ -208,10 +275,6 @@ class TestGitRoutes:
                 ),
                 ctx,
             )
-            show = route_get_git_commit_diff(
-                GetGitCommitDiffRequest(commitHash=head),
-                ctx,
-            )
 
         assert log.repoRoot
         assert len(log.commits) > 0
@@ -226,8 +289,6 @@ class TestGitRoutes:
         assert file_diff.commitHash == head
         assert file_diff.path == "tracked.txt"
         assert "diff --git a/tracked.txt b/tracked.txt" in file_diff.diff
-        assert "commit" in show.diff
-        assert head[:8] in show.diff
 
     async def test_log_pagination_offsets_without_overlap(self) -> None:
         # Build enough history to span multiple pages.
@@ -259,7 +320,9 @@ class TestGitRoutes:
         page2_hashes = {commit.hash for commit in page2.commits}
         assert page1_hashes.isdisjoint(page2_hashes)
 
-    async def test_log_reports_cap_boundary(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_log_reports_cap_boundary(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         # Use a small cap so the behavior is testable without huge histories.
         monkeypatch.setattr(git_router, "_MAX_LOG_COUNT", 5)
         _append_commits(self._workspace_root, 8, prefix="cap")

@@ -233,12 +233,6 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
-export async function route_get_git_repo_info(): Promise<
-  ResponseDataAndStatus<gt.GitRepoInfoResponse>
-> {
-  return await post("/git/repoInfo", null);
-}
-
 export async function route_get_git_status(): Promise<
   ResponseDataAndStatus<gt.GetGitStatusResponse>
 > {
@@ -267,12 +261,6 @@ export async function route_get_git_commit_file_diff(
   x: gt.GetGitCommitFileDiffRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetGitCommitFileDiffResponse>> {
   return await post("/git/commitFileDiff", x);
-}
-
-export async function route_get_git_commit_diff(
-  x: gt.GetGitCommitDiffRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetGitCommitDiffResponse>> {
-  return await post("/git/commitDiff", x);
 }
 
 export async function route_get_attachment_download_url(

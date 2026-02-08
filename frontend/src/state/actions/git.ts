@@ -7,11 +7,7 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import type {
-  GetGitLogResponse,
-  GitCommit,
-  GitDiffMode,
-} from "utils/generatedTypes";
+import type { GitDiffMode } from "utils/generatedTypes";
 import { computeGitGraphRows } from "utils/gitGraph";
 
 let statusRequestId = 0;
@@ -21,26 +17,6 @@ let commitDetailsRequestId = 0;
 let commitFileDiffRequestId = 0;
 
 const DEFAULT_GIT_GRAPH_PAGE_SIZE = 250;
-
-function normalizeGitCommit(commit: GitCommit): GitCommit {
-  // Defensive: backend should already return clean hashes, but whitespace here
-  // breaks lane computation and commit-diff lookups.
-  return {
-    ...commit,
-    hash: commit.hash.trim(),
-    parents: commit.parents.map((parent) => parent.trim()).filter(Boolean),
-    decorations: commit.decorations.map((d) => d.trim()).filter(Boolean),
-  };
-}
-
-function normalizeGitLogResponse(
-  response: GetGitLogResponse,
-): GetGitLogResponse {
-  return {
-    ...response,
-    commits: response.commits.map(normalizeGitCommit),
-  };
-}
 
 export async function refreshGitStatus(): Promise<void> {
   const requestId = (statusRequestId += 1);
@@ -92,7 +68,15 @@ function computeDiffAvailability(path: string) {
   return { hasStaged, hasUnstaged };
 }
 
-async function refreshGitDiff(path: string, mode: GitDiffMode): Promise<void> {
+async function refreshGitDiff({
+  path,
+  oldPath,
+  mode,
+}: {
+  path: string;
+  oldPath: string | null;
+  mode: GitDiffMode;
+}): Promise<void> {
   const requestId = (diffRequestId += 1);
   useGitStore.setState((state) => {
     if (state.overlay.kind !== "diff") {
@@ -105,6 +89,7 @@ async function refreshGitDiff(path: string, mode: GitDiffMode): Promise<void> {
         diff: {
           ...state.overlay.diff,
           path,
+          oldPath,
           mode,
           response: null,
           isLoading: true,
@@ -114,7 +99,7 @@ async function refreshGitDiff(path: string, mode: GitDiffMode): Promise<void> {
     };
   });
 
-  const res = await route_get_git_diff({ path, mode });
+  const res = await route_get_git_diff({ path, oldPath, mode });
   if (requestId !== diffRequestId) {
     return;
   }
@@ -159,9 +144,11 @@ async function refreshGitDiff(path: string, mode: GitDiffMode): Promise<void> {
 
 export async function openGitDiffOverlay({
   path,
+  oldPath,
   mode,
 }: {
   path: string;
+  oldPath: string | null;
   mode: GitDiffMode;
 }): Promise<void> {
   const { hasStaged, hasUnstaged } = computeDiffAvailability(path);
@@ -171,6 +158,7 @@ export async function openGitDiffOverlay({
       kind: "diff",
       diff: {
         path,
+        oldPath,
         mode,
         hasStaged,
         hasUnstaged,
@@ -180,7 +168,7 @@ export async function openGitDiffOverlay({
       },
     },
   }));
-  await refreshGitDiff(path, mode);
+  await refreshGitDiff({ path, oldPath, mode });
 }
 
 export async function setGitDiffMode(mode: GitDiffMode): Promise<void> {
@@ -191,7 +179,11 @@ export async function setGitDiffMode(mode: GitDiffMode): Promise<void> {
   if (overlay.diff.mode === mode) {
     return;
   }
-  await openGitDiffOverlay({ path: overlay.diff.path, mode });
+  await openGitDiffOverlay({
+    path: overlay.diff.path,
+    oldPath: overlay.diff.oldPath,
+    mode,
+  });
 }
 
 export function closeGitOverlay(): void {
@@ -286,8 +278,8 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
     return;
   }
   if (res200(res)) {
-    const normalizedResponse = normalizeGitLogResponse(res.data);
-    const commits = normalizedResponse.commits;
+    const responseData = res.data;
+    const commits = responseData.commits;
     const rows = computeGitGraphRows(commits);
     useGitStore.setState((state) => {
       if (state.overlay.kind !== "graph") {
@@ -299,15 +291,15 @@ async function refreshGitGraph(allRefs: boolean): Promise<void> {
           kind: "graph",
           graph: {
             ...state.overlay.graph,
-            response: normalizedResponse,
+            response: responseData,
             rows,
             isLoading: false,
             isLoadingMore: false,
             loadMoreError: null,
-            hasMore: normalizedResponse.hasMore,
-            nextOffset: normalizedResponse.nextOffset,
-            pageSize: normalizedResponse.pageSize,
-            isCapped: normalizedResponse.isCapped,
+            hasMore: responseData.hasMore,
+            nextOffset: responseData.nextOffset,
+            pageSize: responseData.pageSize,
+            isCapped: responseData.isCapped,
           },
         },
       };
@@ -394,7 +386,7 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
   }
 
   if (res200(res)) {
-    const normalizedPage = normalizeGitLogResponse(res.data);
+    const nextPage = res.data;
     useGitStore.setState((state) => {
       if (state.overlay.kind !== "graph") {
         return state;
@@ -407,14 +399,14 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
             kind: "graph",
             graph: {
               ...state.overlay.graph,
-              response: normalizedPage,
-              rows: computeGitGraphRows(normalizedPage.commits),
+              response: nextPage,
+              rows: computeGitGraphRows(nextPage.commits),
               isLoadingMore: false,
               loadMoreError: null,
-              hasMore: normalizedPage.hasMore,
-              nextOffset: normalizedPage.nextOffset,
-              pageSize: normalizedPage.pageSize,
-              isCapped: normalizedPage.isCapped,
+              hasMore: nextPage.hasMore,
+              nextOffset: nextPage.nextOffset,
+              pageSize: nextPage.pageSize,
+              isCapped: nextPage.isCapped,
             },
           },
         };
@@ -423,7 +415,7 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
       const seenHashes = new Set(
         existingResponse.commits.map((commit) => commit.hash),
       );
-      const appendedCommits = normalizedPage.commits.filter(
+      const appendedCommits = nextPage.commits.filter(
         (commit) => !seenHashes.has(commit.hash),
       );
       const mergedCommits = existingResponse.commits.concat(appendedCommits);
@@ -431,10 +423,10 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
         ...existingResponse,
         commits: mergedCommits,
         offset: 0,
-        pageSize: normalizedPage.pageSize,
-        nextOffset: normalizedPage.nextOffset,
-        hasMore: normalizedPage.hasMore,
-        isCapped: normalizedPage.isCapped,
+        pageSize: nextPage.pageSize,
+        nextOffset: nextPage.nextOffset,
+        hasMore: nextPage.hasMore,
+        isCapped: nextPage.isCapped,
       };
 
       return {
@@ -447,10 +439,10 @@ export async function loadMoreGitGraphCommits(): Promise<void> {
             rows: computeGitGraphRows(mergedCommits),
             isLoadingMore: false,
             loadMoreError: null,
-            hasMore: normalizedPage.hasMore,
-            nextOffset: normalizedPage.nextOffset,
-            pageSize: normalizedPage.pageSize,
-            isCapped: normalizedPage.isCapped,
+            hasMore: nextPage.hasMore,
+            nextOffset: nextPage.nextOffset,
+            pageSize: nextPage.pageSize,
+            isCapped: nextPage.isCapped,
           },
         },
       };
@@ -582,7 +574,12 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
       };
     });
     const first = res.data.files[0] ?? null;
-    if (first) {
+    const latestOverlay = useGitStore.getState().overlay;
+    if (
+      first &&
+      latestOverlay.kind === "graph" &&
+      latestOverlay.graph.selectedCommitHash === commitHash
+    ) {
       await selectGitCommitFile({
         path: first.path,
         oldPath: first.oldPath ?? null,

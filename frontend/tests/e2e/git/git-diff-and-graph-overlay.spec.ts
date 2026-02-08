@@ -26,29 +26,43 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
-test("git diff overlay and git graph overlay render between panes", async ({
-  page,
-}) => {
+function getWorkspaceRootOrThrow(): string {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
     throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
   }
+  return workspaceRoot;
+}
 
+async function initializeDisposableGitRepo(
+  workspaceRoot: string,
+): Promise<string> {
   const gitDir = path.join(workspaceRoot, ".git");
+  if (await pathExists(gitDir)) {
+    throw new Error(
+      `Git e2e tests require a disposable workspace root. Refusing to mutate existing repo: ${gitDir}`,
+    );
+  }
+  runGit(workspaceRoot, ["init"]);
+  runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
+  runGit(workspaceRoot, ["config", "user.name", "E2E"]);
+  return gitDir;
+}
+
+test("git diff overlay and git graph overlay render between panes", async ({
+  page,
+}) => {
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
   const gitIgnorePath = path.join(workspaceRoot, ".gitignore");
   const trackedPath = path.join(workspaceRoot, "tracked.py");
   const legacyPath = path.join(workspaceRoot, "legacy.py");
+  const renameOldPath = path.join(workspaceRoot, "rename-old.py");
+  const renameNewPath = path.join(workspaceRoot, "rename-new.py");
   const historyPath = path.join(workspaceRoot, "history.txt");
   const untrackedPath = path.join(workspaceRoot, "new.py");
 
-  const createdRepo = !(await pathExists(gitDir));
   try {
-    if (createdRepo) {
-      runGit(workspaceRoot, ["init"]);
-      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
-      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
-    }
-
     await fs.writeFile(gitIgnorePath, "setta_files/\n", "utf8");
     runGit(workspaceRoot, ["add", ".gitignore"]);
     runGit(workspaceRoot, ["commit", "-m", "init"]);
@@ -59,6 +73,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.writeFile(legacyPath, "legacy\n", "utf8");
     runGit(workspaceRoot, ["add", "legacy.py"]);
     runGit(workspaceRoot, ["commit", "-m", "add legacy"]);
+    await fs.writeFile(renameOldPath, "rename me\n", "utf8");
+    runGit(workspaceRoot, ["add", "rename-old.py"]);
+    runGit(workspaceRoot, ["commit", "-m", "add rename source"]);
 
     // Seed enough history to require pagination/infinite loading in graph view.
     for (let i = 0; i < 260; i += 1) {
@@ -75,6 +92,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.writeFile(untrackedPath, "def bar():\n  return 'hello'\n", "utf8");
     await fs.rm(legacyPath, { force: true });
     runGit(workspaceRoot, ["add", "legacy.py"]);
+    runGit(workspaceRoot, ["mv", "rename-old.py", "rename-new.py"]);
 
     await seedLocalStorage(page, {
       overviewTab: "Git",
@@ -98,8 +116,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const stagedLegacy = stagedGroup.getByRole("button", {
       name: /legacy\.py/,
     });
+    const stagedRename = stagedGroup.getByRole("button", {
+      name: /rename-old\.py -> rename-new\.py/,
+    });
     await expect(stagedTracked).toBeVisible();
     await expect(stagedLegacy).toBeVisible();
+    await expect(stagedRename).toBeVisible();
     await expect(stagedTracked).toHaveAttribute(
       "data-file-status-category",
       "changed",
@@ -108,7 +130,7 @@ test("git diff overlay and git graph overlay render between panes", async ({
       "data-file-status-category",
       "deleted",
     );
-    await stagedTracked.click();
+    await stagedRename.click();
 
     const closeDiffButton = page.getByRole("button", {
       name: "Close git diff",
@@ -117,12 +139,18 @@ test("git diff overlay and git graph overlay render between panes", async ({
 
     const diffOverlay = closeDiffButton.locator("xpath=ancestor::section[1]");
     const diffContent = diffOverlay.locator(".cm-content");
+    await expect(diffContent).toContainText("rename from rename-old.py");
+    await expect(diffContent).toContainText("rename to rename-new.py");
+
+    await stagedTracked.click();
     await expect(diffContent).toContainText(
       "diff --git a/tracked.py b/tracked.py",
     );
     await expect(diffContent).toContainText("-  return 1");
     await expect(diffContent).toContainText("+  return 2");
-    await expect(diffOverlay.locator(".cm-gitdiff-syntax").first()).toBeVisible();
+    await expect(
+      diffOverlay.locator(".cm-gitdiff-syntax").first(),
+    ).toBeVisible();
 
     await diffOverlay.getByRole("button", { name: "Unstaged" }).click();
     await expect(diffContent).toContainText("-  return 2");
@@ -134,7 +162,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const untrackedGroup = page
       .getByRole("heading", { name: "Untracked" })
       .locator("xpath=ancestor::section[1]");
-    const untrackedNew = untrackedGroup.getByRole("button", { name: /new\.py/ });
+    const untrackedNew = untrackedGroup.getByRole("button", {
+      name: /new\.py/,
+    });
     await expect(untrackedNew).toHaveAttribute(
       "data-file-status-category",
       "added",
@@ -149,7 +179,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const diffContent2 = diffOverlay2.locator(".cm-content");
     await expect(diffContent2).toContainText("new file mode");
     await expect(diffContent2).toContainText("+def bar():");
-    await expect(diffOverlay2.locator(".cm-gitdiff-syntax").first()).toBeVisible();
+    await expect(
+      diffOverlay2.locator(".cm-gitdiff-syntax").first(),
+    ).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(closeDiffButton2).toHaveCount(0);
@@ -174,7 +206,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     );
     const paneSplitterBox = await paneSplitter.boundingBox();
     if (!paneSplitterBox) {
-      throw new Error("Expected git graph pane splitter to have a bounding box.");
+      throw new Error(
+        "Expected git graph pane splitter to have a bounding box.",
+      );
     }
     await page.mouse.move(
       paneSplitterBox.x + paneSplitterBox.width / 2,
@@ -222,15 +256,18 @@ test("git diff overlay and git graph overlay render between panes", async ({
       );
     }
     await page.mouse.move(
-      paneSplitterBoxBeforeNarrowDrag.x + paneSplitterBoxBeforeNarrowDrag.width / 2,
-      paneSplitterBoxBeforeNarrowDrag.y + paneSplitterBoxBeforeNarrowDrag.height / 2,
+      paneSplitterBoxBeforeNarrowDrag.x +
+        paneSplitterBoxBeforeNarrowDrag.width / 2,
+      paneSplitterBoxBeforeNarrowDrag.y +
+        paneSplitterBoxBeforeNarrowDrag.height / 2,
     );
     await page.mouse.down();
     await page.mouse.move(
       paneSplitterBoxBeforeNarrowDrag.x +
         paneSplitterBoxBeforeNarrowDrag.width / 2 -
         1200,
-      paneSplitterBoxBeforeNarrowDrag.y + paneSplitterBoxBeforeNarrowDrag.height / 2,
+      paneSplitterBoxBeforeNarrowDrag.y +
+        paneSplitterBoxBeforeNarrowDrag.height / 2,
       { steps: 24 },
     );
     await page.mouse.up();
@@ -254,15 +291,18 @@ test("git diff overlay and git graph overlay render between panes", async ({
       );
     }
     await page.mouse.move(
-      paneSplitterBoxAfterNarrowDrag.x + paneSplitterBoxAfterNarrowDrag.width / 2,
-      paneSplitterBoxAfterNarrowDrag.y + paneSplitterBoxAfterNarrowDrag.height / 2,
+      paneSplitterBoxAfterNarrowDrag.x +
+        paneSplitterBoxAfterNarrowDrag.width / 2,
+      paneSplitterBoxAfterNarrowDrag.y +
+        paneSplitterBoxAfterNarrowDrag.height / 2,
     );
     await page.mouse.down();
     await page.mouse.move(
       paneSplitterBoxAfterNarrowDrag.x +
         paneSplitterBoxAfterNarrowDrag.width / 2 +
         320,
-      paneSplitterBoxAfterNarrowDrag.y + paneSplitterBoxAfterNarrowDrag.height / 2,
+      paneSplitterBoxAfterNarrowDrag.y +
+        paneSplitterBoxAfterNarrowDrag.height / 2,
       { steps: 12 },
     );
     await page.mouse.up();
@@ -290,7 +330,8 @@ test("git diff overlay and git graph overlay render between panes", async ({
         "Expected git graph row to render both a commit dot and lane stroke.",
       );
     }
-    const graphMessageHandleBefore = await graphMessageResizeHandle.boundingBox();
+    const graphMessageHandleBefore =
+      await graphMessageResizeHandle.boundingBox();
     if (!graphMessageHandleBefore) {
       throw new Error(
         "Expected git graph graph-message resize handle to have a bounding box.",
@@ -344,7 +385,8 @@ test("git diff overlay and git graph overlay render between panes", async ({
       ),
     ).toBeLessThanOrEqual(1.25);
     await page.mouse.up();
-    const graphMessageHandleAfterGrow = await graphMessageResizeHandle.boundingBox();
+    const graphMessageHandleAfterGrow =
+      await graphMessageResizeHandle.boundingBox();
     if (!graphMessageHandleAfterGrow) {
       throw new Error(
         "Expected git graph graph-message resize handle to remain measurable after drag.",
@@ -356,7 +398,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     );
     await page.mouse.down();
     await page.mouse.move(
-      graphMessageHandleAfterGrow.x + graphMessageHandleAfterGrow.width / 2 - 160,
+      graphMessageHandleAfterGrow.x +
+        graphMessageHandleAfterGrow.width / 2 -
+        160,
       graphMessageHandleAfterGrow.y + graphMessageHandleAfterGrow.height / 2,
       { steps: 8 },
     );
@@ -396,7 +440,8 @@ test("git diff overlay and git graph overlay render between panes", async ({
     const authorBefore = await authorHeader.evaluate(
       (el) => el.getBoundingClientRect().width,
     );
-    const messageAuthorHandleBefore = await messageAuthorResizeHandle.boundingBox();
+    const messageAuthorHandleBefore =
+      await messageAuthorResizeHandle.boundingBox();
     const authorDateHandleBefore = await authorDateResizeHandle.boundingBox();
     const dateHashHandleBefore = await dateHashResizeHandle.boundingBox();
     if (!messageAuthorHandleBefore) {
@@ -426,14 +471,17 @@ test("git diff overlay and git graph overlay render between panes", async ({
     );
     await page.mouse.up();
 
-    const messageAuthorHandleAfter = await messageAuthorResizeHandle.boundingBox();
+    const messageAuthorHandleAfter =
+      await messageAuthorResizeHandle.boundingBox();
     if (!messageAuthorHandleAfter) {
       throw new Error(
         "Expected git graph message-author resize handle to have a bounding box after drag.",
       );
     }
-    const authorDateHandleAfterMessageDrag = await authorDateResizeHandle.boundingBox();
-    const dateHashHandleAfterMessageDrag = await dateHashResizeHandle.boundingBox();
+    const authorDateHandleAfterMessageDrag =
+      await authorDateResizeHandle.boundingBox();
+    const dateHashHandleAfterMessageDrag =
+      await dateHashResizeHandle.boundingBox();
     if (!authorDateHandleAfterMessageDrag || !dateHashHandleAfterMessageDrag) {
       throw new Error(
         "Expected git graph non-adjacent resize handles to be measurable after message-author drag.",
@@ -462,8 +510,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     }
     const authorDateHandleBeforeAuthorDateDrag =
       await authorDateResizeHandle.boundingBox();
-    const dateHashHandleBeforeAuthorDateDrag = await dateHashResizeHandle.boundingBox();
-    if (!authorDateHandleBeforeAuthorDateDrag || !dateHashHandleBeforeAuthorDateDrag) {
+    const dateHashHandleBeforeAuthorDateDrag =
+      await dateHashResizeHandle.boundingBox();
+    if (
+      !authorDateHandleBeforeAuthorDateDrag ||
+      !dateHashHandleBeforeAuthorDateDrag
+    ) {
       throw new Error(
         "Expected git graph author-date/date-hash resize handles before author-date drag.",
       );
@@ -493,8 +545,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     }
     const messageAuthorHandleAfterAuthorDateDrag =
       await messageAuthorResizeHandle.boundingBox();
-    const dateHashHandleAfterAuthorDateDrag = await dateHashResizeHandle.boundingBox();
-    if (!messageAuthorHandleAfterAuthorDateDrag || !dateHashHandleAfterAuthorDateDrag) {
+    const dateHashHandleAfterAuthorDateDrag =
+      await dateHashResizeHandle.boundingBox();
+    if (
+      !messageAuthorHandleAfterAuthorDateDrag ||
+      !dateHashHandleAfterAuthorDateDrag
+    ) {
       throw new Error(
         "Expected git graph adjacent resize handles after author-date drag.",
       );
@@ -510,14 +566,17 @@ test("git diff overlay and git graph overlay render between panes", async ({
     ).toBeLessThanOrEqual(2);
     expect(
       Math.abs(
-        dateHashHandleAfterAuthorDateDrag.x - dateHashHandleBeforeAuthorDateDrag.x,
+        dateHashHandleAfterAuthorDateDrag.x -
+          dateHashHandleBeforeAuthorDateDrag.x,
       ),
     ).toBeLessThanOrEqual(2);
 
     const messageAuthorHandleBeforeDateHashDrag =
       await messageAuthorResizeHandle.boundingBox();
-    const authorDateHandleBeforeDateHashDrag = await authorDateResizeHandle.boundingBox();
-    const dateHashHandleBeforeDateHashDrag = await dateHashResizeHandle.boundingBox();
+    const authorDateHandleBeforeDateHashDrag =
+      await authorDateResizeHandle.boundingBox();
+    const dateHashHandleBeforeDateHashDrag =
+      await dateHashResizeHandle.boundingBox();
     if (
       !messageAuthorHandleBeforeDateHashDrag ||
       !authorDateHandleBeforeDateHashDrag ||
@@ -552,8 +611,12 @@ test("git diff overlay and git graph overlay render between panes", async ({
     }
     const messageAuthorHandleAfterDateHashDrag =
       await messageAuthorResizeHandle.boundingBox();
-    const authorDateHandleAfterDateHashDrag = await authorDateResizeHandle.boundingBox();
-    if (!messageAuthorHandleAfterDateHashDrag || !authorDateHandleAfterDateHashDrag) {
+    const authorDateHandleAfterDateHashDrag =
+      await authorDateResizeHandle.boundingBox();
+    if (
+      !messageAuthorHandleAfterDateHashDrag ||
+      !authorDateHandleAfterDateHashDrag
+    ) {
       throw new Error(
         "Expected git graph resize handles after date-hash drag.",
       );
@@ -599,7 +662,9 @@ test("git diff overlay and git graph overlay render between panes", async ({
     ).toContainText("Filtering loaded commits only.");
     await graphFilter.fill("");
 
-    const commitListScroller = commitListWrapper.locator(":scope > div").first();
+    const commitListScroller = commitListWrapper
+      .locator(":scope > div")
+      .first();
     await commitListScroller.evaluate((el) => {
       el.scrollTop = el.scrollHeight;
     });
@@ -695,22 +760,18 @@ test("git diff overlay and git graph overlay render between panes", async ({
     await fs.rm(untrackedPath, { force: true });
     await fs.rm(trackedPath, { force: true });
     await fs.rm(legacyPath, { force: true });
+    await fs.rm(renameOldPath, { force: true });
+    await fs.rm(renameNewPath, { force: true });
     await fs.rm(gitIgnorePath, { force: true });
-    if (createdRepo) {
-      await fs.rm(gitDir, { recursive: true, force: true });
-    }
+    await fs.rm(gitDir, { recursive: true, force: true });
   }
 });
 
 test("git graph keeps lanes aligned across join boundaries", async ({
   page,
 }) => {
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-
-  const gitDir = path.join(workspaceRoot, ".git");
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
   const mainPath = path.join(workspaceRoot, "graph-test-main.txt");
   const sidePath = path.join(workspaceRoot, "graph-test-side.txt");
   const commitEnv = (isoTime: string): Record<string, string> => ({
@@ -718,14 +779,7 @@ test("git graph keeps lanes aligned across join boundaries", async ({
     GIT_COMMITTER_DATE: isoTime,
   });
 
-  const createdRepo = !(await pathExists(gitDir));
   try {
-    if (createdRepo) {
-      runGit(workspaceRoot, ["init"]);
-      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
-      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
-    }
-
     // Root commit: graph-test A
     await fs.writeFile(mainPath, "A\n", "utf8");
     runGit(workspaceRoot, ["add", "graph-test-main.txt"]);
@@ -875,21 +929,15 @@ test("git graph keeps lanes aligned across join boundaries", async ({
   } finally {
     await fs.rm(mainPath, { force: true });
     await fs.rm(sidePath, { force: true });
-    if (createdRepo) {
-      await fs.rm(gitDir, { recursive: true, force: true });
-    }
+    await fs.rm(gitDir, { recursive: true, force: true });
   }
 });
 
 test("git graph assigns distinct colors to more than 8 lanes", async ({
   page,
 }) => {
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-
-  const gitDir = path.join(workspaceRoot, ".git");
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
   const basePath = path.join(workspaceRoot, "graph-color-base.txt");
   const topicPaths = Array.from({ length: 9 }, (_, idx) =>
     path.join(workspaceRoot, `graph-color-topic-${idx + 1}.txt`),
@@ -899,14 +947,7 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
     GIT_COMMITTER_DATE: isoTime,
   });
 
-  const createdRepo = !(await pathExists(gitDir));
   try {
-    if (createdRepo) {
-      runGit(workspaceRoot, ["init"]);
-      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
-      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
-    }
-
     await fs.writeFile(basePath, "base\n", "utf8");
     runGit(workspaceRoot, ["add", path.basename(basePath)]);
     runGit(
@@ -1010,7 +1051,8 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
       );
     }
 
-    const graphMessageHandleBefore = await graphMessageResizeHandle.boundingBox();
+    const graphMessageHandleBefore =
+      await graphMessageResizeHandle.boundingBox();
     if (!graphMessageHandleBefore) {
       throw new Error(
         "Expected graph-message resize handle to have a bounding box before narrow drag.",
@@ -1053,7 +1095,9 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
         "Expected graph-color merge row to render a commit dot after narrow resize drag.",
       );
     }
-    expect(Math.abs(dotBeforeResize.width - dotBeforeResize.height)).toBeLessThanOrEqual(1.5);
+    expect(
+      Math.abs(dotBeforeResize.width - dotBeforeResize.height),
+    ).toBeLessThanOrEqual(1.5);
     expect(
       Math.abs(dotDuringNarrowResize.width - dotDuringNarrowResize.height),
     ).toBeLessThanOrEqual(1.5);
@@ -1068,21 +1112,15 @@ test("git graph assigns distinct colors to more than 8 lanes", async ({
       await fs.rm(topicPath, { force: true });
     }
     await fs.rm(basePath, { force: true });
-    if (createdRepo) {
-      await fs.rm(gitDir, { recursive: true, force: true });
-    }
+    await fs.rm(gitDir, { recursive: true, force: true });
   }
 });
 
 test("git graph keeps merge-to lanes continuous when the branch continues above the merge", async ({
   page,
 }) => {
-  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
-  if (!workspaceRoot) {
-    throw new Error("Missing SETTA_WORKSPACE_ROOT for e2e test.");
-  }
-
-  const gitDir = path.join(workspaceRoot, ".git");
+  const workspaceRoot = getWorkspaceRootOrThrow();
+  const gitDir = await initializeDisposableGitRepo(workspaceRoot);
   const mainPath = path.join(workspaceRoot, "graph-gap-main.txt");
   const sidePath1 = path.join(workspaceRoot, "graph-gap-side-1.txt");
   const sidePath2 = path.join(workspaceRoot, "graph-gap-side-2.txt");
@@ -1091,14 +1129,7 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
     GIT_COMMITTER_DATE: isoTime,
   });
 
-  const createdRepo = !(await pathExists(gitDir));
   try {
-    if (createdRepo) {
-      runGit(workspaceRoot, ["init"]);
-      runGit(workspaceRoot, ["config", "user.email", "e2e@example.com"]);
-      runGit(workspaceRoot, ["config", "user.name", "E2E"]);
-    }
-
     await fs.writeFile(mainPath, "A\n", "utf8");
     runGit(workspaceRoot, ["add", path.basename(mainPath)]);
     runGit(
@@ -1257,8 +1288,6 @@ test("git graph keeps merge-to lanes continuous when the branch continues above 
     await fs.rm(mainPath, { force: true });
     await fs.rm(sidePath1, { force: true });
     await fs.rm(sidePath2, { force: true });
-    if (createdRepo) {
-      await fs.rm(gitDir, { recursive: true, force: true });
-    }
+    await fs.rm(gitDir, { recursive: true, force: true });
   }
 });

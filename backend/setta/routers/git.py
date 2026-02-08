@@ -8,8 +8,6 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.git import (
     GetGitCommitDetailsRequest,
     GetGitCommitDetailsResponse,
-    GetGitCommitDiffRequest,
-    GetGitCommitDiffResponse,
     GetGitCommitFileDiffRequest,
     GetGitCommitFileDiffResponse,
     GetGitDiffRequest,
@@ -100,40 +98,40 @@ def _resolve_repo_relative_path(repo_root: Path, raw_path: str) -> tuple[str, Pa
     return normalized_rel, resolved
 
 
-def _get_head_commit(repo_root: Path) -> str | None:
+def _get_head_ref_info(repo_root: Path) -> tuple[str | None, str | None]:
+    # Use one git process to resolve both branch name and HEAD commit hash.
     result = run_git(
-        ["rev-parse", "HEAD"],
+        ["rev-parse", "--abbrev-ref", "HEAD", "HEAD"],
         cwd=repo_root,
         timeout_s=1.5,
-        max_stdout_bytes=128,
+        max_stdout_bytes=256,
         max_stderr_bytes=4096,
     )
     if result.returncode != 0:
-        return None
-    return result.stdout.strip() or None
+        return None, None
+    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not lines:
+        return None, None
+    branch = lines[0]
+    head_branch = None if branch == "HEAD" else branch
+    head_commit = lines[1] if len(lines) > 1 else None
+    return head_branch, head_commit
 
 
 def _get_head_branch(repo_root: Path) -> str | None:
-    result = run_git(
-        ["symbolic-ref", "--short", "HEAD"],
-        cwd=repo_root,
-        timeout_s=1.5,
-        max_stdout_bytes=512,
-        max_stderr_bytes=4096,
-    )
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip() or None
+    head_branch, _head_commit = _get_head_ref_info(repo_root)
+    return head_branch
 
 
 def _build_repo_info(repo_root: Path | None) -> GitRepoInfoResponse:
     if repo_root is None:
         return GitRepoInfoResponse(isGitRepo=False)
+    head_branch, head_commit = _get_head_ref_info(repo_root)
     return GitRepoInfoResponse(
         isGitRepo=True,
         repoRoot=str(repo_root),
-        headBranch=_get_head_branch(repo_root),
-        headCommit=_get_head_commit(repo_root),
+        headBranch=head_branch,
+        headCommit=head_commit,
     )
 
 
@@ -166,14 +164,6 @@ def _parse_git_numstat_path(path_text: str) -> tuple[str, str | None]:
     return new_path, old_path
 
 
-@router.post(Route.GET_GIT_REPO_INFO)
-def route_get_git_repo_info(
-    ctx: RuntimeContextFromRequest,
-) -> GitRepoInfoResponse:
-    repo_root = _get_repo_root_or_none(ctx=ctx)
-    return _build_repo_info(repo_root)
-
-
 def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
     # `git status --porcelain -z` returns NUL-delimited records.
     # Normal record: "XY <path>"
@@ -197,7 +187,9 @@ def _parse_porcelain_status(output: str) -> list[GitStatusEntry]:
         path = token[3:]
         old_path: str | None = None
 
-        if index_status in {"R", "C"} and i < len(tokens):
+        if (index_status in {"R", "C"} or worktree_status in {"R", "C"}) and i < len(
+            tokens
+        ):
             old_path = tokens[i] or None
             i += 1
 
@@ -266,7 +258,9 @@ def route_get_git_status(
 ) -> GetGitStatusResponse:
     repo_root = _get_repo_root_or_none(ctx=ctx)
     if repo_root is None:
-        return GetGitStatusResponse(repo=_build_repo_info(None), entries=[])
+        return GetGitStatusResponse(
+            repo=_build_repo_info(None), entries=[], isTruncated=False
+        )
 
     result = run_git(
         ["status", "--porcelain", "-z", "--untracked-files=all"],
@@ -287,7 +281,11 @@ def route_get_git_status(
         )
 
     entries = _parse_porcelain_status(result.stdout)
-    return GetGitStatusResponse(repo=_build_repo_info(repo_root), entries=entries)
+    return GetGitStatusResponse(
+        repo=_build_repo_info(repo_root),
+        entries=entries,
+        isTruncated=result.stdout_truncated,
+    )
 
 
 def _is_untracked_path(repo_root: Path, rel_path: str) -> bool:
@@ -356,11 +354,17 @@ def route_get_git_diff(
 ) -> GetGitDiffResponse:
     repo_root = _get_repo_root_or_400(ctx=ctx)
     rel_path, abs_path = _resolve_repo_relative_path(repo_root, x.path)
+    rel_old_path: str | None = None
+    if x.oldPath:
+        rel_old_path, _abs_old_path = _resolve_repo_relative_path(repo_root, x.oldPath)
 
+    diff_paths = [rel_path]
+    if rel_old_path and rel_old_path != rel_path:
+        diff_paths = [rel_old_path, rel_path]
     if x.mode == "staged":
-        args = ["diff", "--cached", "--no-color", "--patch", "--", rel_path]
+        args = ["diff", "--cached", "--no-color", "--patch", "--", *diff_paths]
     else:
-        args = ["diff", "--no-color", "--patch", "--", rel_path]
+        args = ["diff", "--no-color", "--patch", "--", *diff_paths]
 
     result = run_git(
         args,
@@ -425,6 +429,18 @@ def route_get_git_log(
 
     remaining_budget = _MAX_LOG_COUNT - offset
     fetch_count = min(page_size + 1, remaining_budget)
+    rev = x.rev.strip()
+    if not x.allRefs:
+        if not rev:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing revision.",
+            )
+        if rev.startswith("-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid revision.",
+            )
 
     # Use ASCII-safe separators to simplify parsing.
     record_sep = "\x1e"
@@ -442,7 +458,7 @@ def route_get_git_log(
     if x.allRefs:
         args.append("--all")
     else:
-        args.append(x.rev)
+        args.append(rev)
 
     result = run_git(
         args,
@@ -527,7 +543,7 @@ def route_get_git_log(
         if x.allRefs:
             cap_probe_args.append("--all")
         else:
-            cap_probe_args.append(x.rev)
+            cap_probe_args.append(rev)
         cap_probe = run_git(
             cap_probe_args,
             cwd=repo_root,
@@ -776,45 +792,6 @@ def route_get_git_commit_file_diff(
         repoRoot=str(repo_root),
         commitHash=commit_hash,
         path=rel_path,
-        diff=result.stdout,
-        isTruncated=result.stdout_truncated,
-    )
-
-
-@router.post(Route.GET_GIT_COMMIT_DIFF)
-def route_get_git_commit_diff(
-    x: GetGitCommitDiffRequest,
-    ctx: RuntimeContextFromRequest,
-) -> GetGitCommitDiffResponse:
-    repo_root = _get_repo_root_or_400(ctx=ctx)
-    commit_hash = x.commitHash.strip()
-    if not _COMMIT_HASH_RE.match(commit_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid commit hash.",
-        )
-
-    result = run_git(
-        ["show", "--no-color", "--patch", "--format=fuller", commit_hash, "--"],
-        cwd=repo_root,
-        timeout_s=_SHOW_TIMEOUT_S,
-        max_stdout_bytes=_MAX_SHOW_BYTES,
-        max_stderr_bytes=200_000,
-    )
-    if result.timed_out:
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Timed out running git show.",
-        )
-    if result.returncode != 0 and not result.stdout_truncated:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=result.stderr.strip() or "Unknown commit hash.",
-        )
-
-    return GetGitCommitDiffResponse(
-        repoRoot=str(repo_root),
-        commitHash=commit_hash,
         diff=result.stdout,
         isTruncated=result.stdout_truncated,
     )

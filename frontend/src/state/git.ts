@@ -5,7 +5,6 @@ import type {
   GetGitLogResponse,
   GetGitStatusResponse,
   GitDiffMode,
-  GitRepoInfoResponse,
 } from "utils/generatedTypes";
 import type { GitGraphRow } from "utils/gitGraph";
 import { createWithEqualityFn } from "zustand/traditional";
@@ -15,6 +14,7 @@ type GitOverlayKind = "none" | "diff" | "graph";
 
 type GitDiffOverlayState = {
   path: string;
+  oldPath: string | null;
   mode: GitDiffMode;
   hasStaged: boolean;
   hasUnstaged: boolean;
@@ -61,7 +61,6 @@ type GitStatusState = {
 type GitState = {
   status: GitStatusState;
   overlay: GitOverlayState;
-  repoInfoOverride: GitRepoInfoResponse | null;
 };
 
 export const useGitStore = createWithEqualityFn(
@@ -72,6 +71,5 @@ export const useGitStore = createWithEqualityFn(
       error: null,
     },
     overlay: { kind: "none" },
-    repoInfoOverride: null,
   })),
 );

@@ -25,11 +25,13 @@ class GitStatusEntry(BaseModel):
 class GetGitStatusResponse(BaseModel):
     repo: GitRepoInfoResponse
     entries: list[GitStatusEntry]
+    isTruncated: bool = False
 
 
 class GetGitDiffRequest(BaseModel):
     path: str
     mode: GitDiffMode
+    oldPath: str | None = None
 
 
 class GetGitDiffResponse(BaseModel):
@@ -66,17 +68,6 @@ class GetGitLogResponse(BaseModel):
     nextOffset: int | None
     hasMore: bool
     isCapped: bool
-
-
-class GetGitCommitDiffRequest(BaseModel):
-    commitHash: str
-
-
-class GetGitCommitDiffResponse(BaseModel):
-    repoRoot: str
-    commitHash: str
-    diff: str
-    isTruncated: bool
 
 
 class GitCommitChangedFile(BaseModel):

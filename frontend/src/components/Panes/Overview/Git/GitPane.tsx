@@ -51,6 +51,7 @@ export function GitPane() {
 
   const repo = response?.repo ?? null;
   const isGitRepo = repo?.isGitRepo === true;
+  const isStatusTruncated = response?.isTruncated === true;
   const headBranch = repo?.headBranch ?? null;
   const headCommit = repo?.headCommit ?? null;
   const repoRoot = repo?.repoRoot ?? null;
@@ -100,6 +101,12 @@ export function GitPane() {
         </div>
       )}
 
+      {isGitRepo && isStatusTruncated && (
+        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+          Git status output was truncated. The file list may be incomplete.
+        </div>
+      )}
+
       {!isLoading && response && !isGitRepo && (
         <div className="mt-3 rounded-md border border-setta-200 bg-white px-3 py-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-300">
           Current workspace is not a git repository.
@@ -119,28 +126,44 @@ export function GitPane() {
               title="Conflicts"
               entries={grouped.conflicts}
               onClickEntry={(entry) =>
-                void openGitDiffOverlay({ path: entry.path, mode: "unstaged" })
+                void openGitDiffOverlay({
+                  path: entry.path,
+                  oldPath: entry.oldPath ?? null,
+                  mode: "unstaged",
+                })
               }
             />
             <GitGroup
               title="Staged Changes"
               entries={grouped.staged}
               onClickEntry={(entry) =>
-                void openGitDiffOverlay({ path: entry.path, mode: "staged" })
+                void openGitDiffOverlay({
+                  path: entry.path,
+                  oldPath: entry.oldPath ?? null,
+                  mode: "staged",
+                })
               }
             />
             <GitGroup
               title="Changes"
               entries={grouped.unstaged}
               onClickEntry={(entry) =>
-                void openGitDiffOverlay({ path: entry.path, mode: "unstaged" })
+                void openGitDiffOverlay({
+                  path: entry.path,
+                  oldPath: entry.oldPath ?? null,
+                  mode: "unstaged",
+                })
               }
             />
             <GitGroup
               title="Untracked"
               entries={grouped.untracked}
               onClickEntry={(entry) =>
-                void openGitDiffOverlay({ path: entry.path, mode: "unstaged" })
+                void openGitDiffOverlay({
+                  path: entry.path,
+                  oldPath: entry.oldPath ?? null,
+                  mode: "unstaged",
+                })
               }
             />
           </div>

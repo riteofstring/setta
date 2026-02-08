@@ -2,6 +2,7 @@ import { useGitStore } from "state/git";
 import {
   route_get_git_commit_details,
   route_get_git_commit_file_diff,
+  route_get_git_diff,
   route_get_git_log,
 } from "utils/generatedEndpoints";
 import {
@@ -13,7 +14,13 @@ import {
 } from "utils/generatedTypes";
 import { computeGitGraphRows } from "utils/gitGraph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadMoreGitGraphCommits, openGitGraphOverlay } from "./git";
+import {
+  loadMoreGitGraphCommits,
+  openGitDiffOverlay,
+  openGitGraphOverlay,
+  selectGitCommit,
+  setGitDiffMode,
+} from "./git";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_git_commit_details: vi.fn(),
@@ -96,6 +103,34 @@ function setGraphOverlayState({
         selectedCommitFileDiffIsLoading: false,
         selectedCommitFileDiffError: null,
       },
+    },
+  }));
+}
+
+function setGitStatusResponse(
+  entries: Array<{
+    path: string;
+    oldPath: string | null;
+    indexStatus: string;
+    worktreeStatus: string;
+    kind: "conflict" | "staged" | "unstaged" | "untracked";
+  }>,
+): void {
+  useGitStore.setState((state) => ({
+    ...state,
+    status: {
+      response: {
+        repo: {
+          isGitRepo: true,
+          repoRoot: "/repo",
+          headBranch: "main",
+          headCommit: "abc123",
+        },
+        entries,
+        isTruncated: false,
+      },
+      isLoading: false,
+      error: null,
     },
   }));
 }
@@ -227,21 +262,194 @@ describe("git graph actions", () => {
     expect(overlay.graph.nextOffset).toBe(2);
   });
 
-  it("normalizes hashes, parent hashes, and decorations when opening graph", async () => {
-    // The frontend trims git-log fields before lane computation and commit selection.
+  it("preserves oldPath when requesting diffs across mode toggles", async () => {
+    setGitStatusResponse([
+      {
+        path: "renamed.py",
+        oldPath: "legacy.py",
+        indexStatus: "R",
+        worktreeStatus: " ",
+        kind: "staged",
+      },
+      {
+        path: "renamed.py",
+        oldPath: "legacy.py",
+        indexStatus: " ",
+        worktreeStatus: "M",
+        kind: "unstaged",
+      },
+    ]);
+    vi.mocked(route_get_git_diff).mockImplementation(async ({ path, mode }) => {
+      return {
+        status: 200,
+        hasResponse: true,
+        data: {
+          repoRoot: "/repo",
+          path,
+          mode,
+          diff: "",
+          isTruncated: false,
+        },
+      };
+    });
+
+    await openGitDiffOverlay({
+      path: "renamed.py",
+      oldPath: "legacy.py",
+      mode: "staged",
+    });
+
+    expect(route_get_git_diff).toHaveBeenNthCalledWith(1, {
+      path: "renamed.py",
+      oldPath: "legacy.py",
+      mode: "staged",
+    });
+
+    await setGitDiffMode("unstaged");
+
+    expect(route_get_git_diff).toHaveBeenNthCalledWith(2, {
+      path: "renamed.py",
+      oldPath: "legacy.py",
+      mode: "unstaged",
+    });
+
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("diff");
+    if (overlay.kind !== "diff") {
+      return;
+    }
+    expect(overlay.diff.oldPath).toBe("legacy.py");
+  });
+
+  it("does not request stale commit file diffs when selection changes mid-flow", async () => {
+    const commitA = commit("a1b2c3", []);
+    const commitB = commit("b4c5d6", ["a1b2c3"]);
+    setGraphOverlayState({
+      response: createLogResponse({
+        commits: [commitB, commitA],
+        offset: 0,
+        pageSize: 2,
+        nextOffset: null,
+        hasMore: false,
+        isCapped: false,
+      }),
+    });
+
+    vi.mocked(route_get_git_commit_details).mockImplementation(
+      async ({ commitHash }) => {
+        if (commitHash === "a1b2c3") {
+          return {
+            status: 200,
+            hasResponse: true,
+            data: createGetGitCommitDetailsResponse({
+              repoRoot: "/repo",
+              commitHash,
+              parents: [],
+              authorName: "A",
+              authorEmail: "a@example.com",
+              authorTimeMs: 1,
+              committerName: "A",
+              committerEmail: "a@example.com",
+              committerTimeMs: 1,
+              subject: "A",
+              body: "",
+              files: [
+                {
+                  path: "a.txt",
+                  oldPath: null,
+                  status: "M",
+                  additions: 1,
+                  deletions: 1,
+                },
+              ],
+            }),
+          };
+        }
+        return {
+          status: 200,
+          hasResponse: true,
+          data: createGetGitCommitDetailsResponse({
+            repoRoot: "/repo",
+            commitHash,
+            parents: ["a1b2c3"],
+            authorName: "B",
+            authorEmail: "b@example.com",
+            authorTimeMs: 2,
+            committerName: "B",
+            committerEmail: "b@example.com",
+            committerTimeMs: 2,
+            subject: "B",
+            body: "",
+            files: [
+              {
+                path: "b.txt",
+                oldPath: null,
+                status: "M",
+                additions: 1,
+                deletions: 1,
+              },
+            ],
+          }),
+        };
+      },
+    );
+    vi.mocked(route_get_git_commit_file_diff).mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        repoRoot: "/repo",
+        commitHash: "b4c5d6",
+        path: "b.txt",
+        diff: "",
+        isTruncated: false,
+      },
+    });
+
+    let switchedToB = false;
+    const unsubscribe = useGitStore.subscribe((state) => {
+      if (switchedToB || state.overlay.kind !== "graph") {
+        return;
+      }
+      const selected = state.overlay.graph.selectedCommitDetails?.commitHash;
+      if (selected === "a1b2c3") {
+        switchedToB = true;
+        void selectGitCommit("b4c5d6");
+      }
+    });
+
+    await selectGitCommit("a1b2c3");
+    await vi.waitFor(() => {
+      expect(route_get_git_commit_file_diff).toHaveBeenCalled();
+    });
+    unsubscribe();
+
+    const calls = vi.mocked(route_get_git_commit_file_diff).mock.calls;
+    expect(
+      calls.some(
+        ([args]) => args.commitHash === "b4c5d6" && args.path === "a.txt",
+      ),
+    ).toBe(false);
+    expect(
+      calls.some(
+        ([args]) => args.commitHash === "b4c5d6" && args.path === "b.txt",
+      ),
+    ).toBe(true);
+  });
+
+  it("selects first commit on graph open and skips file diff when no files exist", async () => {
     vi.mocked(route_get_git_log).mockResolvedValue({
       status: 200,
       hasResponse: true,
       data: createLogResponse({
         commits: [
           createGitCommit({
-            hash: "  abc123  ",
-            parents: ["  def456  ", "   "],
+            hash: "abc123",
+            parents: ["def456"],
             authorName: "A",
             authorEmail: "a@example.com",
             authorTimeMs: 1,
             subject: "subject",
-            decorations: [" HEAD -> main ", " ", " origin/main "],
+            decorations: ["HEAD -> main", "origin/main"],
           }),
         ],
         offset: 0,
@@ -295,8 +503,6 @@ describe("git graph actions", () => {
     }
     const firstCommit = overlay.graph.response?.commits[0];
     expect(firstCommit?.hash).toBe("abc123");
-    expect(firstCommit?.parents).toEqual(["def456"]);
-    expect(firstCommit?.decorations).toEqual(["HEAD -> main", "origin/main"]);
     expect(overlay.graph.selectedCommitHash).toBe("abc123");
   });
 });

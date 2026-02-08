@@ -1,5 +1,4 @@
 import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
-import { useMemo } from "react";
 import { closeGitOverlay, setGitDiffMode } from "state/actions/git";
 import { useGitStore } from "state/git";
 
@@ -8,19 +7,10 @@ export function GitDiffOverlay() {
     x.overlay.kind === "diff" ? x.overlay.diff : null,
   );
 
-  const headerPath = useMemo(() => {
-    if (!diffState) {
-      return "";
-    }
-    if (diffState.path && diffState.path !== "/") {
-      return diffState.path;
-    }
-    return diffState.path;
-  }, [diffState]);
-
   if (!diffState) {
     return null;
   }
+  const headerPath = diffState.path;
 
   const diffText = diffState.response?.diff ?? "";
   const isTruncated = diffState.response?.isTruncated === true;
