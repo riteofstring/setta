@@ -3,25 +3,13 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 from setta.utils.env_vars import (
     FILES_LOCATION_ENV,
-    FILES_ROOT_ENV,
-    PROFILE_ENV,
-    PROFILE_LOOKUP_HOME_ENV,
     RUNTIME_ROOT_ENV,
-    SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
 )
-from setta.utils.profile_config import (
-    SettaProfileConfig,
-    SettaProfileConfigError,
-    SettaProfileNotFoundError,
-    clear_setta_profile_config_cache,
-    load_setta_profile,
-)
-from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import load_setta_user_config
 
 SettaFilesLocation = Literal["auto", "local", "global"]
@@ -36,44 +24,20 @@ class InvalidSettaFilesLocationError(SettaPathsError):
     pass
 
 
-class ConflictingSettaFilesRootAndLocationError(SettaPathsError):
+class InvalidLocalSettaFilesRootError(SettaPathsError):
     pass
 
 
-class UnknownSettaProfileError(SettaPathsError):
-    pass
-
-
-class InvalidSettaProfileError(SettaPathsError):
-    pass
-
-
-class InvalidSettaFilesRootError(SettaPathsError):
-    pass
-
-
-class InvalidLocalSettaFilesRootError(InvalidSettaFilesRootError):
-    pass
-
-
-class InvalidGlobalSettaFilesRootError(InvalidSettaFilesRootError):
-    pass
-
-
-class InvalidExplicitSettaFilesRootError(InvalidSettaFilesRootError):
+class InvalidGlobalSettaFilesRootError(SettaPathsError):
     pass
 
 
 @dataclass(frozen=True)
 class SettaPaths:
     workspace_root: Path
-    setta_home: Path
-    profile_lookup_home: Path
-    profile_name: str | None
     setta_files_root: Path
-    setta_files_location: ResolvedSettaFilesLocation | None
+    setta_files_location: ResolvedSettaFilesLocation
     runtime_root: Path
-    auth_cookie_name: str | None
 
     @property
     def code_root(self) -> Path:
@@ -107,74 +71,26 @@ class SettaPaths:
     def runtime_detached_runs_root(self) -> Path:
         return self.runtime_root / "detached_runs"
 
-    @property
-    def default_runtime_root(self) -> Path:
-        return (self.setta_files_root / "runtime").resolve(strict=False)
-
-    @property
-    def uses_explicit_runtime_root(self) -> bool:
-        return self.runtime_root != self.default_runtime_root
-
 
 def resolve_setta_paths(
     *,
     workspace_root: Path | str | None = None,
-    setta_home: Path | str | None = None,
     setta_files_location: SettaFilesLocation | None = None,
-    setta_files_root: Path | str | None = None,
     runtime_root: Path | str | None = None,
-    profile: str | None = None,
 ) -> SettaPaths:
-    profile_name = _resolve_profile_name(profile)
-    if profile_name is None:
-        profile_lookup_home = _resolve_setta_home(
-            explicit_setta_home=setta_home,
-            profile_setta_home=None,
-        )
-        profile_config = None
-    else:
-        profile_lookup_home = _resolve_setta_home_without_profile(setta_home)
-        profile_config = _load_profile_config(
-            profile_name=profile_name,
-            setta_home=profile_lookup_home,
-        )
-
-    resolved_setta_home = _resolve_setta_home(
-        explicit_setta_home=setta_home,
-        profile_setta_home=profile_config.setta_home if profile_config else None,
-    )
-    resolved_workspace = _resolve_workspace_root(
-        workspace_root=workspace_root,
-        profile_workspace_root=profile_config.workspace_root
-        if profile_config
-        else None,
-    )
+    resolved_workspace = _resolve_workspace_root(workspace_root)
     resolved_files_root, resolved_location = _resolve_files_root(
-        workspace_root=resolved_workspace,
-        setta_home=resolved_setta_home,
-        setta_files_root=setta_files_root,
-        profile_setta_files_root=profile_config.setta_files_root
-        if profile_config
-        else None,
+        resolved_workspace,
         setta_files_location=setta_files_location,
-        profile_setta_files_location=profile_config.setta_files_location
-        if profile_config
-        else None,
     )
     resolved_runtime_root = _resolve_runtime_root(
-        setta_files_root=resolved_files_root,
-        runtime_root=runtime_root,
-        profile_runtime_root=profile_config.runtime_root if profile_config else None,
+        resolved_files_root, runtime_root=runtime_root
     )
     return SettaPaths(
         workspace_root=resolved_workspace,
-        setta_home=resolved_setta_home,
-        profile_lookup_home=profile_lookup_home,
-        profile_name=profile_name,
         setta_files_root=resolved_files_root,
         setta_files_location=resolved_location,
         runtime_root=resolved_runtime_root,
-        auth_cookie_name=profile_config.auth_cookie_name if profile_config else None,
     )
 
 
@@ -186,11 +102,10 @@ def get_setta_paths() -> SettaPaths:
 def clear_setta_paths_cache() -> None:
     get_setta_paths.cache_clear()
     # clear_setta_paths_cache is the "big hammer" tests use when they change env vars.
-    # Keep dependent caches in sync so overrides behave as expected.
+    # Keep user config cache in sync so SETTA_HOME overrides behave as expected.
     from setta.utils.user_config import clear_setta_user_config_cache
 
     clear_setta_user_config_cache()
-    clear_setta_profile_config_cache()
 
 
 def normalize_workspace_path(
@@ -284,155 +199,47 @@ def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     return base_root / f"{sanitized_leaf}-{digest}"
 
 
-def _resolve_profile_name(profile: str | None) -> str | None:
-    raw = profile
-    if raw is None:
-        raw = os.environ.get(PROFILE_ENV)
-    if raw is None:
-        return None
-    trimmed = raw.strip()
-    return trimmed or None
-
-
-def _load_profile_config(
-    *, profile_name: str | None, setta_home: Path
-) -> SettaProfileConfig | None:
-    if profile_name is None:
-        return None
-    try:
-        return load_setta_profile(profile=profile_name, setta_home=setta_home)
-    except SettaProfileNotFoundError as exc:
-        raise UnknownSettaProfileError(str(exc)) from exc
-    except SettaProfileConfigError as exc:
-        raise InvalidSettaProfileError(str(exc)) from exc
-
-
-def _resolve_setta_home_without_profile(
-    setta_home: Path | str | None,
-) -> Path:
-    if setta_home is not None:
-        return resolve_path(setta_home)
-    profile_lookup_env = os.environ.get(PROFILE_LOOKUP_HOME_ENV)
-    if profile_lookup_env is not None:
-        trimmed_lookup = profile_lookup_env.strip()
-        if trimmed_lookup:
-            return resolve_path(trimmed_lookup)
-    raw_env = os.environ.get(SETTA_HOME_ENV)
-    if raw_env is not None:
-        trimmed = raw_env.strip()
-        if trimmed:
-            return resolve_path(trimmed)
-    return resolve_setta_home().resolve(strict=False)
-
-
-def _resolve_setta_home(
-    *, explicit_setta_home: Path | str | None, profile_setta_home: Path | None
-) -> Path:
-    if explicit_setta_home is not None:
-        return resolve_path(explicit_setta_home)
-    if profile_setta_home is not None:
-        return profile_setta_home.resolve(strict=False)
-    raw_env = os.environ.get(SETTA_HOME_ENV)
-    if raw_env is not None:
-        trimmed = raw_env.strip()
-        if trimmed:
-            return resolve_path(trimmed)
-    return resolve_setta_home().resolve(strict=False)
-
-
-def _resolve_workspace_root(
-    *,
-    workspace_root: Path | str | None,
-    profile_workspace_root: Path | None,
-) -> Path:
-    if workspace_root is not None:
-        return resolve_path(workspace_root)
-    if profile_workspace_root is not None:
-        return profile_workspace_root.resolve(strict=False)
-    raw_env = os.environ.get(WORKSPACE_ROOT_ENV)
-    if raw_env is not None:
-        trimmed = raw_env.strip()
-        if trimmed:
-            return resolve_path(trimmed)
-    return Path.cwd().resolve(strict=False)
+def _resolve_workspace_root(workspace_root: Path | str | None) -> Path:
+    raw = workspace_root or os.environ.get(WORKSPACE_ROOT_ENV) or Path.cwd()
+    if isinstance(raw, str):
+        raw = raw.strip() or Path.cwd()
+    return resolve_path(raw)
 
 
 def _resolve_files_root(
     workspace_root: Path,
     *,
-    setta_home: Path,
-    setta_files_root: Path | str | None,
-    profile_setta_files_root: Path | None,
     setta_files_location: SettaFilesLocation | None,
-    profile_setta_files_location: SettaFilesLocation | None,
-) -> tuple[Path, ResolvedSettaFilesLocation | None]:
+) -> tuple[Path, ResolvedSettaFilesLocation]:
     local_root = (workspace_root / "setta_files").resolve(strict=False)
     if local_root.exists() and not local_root.is_dir():
         raise InvalidLocalSettaFilesRootError(
             f"Local setta_files path is not a directory: {local_root}"
         )
 
-    explicit_root = _resolve_optional_path_value(setta_files_root)
-    explicit_location = _normalize_location_value(setta_files_location)
-
-    profile_root = (
-        profile_setta_files_root.resolve(strict=False)
-        if profile_setta_files_root is not None
-        else None
-    )
-    profile_location = _normalize_location_value(profile_setta_files_location)
-
-    env_root = _resolve_optional_path_value(os.environ.get(FILES_ROOT_ENV))
-    env_location = _normalize_location_value(os.environ.get(FILES_LOCATION_ENV))
-
-    if explicit_root is not None and explicit_location is not None:
-        raise ConflictingSettaFilesRootAndLocationError(
-            "Cannot use --setta-files-root together with --setta-files-location."
-        )
-    if profile_root is not None and profile_location is not None:
-        raise ConflictingSettaFilesRootAndLocationError(
-            "Selected profile sets both settaFilesRoot and settaFilesLocation."
-        )
-    if env_root is not None and env_location is not None:
-        raise ConflictingSettaFilesRootAndLocationError(
-            f"Environment variables {FILES_ROOT_ENV} and {FILES_LOCATION_ENV} cannot both be set."
-        )
-
-    selected_root: Path | None = None
-    selected_location: SettaFilesLocation | None = None
-
-    if explicit_root is not None:
-        selected_root = explicit_root
-    elif explicit_location is not None:
-        selected_location = explicit_location
-    elif profile_root is not None:
-        selected_root = profile_root
-    elif profile_location is not None:
-        selected_location = profile_location
-    elif env_root is not None:
-        selected_root = env_root
-    elif env_location is not None:
-        selected_location = env_location
-    else:
-        selected_location = "auto"
-
-    if selected_root is not None:
-        if selected_root.exists() and not selected_root.is_dir():
-            raise InvalidExplicitSettaFilesRootError(
-                f"setta files root is not a directory: {selected_root}"
-            )
-        return selected_root.resolve(strict=False), None
-
+    # Local always wins when present, regardless of config/overrides.
     if local_root.is_dir():
-        return local_root, "local"
+        return (local_root, "local")
 
-    if selected_location is None:
-        selected_location = "auto"
+    raw_location = setta_files_location
+    if isinstance(raw_location, str):
+        raw_location = raw_location.strip().lower() or None
+    if raw_location is None:
+        raw_env = os.environ.get(FILES_LOCATION_ENV)
+        if raw_env is not None:
+            raw_location = raw_env.strip().lower() or None
+    if raw_location is None:
+        raw_location = "auto"
 
-    if selected_location == "local":
-        return local_root, "local"
+    if raw_location not in ("auto", "local", "global"):
+        raise InvalidSettaFilesLocationError(
+            f"Invalid setta files location: {raw_location!r} (expected auto, local, or global)."
+        )
 
-    config = load_setta_user_config(setta_home=setta_home)
+    if raw_location == "local":
+        return (local_root, "local")
+
+    config = load_setta_user_config()
     global_root = build_files_root_from_base(
         config.global_setta_files_base, workspace_root
     ).resolve(strict=False)
@@ -441,34 +248,30 @@ def _resolve_files_root(
             f"Global setta_files path is not a directory: {global_root}"
         )
 
-    if selected_location == "global":
-        return global_root, "global"
+    if raw_location == "global":
+        return (global_root, "global")
 
+    # auto: follow user config fallback behavior.
     if config.auto_mode == "create_local":
-        return local_root, "local"
+        return (local_root, "local")
 
+    # use_global_if_present / create_global
     if global_root.is_dir():
-        return global_root, "global"
+        return (global_root, "global")
 
     if config.auto_mode == "create_global":
-        return global_root, "global"
-    return local_root, "local"
+        return (global_root, "global")
+    return (local_root, "local")
 
 
 def _resolve_runtime_root(
-    setta_files_root: Path,
-    *,
-    runtime_root: Path | str | None,
-    profile_runtime_root: Path | None,
+    setta_files_root: Path, *, runtime_root: Path | str | None
 ) -> Path:
-    explicit_runtime_root = _resolve_optional_path_value(runtime_root)
-    if explicit_runtime_root is not None:
-        return explicit_runtime_root
-    if profile_runtime_root is not None:
-        return profile_runtime_root.resolve(strict=False)
-    env_runtime_root = _resolve_optional_path_value(os.environ.get(RUNTIME_ROOT_ENV))
-    if env_runtime_root is not None:
-        return env_runtime_root
+    raw = runtime_root or os.environ.get(RUNTIME_ROOT_ENV)
+    if isinstance(raw, str):
+        raw = raw.strip() or None
+    if raw is not None:
+        return resolve_path(raw)
     return (setta_files_root / "runtime").resolve(strict=False)
 
 
@@ -479,35 +282,6 @@ def resolve_path(raw: Path | str) -> Path:
         raw_value = raw
     expanded = os.path.expandvars(os.path.expanduser(raw_value))
     return Path(expanded).resolve(strict=False)
-
-
-def _resolve_optional_path_value(raw: Path | str | None) -> Path | None:
-    if raw is None:
-        return None
-    if isinstance(raw, Path):
-        return raw.resolve(strict=False)
-    trimmed = raw.strip()
-    if not trimmed:
-        return None
-    return resolve_path(trimmed)
-
-
-def _normalize_location_value(
-    raw: SettaFilesLocation | str | None,
-) -> SettaFilesLocation | None:
-    if raw is None:
-        return None
-    if isinstance(raw, str):
-        trimmed = raw.strip().lower()
-    else:
-        trimmed = str(raw).strip().lower()
-    if not trimmed:
-        return None
-    if trimmed not in ("auto", "local", "global"):
-        raise InvalidSettaFilesLocationError(
-            f"Invalid setta files location: {raw!r} (expected auto, local, or global)."
-        )
-    return cast("SettaFilesLocation", trimmed)
 
 
 def _sanitize_leaf(value: str) -> str:

@@ -366,40 +366,13 @@ def resolve_remote_setta_command(
     return lines[-1]
 
 
-def build_remote_setta_path_args(
-    *,
-    profile: str | None = None,
-    setta_home: str | None = None,
-    setta_files_root: str | None = None,
-    setta_files_location: str | None = None,
-    runtime_root: str | None = None,
-) -> str:
+def build_remote_setta_files_args(*, setta_files_location: str | None) -> str:
     args: list[str] = []
 
-    trimmed_profile = _normalize_optional_argument(profile)
-    if trimmed_profile is not None:
-        args.append(f"--profile {shlex.quote(trimmed_profile)}")
-
-    trimmed_setta_home = _normalize_optional_argument(setta_home)
-    if trimmed_setta_home is not None:
-        args.append(f"--setta-home {shlex.quote(trimmed_setta_home)}")
-
-    trimmed_setta_files_root = _normalize_optional_argument(setta_files_root)
     trimmed = normalize_setta_files_location(setta_files_location)
-    if trimmed_setta_files_root is not None and trimmed is not None:
-        raise LaunchError(
-            "InvalidSettaFilesConfig",
-            "Cannot pass both --setta-files-root and --setta-files-location for remote commands.",
-        )
-    if trimmed_setta_files_root is not None:
-        args.append(f"--setta-files-root {shlex.quote(trimmed_setta_files_root)}")
-    elif trimmed is not None:
-        args.append(f"--setta-files-location {shlex.quote(trimmed)}")
-
-    trimmed_runtime_root = _normalize_optional_argument(runtime_root)
-    if trimmed_runtime_root is not None:
-        args.append(f"--runtime-root {shlex.quote(trimmed_runtime_root)}")
-
+    if trimmed is None:
+        return ""
+    args.append(f"--setta-files-location {shlex.quote(trimmed)}")
     return " ".join(args)
 
 
@@ -423,15 +396,6 @@ def normalize_setta_files_location(value: str | None) -> str | None:
             "InvalidSettaFilesLocation",
             "settaFilesLocation must be one of: auto, local, global.",
         )
-    return trimmed
-
-
-def _normalize_optional_argument(value: str | None) -> str | None:
-    if value is None:
-        return None
-    trimmed = value.strip()
-    if not trimmed:
-        return None
     return trimmed
 
 
@@ -499,16 +463,11 @@ def wait_for_remote_sessions(
     *,
     ssh_prefix: list[str],
     timeout_seconds: float,
-    setta_files_location: str | None,
-    setta_files_root: str | None = None,
-    runtime_root: str | None = None,
+    setta_files_location: str,
 ) -> list[RemoteSessionSummary]:
     deadline = time.monotonic() + timeout_seconds
     remote_logs_dir = resolve_remote_logs_dir(
-        workspace=workspace,
-        setta_files_location=setta_files_location,
-        setta_files_root=setta_files_root,
-        runtime_root=runtime_root,
+        workspace=workspace, setta_files_location=setta_files_location
     )
     while True:
         sessions = fetch_remote_sessions(
@@ -592,25 +551,7 @@ def _is_safe_remote_path(value: str) -> bool:
     return True
 
 
-def resolve_remote_logs_dir(
-    *,
-    workspace: str,
-    setta_files_location: str | None,
-    setta_files_root: str | None = None,
-    runtime_root: str | None = None,
-) -> str:
-    trimmed_runtime_root = _normalize_optional_argument(runtime_root)
-    if trimmed_runtime_root is not None and _is_safe_remote_path(trimmed_runtime_root):
-        root = trimmed_runtime_root.rstrip("/")
-        return f"{root}/logs"
-
-    trimmed_setta_files_root = _normalize_optional_argument(setta_files_root)
-    if trimmed_setta_files_root is not None and _is_safe_remote_path(
-        trimmed_setta_files_root
-    ):
-        root = trimmed_setta_files_root.rstrip("/")
-        return f"{root}/runtime/logs"
-
+def resolve_remote_logs_dir(*, workspace: str, setta_files_location: str) -> str:
     # When remote state lives globally, we don't know the computed runtime path from
     # the launcher side (it depends on remote user config). Prefer /tmp rather than
     # creating a workspace-local setta_files directory (which would change behavior
@@ -633,9 +574,7 @@ def start_remote_setta(
     setta_files_args: str,
     *,
     ssh_prefix: list[str],
-    setta_files_location: str | None,
-    setta_files_root: str | None = None,
-    runtime_root: str | None = None,
+    setta_files_location: str,
 ) -> None:
     runner = None
     if _remote_command_exists(ssh_target, ssh_args, "setsid", ssh_prefix=ssh_prefix):
@@ -649,10 +588,7 @@ def start_remote_setta(
         )
 
     remote_logs_dir = resolve_remote_logs_dir(
-        workspace=workspace,
-        setta_files_location=setta_files_location,
-        setta_files_root=setta_files_root,
-        runtime_root=runtime_root,
+        workspace=workspace, setta_files_location=setta_files_location
     )
     remote_log_file = f"{remote_logs_dir}/nohup-{time.time_ns()}-{os.getpid()}.out"
     root_prefix = f"{setta_files_args} " if setta_files_args else ""
