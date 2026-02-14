@@ -31,6 +31,7 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   PluginBlockedCapability,
+  PluginInstallResponse,
   PluginInstallRequestInput,
   PluginListEntry,
   PluginRollbackRequestInput,
@@ -48,6 +49,8 @@ type PluginActionStatus = {
   message: string;
 };
 
+type PluginInstallSummary = PluginInstallResponse;
+
 type PluginRegisteredLanguageServer =
   PluginStatusEntry["registeredLanguageServers"][number];
 type PluginRegisteredExternalAgentAdapter =
@@ -63,6 +66,8 @@ export function PluginsPane() {
   const [actionStatus, setActionStatus] = useState<PluginActionStatus | null>(
     null,
   );
+  const [installSummary, setInstallSummary] =
+    useState<PluginInstallSummary | null>(null);
 
   const pluginListEntries = usePluginListEntries();
   const pluginStatusEntries = usePluginStatusEntries();
@@ -136,6 +141,7 @@ export function PluginsPane() {
       setActionStatus({ type: "error", message: sourceErrorMessage });
       return;
     }
+    setInstallSummary(null);
     const trimmedSourceSpec = sourceSpec.trim();
     const response = await runAction("install", "Install plugin", async () =>
       route_plugins_install({
@@ -148,6 +154,7 @@ export function PluginsPane() {
     if (!response || !response.data) {
       return;
     }
+    setInstallSummary(response.data);
     setSourceSpec("");
   }
 
@@ -332,6 +339,10 @@ export function PluginsPane() {
         >
           {actionStatus.message}
         </section>
+      ) : null}
+
+      {installSummary ? (
+        <InstallSummaryCard installSummary={installSummary} />
       ) : null}
 
       <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
@@ -1225,6 +1236,44 @@ function setLanguageServerSettingsValue(
   return nextSettings;
 }
 
+function InstallSummaryCard({
+  installSummary,
+}: {
+  installSummary: PluginInstallSummary;
+}) {
+  const requestedCapabilities = formatCapabilitiesForTable(
+    installSummary.requestedCapabilities,
+  );
+  const sourceDigest = installSummary.sourceDigestSha256 ?? "unavailable";
+
+  return (
+    <section
+      data-testid="plugin-install-confirmation"
+      className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900"
+    >
+      <h3 className="text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+        Install Confirmation
+      </h3>
+      <p className="mt-1 font-mono text-[11px] text-setta-800 dark:text-setta-100">
+        {installSummary.pluginId}@{installSummary.version}
+      </p>
+      <p className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
+        scope={installSummary.sourceScopeLabel} source=
+        {installSummary.canonicalSourceKey}
+      </p>
+      <p className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
+        requested={requestedCapabilities}
+      </p>
+      <p className="mt-1 text-[11px] text-setta-600 dark:text-setta-300">
+        sourceDigestSha256={sourceDigest}
+      </p>
+      <p className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+        {buildInstallTrustSummaryMessage(installSummary)}
+      </p>
+    </section>
+  );
+}
+
 function ActionButton({
   label,
   onClick,
@@ -1402,7 +1451,14 @@ function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
   return "Unsupported source spec. Use github: or pypi:.";
 }
 
+function buildInstallTrustSummaryMessage(
+  installSummary: Pick<PluginInstallSummary, "trustStatus" | "trustWarning">,
+): string {
+  return `Trust (${installSummary.trustStatus}): ${installSummary.trustWarning}`;
+}
+
 export const pluginsPaneTestApi = {
+  buildInstallTrustSummaryMessage,
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityUnavailableMessage,
   formatLanguageServerSettingsDraft,

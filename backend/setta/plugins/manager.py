@@ -59,6 +59,7 @@ from setta.plugins.models import (
     PluginsGlobalStateFile,
     PluginsLockFile,
     PluginSourceScheme,
+    PluginSourceTrustStatus,
     PluginsRescanResponse,
     PluginsStateFile,
     PluginStatusEntry,
@@ -106,6 +107,7 @@ _MODE_ALLOWED_CAPABILITIES = {
 }
 
 _BACKEND_PLUGIN_API_VERSION = 1
+_UNVERIFIED_SOURCE_WARNING = "Source is unverified. Install only from trusted owners."
 _REQUIRED_BACKEND_RPC_METHODS = frozenset(
     {
         "plugin.initialize",
@@ -2637,6 +2639,9 @@ class PluginManager:
             sourcePath=str(active_entry.source_path),
             canonicalSourceKey=active_entry.canonical_source_key,
             sourceDigestSha256=active_entry.source_digest_sha256,
+            requestedCapabilities=list(active_entry.requested_capabilities),
+            trustStatus=PluginSourceTrustStatus.unverified,
+            trustWarning=_UNVERIFIED_SOURCE_WARNING,
             components=candidate.components,
             state=active_entry.state,
             restartRequired=active_entry.has_backend,
@@ -2713,6 +2718,9 @@ class PluginManager:
             sourcePath=str(entry.source_path),
             canonicalSourceKey=entry.canonical_source_key,
             sourceDigestSha256=entry.source_digest_sha256,
+            requestedCapabilities=list(entry.requested_capabilities),
+            trustStatus=PluginSourceTrustStatus.unverified,
+            trustWarning=_UNVERIFIED_SOURCE_WARNING,
             components=[
                 component
                 for component in (

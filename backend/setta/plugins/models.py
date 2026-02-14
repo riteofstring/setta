@@ -47,6 +47,10 @@ class PluginEnablementSource(str, Enum):
     manifest_default = "manifest_default"
 
 
+class PluginSourceTrustStatus(str, Enum):
+    unverified = "unverified"
+
+
 class BlockedCapabilityReason(str, Enum):
     mode_policy = "mode_policy"
     host_policy = "host_policy"
@@ -274,6 +278,9 @@ class PluginInstallResponse(BaseModel):
     sourcePath: str
     canonicalSourceKey: str
     sourceDigestSha256: str | None = None
+    requestedCapabilities: list[str] = Field(default_factory=list)
+    trustStatus: PluginSourceTrustStatus
+    trustWarning: str
     components: list[str]
     state: PluginRuntimeState
     restartRequired: bool

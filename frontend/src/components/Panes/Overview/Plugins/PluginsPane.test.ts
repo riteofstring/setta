@@ -2,6 +2,7 @@ import { pluginsPaneTestApi } from "components/Panes/Overview/Plugins/PluginsPan
 import {
   createPluginListEntry,
   createPluginStatusEntry,
+  type PluginInstallResponse,
   PluginRuntimeStateEnum,
   type PluginListEntry,
   type PluginRestartCapability,
@@ -404,5 +405,28 @@ describe("plugins pane helpers", () => {
         ),
       ),
     ).toContain("strictNullChecks");
+  });
+
+  it("builds install trust summary messaging", () => {
+    const installSummary = {
+      pluginId: "acme.plugin",
+      version: "1.2.3",
+      sourceScope: "workspace",
+      sourceScopeLabel: "workspace",
+      sourcePath: "/tmp/acme.plugin",
+      canonicalSourceKey: "github:acme/plugin",
+      sourceDigestSha256: "abc123",
+      requestedCapabilities: ["registerPane"],
+      trustStatus: "unverified",
+      trustWarning: "Source is unverified. Install only from trusted owners.",
+      components: ["frontend"],
+      state: PluginRuntimeStateEnum.active,
+      restartRequired: false,
+    } as PluginInstallResponse;
+    expect(
+      pluginsPaneTestApi.buildInstallTrustSummaryMessage(installSummary),
+    ).toBe(
+      "Trust (unverified): Source is unverified. Install only from trusted owners.",
+    );
   });
 });

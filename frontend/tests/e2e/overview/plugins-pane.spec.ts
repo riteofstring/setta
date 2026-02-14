@@ -194,6 +194,71 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   ).toBeVisible();
 });
 
+test("plugins pane shows install confirmation trust and provenance summary", async ({
+  page,
+}) => {
+  const installRequests: Array<Record<string, unknown>> = [];
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await page.route("**/api/plugins/install", async (route) => {
+    const requestPayload = route.request().postDataJSON() as Record<
+      string,
+      unknown
+    >;
+    installRequests.push(requestPayload);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        pluginId: "setta-fixture-install",
+        version: "0.1.0",
+        sourceScope: "global",
+        sourceScopeLabel: "global",
+        sourcePath: "/tmp/setta-fixture-install",
+        canonicalSourceKey: "pypi:setta-fixture-install",
+        sourceDigestSha256: "sha256:fixture",
+        requestedCapabilities: ["registerPane", "registerMcpTools"],
+        trustStatus: "unverified",
+        trustWarning: "Source is unverified. Install only from trusted owners.",
+        components: ["backend", "frontend"],
+        state: "pending_restart",
+        restartRequired: true,
+      }),
+    });
+  });
+
+  await page.locator("select").first().selectOption("global");
+  await page
+    .getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]")
+    .fill("pypi:setta-fixture-install==0.1.0");
+  await page.getByRole("button", { name: "Install", exact: true }).click();
+
+  await expect.poll(() => installRequests.length).toBe(1);
+  expect(installRequests[0].scope).toBe("global");
+
+  const confirmation = page.getByTestId("plugin-install-confirmation");
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.getByText("Install Confirmation")).toBeVisible();
+  await expect(
+    confirmation.getByText("setta-fixture-install@0.1.0"),
+  ).toBeVisible();
+  await expect(
+    confirmation.getByText("scope=global source=pypi:setta-fixture-install"),
+  ).toBeVisible();
+  await expect(
+    confirmation.getByText("requested=registerMcpTools, registerPane"),
+  ).toBeVisible();
+  await expect(
+    confirmation.getByText("sourceDigestSha256=sha256:fixture"),
+  ).toBeVisible();
+  await expect(
+    confirmation.getByText(
+      "Trust (unverified): Source is unverified. Install only from trusted owners.",
+    ),
+  ).toBeVisible();
+});
+
 test("plugins pane shows mode-policy blocked capability reasons", async ({
   page,
 }) => {

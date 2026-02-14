@@ -256,6 +256,13 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     assert installed.version == version
     assert installed.state == PluginRuntimeState.active
     assert installed.sourceDigestSha256 is not None
+    assert installed.requestedCapabilities == [
+        "registerSectionKinds",
+        "registerPane",
+        "registerCommand",
+    ]
+    assert installed.trustStatus == "unverified"
+    assert "Source is unverified." in installed.trustWarning
 
     status_entries = [
         entry
@@ -702,6 +709,9 @@ def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
         force=False,
     )
     assert linked.sourceDigestSha256 is not None
+    assert linked.requestedCapabilities == ["registerRouter", "registerMcpTools"]
+    assert linked.trustStatus == "unverified"
+    assert "Source is unverified." in linked.trustWarning
     runtime_marker = manager._runtime_marker_path(
         plugin_id=linked.pluginId,
         version=linked.version,

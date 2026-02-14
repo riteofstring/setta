@@ -7910,6 +7910,10 @@ const PluginScopeEnum = {
   global_scope: "global",
 } as const;
 
+const PluginSourceTrustStatusEnum = {
+  unverified: "unverified",
+} as const;
+
 const PluginInstallResponseSchema = z.object({
   pluginId: z.string(),
   version: z.string(),
@@ -7918,6 +7922,9 @@ const PluginInstallResponseSchema = z.object({
   sourcePath: z.string(),
   canonicalSourceKey: z.string(),
   sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
+  requestedCapabilities: z.array(z.string()).default([]),
+  trustStatus: z.enum(PluginSourceTrustStatusEnum),
+  trustWarning: z.string(),
   components: z.array(z.string()),
   state: z.enum(PluginRuntimeStateEnum),
   restartRequired: z.boolean(),
