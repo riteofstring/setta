@@ -456,6 +456,14 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
+    Plugin: SectionSizingPolicyTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyTypeEntry(
+            minHeight=80,
+            maxHeight=INFINITE_MAX_HEIGHT,
+            minWidth=DEFAULT_MIN_WIDTH,
+            maxWidth=INFINITE_MAX_WIDTH,
+        )
+    )
 
 
 class SectionSizingPolicy(BaseModel):

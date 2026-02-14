@@ -17,7 +17,7 @@ from setta.launch import LaunchError
 from setta.ssh_common import (
     RemoteSessionSummary,
     apply_control_socket_args,
-    build_remote_setta_path_args,
+    build_remote_setta_files_args,
     build_ssh_tunnel_args,
     ensure_background_process_started,
     fetch_remote_connect_info,
@@ -45,11 +45,7 @@ class RemoteConnectResult:
     session: RemoteSessionSummary
     started_new: bool
     remote_cmd_resolved: str
-    setta_files_location: str | None
-    setta_files_root: str | None
-    runtime_root: str | None
-    setta_home: str | None
-    profile: str | None
+    setta_files_location: str
 
 
 class SshTunnelMetadata(BaseModel):
@@ -63,37 +59,11 @@ class SshTunnelMetadata(BaseModel):
     lastUsedAt: str
 
 
-def _parse_optional_connect_info_field(
-    connect_info: dict[str, object], *, key: str
-) -> str | None:
-    raw_value = connect_info.get(key)
-    if raw_value is None:
-        return None
-    if not isinstance(raw_value, str):
-        raise LaunchError(
-            "RemoteConnectInfo",
-            f"Remote connect info did not include a valid {key}.",
-        )
-    trimmed = raw_value.strip()
-    return trimmed or None
-
-
-def _normalize_optional_profile(profile: str | None) -> str | None:
-    if profile is None:
-        return None
-    trimmed = profile.strip()
-    return trimmed or None
-
-
 def connect_remote_workspace_session(
     *,
     ssh_target: str,
     workspace: str,
-    profile: str | None = None,
-    setta_home: str | None = None,
-    setta_files_root: str | None = None,
-    setta_files_location: str | None = None,
-    runtime_root: str | None = None,
+    setta_files_location: str,
     ssh_args: str | None = None,
     remote_cmd: str | None = None,
     local_port: int | None = None,
@@ -108,19 +78,12 @@ def connect_remote_workspace_session(
         )
     if local_port is not None and not (1 <= local_port <= 65535):
         raise LaunchError("InvalidLocalPort", f"Invalid local port: {local_port}")
-    trimmed_profile = _normalize_optional_profile(profile)
     trimmed_location = normalize_setta_files_location(setta_files_location)
-    trimmed_setta_files_root = (
-        setta_files_root.strip() if setta_files_root is not None else None
-    )
-    if trimmed_setta_files_root is not None and not trimmed_setta_files_root:
-        trimmed_setta_files_root = None
-    if (
-        trimmed_setta_files_root is None
-        and trimmed_location is None
-        and trimmed_profile is None
-    ):
-        trimmed_location = "auto"
+    if trimmed_location is None:
+        raise LaunchError(
+            "InvalidSettaFilesLocation",
+            "settaFilesLocation must be one of: auto, local, global.",
+        )
 
     ssh_prefix = ssh_command_prefix(batch_mode=True)
     ssh_args_list = apply_control_socket_args(parse_ssh_args(ssh_args))
@@ -140,12 +103,8 @@ def connect_remote_workspace_session(
         remote_cmd,
         ssh_prefix=ssh_prefix,
     )
-    setta_files_args = build_remote_setta_path_args(
-        profile=trimmed_profile,
-        setta_home=setta_home,
-        setta_files_root=trimmed_setta_files_root,
+    setta_files_args = build_remote_setta_files_args(
         setta_files_location=trimmed_location,
-        runtime_root=runtime_root,
     )
     sessions = fetch_remote_sessions(
         ssh_target,
@@ -170,8 +129,6 @@ def connect_remote_workspace_session(
                 setta_files_args,
                 ssh_prefix=ssh_prefix,
                 setta_files_location=trimmed_location,
-                setta_files_root=trimmed_setta_files_root,
-                runtime_root=runtime_root,
             )
         except LaunchError as exc:
             if exc.code == "SshTimeout":
@@ -189,8 +146,6 @@ def connect_remote_workspace_session(
                 ssh_prefix=ssh_prefix,
                 timeout_seconds=timeout_seconds,
                 setta_files_location=trimmed_location,
-                setta_files_root=trimmed_setta_files_root,
-                runtime_root=runtime_root,
             )
         except LaunchError as exc:
             if start_timed_out and exc.code == "RemoteLaunchTimeout":
@@ -219,33 +174,18 @@ def connect_remote_workspace_session(
             "RemoteConnectInfo",
             "Remote connect info did not include a bootstrapUrlFragment.",
         )
-    remote_setta_files_location: str | None = None
     remote_location_value = connect_info.get("settaFilesLocation")
-    if remote_location_value is not None:
-        if not isinstance(remote_location_value, str):
-            raise LaunchError(
-                "RemoteConnectInfo",
-                "Remote connect info did not include a valid settaFilesLocation.",
-            )
-        normalized_remote_location = normalize_setta_files_location(
-            remote_location_value
+    if not isinstance(
+        remote_location_value, str
+    ) or remote_location_value.strip() not in (
+        "local",
+        "global",
+    ):
+        raise LaunchError(
+            "RemoteConnectInfo",
+            "Remote connect info did not include a settaFilesLocation.",
         )
-        if normalized_remote_location not in ("local", "global"):
-            raise LaunchError(
-                "RemoteConnectInfo",
-                "Remote connect info did not include a resolved settaFilesLocation.",
-            )
-        remote_setta_files_location = normalized_remote_location
-    remote_setta_files_root = _parse_optional_connect_info_field(
-        connect_info, key="settaFilesRoot"
-    )
-    remote_runtime_root = _parse_optional_connect_info_field(
-        connect_info, key="runtimeRoot"
-    )
-    remote_setta_home = _parse_optional_connect_info_field(
-        connect_info, key="settaHome"
-    )
-    remote_profile = _parse_optional_connect_info_field(connect_info, key="profile")
+    remote_setta_files_location = remote_location_value.strip()
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:
@@ -271,10 +211,6 @@ def connect_remote_workspace_session(
         started_new=started_new,
         remote_cmd_resolved=setta_command,
         setta_files_location=remote_setta_files_location,
-        setta_files_root=remote_setta_files_root,
-        runtime_root=remote_runtime_root,
-        setta_home=remote_setta_home,
-        profile=remote_profile,
     )
 
 
