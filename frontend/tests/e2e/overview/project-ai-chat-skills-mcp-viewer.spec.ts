@@ -24,6 +24,15 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
           skillPath: "/workspace/skills/ui-layout/SKILL.md",
           description: "Create dense dashboard layouts.",
         },
+        {
+          skillId: "user_codex_skills::frontend-design",
+          name: "frontend-design",
+          rootLabel: "User ~/.codex/skills",
+          rootPath: "/home/.codex/skills",
+          relativePath: "frontend-design",
+          skillPath: "/home/.codex/skills/frontend-design/SKILL.md",
+          description: "Create polished frontend interfaces.",
+        },
       ]),
     });
   });
@@ -93,21 +102,21 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await toggleButton.click();
 
   await expect(page.getByText("Skills / MCP Viewer")).toBeVisible();
+  await expect(page.getByText("/workspace/skills")).toBeVisible();
+  await expect(page.getByText("/home/.codex/skills")).toBeVisible();
+  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(
-    page.getByText(
-      "Viewer only: selecting a skill here previews its content. It does not enable or disable skills or MCP servers.",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /ui-layout Workspace skills/ }),
+    page.getByRole("button", { name: /frontend-design/i }),
   ).toBeVisible();
   await expect(page.getByLabel("Skill Preview")).toContainText(
     "Create dense dashboard layouts.",
   );
-  await expect(page.getByText("MCP tools discovered: 3")).toBeVisible();
-  await expect(page.getByText("MCP servers configured: 2")).toBeVisible();
+  await expect(page.getByText("setta__set_app_definition")).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
+  await expect(page.getByText("Viewer only:")).toHaveCount(0);
+  await expect(page.getByText("MCP tools discovered:")).toHaveCount(0);
+  await expect(page.getByText("MCP servers configured:")).toHaveCount(0);
 
   await page.getByLabel("View Skills and MCP").click();
   await expect(page.getByText("Skills / MCP Viewer")).toHaveCount(0);

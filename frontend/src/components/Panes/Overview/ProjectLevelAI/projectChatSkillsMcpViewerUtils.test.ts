@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterSkills,
-  formatMcpToolsError,
+  groupSkillsByRootPath,
   parseMcpToolsFromResult,
 } from "./projectChatSkillsMcpViewerUtils";
 
@@ -18,16 +18,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       "setta__set_app_definition",
       "setta__stream_app_definition",
     ]);
-    expect(parsed.mcpError).toBeNull();
-  });
-
-  it("returns fallback error text for unresolved mcp errors", () => {
-    expect(formatMcpToolsError(null)).toBe(
-      "MCP tools are unavailable for the current engine/session.",
-    );
-    expect(formatMcpToolsError("Not Found")).toBe(
-      "MCP tools are unavailable for the current engine/session.",
-    );
   });
 
   it("filters skills by name/path/root/description", () => {
@@ -57,5 +47,46 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       "user_agents_skills::build-tools",
     );
     expect(filterSkills(rows, "")).toHaveLength(2);
+  });
+
+  it("groups filtered skills by root path", () => {
+    const rows = [
+      {
+        skillId: "user_codex_skills::frontend-design",
+        name: "frontend-design",
+        rootLabel: "User ~/.codex/skills",
+        rootPath: "/home/.codex/skills",
+        relativePath: "frontend-design",
+        skillPath: "/home/.codex/skills/frontend-design/SKILL.md",
+        description: "Create polished frontend interfaces.",
+      },
+      {
+        skillId: "workspace_skills::setta-cli",
+        name: "setta-cli",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
+        relativePath: "setta-cli",
+        skillPath: "/workspace/skills/setta-cli/SKILL.md",
+        description: "Project-local CLI helpers.",
+      },
+      {
+        skillId: "user_codex_skills::.system/skill-installer",
+        name: "skill-installer",
+        rootLabel: "User ~/.codex/skills",
+        rootPath: "/home/.codex/skills",
+        relativePath: ".system/skill-installer",
+        skillPath: "/home/.codex/skills/.system/skill-installer/SKILL.md",
+        description: "Install curated skills.",
+      },
+    ];
+
+    const groups = groupSkillsByRootPath(rows);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.rootPath).toBe("/home/.codex/skills");
+    expect(groups[0]?.skills.map((skill) => skill.skillId)).toEqual([
+      "user_codex_skills::.system/skill-installer",
+      "user_codex_skills::frontend-design",
+    ]);
+    expect(groups[1]?.rootPath).toBe("/workspace/skills");
   });
 });

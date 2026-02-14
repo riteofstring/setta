@@ -6,30 +6,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function parseMcpToolsFromResult(result: unknown): {
   toolNames: string[];
-  mcpError: string | null;
 } {
   if (!isRecord(result)) {
-    return { toolNames: [], mcpError: "Unexpected MCP response payload." };
+    return { toolNames: [] };
   }
-  const isError = result.isError === true;
   const structuredContent = result.structuredContent;
   if (isRecord(structuredContent) && Array.isArray(structuredContent.tools)) {
     const toolNames = structuredContent.tools.filter(
       (entry): entry is string => typeof entry === "string",
     );
-    return { toolNames, mcpError: null };
+    return { toolNames };
   }
-  if (isError) {
-    return { toolNames: [], mcpError: "MCP tool listing failed." };
-  }
-  return { toolNames: [], mcpError: null };
-}
-
-export function formatMcpToolsError(detail: string | null): string {
-  if (!detail || detail === "Not Found") {
-    return "MCP tools are unavailable for the current engine/session.";
-  }
-  return detail;
+  return { toolNames: [] };
 }
 
 export function filterSkills(
@@ -48,4 +36,41 @@ export function filterSkills(
       skill.description.toLowerCase().includes(normalizedQuery)
     );
   });
+}
+
+export type SkillsByRootPath = {
+  rootPath: string;
+  rootLabel: string;
+  skills: AppGenSkillEntry[];
+};
+
+export function groupSkillsByRootPath(
+  skills: AppGenSkillEntry[],
+): SkillsByRootPath[] {
+  const grouped = new Map<string, SkillsByRootPath>();
+  for (const skill of skills) {
+    const rootPath = skill.rootPath;
+    const existing = grouped.get(rootPath);
+    if (!existing) {
+      grouped.set(rootPath, {
+        rootPath,
+        rootLabel: skill.rootLabel,
+        skills: [skill],
+      });
+      continue;
+    }
+    existing.skills.push(skill);
+  }
+  return Array.from(grouped.values())
+    .map((group) => ({
+      ...group,
+      skills: [...group.skills].sort((a, b) => {
+        const relativeComparison = a.relativePath.localeCompare(b.relativePath);
+        if (relativeComparison !== 0) {
+          return relativeComparison;
+        }
+        return a.name.localeCompare(b.name);
+      }),
+    }))
+    .sort((a, b) => a.rootPath.localeCompare(b.rootPath));
 }
