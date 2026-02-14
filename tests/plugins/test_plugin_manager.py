@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -203,6 +204,38 @@ def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
     assert marker_payload["version"] == linked.version
     assert marker_payload["sourceDigestSha256"] == linked.sourceDigestSha256
     assert marker_payload["dependencies"] == []
+
+
+def test_backend_worker_uses_runtime_python_when_available(tmp_path: Path) -> None:
+    # Worker orchestration should prefer plugin-scoped runtime Python interpreters.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+    assert entry.source_digest_sha256 is not None
+
+    runtime_path = manager._runtime_path(
+        plugin_id=entry.plugin_id,
+        version=entry.version,
+        source_digest_sha256=entry.source_digest_sha256,
+    )
+    runtime_path.mkdir(parents=True, exist_ok=True)
+    runtime_python = (
+        runtime_path / ".venv" / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else runtime_path / ".venv" / "bin" / "python"
+    )
+    runtime_python.parent.mkdir(parents=True, exist_ok=True)
+    runtime_python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    runtime_python.chmod(0o755)
+
+    resolved_python = manager._resolve_backend_worker_python(entry)
+    assert resolved_python == str(runtime_python)
 
 
 def test_programmatic_restart_capability_and_action(tmp_path: Path) -> None:

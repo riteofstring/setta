@@ -516,11 +516,11 @@ class PluginManager:
             code="PLUGIN_BACKEND_IMPORT_FAILED",
             message_prefix="Invalid backend entrypoint path",
         )
+        self._ensure_backend_runtime_for_entry(entry)
         worker_process = self._start_backend_worker_process(
             entry=entry,
             entrypoint_path=entrypoint_path,
         )
-        self._ensure_backend_runtime_for_entry(entry)
         request_id = 1
         try:
             handshake_payload = self._call_backend_worker_method(
@@ -599,12 +599,15 @@ class PluginManager:
         entry: DiscoveredPlugin,
         entrypoint_path: Path,
     ) -> subprocess.Popen[str]:
+        worker_python = self._resolve_backend_worker_python(entry)
         command = self._build_backend_worker_command(
+            worker_python=worker_python,
             plugin_id=entry.plugin_id,
             plugin_version=entry.version,
             plugin_root=entry.source_path,
             entrypoint_path=entrypoint_path,
         )
+        worker_env = self._build_backend_worker_env()
         try:
             process = subprocess.Popen(
                 command,
@@ -613,6 +616,7 @@ class PluginManager:
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
+                env=worker_env,
             )
         except OSError as exc:
             raise PluginManagerError(
@@ -630,13 +634,14 @@ class PluginManager:
     def _build_backend_worker_command(
         self,
         *,
+        worker_python: str,
         plugin_id: str,
         plugin_version: str,
         plugin_root: Path,
         entrypoint_path: Path,
     ) -> list[str]:
         return [
-            sys.executable,
+            worker_python,
             "-m",
             "setta.plugins.worker",
             "--plugin-id",
@@ -648,6 +653,33 @@ class PluginManager:
             "--entrypoint",
             str(entrypoint_path),
         ]
+
+    def _resolve_backend_worker_python(self, entry: DiscoveredPlugin) -> str:
+        if entry.source_digest_sha256 is None:
+            return sys.executable
+        runtime_path = self._runtime_path(
+            plugin_id=entry.plugin_id,
+            version=entry.version,
+            source_digest_sha256=entry.source_digest_sha256,
+        )
+        venv_python = (
+            runtime_path / ".venv" / "Scripts" / "python.exe"
+            if os.name == "nt"
+            else runtime_path / ".venv" / "bin" / "python"
+        )
+        if venv_python.exists() and venv_python.is_file():
+            return str(venv_python)
+        return sys.executable
+
+    def _build_backend_worker_env(self) -> dict[str, str]:
+        env = dict(os.environ)
+        backend_source_root = str(Path(__file__).resolve().parents[2])
+        existing_pythonpath = env.get("PYTHONPATH")
+        if existing_pythonpath is None or existing_pythonpath.strip() == "":
+            env["PYTHONPATH"] = backend_source_root
+        else:
+            env["PYTHONPATH"] = f"{backend_source_root}{os.pathsep}{existing_pythonpath}"
+        return env
 
     def _call_backend_worker_method(
         self,
