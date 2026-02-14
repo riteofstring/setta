@@ -119,6 +119,15 @@ export function Overview() {
           bottom: hasViewModeTabs ? "36px" : "0px",
         }}
       >
+        {showLLMTabs && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.ProjectAIChat}
+            {...commonProps}
+            data-testid="overview-tab-project-ai-chat"
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+            icon={<IoChatbox size={20} />}
+          />
+        )}
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
@@ -204,15 +213,6 @@ export function Overview() {
             </div>
           }
         />
-        {showLLMTabs && (
-          <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.ProjectAIChat}
-            {...commonProps}
-            data-testid="overview-tab-project-ai-chat"
-            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-            icon={<IoChatbox size={20} />}
-          />
-        )}
         {showLLMTabs && (
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.ProjectAISettings}
