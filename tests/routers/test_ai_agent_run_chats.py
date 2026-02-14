@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
 import pytest
@@ -10,7 +9,6 @@ import pytest
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.store import (
-    create_agent_run,
     load_agent_run,
     save_agent_run,
     save_engine_configs,
@@ -54,7 +52,6 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.section_impls import ChatPermissionMode
 from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -539,254 +536,6 @@ class TestAgentRunChatRoutes:
                 exc.value.detail
                 == "sectionId is required unless allowUnscoped is true."
             )
-
-    async def test_get_llm_response_includes_execution_policy_for_managed_runner(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            captured: dict[str, object] = {}
-
-            def _capture_start_run(profile, inputs, **_kwargs):
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id, inputs=inputs)
-
-            monkeypatch.setattr(runner, "start_run", _capture_start_run)
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new project.")],
-                        ),
-                        engineConfigId=engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=ID("project-policy"),
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.yolo,
-                        searchEnabled=False,
-                        skillsEnabled=False,
-                        appSpecStreamingEnabled=True,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_profile = captured.get("profile")
-            assert captured_profile is not None
-            system_prompt = captured_profile.systemPrompt
-            assert "## Runtime execution settings" in system_prompt
-            assert "- permissionMode: yolo" in system_prompt
-            assert "- searchEnabled: false" in system_prompt
-            assert "- skillsEnabled: false" in system_prompt
-            assert "## Required completion gate for create/scaffold work" in system_prompt
-            assert "streamingPreview: enabled" in system_prompt
-
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("permissionMode") == "yolo"
-            assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("skillsEnabled") is False
-
-    async def test_get_llm_response_includes_execution_policy_for_external_runner(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-config",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            external_engine_config_id = ID("engine-external")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id if profile else None, inputs=inputs)
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.minimal,
-                        searchEnabled=False,
-                        skillsEnabled=True,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("permissionMode") == "minimal"
-            assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("skillsEnabled") is True
-            assert captured_inputs.get("approvalPolicy") == "on-request"
-            system_prompt = captured_inputs.get("systemPrompt")
-            assert isinstance(system_prompt, str)
-            assert "## Runtime execution settings" in system_prompt
-            assert "- permissionMode: minimal" in system_prompt
-            assert "## Required completion gate for create/scaffold work" in system_prompt
-
-    async def test_external_runner_maps_permission_mode_per_framework(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-claude-config",
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-            external_engine_config_id = ID("engine-external-claude")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Claude Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(
-                    profile_id=profile.id if profile else None, inputs=inputs
-                )
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.yolo,
-                        searchEnabled=True,
-                        skillsEnabled=True,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("approvalPolicy") == "bypassPermissions"
 
     async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:

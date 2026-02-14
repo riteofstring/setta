@@ -177,13 +177,16 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
+    SetParentDefaultChildSectionTypeRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
     SetPromptTemplateRequest,
+    SetSectionAllowUnquotedStringArgsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -201,6 +204,7 @@ from setta.project_state.project_manager_types import (
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockHeadingAsSectionNameRequest,
+    SetTextBlockMasterFontSizeRequest,
     SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
@@ -315,12 +319,15 @@ from setta.types.helpers_lvl2 import (
     set_edges,
     set_group_overflow_mode,
     set_image_area_image_path,
+    set_list_root_view_mode,
     set_meta_control_show_section_title,
     set_param_entered_value,
+    set_parent_default_child_section_type,
     set_project_config_name,
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
+    set_section_allow_unquoted_string_args,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -337,6 +344,7 @@ from setta.types.helpers_lvl2 import (
     set_text_block_display_mode,
     set_text_block_format,
     set_text_block_heading_as_section_name,
+    set_text_block_master_font_size,
     set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
@@ -3526,6 +3534,14 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def set_text_block_master_font_size(
+        self, x: SetTextBlockMasterFontSizeRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_master_font_size(project_state, x.sectionId, x.masterFontSizePx)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     async def set_text_block_meta_control_style(
         self, x: SetTextBlockMetaControlStyleRequest
     ):
@@ -3553,6 +3569,18 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def set_section_allow_unquoted_string_args(
+        self, x: SetSectionAllowUnquotedStringArgsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_allow_unquoted_string_args(
+            project_state,
+            x.sectionId,
+            x.allowUnquotedStringArgs,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
@@ -3566,6 +3594,28 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_parent_default_child_section_type(
+        self, x: SetParentDefaultChildSectionTypeRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_parent_default_child_section_type(
+            project_state,
+            x.sectionId,
+            x.defaultChildSectionType,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_list_root_view_mode(self, x: SetListRootViewModeRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_list_root_view_mode(
+            project_state,
+            x.sectionId,
+            x.viewMode,
+        )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -3625,9 +3675,6 @@ class BaseProjectManager(ABC):
             x.engineConfigId,
             x.agentProfileId,
             x.thinking,
-            x.permissionMode,
-            x.searchEnabled,
-            x.skillsEnabled,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

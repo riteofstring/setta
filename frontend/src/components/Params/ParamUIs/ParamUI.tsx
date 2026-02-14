@@ -17,11 +17,18 @@ import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { focusOnSection } from "utils/focusManager";
 import {
   CodeObjTypeEnum,
+  DateDisplayFormat,
+  DateDisplayFormatEnum,
   DropzoneModeEnum,
+  TextParamInputUIType,
+  TextParamInputUITypeEnum,
+  TimeDisplayFormat,
+  TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
+import { isStringTypeAnnotation } from "utils/typeAnnotation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -36,6 +43,10 @@ import { DropzoneInput, DropzoneInputConfigForParam } from "./DropzoneInput";
 import { PasswordInput } from "./PasswordInput";
 import { SliderInputConfigForParam } from "./SliderInput";
 import { SwitchInput } from "./SwitchInput";
+import {
+  TextParamDateTimeInput,
+  TextParamInputConfigForParam,
+} from "./TextParamInput";
 
 type ParamUIProps = {
   sectionId: string;
@@ -95,6 +106,13 @@ export function ParamUIConfig({
           paramInfoId={paramInfoId}
         />
       );
+    case CodeObjTypeEnum.TextParam:
+      return (
+        <TextParamInputConfigForParam
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+        />
+      );
     default:
       return null;
   }
@@ -122,6 +140,11 @@ export function ParamUI({
     dropzoneMode,
     dropzoneMaxAttachments,
     dropzonePlaceholder,
+    textParamUiType,
+    timeDisplayFormat,
+    dateDisplayFormat,
+    allowUnquotedStringArgs,
+    typeAnnotation,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -139,6 +162,8 @@ export function ParamUI({
       codeObjImpl.type === CodeObjTypeEnum.PasswordParam
         ? codeObjImpl.hasSecret
         : false;
+    const isTextParam = codeObjImpl.type === CodeObjTypeEnum.TextParam;
+    const isCodeParam = codeObjImpl.type === CodeObjTypeEnum.CodeParam;
     return {
       codeObjType: codeObjImpl.type,
       passwordHasSecret: hasPasswordSecret,
@@ -150,6 +175,17 @@ export function ParamUI({
         ? codeObjImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? codeObjImpl.placeholder : null,
+      textParamUiType: isTextParam
+        ? codeObjImpl.uiType
+        : TextParamInputUITypeEnum.plain,
+      timeDisplayFormat: isTextParam
+        ? codeObjImpl.timeDisplayFormat
+        : TimeDisplayFormatEnum.twenty_four_hour,
+      dateDisplayFormat: isTextParam
+        ? codeObjImpl.dateDisplayFormat
+        : DateDisplayFormatEnum.iso,
+      allowUnquotedStringArgs: impl.allowUnquotedStringArgs,
+      typeAnnotation: isCodeParam ? codeObjImpl.typeAnnotation : "",
     };
   }, _.isEqual);
 
@@ -169,6 +205,10 @@ export function ParamUI({
       value,
       hasSecret: passwordHasSecret,
     });
+  const showUnquotedStringHint =
+    codeObjType === CodeObjTypeEnum.CodeParam &&
+    allowUnquotedStringArgs &&
+    isStringTypeAnnotation(typeAnnotation);
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
@@ -180,7 +220,6 @@ export function ParamUI({
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
-    case CodeObjTypeEnum.TextParam:
       return (
         <TextParamConfigured
           sectionId={sectionId}
@@ -194,6 +233,37 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          showUnquotedStringHint={showUnquotedStringHint}
+        />
+      );
+    case CodeObjTypeEnum.TextParam:
+      if (textParamUiType === TextParamInputUITypeEnum.plain) {
+        return (
+          <TextParamConfigured
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            value={value}
+            defaultVal={defaultVal}
+            onChange={onChange}
+            onEscape={onEscape}
+            maybeErrorMessage={maybeErrorMessage}
+            isDisabled={isDisabled}
+            configLanguage={configLanguage}
+            waitingForResult={waitingForResult}
+            isSelectingParams={isSelectingParams}
+            showUnquotedStringHint={false}
+          />
+        );
+      }
+      return (
+        <TextParamDateTimeConfigured
+          value={value}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          uiType={textParamUiType}
+          timeDisplayFormat={timeDisplayFormat}
+          dateDisplayFormat={dateDisplayFormat}
         />
       );
     case CodeObjTypeEnum.SliderParam:
@@ -310,6 +380,7 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  showUnquotedStringHint = false,
 }) {
   return (
     <>
@@ -334,10 +405,45 @@ function TextParamConfigured({
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
+      {showUnquotedStringHint ? (
+        <span className="section-value col-span-2 -mt-0.5 text-[10px] text-blue-500/70 dark:text-blue-300/70">
+          String annotation detected: quotes are optional in this section.
+        </span>
+      ) : null}
       <span
         className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
       />
     </>
+  );
+}
+
+function TextParamDateTimeConfigured({
+  value,
+  onChange,
+  onEscape,
+  isDisabled,
+  uiType,
+  timeDisplayFormat,
+  dateDisplayFormat,
+}: {
+  value: string;
+  onChange: ParamValueChange;
+  onEscape: () => void;
+  isDisabled: boolean;
+  uiType: TextParamInputUIType;
+  timeDisplayFormat: TimeDisplayFormat;
+  dateDisplayFormat: DateDisplayFormat;
+}) {
+  return (
+    <TextParamDateTimeInput
+      value={value}
+      onChange={onChange}
+      onEscape={onEscape}
+      isDisabled={isDisabled}
+      uiType={uiType}
+      timeDisplayFormat={timeDisplayFormat}
+      dateDisplayFormat={dateDisplayFormat}
+    />
   );
 }
 

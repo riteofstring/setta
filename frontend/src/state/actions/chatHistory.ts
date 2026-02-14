@@ -21,26 +21,12 @@ type ChatRunSummary = {
   waitingForResponse: boolean;
 };
 
-type BuildChatHistoryEntriesOptions = {
-  sectionId?: string | null;
-  unscopedOnly?: boolean;
-};
-
 export function buildChatHistoryEntries(
   runs: Array<AgentRun>,
-  options: BuildChatHistoryEntriesOptions = {},
 ): Array<ChatHistoryEntry> {
-  const sectionId = normalizeRunSectionId(options.sectionId ?? null);
-  const unscopedOnly = options.unscopedOnly === true;
   const branchChatIds = new Set<string>();
   for (const run of runs) {
     if (!isChatRun(run)) {
-      continue;
-    }
-    if (unscopedOnly && getRunSectionId(run) !== null) {
-      continue;
-    }
-    if (sectionId && getRunSectionId(run) !== sectionId) {
       continue;
     }
     if (!isBranchRun(run)) {
@@ -55,12 +41,6 @@ export function buildChatHistoryEntries(
   const grouped = new Map<string, ChatRunSummary>();
   for (const run of runs) {
     if (!isChatRun(run)) {
-      continue;
-    }
-    if (unscopedOnly && getRunSectionId(run) !== null) {
-      continue;
-    }
-    if (sectionId && getRunSectionId(run) !== sectionId) {
       continue;
     }
     const runChatId = getRunChatId(run);
@@ -109,21 +89,6 @@ export function buildChatHistoryEntries(
     });
   }
   return entries;
-}
-
-function normalizeRunSectionId(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed;
-}
-
-function getRunSectionId(run: AgentRun): string | null {
-  return getRunInputString(run, "sectionId");
 }
 
 function deriveChatNameSource(run: AgentRun): ChatTitleSource | null {
