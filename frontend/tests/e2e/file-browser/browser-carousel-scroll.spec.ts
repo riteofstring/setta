@@ -69,12 +69,12 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
       await expect(cmContent).toBeVisible();
       await cmContent.click();
       await page.keyboard.press(SELECT_ALL_SHORTCUT);
-      await page.keyboard.type(parentDir);
+      await cmContent.fill(parentDir);
       await page.keyboard.press("Enter");
 
-      const resizeHandle = sectionNode.getByRole("separator", {
-        name: "Resize thumbnail strip",
-      });
+      const resizeHandle = sectionNode.locator(
+        '[aria-label="Resize thumbnail strip"]',
+      );
       await expect(resizeHandle).toBeVisible();
       const thumbnailRow = resizeHandle
         .locator("xpath=following-sibling::article")

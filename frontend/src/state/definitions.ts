@@ -28,6 +28,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatFileAttachment,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -675,6 +676,7 @@ type ZustandAIStore = {
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
+  viewCapabilities: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
@@ -702,6 +704,7 @@ type ZustandAIStore = {
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
   pendingProjectChatPrompt: string | null;
+  pendingProjectChatAttachments: ChatFileAttachment[] | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -717,6 +720,7 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         chatDetails: {},
         pendingChatDetails: null,
         viewHistory: false,
+        viewCapabilities: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
@@ -744,11 +748,13 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
         pendingProjectChatPrompt: null,
+        pendingProjectChatAttachments: null,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
+          viewCapabilities: state.viewCapabilities,
         }),
         storage: getPersistStorage(),
       },
@@ -852,6 +858,13 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
+  appGenNavPresetId: string;
+  appGenNavPrompt: string;
+  appGenNavCustomPresets: Array<{
+    id: string;
+    name: string;
+    prompt: string;
+  }>;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -882,6 +895,15 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
+      appGenNavPresetId: "routes-shell",
+      appGenNavPrompt: [
+        "- Treat tab view modes as pages.",
+        "- If any view mode is userFacing, prefer ONLY userFacing tab view modes and include ONLY the sections visible in that view mode.",
+        "- Create routes as a list of { path, name, rootKey } and save them via routes in set_app_definition / stream_app_definition.",
+        "- rootKey must reference an element key that exists in appSpec.elements.",
+        "- Do NOT add a navbar in appSpec; the app shell renders navigation from routes.",
+      ].join("\\n"),
+      appGenNavCustomPresets: [],
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,

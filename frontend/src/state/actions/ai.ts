@@ -756,6 +756,9 @@ export async function submitMessage(
   messageId?: string,
   agentProfileId?: string | null,
   sectionId?: string | null,
+  options?: {
+    overrideSkillIds?: string[] | null;
+  },
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
@@ -790,6 +793,7 @@ export async function submitMessage(
       projectConfigId,
       sectionId: sectionId ?? null,
       allowUnscoped: sectionId == null,
+      overrideSkillIds: options?.overrideSkillIds ?? null,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;

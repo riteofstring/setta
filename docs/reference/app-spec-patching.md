@@ -40,6 +40,21 @@ spec, and matches the expectations of streaming UI contracts (for example
 - Use **JSONL patch ops** when you want streaming preview while generating or
   incrementally constructing a spec.
 
+## Validation On Persistent Updates
+
+Persistent app-definition updates now run route validation as part of payload
+validation (`setta.app.definition_diagnostics` and
+`BaseProjectManager.update_app_definition` / `merge_app_spec_patch`).
+
+Route validation covers:
+- path normalization warnings (missing leading `/`, trailing `/`)
+- duplicate route path errors after normalization
+- missing/blank route `name` warnings
+- `rootKey` existence checks against `appSpec.elements` (error if missing)
+
+Persistent update routes fail fast on route errors (HTTP 400 via
+`ValueError`), so invalid route payloads are rejected before they are written
+to disk.
+
 If/when these converge in the future, this doc should be updated to reflect the
 single canonical patch format.
-

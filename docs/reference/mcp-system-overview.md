@@ -57,6 +57,7 @@ Tool enforcement details:
 - `MultiMCPClient` maintains a `ClientSession` per configured MCP server (SSE, Streamable HTTP, or stdio). Once connected it calls `list_tools()`, converts each tool into an OpenAI-compatible definition, and splits the cache into `init_tool_definitions` and `discoverable_tool_definitions` based on `SettaToolType` when available.
 - Tool names are always namespaced as `<serverId>__<toolName>`. The client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
 - Tools without Setta annotations are accepted and treated as discoverable; they still appear in the namespaced registry.
+- Runtime diagnostics are tracked per server (`connected`, `toolCount`, `error`, `refreshedAtMs`) and exposed via `get_runtime_state()`.
 - `run_stdio_bridge` allows Setta’s MCP server to look like a `stdio` transport. `python -m setta.mcp.client --backend http://127.0.0.1:8000/mcp` pipes stdin/stdout to the SSE connection, which means third-party MCP orchestrators (OpenAI, Claude Desktop, Cursor, etc.) can act as if Setta were a local MCP tool host.
 - The command-line options (`--backend`, `--verbose`) make the bridge easy to embed in shell scripts or automation. Because the connection uses only SSE, the bridge works across machines as long as the HTTP endpoint is reachable.
 
@@ -78,9 +79,34 @@ Tool enforcement details:
 - A pre-populated `setta_files/llm_config.example.json` ships with a Claude Sonnet 4.5 example config. Copy it to `llm_config.json` (or copy individual entries) and then replace the API keys/env var names with ones available in your `.env`.
 - Saving configs through the REST route (`route_set_llm_config`) strips transient fields before writing to disk, while manual edits benefit from validation because the watcher simply calls `load_llm_config` and only broadcasts when parsing succeeds.
 - `llm_config.json` stays in `setta_files/`, while `.env` lives in the project root (`./.env`). API keys never leave disk; `DotEnvWatcher` reloads them and `LLMChatManager._sync_api_keys` merges them into each chat request when needed.
+- Chat-scoped capability policy can narrow the effective MCP server set per chat run even when `llm_config.json` defines broader defaults.
+
+## Skills + capability policy (`setta_files/skills_config.json`)
+- Skills configuration is persisted separately from `llm_config.json` in `setta_files/skills_config.json`:
+  - `skillSources` (roots to scan for `SKILL.md`)
+  - `globalDefaults` (default skill ids + default MCP ids)
+  - `projectChatPolicies` (project chat capability policy keyed by project/chat id)
+- Built-in skill sources default to workspace skills (`setta_files/skills`) plus home-level `.codex/skills` and `.agents/skills`.
+- Skill catalog scanning reads `SKILL.md` front matter (`name`, `description`, optional `metadata.version`) and hides entries when `settaInAppVisible: false`.
+- Capability policy model is shared across section chat and project chat:
+  - `mode: disabled | inherit | custom`
+  - `enabledSkillIds`
+  - `enabledMcpServerIds`
+- `route_get_llm_response` resolves capability policy before each run:
+  - Chat section requests use `ChatSectionImpl.capabilityPolicy`.
+  - Project chat requests use `projectChatPolicies` from `skills_config.json`.
+  - Enabled skills are appended to the system prompt as an "Enabled Skills" block.
+  - Enabled MCP server ids are passed into run inputs, and `AgentRunner` uses that allowlist to filter tool availability.
+- Capability/skills routes in `backend/setta/routers/llm.py`:
+  - Skill sources + catalog: `getSkillSources`, `setSkillSources`, `getSkillsCatalog`, `getSkillDetails`, `importSkillMarkdown`, `deleteSkills`
+  - Policy/defaults: `getGlobalCapabilityDefaults`, `setGlobalCapabilityDefaults`, `getProjectChatCapabilityPolicy`, `setProjectChatCapabilityPolicy`
+  - MCP diagnostics: `getMcpServersRuntimeState`
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
-- `ProjectChat.tsx` hydrates the LLM config/API key state, lets the user pick a provider, and renders both `ProjectChatCore` and `ProjectLLMSettings` side-by-side.
+- `ProjectChat.tsx` hydrates engine + LLM state and provides top-row controls for New, History, Capabilities, Thinking, and Settings.
+- `ProjectChat` conditionally renders `ProjectChatCore`, `ProjectChatHistory`, or `ProjectChatCapabilities` based on the selected view.
+- `ProjectChatCapabilities.tsx` manages project-chat skill import/delete, capability mode, and MCP server selection.
+- `ChatAreaSettings.tsx` exposes section-scoped capabilities under `Section Config -> AI Capabilities`.
 - `ProjectChatCore` pulls chat details from the zustand `useAIStore`. `ChatMessageList`/`ChatMessage` filter out tool-only messages, stitch assistant streams together, and surface edit + branch switcher controls using branch metadata derived from agent runs.
 - `ChatInput` manages optimistic user submissions and attachments via `submitMessage`. `ChatMessageEditor` powers user-message edits and calls `submitEditedMessage`, which POSTs `/getLLMResponse` with `branchParentChatId`/`branchFromMessageId` to create a new branch chat. Pressing the send button while a response is inflight issues `/stopLLMChat`, mirroring the backend’s `request_stop_streaming`.
 - Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.

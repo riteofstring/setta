@@ -52,7 +52,6 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
     "ChatSectionImpl": DEFAULT_EXCLUSIONS,
     "BrowserSectionImpl": DEFAULT_EXCLUSIONS,
-    "PluginSectionImpl": DEFAULT_EXCLUSIONS,
 }
 
 CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
@@ -197,6 +196,7 @@ from pydantic import BaseModel, Field
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.edges import EdgePort
 from setta.types.id import ID
+from setta.types.capabilities import CapabilityPolicy
 from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
