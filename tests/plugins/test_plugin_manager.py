@@ -228,3 +228,48 @@ def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:
     assert "export const apiVersion = 1;" in entrypoint_text
 
     manager.validate_plugin_folder(plugin_root)
+
+
+def test_validate_rejects_invalid_capability_value(tmp_path: Path) -> None:
+    # Manifest capability names must come from the host's closed vocabulary.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "invalid-capability-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    manifest_path = plugin_root / "setta.plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["capabilities"] = ["registerPane", "notARealCapability"]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_MANIFEST_INVALID_CAPABILITY"
+
+
+def test_validate_rejects_duplicate_capability_value(tmp_path: Path) -> None:
+    # Duplicate capability entries should fail fast so intent is unambiguous.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "duplicate-capability-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    manifest_path = plugin_root / "setta.plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["capabilities"] = ["registerPane", "registerPane"]
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_MANIFEST_DUPLICATE_CAPABILITY"
+
+
+def test_validate_rejects_unsupported_manifest_schema_version(tmp_path: Path) -> None:
+    # Future schema versions should be rejected with explicit unsupported-schema errors.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "future-schema-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    manifest_path = plugin_root / "setta.plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["schemaVersion"] = 999
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA"
