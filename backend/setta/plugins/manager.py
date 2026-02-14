@@ -226,6 +226,8 @@ class PluginManager:
         server_mode: Literal["ide", "share", "app"],
         setta_version: str,
         restart_command: str | None = None,
+        backend_startup_timeout_seconds: float = 10.0,
+        backend_register_timeout_seconds: float = 10.0,
     ) -> None:
         self.workspace_root = workspace_root
         self.setta_files_root = setta_files_root
@@ -233,6 +235,8 @@ class PluginManager:
         self.server_mode = server_mode
         self.setta_version = setta_version
         self._restart_command = restart_command or "setta"
+        self._backend_startup_timeout_seconds = backend_startup_timeout_seconds
+        self._backend_register_timeout_seconds = backend_register_timeout_seconds
 
         self._manifest_schema_path = (
             Path(__file__).resolve().parent / "schemas" / "setta.plugin.schema.json"
@@ -457,6 +461,22 @@ class PluginManager:
             code="PLUGIN_BACKEND_IMPORT_FAILED",
             message_prefix="Invalid backend entrypoint path",
         )
+        self._run_backend_preflight_stage(
+            entry=entry,
+            entrypoint_path=entrypoint_path,
+            stage="import",
+            timeout_seconds=self._backend_startup_timeout_seconds,
+            timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
+            default_error_code="PLUGIN_BACKEND_IMPORT_FAILED",
+        )
+        self._run_backend_preflight_stage(
+            entry=entry,
+            entrypoint_path=entrypoint_path,
+            stage="register",
+            timeout_seconds=self._backend_register_timeout_seconds,
+            timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
+            default_error_code="PLUGIN_BACKEND_REGISTER_FAILED",
+        )
         module = self._import_backend_plugin_module(
             entry=entry,
             entrypoint_path=entrypoint_path,
@@ -480,6 +500,79 @@ class PluginManager:
                     "register(plugin); async register is not supported in MVP."
                 ),
             )
+
+    def _run_backend_preflight_stage(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        entrypoint_path: Path,
+        stage: Literal["import", "register"],
+        timeout_seconds: float,
+        timeout_code: str,
+        default_error_code: str,
+    ) -> None:
+        command = [
+            sys.executable,
+            "-m",
+            "setta.plugins.preflight",
+            "--plugin-id",
+            entry.plugin_id,
+            "--plugin-root",
+            str(entry.source_path),
+            "--entrypoint",
+            str(entrypoint_path),
+            "--stage",
+            stage,
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise PluginManagerError(
+                timeout_code,
+                (
+                    f"Backend plugin {entry.plugin_id} {stage} stage timed out "
+                    f"after {timeout_seconds:.2f}s."
+                ),
+            ) from exc
+        if result.returncode == 0:
+            return
+        parsed = self._parse_preflight_error(result.stderr or result.stdout)
+        if parsed is not None:
+            code = parsed.get("code", default_error_code)
+            message = parsed.get(
+                "message",
+                f"Backend plugin {entry.plugin_id} {stage} preflight failed.",
+            )
+        else:
+            code = default_error_code
+            message = (
+                f"Backend plugin {entry.plugin_id} {stage} preflight failed: "
+                f"{result.stderr.strip() or result.stdout.strip() or 'unknown error'}"
+            )
+        raise PluginManagerError(code, message)
+
+    def _parse_preflight_error(self, raw_output: str) -> dict[str, str] | None:
+        trimmed = raw_output.strip()
+        if not trimmed:
+            return None
+        candidate = trimmed.splitlines()[-1]
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        code = parsed.get("code")
+        message = parsed.get("message")
+        if not isinstance(code, str) or not isinstance(message, str):
+            return None
+        return {"code": code, "message": message}
 
     def _import_backend_plugin_module(
         self,

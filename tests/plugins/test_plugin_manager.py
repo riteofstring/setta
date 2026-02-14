@@ -16,7 +16,10 @@ FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugin
 
 
 def _make_manager(
-    tmp_path: Path, server_mode: Literal["ide", "share", "app"] = "ide"
+    tmp_path: Path,
+    server_mode: Literal["ide", "share", "app"] = "ide",
+    backend_startup_timeout_seconds: float = 10.0,
+    backend_register_timeout_seconds: float = 10.0,
 ) -> PluginManager:
     workspace_root = tmp_path / "workspace"
     setta_files_root = tmp_path / "setta_files"
@@ -30,6 +33,8 @@ def _make_manager(
         setta_home=setta_home,
         server_mode=server_mode,
         setta_version="0.1.0",
+        backend_startup_timeout_seconds=backend_startup_timeout_seconds,
+        backend_register_timeout_seconds=backend_register_timeout_seconds,
     )
 
 
@@ -267,6 +272,77 @@ def test_backend_plugin_capability_denied_is_reported(tmp_path: Path) -> None:
     assert backend_entries[0].state == PluginRuntimeState.invalid
     error_codes = {error.code for error in backend_entries[0].errors}
     assert "PLUGIN_CAPABILITY_DENIED" in error_codes
+
+
+def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
+    # Backend import stalls should fail with explicit startup-timeout error codes.
+    manager = _make_manager(
+        tmp_path,
+        backend_startup_timeout_seconds=0.1,
+        backend_register_timeout_seconds=5.0,
+    )
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "import time\n\n"
+        "time.sleep(0.5)\n\n"
+        "def register(plugin):\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_STARTUP_TIMEOUT" in error_codes
+
+
+def test_backend_plugin_register_timeout_is_reported(tmp_path: Path) -> None:
+    # Backend register stalls should fail with explicit register-timeout error codes.
+    manager = _make_manager(
+        tmp_path,
+        backend_startup_timeout_seconds=5.0,
+        backend_register_timeout_seconds=0.1,
+    )
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "import time\n\n"
+        "def register(plugin):\n"
+        "    time.sleep(0.5)\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_REGISTER_TIMEOUT" in error_codes
 
 
 def test_plugin_config_schema_validation_and_list_descriptors(
