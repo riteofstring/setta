@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { type MouseEvent, useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { FiBookmark, FiCheck, FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
@@ -23,43 +23,6 @@ import {
   validateViewModeNameInput,
 } from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";
-import { clamp } from "utils/utils";
-
-const VIEW_MODE_TABS_PANEL_MIN_HEIGHT = 88;
-const VIEW_MODE_TABS_PANEL_DEFAULT_HEIGHT = 132;
-const VIEW_MODE_TOP_PANEL_MIN_HEIGHT = 180;
-
-export function clampViewModesTabsPanelHeight({
-  requestedHeight,
-  containerHeight,
-}: {
-  requestedHeight: number;
-  containerHeight: number;
-}) {
-  if (!Number.isFinite(containerHeight) || containerHeight <= 0) {
-    return VIEW_MODE_TABS_PANEL_MIN_HEIGHT;
-  }
-  const maxHeight = Math.max(
-    VIEW_MODE_TABS_PANEL_MIN_HEIGHT,
-    containerHeight - VIEW_MODE_TOP_PANEL_MIN_HEIGHT,
-  );
-  return clamp(requestedHeight, VIEW_MODE_TABS_PANEL_MIN_HEIGHT, maxHeight);
-}
-
-export function applyViewModesTabsPanelResize({
-  startHeight,
-  deltaY,
-  containerHeight,
-}: {
-  startHeight: number;
-  deltaY: number;
-  containerHeight: number;
-}) {
-  return clampViewModesTabsPanelHeight({
-    requestedHeight: startHeight + deltaY,
-    containerHeight,
-  });
-}
 
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
@@ -77,16 +40,6 @@ export function ViewingEditingMode() {
       };
     }, _.isEqual);
   const { canEditVariants, canEditStructure } = useShareCapabilities();
-  const tabModeList = viewModeList.filter((mode) => mode.isTab);
-  const hasTabModes = tabModeList.length > 0;
-  const [tabsPanelHeight, setTabsPanelHeight] = useState(
-    VIEW_MODE_TABS_PANEL_DEFAULT_HEIGHT,
-  );
-  const [tabsPanelCollapsed, setTabsPanelCollapsed] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(0);
-  const resizeRafRef = useRef<number | null>(null);
-
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -97,51 +50,10 @@ export function ViewingEditingMode() {
   }
   const hasViewModes = viewModeList.length > 0;
   const canDeleteViewModes = viewModeList.length > 1;
-  const tabsPanelDisabled = !hasTabModes;
-  const isTabsPanelCollapsed = tabsPanelDisabled ? true : tabsPanelCollapsed;
-  const effectiveTabsPanelHeight = clampViewModesTabsPanelHeight({
-    requestedHeight: tabsPanelHeight,
-    containerHeight,
-  });
 
   useEffect(() => {
     pruneActiveSectionIdsForViewMode(activeViewModeId, isEditingViewMode);
   }, [activeViewModeId, isEditingViewMode]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) {
-        return;
-      }
-      setContainerHeight(entry.contentRect.height);
-    });
-    observer.observe(container);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isTabsPanelCollapsed) {
-      return;
-    }
-    if (tabsPanelHeight === effectiveTabsPanelHeight) {
-      return;
-    }
-    setTabsPanelHeight(effectiveTabsPanelHeight);
-  }, [effectiveTabsPanelHeight, isTabsPanelCollapsed, tabsPanelHeight]);
-
-  useEffect(() => {
-    return () => {
-      if (resizeRafRef.current !== null) {
-        cancelAnimationFrame(resizeRafRef.current);
-      }
-    };
-  }, []);
 
   const handleModeChange = (modeId: string) => {
     if (!canEditVariants) {
@@ -187,193 +99,73 @@ export function ViewingEditingMode() {
     });
   };
 
-  const handleTabsPanelToggle = () => {
-    if (tabsPanelDisabled) {
-      return;
-    }
-    setTabsPanelCollapsed((value) => !value);
-  };
-
-  const beginTabsPanelResizeDrag = (event: MouseEvent<HTMLDivElement>) => {
-    if (tabsPanelDisabled || isTabsPanelCollapsed) {
-      return;
-    }
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-
-    const measuredContainerHeight = container.clientHeight;
-    const startY = event.clientY;
-    const startHeight = effectiveTabsPanelHeight;
-    let latestClientY = startY;
-
-    const applyResizeForClientY = (clientY: number) => {
-      const deltaY = startY - clientY;
-      const nextHeight = applyViewModesTabsPanelResize({
-        startHeight,
-        deltaY,
-        containerHeight: measuredContainerHeight,
-      });
-      setTabsPanelHeight((current) =>
-        current === nextHeight ? current : nextHeight,
-      );
-    };
-
-    const handleMove = (moveEvent: globalThis.MouseEvent) => {
-      latestClientY = moveEvent.clientY;
-      if (resizeRafRef.current !== null) {
-        return;
-      }
-      resizeRafRef.current = requestAnimationFrame(() => {
-        applyResizeForClientY(latestClientY);
-        resizeRafRef.current = null;
-      });
-    };
-
-    const handleUp = (upEvent: globalThis.MouseEvent) => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-      if (resizeRafRef.current !== null) {
-        cancelAnimationFrame(resizeRafRef.current);
-        resizeRafRef.current = null;
-      }
-      applyResizeForClientY(upEvent.clientY);
-    };
-
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-  };
-
   return (
-    <div
-      ref={containerRef}
-      data-testid="view-modes-pane"
-      className="group/view-modes-pane flex h-full min-h-0 w-full flex-col gap-2"
-    >
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
-        <div className="flex items-center gap-2">
-          <button
-            data-testid="view-modes-toggle-edit"
-            className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
-              canEditStructure
-                ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
-                : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-            }`}
-            onClick={handleToggleEdit}
-            title={editTitle}
-            disabled={!canEditStructure}
-          >
-            <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
-            {editLabel}
-          </button>
-          <button
-            data-testid="view-modes-create-mode"
-            className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
-              canEditStructure
-                ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
-                : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-            }`}
-            onClick={handleCreateMode}
-            title="Create a new view mode"
-            disabled={!canEditStructure}
-          >
-            New View Mode
-          </button>
-        </div>
-
-        {!hasViewModes && (
-          <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
-            No view modes yet. Create one to start customizing visibility.
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          {viewModeList.map((mode) => {
-            const isActive = activeViewModeId === mode.id;
-            if (isEditingViewMode) {
-              return (
-                <ViewModeEditingRow
-                  key={mode.id}
-                  mode={mode}
-                  isActive={isActive}
-                  isDeletable={canDeleteViewModes}
-                  projectConfigId={projectConfigId}
-                  onSelect={handleModeChange}
-                  onToggleTab={handleToggleTab}
-                  onToggleUserFacing={handleToggleUserFacing}
-                  canEditVariants={canEditVariants}
-                  canEditStructure={canEditStructure}
-                />
-              );
-            }
-
-            return (
-              <ViewModeRow
-                key={mode.id}
-                mode={mode}
-                isActive={isActive}
-                onSelect={handleModeChange}
-                disabled={!canEditVariants}
-              />
-            );
-          })}
-        </div>
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <button
+          className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
+            canEditStructure
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
+          onClick={handleToggleEdit}
+          title={editTitle}
+          disabled={!canEditStructure}
+        >
+          <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
+          {editLabel}
+        </button>
+        <button
+          className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
+            canEditStructure
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
+          onClick={handleCreateMode}
+          title="Create a new view mode"
+          disabled={!canEditStructure}
+        >
+          New View Mode
+        </button>
       </div>
 
-      {!isTabsPanelCollapsed && (
-        <div
-          data-testid="view-modes-tabs-resize-handle"
-          role="separator"
-          aria-label="Resize tab preview panel"
-          className="group/view-mode-resize nopan nodrag pointer-events-none -my-1 flex h-4 w-full cursor-row-resize items-center justify-center opacity-0 transition-opacity duration-150 group-focus-within/view-modes-pane:pointer-events-auto group-focus-within/view-modes-pane:opacity-100 group-hover/view-modes-pane:pointer-events-auto group-hover/view-modes-pane:opacity-100"
-          onMouseDown={beginTabsPanelResizeDrag}
-        >
-          <div className="h-1.5 w-5 rounded-full bg-setta-400/90 transition-colors group-hover/view-mode-resize:bg-blue-500 dark:bg-setta-500 dark:group-hover/view-mode-resize:bg-blue-400" />
+      {!hasViewModes && (
+        <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
+          No view modes yet. Create one to start customizing visibility.
         </div>
       )}
 
-      <section
-        data-testid="view-modes-tabs-panel"
-        className={`flex min-h-0 flex-col rounded-lg border border-setta-200 bg-white/80 dark:border-setta-800 dark:bg-setta-900/70 ${
-          tabsPanelDisabled ? "opacity-60" : ""
-        }`}
-        style={isTabsPanelCollapsed ? undefined : { height: effectiveTabsPanelHeight }}
-      >
-        <button
-          type="button"
-          data-testid="view-modes-tabs-panel-toggle"
-          className={`flex items-center justify-between gap-2 rounded-t-lg border-b border-setta-200/80 px-3 py-2 text-xs font-bold uppercase tracking-wide dark:border-setta-800/80 ${
-            tabsPanelDisabled
-              ? "cursor-not-allowed text-setta-400 dark:text-setta-500"
-              : "cursor-pointer text-setta-600 hover:bg-setta-100/80 dark:text-setta-300 dark:hover:bg-setta-800/80"
-          }`}
-          onClick={handleTabsPanelToggle}
-          disabled={tabsPanelDisabled}
-          title={
-            tabsPanelDisabled
-              ? "No tab view modes are available"
-              : "Toggle tab preview"
+      <div className="flex flex-col gap-2">
+        {viewModeList.map((mode) => {
+          const isActive = activeViewModeId === mode.id;
+          if (isEditingViewMode) {
+            return (
+              <ViewModeEditingRow
+                key={mode.id}
+                mode={mode}
+                isActive={isActive}
+                isDeletable={canDeleteViewModes}
+                projectConfigId={projectConfigId}
+                onSelect={handleModeChange}
+                onToggleTab={handleToggleTab}
+                onToggleUserFacing={handleToggleUserFacing}
+                canEditVariants={canEditVariants}
+                canEditStructure={canEditStructure}
+              />
+            );
           }
-        >
-          <span>Tab Preview</span>
-          <i
-            className={`gg-chevron-down !scale-[0.6] text-setta-400 transition-transform duration-150 dark:text-setta-500 ${
-              !isTabsPanelCollapsed ? "rotate-180" : ""
-            }`}
-          />
-        </button>
-        {!isTabsPanelCollapsed && (
-          <ViewModeTabPreview
-            tabModeList={tabModeList}
-            activeViewModeId={activeViewModeId}
-            onSelect={handleModeChange}
-            canEditVariants={canEditVariants}
-          />
-        )}
-      </section>
+
+          return (
+            <ViewModeRow
+              key={mode.id}
+              mode={mode}
+              isActive={isActive}
+              onSelect={handleModeChange}
+              disabled={!canEditVariants}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -418,61 +210,6 @@ function ViewModeRow({ mode, isActive, onSelect, disabled }: ViewModeRowProps) {
       </span>
       <span className="truncate">{modeLabel}</span>
     </button>
-  );
-}
-
-function ViewModeTabPreview({
-  tabModeList,
-  activeViewModeId,
-  onSelect,
-  canEditVariants,
-}: {
-  tabModeList: Array<ViewModeConfig>;
-  activeViewModeId: string | null;
-  onSelect: (modeId: string) => void;
-  canEditVariants: boolean;
-}) {
-  if (tabModeList.length === 0) {
-    return (
-      <div className="flex min-h-0 flex-1 items-center px-3 py-2 text-xs text-setta-500 dark:text-setta-500">
-        Mark a view mode as a tab to preview it here.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 items-end border-t border-setta-200/70 bg-setta-50/50 dark:border-setta-800/70 dark:bg-setta-925/40">
-      <div className="flex w-full items-end gap-1 overflow-x-auto px-2 py-2">
-        {tabModeList.map((mode) => {
-          const isActive = activeViewModeId === mode.id;
-          const label = mode.name ? mode.name : "Untitled View";
-          let tabClasses =
-            "box-border flex h-[30px] min-w-[96px] max-w-[240px] flex-[0_1_200px] select-none items-center gap-2 rounded-t-md border border-solid border-b-0 px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500";
-          if (isActive) {
-            tabClasses = `${tabClasses} border-setta-300 bg-white text-setta-900 shadow-[0_2px_10px_rgba(0,0,0,0.08)] dark:border-setta-500 dark:bg-setta-850 dark:text-setta-50 dark:shadow-[0_2px_14px_rgba(0,0,0,0.6)]`;
-          } else {
-            tabClasses = `${tabClasses} border-setta-300 bg-setta-100 text-setta-700 hover:bg-setta-50 hover:text-setta-900 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-850 dark:hover:text-setta-50`;
-          }
-          if (!canEditVariants) {
-            tabClasses = `${tabClasses} cursor-not-allowed opacity-60`;
-          }
-
-          return (
-            <button
-              key={mode.id}
-              className={tabClasses}
-              onClick={canEditVariants ? () => onSelect(mode.id) : undefined}
-              title={label}
-              disabled={!canEditVariants}
-            >
-              <span className="relative -top-px min-w-0 flex-1 truncate">
-                {label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -654,7 +391,6 @@ function ViewModeEditingRow({
         disabled={!canEditStructure}
       />
       <button
-        data-testid="view-mode-toggle-tab"
         className={`cursor-pointer bg-transparent ${tabClasses}`}
         onClick={handleToggleTab}
         title={tabTitle}

@@ -7,7 +7,6 @@ import {
 import { jsonLanguage } from "@codemirror/lang-json";
 import { markdownLanguage } from "@codemirror/lang-markdown";
 import { pythonLanguage } from "@codemirror/lang-python";
-import { yamlLanguage } from "@codemirror/lang-yaml";
 import { highlightingFor } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorState, RangeSetBuilder } from "@codemirror/state";
@@ -93,7 +92,7 @@ type ParserLike = {
 
 const MAX_SYNTAX_HIGHLIGHT_DOC_LINES = 12000;
 
-export function parserForPath(path: string | null | undefined): ParserLike | null {
+function parserForPath(path: string | null | undefined): ParserLike | null {
   if (!path) {
     return null;
   }
@@ -119,9 +118,6 @@ export function parserForPath(path: string | null | undefined): ParserLike | nul
   }
   if (normalized.endsWith(".json")) {
     return jsonLanguage.parser;
-  }
-  if (normalized.endsWith(".yaml") || normalized.endsWith(".yml")) {
-    return yamlLanguage.parser;
   }
   if (normalized.endsWith(".md") || normalized.endsWith(".markdown")) {
     return markdownLanguage.parser;

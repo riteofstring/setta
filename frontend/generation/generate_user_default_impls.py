@@ -200,6 +200,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
     CodeSectionDiagnosticsIgnoreState,
+    ListRootViewMode,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -223,6 +224,9 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
     DropzoneMode,
+    TextParamInputUIType,
+    TimeDisplayFormat,
+    DateDisplayFormat,
 )
 
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
