@@ -4,6 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+. "${SCRIPT_DIR}/lib/setta_path_flags.sh"
+if [[ -n "${HOME:-}" ]]; then
+  DEFAULT_SETTA_HOME="${HOME}/.setta-development"
+else
+  DEFAULT_SETTA_HOME=".setta-development"
+fi
+DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 
 instance_offset() {
   local instance_name="$1"
@@ -159,17 +166,25 @@ RUN_MODE="start"
 
 usage() {
   cat <<'EOF'
-Usage: ai.sh [--reload]
+Usage: ai.sh [--reload] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
 
 Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
-Uses per-worktree ports and profiles by default.
+Uses per-worktree ports and dev paths by default:
+  SETTA_HOME=~/.setta-development
+  SETTA_FILES_ROOT=<worktree>/setta_files_dev
 
 Flags:
   --reload   Use backend reload mode (pnpm startr)
 EOF
 }
 
+setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
+
 while [[ $# -gt 0 ]]; do
+  if setta_path_flags_try_parse "$@"; then
+    shift "${SETTA_PATH_FLAGS_CONSUMED}"
+    continue
+  fi
   case "$1" in
     --reload)
       RUN_MODE="startr"
@@ -187,6 +202,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+setta_path_flags_validate
+
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
@@ -196,6 +213,7 @@ export DEBUG_PORT
 export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 # Avoid clobbering repo-root backend.log, which start.sh/reset.sh use.
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
+setta_path_flags_apply_env
 
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then

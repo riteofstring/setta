@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
-from setta import __version__
 from setta.agentic.engine_config_watcher import EngineConfigWatcher
 from setta.agentic.example_config import seed_agentic_config_files
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -29,7 +28,6 @@ from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
-from setta.plugins.manager import PluginManager
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -50,7 +48,6 @@ from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
 )
-from setta.utils.setta_home import resolve_setta_home
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -223,13 +220,6 @@ class SettaFastAPIState:
             self.paths = get_setta_paths()
         else:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
-        self.plugin_manager = PluginManager(
-            workspace_root=self.paths.workspace_root,
-            setta_files_root=self.paths.setta_files_root,
-            setta_home=resolve_setta_home(),
-            server_mode=self._resolve_server_mode(),
-            setta_version=__version__,
-        )
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
@@ -332,7 +322,7 @@ class SettaFastAPIState:
     async def _initialize_async(self, app):
         try:
             if self.deployment_mode:
-                await self._initialize_deployment_async(app)
+                await self._initialize_deployment_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -427,10 +417,6 @@ class SettaFastAPIState:
                 self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
             else:
                 self.lsp_readers = None
-
-            self.init_status.record("Loading backend plugins")
-            await self._maybe_delay()
-            self.plugin_manager.load_backend_plugins(app=app)
 
             self.init_status.record("Booting MCP and chat managers")
             await self._maybe_delay()
@@ -535,7 +521,7 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_deployment_async(self, app) -> None:
+    async def _initialize_deployment_async(self) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -635,9 +621,6 @@ class SettaFastAPIState:
                 "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
-        self.init_status.record("Loading backend plugins")
-        await self._maybe_delay()
-        self.plugin_manager.load_backend_plugins(app=app)
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._ready_event.set()
@@ -693,13 +676,6 @@ class SettaFastAPIState:
         delay = C.BACKEND_INIT_DELAY_SECONDS
         if delay and delay > 0:
             await asyncio.sleep(delay)
-
-    def _resolve_server_mode(self) -> str:
-        if self.app_mode:
-            return "app"
-        if self.share_mode:
-            return "share"
-        return "ide"
 
     def _defer_attr(self, name: str) -> _T:
         return cast("_T", _UninitializedAttribute(name))
