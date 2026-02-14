@@ -76,7 +76,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_did_change_configuration()  # pyright requires this step
 
     async def send_document_open_request(
-        self, filepath, code, diagnostics_callback=None
+        self,
+        filepath,
+        code,
+        diagnostics_callback=None,
+        *,
+        language_id: str | None = None,
     ):
         uri = self.get_uri(filepath)
         if diagnostics_callback:
@@ -84,10 +89,11 @@ class LanguageServerWriter(LanguageServerInteractor):
         if uri not in self.latest_version_numbers:
             version = 0
             self.latest_version_numbers[uri] = version
+            resolved_language_id = language_id or self.server.language.value
             params = {
                 "textDocument": {
                     "uri": uri,
-                    "languageId": "python",
+                    "languageId": resolved_language_id,
                     "version": version,
                     "text": code,
                 }

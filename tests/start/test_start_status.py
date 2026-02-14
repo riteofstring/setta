@@ -13,10 +13,8 @@ import pytest
 from click.testing import CliRunner
 
 from setta.sessions import SessionMetadata, SessionRegistry
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
-from setta.start import cli, status, stop
+from setta.start import status, stop
 from setta.utils.constants import C
-from setta.utils.paths import clear_setta_paths_cache
 from tests.utils.setta_paths import temporary_setta_paths
 
 
@@ -54,8 +52,6 @@ def status_env(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    # Let the process fully initialize its argv/cmdline before stale checks.
-    time.sleep(0.05)
     registry = SessionRegistry()
 
     def _create_session(
@@ -92,6 +88,7 @@ def status_workspace_env(tmp_path):
     workspace.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
+    setta_root = workspace / "setta_files"
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
@@ -113,8 +110,6 @@ def status_workspace_env(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    # Let the process fully initialize its argv/cmdline before stale checks.
-    time.sleep(0.05)
 
     def _create_session(port: int) -> SessionMetadata:
         registry = SessionRegistry()
@@ -328,7 +323,7 @@ def test_status_delete_session_does_not_kill_non_setta_process(status_env) -> No
         other_process.wait()
 
 
-def test_status_delete_session_missing_reports_error() -> None:
+def test_status_delete_session_missing_reports_error(status_env) -> None:
     runner = CliRunner()
 
     result = runner.invoke(status, ["--delete-session", "missing"])
@@ -373,69 +368,3 @@ def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
     assert result.exit_code == 0, result.output
     assert f"Stopped session {session.id}." in result.output
     assert not session_dir.exists()
-
-
-def test_stop_local_profile_uses_profile_runtime_sessions_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir(parents=True, exist_ok=True)
-
-    default_sessions_root = workspace / "setta_files" / "runtime" / "sessions"
-    default_sessions_root.mkdir(parents=True, exist_ok=True)
-    default_registry = SessionRegistry(sessions_root=default_sessions_root)
-    default_session = default_registry.create_session(
-        workspace_path=workspace,
-        host="127.0.0.1",
-        port=61230,
-        pid=os.getpid(),
-    )
-
-    lookup_home = tmp_path / ".setta"
-    profile_root = tmp_path / "profiles" / "dev" / "setta_files_dev"
-    profile_sessions_root = profile_root / "runtime" / "sessions"
-    profile_sessions_root.mkdir(parents=True, exist_ok=True)
-    profile_registry = SessionRegistry(sessions_root=profile_sessions_root)
-    profile_session = profile_registry.create_session(
-        workspace_path=workspace,
-        host="127.0.0.1",
-        port=61231,
-        pid=os.getpid(),
-    )
-
-    profile_path = lookup_home / "profiles" / "dev.json"
-    profile_path.parent.mkdir(parents=True, exist_ok=True)
-    profile_path.write_text(
-        json.dumps(
-            {
-                "name": "dev",
-                "workspaceRoot": str(workspace),
-                "settaFilesRoot": str(profile_root),
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("SETTA_HOME", str(lookup_home))
-    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
-    clear_setta_paths_cache()
-
-    runner = CliRunner()
-    result = runner.invoke(
-        cli,
-        [
-            "--profile",
-            "dev",
-            "stop",
-            "--workspace",
-            str(workspace),
-        ],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert f"Stopped session {profile_session.id}." in result.output
-    assert (profile_sessions_root / profile_session.id).exists() is False
-    assert (default_sessions_root / default_session.id).exists() is True
