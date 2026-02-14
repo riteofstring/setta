@@ -317,7 +317,10 @@ def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     max_leaf_chars = 48
     if len(sanitized_leaf) > max_leaf_chars:
         sanitized_leaf = sanitized_leaf[:max_leaf_chars].rstrip("._-") or "workspace"
-    digest = hashlib.sha256(str(workspace_root).encode("utf-8")).hexdigest()[:8]
+    canonical_workspace_root = workspace_root.resolve(strict=False)
+    digest = hashlib.sha256(str(canonical_workspace_root).encode("utf-8")).hexdigest()[
+        :8
+    ]
     return base_root / f"{sanitized_leaf}-{digest}"
 
 

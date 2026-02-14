@@ -379,10 +379,33 @@ def test_build_files_root_from_base_truncates_long_workspace_names(
 
     result = build_files_root_from_base(base_root, workspace)
 
-    expected_digest = hashlib.sha256(str(workspace).encode("utf-8")).hexdigest()[:8]
+    expected_digest = hashlib.sha256(
+        str(workspace.resolve(strict=False)).encode("utf-8")
+    ).hexdigest()[:8]
     assert result.name.endswith(f"-{expected_digest}")
     leaf = result.name[: -(len(expected_digest) + 1)]
     assert len(leaf) <= 48
+
+
+def test_build_files_root_from_base_uses_canonical_workspace_path(
+    tmp_path: Path,
+) -> None:
+    if os.name == "nt":
+        pytest.skip("Symlink canonicalization test requires Unix-style symlinks.")
+    base_root = tmp_path / "state"
+    real_parent = tmp_path / "real_parent"
+    real_parent.mkdir(parents=True, exist_ok=True)
+    real_workspace = real_parent / "workspace"
+    real_workspace.mkdir(parents=True, exist_ok=True)
+
+    alias_parent = tmp_path / "alias_parent"
+    alias_parent.symlink_to(real_parent, target_is_directory=True)
+    alias_workspace = alias_parent / "workspace"
+
+    real_root = build_files_root_from_base(base_root, real_workspace)
+    alias_root = build_files_root_from_base(base_root, alias_workspace)
+
+    assert real_root == alias_root
 
 
 def test_runtime_root_env_override(

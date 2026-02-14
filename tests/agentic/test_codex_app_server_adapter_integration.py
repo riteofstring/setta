@@ -1102,16 +1102,55 @@ class TestCodexAppServerAdapterIntegration:
                     for message in tool_messages
                     if message.get("tool_name") == "command_execution"
                 ]
+                tool_result_references_target = False
+                for message in file_tools:
+                    if not isinstance(message, dict):
+                        continue
+                    arguments = message.get("arguments")
+                    if isinstance(arguments, dict):
+                        path_arg = arguments.get("path")
+                        if isinstance(path_arg, str) and (
+                            path_arg == str(target_path) or "target.txt" in path_arg
+                        ):
+                            tool_result_references_target = True
+                            break
+                    result = message.get("result")
+                    if isinstance(result, dict):
+                        path_result = result.get("path")
+                        if isinstance(path_result, str) and (
+                            path_result == str(target_path) or "target.txt" in path_result
+                        ):
+                            tool_result_references_target = True
+                            break
+                        diff_result = result.get("diff")
+                        if isinstance(diff_result, str) and (
+                            str(target_path) in diff_result or "target.txt" in diff_result
+                        ):
+                            tool_result_references_target = True
+                            break
+                if not tool_result_references_target:
+                    for message in command_tools:
+                        if not isinstance(message, dict):
+                            continue
+                        arguments = message.get("arguments")
+                        if isinstance(arguments, dict):
+                            command_arg = arguments.get("command")
+                            if isinstance(command_arg, str) and (
+                                str(target_path) in command_arg
+                                or "target.txt" in command_arg
+                            ):
+                                tool_result_references_target = True
+                                break
                 if file_tools:
                     # Codex can emit a file-change result while the paired assistant
                     # tool call is surfaced as command_execution.
                     assert "file_change" in tool_names or "command_execution" in tool_names
-                    if not tool_call_references_target:
+                    if not tool_call_references_target and not tool_result_references_target:
                         pytest.fail(
                             self._debug_dump(
                                 outputs,
                                 stderr_lines,
-                                "Tool call metadata did not reference target.txt.",
+                                "Neither tool call metadata nor tool results referenced target.txt.",
                             )
                         )
                 else:

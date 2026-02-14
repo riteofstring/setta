@@ -137,6 +137,43 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_home"] == str(_Paths.setta_home)
 
+    def test_launch_local_without_profile_hides_profile_env_during_paths_lookup(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_home"] = kwargs.get("setta_home")
+            raise LaunchError("Captured", "intentional capture")
+
+        class _Paths:
+            setta_home = Path("/tmp/runtime/.setta-development")
+            profile_lookup_home = Path("/tmp/lookup/.setta")
+
+        def fake_get_setta_paths() -> _Paths:
+            captured["profile_env_seen"] = os.environ.get("SETTA_PROFILE")
+            return _Paths()
+
+        monkeypatch.setenv("SETTA_PROFILE", "missing-profile")
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+        monkeypatch.setattr("setta.routers.launch.get_setta_paths", fake_get_setta_paths)
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_home"] == str(_Paths.setta_home)
+        assert captured["profile_env_seen"] is None
+        assert os.environ.get("SETTA_PROFILE") == "missing-profile"
+
     def test_launch_local_whitespace_profile_is_treated_as_omitted(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

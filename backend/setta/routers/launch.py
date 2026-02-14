@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 
 from fastapi import Depends
@@ -10,6 +11,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
+from setta.utils.env_vars import PROFILE_ENV
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths
 
@@ -123,7 +125,14 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         local_setta_home = normalized_setta_home
         local_profile_lookup_home: str | None = None
         if local_setta_home is None:
-            paths = get_setta_paths()
+            # route_launch should not be influenced by request-time SETTA_PROFILE
+            # mutations. We still read server defaults via get_setta_paths().
+            raw_profile_env = os.environ.pop(PROFILE_ENV, None)
+            try:
+                paths = get_setta_paths()
+            finally:
+                if raw_profile_env is not None:
+                    os.environ[PROFILE_ENV] = raw_profile_env
             local_setta_home = str(paths.setta_home)
             if normalized_profile is not None:
                 local_profile_lookup_home = str(paths.profile_lookup_home)
