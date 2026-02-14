@@ -74,11 +74,18 @@ async function setBrowserFilter({
     .locator('[id^="CodeMirror-FileBrowserFilter-"]')
     .first();
   await expect(filterRoot).toBeVisible();
+  const filterInputId = await filterRoot.getAttribute("id");
+  if (!filterInputId) {
+    throw new Error("Missing browser filter CodeMirror id.");
+  }
   const cmContent = filterRoot.locator(".cm-content");
   await expect(cmContent).toBeVisible();
   await cmContent.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type(value);
+  await expect
+    .poll(async () => await readCodeMirrorValue(page, filterInputId))
+    .toContain(value);
 }
 
 test("browser can save a search and re-apply it from the Filters column", async ({
@@ -93,7 +100,9 @@ test("browser can save a search and re-apply it from the Filters column", async 
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -160,7 +169,9 @@ test("browser can save a search and re-apply it from the Filters column", async 
       await expect(imageTile).toBeVisible({ timeout: 15000 });
       await expect(textTile).toHaveCount(0, { timeout: 15000 });
 
-      const saveButton = sectionNode.getByRole("button", { name: "Save search" });
+      const saveButton = sectionNode.getByRole("button", {
+        name: "Save search",
+      });
       await expect(saveButton).toBeVisible();
       await saveButton.click();
 
