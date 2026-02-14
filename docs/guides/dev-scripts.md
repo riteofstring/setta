@@ -13,6 +13,7 @@ Use these first for day-to-day work.
   - Wrapper over `scripts/run-dev-instance.sh`.
 - `./reset.sh`
   - Same as `start.sh` but first resolves and wipes the active Setta state root.
+  - Accepts the same runtime path flags as `start.sh`.
 - `./ai.sh`
   - Starts dev + Chrome DevTools MCP helpers (worktree-aware ports).
   - Uses the same default dev paths as `start.sh`.
@@ -21,6 +22,7 @@ Use these first for day-to-day work.
 - `./aireset.sh`
   - Wipes the resolved active state root, then runs `./ai.sh`.
   - Uses the same default dev paths as `start.sh`.
+  - Accepts the same runtime path flags as `start.sh` (except `--force` / `--yes`).
 - `./kill.sh`
   - Stops dev processes + browser MCP helpers.
   - Wrapper over `scripts/kill-setta.sh`.
@@ -51,6 +53,12 @@ Use these first for day-to-day work.
   - Removes stale build artifacts before packaging/publishing.
 - `./verify_install.sh`
   - Release smoke test (builds + installs sdist via `uv pip`).
+- `./install_built_setta.sh`
+  - Builds Setta and installs the latest wheel into an isolated uv venv.
+  - Default install root: `.venv_for_built_setta` (override with `--install-root`).
+- `source ./activate_built_setta.sh`
+  - Activates the isolated built-install venv in the current shell.
+  - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
   - One-stop local setup (uv sync + frontend deps + sidecars).
 - `./init_env.sh`

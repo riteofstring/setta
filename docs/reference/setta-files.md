@@ -64,14 +64,73 @@ The global folder name is deterministic per workspace path, and looks like:
 
 `<workspace-name>-<8-hex-digest>`
 
+## Runtime Profiles
+
+Profiles are optional JSON files at:
+
+- `<setta_home>/profiles/<profile-name>.json`
+
+Select a profile with:
+
+- CLI: `--profile <name>`
+- Env: `SETTA_PROFILE=<name>`
+
+Supported profile fields:
+
+- `name` (optional, must match the selected profile filename when provided)
+- `workspaceRoot`
+- `settaHome`
+- `settaFilesRoot`
+- `settaFilesLocation` (`auto|local|global`)
+- `runtimeRoot`
+- `authCookieName`
+
+Profile rules:
+
+- Relative profile paths are resolved relative to `<setta_home>`.
+- `settaFilesRoot` and `settaFilesLocation` are mutually exclusive.
+- Canonical naming rules still apply after profile resolution.
+
+Advanced profile lookup override:
+
+- `SETTA_PROFILE_LOOKUP_HOME` controls where profile files are looked up.
+- This can differ from the resolved runtime `settaHome`.
+
+## Override Precedence
+
+Highest precedence first:
+
+1. Explicit CLI/API request values.
+2. Selected profile values.
+3. Environment variables.
+4. User config + local/global auto-resolution defaults.
+
 ## CLI / Env Overrides
 
 You can force the selection without editing the config:
 
-- CLI: `--setta-files-location {auto,local,global}`
-- Env: `SETTA_FILES_LOCATION={auto,local,global}`
+- CLI:
+  - `--profile <name>`
+  - `--setta-home <path>`
+  - `--setta-files-root <path>`
+  - `--setta-files-location {auto,local,global}`
+  - `--runtime-root <path>`
+- Env:
+  - `SETTA_PROFILE`
+  - `SETTA_HOME`
+  - `SETTA_FILES_ROOT`
+  - `SETTA_FILES_LOCATION`
+  - `SETTA_RUNTIME_ROOT`
 
-The `/api/launch` request also supports `settaFilesLocation: auto|local|global`.
+`--setta-files-root` and `--setta-files-location` are mutually exclusive.
+
+The `/api/launch` request supports:
+
+- `profile`
+- `settaHome`
+- `settaFilesRoot`
+- `settaFilesLocation` (`auto|local|global`)
+- `runtimeRoot`
 
 ## API Helpers
 
