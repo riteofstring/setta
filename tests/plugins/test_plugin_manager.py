@@ -286,6 +286,33 @@ def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
         SETTA_MCP_TOOLS[:] = baseline_tools
 
 
+def test_backend_worker_processes_stay_alive_until_shutdown(tmp_path: Path) -> None:
+    # Backend workers should remain running after load and stop on explicit shutdown.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    app = FastAPI()
+    manager.load_backend_plugins(app=app)
+
+    process = manager._backend_worker_processes.get("setta-fixture-backend")
+    assert process is not None
+    assert process.poll() is None
+    assert "setta_fixture_backend_echo" in {tool.__name__ for tool in SETTA_MCP_TOOLS}
+
+    manager.shutdown_backend_plugins()
+
+    assert manager._backend_worker_processes == {}
+    assert process.poll() is not None
+    assert "setta_fixture_backend_echo" not in {
+        tool.__name__ for tool in SETTA_MCP_TOOLS
+    }
+
+
 def test_load_backend_plugins_marks_import_failures_invalid(tmp_path: Path) -> None:
     # Backend import failures should map to deterministic invalid-plugin status codes.
     manager = _make_manager(tmp_path)

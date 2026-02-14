@@ -274,6 +274,8 @@ class PluginManager:
         self._pending_restart_backend_ids: set[str] = set()
         self._backend_runtime_errors: dict[str, PluginErrorInfo] = {}
         self._backend_loaded_plugin_ids: set[str] = set()
+        self._backend_worker_processes: dict[str, subprocess.Popen[str]] = {}
+        self._backend_registered_mcp_tools: dict[str, list[Callable[..., Any]]] = {}
         self._backend_external_agent_adapters: dict[str, list[Any]] = {}
         self._backend_language_servers: dict[str, list[Any]] = {}
         self._backend_codegen_targets: dict[str, list[Any]] = {}
@@ -284,9 +286,18 @@ class PluginManager:
 
         self.rescan()
 
+    def __del__(self) -> None:
+        try:
+            self.shutdown_backend_plugins()
+        except Exception:
+            return
+
     def load_backend_plugins(self, *, app: "FastAPI") -> None:
+        self.shutdown_backend_plugins()
         self._backend_runtime_errors = {}
         self._backend_loaded_plugin_ids = set()
+        self._backend_worker_processes = {}
+        self._backend_registered_mcp_tools = {}
         self._backend_external_agent_adapters = {}
         self._backend_language_servers = {}
         self._backend_codegen_targets = {}
@@ -311,6 +322,12 @@ class PluginManager:
                 continue
             self._backend_loaded_plugin_ids.add(entry.plugin_id)
         self.rescan()
+
+    def shutdown_backend_plugins(self) -> None:
+        for plugin_id, process in list(self._backend_worker_processes.items()):
+            self._shutdown_backend_worker(plugin_id=plugin_id, process=process)
+        self._backend_worker_processes = {}
+        self._remove_backend_registered_mcp_tools()
 
     def rescan(self) -> PluginsRescanResponse:
         discovered = self._discover_plugins()
@@ -543,33 +560,38 @@ class PluginManager:
                     timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
                 )
             except PluginManagerError:
-                # Shutdown errors are non-fatal for startup-time registration.
                 pass
-        finally:
+        except Exception:
             self._stop_backend_worker_process(worker_process)
-        module = self._import_backend_plugin_module(
-            entry=entry,
-            entrypoint_path=entrypoint_path,
-        )
-        register_fn = getattr(module, "register", None)
-        if register_fn is None or not callable(register_fn):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_IMPORT_FAILED",
-                (
-                    f"Backend plugin {entry.plugin_id} does not expose "
-                    "a callable register(plugin) entrypoint."
-                ),
+            raise
+        try:
+            module = self._import_backend_plugin_module(
+                entry=entry,
+                entrypoint_path=entrypoint_path,
             )
-        context = self._build_backend_plugin_context(app=app, entry=entry)
-        result = register_fn(context)
-        if inspect.isawaitable(result):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_IMPORT_FAILED",
-                (
-                    f"Backend plugin {entry.plugin_id} returned an awaitable from "
-                    "register(plugin); async register is not supported in MVP."
-                ),
-            )
+            register_fn = getattr(module, "register", None)
+            if register_fn is None or not callable(register_fn):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_IMPORT_FAILED",
+                    (
+                        f"Backend plugin {entry.plugin_id} does not expose "
+                        "a callable register(plugin) entrypoint."
+                    ),
+                )
+            context = self._build_backend_plugin_context(app=app, entry=entry)
+            result = register_fn(context)
+            if inspect.isawaitable(result):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_IMPORT_FAILED",
+                    (
+                        f"Backend plugin {entry.plugin_id} returned an awaitable from "
+                        "register(plugin); async register is not supported in MVP."
+                    ),
+                )
+        except Exception:
+            self._stop_backend_worker_process(worker_process)
+            raise
+        self._backend_worker_processes[entry.plugin_id] = worker_process
 
     def _start_backend_worker_process(
         self,
@@ -781,6 +803,42 @@ class PluginManager:
         for stream in (process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
+
+    def _shutdown_backend_worker(
+        self,
+        *,
+        plugin_id: str,
+        process: subprocess.Popen[str],
+    ) -> None:
+        if process.poll() is None:
+            try:
+                self._call_backend_worker_method(
+                    process=process,
+                    plugin_id=plugin_id,
+                    request_id=10_000,
+                    method="plugin.shutdown",
+                    timeout_seconds=self._backend_register_timeout_seconds,
+                    timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
+                )
+            except PluginManagerError:
+                pass
+        self._stop_backend_worker_process(process)
+
+    def _remove_backend_registered_mcp_tools(self) -> None:
+        from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+
+        if len(self._backend_registered_mcp_tools) == 0:
+            return
+        registered_tool_ids: set[int] = set()
+        for tool_fns in self._backend_registered_mcp_tools.values():
+            for tool_fn in tool_fns:
+                registered_tool_ids.add(id(tool_fn))
+        SETTA_MCP_TOOLS[:] = [
+            tool_fn
+            for tool_fn in SETTA_MCP_TOOLS
+            if id(tool_fn) not in registered_tool_ids
+        ]
+        self._backend_registered_mcp_tools = {}
 
     def _validate_backend_worker_handshake(
         self,
@@ -1241,6 +1299,9 @@ class PluginManager:
                     ToolAccessMetadata(accessType=access_type),
                 )
         SETTA_MCP_TOOLS.append(tool_fn)
+        if entry.plugin_id not in self._backend_registered_mcp_tools:
+            self._backend_registered_mcp_tools[entry.plugin_id] = []
+        self._backend_registered_mcp_tools[entry.plugin_id].append(tool_fn)
 
     def _wrap_mcp_tool_with_name(
         self,
