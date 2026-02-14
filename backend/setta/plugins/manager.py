@@ -49,6 +49,7 @@ from setta.plugins.models import (
     PluginLockEntry,
     PluginLockWriteResponse,
     PluginManifest,
+    PluginRegisteredCodegenTarget,
     PluginRegisteredExternalAgentAdapter,
     PluginRegisteredLanguageServer,
     PluginRestartCapability,
@@ -68,6 +69,7 @@ from setta.plugins.models import (
     scope_label,
 )
 from setta.types.external_agents import ExternalAgentRunMode
+from setta.types.project_config import ProjectCodegenLanguage
 from setta.types.section_impls import CodeLanguage
 
 if TYPE_CHECKING:
@@ -109,6 +111,7 @@ _REQUIRED_BACKEND_RPC_METHODS = frozenset(
         "plugin.initialize",
         "plugin.register",
         "plugin.shutdown",
+        "plugin.invoke_codegen_target",
         "host.register_router",
         "host.register_static_dir",
         "host.register_mcp_tool",
@@ -195,6 +198,16 @@ class PendingRestartRemovedBackendPlugin:
     requested_capabilities: list[str]
     effective_capabilities: list[str]
     blocked_capabilities: list[PluginBlockedCapability]
+
+
+@dataclass(slots=True, frozen=True)
+class RegisteredBackendCodegenTarget:
+    target_id: str
+    plugin_id: str
+    language: str
+    name: str
+    default_file_name: str
+    handler_id: str
 
 
 @dataclass(slots=True)
@@ -323,7 +336,12 @@ class PluginManager:
         self._backend_language_server_by_language: dict[
             CodeLanguage, RegisteredLanguageServer
         ] = {}
-        self._backend_codegen_targets: dict[str, list[Any]] = {}
+        self._backend_codegen_targets: dict[
+            str, list[PluginRegisteredCodegenTarget]
+        ] = {}
+        self._backend_codegen_target_by_id: dict[
+            str, RegisteredBackendCodegenTarget
+        ] = {}
         self._backend_startup_tasks: dict[str, list[Callable[..., Any]]] = {}
         self._backend_shutdown_tasks: dict[str, list[Callable[..., Any]]] = {}
         self._discovered_plugins: list[DiscoveredPlugin] = []
@@ -352,6 +370,7 @@ class PluginManager:
         self._backend_language_servers = {}
         self._backend_language_server_by_language = {}
         self._backend_codegen_targets = {}
+        self._backend_codegen_target_by_id = {}
         self._backend_startup_tasks = {}
         self._backend_shutdown_tasks = {}
 
@@ -505,6 +524,9 @@ class PluginManager:
                     registeredExternalAgentAdapters=self._serialize_registered_external_agent_adapters(
                         entry.plugin_id
                     ),
+                    registeredCodegenTargets=self._serialize_registered_codegen_targets(
+                        entry.plugin_id
+                    ),
                     enablementSource=entry.enablement_source,
                     restartRequired=entry.restart_required,
                     errors=entry.errors,
@@ -564,6 +586,94 @@ class PluginManager:
         return sorted(
             self._backend_external_agent_adapter_by_id.values(),
             key=lambda registration: registration.adapterId,
+        )
+
+    def _serialize_registered_codegen_targets(
+        self,
+        plugin_id: str,
+    ) -> list[PluginRegisteredCodegenTarget]:
+        registrations = self._backend_codegen_targets.get(plugin_id, [])
+        return sorted(
+            registrations,
+            key=lambda registration: registration.targetId,
+        )
+
+    def get_backend_codegen_targets(self) -> list[PluginRegisteredCodegenTarget]:
+        registrations: list[PluginRegisteredCodegenTarget] = []
+        for registration in self._backend_codegen_target_by_id.values():
+            registrations.append(
+                PluginRegisteredCodegenTarget(
+                    targetId=registration.target_id,
+                    pluginId=registration.plugin_id,
+                    language=registration.language,
+                    name=registration.name,
+                    defaultFileName=registration.default_file_name,
+                )
+            )
+        return sorted(registrations, key=lambda registration: registration.targetId)
+
+    def has_backend_codegen_target(self, target_id: str) -> bool:
+        normalized_target_id = target_id.strip()
+        if normalized_target_id == "":
+            return False
+        return normalized_target_id in self._backend_codegen_target_by_id
+
+    def generate_backend_codegen_target(
+        self,
+        *,
+        target_id: str,
+        project_state: dict[str, Any],
+        target_options: dict[str, Any],
+    ) -> list[tuple[str, str]]:
+        if not isinstance(project_state, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                "Plugin codegen project_state payload must be an object.",
+            )
+        if not isinstance(target_options, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                "Plugin codegen target_options payload must be an object.",
+            )
+        normalized_target_id = target_id.strip()
+        if normalized_target_id == "":
+            raise PluginManagerError(
+                "PLUGIN_CODEGEN_TARGET_NOT_FOUND",
+                "Plugin codegen target id is required.",
+            )
+        registration = self._backend_codegen_target_by_id.get(normalized_target_id)
+        if registration is None:
+            raise PluginManagerError(
+                "PLUGIN_CODEGEN_TARGET_NOT_FOUND",
+                f"Plugin codegen target is not registered: {normalized_target_id}",
+            )
+        process = self._backend_worker_processes.get(registration.plugin_id)
+        if process is None or process.poll() is not None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    "Backend worker unavailable for plugin "
+                    f"{registration.plugin_id} while generating code."
+                ),
+            )
+        generation_payload = self._call_backend_worker_method(
+            process=process,
+            plugin_id=registration.plugin_id,
+            request_id=self._next_backend_worker_request_id(registration.plugin_id),
+            method="plugin.invoke_codegen_target",
+            timeout_seconds=self._backend_register_timeout_seconds,
+            timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            params={
+                "handlerId": registration.handler_id,
+                "projectState": project_state,
+                "targetOptions": target_options,
+            },
+        )
+        return self._normalize_codegen_generation_payload(
+            plugin_id=registration.plugin_id,
+            target_id=registration.target_id,
+            payload=generation_payload,
+            default_file_name=registration.default_file_name,
         )
 
     def get_restart_capability(self) -> PluginRestartCapability:
@@ -2171,9 +2281,245 @@ class PluginManager:
             "registerCodegenTarget",
             api_name="register_codegen_target",
         )
+        registration = self._build_backend_codegen_target_registration(
+            entry=entry,
+            target=target,
+        )
+        if registration.target_id in self._backend_codegen_target_by_id:
+            existing = self._backend_codegen_target_by_id[registration.target_id]
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Duplicate backend codegen target registration for "
+                    f"{registration.target_id}. Existing plugin: "
+                    f"{existing.plugin_id}, new plugin: {registration.plugin_id}."
+                ),
+            )
         if entry.plugin_id not in self._backend_codegen_targets:
             self._backend_codegen_targets[entry.plugin_id] = []
-        self._backend_codegen_targets[entry.plugin_id].append(target)
+        self._backend_codegen_targets[entry.plugin_id].append(
+            PluginRegisteredCodegenTarget(
+                targetId=registration.target_id,
+                pluginId=registration.plugin_id,
+                language=registration.language,
+                name=registration.name,
+                defaultFileName=registration.default_file_name,
+            )
+        )
+        self._backend_codegen_target_by_id[registration.target_id] = registration
+
+    def _build_backend_codegen_target_registration(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        target: Any,
+    ) -> RegisteredBackendCodegenTarget:
+        if not isinstance(target, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin codegen target registration must be an object with "
+                    "id/name/language/handlerId."
+                ),
+            )
+        allowed_keys = {"id", "name", "language", "handlerId", "defaultFileName"}
+        unknown_keys = sorted(set(target.keys()) - allowed_keys)
+        if unknown_keys:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin codegen target registration has unsupported keys: "
+                    f"{', '.join(unknown_keys)}"
+                ),
+            )
+        raw_local_id = target.get("id")
+        if not isinstance(raw_local_id, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration missing string id.",
+            )
+        local_id = raw_local_id.strip()
+        if local_id == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration id cannot be empty.",
+            )
+        if ":" in local_id:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration id cannot contain ':'.",
+            )
+        raw_name = target.get("name")
+        if not isinstance(raw_name, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration missing string name.",
+            )
+        name = raw_name.strip()
+        if name == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration name cannot be empty.",
+            )
+        raw_language = target.get("language")
+        if not isinstance(raw_language, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration missing string language.",
+            )
+        language = raw_language.strip()
+        if language == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration language cannot be empty.",
+            )
+        if language == ProjectCodegenLanguage.python.value:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin codegen targets cannot reuse python language id. "
+                    "Python codegen is built in."
+                ),
+            )
+        raw_handler_id = target.get("handlerId")
+        if not isinstance(raw_handler_id, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration missing string handlerId.",
+            )
+        handler_id = raw_handler_id.strip()
+        if handler_id == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin codegen target registration handlerId cannot be empty.",
+            )
+        raw_default_file_name = target.get("defaultFileName")
+        default_file_name = "setta_gen.txt"
+        if raw_default_file_name is not None:
+            if not isinstance(raw_default_file_name, str):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        "Plugin codegen target registration defaultFileName must "
+                        "be a string when provided."
+                    ),
+                )
+            normalized_default_file_name = raw_default_file_name.strip()
+            if normalized_default_file_name != "":
+                default_file_name = normalized_default_file_name
+        target_id = f"{entry.plugin_id}:{local_id}"
+        return RegisteredBackendCodegenTarget(
+            target_id=target_id,
+            plugin_id=entry.plugin_id,
+            language=language,
+            name=name,
+            default_file_name=default_file_name,
+            handler_id=handler_id,
+        )
+
+    def _normalize_codegen_generation_payload(
+        self,
+        *,
+        plugin_id: str,
+        target_id: str,
+        payload: Any,
+        default_file_name: str,
+    ) -> list[tuple[str, str]]:
+        if not isinstance(payload, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                (
+                    "Plugin codegen target returned a non-object payload for "
+                    f"{target_id}."
+                ),
+            )
+        raw_files = payload.get("files")
+        if not isinstance(raw_files, list):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                (
+                    "Plugin codegen target result must include files array for "
+                    f"{target_id}."
+                ),
+            )
+        normalized_files: list[tuple[str, str]] = []
+        seen_relative_paths: set[str] = set()
+        for index, raw_file in enumerate(raw_files):
+            if not isinstance(raw_file, dict):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        "Plugin codegen file entry must be an object for "
+                        f"{target_id} (index={index})."
+                    ),
+                )
+            raw_relative_path = raw_file.get("relativePath")
+            relative_path = default_file_name
+            if raw_relative_path is not None:
+                if not isinstance(raw_relative_path, str):
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_CODEGEN_FAILED",
+                        (
+                            "Plugin codegen file relativePath must be a string for "
+                            f"{target_id} (index={index})."
+                        ),
+                    )
+                normalized_relative_path = raw_relative_path.strip().replace("\\", "/")
+                if normalized_relative_path != "":
+                    relative_path = normalized_relative_path
+            if relative_path.startswith("/"):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        "Plugin codegen file relativePath cannot be absolute for "
+                        f"{target_id} (path={relative_path})."
+                    ),
+                )
+            path_parts = Path(relative_path).parts
+            if len(path_parts) == 0:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        "Plugin codegen file relativePath cannot be empty for "
+                        f"{target_id}."
+                    ),
+                )
+            if any(part in {"..", ""} for part in path_parts):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        "Plugin codegen file relativePath cannot escape target root "
+                        f"for {target_id} (path={relative_path})."
+                    ),
+                )
+            if relative_path in seen_relative_paths:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        "Plugin codegen file relativePath is duplicated for "
+                        f"{target_id} (path={relative_path})."
+                    ),
+                )
+            seen_relative_paths.add(relative_path)
+            raw_content = raw_file.get("content")
+            if not isinstance(raw_content, str):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        "Plugin codegen file content must be a string for "
+                        f"{target_id} (index={index})."
+                    ),
+                )
+            normalized_files.append((relative_path, raw_content))
+        if len(normalized_files) == 0:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                (
+                    "Plugin codegen target must generate at least one file for "
+                    f"{plugin_id}:{target_id}."
+                ),
+            )
+        return normalized_files
 
     def _register_backend_startup_task(
         self,

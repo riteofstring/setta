@@ -1014,7 +1014,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     if (isCreating) {
       const defaultPluginAdapterId =
         defaultToolType === ExternalAgentToolTypeEnum.plugin
-          ? (pluginExternalAgentAdapters[0]?.adapterId ?? "")
+          ? pluginExternalAgentAdapters[0]?.adapterId ?? ""
           : "";
       const defaultRunModeOptions = getRunModeOptionsForToolType(
         defaultToolType,
@@ -1096,7 +1096,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       );
       const nextRunMode = allowedRunModes.includes(prev.runMode)
         ? prev.runMode
-        : (allowedRunModes[0] ?? prev.runMode);
+        : allowedRunModes[0] ?? prev.runMode;
       if (
         nextPluginAdapterId === prev.pluginAdapterId &&
         nextRunMode === prev.runMode
@@ -1246,7 +1246,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
           );
           nextPluginAdapterId = hasCurrentPluginAdapter
             ? prev.pluginAdapterId
-            : (pluginExternalAgentAdapters[0]?.adapterId ?? "");
+            : pluginExternalAgentAdapters[0]?.adapterId ?? "";
         }
         const allowedRunModes = getRunModeOptionsForToolType(
           toolType,
@@ -1256,7 +1256,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         );
         const nextRunMode = allowedRunModes.includes(prev.runMode)
           ? prev.runMode
-          : (allowedRunModes[0] ?? ExternalAgentRunModeEnum.sdk);
+          : allowedRunModes[0] ?? ExternalAgentRunModeEnum.sdk;
         return {
           ...prev,
           toolType,
@@ -1274,7 +1274,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
         );
         const nextRunMode = allowedRunModes.includes(prev.runMode)
           ? prev.runMode
-          : (allowedRunModes[0] ?? ExternalAgentRunModeEnum.sdk);
+          : allowedRunModes[0] ?? ExternalAgentRunModeEnum.sdk;
         return {
           ...prev,
           pluginAdapterId,
@@ -1323,7 +1323,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     draft?.toolType === ExternalAgentToolTypeEnum.codex &&
     draft?.runMode === ExternalAgentRunModeEnum.app_server
       ? "codex"
-      : (selectedPluginAdapter?.command ?? "node");
+      : selectedPluginAdapter?.command ?? "node";
   const isExplicitSettingsPath =
     draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
 
@@ -1355,7 +1355,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
               const isActive = config.id === activeId && !isCreating;
               const toolLabel =
                 config.toolType === ExternalAgentToolTypeEnum.plugin
-                  ? (config.pluginAdapterId ?? "plugin")
+                  ? config.pluginAdapterId ?? "plugin"
                   : config.toolType;
               let itemClassName =
                 "rounded-md px-2 py-2 text-left text-xs transition-colors";
@@ -1471,7 +1471,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                       handleFieldChange("pluginAdapterId", event.target.value)
                     }
                     className={SELECT_CLASS_NAME}
-                    disabled={!canEdit || pluginExternalAgentAdapters.length === 0}
+                    disabled={
+                      !canEdit || pluginExternalAgentAdapters.length === 0
+                    }
                   >
                     {pluginExternalAgentAdapters.length === 0 ? (
                       <option value="">No plugin adapters registered</option>
@@ -1560,7 +1562,8 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                         onChange={(event) =>
                           handleFieldChange(
                             "settingsMode",
-                            event.target.value as ExternalAgentSettingsModeValue,
+                            event.target
+                              .value as ExternalAgentSettingsModeValue,
                           )
                         }
                         className={SELECT_CLASS_NAME}
@@ -1584,7 +1587,10 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                       <input
                         value={draft.settingsFilePath}
                         onChange={(event) =>
-                          handleFieldChange("settingsFilePath", event.target.value)
+                          handleFieldChange(
+                            "settingsFilePath",
+                            event.target.value,
+                          )
                         }
                         className={INPUT_CLASS_NAME}
                         disabled={!canEdit || !isExplicitSettingsPath}

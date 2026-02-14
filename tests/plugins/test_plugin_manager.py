@@ -204,6 +204,7 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
     "fixture_name",
     [
         "backend",
+        "backend-codegen",
         "backend-language-server",
         "backend-language-server-e2e",
         "backend-external-agent",
@@ -914,6 +915,118 @@ def test_load_backend_plugins_registers_fixture_external_agent_adapter(
     )
     assert registration.pluginId == "setta-fixture-backend-external-agent"
     assert registration.runModes == ["sdk"]
+
+
+def test_load_backend_plugins_registers_fixture_codegen_target(
+    tmp_path: Path,
+) -> None:
+    # Backend fixture plugins should be able to register worker-based codegen targets.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-codegen"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.active
+    assert len(backend_entries[0].registeredCodegenTargets) == 1
+    status_registration = backend_entries[0].registeredCodegenTargets[0]
+    assert status_registration.targetId == "setta-fixture-backend-codegen:typescript"
+    assert status_registration.pluginId == "setta-fixture-backend-codegen"
+    assert status_registration.language == "typescript"
+    assert status_registration.name == "TypeScript"
+    assert status_registration.defaultFileName == "setta_gen.ts"
+
+    registrations = manager.get_backend_codegen_targets()
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert registration.targetId == "setta-fixture-backend-codegen:typescript"
+    assert registration.pluginId == "setta-fixture-backend-codegen"
+    assert registration.language == "typescript"
+
+    generated_files = manager.generate_backend_codegen_target(
+        target_id="setta-fixture-backend-codegen:typescript",
+        project_state={"projectConfig": {"name": "FixtureProject"}},
+        target_options={"className": "FixtureState"},
+    )
+    assert generated_files == [
+        (
+            "setta_gen.ts",
+            "export class FixtureState {\n"
+            "  readonly projectName = 'FixtureProject';\n"
+            "}\n",
+        )
+    ]
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_mode_policy_blocks_backend_codegen_target_registration(
+    tmp_path: Path,
+    server_mode: Literal["share", "app"],
+) -> None:
+    # Share/App should block registerCodegenTarget and surface deterministic status.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    list_response = manager.get_list_response()
+    list_entries = [
+        entry
+        for entry in list_response.plugins
+        if entry.pluginId == "setta-fixture-backend-codegen"
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].effectiveCapabilities == []
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-codegen"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    status_entry = status_entries[0]
+    assert status_entry.state == PluginRuntimeState.active
+    assert status_entry.requestedCapabilities == ["registerCodegenTarget"]
+    assert status_entry.effectiveCapabilities == []
+    assert status_entry.registeredCodegenTargets == []
+    assert len(status_entry.blockedCapabilities) == 1
+    assert status_entry.blockedCapabilities[0].capability == "registerCodegenTarget"
+    assert (
+        status_entry.blockedCapabilities[0].reason
+        == BlockedCapabilityReason.mode_policy
+    )
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    loaded_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-codegen"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(loaded_entries) == 1
+    assert loaded_entries[0].state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_CAPABILITY_DENIED" for error in loaded_entries[0].errors
+    )
 
 
 @pytest.mark.parametrize("server_mode", ["share", "app"])

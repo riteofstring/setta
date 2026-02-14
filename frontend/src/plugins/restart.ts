@@ -3,7 +3,7 @@ import type {
   PluginRestartCapability,
 } from "utils/generatedTypes";
 
-export type PluginRestartActionPlan =
+type PluginRestartActionPlan =
   | {
       mode: "programmatic";
       command: null;

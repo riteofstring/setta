@@ -397,6 +397,7 @@ class SettaFastAPIState:
                 json_source=self.json_source,
                 code_files=self.code_files,
                 lsp_writers=lsp_writers,
+                plugin_manager=self.plugin_manager,
             )
             settings_project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_settings,
@@ -409,6 +410,7 @@ class SettaFastAPIState:
                 json_source=self.json_source,
                 code_files=self.settings_code_files,
                 lsp_writers=lsp_writers,
+                plugin_manager=self.plugin_manager,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
                 main_manager=project_manager,

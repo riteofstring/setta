@@ -15,6 +15,7 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.shutdown",
     "plugin.invoke_route",
     "plugin.invoke_mcp_tool",
+    "plugin.invoke_codegen_target",
     "host.register_router",
     "host.register_static_dir",
     "host.register_mcp_tool",
@@ -132,6 +133,9 @@ class _WorkerState:
     module: Any | None = None
     route_handlers: dict[str, _WorkerRouteHandler] = field(default_factory=dict)
     mcp_tools_by_name: dict[str, Callable[..., Any]] = field(default_factory=dict)
+    codegen_target_generators: dict[str, Callable[..., Any]] = field(
+        default_factory=dict
+    )
     _next_route_counter: int = 0
 
     def _load_module(self) -> Any:
@@ -326,15 +330,97 @@ class _WorkerState:
         target: Any,
         host_call: Callable[[str, dict[str, Any]], Any],
     ) -> None:
+        if not isinstance(target, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} codegen target registration "
+                    "must be an object."
+                ),
+            )
+        allowed_keys = {"id", "name", "language", "defaultFileName", "generate"}
+        unknown_keys = sorted(set(target.keys()) - allowed_keys)
+        if len(unknown_keys) > 0:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} codegen target registration has "
+                    f"unsupported keys: {', '.join(unknown_keys)}"
+                ),
+            )
+        raw_id = target.get("id")
+        if not isinstance(raw_id, str) or raw_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {self.plugin_id} codegen target id must be a string.",
+            )
+        local_id = raw_id.strip()
+        if ":" in local_id:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} codegen target id cannot contain "
+                    "':' in worker mode."
+                ),
+            )
+        raw_name = target.get("name")
+        if not isinstance(raw_name, str) or raw_name.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {self.plugin_id} codegen target name must be a string.",
+            )
+        name = raw_name.strip()
+        raw_language = target.get("language")
+        if not isinstance(raw_language, str) or raw_language.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (f"Plugin {self.plugin_id} codegen target language must be a string."),
+            )
+        language = raw_language.strip()
+        raw_default_file_name = target.get("defaultFileName")
+        default_file_name: str | None = None
+        if raw_default_file_name is not None:
+            if (
+                not isinstance(raw_default_file_name, str)
+                or raw_default_file_name.strip() == ""
+            ):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {self.plugin_id} codegen target defaultFileName "
+                        "must be a non-empty string when provided."
+                    ),
+                )
+            default_file_name = raw_default_file_name.strip()
+        raw_generate = target.get("generate")
+        if not callable(raw_generate):
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} codegen target generate must be "
+                    "callable in worker mode."
+                ),
+            )
+        if local_id in self.codegen_target_generators:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} registered duplicate codegen "
+                    f"target id: {local_id}"
+                ),
+            )
+        self.codegen_target_generators[local_id] = raw_generate
+        target_payload: dict[str, Any] = {
+            "id": local_id,
+            "name": name,
+            "language": language,
+            "handlerId": local_id,
+        }
+        if default_file_name is not None:
+            target_payload["defaultFileName"] = default_file_name
         host_call(
             "host.register_codegen_target",
-            {
-                "target": _ensure_json_serializable(
-                    target,
-                    plugin_id=self.plugin_id,
-                    label="codegen target",
-                )
-            },
+            {"target": target_payload},
         )
 
     def _build_route_call_kwargs(
@@ -492,6 +578,64 @@ class _WorkerState:
             "result": result,
         }
 
+    def _invoke_codegen_target(self, params: Any) -> dict[str, Any]:
+        if not isinstance(params, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                "plugin.invoke_codegen_target params must be an object.",
+            )
+        raw_handler_id = params.get("handlerId")
+        if not isinstance(raw_handler_id, str) or raw_handler_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                "plugin.invoke_codegen_target missing handlerId.",
+            )
+        handler_id = raw_handler_id.strip()
+        target_generator = self.codegen_target_generators.get(handler_id)
+        if target_generator is None:
+            raise WorkerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                f"Plugin codegen target handler not found: {handler_id}",
+            )
+        project_state = params.get("projectState")
+        if not isinstance(project_state, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                "plugin.invoke_codegen_target projectState must be an object.",
+            )
+        raw_target_options = params.get("targetOptions", {})
+        if not isinstance(raw_target_options, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                "plugin.invoke_codegen_target targetOptions must be an object.",
+            )
+        try:
+            result = target_generator(project_state, raw_target_options)
+        except Exception as exc:
+            raise WorkerError(
+                "PLUGIN_BACKEND_CODEGEN_FAILED",
+                (
+                    f"Plugin codegen target {handler_id} execution failed for "
+                    f"{self.plugin_id}: {exc}"
+                ),
+            ) from exc
+        if inspect.isawaitable(result):
+            try:
+                result = asyncio.run(result)
+            except Exception as exc:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_CODEGEN_FAILED",
+                    (
+                        f"Async plugin codegen target {handler_id} execution failed "
+                        f"for {self.plugin_id}: {exc}"
+                    ),
+                ) from exc
+        return _ensure_json_serializable(
+            result,
+            plugin_id=self.plugin_id,
+            label="codegen target result",
+        )
+
     def call(
         self,
         method: str,
@@ -543,6 +687,8 @@ class _WorkerState:
             return self._invoke_route(params)
         if method == "plugin.invoke_mcp_tool":
             return self._invoke_mcp_tool(params)
+        if method == "plugin.invoke_codegen_target":
+            return self._invoke_codegen_target(params)
         raise WorkerError(
             "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
             f"Unsupported worker method: {method}",

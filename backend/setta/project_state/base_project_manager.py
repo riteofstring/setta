@@ -2,11 +2,13 @@ import asyncio
 import contextvars
 import copy
 import logging
+import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from functools import wraps
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -374,6 +376,8 @@ from setta.types.notifications import (
 from setta.types.project_config import (
     Position,
     ProjectCodegenLanguage,
+    ProjectCodegenPluginTarget,
+    ProjectCodegenTarget,
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
@@ -419,8 +423,12 @@ from setta.utils.name_validation import (
     validate_view_mode_name,
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
+from setta.utils.utils import build_project_sections_dir
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
+
+if TYPE_CHECKING:
+    from setta.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
 
@@ -540,6 +548,7 @@ class BaseProjectManager(ABC):
         artifacts: Artifacts,
         json_source: JSONSource,
         code_files: CodeFiles,
+        plugin_manager: "PluginManager | None" = None,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -550,6 +559,7 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
+        self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         watch_loop = None
@@ -1157,6 +1167,76 @@ class BaseProjectManager(ABC):
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
 
+    def _plugin_codegen_output_root(self, project_config_name: str) -> Path:
+        return (
+            build_project_sections_dir(C.CODE_FOLDER, project_config_name)
+            / "plugin_codegen"
+        )
+
+    def _plugin_codegen_target_dir_name(self, target_language: str) -> str:
+        normalized_chars: list[str] = []
+        for char in target_language:
+            if char.isalnum() or char in {"-", "_", "."}:
+                normalized_chars.append(char)
+            else:
+                normalized_chars.append("_")
+        normalized = "".join(normalized_chars).strip("_")
+        if normalized == "":
+            return "_"
+        return normalized
+
+    def _resolve_plugin_codegen_targets(
+        self,
+        codegen_targets: list[ProjectCodegenTarget],
+    ) -> list[ProjectCodegenPluginTarget]:
+        plugin_targets: list[ProjectCodegenPluginTarget] = []
+        for target in codegen_targets:
+            if target.language == ProjectCodegenLanguage.python:
+                continue
+            if not isinstance(target, ProjectCodegenPluginTarget):
+                raise TypeError("Expected plugin codegen target.")
+            plugin_targets.append(target)
+        if len(plugin_targets) == 0:
+            return []
+        if self.plugin_manager is None:
+            raise KeyError(
+                "Plugin codegen targets are enabled, but plugin manager is unavailable."
+            )
+        for target in plugin_targets:
+            if not self.plugin_manager.has_backend_codegen_target(target.language):
+                raise KeyError(
+                    f"Plugin codegen target is not registered: {target.language}"
+                )
+        return plugin_targets
+
+    def _refresh_plugin_codegen_outputs(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> None:
+        plugin_targets = self._resolve_plugin_codegen_targets(
+            project_state.projectConfig.codegenTargets
+        )
+        output_root = self._plugin_codegen_output_root(project_state.projectConfig.name)
+        if output_root.exists():
+            shutil.rmtree(output_root)
+        if len(plugin_targets) == 0:
+            return
+        assert self.plugin_manager is not None
+        project_state_payload = project_state.model_dump(mode="json")
+        for target in plugin_targets:
+            generated_files = self.plugin_manager.generate_backend_codegen_target(
+                target_id=target.language,
+                project_state=project_state_payload,
+                target_options=target.options,
+            )
+            target_root = output_root / self._plugin_codegen_target_dir_name(
+                target.language
+            )
+            for relative_path, content in generated_files:
+                output_path = target_root / relative_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                self.dbe.write(output_path, content)
+
     def _require_python_codegen(self, project_config_id: ID) -> ProjectGenPythonCode:
         project_config = self.project_state_backend.projectConfigs[project_config_id]
         if not project_config_has_codegen_language(
@@ -1372,6 +1452,7 @@ class BaseProjectManager(ABC):
                 clear_gen_code=True,
                 clear_unmapped=True,
             )
+        self._refresh_plugin_codegen_outputs(projectState)
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
@@ -1693,13 +1774,14 @@ class BaseProjectManager(ABC):
         """Update the codegen targets for a project configuration."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        seen_languages: set[ProjectCodegenLanguage] = set()
+        seen_languages: set[str] = set()
         for target in x.codegenTargets:
             if target.language in seen_languages:
                 raise ValueError(
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen_languages.add(target.language)
+        self._resolve_plugin_codegen_targets(x.codegenTargets)
         prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,

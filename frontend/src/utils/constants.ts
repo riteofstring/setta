@@ -32,7 +32,7 @@ export const OverviewTabNameEnum = {
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
-export type PluginOverviewTabName = `PluginPane:${string}:${string}`;
+type PluginOverviewTabName = `PluginPane:${string}:${string}`;
 export type OverviewTabKey = OverviewTabName | PluginOverviewTabName;
 
 export const OverviewTabNamePrettified = {

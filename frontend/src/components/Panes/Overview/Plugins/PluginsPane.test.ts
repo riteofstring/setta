@@ -58,6 +58,7 @@ function buildPluginStatusEntry(
     blockedCapabilities: [],
     registeredLanguageServers: [],
     registeredExternalAgentAdapters: [],
+    registeredCodegenTargets: [],
     restartRequired: false,
     errors: [],
     ...overrides,
@@ -231,9 +232,9 @@ describe("plugins pane helpers", () => {
       }
     ).registeredLanguageServers;
 
-    expect(pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry)).toEqual(
-      [],
-    );
+    expect(
+      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry),
+    ).toEqual([]);
   });
 
   it("extracts and sorts registered external agent adapters from plugin status", () => {
@@ -284,6 +285,50 @@ describe("plugins pane helpers", () => {
     expect(
       pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry),
     ).toEqual([]);
+  });
+
+  it("extracts and sorts registered codegen targets from plugin status", () => {
+    const statusEntry = {
+      ...buildPluginStatusEntry({}),
+      registeredCodegenTargets: [
+        {
+          targetId: "plugin:beta",
+          pluginId: "plugin",
+          language: "zig",
+          name: "Zig",
+          defaultFileName: "setta_gen.zig",
+        },
+        {
+          targetId: "plugin:alpha",
+          pluginId: "plugin",
+          language: "typescript",
+          name: "TypeScript",
+          defaultFileName: "setta_gen.ts",
+        },
+      ],
+    } as PluginStatusEntry;
+
+    const registrations =
+      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
+
+    expect(registrations.map((entry) => entry.name)).toEqual([
+      "TypeScript",
+      "Zig",
+    ]);
+    expect(registrations[0].defaultFileName).toBe("setta_gen.ts");
+  });
+
+  it("returns no codegen targets when status payload omits registrations", () => {
+    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
+    delete (
+      statusEntry as PluginStatusEntry & {
+        registeredCodegenTargets?: unknown;
+      }
+    ).registeredCodegenTargets;
+
+    expect(pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry)).toEqual(
+      [],
+    );
   });
 
   it("parses language server settings drafts as JSON objects", () => {

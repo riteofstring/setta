@@ -158,6 +158,16 @@ class PluginRegisteredExternalAgentAdapter(BaseModel):
     defaultModel: str | None = None
 
 
+class PluginRegisteredCodegenTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    targetId: str
+    pluginId: str
+    language: str
+    name: str
+    defaultFileName: str
+
+
 class PluginRestartCapability(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -235,6 +245,9 @@ class PluginStatusEntry(BaseModel):
         default_factory=list
     )
     registeredExternalAgentAdapters: list[PluginRegisteredExternalAgentAdapter] = Field(
+        default_factory=list
+    )
+    registeredCodegenTargets: list[PluginRegisteredCodegenTarget] = Field(
         default_factory=list
     )
     enablementSource: PluginEnablementSource | None = None

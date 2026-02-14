@@ -52,6 +52,8 @@ type PluginRegisteredLanguageServer =
   PluginStatusEntry["registeredLanguageServers"][number];
 type PluginRegisteredExternalAgentAdapter =
   PluginStatusEntry["registeredExternalAgentAdapters"][number];
+type PluginRegisteredCodegenTarget =
+  PluginStatusEntry["registeredCodegenTargets"][number];
 
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
@@ -524,9 +526,9 @@ function PluginListEntryCard({
     pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
   const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
   const registeredLanguageServers = getRegisteredLanguageServers(pluginStatus);
-  const registeredExternalAgentAdapters = getRegisteredExternalAgentAdapters(
-    pluginStatus,
-  );
+  const registeredExternalAgentAdapters =
+    getRegisteredExternalAgentAdapters(pluginStatus);
+  const registeredCodegenTargets = getRegisteredCodegenTargets(pluginStatus);
   const commandCapabilityStatus = getPluginCapabilityStatus(
     pluginStatus,
     plugin,
@@ -562,6 +564,15 @@ function PluginListEntryCard({
   const externalAgentCapabilityReason = getBlockedCapabilityReason(
     blockedCapabilities,
     "registerExternalAgentAdapter",
+  );
+  const codegenCapabilityStatus = getPluginCapabilityStatus(
+    pluginStatus,
+    plugin,
+    "registerCodegenTarget",
+  );
+  const codegenCapabilityReason = getBlockedCapabilityReason(
+    blockedCapabilities,
+    "registerCodegenTarget",
   );
 
   function onOpenPane(paneId: string) {
@@ -771,6 +782,55 @@ function PluginListEntryCard({
               capability: "registerExternalAgentAdapter",
               status: externalAgentCapabilityStatus,
               reason: externalAgentCapabilityReason,
+              serverMode,
+            })}
+          </p>
+        </section>
+      ) : null}
+
+      {registeredCodegenTargets.length > 0 ? (
+        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+            Registered Codegen Targets
+          </h5>
+          <div className="mt-2 flex flex-col gap-2">
+            {registeredCodegenTargets.map((registration) => (
+              <article
+                key={registration.targetId}
+                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
+              >
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
+                  <span className="font-semibold">{registration.name}</span>
+                  <span className="font-mono">{registration.language}</span>
+                  <span className="font-mono">{registration.targetId}</span>
+                </div>
+                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
+                  defaultFileName={registration.defaultFileName}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : codegenCapabilityStatus === "effective" ? (
+        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+          <p className="font-semibold uppercase tracking-wide">
+            Codegen targets pending runtime load
+          </p>
+          <p className="mt-1">
+            No plugin codegen target registrations are active yet. Restart Setta
+            if this plugin was just installed or updated.
+          </p>
+        </section>
+      ) : codegenCapabilityStatus !== "not_requested" ? (
+        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-semibold uppercase tracking-wide">
+            Codegen targets unavailable
+          </p>
+          <p className="mt-1">
+            {buildCapabilityUnavailableMessage({
+              capability: "registerCodegenTarget",
+              status: codegenCapabilityStatus,
+              reason: codegenCapabilityReason,
               serverMode,
             })}
           </p>
@@ -1053,6 +1113,25 @@ function getRegisteredExternalAgentAdapters(
   return registrations;
 }
 
+function getRegisteredCodegenTargets(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredCodegenTarget[] {
+  if (pluginStatus === null) {
+    return [];
+  }
+  const registrations = Array.isArray(pluginStatus.registeredCodegenTargets)
+    ? [...pluginStatus.registeredCodegenTargets]
+    : [];
+  registrations.sort((a, b) => {
+    const byName = a.name.localeCompare(b.name);
+    if (byName !== 0) {
+      return byName;
+    }
+    return a.targetId.localeCompare(b.targetId);
+  });
+  return registrations;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -1328,6 +1407,7 @@ export const pluginsPaneTestApi = {
   buildCapabilityUnavailableMessage,
   formatLanguageServerSettingsDraft,
   getBlockedCapabilityReason,
+  getRegisteredCodegenTargets,
   getRegisteredExternalAgentAdapters,
   getLanguageServerSettingsValue,
   getPluginCapabilityStatus,

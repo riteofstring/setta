@@ -8,9 +8,9 @@ from typing import Any
 FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
 
-def _copy_backend_fixture(tmp_path: Path) -> Path:
+def _copy_backend_fixture(tmp_path: Path, fixture_name: str = "backend") -> Path:
     plugin_root = tmp_path / "plugin"
-    shutil.copytree(FIXTURE_PLUGIN_ROOT / "backend", plugin_root)
+    shutil.copytree(FIXTURE_PLUGIN_ROOT / fixture_name, plugin_root)
     return plugin_root
 
 
@@ -44,6 +44,7 @@ def _rpc_call(
     *,
     request_id: int,
     method: str,
+    params: dict[str, Any] | None = None,
     host_method_calls: list[str] | None = None,
 ) -> dict[str, Any]:
     assert worker.stdin is not None
@@ -54,7 +55,7 @@ def _rpc_call(
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "method": method,
-                "params": {},
+                "params": params or {},
             }
         )
         + "\n"
@@ -174,5 +175,55 @@ def test_worker_handshake_override_payload(tmp_path: Path) -> None:
         )
         assert response["id"] == 1
         assert response["result"]["backendPluginApiVersion"] == 99
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_register_codegen_target_and_invoke_codegen_target(
+    tmp_path: Path,
+) -> None:
+    # Worker should register codegen targets and invoke generation over RPC.
+    plugin_root = _copy_backend_fixture(tmp_path, fixture_name="backend-codegen")
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_method_calls: list[str] = []
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_method_calls=host_method_calls,
+        )
+        assert register_response["id"] == 2
+        assert register_response["result"] == {"ok": True}
+        assert host_method_calls == ["host.register_codegen_target"]
+
+        codegen_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_codegen_target",
+            params={
+                "handlerId": "typescript",
+                "projectState": {"projectConfig": {"name": "WorkerFixture"}},
+                "targetOptions": {"className": "WorkerState"},
+            },
+        )
+        assert codegen_response["id"] == 3
+        assert codegen_response["result"] == {
+            "files": [
+                {
+                    "relativePath": "setta_gen.ts",
+                    "content": (
+                        "export class WorkerState {\n"
+                        "  readonly projectName = 'WorkerFixture';\n"
+                        "}\n"
+                    ),
+                }
+            ]
+        }
     finally:
         _stop_worker(worker)

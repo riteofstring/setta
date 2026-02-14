@@ -71,6 +71,7 @@ from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
+    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     Viewport,
@@ -706,7 +707,7 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-    codegenTargets: list[ProjectCodegenPythonTarget]
+    codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
 
 
 class ListenerSetPromptFormatRequestPayload(TypedDict):
