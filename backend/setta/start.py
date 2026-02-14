@@ -2595,18 +2595,31 @@ def plugins_restart(json_output: bool) -> None:
 def plugins_restart_required(json_output: bool) -> None:
     manager = _build_plugin_manager_for_cli()
     status = manager.get_status_response()
+    restart_capability = manager.get_restart_capability()
     pending = [
         plugin for plugin in status.plugins if plugin.state.value == "pending_restart"
     ]
     if json_output:
-        _emit_json_output([plugin.model_dump(mode="json") for plugin in pending])
+        _emit_json_output(
+            {
+                "pendingPlugins": [plugin.model_dump(mode="json") for plugin in pending],
+                "restartCapability": restart_capability.model_dump(mode="json"),
+            }
+        )
         return
     if len(pending) == 0:
         click.echo("No pending restart plugins.")
+    else:
+        click.echo("Pending restart plugins:")
+        for plugin in pending:
+            click.echo(f"- {plugin.pluginId} ({plugin.version})")
+    if restart_capability.mode == "programmatic":
+        click.echo("Programmatic restart available: setta plugins restart")
         return
-    click.echo("Pending restart plugins:")
-    for plugin in pending:
-        click.echo(f"- {plugin.pluginId} ({plugin.version})")
+    if restart_capability.command:
+        click.echo(f"Manual restart command: {restart_capability.command}")
+    if restart_capability.reason:
+        click.echo(restart_capability.reason)
 
 
 @plugins.command(name="link")
