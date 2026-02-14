@@ -1090,6 +1090,11 @@ class PluginManager:
         entry.effective_capabilities = effective
         entry.blocked_capabilities = blocked
 
+        if entry.has_backend and entry.plugin_id in self._pending_restart_backend_ids:
+            entry.state = PluginRuntimeState.pending_restart
+            entry.restart_required = True
+            return
+
         enabled = self._resolve_enabled(
             plugin_id=entry.plugin_id,
             scope=entry.scope,
@@ -1121,10 +1126,6 @@ class PluginManager:
             entry.restart_required = False
             return
 
-        if entry.has_backend and entry.plugin_id in self._pending_restart_backend_ids:
-            entry.state = PluginRuntimeState.pending_restart
-            entry.restart_required = True
-            return
         entry.state = PluginRuntimeState.active
         entry.restart_required = False
 

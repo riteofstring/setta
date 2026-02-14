@@ -1,5 +1,7 @@
+import path from "path";
 import { expect, test } from "@playwright/test";
 import {
+  getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
   setOverviewTab,
@@ -9,9 +11,13 @@ type CreateTopLevelSectionResponse = {
   sectionId: string;
 };
 
-test("plugins overview tab renders runtime controls and plugin section fallback", async ({
+test("plugins overview tab supports fixture plugin render and disabled fallback", async ({
   page,
 }) => {
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
   await setOverviewTab(page, "Plugins");
   const projectContext = await openIsolatedProject(page);
   await expect(page.getByText("Plugin Runtime")).toBeVisible();
@@ -19,6 +25,22 @@ test("plugins overview tab renders runtime controls and plugin section fallback"
   await expect(
     page.getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]"),
   ).toBeVisible();
+
+  await postBackend(page, "/plugins/link", {
+    localPluginRoot: fixturePluginRoot,
+    scope: "workspace",
+    enable: true,
+    force: true,
+  });
+  await postBackend(page, "/plugins/rescan", {});
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+  await expect(page.getByText("setta-fixture-frontend@0.1.0")).toBeVisible();
+
+  const viewportBounds = await getViewportBoundsForPlacement(page);
+  if (!viewportBounds) {
+    throw new Error("Unable to resolve viewport bounds for plugin section placement.");
+  }
 
   const created = await postBackend<CreateTopLevelSectionResponse>(
     page,
@@ -29,20 +51,34 @@ test("plugins overview tab renders runtime controls and plugin section fallback"
       controlCodeObjType: null,
       implOverrides: {
         type: "Plugin",
-        pluginId: "missing.plugin",
-        kind: "example-widget",
+        pluginId: "setta-fixture-frontend",
+        kind: "fixture-card",
         data: {
-          title: "hello",
+          text: "hello plugin",
         },
       },
-      position: null,
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.45,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
+      },
       topLevelSections: null,
-      viewportBounds: null,
+      viewportBounds,
     },
   );
   expect(created?.sectionId).toBeTruthy();
 
+  await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
+  await expect(page.getByText("fixture:hello plugin")).toBeVisible();
+
+  await postBackend(page, "/plugins/disable", {
+    pluginId: "setta-fixture-frontend",
+  });
+  await postBackend(page, "/plugins/rescan", {});
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
   await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
-  await expect(page.getByText("missing.plugin")).toBeVisible();
-  await expect(page.getByText("example-widget")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Copy Section JSON", exact: true }),
+  ).toBeVisible();
 });
