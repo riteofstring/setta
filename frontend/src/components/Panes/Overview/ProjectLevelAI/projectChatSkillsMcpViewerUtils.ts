@@ -1,25 +1,5 @@
 import { type AppGenSkillEntry } from "utils/generatedTypes";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-export function parseMcpToolsFromResult(result: unknown): {
-  toolNames: string[];
-} {
-  if (!isRecord(result)) {
-    return { toolNames: [] };
-  }
-  const structuredContent = result.structuredContent;
-  if (isRecord(structuredContent) && Array.isArray(structuredContent.tools)) {
-    const toolNames = structuredContent.tools.filter(
-      (entry): entry is string => typeof entry === "string",
-    );
-    return { toolNames };
-  }
-  return { toolNames: [] };
-}
-
 export function filterSkills(
   skills: AppGenSkillEntry[],
   query: string,

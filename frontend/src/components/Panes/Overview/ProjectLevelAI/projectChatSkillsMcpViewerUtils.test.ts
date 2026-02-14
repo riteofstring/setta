@@ -3,23 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   filterSkills,
   groupSkillsByRootPath,
-  parseMcpToolsFromResult,
 } from "./projectChatSkillsMcpViewerUtils";
 
 describe("projectChatSkillsMcpViewerUtils", () => {
-  it("parses mcp tool names from structured content", () => {
-    const parsed = parseMcpToolsFromResult({
-      isError: false,
-      structuredContent: {
-        tools: ["setta__set_app_definition", "setta__stream_app_definition"],
-      },
-    });
-    expect(parsed.toolNames).toEqual([
-      "setta__set_app_definition",
-      "setta__stream_app_definition",
-    ]);
-  });
-
   it("filters skills by name/path/root/description", () => {
     const rows = [
       {

@@ -72,29 +72,6 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
     });
   });
 
-  await page.route("**/api/__setta__/tools/call", async (route) => {
-    const payload = route.request().postDataJSON() as { tool?: string };
-    if (payload.tool === "list_mcp_tools") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          content: [],
-          structuredContent: {
-            tools: [
-              "setta__set_app_definition",
-              "setta__stream_app_definition",
-              "setta__search_mcp_tools",
-            ],
-          },
-          isError: false,
-        }),
-      });
-      return;
-    }
-    await route.continue();
-  });
-
   await ensureAppReady(page);
 
   const toggleButton = page.getByRole("button", { name: "View Skills and MCP" });
@@ -111,13 +88,57 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByLabel("Skill Preview")).toContainText(
     "Create dense dashboard layouts.",
   );
-  await expect(page.getByText("setta__set_app_definition")).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
+  await expect(page.getByLabel("Filter MCP tools")).toHaveCount(0);
   await expect(page.getByText("Viewer only:")).toHaveCount(0);
   await expect(page.getByText("MCP tools discovered:")).toHaveCount(0);
   await expect(page.getByText("MCP servers configured:")).toHaveCount(0);
 
   await page.getByLabel("View Skills and MCP").click();
   await expect(page.getByText("Skills / MCP Viewer")).toHaveCount(0);
+});
+
+test("project ai chat shows inline skills endpoint error when routes are missing", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Not Found" }),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await expect(
+    page.getByText(
+      "Skills unavailable (Not Found). Restart the backend if this route was just added.",
+    ),
+  ).toBeVisible();
 });

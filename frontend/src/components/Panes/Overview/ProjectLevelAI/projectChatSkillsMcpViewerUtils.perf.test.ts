@@ -5,59 +5,75 @@ import {
   groupSkillsByRootPath,
 } from "./projectChatSkillsMcpViewerUtils";
 
+function makeRows(size: number) {
+  return Array.from({ length: size }, (_, index) => ({
+    skillId: `workspace_skills::skill-${index}`,
+    name: `skill-${index}`,
+    rootLabel:
+      index % 3 === 0
+        ? "Workspace skills"
+        : index % 3 === 1
+          ? "User ~/.codex/skills"
+          : "User ~/.agents/skills",
+    rootPath:
+      index % 3 === 0
+        ? "/workspace/skills"
+        : index % 3 === 1
+          ? "/home/.codex/skills"
+          : "/home/.agents/skills",
+    relativePath: `skill-${index}`,
+    skillPath: `/skills/skill-${index}/SKILL.md`,
+    description: `Skill description ${index}`,
+  }));
+}
+
+function averageRunTimeMs(iterations: number, fn: () => void): number {
+  const start = performance.now();
+  for (let index = 0; index < iterations; index += 1) {
+    fn();
+  }
+  return (performance.now() - start) / iterations;
+}
+
 describe("projectChatSkillsMcpViewerUtils (perf)", () => {
-  it("filters large skill lists quickly", () => {
-    const rows = Array.from({ length: 800 }, (_, index) => ({
-      skillId: `workspace_skills::skill-${index}`,
-      name: `skill-${index}`,
-      rootLabel: index % 2 === 0 ? "Workspace skills" : "User ~/.codex/skills",
-      rootPath: "/skills",
-      relativePath: `skill-${index}`,
-      skillPath: `/skills/skill-${index}/SKILL.md`,
-      description: `Skill description ${index}`,
-    }));
+  it("filtering scales roughly linearly between small and large lists", () => {
+    const smallRows = makeRows(200);
+    const largeRows = makeRows(800);
 
-    const start = performance.now();
-    for (let i = 0; i < 250; i += 1) {
-      filterSkills(rows, "skill-42");
-      filterSkills(rows, "workspace");
-      filterSkills(rows, "");
-    }
-    const elapsedMs = performance.now() - start;
+    // Warm up JIT before measuring.
+    filterSkills(smallRows, "skill-42");
+    filterSkills(largeRows, "skill-42");
 
-    // Guard against accidental quadratic regressions in filtering logic.
-    expect(elapsedMs).toBeLessThan(180);
+    const smallAverageMs = averageRunTimeMs(250, () => {
+      filterSkills(smallRows, "skill-42");
+      filterSkills(smallRows, "workspace");
+      filterSkills(smallRows, "");
+    });
+    const largeAverageMs = averageRunTimeMs(250, () => {
+      filterSkills(largeRows, "skill-42");
+      filterSkills(largeRows, "workspace");
+      filterSkills(largeRows, "");
+    });
+
+    // 4x input should stay below a clear superlinear blow-up.
+    expect(largeAverageMs / smallAverageMs).toBeLessThan(14);
   });
 
-  it("groups large filtered lists without regressions", () => {
-    const rows = Array.from({ length: 1200 }, (_, index) => ({
-      skillId: `workspace_skills::skill-${index}`,
-      name: `skill-${index}`,
-      rootLabel:
-        index % 3 === 0
-          ? "Workspace skills"
-          : index % 3 === 1
-            ? "User ~/.codex/skills"
-            : "User ~/.agents/skills",
-      rootPath:
-        index % 3 === 0
-          ? "/workspace/skills"
-          : index % 3 === 1
-            ? "/home/.codex/skills"
-            : "/home/.agents/skills",
-      relativePath: `skill-${index}`,
-      skillPath: `/skills/skill-${index}/SKILL.md`,
-      description: `Skill description ${index}`,
-    }));
+  it("grouping scales roughly linearly between small and large lists", () => {
+    const smallRows = filterSkills(makeRows(300), "skill-");
+    const largeRows = filterSkills(makeRows(1200), "skill-");
 
-    const filtered = filterSkills(rows, "skill-1");
-    const start = performance.now();
-    for (let i = 0; i < 250; i += 1) {
-      groupSkillsByRootPath(filtered);
-    }
-    const elapsedMs = performance.now() - start;
+    groupSkillsByRootPath(smallRows);
+    groupSkillsByRootPath(largeRows);
 
-    // Guard against accidental regressions while grouping by root path.
-    expect(elapsedMs).toBeLessThan(170);
+    const smallAverageMs = averageRunTimeMs(300, () => {
+      groupSkillsByRootPath(smallRows);
+    });
+    const largeAverageMs = averageRunTimeMs(300, () => {
+      groupSkillsByRootPath(largeRows);
+    });
+
+    // 4x input should stay far below an 8x runtime growth.
+    expect(largeAverageMs / smallAverageMs).toBeLessThan(8);
   });
 });
