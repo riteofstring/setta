@@ -49,3 +49,57 @@ def test_spa_catch_all_route_param_matches_handler_arg() -> None:
     assert len(arg_names) == 1
     assert raw_param == arg_names[0]
 
+
+def test_mcp_catch_all_constant_matches_spa_route() -> None:
+    server_path = (
+        Path(__file__).resolve().parents[2] / "backend" / "setta" / "server.py"
+    )
+    mcp_server_path = (
+        Path(__file__).resolve().parents[2]
+        / "backend"
+        / "setta"
+        / "mcp"
+        / "server.py"
+    )
+
+    server_tree = ast.parse(server_path.read_text(encoding="utf-8"))
+    mcp_server_tree = ast.parse(mcp_server_path.read_text(encoding="utf-8"))
+
+    lifespan_node = next(
+        node
+        for node in server_tree.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "lifespan"
+    )
+
+    spa_route_path: str | None = None
+    for node in ast.walk(lifespan_node):
+        if not isinstance(node, ast.AsyncFunctionDef) or node.name != "read_root":
+            continue
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            if not (
+                isinstance(decorator.func, ast.Attribute)
+                and isinstance(decorator.func.value, ast.Name)
+                and decorator.func.value.id == "app"
+                and decorator.func.attr == "get"
+            ):
+                continue
+            if decorator.args and isinstance(decorator.args[0], ast.Constant):
+                spa_route_path = decorator.args[0].value
+        break
+
+    mcp_catch_all_constant: str | None = None
+    for node in mcp_server_tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id == "_CATCH_ALL_PATH":
+                if isinstance(node.value, ast.Constant):
+                    mcp_catch_all_constant = node.value.value
+                break
+
+    # This guards route precedence: MCP reorders the SPA catch-all by exact path.
+    assert isinstance(spa_route_path, str)
+    assert isinstance(mcp_catch_all_constant, str)
+    assert mcp_catch_all_constant == spa_route_path
