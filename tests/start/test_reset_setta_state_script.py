@@ -400,3 +400,30 @@ def test_reset_setta_state_script_rejects_flag_like_option_value() -> None:
 
     assert result.returncode != 0
     assert "Missing value for --runtime-root" in f"{result.stdout}{result.stderr}"
+
+
+def test_reset_setta_state_script_accepts_equals_style_flags(tmp_path: Path) -> None:
+    _ensure_local_venv_or_skip()
+    repo_root = _repo_root()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    explicit_root = workspace / "setta_files_dev"
+    (explicit_root / "nested").mkdir(parents=True, exist_ok=True)
+    (explicit_root / "nested" / "sentinel.txt").write_text("x", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(repo_root / "scripts" / "reset-setta-state.sh"),
+            f"--workspace={workspace}",
+            f"--setta-files-root={explicit_root}",
+        ],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Deleted Setta reset target" in result.stdout
+    assert not explicit_root.exists()

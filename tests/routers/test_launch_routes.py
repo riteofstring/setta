@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import socket
@@ -13,7 +14,11 @@ from setta.ssh_common import RemoteSessionSummary
 from setta.ssh_connect import RemoteConnectResult
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
-from setta.utils.paths import build_files_root_from_base, resolve_setta_paths
+from setta.utils.paths import (
+    build_files_root_from_base,
+    clear_setta_paths_cache,
+    resolve_setta_paths,
+)
 from tests.utils.setta_paths import temporary_setta_paths
 
 
@@ -498,6 +503,86 @@ class TestLaunchRoutes:
             assert response.ok is True
             assert response.sessionId == local_session.id
             assert response.settaFilesLocation == "local"
+
+    def test_launch_profile_does_not_inherit_server_files_root_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
+            env_state_root = tmp_path / "env_state" / "setta_files_dev"
+            env_sessions_root = env_state_root / "runtime" / "sessions"
+            env_sessions_root.mkdir(parents=True, exist_ok=True)
+            local_sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
+            local_sessions_root.mkdir(parents=True, exist_ok=True)
+
+            setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+            profiles_dir = setta_home / "profiles"
+            profiles_dir.mkdir(parents=True, exist_ok=True)
+            (profiles_dir / "dev.json").write_text(
+                json.dumps(
+                    {
+                        "name": "dev",
+                        "workspaceRoot": str(workspace_root),
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            clear_setta_paths_cache()
+
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+            monkeypatch.setenv("SETTA_FILES_ROOT", str(env_state_root))
+
+            local_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            env_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                local_socket.bind(("127.0.0.1", 0))
+                local_socket.listen(1)
+                local_port = local_socket.getsockname()[1]
+                env_socket.bind(("127.0.0.1", 0))
+                env_socket.listen(1)
+                env_port = env_socket.getsockname()[1]
+            except OSError:
+                pytest.skip("Socket binds are not permitted in this test environment.")
+
+            local_registry = SessionRegistry(sessions_root=local_sessions_root)
+            local_session = local_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=local_port,
+                pid=os.getpid(),
+            )
+
+            env_registry = SessionRegistry(sessions_root=env_sessions_root)
+            env_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=env_port,
+                pid=os.getpid(),
+            )
+
+            try:
+                response = route_launch(
+                    LaunchRequest(
+                        workspaceRoot=str(workspace_root),
+                        profile="dev",
+                    )
+                )
+            finally:
+                local_socket.close()
+                env_socket.close()
+
+            assert response.ok is True
+            assert response.sessionId == local_session.id
+            assert response.settaFilesLocation == "local"
+            assert response.settaFilesRoot == str(
+                (workspace_root / "setta_files").resolve(strict=False)
+            )
 
     def test_launch_local_always_wins_even_when_global_requested(self, monkeypatch) -> None:
         with TemporaryDirectory() as tmpdir:

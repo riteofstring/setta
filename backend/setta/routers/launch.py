@@ -122,6 +122,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             setta_files_root=x.settaFilesRoot,
             setta_files_location=setta_files_location,
             runtime_root=x.runtimeRoot,
+            allow_env_files_overrides=False,
         )
     except LaunchError as exc:
         return LaunchResponse(

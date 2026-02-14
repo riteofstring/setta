@@ -60,30 +60,78 @@ while [[ $# -gt 0 ]]; do
       workspace_override="$2"
       shift 2
       ;;
+    --workspace=*)
+      workspace_override="${1#--workspace=}"
+      if [[ -z "${workspace_override}" ]]; then
+        echo "Missing value for --workspace" >&2
+        exit 1
+      fi
+      shift
+      ;;
     --profile)
       require_option_value "$1" "$#" "${2-}"
       profile_override="$2"
       shift 2
+      ;;
+    --profile=*)
+      profile_override="${1#--profile=}"
+      if [[ -z "${profile_override}" ]]; then
+        echo "Missing value for --profile" >&2
+        exit 1
+      fi
+      shift
       ;;
     --setta-home)
       require_option_value "$1" "$#" "${2-}"
       setta_home_override="$2"
       shift 2
       ;;
+    --setta-home=*)
+      setta_home_override="${1#--setta-home=}"
+      if [[ -z "${setta_home_override}" ]]; then
+        echo "Missing value for --setta-home" >&2
+        exit 1
+      fi
+      shift
+      ;;
     --setta-files-root)
       require_option_value "$1" "$#" "${2-}"
       setta_files_root_override="$2"
       shift 2
+      ;;
+    --setta-files-root=*)
+      setta_files_root_override="${1#--setta-files-root=}"
+      if [[ -z "${setta_files_root_override}" ]]; then
+        echo "Missing value for --setta-files-root" >&2
+        exit 1
+      fi
+      shift
       ;;
     --setta-files-location)
       require_option_value "$1" "$#" "${2-}"
       setta_files_location_override="$2"
       shift 2
       ;;
+    --setta-files-location=*)
+      setta_files_location_override="${1#--setta-files-location=}"
+      if [[ -z "${setta_files_location_override}" ]]; then
+        echo "Missing value for --setta-files-location" >&2
+        exit 1
+      fi
+      shift
+      ;;
     --runtime-root)
       require_option_value "$1" "$#" "${2-}"
       runtime_root_override="$2"
       shift 2
+      ;;
+    --runtime-root=*)
+      runtime_root_override="${1#--runtime-root=}"
+      if [[ -z "${runtime_root_override}" ]]; then
+        echo "Missing value for --runtime-root" >&2
+        exit 1
+      fi
+      shift
       ;;
     -h|--help)
       usage

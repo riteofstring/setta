@@ -77,4 +77,16 @@ describe("buildLaunchRequestDedupeKey", () => {
       buildLaunchRequestDedupeKey(explicitNullOptionalFields),
     );
   });
+
+  it("includes unknown future request fields in the dedupe key", () => {
+    const baseRequest = { workspaceRoot: "/tmp/workspace" } as LaunchRequestInput;
+    const futureFieldRequest = {
+      workspaceRoot: "/tmp/workspace",
+      futureLaunchMode: "isolate",
+    } as LaunchRequestInput;
+
+    expect(buildLaunchRequestDedupeKey(baseRequest)).not.toBe(
+      buildLaunchRequestDedupeKey(futureFieldRequest),
+    );
+  });
 });

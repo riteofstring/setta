@@ -387,7 +387,7 @@ env | sort > "{capture_env}"
     assert "SETTA_FILES_LOCATION" not in captured_env
 
 
-def test_run_dev_instance_defaults_override_existing_path_env(
+def test_run_dev_instance_uses_existing_path_env_before_defaults(
     tmp_path: Path,
 ) -> None:
     sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
@@ -432,13 +432,11 @@ env | sort > "{capture_env}"
     assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
 
     captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
-    assert captured_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
-    assert captured_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
-    assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
-    assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
+    assert captured_env.get("SETTA_HOME") == str(tmp_path / "previous_home")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(tmp_path / "previous_state")
     assert "SETTA_FILES_LOCATION" not in captured_env
-    assert "SETTA_PROFILE" not in captured_env
-    assert "SETTA_RUNTIME_ROOT" not in captured_env
+    assert captured_env.get("SETTA_PROFILE") == "built"
+    assert captured_env.get("SETTA_RUNTIME_ROOT") == str(tmp_path / "previous_runtime")
 
 
 def test_run_dev_instance_exports_profile_and_setta_files_root(tmp_path: Path) -> None:
@@ -665,6 +663,71 @@ exit 0
     assert "SETTA_FILES_LOCATION" not in captured_env
 
 
+def test_ai_sh_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
+    sandbox_root = _build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    _write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+    _write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+    _write_stub_executable(
+        sandbox_root / "scripts" / "start-browser-mcp.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    _write_stub_executable(
+        sandbox_root / "scripts" / "stop-browser-mcp.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+
+    env = _script_env(stub_dir, home_dir)
+    env["SETTA_HOME"] = str(tmp_path / "previous_home")
+    env["SETTA_FILES_ROOT"] = str(tmp_path / "previous_state")
+    env["SETTA_FILES_LOCATION"] = "global"
+    env["SETTA_PROFILE"] = "built"
+    env["SETTA_RUNTIME_ROOT"] = str(tmp_path / "previous_runtime")
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "ai.sh")],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "start"
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_HOME") == str(tmp_path / "previous_home")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(tmp_path / "previous_state")
+    assert "SETTA_FILES_LOCATION" not in captured_env
+    assert captured_env.get("SETTA_PROFILE") == "built"
+    assert captured_env.get("SETTA_RUNTIME_ROOT") == str(tmp_path / "previous_runtime")
+
+
 def test_backend_start_forwards_profile_and_explicit_root(tmp_path: Path) -> None:
     _ensure_dev_dependencies_or_skip()
     repo_root = _repo_root()
@@ -815,7 +878,7 @@ def test_backend_start_rejects_conflicting_cli_root_and_location(tmp_path: Path)
     )
 
 
-def test_aireset_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
+def test_aireset_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
     sandbox_root = _build_aireset_sandbox(tmp_path)
     home_dir = tmp_path / "home"
     home_dir.mkdir(parents=True, exist_ok=True)
@@ -840,18 +903,18 @@ def test_aireset_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None
     reset_env = (sandbox_root / "reset_env.txt").read_text(encoding="utf-8")
     ai_env = (sandbox_root / "ai_env.txt").read_text(encoding="utf-8")
 
-    expected_home = home_dir / ".setta-development"
-    expected_root = sandbox_root / "setta_files_dev"
+    expected_home = tmp_path / "previous_home"
+    expected_root = tmp_path / "previous_state"
     assert f"SETTA_HOME={expected_home}" in reset_env
     assert f"SETTA_FILES_ROOT={expected_root}" in reset_env
     assert "SETTA_FILES_LOCATION=" not in reset_env
-    assert "SETTA_PROFILE=" not in reset_env
-    assert "SETTA_RUNTIME_ROOT=" not in reset_env
+    assert "SETTA_PROFILE=built" in reset_env
+    assert f"SETTA_RUNTIME_ROOT={tmp_path / 'previous_runtime'}" in reset_env
     assert f"SETTA_HOME={expected_home}" in ai_env
     assert f"SETTA_FILES_ROOT={expected_root}" in ai_env
     assert "SETTA_FILES_LOCATION=" not in ai_env
-    assert "SETTA_PROFILE=" not in ai_env
-    assert "SETTA_RUNTIME_ROOT=" not in ai_env
+    assert "SETTA_PROFILE=built" in ai_env
+    assert f"SETTA_RUNTIME_ROOT={tmp_path / 'previous_runtime'}" in ai_env
 
 
 def test_aireset_setta_files_location_arg_unsets_setta_files_root(

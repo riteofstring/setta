@@ -77,6 +77,7 @@ def launch_workspace_session(
     setta_files_root: Path | str | None = None,
     setta_files_location: SettaFilesLocation | None,
     runtime_root: Path | str | None = None,
+    allow_env_files_overrides: bool = True,
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
 ) -> LaunchResult:
@@ -88,6 +89,7 @@ def launch_workspace_session(
             setta_files_root=setta_files_root,
             setta_files_location=setta_files_location,
             runtime_root=runtime_root,
+            allow_env_files_overrides=allow_env_files_overrides,
         )
     except InvalidSettaFilesLocationError as exc:
         raise LaunchError("InvalidSettaFilesLocation", str(exc)) from exc

@@ -14,6 +14,7 @@ DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 RESET_ARGS=()
 AI_ARGS=()
 setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
+setta_path_flags_seed_from_env
 
 while [[ $# -gt 0 ]]; do
   if setta_path_flags_try_parse "$@"; then

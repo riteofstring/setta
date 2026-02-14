@@ -84,6 +84,7 @@ SETTA_PORT="${SETTA_PORT:-${DEFAULT_BACKEND_PORT}}"
 SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT:-${DEFAULT_FRONTEND_PORT}}"
 RUN_MODE="start"
 setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
+setta_path_flags_seed_from_env
 
 while [ "$#" -gt 0 ]; do
   case "$1" in

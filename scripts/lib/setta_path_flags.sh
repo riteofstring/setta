@@ -36,6 +36,28 @@ setta_path_flags_init() {
   SETTA_PATH_FLAGS_CONSUMED=0
 }
 
+setta_path_flags_seed_from_env() {
+  if [ -n "${SETTA_HOME:-}" ]; then
+    EFFECTIVE_SETTA_HOME="${SETTA_HOME}"
+  fi
+
+  if [ -n "${SETTA_FILES_ROOT:-}" ]; then
+    EFFECTIVE_SETTA_FILES_ROOT="${SETTA_FILES_ROOT}"
+    EFFECTIVE_SETTA_FILES_LOCATION=""
+  elif [ -n "${SETTA_FILES_LOCATION:-}" ]; then
+    EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION}"
+    EFFECTIVE_SETTA_FILES_ROOT=""
+  fi
+
+  if [ -n "${SETTA_PROFILE:-}" ]; then
+    SETTA_PROFILE_OVERRIDE="${SETTA_PROFILE}"
+  fi
+
+  if [ -n "${SETTA_RUNTIME_ROOT:-}" ]; then
+    SETTA_RUNTIME_ROOT_OVERRIDE="${SETTA_RUNTIME_ROOT}"
+  fi
+}
+
 setta_path_flags_try_parse() {
   SETTA_PATH_FLAGS_CONSUMED=0
   case "$1" in

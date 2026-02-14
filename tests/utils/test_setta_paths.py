@@ -590,6 +590,44 @@ def test_profile_overrides_env_for_files_root(
     assert paths.setta_files_location is None
 
 
+def test_profile_ignores_env_files_overrides_when_disabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
+
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    profiles_dir = setta_home / "profiles"
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    env_root = tmp_path / "env_state_root" / "setta_files_dev"
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_root))
+
+    (profiles_dir / "dev.json").write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    clear_setta_paths_cache()
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        profile="dev",
+        allow_env_files_overrides=False,
+    )
+
+    assert paths.profile_name == "dev"
+    assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
+    assert paths.setta_files_location == "local"
+
+
 def test_explicit_location_overrides_profile_setta_files_root(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()

@@ -134,6 +134,7 @@ def resolve_setta_paths(
     setta_files_root: Path | str | None = None,
     runtime_root: Path | str | None = None,
     profile: str | None = None,
+    allow_env_files_overrides: bool = True,
 ) -> SettaPaths:
     profile_name = _resolve_profile_name(profile)
     if profile_name is None:
@@ -178,6 +179,7 @@ def resolve_setta_paths(
         profile_setta_files_location=profile_config.setta_files_location
         if profile_config
         else None,
+        allow_env_files_overrides=allow_env_files_overrides,
     )
     resolved_runtime_root = _resolve_runtime_root(
         setta_files_root=resolved_files_root,
@@ -388,6 +390,7 @@ def _resolve_files_root(
     profile_setta_files_root: Path | None,
     setta_files_location: SettaFilesLocation | None,
     profile_setta_files_location: SettaFilesLocation | None,
+    allow_env_files_overrides: bool,
 ) -> tuple[Path, ResolvedSettaFilesLocation | None]:
     local_root = (workspace_root / "setta_files").resolve(strict=False)
 
@@ -401,8 +404,16 @@ def _resolve_files_root(
     )
     profile_location = _normalize_location_value(profile_setta_files_location)
 
-    env_root = _resolve_optional_path_value(os.environ.get(FILES_ROOT_ENV))
-    env_location = _normalize_location_value(os.environ.get(FILES_LOCATION_ENV))
+    env_root = (
+        _resolve_optional_path_value(os.environ.get(FILES_ROOT_ENV))
+        if allow_env_files_overrides
+        else None
+    )
+    env_location = (
+        _normalize_location_value(os.environ.get(FILES_LOCATION_ENV))
+        if allow_env_files_overrides
+        else None
+    )
 
     if explicit_root is not None and explicit_location is not None:
         raise ConflictingSettaFilesRootAndLocationError(
