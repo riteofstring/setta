@@ -233,3 +233,61 @@ Top insights from DevTools:
 
 ### Notes
 - This rerun confirms the previously implemented Explorer bottom-pane UX and dedicated data-authoring section flows in a clean post-reset session.
+
+## 2026-02-14 Follow-up: File Browser Move/Copy + Drag-Drop Section Launch
+
+### Scope
+- Added file-browser entry transfer endpoint (`copy` / `move`) for workspace files and folders.
+- Added in-browser file operations:
+  - Drag file/folder rows into folder rows to move entries.
+  - Keyboard clipboard operations in file browser (`Cmd/Ctrl+C`, `Cmd/Ctrl+X`, `Cmd/Ctrl+V`).
+- Added drag-drop interoperability:
+  - Drag file-browser files to canvas to create spreadsheet/code/image sections.
+  - Drag file-browser files into spreadsheet sections to set/load file paths.
+  - Unsupported binary drops show a warning notification.
+
+### Automated Performance + Regression Tests
+Commands:
+```bash
+source activate.sh && pytest tests/routers/test_file_browser_routes.py -q
+
+pnpm -C frontend exec vitest run \
+  src/utils/fileBrowserDragPayload.test.ts \
+  src/utils/fileDropSectionKind.test.ts \
+  src/utils/fileDropSectionKind.perf.test.ts \
+  src/utils/fileBrowserPathRelation.test.ts \
+  src/utils/fileBrowserPathRelation.perf.test.ts
+
+./scripts/run-playwright-e2e.sh \
+  frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts
+```
+
+Result:
+- Pytest: `34 passed`.
+- Vitest: `5 files passed`, `11 tests passed`.
+  - Includes path-relation + section-kind throughput guardrails.
+- Playwright: `2 passed`.
+  - Covers canvas drop section creation, spreadsheet-drop file loading, folder/file move by drag-drop, and copy/paste duplication behavior.
+
+### DevTools Trace (Explorer/File Browser interactions)
+Trace artifact:
+- `perf/artifacts/2026-02-14-file-browser-transfer-cdp-trace.json`
+
+Captured interaction window:
+- Folder row select/expand interactions.
+- Explorer preview minimize/expand interaction.
+- Browser-section file search input update/clear.
+
+Top insights from DevTools:
+- `INP`: `155ms` (`pointerdown`)
+  - Input delay: `2ms`
+  - Processing duration: `118ms`
+  - Presentation delay: `35ms`
+- `CLS`: `0.00`
+- `ForcedReflow` reported:
+  - total reflow time: `344ms`
+  - one interaction path references `FileBrowserPane.tsx` (`onMouseDown`) and existing column-width drag logic.
+
+### Notes
+- New transfer/move functionality is covered by backend unit tests plus end-to-end browser automation.
+- The trace shows acceptable interaction latency for the exercised flow, with reflow pressure concentrated in existing resize/list mechanics rather than the new transfer endpoint path itself.
