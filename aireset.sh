@@ -17,8 +17,16 @@ setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
 
 while [[ $# -gt 0 ]]; do
   if setta_path_flags_try_parse "$@"; then
-    RESET_ARGS+=("$1" "$2")
-    AI_ARGS+=("$1" "$2")
+    if [[ "${SETTA_PATH_FLAGS_CONSUMED}" -eq 1 ]]; then
+      RESET_ARGS+=("$1")
+      AI_ARGS+=("$1")
+    elif [[ "${SETTA_PATH_FLAGS_CONSUMED}" -eq 2 ]]; then
+      RESET_ARGS+=("$1" "$2")
+      AI_ARGS+=("$1" "$2")
+    else
+      echo "Internal parser error: unexpected consumed arg count ${SETTA_PATH_FLAGS_CONSUMED}" >&2
+      exit 1
+    fi
     shift "${SETTA_PATH_FLAGS_CONSUMED}"
     continue
   fi

@@ -176,6 +176,27 @@ def test_ai_sh_reports_missing_value_for_profile(tmp_path: Path) -> None:
     assert "Missing value for --profile" in f"{result.stdout}{result.stderr}"
 
 
+def test_ai_sh_rejects_flag_like_profile_value(tmp_path: Path) -> None:
+    sandbox_root = _build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    # A flag token after --profile should be rejected as a missing value.
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "ai.sh"), "--profile", "--reload"],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing value for --profile" in f"{result.stdout}{result.stderr}"
+
+
 def test_ai_sh_rejects_conflicting_setta_files_root_and_location(
     tmp_path: Path,
 ) -> None:
@@ -262,6 +283,32 @@ def test_run_dev_instance_rejects_conflicting_setta_files_root_and_location(
         "Cannot pass both --setta-files-root and --setta-files-location."
         in f"{result.stdout}{result.stderr}"
     )
+
+
+def test_run_dev_instance_rejects_flag_like_profile_value(tmp_path: Path) -> None:
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--profile",
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing value for --profile" in f"{result.stdout}{result.stderr}"
 
 
 def test_run_dev_instance_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
@@ -803,6 +850,56 @@ def test_aireset_setta_files_location_arg_unsets_setta_files_root(
     reset_args = (sandbox_root / "reset_args.txt").read_text(encoding="utf-8")
     assert "SETTA_FILES_ROOT=" not in reset_env
     assert "--setta-files-location local" in reset_args
+
+
+def test_aireset_accepts_equals_style_path_flags(tmp_path: Path) -> None:
+    sandbox_root = _build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = _script_env(tmp_path / "unused-bin", home_dir)
+    setta_home = tmp_path / ".setta-development"
+    setta_files_root = tmp_path / "state" / "setta_files_dev"
+    runtime_root = setta_files_root / "runtime_dev"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "aireset.sh"),
+            "--profile=dev",
+            f"--setta-home={setta_home}",
+            f"--setta-files-root={setta_files_root}",
+            f"--runtime-root={runtime_root}",
+            "--reload",
+        ],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    reset_env = (sandbox_root / "reset_env.txt").read_text(encoding="utf-8")
+    ai_env = (sandbox_root / "ai_env.txt").read_text(encoding="utf-8")
+    reset_args = (sandbox_root / "reset_args.txt").read_text(encoding="utf-8")
+    ai_args = (sandbox_root / "ai_args.txt").read_text(encoding="utf-8")
+
+    assert "--profile=dev" in reset_args
+    assert f"--setta-home={setta_home}" in reset_args
+    assert f"--setta-files-root={setta_files_root}" in reset_args
+    assert f"--runtime-root={runtime_root}" in reset_args
+    assert "--reload" not in reset_args
+    assert "--reload" in ai_args
+
+    assert f"SETTA_PROFILE=dev" in reset_env
+    assert f"SETTA_HOME={setta_home}" in reset_env
+    assert f"SETTA_FILES_ROOT={setta_files_root}" in reset_env
+    assert f"SETTA_RUNTIME_ROOT={runtime_root}" in reset_env
+    assert f"SETTA_PROFILE=dev" in ai_env
+    assert f"SETTA_HOME={setta_home}" in ai_env
+    assert f"SETTA_FILES_ROOT={setta_files_root}" in ai_env
+    assert f"SETTA_RUNTIME_ROOT={runtime_root}" in ai_env
 
 
 def test_aireset_rejects_conflicting_setta_files_root_and_location(

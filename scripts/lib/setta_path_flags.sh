@@ -3,10 +3,20 @@
 setta_require_option_value() {
   flag="$1"
   arg_count="$2"
+  option_value="${3-}"
   if [ "${arg_count}" -lt 2 ]; then
     echo "Missing value for ${flag}" >&2
     exit 1
   fi
+  if [ "$#" -lt 3 ]; then
+    return
+  fi
+  case "${option_value}" in
+    ""|-*)
+      echo "Missing value for ${flag}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 setta_path_flags_init() {
@@ -30,7 +40,7 @@ setta_path_flags_try_parse() {
   SETTA_PATH_FLAGS_CONSUMED=0
   case "$1" in
     --profile)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_PROFILE_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
@@ -45,7 +55,7 @@ setta_path_flags_try_parse() {
       return 0
       ;;
     --setta-home)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_HOME_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
@@ -60,7 +70,7 @@ setta_path_flags_try_parse() {
       return 0
       ;;
     --setta-files-root)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_FILES_ROOT_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
@@ -75,7 +85,7 @@ setta_path_flags_try_parse() {
       return 0
       ;;
     --setta-files-location)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_FILES_LOCATION_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
@@ -90,7 +100,7 @@ setta_path_flags_try_parse() {
       return 0
       ;;
     --runtime-root)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_RUNTIME_ROOT_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0

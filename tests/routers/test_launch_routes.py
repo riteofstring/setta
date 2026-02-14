@@ -69,6 +69,32 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
 
+    def test_launch_local_explicit_root_preserves_omitted_location(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                settaFilesRoot="/tmp/workspace/setta_files_dev",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_files_location"] is None
+
     def test_launch_ssh_profile_preserves_omitted_setta_files_location(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

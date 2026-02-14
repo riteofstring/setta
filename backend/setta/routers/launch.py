@@ -61,12 +61,10 @@ class LaunchResponse(BaseModel):
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
-        if x.settaFilesRoot is not None:
+        if x.settaFilesLocation is not None:
             setta_files_location = x.settaFilesLocation
-        elif x.settaFilesLocation is not None:
-            setta_files_location = x.settaFilesLocation
-        elif x.profile is not None:
-            # Preserve omission so profile config can drive location/root selection.
+        elif x.settaFilesRoot is not None or x.profile is not None:
+            # Preserve omission so explicit root/profile config can drive location/root selection.
             setta_files_location = None
         else:
             # Keep API launches insulated from server-process SETTA_FILES_LOCATION env.

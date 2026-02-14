@@ -403,14 +403,54 @@ def test_launch_workspace_session_spawns_profile_with_runtime_home_and_lookup_en
     assert captured_cmd
     assert "--profile" in captured_cmd
     assert captured_cmd[captured_cmd.index("--profile") + 1] == "dev"
-    assert "--setta-home" in captured_cmd
+    assert "--setta-home" not in captured_cmd
     assert (
-        captured_cmd[captured_cmd.index("--setta-home") + 1]
+        captured_env.get("SETTA_HOME")
         == str(runtime_home.resolve(strict=False))
     )
     assert (
         captured_env.get("SETTA_PROFILE_LOOKUP_HOME")
         == str(lookup_home.resolve(strict=False))
+    )
+
+
+def test_launch_workspace_session_non_profile_keeps_setta_home_cli_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_home = tmp_path / ".setta-development"
+
+    captured_cmd: list[str] = []
+    captured_env: dict[str, str] = {}
+
+    def capture_spawn_command(*args, **kwargs):
+        command = args[0] if args else None
+        if isinstance(command, list):
+            captured_cmd.extend(str(part) for part in command)
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            captured_env.update({str(k): str(v) for k, v in env.items()})
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", capture_spawn_command)
+
+    with pytest.raises(LaunchError):
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_home=setta_home,
+            setta_files_location="local",
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert "--setta-home" in captured_cmd
+    assert captured_cmd[captured_cmd.index("--setta-home") + 1] == str(
+        setta_home.resolve(strict=False)
+    )
+    assert captured_env.get("SETTA_HOME") == str(setta_home.resolve(strict=False))
+    assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == str(
+        setta_home.resolve(strict=False)
     )
 
 
