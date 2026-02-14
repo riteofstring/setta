@@ -60,4 +60,14 @@ describe("ComboboxInput", () => {
     const markup = renderNormalInputMarkup("pill");
     expect(markup).toContain("h-7 w-7");
   });
+
+  it("uses svg chevron icons instead of gg chevron classes", () => {
+    // SVG chevrons keep optical centering stable across both variants.
+    const paneMarkup = renderInputMarkup("pane");
+    const pillMarkup = renderInputMarkup("pill");
+
+    expect(paneMarkup).not.toContain("gg-chevron-down");
+    expect(pillMarkup).not.toContain("gg-chevron-down");
+    expect(pillMarkup).toContain("<svg");
+  });
 });

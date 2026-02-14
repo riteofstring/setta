@@ -64,4 +64,38 @@ describe("SectionConfigAccordion", () => {
     expect(appearanceTriggerTag).toContain('aria-expanded="false"');
   });
 
+  it("disables empty sections and prevents default-open on disabled sections", () => {
+    const markup = renderToStaticMarkup(
+      <SectionConfigAccordion
+        defaultOpenValues={["appearance"]}
+        items={[
+          {
+            value: "main",
+            title: "Main",
+            triggerTestId: "section-config-main-trigger",
+            content: <div>Main content</div>,
+          },
+          {
+            value: "appearance",
+            title: "Appearance",
+            triggerTestId: "section-config-appearance-trigger",
+            disabled: true,
+            disabledReason: "No appearance settings available",
+            content: <div>No appearance settings available</div>,
+          },
+        ]}
+      />,
+    );
+
+    const appearanceTriggerTag =
+      markup.match(
+        /<button[^>]*data-testid="section-config-appearance-trigger"[^>]*>/,
+      )?.[0] ?? "";
+
+    expect(appearanceTriggerTag).toContain('disabled=""');
+    expect(appearanceTriggerTag).toContain('aria-expanded="false"');
+    expect(appearanceTriggerTag).toContain(
+      'title="No appearance settings available"',
+    );
+  });
 });
