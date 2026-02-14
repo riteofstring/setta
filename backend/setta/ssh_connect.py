@@ -46,6 +46,10 @@ class RemoteConnectResult:
     started_new: bool
     remote_cmd_resolved: str
     setta_files_location: str | None
+    setta_files_root: str | None
+    runtime_root: str | None
+    setta_home: str | None
+    profile: str | None
 
 
 class SshTunnelMetadata(BaseModel):
@@ -57,6 +61,21 @@ class SshTunnelMetadata(BaseModel):
     pidCreateTime: float
     createdAt: str
     lastUsedAt: str
+
+
+def _parse_optional_connect_info_field(
+    connect_info: dict[str, object], *, key: str
+) -> str | None:
+    raw_value = connect_info.get(key)
+    if raw_value is None:
+        return None
+    if not isinstance(raw_value, str):
+        raise LaunchError(
+            "RemoteConnectInfo",
+            f"Remote connect info did not include a valid {key}.",
+        )
+    trimmed = raw_value.strip()
+    return trimmed or None
 
 
 def connect_remote_workspace_session(
@@ -205,6 +224,16 @@ def connect_remote_workspace_session(
                 "Remote connect info did not include a resolved settaFilesLocation.",
             )
         remote_setta_files_location = normalized_remote_location
+    remote_setta_files_root = _parse_optional_connect_info_field(
+        connect_info, key="settaFilesRoot"
+    )
+    remote_runtime_root = _parse_optional_connect_info_field(
+        connect_info, key="runtimeRoot"
+    )
+    remote_setta_home = _parse_optional_connect_info_field(
+        connect_info, key="settaHome"
+    )
+    remote_profile = _parse_optional_connect_info_field(connect_info, key="profile")
     try:
         token = extract_token_from_bootstrap_url(remote_bootstrap_url)
     except ValueError as exc:
@@ -230,6 +259,10 @@ def connect_remote_workspace_session(
         started_new=started_new,
         remote_cmd_resolved=setta_command,
         setta_files_location=remote_setta_files_location,
+        setta_files_root=remote_setta_files_root,
+        runtime_root=remote_runtime_root,
+        setta_home=remote_setta_home,
+        profile=remote_profile,
     )
 
 

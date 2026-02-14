@@ -1,12 +1,15 @@
 import os
 import signal
 import socket
+from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 
 from setta.routers.launch import LaunchRequest, route_launch
+from setta.ssh_common import RemoteSessionSummary
+from setta.ssh_connect import RemoteConnectResult
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.utils.paths import build_files_root_from_base, resolve_setta_paths
@@ -180,6 +183,48 @@ class TestLaunchRoutes:
                 os.environ.pop("SETTA_SESSION_ID", None)
                 os.environ.pop("SETTA_SESSIONS_ROOT", None)
                 os.environ["PATH"] = old_path
+
+    def test_launch_over_ssh_returns_resolved_remote_paths(self, monkeypatch) -> None:
+        def fake_connect_remote_workspace_session(**_kwargs) -> RemoteConnectResult:
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=False,
+                remote_cmd_resolved="setta",
+                setta_files_location="global",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+            )
+        )
+
+        assert response.ok is True
+        assert response.settaFilesLocation == "global"
+        assert response.settaFilesRoot == "/remote/state"
+        assert response.runtimeRoot == "/remote/runtime"
+        assert response.settaHome == "/remote/home/.setta"
+        assert response.profile == "dev"
+        assert response.remoteCmdResolved == "setta"
 
     def test_launch_local_does_not_inherit_server_files_location_env(self, monkeypatch) -> None:
         with TemporaryDirectory() as tmpdir:

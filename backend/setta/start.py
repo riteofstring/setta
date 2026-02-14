@@ -75,6 +75,7 @@ _MISSING_AUTH_MESSAGE = (
     "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
     "workspace)."
 )
+_DEFAULT_AUTH_COOKIE_NAME = C.AUTH_COOKIE_NAME
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
@@ -137,6 +138,9 @@ def _apply_paths_to_env(paths) -> None:
         C.AUTH_COOKIE_NAME = normalize_cookie_name(
             paths.auth_cookie_name, default="setta_auth"
         )
+    else:
+        os.environ.pop("SETTA_AUTH_COOKIE_NAME", None)
+        C.AUTH_COOKIE_NAME = _DEFAULT_AUTH_COOKIE_NAME
     clear_setta_paths_cache()
 
 

@@ -92,41 +92,59 @@ EFFECTIVE_SETTA_HOME="${DEFAULT_SETTA_HOME}"
 EFFECTIVE_SETTA_FILES_ROOT="${DEFAULT_DEV_SETTA_FILES_ROOT}"
 EFFECTIVE_SETTA_FILES_LOCATION=""
 
+require_option_value() {
+  flag="$1"
+  arg_count="$2"
+  if [ "${arg_count}" -lt 2 ]; then
+    echo "Missing value for ${flag}" >&2
+    exit 1
+  fi
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --host)
+      require_option_value "$1" "$#"
       SETTA_HOST="$2"
       shift 2
       ;;
     --backend-port)
+      require_option_value "$1" "$#"
       SETTA_PORT="$2"
       shift 2
       ;;
     --frontend-port)
+      require_option_value "$1" "$#"
       SETTA_DEV_FRONTEND_PORT="$2"
       shift 2
       ;;
     --mode)
+      require_option_value "$1" "$#"
       RUN_MODE="$2"
       shift 2
       ;;
     --profile)
+      require_option_value "$1" "$#"
       SETTA_PROFILE_OVERRIDE="$2"
       shift 2
       ;;
     --setta-home)
+      require_option_value "$1" "$#"
       SETTA_HOME_OVERRIDE="$2"
       shift 2
       ;;
     --setta-files-root)
+      require_option_value "$1" "$#"
       SETTA_FILES_ROOT_OVERRIDE="$2"
       shift 2
       ;;
     --setta-files-location)
+      require_option_value "$1" "$#"
       SETTA_FILES_LOCATION_OVERRIDE="$2"
       shift 2
       ;;
     --runtime-root)
+      require_option_value "$1" "$#"
       SETTA_RUNTIME_ROOT_OVERRIDE="$2"
       shift 2
       ;;

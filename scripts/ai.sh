@@ -177,6 +177,15 @@ Flags:
 EOF
 }
 
+require_option_value() {
+  local flag="$1"
+  local arg_count="$2"
+  if [[ "${arg_count}" -lt 2 ]]; then
+    echo "Missing value for ${flag}" >&2
+    exit 1
+  fi
+}
+
 SETTA_PROFILE_OVERRIDE=""
 SETTA_HOME_OVERRIDE=""
 SETTA_FILES_ROOT_OVERRIDE=""
@@ -193,22 +202,27 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --profile)
+      require_option_value "$1" "$#"
       SETTA_PROFILE_OVERRIDE="$2"
       shift 2
       ;;
     --setta-home)
+      require_option_value "$1" "$#"
       SETTA_HOME_OVERRIDE="$2"
       shift 2
       ;;
     --setta-files-root)
+      require_option_value "$1" "$#"
       SETTA_FILES_ROOT_OVERRIDE="$2"
       shift 2
       ;;
     --setta-files-location)
+      require_option_value "$1" "$#"
       SETTA_FILES_LOCATION_OVERRIDE="$2"
       shift 2
       ;;
     --runtime-root)
+      require_option_value "$1" "$#"
       SETTA_RUNTIME_ROOT_OVERRIDE="$2"
       shift 2
       ;;

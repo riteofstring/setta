@@ -32,7 +32,10 @@ def test_cli_keyboard_interrupt_exits_cleanly(
     )
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["--workspace", str(workspace), "--no-open"])
+    result = runner.invoke(
+        cli,
+        ["--workspace", str(workspace), "--port", "61234", "--no-open"],
+    )
 
     # Ctrl+C during server execution should be a clean shutdown, not a click abort.
     assert result.exit_code == 0

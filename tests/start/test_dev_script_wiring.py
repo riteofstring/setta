@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -129,6 +130,58 @@ def _parse_env_snapshot(snapshot: str) -> dict[str, str]:
         key, value = line.split("=", 1)
         parsed[key] = value
     return parsed
+
+
+def test_frontend_reset_script_uses_explicit_dev_paths() -> None:
+    repo_root = _repo_root()
+    package_json = json.loads((repo_root / "frontend" / "package.json").read_text())
+    reset_script = package_json["scripts"]["reset"]
+    assert "--workspace" in reset_script
+    assert "--setta-files-root" in reset_script
+
+
+def test_ai_sh_reports_missing_value_for_profile(tmp_path: Path) -> None:
+    sandbox_root = _build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "ai.sh"), "--profile"],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing value for --profile" in f"{result.stdout}{result.stderr}"
+
+
+def test_run_dev_instance_reports_missing_value_for_backend_port(tmp_path: Path) -> None:
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--backend-port",
+        ],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing value for --backend-port" in f"{result.stdout}{result.stderr}"
 
 
 def test_run_dev_instance_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
@@ -622,3 +675,29 @@ def test_aireset_setta_files_location_arg_unsets_setta_files_root(
     reset_args = (sandbox_root / "reset_args.txt").read_text(encoding="utf-8")
     assert "SETTA_FILES_ROOT=" not in reset_env
     assert "--setta-files-location local" in reset_args
+
+
+def test_aireset_rejects_force_and_yes(tmp_path: Path) -> None:
+    sandbox_root = _build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = _script_env(tmp_path / "unused-bin", home_dir)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "aireset.sh"),
+            "--force",
+            "--yes",
+            "--reload",
+        ],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    combined = f"{result.stdout}{result.stderr}"
+    assert "Unsupported argument for aireset.sh: --force" in combined

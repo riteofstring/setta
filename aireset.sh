@@ -11,7 +11,7 @@ fi
 DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 
 RESET_ARGS=()
-AI_ARGS=("$@")
+AI_ARGS=()
 setta_files_root_arg_set=0
 setta_files_location_arg_set=0
 setta_home_override=""
@@ -26,6 +26,7 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       RESET_ARGS+=("$1" "$2")
+      AI_ARGS+=("$1" "$2")
       if [[ "$1" == "--setta-files-root" ]]; then
         setta_files_root_arg_set=1
       fi
@@ -43,7 +44,12 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --force|--yes)
+      echo "Unsupported argument for aireset.sh: $1" >&2
+      exit 1
+      ;;
     *)
+      AI_ARGS+=("$1")
       shift
       ;;
   esac
