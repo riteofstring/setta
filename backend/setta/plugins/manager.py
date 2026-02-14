@@ -1,6 +1,4 @@
 import hashlib
-import importlib.util
-import inspect
 import json
 import os
 import select
@@ -9,6 +7,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
+import time
 import tomllib
 import zipfile
 from collections.abc import Callable
@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from jsonschema import ValidationError as JSONSchemaValidationError
 from jsonschema import validate as jsonschema_validate
@@ -304,6 +304,9 @@ class PluginManager:
         self._backend_runtime_errors: dict[str, PluginErrorInfo] = {}
         self._backend_loaded_plugin_ids: set[str] = set()
         self._backend_worker_processes: dict[str, subprocess.Popen[str]] = {}
+        self._backend_worker_request_locks: dict[str, threading.Lock] = {}
+        self._backend_worker_next_request_ids: dict[str, int] = {}
+        self._backend_worker_request_state_lock = threading.Lock()
         self._backend_registered_mcp_tools: dict[str, list[Callable[..., Any]]] = {}
         self._backend_external_agent_adapters: dict[str, list[Any]] = {}
         self._backend_language_servers: dict[str, list[Any]] = {}
@@ -328,6 +331,8 @@ class PluginManager:
         self._backend_runtime_errors = {}
         self._backend_loaded_plugin_ids = set()
         self._backend_worker_processes = {}
+        self._backend_worker_request_locks = {}
+        self._backend_worker_next_request_ids = {}
         self._backend_registered_mcp_tools = {}
         self._backend_external_agent_adapters = {}
         self._backend_language_servers = {}
@@ -560,6 +565,9 @@ class PluginManager:
             entry=entry,
             entrypoint_path=entrypoint_path,
         )
+        self._backend_worker_request_locks[entry.plugin_id] = threading.Lock()
+        with self._backend_worker_request_state_lock:
+            self._backend_worker_next_request_ids[entry.plugin_id] = 1_000
         request_id = 1
         try:
             handshake_payload = self._call_backend_worker_method(
@@ -569,6 +577,8 @@ class PluginManager:
                 method="plugin.initialize",
                 timeout_seconds=self._backend_startup_timeout_seconds,
                 timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
+                entry=entry,
+                app=app,
             )
             request_id += 1
             if not isinstance(handshake_payload, dict):
@@ -587,48 +597,14 @@ class PluginManager:
                 method="plugin.register",
                 timeout_seconds=self._backend_register_timeout_seconds,
                 timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
-            )
-            request_id += 1
-            try:
-                self._call_backend_worker_method(
-                    process=worker_process,
-                    plugin_id=entry.plugin_id,
-                    request_id=request_id,
-                    method="plugin.shutdown",
-                    timeout_seconds=self._backend_register_timeout_seconds,
-                    timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
-                )
-            except PluginManagerError:
-                pass
-        except Exception:
-            self._stop_backend_worker_process(worker_process)
-            raise
-        try:
-            module = self._import_backend_plugin_module(
                 entry=entry,
-                entrypoint_path=entrypoint_path,
+                app=app,
             )
-            register_fn = getattr(module, "register", None)
-            if register_fn is None or not callable(register_fn):
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_IMPORT_FAILED",
-                    (
-                        f"Backend plugin {entry.plugin_id} does not expose "
-                        "a callable register(plugin) entrypoint."
-                    ),
-                )
-            context = self._build_backend_plugin_context(app=app, entry=entry)
-            result = register_fn(context)
-            if inspect.isawaitable(result):
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_IMPORT_FAILED",
-                    (
-                        f"Backend plugin {entry.plugin_id} returned an awaitable from "
-                        "register(plugin); async register is not supported in MVP."
-                    ),
-                )
         except Exception:
             self._stop_backend_worker_process(worker_process)
+            self._backend_worker_request_locks.pop(entry.plugin_id, None)
+            with self._backend_worker_request_state_lock:
+                self._backend_worker_next_request_ids.pop(entry.plugin_id, None)
             raise
         self._backend_worker_processes[entry.plugin_id] = worker_process
 
@@ -731,69 +707,229 @@ class PluginManager:
         method: str,
         timeout_seconds: float,
         timeout_code: str,
+        params: dict[str, Any] | None = None,
+        entry: DiscoveredPlugin | None = None,
+        app: Optional["FastAPI"] = None,
     ) -> Any:
+        worker_lock = self._backend_worker_request_locks.get(plugin_id)
+        if worker_lock is None:
+            worker_lock = threading.Lock()
+            self._backend_worker_request_locks[plugin_id] = worker_lock
+
+        with worker_lock:
+            request_payload = {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": method,
+                "params": params or {},
+            }
+            self._write_backend_worker_payload(
+                process=process,
+                plugin_id=plugin_id,
+                payload=request_payload,
+                phase=method,
+            )
+            deadline = time.monotonic() + timeout_seconds
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise PluginManagerError(
+                        timeout_code,
+                        (
+                            f"Backend plugin {plugin_id} {method} request timed out "
+                            f"after {timeout_seconds:.2f}s."
+                        ),
+                    )
+                message_payload = self._read_backend_worker_message(
+                    process=process,
+                    plugin_id=plugin_id,
+                    method=method,
+                    timeout_seconds=remaining,
+                    timeout_code=timeout_code,
+                )
+                nested_method = message_payload.get("method")
+                if isinstance(nested_method, str):
+                    nested_request_id = message_payload.get("id")
+                    nested_params = message_payload.get("params")
+                    try:
+                        nested_result = self._dispatch_backend_worker_host_request(
+                            plugin_id=plugin_id,
+                            method=nested_method,
+                            params=nested_params,
+                            entry=entry,
+                            app=app,
+                        )
+                        nested_response = {
+                            "jsonrpc": "2.0",
+                            "id": nested_request_id,
+                            "result": nested_result,
+                        }
+                    except PluginManagerError as exc:
+                        nested_response = {
+                            "jsonrpc": "2.0",
+                            "id": nested_request_id,
+                            "error": {
+                                "code": exc.code,
+                                "message": exc.message,
+                            },
+                        }
+                    self._write_backend_worker_payload(
+                        process=process,
+                        plugin_id=plugin_id,
+                        payload=nested_response,
+                        phase=nested_method,
+                    )
+                    continue
+                response_id = message_payload.get("id")
+                if response_id != request_id:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                        (
+                            f"Backend worker response id mismatch for {plugin_id}: "
+                            f"expected {request_id}, received {response_id!r}."
+                        ),
+                    )
+                error_payload = message_payload.get("error")
+                if isinstance(error_payload, dict):
+                    raw_code = error_payload.get("code")
+                    raw_message = error_payload.get("message")
+                    code = (
+                        raw_code
+                        if isinstance(raw_code, str)
+                        else "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+                    )
+                    message = (
+                        raw_message
+                        if isinstance(raw_message, str)
+                        else (
+                            "Backend worker returned an invalid error payload for "
+                            f"{plugin_id}."
+                        )
+                    )
+                    raise PluginManagerError(code, message)
+                if "result" not in message_payload:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                        (
+                            f"Backend worker result missing for {plugin_id} during "
+                            f"{method}."
+                        ),
+                    )
+                return message_payload["result"]
+
+    def _dispatch_backend_worker_host_request(
+        self,
+        *,
+        plugin_id: str,
+        method: str,
+        params: Any,
+        entry: DiscoveredPlugin | None,
+        app: Optional["FastAPI"],
+    ) -> dict[str, Any]:
+        if entry is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend worker {plugin_id} sent {method} without a matching "
+                    "plugin entry context."
+                ),
+            )
+        params_payload = params if isinstance(params, dict) else {}
+        if method == "host.register_router":
+            if app is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Backend worker {plugin_id} sent host.register_router "
+                        "without an app context."
+                    ),
+                )
+            return self._register_backend_router_from_worker_request(
+                app=app,
+                entry=entry,
+                params=params_payload,
+            )
+        if method == "host.register_static_dir":
+            if app is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Backend worker {plugin_id} sent host.register_static_dir "
+                        "without an app context."
+                    ),
+                )
+            return self._register_backend_static_dir_from_worker_request(
+                app=app,
+                entry=entry,
+                params=params_payload,
+            )
+        if method == "host.register_mcp_tool":
+            return self._register_backend_mcp_tool_from_worker_request(
+                entry=entry,
+                params=params_payload,
+            )
+        if method == "host.register_external_agent_adapter":
+            return self._register_backend_external_agent_adapter_from_worker_request(
+                entry=entry,
+                params=params_payload,
+            )
+        if method == "host.register_language_server":
+            return self._register_backend_language_server_from_worker_request(
+                entry=entry,
+                params=params_payload,
+            )
+        if method == "host.register_codegen_target":
+            return self._register_backend_codegen_target_from_worker_request(
+                entry=entry,
+                params=params_payload,
+            )
+        raise PluginManagerError(
+            "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            f"Unsupported worker host method: {method}",
+        )
+
+    def _next_backend_worker_request_id(self, plugin_id: str) -> int:
+        with self._backend_worker_request_state_lock:
+            next_id = self._backend_worker_next_request_ids.get(plugin_id, 1_000)
+            self._backend_worker_next_request_ids[plugin_id] = next_id + 1
+        return next_id
+
+    def _write_backend_worker_payload(
+        self,
+        *,
+        process: subprocess.Popen[str],
+        plugin_id: str,
+        payload: dict[str, Any],
+        phase: str,
+    ) -> None:
         if process.stdin is None:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 f"Backend worker stdin unavailable for {plugin_id}.",
             )
-        request_payload = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": {},
-        }
         try:
-            process.stdin.write(json.dumps(request_payload) + "\n")
+            serialized = json.dumps(payload)
+        except TypeError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend worker payload is not JSON-serializable for {plugin_id} "
+                    f"during {phase}: {exc}"
+                ),
+            ) from exc
+        try:
+            process.stdin.write(serialized + "\n")
             process.stdin.flush()
         except OSError as exc:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 (
                     f"Backend worker transport write failed for {plugin_id} "
-                    f"during {method}: {exc}"
+                    f"during {phase}: {exc}"
                 ),
             ) from exc
 
-        response_payload = self._read_backend_worker_response(
-            process=process,
-            plugin_id=plugin_id,
-            method=method,
-            timeout_seconds=timeout_seconds,
-            timeout_code=timeout_code,
-        )
-        response_id = response_payload.get("id")
-        if response_id != request_id:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    f"Backend worker response id mismatch for {plugin_id}: "
-                    f"expected {request_id}, received {response_id!r}."
-                ),
-            )
-        error_payload = response_payload.get("error")
-        if isinstance(error_payload, dict):
-            raw_code = error_payload.get("code")
-            raw_message = error_payload.get("message")
-            code = (
-                raw_code
-                if isinstance(raw_code, str)
-                else "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
-            )
-            message = (
-                raw_message
-                if isinstance(raw_message, str)
-                else f"Backend worker returned an invalid error payload for {plugin_id}."
-            )
-            raise PluginManagerError(code, message)
-        if "result" not in response_payload:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                f"Backend worker result missing for {plugin_id} during {method}.",
-            )
-        return response_payload["result"]
-
-    def _read_backend_worker_response(
+    def _read_backend_worker_message(
         self,
         *,
         process: subprocess.Popen[str],
@@ -886,7 +1022,7 @@ class PluginManager:
                 self._call_backend_worker_method(
                     process=process,
                     plugin_id=plugin_id,
-                    request_id=10_000,
+                    request_id=self._next_backend_worker_request_id(plugin_id),
                     method="plugin.shutdown",
                     timeout_seconds=self._backend_register_timeout_seconds,
                     timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
@@ -894,6 +1030,9 @@ class PluginManager:
             except PluginManagerError:
                 pass
         self._stop_backend_worker_process(process)
+        self._backend_worker_request_locks.pop(plugin_id, None)
+        with self._backend_worker_request_state_lock:
+            self._backend_worker_next_request_ids.pop(plugin_id, None)
 
     def _remove_backend_registered_mcp_tools(self) -> None:
         from setta.mcp.tool_setup import SETTA_MCP_TOOLS
@@ -1164,92 +1303,322 @@ class PluginManager:
             return normalized
         return "_"
 
-    def _import_backend_plugin_module(
-        self,
-        *,
-        entry: DiscoveredPlugin,
-        entrypoint_path: Path,
-    ) -> Any:
-        module_name = self._build_backend_module_name(entry)
-        spec = importlib.util.spec_from_file_location(module_name, entrypoint_path)
-        if spec is None or spec.loader is None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_IMPORT_FAILED",
-                f"Unable to load backend entrypoint for plugin {entry.plugin_id}.",
-            )
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
-        try:
-            spec.loader.exec_module(module)
-        except Exception as exc:
-            sys.modules.pop(module_name, None)
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_IMPORT_FAILED",
-                f"Failed to import backend plugin {entry.plugin_id}: {exc}",
-            ) from exc
-        return module
-
-    def _build_backend_module_name(self, entry: DiscoveredPlugin) -> str:
-        plugin_token = "".join(
-            char if char.isalnum() else "_" for char in entry.plugin_id
-        )
-        digest_token = (entry.source_digest_sha256 or "runtime")[:12]
-        return f"setta_plugin_backend_{plugin_token}_{digest_token}"
-
-    def _build_backend_plugin_context(
+    def _register_backend_router_from_worker_request(
         self,
         *,
         app: "FastAPI",
         entry: DiscoveredPlugin,
-    ) -> BackendPluginContext:
-        return BackendPluginContext(
-            plugin_id=entry.plugin_id,
-            plugin_root=entry.source_path,
-            server_mode=self.server_mode,
-            requested_capabilities=list(entry.requested_capabilities),
-            effective_capabilities=list(entry.effective_capabilities),
-            _register_router_fn=lambda router, prefix: self._register_backend_router(
-                app=app,
-                entry=entry,
-                router=router,
-                prefix=prefix,
-            ),
-            _register_static_dir_fn=lambda url_prefix,
-            path: self._register_backend_static_dir(
-                app=app,
-                entry=entry,
-                url_prefix=url_prefix,
-                path=path,
-            ),
-            _register_mcp_tool_fn=lambda func,
-            name,
-            annotations: self._register_backend_mcp_tool(
-                entry=entry,
-                func=func,
-                name=name,
-                annotations=annotations,
-            ),
-            _register_external_agent_adapter_fn=lambda adapter: self._register_backend_external_agent_adapter(
-                entry=entry,
-                adapter=adapter,
-            ),
-            _register_language_server_fn=lambda provider: self._register_backend_language_server(
-                entry=entry,
-                provider=provider,
-            ),
-            _register_codegen_target_fn=lambda target: self._register_backend_codegen_target(
-                entry=entry,
-                target=target,
-            ),
-            _register_startup_task_fn=lambda coro_fn: self._register_backend_startup_task(
-                entry=entry,
-                coro_fn=coro_fn,
-            ),
-            _register_shutdown_task_fn=lambda coro_fn: self._register_backend_shutdown_task(
-                entry=entry,
-                coro_fn=coro_fn,
-            ),
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        from fastapi import APIRouter, Request
+        from fastapi.encoders import jsonable_encoder
+        from fastapi.responses import JSONResponse
+
+        raw_prefix = params.get("prefix")
+        if raw_prefix is not None and not isinstance(raw_prefix, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin worker register_router payload contains an invalid "
+                    "prefix value."
+                ),
+            )
+        raw_routes = params.get("routes")
+        if not isinstance(raw_routes, list):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin worker register_router payload must provide a routes "
+                    "array."
+                ),
+            )
+
+        proxy_router = APIRouter()
+        for raw_route in raw_routes:
+            if not isinstance(raw_route, dict):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin worker route descriptor must be an object.",
+                )
+            raw_route_id = raw_route.get("routeId")
+            raw_path = raw_route.get("path")
+            raw_methods = raw_route.get("methods")
+            if not isinstance(raw_route_id, str) or raw_route_id.strip() == "":
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin worker route descriptor missing routeId.",
+                )
+            if not isinstance(raw_path, str) or raw_path.strip() == "":
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin worker route descriptor missing path.",
+                )
+            route_id = raw_route_id.strip()
+            route_path = raw_path.strip()
+            if not route_path.startswith("/"):
+                route_path = f"/{route_path}"
+            route_methods = self._normalize_worker_route_methods(
+                plugin_id=entry.plugin_id,
+                route_id=route_id,
+                raw_methods=raw_methods,
+            )
+
+            async def route_proxy(
+                request: Request,
+                *,
+                _plugin_id: str = entry.plugin_id,
+                _route_id: str = route_id,
+            ):
+                process = self._backend_worker_processes.get(_plugin_id)
+                if process is None or process.poll() is not None:
+                    return JSONResponse(
+                        status_code=503,
+                        content={
+                            "code": "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                            "message": (
+                                f"Backend worker unavailable for plugin {_plugin_id}."
+                            ),
+                        },
+                    )
+                query_params = self._normalize_worker_route_query_params(request)
+                path_params = dict(request.path_params)
+                json_body: Any = None
+                if request.method not in {"GET", "HEAD", "OPTIONS"}:
+                    raw_body = await request.body()
+                    if len(raw_body) > 0:
+                        try:
+                            json_body = json.loads(raw_body.decode("utf-8"))
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            json_body = raw_body.decode("utf-8", errors="ignore")
+                try:
+                    route_response = self._call_backend_worker_method(
+                        process=process,
+                        plugin_id=_plugin_id,
+                        request_id=self._next_backend_worker_request_id(_plugin_id),
+                        method="plugin.invoke_route",
+                        timeout_seconds=self._backend_register_timeout_seconds,
+                        timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                        params={
+                            "routeId": _route_id,
+                            "pathParams": path_params,
+                            "queryParams": query_params,
+                            "jsonBody": json_body,
+                        },
+                    )
+                except PluginManagerError as exc:
+                    return JSONResponse(
+                        status_code=502,
+                        content={
+                            "code": exc.code,
+                            "message": exc.message,
+                        },
+                    )
+                if not isinstance(route_response, dict):
+                    return JSONResponse(
+                        status_code=502,
+                        content={
+                            "code": "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                            "message": (
+                                "Plugin worker route response must be an object."
+                            ),
+                        },
+                    )
+                raw_status_code = route_response.get("statusCode", 200)
+                status_code = raw_status_code if isinstance(raw_status_code, int) else 200
+                return JSONResponse(
+                    status_code=status_code,
+                    content=jsonable_encoder(route_response.get("body")),
+                )
+
+            proxy_router.add_api_route(
+                route_path,
+                route_proxy,
+                methods=route_methods,
+            )
+        self._register_backend_router(
+            app=app,
+            entry=entry,
+            router=proxy_router,
+            prefix=raw_prefix,
         )
+        return {"ok": True}
+
+    def _normalize_worker_route_query_params(self, request: Any) -> dict[str, Any]:
+        normalized: dict[str, Any] = {}
+        for key, value in request.query_params.multi_items():
+            existing = normalized.get(key)
+            if existing is None:
+                normalized[key] = value
+                continue
+            if isinstance(existing, list):
+                existing.append(value)
+                continue
+            normalized[key] = [existing, value]
+        return normalized
+
+    def _normalize_worker_route_methods(
+        self,
+        *,
+        plugin_id: str,
+        route_id: str,
+        raw_methods: Any,
+    ) -> list[str]:
+        if not isinstance(raw_methods, list):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin worker route methods must be an array for {plugin_id} "
+                    f"route {route_id}."
+                ),
+            )
+        allowed_methods = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+        normalized: list[str] = []
+        for raw_method in raw_methods:
+            if not isinstance(raw_method, str):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin worker route methods must be strings for {plugin_id} "
+                        f"route {route_id}."
+                    ),
+                )
+            method = raw_method.strip().upper()
+            if method not in allowed_methods:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin worker route method {method!r} is not supported for "
+                        f"{plugin_id} route {route_id}."
+                    ),
+                )
+            if method not in normalized:
+                normalized.append(method)
+        if len(normalized) == 0:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin worker route methods are empty for {plugin_id} route {route_id}.",
+            )
+        return normalized
+
+    def _register_backend_static_dir_from_worker_request(
+        self,
+        *,
+        app: "FastAPI",
+        entry: DiscoveredPlugin,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        raw_url_prefix = params.get("urlPrefix")
+        raw_path = params.get("path")
+        if not isinstance(raw_url_prefix, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker static dir registration missing urlPrefix.",
+            )
+        if not isinstance(raw_path, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker static dir registration missing path.",
+            )
+        self._register_backend_static_dir(
+            app=app,
+            entry=entry,
+            url_prefix=raw_url_prefix,
+            path=raw_path,
+        )
+        return {"ok": True}
+
+    def _register_backend_mcp_tool_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        raw_tool_name = params.get("toolName")
+        raw_annotations = params.get("annotations")
+        if not isinstance(raw_tool_name, str) or raw_tool_name.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker MCP tool registration missing toolName.",
+            )
+        if raw_annotations is not None and not isinstance(raw_annotations, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker MCP tool annotations must be an object.",
+            )
+        tool_name = raw_tool_name.strip()
+        annotations = raw_annotations if isinstance(raw_annotations, dict) else None
+
+        def worker_tool_proxy(*args: Any, **kwargs: Any) -> Any:
+            process = self._backend_worker_processes.get(entry.plugin_id)
+            if process is None or process.poll() is not None:
+                raise RuntimeError(
+                    f"Backend worker unavailable for plugin {entry.plugin_id}."
+                )
+            tool_payload = self._call_backend_worker_method(
+                process=process,
+                plugin_id=entry.plugin_id,
+                request_id=self._next_backend_worker_request_id(entry.plugin_id),
+                method="plugin.invoke_mcp_tool",
+                timeout_seconds=self._backend_register_timeout_seconds,
+                timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                params={
+                    "toolName": tool_name,
+                    "args": list(args),
+                    "kwargs": kwargs,
+                },
+            )
+            if not isinstance(tool_payload, dict) or "result" not in tool_payload:
+                raise RuntimeError(
+                    (
+                        "Plugin worker MCP response is invalid for "
+                        f"{entry.plugin_id}:{tool_name}."
+                    )
+                )
+            return tool_payload["result"]
+
+        self._register_backend_mcp_tool(
+            entry=entry,
+            func=worker_tool_proxy,
+            name=tool_name,
+            annotations=annotations,
+        )
+        return {"ok": True}
+
+    def _register_backend_external_agent_adapter_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._register_backend_external_agent_adapter(
+            entry=entry,
+            adapter=params.get("adapter"),
+        )
+        return {"ok": True}
+
+    def _register_backend_language_server_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._register_backend_language_server(
+            entry=entry,
+            provider=params.get("provider"),
+        )
+        return {"ok": True}
+
+    def _register_backend_codegen_target_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._register_backend_codegen_target(
+            entry=entry,
+            target=params.get("target"),
+        )
+        return {"ok": True}
 
     def _require_effective_capability(
         self,

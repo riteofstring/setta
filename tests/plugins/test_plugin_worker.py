@@ -44,6 +44,7 @@ def _rpc_call(
     *,
     request_id: int,
     method: str,
+    host_method_calls: list[str] | None = None,
 ) -> dict[str, Any]:
     assert worker.stdin is not None
     assert worker.stdout is not None
@@ -59,11 +60,29 @@ def _rpc_call(
         + "\n"
     )
     worker.stdin.flush()
-    line = worker.stdout.readline()
-    assert line != ""
-    payload = json.loads(line)
-    assert isinstance(payload, dict)
-    return payload
+    while True:
+        line = worker.stdout.readline()
+        assert line != ""
+        payload = json.loads(line)
+        assert isinstance(payload, dict)
+        nested_method = payload.get("method")
+        if isinstance(nested_method, str):
+            if host_method_calls is not None:
+                host_method_calls.append(nested_method)
+            nested_request_id = payload.get("id")
+            worker.stdin.write(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": nested_request_id,
+                        "result": {"ok": True},
+                    }
+                )
+                + "\n"
+            )
+            worker.stdin.flush()
+            continue
+        return payload
 
 
 def _stop_worker(worker: subprocess.Popen[str]) -> None:
@@ -96,13 +115,19 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert "plugin.register" in initialize_result["supportedRpcMethods"]
         assert "host.register_mcp_tool" in initialize_result["supportedRpcMethods"]
 
+        host_method_calls: list[str] = []
         register_response = _rpc_call(
             worker,
             request_id=2,
             method="plugin.register",
+            host_method_calls=host_method_calls,
         )
         assert register_response["id"] == 2
         assert register_response["result"] == {"ok": True}
+        assert host_method_calls == [
+            "host.register_router",
+            "host.register_mcp_tool",
+        ]
 
         shutdown_response = _rpc_call(
             worker,
