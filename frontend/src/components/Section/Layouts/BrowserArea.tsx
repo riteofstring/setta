@@ -46,6 +46,7 @@ import {
 import {
   openFileInCodeSection,
   openFileInImageSection,
+  openFileInSpreadsheetSection,
   openFileInTextSection,
 } from "state/actions/sections/createSections";
 import {
@@ -573,6 +574,7 @@ function ThumbnailItem({
   onMouseLeave,
   draggable,
   onDragStart,
+  itemPath,
 }: {
   size: string;
   thumbnailUrl?: string | null;
@@ -586,11 +588,13 @@ function ThumbnailItem({
   onMouseLeave?: React.MouseEventHandler<HTMLDivElement>;
   draggable?: boolean;
   onDragStart?: DragEventHandler<HTMLDivElement>;
+  itemPath?: string;
 }) {
   return (
     <div
       className="nodrag group/thumbnail flex cursor-pointer flex-col items-center gap-1"
       style={{ width: size }}
+      data-browser-thumbnail-path={itemPath}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onMouseEnter={onMouseEnter}
@@ -915,6 +919,7 @@ function ViewSwitch({
               return (
                 <ThumbnailItem
                   key={item.fullPath}
+                  itemPath={item.fullPath}
                   previewKind={previewKind}
                   badgeText={badgeText}
                   thumbnailUrl={thumbnailUrl}
@@ -988,6 +993,25 @@ function ViewSwitch({
                 return;
               }
               onOpenFile(data);
+            }}
+            isThumbnailDraggable={(item) => {
+              const data = item.data as FolderContentItem | undefined;
+              if (!data) {
+                return false;
+              }
+              return data.type.toLowerCase() !== "folder";
+            }}
+            onThumbnailDragStart={(item, event) => {
+              const data = item.data as FolderContentItem | undefined;
+              if (!data || data.type.toLowerCase() === "folder") {
+                return;
+              }
+              setFileBrowserDragPayload(event.dataTransfer, {
+                name: data.name,
+                fullPath: data.fullPath,
+                type: "file",
+              });
+              event.dataTransfer.effectAllowed = "copy";
             }}
             renderPreview={renderPreview}
             renderThumbnail={(item) => {
@@ -1725,10 +1749,10 @@ function ItemsColumn({
         return;
       }
       if (isSpreadsheetPath(item.name) || isSpreadsheetPath(item.fullPath)) {
-        setSelectedCarouselId(item.fullPath);
-        if (value !== BrowserAreaViewModeEnum.carousel) {
-          setView(BrowserAreaViewModeEnum.carousel);
-        }
+        void openFileInSpreadsheetSection({
+          filePath: item.fullPath,
+          fileName: item.name,
+        });
         return;
       }
       const previewKind = getAttachmentPreviewKind({
@@ -1802,10 +1826,9 @@ function ItemsColumn({
       getFileUrlEntry,
       openFileInCodeSection,
       openFileInImageSection,
+      openFileInSpreadsheetSection,
       openFileInTextSection,
       resolveCodeLanguageFromPath,
-      setView,
-      value,
     ],
   );
 
