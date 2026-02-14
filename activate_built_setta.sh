@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+
+# This script is meant to be sourced. Do not enable shell-wide strict flags here
+# (set -e/-u/-o pipefail), because they would leak into the caller's shell.
 
 usage() {
   cat <<'EOF'
