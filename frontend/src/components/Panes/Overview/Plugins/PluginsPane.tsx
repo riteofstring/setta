@@ -31,8 +31,8 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   PluginBlockedCapability,
-  PluginInstallResponse,
   PluginInstallRequestInput,
+  PluginInstallResponse,
   PluginListEntry,
   PluginRollbackRequestInput,
   PluginStatusEntry,
@@ -552,7 +552,8 @@ function PluginListEntryCard({
   const packageManagerManaged = plugin.sourceManager === "package_manager";
   const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
   const pluginActionDisabled = writeActionsLocked || busyActionKey !== null;
-  const packageManagerWriteDisabled = pluginActionDisabled || packageManagerManaged;
+  const packageManagerWriteDisabled =
+    pluginActionDisabled || packageManagerManaged;
   const paneButtonsDisabled = pluginActionDisabled;
   const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
   const effectiveCapabilities =

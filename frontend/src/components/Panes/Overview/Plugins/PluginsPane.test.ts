@@ -2,8 +2,8 @@ import { pluginsPaneTestApi } from "components/Panes/Overview/Plugins/PluginsPan
 import {
   createPluginListEntry,
   createPluginStatusEntry,
-  type PluginInstallResponse,
   PluginRuntimeStateEnum,
+  type PluginInstallResponse,
   type PluginListEntry,
   type PluginRestartCapability,
   type PluginStatusEntry,
