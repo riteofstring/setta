@@ -8,7 +8,7 @@ Use these first for day-to-day work.
 
 - `./start.sh`
   - Starts the full dev stack (Vite + backend) using worktree-aware ports.
-  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/dev_setta_files`.
+  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
   - Accepts runtime path flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
   - Wrapper over `scripts/run-dev-instance.sh`.
 - `./reset.sh`
@@ -63,7 +63,7 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-dev-instance.sh`
   - Launches dev server with worktree-based port offsets.
   - Modes: `start`, `startr`, `reset`.
-  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/dev_setta_files`.
+  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
   - Supports runtime identity flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
 - `./scripts/reset-setta-state.sh`
   - Resolves the active Setta state root and deletes it.
@@ -79,7 +79,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Stops dev processes.
 - `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
-  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/dev_setta_files`.
+  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
   - Browser MCP utilities.
   - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.

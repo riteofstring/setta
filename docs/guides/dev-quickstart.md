@@ -10,7 +10,7 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 
 Default dev paths:
 - `SETTA_HOME=~/.setta-development`
-- `SETTA_FILES_ROOT=<worktree>/dev_setta_files`
+- `SETTA_FILES_ROOT=<worktree>/setta_files_dev`
 
 Start with explicit runtime profile:
 

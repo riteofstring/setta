@@ -113,7 +113,7 @@ env | sort > "{capture_env}"
 
     captured_env = capture_env.read_text(encoding="utf-8")
     assert f"SETTA_HOME={home_dir / '.setta-development'}" in captured_env
-    assert f"SETTA_FILES_ROOT={repo_root / 'dev_setta_files'}" in captured_env
+    assert f"SETTA_FILES_ROOT={repo_root / 'setta_files_dev'}" in captured_env
 
 
 def test_run_dev_instance_defaults_override_existing_path_env(
@@ -163,7 +163,7 @@ env | sort > "{capture_env}"
 
     captured_env = capture_env.read_text(encoding="utf-8")
     assert f"SETTA_HOME={home_dir / '.setta-development'}" in captured_env
-    assert f"SETTA_FILES_ROOT={repo_root / 'dev_setta_files'}" in captured_env
+    assert f"SETTA_FILES_ROOT={repo_root / 'setta_files_dev'}" in captured_env
     assert "SETTA_FILES_LOCATION=" not in captured_env
     assert "SETTA_PROFILE=" not in captured_env
     assert "SETTA_RUNTIME_ROOT=" not in captured_env
@@ -281,7 +281,7 @@ def test_aireset_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None
     ai_env = (sandbox_root / "ai_env.txt").read_text(encoding="utf-8")
 
     expected_home = home_dir / ".setta-development"
-    expected_root = sandbox_root / "dev_setta_files"
+    expected_root = sandbox_root / "setta_files_dev"
     assert f"SETTA_HOME={expected_home}" in reset_env
     assert f"SETTA_FILES_ROOT={expected_root}" in reset_env
     assert "SETTA_FILES_LOCATION=" not in reset_env
