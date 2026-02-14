@@ -1,6 +1,8 @@
 import _ from "lodash";
-import { useEffect, useMemo, useState } from "react";
+import type { DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileBrowserSpreadsheetEditor } from "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -9,8 +11,10 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { route_set_spreadsheet_file_path } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum, SettaNotificationTypeEnum } from "utils/generatedTypes";
+import { isSpreadsheetPath } from "utils/spreadsheet";
 
 function getFileNameFromPath(path: string): string {
   const normalized = path.replace(/\\/g, "/");
@@ -34,12 +38,13 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
   }, _.isEqual);
   const isDisabled = isFrozen || !canEditLayout;
   const [pathDraft, setPathDraft] = useState(filePath);
+  const [isDropTargetActive, setIsDropTargetActive] = useState(false);
 
   useEffect(() => {
     setPathDraft(filePath);
   }, [filePath]);
 
-  function persistPath(nextPath: string) {
+  const persistPath = useCallback((nextPath: string) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"SpreadsheetSection">(state, sectionId, {
@@ -56,7 +61,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
           frontendOpId,
         }),
     });
-  }
+  }, [activeSheet, sectionId]);
 
   const selectedFile = useMemo(() => {
     const trimmed = filePath.trim();
@@ -69,8 +74,65 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
     };
   }, [filePath]);
 
+  const handleDragOver = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (isDisabled) {
+        return;
+      }
+      const payload = getFileBrowserDragPayload(event.dataTransfer);
+      if (!payload || payload.type !== "file") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      event.dataTransfer.dropEffect = "copy";
+      setIsDropTargetActive(true);
+    },
+    [isDisabled],
+  );
+
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      const payload = getFileBrowserDragPayload(event.dataTransfer);
+      setIsDropTargetActive(false);
+      if (isDisabled || !payload || payload.type !== "file") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (!isSpreadsheetPath(payload.name) && !isSpreadsheetPath(payload.fullPath)) {
+        addTemporaryNotification(
+          "Spreadsheet sections accept only CSV, TSV, XLS, or XLSX files.",
+          SettaNotificationTypeEnum.warning,
+        );
+        return;
+      }
+      setPathDraft(payload.fullPath);
+      persistPath(payload.fullPath);
+    },
+    [isDisabled, persistPath],
+  );
+
+  const handleDragLeave = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        setIsDropTargetActive(false);
+      }
+    },
+    [],
+  );
+
   return (
-    <div className="section-main section-main-full-w mx-1 mb-2 mt-1 flex min-w-[360px] min-h-[240px] flex-col gap-2">
+    <div
+      className={`section-main section-main-full-w mx-1 mb-2 mt-1 flex min-h-[240px] min-w-[360px] flex-col gap-2 rounded-md transition-colors ${
+        isDropTargetActive
+          ? "border border-blue-400/70 bg-blue-50/30 dark:border-blue-500/60 dark:bg-blue-950/20"
+          : ""
+      }`}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onDragLeave={handleDragLeave}
+    >
       <div className="flex items-center gap-2 rounded-md border border-setta-200/70 bg-white/70 px-2 py-2 dark:border-setta-800/70 dark:bg-setta-950/40">
         <input
           value={pathDraft}
