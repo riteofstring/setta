@@ -56,6 +56,8 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
+    registeredLanguageServers: [],
+    registeredExternalAgentAdapters: [],
     restartRequired: false,
     errors: [],
     ...overrides,
@@ -232,6 +234,56 @@ describe("plugins pane helpers", () => {
     expect(pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry)).toEqual(
       [],
     );
+  });
+
+  it("extracts and sorts registered external agent adapters from plugin status", () => {
+    const statusEntry = {
+      ...buildPluginStatusEntry({}),
+      registeredExternalAgentAdapters: [
+        {
+          adapterId: "plugin:beta",
+          pluginId: "plugin",
+          name: "Beta Adapter",
+          runModes: ["sdk"],
+          command: "beta",
+          args: [],
+          envVarWhitelist: [],
+          defaultModel: null,
+        },
+        {
+          adapterId: "plugin:alpha",
+          pluginId: "plugin",
+          name: "Alpha Adapter",
+          runModes: ["sdk", "server"],
+          command: "alpha",
+          args: ["--stdio"],
+          envVarWhitelist: ["OPENHANDS_API_KEY"],
+          defaultModel: "openhands/default",
+        },
+      ],
+    } as PluginStatusEntry;
+
+    const registrations =
+      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
+
+    expect(registrations.map((entry) => entry.name)).toEqual([
+      "Alpha Adapter",
+      "Beta Adapter",
+    ]);
+    expect(registrations[0].defaultModel).toBe("openhands/default");
+  });
+
+  it("returns no external agent adapters when status payload omits registrations", () => {
+    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
+    delete (
+      statusEntry as PluginStatusEntry & {
+        registeredExternalAgentAdapters?: unknown;
+      }
+    ).registeredExternalAgentAdapters;
+
+    expect(
+      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry),
+    ).toEqual([]);
   });
 
   it("parses language server settings drafts as JSON objects", () => {

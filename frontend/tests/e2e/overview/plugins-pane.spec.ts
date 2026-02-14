@@ -65,7 +65,12 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
-  await expect(page.getByText("Restart required for 1 plugin")).toBeVisible();
+  await expect(
+    page.getByText(/^Restart required for \d+ plugins?$/),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Backend changes are pending for: setta-fixture-backend"),
+  ).toBeVisible();
 
   await postBackend(page, "/plugins/link", {
     localPluginRoot: fixturePluginRoot,

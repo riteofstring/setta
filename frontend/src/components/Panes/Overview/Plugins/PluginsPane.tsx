@@ -50,6 +50,8 @@ type PluginActionStatus = {
 
 type PluginRegisteredLanguageServer =
   PluginStatusEntry["registeredLanguageServers"][number];
+type PluginRegisteredExternalAgentAdapter =
+  PluginStatusEntry["registeredExternalAgentAdapters"][number];
 
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
@@ -522,6 +524,9 @@ function PluginListEntryCard({
     pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
   const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
   const registeredLanguageServers = getRegisteredLanguageServers(pluginStatus);
+  const registeredExternalAgentAdapters = getRegisteredExternalAgentAdapters(
+    pluginStatus,
+  );
   const commandCapabilityStatus = getPluginCapabilityStatus(
     pluginStatus,
     plugin,
@@ -548,6 +553,15 @@ function PluginListEntryCard({
   const languageServerCapabilityReason = getBlockedCapabilityReason(
     blockedCapabilities,
     "registerLanguageServer",
+  );
+  const externalAgentCapabilityStatus = getPluginCapabilityStatus(
+    pluginStatus,
+    plugin,
+    "registerExternalAgentAdapter",
+  );
+  const externalAgentCapabilityReason = getBlockedCapabilityReason(
+    blockedCapabilities,
+    "registerExternalAgentAdapter",
   );
 
   function onOpenPane(paneId: string) {
@@ -687,6 +701,76 @@ function PluginListEntryCard({
               capability: "registerLanguageServer",
               status: languageServerCapabilityStatus,
               reason: languageServerCapabilityReason,
+              serverMode,
+            })}
+          </p>
+        </section>
+      ) : null}
+
+      {registeredExternalAgentAdapters.length > 0 ? (
+        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+            Registered External Agent Adapters
+          </h5>
+          <div className="mt-2 flex flex-col gap-2">
+            {registeredExternalAgentAdapters.map((registration) => (
+              <article
+                key={registration.adapterId}
+                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
+              >
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
+                  <span className="font-semibold">{registration.name}</span>
+                  <span className="font-mono">{registration.adapterId}</span>
+                </div>
+                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
+                  runModes=
+                  {registration.runModes.length > 0
+                    ? registration.runModes.join(", ")
+                    : "none"}{" "}
+                  command={registration.command}
+                  {registration.args.length > 0
+                    ? ` ${registration.args.join(" ")}`
+                    : ""}
+                </p>
+                {(registration.defaultModel ||
+                  registration.envVarWhitelist.length > 0) && (
+                  <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
+                    {registration.defaultModel
+                      ? `defaultModel=${registration.defaultModel}`
+                      : ""}
+                    {registration.defaultModel &&
+                    registration.envVarWhitelist.length > 0
+                      ? " "
+                      : ""}
+                    {registration.envVarWhitelist.length > 0
+                      ? `envVarWhitelist=${registration.envVarWhitelist.join(", ")}`
+                      : ""}
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : externalAgentCapabilityStatus === "effective" ? (
+        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+          <p className="font-semibold uppercase tracking-wide">
+            External agent adapters pending runtime load
+          </p>
+          <p className="mt-1">
+            No plugin external agent registrations are active yet. Restart Setta
+            if this plugin was just installed or updated.
+          </p>
+        </section>
+      ) : externalAgentCapabilityStatus !== "not_requested" ? (
+        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-semibold uppercase tracking-wide">
+            External agent adapters unavailable
+          </p>
+          <p className="mt-1">
+            {buildCapabilityUnavailableMessage({
+              capability: "registerExternalAgentAdapter",
+              status: externalAgentCapabilityStatus,
+              reason: externalAgentCapabilityReason,
               serverMode,
             })}
           </p>
@@ -944,6 +1028,27 @@ function getRegisteredLanguageServers(
       return byLanguage;
     }
     return a.name.localeCompare(b.name);
+  });
+  return registrations;
+}
+
+function getRegisteredExternalAgentAdapters(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredExternalAgentAdapter[] {
+  if (pluginStatus === null) {
+    return [];
+  }
+  const registrations = Array.isArray(
+    pluginStatus.registeredExternalAgentAdapters,
+  )
+    ? [...pluginStatus.registeredExternalAgentAdapters]
+    : [];
+  registrations.sort((a, b) => {
+    const byName = a.name.localeCompare(b.name);
+    if (byName !== 0) {
+      return byName;
+    }
+    return a.adapterId.localeCompare(b.adapterId);
   });
   return registrations;
 }
@@ -1223,6 +1328,7 @@ export const pluginsPaneTestApi = {
   buildCapabilityUnavailableMessage,
   formatLanguageServerSettingsDraft,
   getBlockedCapabilityReason,
+  getRegisteredExternalAgentAdapters,
   getLanguageServerSettingsValue,
   getPluginCapabilityStatus,
   getRegisteredLanguageServers,
