@@ -436,65 +436,100 @@ async function createChatSectionViaCommandPalette(
   const shortcut = isMac ? "Meta+Shift+P" : "Control+Shift+P";
   const searchInput = page.locator("#ProjectPageSearchBar");
   const chatOption = page.getByRole("option", { name: /Chat/i }).first();
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const currChatCount = (await getChatSectionIds(page, projectConfigId))
-      .length;
-    if (currChatCount === expectedChatCount) {
-      return;
-    }
-    if (currChatCount > expectedChatCount) {
-      throw new Error(
-        `Chat section count exceeded expected total before create action. Expected ${expectedChatCount}, found ${currChatCount}.`,
-      );
-    }
-
-    await page.keyboard.press(shortcut);
-    await expect(searchInput).toBeVisible();
-    await searchInput.fill("Chat");
-
-    let selectedChatOption = false;
-    const optionTimeoutMs = 3000;
-    const optionStartedAt = Date.now();
-    while (Date.now() - optionStartedAt < optionTimeoutMs) {
-      if (await chatOption.isVisible()) {
-        await chatOption.click();
-        selectedChatOption = true;
-        break;
-      }
-      await page.waitForTimeout(100);
-    }
-    if (!selectedChatOption) {
-      // Fallback: command palette selects the top result with Enter even when
-      // the list is not visible yet.
-      await page.keyboard.press("Enter");
-    }
-
-    const startedAt = Date.now();
-    const timeoutMs = 10000;
-    while (Date.now() - startedAt < timeoutMs) {
-      const nextChatCount = (await getChatSectionIds(page, projectConfigId))
-        .length;
-      if (nextChatCount === expectedChatCount) {
-        return;
-      }
-      if (nextChatCount > expectedChatCount) {
-        throw new Error(
-          `Command palette created too many chat sections. Expected ${expectedChatCount}, found ${nextChatCount}.`,
-        );
-      }
-      await page.waitForTimeout(100);
-    }
-
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(150);
+  const currChatCount = (await getChatSectionIds(page, projectConfigId))
+    .length;
+  if (currChatCount === expectedChatCount) {
+    return;
+  }
+  if (currChatCount > expectedChatCount) {
+    throw new Error(
+      `Chat section count exceeded expected total before create action. Expected ${expectedChatCount}, found ${currChatCount}.`,
+    );
+  }
+  if (currChatCount !== expectedChatCount - 1) {
+    throw new Error(
+      `Unexpected chat section count before command palette create. Expected ${expectedChatCount - 1}, found ${currChatCount}.`,
+    );
   }
 
-  const finalChatCount = (await getChatSectionIds(page, projectConfigId))
-    .length;
-  throw new Error(
-    `Command palette did not reach expected chat section count. Expected exactly ${expectedChatCount}, found ${finalChatCount}.`,
+  await page.keyboard.press(shortcut);
+  await expect(searchInput).toBeVisible({ timeout: 3000 });
+  await searchInput.fill("Chat");
+
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/createTopLevelSection") &&
+      response.request().method() === "POST",
+    { timeout: 8000 },
   );
+
+  let selectedChatOption = false;
+  const optionTimeoutMs = 2500;
+  const optionStartedAt = Date.now();
+  while (Date.now() - optionStartedAt < optionTimeoutMs) {
+    if (await chatOption.isVisible()) {
+      await chatOption.click();
+      selectedChatOption = true;
+      break;
+    }
+    await page.waitForTimeout(75);
+  }
+  if (!selectedChatOption) {
+    // Fallback: command palette selects the top result with Enter even when
+    // the list is not visible yet.
+    await page.keyboard.press("Enter");
+  }
+
+  const createResponse = await createResponsePromise;
+  const createResponseText = await createResponse.text();
+  if (!createResponse.ok()) {
+    const detail = createResponseText ? ` ${createResponseText}` : "";
+    throw new Error(
+      `Command palette chat create failed (${createResponse.status()})${detail}`,
+    );
+  }
+  if (!createResponseText) {
+    throw new Error("Command palette chat create returned an empty response.");
+  }
+  const created = JSON.parse(createResponseText) as CreateSectionResponse;
+  if (!created.sectionId) {
+    throw new Error("Missing sectionId in command palette chat create response.");
+  }
+
+  const finalChatCount = await waitForExactChatSectionCount(
+    page,
+    projectConfigId,
+    expectedChatCount,
+    8000,
+  );
+  if (finalChatCount !== expectedChatCount) {
+    throw new Error(
+      `Command palette did not reach expected chat section count. Expected exactly ${expectedChatCount}, found ${finalChatCount}.`,
+    );
+  }
+}
+
+async function waitForExactChatSectionCount(
+  page: Page,
+  projectConfigId: string,
+  expectedChatCount: number,
+  timeoutMs: number,
+): Promise<number> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const chatCount = (await getChatSectionIds(page, projectConfigId)).length;
+    if (chatCount === expectedChatCount) {
+      return chatCount;
+    }
+    if (chatCount > expectedChatCount) {
+      throw new Error(
+        `Command palette created too many chat sections. Expected ${expectedChatCount}, found ${chatCount}.`,
+      );
+    }
+    await page.waitForTimeout(100);
+  }
+
+  return (await getChatSectionIds(page, projectConfigId)).length;
 }
 
 async function dragHandleToHandle(
