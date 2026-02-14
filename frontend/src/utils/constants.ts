@@ -17,6 +17,7 @@ export type PaneName = ObjectValues<typeof PaneNameEnum>;
 
 export const OverviewTabNameEnum = {
   Overview: "Overview",
+  Plugins: "Plugins",
   FileBrowser: "FileBrowser",
   Git: "Git",
   WatchCode: "WatchCode",
@@ -34,6 +35,7 @@ export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
 
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
+  [OverviewTabNameEnum.Plugins]: "Plugins",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.Git]: "Git",
   [OverviewTabNameEnum.WatchCode]: "Watch Code",
@@ -110,6 +112,7 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.IFrame]: [],
   [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Plugin]: [UIEditorTabNameEnum.SectionConfig],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
@@ -206,7 +209,7 @@ export function getSectionStylePreviewColorKey(sectionId: string) {
   return `${SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX}-${sectionId}`;
 }
 
-const MODEL_GROUPS = [
+export const MODEL_GROUPS = [
   {
     group: "Anthropic",
     items: [
