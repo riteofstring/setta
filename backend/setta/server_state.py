@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from setta import __version__
 from setta.agentic.engine_config_watcher import EngineConfigWatcher
 from setta.agentic.example_config import seed_agentic_config_files
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -35,6 +36,7 @@ from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
+from setta.plugins.manager import PluginManager
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.run_manager import DetachedRunManager
 from setta.share.listener_runtime import ShareListenerRuntime
@@ -48,6 +50,7 @@ from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
 )
+from setta.utils.setta_home import resolve_setta_home
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -220,6 +223,13 @@ class SettaFastAPIState:
             self.paths = get_setta_paths()
         else:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
+        self.plugin_manager = PluginManager(
+            workspace_root=self.paths.workspace_root,
+            setta_files_root=self.paths.setta_files_root,
+            setta_home=resolve_setta_home(),
+            server_mode=self._resolve_server_mode(),
+            setta_version=__version__,
+        )
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
@@ -676,6 +686,13 @@ class SettaFastAPIState:
         delay = C.BACKEND_INIT_DELAY_SECONDS
         if delay and delay > 0:
             await asyncio.sleep(delay)
+
+    def _resolve_server_mode(self) -> str:
+        if self.app_mode:
+            return "app"
+        if self.share_mode:
+            return "share"
+        return "ide"
 
     def _defer_attr(self, name: str) -> _T:
         return cast("_T", _UninitializedAttribute(name))
