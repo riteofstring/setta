@@ -19,7 +19,7 @@ import { TextBlockSettings } from "./TextBlockSettings";
 
 function _SectionConfig({ sectionId }: { sectionId: string }) {
   return (
-    <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
+    <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto pr-1">
       <SectionTagColorSettings sectionId={sectionId} />
       <SectionStyleColorSettings sectionId={sectionId} />
       <SpecializedConfiguration sectionId={sectionId} />
