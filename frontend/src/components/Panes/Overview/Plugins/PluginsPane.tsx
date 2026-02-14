@@ -29,9 +29,11 @@ import {
   route_plugins_update,
 } from "utils/generatedEndpoints";
 import type {
+  PluginBlockedCapability,
   PluginInstallRequestInput,
   PluginListEntry,
   PluginRollbackRequestInput,
+  PluginStatusEntry,
   PluginUninstallRequestInput,
   PluginUpdateRequestInput,
 } from "utils/generatedTypes";
@@ -362,6 +364,9 @@ export function PluginsPane() {
                   <th className="px-2 py-1 font-semibold">plugin</th>
                   <th className="px-2 py-1 font-semibold">state</th>
                   <th className="px-2 py-1 font-semibold">scope</th>
+                  <th className="px-2 py-1 font-semibold">requested</th>
+                  <th className="px-2 py-1 font-semibold">effective</th>
+                  <th className="px-2 py-1 font-semibold">blocked</th>
                   <th className="px-2 py-1 font-semibold">source</th>
                 </tr>
               </thead>
@@ -376,6 +381,34 @@ export function PluginsPane() {
                     </td>
                     <td className="px-2 py-1">{entry.state}</td>
                     <td className="px-2 py-1">{entry.sourceScopeLabel}</td>
+                    <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
+                      <span title={entry.requestedCapabilities.join(", ")}>
+                        {formatCapabilitiesForTable(
+                          entry.requestedCapabilities,
+                        )}
+                      </span>
+                    </td>
+                    <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
+                      <span title={entry.effectiveCapabilities.join(", ")}>
+                        {formatCapabilitiesForTable(
+                          entry.effectiveCapabilities,
+                        )}
+                      </span>
+                    </td>
+                    <td className="max-w-[170px] px-2 py-1 text-setta-600 dark:text-setta-300">
+                      <span
+                        title={entry.blockedCapabilities
+                          .map(
+                            (blockedCapability) =>
+                              `${blockedCapability.capability} (${blockedCapability.reason})`,
+                          )
+                          .join(", ")}
+                      >
+                        {formatBlockedCapabilitiesForTable(
+                          entry.blockedCapabilities,
+                        )}
+                      </span>
+                    </td>
                     <td
                       className="max-w-[220px] truncate px-2 py-1 text-setta-500 dark:text-setta-400"
                       title={entry.sourcePath}
@@ -410,6 +443,14 @@ function PluginListEntryCard({
   busyActionKey,
   runAction,
 }: PluginListEntryCardProps) {
+  const serverMode = usePluginRuntimeStore(
+    (state) => state.serverMode ?? "ide",
+    _.isEqual,
+  );
+  const pluginStatus = usePluginRuntimeStore(
+    (state) => state.pluginStatusById[plugin.pluginId] ?? null,
+    _.isEqual,
+  );
   const panes = usePluginRuntimeStore(
     (state) => state.panesByPluginId[plugin.pluginId] ?? [],
     _.isEqual,
@@ -471,6 +512,28 @@ function PluginListEntryCard({
 
   const pluginActionDisabled = writeActionsLocked || busyActionKey !== null;
   const paneButtonsDisabled = pluginActionDisabled;
+  const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
+  const effectiveCapabilities =
+    pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
+  const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
+  const commandCapabilityStatus = getPluginCapabilityStatus(
+    pluginStatus,
+    plugin,
+    "registerCommand",
+  );
+  const paneCapabilityStatus = getPluginCapabilityStatus(
+    pluginStatus,
+    plugin,
+    "registerPane",
+  );
+  const commandCapabilityReason = getBlockedCapabilityReason(
+    blockedCapabilities,
+    "registerCommand",
+  );
+  const paneCapabilityReason = getBlockedCapabilityReason(
+    blockedCapabilities,
+    "registerPane",
+  );
 
   function onOpenPane(paneId: string) {
     onOverviewTabClick(buildPluginPaneOverviewTabName(plugin.pluginId, paneId));
@@ -522,6 +585,37 @@ function PluginListEntryCard({
         />
       </div>
 
+      {(requestedCapabilities.length > 0 ||
+        effectiveCapabilities.length > 0 ||
+        blockedCapabilities.length > 0) && (
+        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+            Capabilities
+          </h5>
+          <CapabilityRow
+            label="Requested"
+            entries={requestedCapabilities}
+            emptyLabel="none"
+            className="mt-1"
+          />
+          <CapabilityRow
+            label="Effective"
+            entries={effectiveCapabilities}
+            emptyLabel="none"
+            className="mt-1"
+          />
+          <CapabilityRow
+            label="Blocked"
+            entries={blockedCapabilities.map(
+              (entry) => `${entry.capability} (${entry.reason})`,
+            )}
+            emptyLabel="none"
+            className="mt-1"
+            tone="blocked"
+          />
+        </section>
+      )}
+
       {commands.length > 0 ? (
         <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
           <h5 className="mb-1 text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
@@ -549,6 +643,20 @@ function PluginListEntryCard({
               </button>
             ))}
           </div>
+        </section>
+      ) : commandCapabilityStatus !== "not_requested" ? (
+        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-semibold uppercase tracking-wide">
+            Commands unavailable
+          </p>
+          <p className="mt-1">
+            {buildCapabilityUnavailableMessage({
+              capability: "registerCommand",
+              status: commandCapabilityStatus,
+              reason: commandCapabilityReason,
+              serverMode,
+            })}
+          </p>
         </section>
       ) : null}
 
@@ -581,8 +689,62 @@ function PluginListEntryCard({
             ))}
           </div>
         </section>
+      ) : paneCapabilityStatus !== "not_requested" ? (
+        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-semibold uppercase tracking-wide">
+            Plugin panes unavailable
+          </p>
+          <p className="mt-1">
+            {buildCapabilityUnavailableMessage({
+              capability: "registerPane",
+              status: paneCapabilityStatus,
+              reason: paneCapabilityReason,
+              serverMode,
+            })}
+          </p>
+        </section>
       ) : null}
     </article>
+  );
+}
+
+function CapabilityRow({
+  label,
+  entries,
+  emptyLabel,
+  className = "",
+  tone = "default",
+}: {
+  label: string;
+  entries: string[];
+  emptyLabel: string;
+  className?: string;
+  tone?: "default" | "blocked";
+}) {
+  const sortedEntries = [...entries].sort((a, b) => a.localeCompare(b));
+  const badgeClassName =
+    tone === "blocked"
+      ? "rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
+      : "rounded border border-setta-300 bg-setta-50 px-1.5 py-0.5 text-[10px] font-medium text-setta-700 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200";
+  return (
+    <div className={className}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+        {label}
+      </p>
+      {sortedEntries.length > 0 ? (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {sortedEntries.map((entry) => (
+            <span key={`${label}:${entry}`} className={badgeClassName}>
+              {entry}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
+          {emptyLabel}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -635,6 +797,106 @@ function buildPluginActionError<T>(
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
 }
 
+type PluginCapabilityStatus =
+  | "effective"
+  | "blocked"
+  | "requested_unavailable"
+  | "not_requested";
+
+function getPluginCapabilityStatus(
+  pluginStatus: PluginStatusEntry | null,
+  pluginListEntry: PluginListEntry,
+  capability: string,
+): PluginCapabilityStatus {
+  const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
+  const effectiveCapabilities =
+    pluginStatus?.effectiveCapabilities ??
+    pluginListEntry.effectiveCapabilities;
+  if (!requestedCapabilities.includes(capability)) {
+    return "not_requested";
+  }
+  if (effectiveCapabilities.includes(capability)) {
+    return "effective";
+  }
+  const reason = getBlockedCapabilityReason(
+    pluginStatus?.blockedCapabilities ?? [],
+    capability,
+  );
+  if (reason) {
+    return "blocked";
+  }
+  return "requested_unavailable";
+}
+
+function getBlockedCapabilityReason(
+  blockedCapabilities: PluginBlockedCapability[],
+  capability: string,
+): string | null {
+  for (const blockedCapability of blockedCapabilities) {
+    if (blockedCapability.capability === capability) {
+      return blockedCapability.reason;
+    }
+  }
+  return null;
+}
+
+function buildCapabilityUnavailableMessage({
+  capability,
+  status,
+  reason,
+  serverMode,
+}: {
+  capability: string;
+  status: PluginCapabilityStatus;
+  reason: string | null;
+  serverMode: string;
+}): string {
+  if (status === "blocked") {
+    if (reason === "mode_policy") {
+      return `${capability} is blocked by mode policy in ${serverMode} mode.`;
+    }
+    if (reason) {
+      return `${capability} is blocked (${reason}).`;
+    }
+    return `${capability} is blocked.`;
+  }
+  if (status === "requested_unavailable") {
+    return `${capability} was requested but is not effective in this runtime.`;
+  }
+  if (status === "effective") {
+    return `${capability} is effective.`;
+  }
+  return `${capability} is not requested by this plugin.`;
+}
+
+function formatCapabilitiesForTable(capabilities: string[]): string {
+  if (capabilities.length === 0) {
+    return "none";
+  }
+  return [...capabilities].sort((a, b) => a.localeCompare(b)).join(", ");
+}
+
+function formatBlockedCapabilitiesForTable(
+  blockedCapabilities: PluginBlockedCapability[],
+): string {
+  if (blockedCapabilities.length === 0) {
+    return "none";
+  }
+  return [...blockedCapabilities]
+    .sort((a, b) => {
+      const byCapability = a.capability.localeCompare(b.capability);
+      if (byCapability !== 0) {
+        return byCapability;
+      }
+      return a.reason.localeCompare(b.reason);
+    })
+    .map(
+      (blockedCapability) =>
+        `${blockedCapability.capability} (${blockedCapability.reason})`,
+    )
+    .join(", ");
+}
+
 function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
   const sourceSpec = sourceSpecRaw.trim();
   if (!sourceSpec) {
@@ -665,6 +927,9 @@ function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
 
 export const pluginsPaneTestApi = {
   buildRestartActionPlan: buildPluginRestartActionPlan,
+  buildCapabilityUnavailableMessage,
+  getBlockedCapabilityReason,
+  getPluginCapabilityStatus,
   getRestartRequiredPluginIds,
   validateInstallSourceSpec,
 };

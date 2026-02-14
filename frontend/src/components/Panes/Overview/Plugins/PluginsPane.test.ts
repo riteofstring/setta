@@ -1,8 +1,11 @@
 import { pluginsPaneTestApi } from "components/Panes/Overview/Plugins/PluginsPane";
 import {
   createPluginListEntry,
+  createPluginStatusEntry,
+  PluginRuntimeStateEnum,
   type PluginListEntry,
   type PluginRestartCapability,
+  type PluginStatusEntry,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -32,6 +35,29 @@ function buildPluginListEntry(
     },
     effectiveCapabilities: [],
     restartRequired: false,
+    ...overrides,
+  });
+}
+
+function buildPluginStatusEntry(
+  overrides: Partial<PluginStatusEntry>,
+): PluginStatusEntry {
+  return createPluginStatusEntry({
+    pluginId: "acme.plugin",
+    name: "Acme Plugin",
+    version: "1.0.0",
+    state: PluginRuntimeStateEnum.active,
+    sourceScope: "workspace",
+    sourceScopeLabel: "workspace",
+    sourcePath: "/tmp/acme.plugin",
+    canonicalSourceKey: "github:acme/plugin",
+    sourceDigestSha256: null,
+    shadowedBySourcePath: null,
+    requestedCapabilities: [],
+    effectiveCapabilities: [],
+    blockedCapabilities: [],
+    restartRequired: false,
+    errors: [],
     ...overrides,
   });
 }
@@ -102,5 +128,65 @@ describe("plugins pane helpers", () => {
       reason: null,
     } as PluginRestartCapability);
     expect(programmatic.mode).toBe("programmatic");
+  });
+
+  it("reports blocked and requested-unavailable capability statuses", () => {
+    const plugin = buildPluginListEntry({
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const blockedStatusEntry = buildPluginStatusEntry({
+      requestedCapabilities: ["registerCommand", "registerPane"],
+      effectiveCapabilities: [],
+      blockedCapabilities: [
+        {
+          capability: "registerCommand",
+          reason: "mode_policy",
+        },
+      ],
+    });
+    const blockedStatus = pluginsPaneTestApi.getPluginCapabilityStatus(
+      blockedStatusEntry,
+      plugin,
+      "registerCommand",
+    );
+    expect(blockedStatus).toBe("blocked");
+    expect(
+      pluginsPaneTestApi.getBlockedCapabilityReason(
+        blockedStatusEntry.blockedCapabilities,
+        "registerCommand",
+      ),
+    ).toBe("mode_policy");
+
+    const requestedUnavailableStatusEntry = buildPluginStatusEntry({
+      requestedCapabilities: ["registerPane"],
+      effectiveCapabilities: [],
+      blockedCapabilities: [],
+    });
+    const requestedUnavailableStatus =
+      pluginsPaneTestApi.getPluginCapabilityStatus(
+        requestedUnavailableStatusEntry,
+        plugin,
+        "registerPane",
+      );
+    expect(requestedUnavailableStatus).toBe("requested_unavailable");
+  });
+
+  it("formats capability unavailable messaging with mode-policy reason", () => {
+    expect(
+      pluginsPaneTestApi.buildCapabilityUnavailableMessage({
+        capability: "registerCommand",
+        status: "blocked",
+        reason: "mode_policy",
+        serverMode: "share",
+      }),
+    ).toBe("registerCommand is blocked by mode policy in share mode.");
+    expect(
+      pluginsPaneTestApi.buildCapabilityUnavailableMessage({
+        capability: "registerPane",
+        status: "requested_unavailable",
+        reason: null,
+        serverMode: "app",
+      }),
+    ).toBe("registerPane was requested but is not effective in this runtime.");
   });
 });

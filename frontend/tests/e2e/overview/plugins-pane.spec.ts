@@ -183,3 +183,93 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     page.getByRole("button", { name: "Copy Section JSON", exact: true }),
   ).toBeVisible();
 });
+
+test("plugins pane shows mode-policy blocked capability reasons", async ({
+  page,
+}) => {
+  const backendFixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/backend",
+  );
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await postBackend(page, "/plugins/link", {
+    localPluginRoot: backendFixturePluginRoot,
+    scope: "workspace",
+    enable: true,
+    force: true,
+  });
+  await postBackend(page, "/plugins/rescan", {});
+
+  await page.route("**/api/plugins/list", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.serverMode = "share";
+    payload.plugins = payload.plugins.map(
+      (plugin: { pluginId: string; effectiveCapabilities: string[] }) => {
+        if (plugin.pluginId !== "setta-fixture-backend") {
+          return plugin;
+        }
+        return {
+          ...plugin,
+          effectiveCapabilities: [],
+        };
+      },
+    );
+    await route.fulfill({ response, json: payload });
+  });
+  await page.route("**/api/plugins/status", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.serverMode = "share";
+    payload.plugins = payload.plugins.map(
+      (plugin: {
+        pluginId: string;
+        requestedCapabilities: string[];
+        effectiveCapabilities: string[];
+        blockedCapabilities: Array<{ capability: string; reason: string }>;
+      }) => {
+        if (plugin.pluginId !== "setta-fixture-backend") {
+          return plugin;
+        }
+        return {
+          ...plugin,
+          requestedCapabilities: ["registerRouter", "registerMcpTools"],
+          effectiveCapabilities: [],
+          blockedCapabilities: [
+            { capability: "registerMcpTools", reason: "mode_policy" },
+            { capability: "registerRouter", reason: "mode_policy" },
+          ],
+        };
+      },
+    );
+    await route.fulfill({ response, json: payload });
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const backendPluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-backend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+
+  await expect(backendPluginCard.getByText("Capabilities")).toBeVisible();
+  await expect(
+    backendPluginCard.getByText("registerMcpTools (mode_policy)"),
+  ).toBeVisible();
+  await expect(
+    backendPluginCard.getByText("registerRouter (mode_policy)"),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Plugin install/uninstall/update actions are IDE-mode only.",
+    ),
+  ).toBeVisible();
+});

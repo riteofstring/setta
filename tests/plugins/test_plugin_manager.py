@@ -16,7 +16,12 @@ from fastapi.testclient import TestClient
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
-from setta.plugins.models import PluginRuntimeState, PluginScope, normalize_scope
+from setta.plugins.models import (
+    BlockedCapabilityReason,
+    PluginRuntimeState,
+    PluginScope,
+    normalize_scope,
+)
 
 FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
@@ -617,7 +622,9 @@ def test_backend_uninstall_pending_restart_clears_after_load(tmp_path: Path) -> 
     assert status_entries == []
 
 
-def test_pending_restart_state_persists_across_manager_instances(tmp_path: Path) -> None:
+def test_pending_restart_state_persists_across_manager_instances(
+    tmp_path: Path,
+) -> None:
     # Pending restart ids must persist in plugins_state for fresh manager instances.
     manager = _make_manager(tmp_path)
     linked = manager.link_plugin(
@@ -827,7 +834,9 @@ def test_backend_worker_processes_stay_alive_until_shutdown(tmp_path: Path) -> N
         process = manager._backend_worker_processes.get("setta-fixture-backend")
         assert process is not None
         assert process.poll() is None
-        assert "setta_fixture_backend_echo" in {tool.__name__ for tool in SETTA_MCP_TOOLS}
+        assert "setta_fixture_backend_echo" in {
+            tool.__name__ for tool in SETTA_MCP_TOOLS
+        }
 
         manager.shutdown_backend_plugins()
 
@@ -895,6 +904,52 @@ def test_backend_plugin_capability_denied_is_reported(tmp_path: Path) -> None:
     assert "PLUGIN_CAPABILITY_DENIED" in error_codes
 
 
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
+    tmp_path: Path, server_mode: Literal["share", "app"]
+) -> None:
+    # Share/App should expose deterministic mode-policy blocked capability metadata.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    list_response = manager.get_list_response()
+    assert list_response.serverMode == server_mode
+    list_entries = [
+        entry
+        for entry in list_response.plugins
+        if entry.pluginId == "setta-fixture-backend"
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].effectiveCapabilities == []
+
+    status_response = manager.get_status_response()
+    assert status_response.serverMode == server_mode
+    status_entries = [
+        entry
+        for entry in status_response.plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    entry = status_entries[0]
+    assert entry.state == PluginRuntimeState.active
+    assert set(entry.requestedCapabilities) == {"registerRouter", "registerMcpTools"}
+    assert entry.effectiveCapabilities == []
+    blocked_reasons = {
+        blocked.capability: blocked.reason for blocked in entry.blockedCapabilities
+    }
+    assert blocked_reasons == {
+        "registerRouter": BlockedCapabilityReason.mode_policy,
+        "registerMcpTools": BlockedCapabilityReason.mode_policy,
+    }
+
+
 def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
     # Backend import stalls should fail with explicit startup-timeout error codes.
     manager = _make_manager(
@@ -908,10 +963,7 @@ def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
         scope=PluginScope.workspace,
     )
     (backend_root / "backend" / "entrypoint.py").write_text(
-        "import time\n\n"
-        "time.sleep(0.5)\n\n"
-        "def register(plugin):\n"
-        "    return None\n",
+        "import time\n\ntime.sleep(0.5)\n\ndef register(plugin):\n    return None\n",
         encoding="utf-8",
     )
     manager.rescan()
@@ -944,9 +996,7 @@ def test_backend_plugin_register_timeout_is_reported(tmp_path: Path) -> None:
         scope=PluginScope.workspace,
     )
     (backend_root / "backend" / "entrypoint.py").write_text(
-        "import time\n\n"
-        "def register(plugin):\n"
-        "    time.sleep(0.5)\n",
+        "import time\n\ndef register(plugin):\n    time.sleep(0.5)\n",
         encoding="utf-8",
     )
     manager.rescan()
@@ -975,8 +1025,7 @@ def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> No
         scope=PluginScope.workspace,
     )
     (backend_root / "backend" / "entrypoint.py").write_text(
-        "import os\n\n"
-        "os._exit(1)\n",
+        "import os\n\nos._exit(1)\n",
         encoding="utf-8",
     )
     manager.rescan()
@@ -1276,7 +1325,9 @@ def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None
     assert installed.sourceDigestSha256 is not None
 
     listed_entries = [
-        entry for entry in manager.get_list_response().plugins if entry.pluginId == plugin_id
+        entry
+        for entry in manager.get_list_response().plugins
+        if entry.pluginId == plugin_id
     ]
     assert len(listed_entries) == 1
     assert listed_entries[0].frontend.entrypointUrl is not None
@@ -1296,8 +1347,13 @@ def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None
     assert status_entries[0].restartRequired is False
 
     marker_payload = json.loads(
-        (manager.workspace_root / "plugins" / plugin_id / "backend" / "register.marker.json")
-        .read_text(encoding="utf-8")
+        (
+            manager.workspace_root
+            / "plugins"
+            / plugin_id
+            / "backend"
+            / "register.marker.json"
+        ).read_text(encoding="utf-8")
     )
     assert marker_payload == {
         "pluginId": plugin_id,
