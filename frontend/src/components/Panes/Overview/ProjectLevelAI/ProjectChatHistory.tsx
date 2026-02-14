@@ -56,10 +56,7 @@ export function ProjectChatHistory({
             }`}
             onClick={() => {
               setChatId(entry.chatId);
-              useAIStore.setState({
-                viewHistory: false,
-                viewCapabilities: false,
-              });
+              useAIStore.setState({ viewHistory: false });
             }}
           >
             <div className="flex w-full flex-col gap-1">

@@ -141,7 +141,7 @@ test("app mode ActionButton triggers json-render actions", async ({ page }) => {
   await expect(button).toBeVisible();
   await expect(button).toBeEnabled();
 
-  await expect(page.locator("header").getByText("Runs enabled")).toHaveCSS(
+  await expect(page.locator("header").getByText("App Mode")).toHaveCSS(
     "font-size",
     "20px",
   );

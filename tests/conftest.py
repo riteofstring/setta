@@ -17,8 +17,8 @@ if should_force_polling_observer():
 
 _SETTA_PATH_ENV_VARS = (
     "SETTA_WORKSPACE_ROOT",
-    "SETTA_FILES_ROOT",
-    "SETTA_FILES_ROOT_BASE",
+    "SETTA_HOME",
+    "SETTA_FILES_LOCATION",
     "SETTA_RUNTIME_ROOT",
 )
 
@@ -60,3 +60,16 @@ def _reset_setta_paths_env(
 
     clear_setta_paths_cache()
 
+
+@pytest.fixture(autouse=True)
+def _setta_home_tmp(
+    _reset_setta_paths_env: None,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Ensure tests never touch a real user config directory (for example ~/.setta or
+    # %APPDATA%\\Setta). Individual tests can override SETTA_HOME explicitly.
+    monkeypatch.setenv("SETTA_HOME", str(tmp_path_factory.mktemp("setta_home")))
+    from setta.utils.paths import clear_setta_paths_cache
+
+    clear_setta_paths_cache()

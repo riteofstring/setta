@@ -25,7 +25,6 @@ type ChatInputProps = {
   waitingForResponse: boolean;
   disabled?: boolean;
   submitDisabled?: boolean;
-  initialAttachments?: ChatFileAttachment[];
   value?: string;
   onChange?: (value: string) => void;
   onSubmit: (
@@ -40,7 +39,6 @@ export const ChatInput = memo(function ChatInput({
   waitingForResponse,
   disabled = false,
   submitDisabled = false,
-  initialAttachments,
   value,
   onChange,
   onSubmit,
@@ -71,7 +69,7 @@ export const ChatInput = memo(function ChatInput({
     isUploading,
     showAttachmentDisabledMessage,
     showSharePolicyMessage,
-  } = useChatAttachmentManager({ disabled: isDisabled, initialAttachments });
+  } = useChatAttachmentManager({ disabled: isDisabled });
   const isSubmitDisabled = submitDisabled || isDisabled || isUploading;
 
   const handleChange = useCallback(

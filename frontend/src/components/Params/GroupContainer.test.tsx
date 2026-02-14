@@ -103,6 +103,7 @@ describe("ParamGroupContainer layout", () => {
       name: "Dict",
       isFrozen: false,
       isInOtherProjectConfigs: false,
+      tagColor: null,
       size: { width: 240, height: 160 },
       aspectRatio: false,
       aspectRatioExtraHeight: 0,

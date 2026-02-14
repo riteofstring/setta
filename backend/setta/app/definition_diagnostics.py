@@ -17,7 +17,7 @@ from setta.app.spec_validation import (
     collect_app_action_definition_issues,
     collect_app_spec_validation_issues,
 )
-from setta.types.app_definition import AppDefinition, AppRoute
+from setta.types.app_definition import AppDefinition
 from setta.types.app_validation import AppCapabilities, AppValidationIssue
 from setta.types.chat_messages import JSONValue
 
@@ -120,102 +120,6 @@ def build_app_capabilities(definition: AppDefinition) -> AppCapabilities:
     )
 
 
-def _normalize_route_path(path: str) -> str:
-    normalized = path.strip()
-    if not normalized:
-        return ""
-    if not normalized.startswith("/"):
-        normalized = f"/{normalized}"
-    if len(normalized) > 1 and normalized.endswith("/"):
-        normalized = normalized[:-1]
-    return normalized
-
-
-def _app_spec_has_element_key(app_spec: JSONValue, element_key: str) -> bool:
-    if not isinstance(app_spec, dict):
-        return False
-    elements_value = app_spec.get("elements")
-    if not isinstance(elements_value, dict):
-        return False
-    return element_key in elements_value
-
-
-def collect_app_route_validation_issues(
-    app_spec: JSONValue,
-    routes: list[AppRoute],
-) -> tuple[list[AppValidationIssue], list[AppValidationIssue]]:
-    errors: list[AppValidationIssue] = []
-    warnings: list[AppValidationIssue] = []
-
-    if not routes:
-        return errors, warnings
-
-    seen_paths: dict[str, int] = {}
-    for idx, route in enumerate(routes):
-        normalized_path = _normalize_route_path(route.path)
-        if not normalized_path:
-            errors.append(
-                AppValidationIssue(message=f"routes[{idx}].path must be non-empty.")
-            )
-            continue
-
-        if normalized_path != route.path:
-            warnings.append(
-                AppValidationIssue(
-                    message=(
-                        f"routes[{idx}].path is not normalized; "
-                        f"use '{normalized_path}' instead of '{route.path}'."
-                    )
-                )
-            )
-
-        if normalized_path in seen_paths:
-            prev_idx = seen_paths[normalized_path]
-            errors.append(
-                AppValidationIssue(
-                    message=(
-                        f"Duplicate route path '{normalized_path}' "
-                        f"(routes[{prev_idx}] and routes[{idx}])."
-                    )
-                )
-            )
-        else:
-            seen_paths[normalized_path] = idx
-
-        if route.name is None or not route.name.strip():
-            warnings.append(
-                AppValidationIssue(
-                    message=(
-                        f"routes[{idx}].name is missing; it is used for navigation labels."
-                    )
-                )
-            )
-
-        if route.rootKey is not None:
-            if not route.rootKey.strip():
-                errors.append(
-                    AppValidationIssue(
-                        message=f"routes[{idx}].rootKey must be non-empty when provided."
-                    )
-                )
-            elif not _app_spec_has_element_key(app_spec, route.rootKey):
-                errors.append(
-                    AppValidationIssue(
-                        message=(
-                            f"routes[{idx}].rootKey '{route.rootKey}' not found in appSpec.elements."
-                        )
-                    )
-                )
-
-    return errors, warnings
-
-
-def validate_app_routes_or_raise(app_spec: JSONValue, routes: list[AppRoute]) -> None:
-    errors, _warnings = collect_app_route_validation_issues(app_spec, routes)
-    if errors:
-        raise ValueError(errors[0].message)
-
-
 def validate_app_definition_payload(
     app_spec: JSONValue,
     *,
@@ -233,12 +137,6 @@ def validate_app_definition_payload(
             data_bindings=definition.dataBindings,
         )
     )
-
-    route_errors, route_warnings = collect_app_route_validation_issues(
-        app_spec, definition.routes
-    )
-    errors.extend(route_errors)
-    warnings.extend(route_warnings)
 
     theme_errors, theme_warnings = collect_app_theme_validation_issues(definition.theme)
     errors.extend(theme_errors)

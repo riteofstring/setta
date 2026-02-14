@@ -3,6 +3,7 @@ import _ from "lodash";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -47,6 +48,7 @@ export function CustomResizable({
   isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
+  hasSectionStyleTheme = false,
   allowPointerEventsDuringDnd = false,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -63,6 +65,7 @@ export function CustomResizable({
       isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       frameClassName={frameClassName}
       layoutClassName={layoutClassName}
@@ -85,6 +88,7 @@ function CustomResizableCore({
   isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
+  hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -388,6 +392,7 @@ function CustomResizableCore({
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       size={size}
       minHeight={minHeight}
@@ -421,6 +426,7 @@ function CustomResizableSuperCore({
   isYouTube,
   isActiveSection,
   isMetaControl,
+  hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
   frameClassName = "before:border-white dark:before:border-setta-700",
   layoutClassName,
@@ -448,6 +454,9 @@ function CustomResizableSuperCore({
   const allowPointerEvents = allowPointerEventsDuringDnd && isSorting;
   const shouldDisablePointerEvents =
     disablePointerEvents && !allowPointerEvents;
+  const isAttachedTerminalChild = useProjectState(
+    (x) => getAttachedTerminalParentIdForTerminalSection(x, sectionId) !== null,
+  );
   const [activeResizeHandle, setActiveResizeHandle] = useState<string | null>(
     null,
   );
@@ -476,9 +485,12 @@ function CustomResizableSuperCore({
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
+  const sectionStyleChromeClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
+    : "";
   const inputClasses = `${
     shouldDisablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${zIndexClass} ${metaHoverZIndexClass} ${frameClassName}`;
+  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} ${zIndexClass} ${metaHoverZIndexClass} ${frameClassName} ${sectionStyleChromeClassName}`;
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {
@@ -505,6 +517,24 @@ function CustomResizableSuperCore({
 
   let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
   let handleClasses = handleBaseClasses;
+  const handleWrapperClassName = isAttachedTerminalChild
+    ? "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-30"
+    : "absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20";
+
+  if (isAttachedTerminalChild) {
+    // Keep handles inside the parent code section outline so they don't feel clipped.
+    handleStyles = {
+      right: { right: "-4px", width: 16, top: 0, bottom: 0, height: "100%" },
+      bottom: {
+        bottom: "-4px",
+        height: 16,
+        left: 0,
+        right: 0,
+        width: "100%",
+      },
+      bottomRight: { right: "-4px", bottom: "-4px", width: 24, height: 24 },
+    };
+  }
 
   function handleResizeMouseDownCapture(event: MouseEvent<HTMLDivElement>) {
     if (!onResizePointerDown) {
@@ -595,7 +625,7 @@ function CustomResizableSuperCore({
       lockAspectRatio={aspectRatio}
       lockAspectRatioExtraHeight={aspectRatioExtraHeight}
       lockAspectRatioExtraWidth={aspectRatioExtraWidth}
-      handleWrapperClass="absolute pointer-events-none [&>*]:pointer-events-auto h-full bottom-0 w-full nodrag [&>div]:z-20"
+      handleWrapperClass={handleWrapperClassName}
       enable={enable}
       className={inputClasses}
       handleStyles={handleStyles}

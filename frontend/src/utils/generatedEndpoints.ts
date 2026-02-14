@@ -233,6 +233,36 @@ export async function route_delete_artifacts(
   return await post("/deleteArtifacts", x);
 }
 
+export async function route_get_git_status(): Promise<
+  ResponseDataAndStatus<gt.GetGitStatusResponse>
+> {
+  return await post("/git/status", null);
+}
+
+export async function route_get_git_diff(
+  x: gt.GetGitDiffRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitDiffResponse>> {
+  return await post("/git/diff", x);
+}
+
+export async function route_get_git_log(
+  x: gt.GetGitLogRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitLogResponse>> {
+  return await post("/git/log", x);
+}
+
+export async function route_get_git_commit_details(
+  x: gt.GetGitCommitDetailsRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitCommitDetailsResponse>> {
+  return await post("/git/commitDetails", x);
+}
+
+export async function route_get_git_commit_file_diff(
+  x: gt.GetGitCommitFileDiffRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetGitCommitFileDiffResponse>> {
+  return await post("/git/commitFileDiff", x);
+}
+
 export async function route_get_attachment_download_url(
   x: gt.GetAttachmentDownloadUrlRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadUrlResponse>> {
@@ -345,72 +375,6 @@ export async function route_set_llm_config(
   config: gt.AllLLMConfigsInput,
 ): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
   return await post("/llm/config", config);
-}
-
-export async function route_get_skill_sources(): Promise<
-  ResponseDataAndStatus<Array<gt.SkillSource>>
-> {
-  return await get("/getSkillSources");
-}
-
-export async function route_set_skill_sources(
-  payload: gt.SetSkillSourcesRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.SkillSource>>> {
-  return await post("/setSkillSources", payload);
-}
-
-export async function route_get_skills_catalog(): Promise<
-  ResponseDataAndStatus<gt.SkillCatalogResponse>
-> {
-  return await get("/getSkillsCatalog");
-}
-
-export async function route_get_skill_details(
-  payload: gt.GetSkillDetailsRequestInput,
-): Promise<ResponseDataAndStatus<gt.SkillDetailsResponse>> {
-  return await post("/getSkillDetails", payload);
-}
-
-export async function route_import_skill_markdown(
-  payload: gt.ImportSkillMarkdownRequestInput,
-): Promise<ResponseDataAndStatus<gt.SkillEntry>> {
-  return await post("/importSkillMarkdown", payload);
-}
-
-export async function route_delete_skills(
-  payload: gt.DeleteSkillsRequestInput,
-): Promise<ResponseDataAndStatus<Array<string>>> {
-  return await post("/deleteSkills", payload);
-}
-
-export async function route_get_global_capability_defaults(): Promise<
-  ResponseDataAndStatus<gt.GlobalCapabilityDefaults>
-> {
-  return await get("/getGlobalCapabilityDefaults");
-}
-
-export async function route_set_global_capability_defaults(
-  payload: gt.GlobalCapabilityDefaultsInput,
-): Promise<ResponseDataAndStatus<gt.GlobalCapabilityDefaults>> {
-  return await post("/setGlobalCapabilityDefaults", payload);
-}
-
-export async function route_get_project_chat_capability_policy(
-  payload: gt.GetProjectChatCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
-  return await post("/getProjectChatCapabilityPolicy", payload);
-}
-
-export async function route_set_project_chat_capability_policy(
-  payload: gt.SetProjectChatCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
-  return await post("/setProjectChatCapabilityPolicy", payload);
-}
-
-export async function route_get_mcp_servers_runtime_state(): Promise<
-  ResponseDataAndStatus<gt.McpServersRuntimeStateResponse>
-> {
-  return await get("/getMcpServersRuntimeState");
 }
 
 export async function route_get_llm_api_keys(): Promise<
@@ -1181,6 +1145,18 @@ export async function route_set_section_name(
   return await post("/setSectionName", x);
 }
 
+export async function route_set_section_tag_color(
+  x: gt.SetSectionTagColorRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionTagColor", x);
+}
+
+export async function route_set_section_style_color(
+  x: gt.SetSectionStyleColorRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionStyleColor", x);
+}
+
 export async function route_set_meta_control_show_section_title(
   x: gt.SetMetaControlShowSectionTitleRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1275,18 +1251,6 @@ export async function route_set_chat_section_settings(
   x: gt.SetChatSectionSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionSettings", x);
-}
-
-export async function route_get_chat_section_capability_policy(
-  x: gt.GetChatSectionCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
-  return await post("/getChatSectionCapabilityPolicy", x);
-}
-
-export async function route_set_chat_section_capability_policy(
-  x: gt.SetChatSectionCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionCapabilityPolicy", x);
 }
 
 export async function route_set_chat_section_state(
@@ -1425,6 +1389,12 @@ export async function route_get_server_mode(): Promise<
   ResponseDataAndStatus<gt.ServerModeResponse>
 > {
   return await get("/serverMode");
+}
+
+export async function route_get_setta_home_info(): Promise<
+  ResponseDataAndStatus<gt.SettaHomeInfoResponse>
+> {
+  return await get("/settaHomeInfo");
 }
 
 export async function route_list_share_deployments(): Promise<

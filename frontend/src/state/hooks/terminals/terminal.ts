@@ -642,6 +642,7 @@ function proposeDimensionsFallback(terminal: Terminal): {
   if (!element || !element.parentElement) {
     return null;
   }
+  const parentElement = element.parentElement;
   const anyTerminal = terminal as any;
   const core = anyTerminal?._core;
   const dims = core?._renderService?.dimensions;
@@ -656,27 +657,24 @@ function proposeDimensionsFallback(terminal: Terminal): {
     return null;
   }
 
-  const parentStyle = window.getComputedStyle(element.parentElement);
-  const parentHeight = parseInt(parentStyle.getPropertyValue("height"), 10);
-  const parentWidth = Math.max(
-    0,
-    parseInt(parentStyle.getPropertyValue("width"), 10),
-  );
-  if (!Number.isFinite(parentHeight) || !Number.isFinite(parentWidth)) {
+  const parentHeight = parentElement.clientHeight;
+  const parentWidth = parentElement.clientWidth;
+  if (
+    !Number.isFinite(parentHeight) ||
+    !Number.isFinite(parentWidth) ||
+    parentHeight <= 0 ||
+    parentWidth <= 0
+  ) {
     return null;
   }
 
   const termStyle = window.getComputedStyle(element);
-  const paddingTop = parseInt(termStyle.getPropertyValue("padding-top"), 10);
-  const paddingBottom = parseInt(
+  const paddingTop = parseFloat(termStyle.getPropertyValue("padding-top"));
+  const paddingBottom = parseFloat(
     termStyle.getPropertyValue("padding-bottom"),
-    10,
   );
-  const paddingLeft = parseInt(termStyle.getPropertyValue("padding-left"), 10);
-  const paddingRight = parseInt(
-    termStyle.getPropertyValue("padding-right"),
-    10,
-  );
+  const paddingLeft = parseFloat(termStyle.getPropertyValue("padding-left"));
+  const paddingRight = parseFloat(termStyle.getPropertyValue("padding-right"));
   if (
     !Number.isFinite(paddingTop) ||
     !Number.isFinite(paddingBottom) ||

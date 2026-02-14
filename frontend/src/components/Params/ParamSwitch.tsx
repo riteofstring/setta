@@ -41,6 +41,7 @@ type ParamSwitchProps = {
   onResizeStart: React.MouseEventHandler;
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
+  hasSectionStyleTheme: boolean;
 };
 
 function _ParamSwitch(props: ParamSwitchProps) {
@@ -125,7 +126,7 @@ function TempParamSwitch({
 }
 
 function RealParamSwitch(props: ParamSwitchProps) {
-  const { sectionId, paramInfoId } = props;
+  const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -226,8 +227,11 @@ function RealParamSwitch(props: ParamSwitchProps) {
   const onMouseDownConditional = hasChildren ? handleParamMouseDown : undefined;
   const onMouseDownAlways = handleParamMouseDown;
 
+  const selectedBgClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
+    : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
   const bg = paramIsSelected
-    ? "transition-colors active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white rounded-sm"
+    ? `transition-colors rounded-sm ${selectedBgClassName}`
     : "transition-colors rounded-sm";
 
   let border = "";
@@ -244,6 +248,7 @@ function RealParamSwitch(props: ParamSwitchProps) {
       {...props}
       isKwarg={isKwarg}
       isNestedParam={isNestedParam}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
       onClick={handleParamClick}

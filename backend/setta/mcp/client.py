@@ -5,7 +5,6 @@ import os
 import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Sequence
 
 import mcp.types as types
@@ -38,10 +37,6 @@ from setta.logging.config import configure_logging
 from setta.logging.errors import log_failure
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.types.capabilities import (
-    McpServerRuntimeState,
-    McpServersRuntimeStateResponse,
-)
 from setta.types.llm_config import MCPServerConfig
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
@@ -201,37 +196,10 @@ class MultiMCPClient:
         self._exit_stacks: dict[str, AsyncExitStack] = {}
         self._connection_tasks: dict[str, asyncio.Task[None]] = {}
         self._server_tool_cache: dict[str, _ServerToolCache] = {}
-        self._runtime_error_by_server_id: dict[str, str | None] = {
-            server_id: None for server_id in self.server_configs
-        }
-        self._runtime_refresh_ms_by_server_id: dict[str, int | None] = {
-            server_id: None for server_id in self.server_configs
-        }
         self.init_tool_definitions: dict[str, ChatCompletionToolParam] = {}
         self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         self.routing: dict[str, tuple[str, str]] = {}
-
-    def get_runtime_state(self) -> McpServersRuntimeStateResponse:
-        server_states: list[McpServerRuntimeState] = []
-        for server_id in sorted(self.server_configs.keys()):
-            cache = self._server_tool_cache.get(server_id)
-            tool_count = 0
-            if cache is not None:
-                tool_count = len(cache.init_tools) + len(cache.discoverable_tools)
-            server_states.append(
-                McpServerRuntimeState(
-                    serverId=server_id,
-                    connected=server_id in self._sessions,
-                    error=self._runtime_error_by_server_id.get(server_id),
-                    toolCount=tool_count,
-                    refreshedAtMs=self._runtime_refresh_ms_by_server_id.get(server_id),
-                )
-            )
-        return McpServersRuntimeStateResponse(
-            servers=server_states,
-            generatedAtMs=_now_ms(),
-        )
 
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if self.disabled:
@@ -392,19 +360,12 @@ class MultiMCPClient:
                 await asyncio.shield(self._cleanup_server(server_id))
                 raise
             except asyncio.TimeoutError:
-                self._set_runtime_error(
-                    server_id, "Connection timed out while connecting to server."
-                )
                 logger.warning(
                     "Connection to %s timed out; retrying in %s seconds",
                     server_id,
                     retry_delay,
                 )
             except MissingMCPEnvVarError as exc:
-                self._set_runtime_error(
-                    server_id,
-                    f"Missing required environment variable '{exc.var_name}'.",
-                )
                 message = (
                     f"MCP server '{server_id}' is missing required environment variable "
                     f"'{exc.var_name}'. Add it to .env to enable this server."
@@ -421,10 +382,6 @@ class MultiMCPClient:
                 if self._is_shutting_down:
                     await self._cleanup_server(server_id)
                     return
-                self._set_runtime_error(
-                    server_id,
-                    "Connection failed. See backend logs for details.",
-                )
                 logger.exception(
                     "Connection to %s failed; retrying in %s seconds",
                     server_id,
@@ -452,7 +409,6 @@ class MultiMCPClient:
         logger.info("Connected to %s", server_id)
         response = await session.list_tools()
         self._update_tool_cache_for_server(server_id, list(response.tools))
-        self._set_runtime_error(server_id, None)
         await self._keep_alive(server_id)
 
     async def _open_transport(
@@ -559,12 +515,7 @@ class MultiMCPClient:
             annotations=annotations_by_name,
             routing=routing,
         )
-        self._runtime_refresh_ms_by_server_id[server_id] = _now_ms()
         self._rebuild_tool_cache()
-
-    def _set_runtime_error(self, server_id: str, message: str | None) -> None:
-        self._runtime_error_by_server_id[server_id] = message
-        self._runtime_refresh_ms_by_server_id[server_id] = _now_ms()
 
     def _rebuild_tool_cache(self) -> None:
         init_tools: dict[str, ChatCompletionToolParam] = {}
@@ -666,10 +617,6 @@ def configure_stdio_bridge_logging(verbose: bool) -> int:
         stream="stderr",
         force=True,
     )
-
-
-def _now_ms() -> int:
-    return int(datetime.now(timezone.utc).timestamp() * 1000)
 
 
 if __name__ == "__main__":

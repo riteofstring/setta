@@ -30,6 +30,8 @@ is configurable.
 - P: show the Params (UI config) tab in the UI editor (requires an active
   section).
 - O: show the Project Overview tab.
+- Escape: close the Git diff/graph overlay when one is open (unless focus is
+  inside an editable input/textarea/contenteditable target).
 
 ## Canvas view controls
 
@@ -46,11 +48,11 @@ is configurable.
 - Shift (hold): enable selection mode for box-select on the canvas.
 - Mod (hold): multi-select on the canvas.
 - Mod + A: select all sections.
-- Mod + Shift + A: select all top-level, non-group sections.
+- Mod + Shift + A: select all top-level, non-Dict sections.
 - Backspace: delete selected edges; if none are selected, delete active
   sections.
-- Mod + G: group active sections.
-- Mod + Shift + G: ungroup active groups.
+- Mod + G: group active sections into a Dict.
+- Mod + Shift + G: ungroup active Dicts.
 - Alt (hold): moving-free drag mode for sections (reposition/reparent).
 - Mod + Alt (hold): sorting drag mode for sections (reorder within a parent).
 - While holding Alt (moving-free), drag the selection box to move all selected
@@ -59,7 +61,7 @@ is configurable.
 ## Section creation and clipboard
 
 - N: add a new Card in empty space.
-- G: add a new Group in empty space.
+- G: add a new Dict in empty space.
 - Ctrl + `: add a new Terminal in empty space.
 - Mod + C: copy active sections (only when no text is selected).
 - Mod + V: paste sections (uses the last canvas click or to the right of the

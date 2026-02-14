@@ -393,6 +393,7 @@ describe("moveSectionsWithBackend", () => {
       name: "Generated Code Impl",
       isFrozen: false,
       isInOtherProjectConfigs: false,
+      tagColor: null,
       size: { width: 500, height: 300 },
       aspectRatio: false,
       aspectRatioExtraHeight: 0,
