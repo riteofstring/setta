@@ -14,6 +14,10 @@ type CreateTopLevelSectionResponse = {
 test("plugins overview tab supports fixture plugin render and disabled fallback", async ({
   page,
 }) => {
+  const backendFixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/backend",
+  );
   const fixturePluginRoot = path.resolve(
     process.cwd(),
     "../tests/fixtures/plugins/frontend",
@@ -53,6 +57,17 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   ).toBeVisible();
 
   await postBackend(page, "/plugins/link", {
+    localPluginRoot: backendFixturePluginRoot,
+    scope: "workspace",
+    enable: true,
+    force: true,
+  });
+  await postBackend(page, "/plugins/rescan", {});
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+  await expect(page.getByText("Restart required for 1 plugin")).toBeVisible();
+
+  await postBackend(page, "/plugins/link", {
     localPluginRoot: fixturePluginRoot,
     scope: "workspace",
     enable: true,
@@ -61,14 +76,59 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
-  await expect(page.getByText("setta-fixture-frontend@0.1.0")).toBeVisible();
-  await expect(page.getByText(/scope=workspace source=local:/)).toBeVisible();
+  const frontendPluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-frontend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(frontendPluginCard).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Fixture Pane", exact: true }),
+    frontendPluginCard.getByText(/scope=workspace source=local:/),
   ).toBeVisible();
+  await expect(
+    frontendPluginCard.getByRole("button", {
+      name: "Open Fixture Pane",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await frontendPluginCard
+    .getByRole("button", { name: "Open Fixture Pane", exact: true })
+    .click();
   await expect(
     page.getByText("Fixture pane mounted.", { exact: true }),
   ).toBeVisible();
+  await page.locator("#overview-tab-overview").click();
+  await expect(
+    page.getByText("Fixture pane mounted.", { exact: true }),
+  ).not.toBeVisible();
+  await page
+    .locator(
+      "#overview-plugin-pane-tab-setta-fixture-frontend-fixture-overview-pane",
+    )
+    .click();
+  await expect(
+    page.getByText("Fixture pane mounted.", { exact: true }),
+  ).toBeVisible();
+
+  await page.keyboard.press("Meta+Shift+P");
+  await page.locator("#ProjectPageSearchBar").fill("Fixture Command");
+  await expect(
+    page.getByText("Fixture Command (setta-fixture-frontend)"),
+  ).toBeVisible();
+  await page.getByText("Fixture Command (setta-fixture-frontend)").click();
+  const commandRunCount = await page.evaluate(() => {
+    return Number(
+      (window as { __settaFixtureCommandRuns?: number })
+        .__settaFixtureCommandRuns || 0,
+    );
+  });
+  expect(commandRunCount).toBeGreaterThan(0);
+
+  await page.locator("#overview-tab-plugins").click();
   const fixtureCommandButton = page.getByRole("button", {
     name: "Fixture Command",
     exact: true,
