@@ -7633,9 +7633,13 @@ const LaunchErrorPayloadSchema = z.object({
 
 const LaunchRequestSchema = z.object({
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
+  profile: z.union([z.string(), z.null()]).default(null),
+  settaHome: z.union([z.string(), z.null()]).default(null),
+  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
   settaFilesLocation: z
     .union([z.literal(["auto", "local", "global"]), z.null()])
     .default(null),
+  runtimeRoot: z.union([z.string(), z.null()]).default(null),
   sshTarget: z.union([z.string(), z.null()]).default(null),
   sshArgs: z.union([z.string(), z.null()]).default(null),
   remoteCmd: z.union([z.string(), z.null()]).default(null),
@@ -7661,6 +7665,10 @@ const LaunchResponseSchema = z.object({
   settaFilesLocation: z
     .union([z.literal(["local", "global"]), z.null()])
     .default(null),
+  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
+  runtimeRoot: z.union([z.string(), z.null()]).default(null),
+  settaHome: z.union([z.string(), z.null()]).default(null),
+  profile: z.union([z.string(), z.null()]).default(null),
   sessionId: z.union([z.string(), z.null()]).default(null),
   startedNew: z.union([z.boolean(), z.null()]).default(null),
   session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
