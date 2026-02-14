@@ -20,6 +20,8 @@ from pydantic import ValidationError
 
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.models import (
+    PLUGIN_CAPABILITIES_SET,
+    PLUGIN_MANIFEST_SCHEMA_VERSION,
     BlockedCapabilityReason,
     PluginBlockedCapability,
     PluginConfigDescriptor,
@@ -42,17 +44,15 @@ from setta.plugins.models import (
     PluginRollbackResponse,
     PluginRuntimeState,
     PluginScope,
+    PluginsGlobalStateFile,
+    PluginsLockFile,
     PluginSourceScheme,
+    PluginsRescanResponse,
+    PluginsStateFile,
     PluginStatusEntry,
     PluginStatusResponse,
     PluginUninstallResponse,
     PluginUpdateResponse,
-    PluginsGlobalStateFile,
-    PluginsLockFile,
-    PluginsRescanResponse,
-    PluginsStateFile,
-    PLUGIN_CAPABILITIES_SET,
-    PLUGIN_MANIFEST_SCHEMA_VERSION,
     normalize_scope,
     scope_label,
 )
@@ -175,9 +175,7 @@ class PluginManager:
         self._manifest_schema = self._load_manifest_schema()
 
         self._plugins_state_path = self.setta_files_root / "plugins_state.json"
-        self._plugins_global_state_path = (
-            self.setta_home / "plugins_global_state.json"
-        )
+        self._plugins_global_state_path = self.setta_home / "plugins_global_state.json"
         self._install_metadata_path = (
             self.setta_files_root / "plugins_install_metadata.json"
         )
@@ -196,7 +194,8 @@ class PluginManager:
         self._active_plugin_by_id = {
             entry.plugin_id: entry
             for entry in discovered
-            if entry.state in {PluginRuntimeState.active, PluginRuntimeState.pending_restart}
+            if entry.state
+            in {PluginRuntimeState.active, PluginRuntimeState.pending_restart}
         }
         installed_count = len(
             [
@@ -216,7 +215,8 @@ class PluginManager:
             [
                 entry
                 for entry in discovered
-                if entry.state in {PluginRuntimeState.active, PluginRuntimeState.pending_restart}
+                if entry.state
+                in {PluginRuntimeState.active, PluginRuntimeState.pending_restart}
             ]
         )
         return PluginsRescanResponse(
@@ -227,7 +227,9 @@ class PluginManager:
 
     def get_list_response(self) -> PluginListResponse:
         plugins: list[PluginListEntry] = []
-        for entry in sorted(self._active_plugin_by_id.values(), key=lambda item: item.plugin_id):
+        for entry in sorted(
+            self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
+        ):
             if entry.manifest is None:
                 continue
             frontend = PluginFrontendDescriptor(
@@ -356,7 +358,9 @@ class PluginManager:
     ) -> PluginInstallResponse:
         resolved_scope = normalize_scope(scope)
         parsed_spec = self._parse_source_spec(source_spec)
-        with tempfile.TemporaryDirectory(prefix="setta-plugin-install-") as tmp_dir_name:
+        with tempfile.TemporaryDirectory(
+            prefix="setta-plugin-install-"
+        ) as tmp_dir_name:
             tmp_dir = Path(tmp_dir_name)
             if parsed_spec.scheme == PluginSourceScheme.github:
                 candidate = self._candidate_from_github(parsed_spec, tmp_dir)
@@ -368,9 +372,13 @@ class PluginManager:
                     f"Unsupported plugin source: {source_spec}",
                 )
 
-            target_path = self._target_plugin_path(resolved_scope, candidate.manifest.id)
+            target_path = self._target_plugin_path(
+                resolved_scope, candidate.manifest.id
+            )
             old_entry = self._find_entry(candidate.manifest.id, resolved_scope)
-            had_backend_before = old_entry.has_backend if old_entry is not None else False
+            had_backend_before = (
+                old_entry.has_backend if old_entry is not None else False
+            )
 
             self._install_candidate(
                 candidate,
@@ -792,12 +800,9 @@ class PluginManager:
         for key, desired in desired_by_scope_plugin.items():
             current = current_by_scope_plugin.get(key)
             if current is not None:
-                if (
-                    current.version == desired.version
-                    and (
-                        desired.sourceDigestSha256 is None
-                        or current.source_digest_sha256 == desired.sourceDigestSha256
-                    )
+                if current.version == desired.version and (
+                    desired.sourceDigestSha256 is None
+                    or current.source_digest_sha256 == desired.sourceDigestSha256
                 ):
                     continue
             if desired.sourceSpec is None:
@@ -877,8 +882,7 @@ class PluginManager:
             backend_dir = root / "backend"
             backend_dir.mkdir(parents=True, exist_ok=True)
             (backend_dir / "entrypoint.py").write_text(
-                "def register(plugin):\n"
-                "    return None\n",
+                "def register(plugin):\n    return None\n",
                 encoding="utf-8",
             )
             manifest["backend"] = {"entrypoint": "backend/entrypoint.py"}
@@ -887,9 +891,7 @@ class PluginManager:
             frontend_dist_dir = root / "frontend" / "dist"
             frontend_dist_dir.mkdir(parents=True, exist_ok=True)
             (frontend_dist_dir / "index.js").write_text(
-                "export function register(host) {\n"
-                "  void host;\n"
-                "}\n",
+                "export function register(host) {\n  void host;\n}\n",
                 encoding="utf-8",
             )
             (frontend_dist_dir / "index.css").write_text(
@@ -919,16 +921,16 @@ class PluginManager:
 
         pyproject_content = (
             "[build-system]\n"
-            "requires = [\"setuptools>=68\", \"wheel\"]\n"
-            "build-backend = \"setuptools.build_meta\"\n\n"
+            'requires = ["setuptools>=68", "wheel"]\n'
+            'build-backend = "setuptools.build_meta"\n\n'
             "[project]\n"
-            f"name = \"{normalized_id}\"\n"
-            "version = \"0.1.0\"\n"
-            "description = \"Setta plugin\"\n"
-            "requires-python = \">=3.12\"\n"
+            f'name = "{normalized_id}"\n'
+            'version = "0.1.0"\n'
+            'description = "Setta plugin"\n'
+            'requires-python = ">=3.12"\n'
             "dependencies = []\n\n"
             "[tool.setuptools.package-data]\n"
-            "\"*\" = [\"setta.plugin.json\", \"frontend/dist/*\", \"content/**/*\"]\n"
+            '"*" = ["setta.plugin.json", "frontend/dist/*", "content/**/*"]\n'
         )
         (root / "pyproject.toml").write_text(pyproject_content, encoding="utf-8")
         (root / "README.md").write_text(
@@ -1162,7 +1164,9 @@ class PluginManager:
                 )
         return effective, blocked
 
-    def _build_content_descriptor(self, entry: DiscoveredPlugin) -> PluginContentDescriptor:
+    def _build_content_descriptor(
+        self, entry: DiscoveredPlugin
+    ) -> PluginContentDescriptor:
         manifest = entry.manifest
         if manifest is None or manifest.content is None:
             return PluginContentDescriptor(
@@ -1192,7 +1196,9 @@ class PluginManager:
             ),
         )
 
-    def _build_config_descriptor(self, entry: DiscoveredPlugin) -> PluginConfigDescriptor:
+    def _build_config_descriptor(
+        self, entry: DiscoveredPlugin
+    ) -> PluginConfigDescriptor:
         manifest = entry.manifest
         if manifest is None or manifest.configSchemaPath is None:
             return PluginConfigDescriptor(hasSchema=False)
@@ -1212,7 +1218,9 @@ class PluginManager:
             return PluginConfigDescriptor(hasSchema=True, schemaJson=schema_json)
         return PluginConfigDescriptor(hasSchema=True)
 
-    def _validate_plugin_config(self, entry: DiscoveredPlugin, config: dict[str, Any]) -> None:
+    def _validate_plugin_config(
+        self, entry: DiscoveredPlugin, config: dict[str, Any]
+    ) -> None:
         manifest = entry.manifest
         if manifest is None or manifest.configSchemaPath is None:
             return
@@ -1327,7 +1335,9 @@ class PluginManager:
                 )
             seen.add(capability)
 
-    def _validate_manifest_paths(self, plugin_root: Path, manifest: PluginManifest) -> None:
+    def _validate_manifest_paths(
+        self, plugin_root: Path, manifest: PluginManifest
+    ) -> None:
         if manifest.backend is not None:
             path = self._resolve_relative_path(
                 plugin_root,
@@ -1481,7 +1491,9 @@ class PluginManager:
         manifest = self._load_and_validate_manifest(manifest_path)
         self._validate_manifest_paths(clone_root, manifest)
         self._validate_setta_version_range(manifest)
-        package_name, package_version = self._read_pyproject_metadata_optional(clone_root)
+        package_name, package_version = self._read_pyproject_metadata_optional(
+            clone_root
+        )
         self._validate_metadata_identity(
             root=clone_root,
             manifest=manifest,
@@ -1561,7 +1573,9 @@ class PluginManager:
         manifest = self._load_and_validate_manifest(manifest_path)
         self._validate_manifest_paths(plugin_root, manifest)
         self._validate_setta_version_range(manifest)
-        package_name, package_version = self._read_package_metadata_optional(extract_root)
+        package_name, package_version = self._read_package_metadata_optional(
+            extract_root
+        )
         if package_name is None or package_version is None:
             fallback_name, fallback_version = self._read_pyproject_metadata_optional(
                 plugin_root
@@ -1606,7 +1620,10 @@ class PluginManager:
             else:
                 target_path.unlink()
 
-        staged_path = target_path.parent / f".{candidate.manifest.id}.tmp-{os.getpid()}-{datetime.now(UTC).timestamp()}"
+        staged_path = (
+            target_path.parent
+            / f".{candidate.manifest.id}.tmp-{os.getpid()}-{datetime.now(UTC).timestamp()}"
+        )
         shutil.copytree(candidate.root, staged_path)
         staged_path.replace(target_path)
 
@@ -1625,7 +1642,11 @@ class PluginManager:
         scope: PluginScope,
         target_path: Path,
     ) -> None:
-        if not target_path.exists() or not target_path.is_dir() or target_path.is_symlink():
+        if (
+            not target_path.exists()
+            or not target_path.is_dir()
+            or target_path.is_symlink()
+        ):
             return
         history_stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         history_dir = self._history_root / scope.value / plugin_id / history_stamp
@@ -1636,7 +1657,9 @@ class PluginManager:
         key = self._metadata_key(plugin_id, scope)
         entry = metadata.entries.get(key)
         if entry is None:
-            manifest = self._load_and_validate_manifest(target_path / "setta.plugin.json")
+            manifest = self._load_and_validate_manifest(
+                target_path / "setta.plugin.json"
+            )
             entry = PluginInstallMetadataEntry(
                 pluginId=plugin_id,
                 scope=scope,
@@ -1688,7 +1711,9 @@ class PluginManager:
                 ]
             self._save_plugins_global_state(global_state)
 
-    def _remove_plugin_from_enablement(self, plugin_id: str, scope: PluginScope) -> None:
+    def _remove_plugin_from_enablement(
+        self, plugin_id: str, scope: PluginScope
+    ) -> None:
         state_file = self._load_plugins_state()
         state_file.enabledPluginIds = [
             value for value in state_file.enabledPluginIds if value != plugin_id
@@ -1702,7 +1727,9 @@ class PluginManager:
         if scope == PluginScope.global_scope:
             global_state = self._load_plugins_global_state()
             global_state.autoEnabledPluginIds = [
-                value for value in global_state.autoEnabledPluginIds if value != plugin_id
+                value
+                for value in global_state.autoEnabledPluginIds
+                if value != plugin_id
             ]
             self._save_plugins_global_state(global_state)
 
@@ -1792,7 +1819,9 @@ class PluginManager:
         if not self._install_metadata_path.exists():
             return PluginInstallMetadataFile()
         try:
-            payload = json.loads(self._install_metadata_path.read_text(encoding="utf-8"))
+            payload = json.loads(
+                self._install_metadata_path.read_text(encoding="utf-8")
+            )
             return PluginInstallMetadataFile.model_validate(payload)
         except (json.JSONDecodeError, ValidationError) as exc:
             raise PluginManagerError(
@@ -1947,13 +1976,17 @@ class PluginManager:
     def _read_package_metadata_optional(
         self, root: Path
     ) -> tuple[str | None, str | None]:
-        metadata_files = sorted(root.rglob("*.dist-info/METADATA"), key=lambda path: str(path))
+        metadata_files = sorted(
+            root.rglob("*.dist-info/METADATA"), key=lambda path: str(path)
+        )
         if len(metadata_files) == 0:
             return None, None
         metadata_path = metadata_files[0]
         raw_name: str | None = None
         raw_version: str | None = None
-        for line in metadata_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        for line in metadata_path.read_text(
+            encoding="utf-8", errors="ignore"
+        ).splitlines():
             if line.startswith("Name:") and raw_name is None:
                 raw_name = line.split(":", 1)[1].strip()
             elif line.startswith("Version:") and raw_version is None:
@@ -2088,7 +2121,9 @@ class PluginManager:
             return f"{base_url}?v={entry.source_digest_sha256}"
         return base_url
 
-    def _find_entry(self, plugin_id: str, scope: PluginScope) -> DiscoveredPlugin | None:
+    def _find_entry(
+        self, plugin_id: str, scope: PluginScope
+    ) -> DiscoveredPlugin | None:
         for entry in self._discovered_plugins:
             if entry.plugin_id == plugin_id and entry.scope == scope:
                 if entry.shadowed_by_source_path is None:
@@ -2096,7 +2131,9 @@ class PluginManager:
         return None
 
     def _find_highest_precedence_entry(self, plugin_id: str) -> DiscoveredPlugin | None:
-        entries = [entry for entry in self._discovered_plugins if entry.plugin_id == plugin_id]
+        entries = [
+            entry for entry in self._discovered_plugins if entry.plugin_id == plugin_id
+        ]
         if len(entries) == 0:
             return None
         ordered = sorted(
@@ -2113,8 +2150,12 @@ class PluginManager:
     ) -> PluginScope:
         if scope is not None:
             return normalize_scope(scope)
-        matches = [entry for entry in self._discovered_plugins if entry.plugin_id == plugin_id]
-        unique_scopes = sorted({entry.scope for entry in matches}, key=lambda value: _SCOPE_ORDER[value])
+        matches = [
+            entry for entry in self._discovered_plugins if entry.plugin_id == plugin_id
+        ]
+        unique_scopes = sorted(
+            {entry.scope for entry in matches}, key=lambda value: _SCOPE_ORDER[value]
+        )
         if len(unique_scopes) == 0:
             raise PluginManagerError(
                 "PLUGIN_NOT_FOUND",

@@ -29,6 +29,7 @@ from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
+from setta.plugins.manager import PluginManager
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -36,7 +37,6 @@ from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
-from setta.plugins.manager import PluginManager
 from setta.project_state.share_runtime_state import ShareRuntimeState
 from setta.run_manager import DetachedRunManager
 from setta.share.listener_runtime import ShareListenerRuntime

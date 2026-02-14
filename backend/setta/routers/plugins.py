@@ -11,14 +11,15 @@ from setta.plugins.models import (
     PluginConfigWriteResponse,
     PluginEnableDisableResponse,
     PluginInstallResponse,
+    PluginListResponse,
     PluginLockApplyResponse,
     PluginLockWriteResponse,
-    PluginListResponse,
+    PluginRestartCapability,
     PluginRollbackResponse,
+    PluginsRescanResponse,
     PluginStatusResponse,
     PluginUninstallResponse,
     PluginUpdateResponse,
-    PluginsRescanResponse,
 )
 from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -104,7 +105,9 @@ def route_plugins_rescan(state: AppStateFromRequest) -> PluginsRescanResponse:
 
 
 @router.get(Route.PLUGINS_RESTART_CAPABILITY)
-def route_plugins_restart_capability(state: AppStateFromRequest):
+def route_plugins_restart_capability(
+    state: AppStateFromRequest,
+) -> PluginRestartCapability:
     return _manager(state).get_restart_capability()
 
 
@@ -196,7 +199,9 @@ def route_plugins_config(
     state: AppStateFromRequest,
 ) -> PluginConfigWriteResponse:
     try:
-        return _manager(state).write_plugin_config(plugin_id=x.pluginId, config=x.config)
+        return _manager(state).write_plugin_config(
+            plugin_id=x.pluginId, config=x.config
+        )
     except PluginManagerError as exc:
         _raise_http(exc)
 
