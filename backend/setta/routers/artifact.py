@@ -283,16 +283,28 @@ def _build_file_browser_download_url(token: str) -> str:
 
 
 def _default_file_browser_ignore_patterns() -> list[str]:
-    patterns = list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS)
+    return list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS)
+
+
+def _resolve_setta_internal_ignore_roots() -> tuple[Path, ...]:
     paths = get_setta_paths()
     workspace_root = paths.workspace_root.resolve(strict=False)
-    state_root = paths.setta_files_root.resolve(strict=False)
-    runtime_root = paths.runtime_root.resolve(strict=False)
+    roots: list[Path] = []
+    for root in (
+        paths.setta_files_root.resolve(strict=False),
+        paths.runtime_root.resolve(strict=False),
+    ):
+        if root.is_relative_to(workspace_root):
+            roots.append(root)
+    return tuple(roots)
 
-    for root in (state_root, runtime_root):
-        if root.is_relative_to(workspace_root) and root.name not in patterns:
-            patterns.append(root.name)
-    return patterns
+
+def _is_under_ignored_root(path: Path, ignored_roots: tuple[Path, ...]) -> bool:
+    resolved = path.resolve(strict=False)
+    for root in ignored_roots:
+        if resolved.is_relative_to(root):
+            return True
+    return False
 
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)
@@ -371,6 +383,7 @@ def route_get_folder_contents(
     max_entries = (
         x.maxEntries if x.maxEntries is not None else DEFAULT_FILE_BROWSER_MAX_ENTRIES
     )
+    internal_ignore_roots = _resolve_setta_internal_ignore_roots()
 
     contents: list[FolderContentItem] = []
     include_hidden = x.includeHidden
@@ -378,6 +391,8 @@ def route_get_folder_contents(
     include_size = x.includeSize
 
     for item in path.iterdir():
+        if _is_under_ignored_root(item, internal_ignore_roots):
+            continue
         if not include_hidden and item.name.startswith("."):
             continue
         if _should_ignore(item.name, ignore_patterns):

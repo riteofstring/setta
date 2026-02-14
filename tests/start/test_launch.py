@@ -61,6 +61,33 @@ def test_launch_reports_invalid_local_setta_files_root(tmp_path: Path) -> None:
     assert "Local setta_files path is not a directory" in payload["error"]["message"]
 
 
+def test_launch_reports_invalid_runtime_root(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime_root_file = tmp_path / "runtime-root-file"
+    runtime_root_file.write_text("not a directory", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        [
+            "--json",
+            "--workspace",
+            str(workspace),
+            "--setta-files-location",
+            "local",
+            "--runtime-root",
+            str(runtime_root_file),
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidRuntimeRoot"
+    assert "runtime root is not a directory" in payload["error"]["message"]
+
+
 def test_launch_reports_invalid_user_config(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -296,6 +323,37 @@ def test_launch_workspace_session_reports_spawn_failures(
 
     content = log_path.read_text(encoding="utf-8")
     assert "failed to spawn setta process" in content
+
+
+def test_launch_workspace_session_reports_runtime_log_init_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime_root = tmp_path / "runtime_root"
+    runtime_root.mkdir(parents=True, exist_ok=True)
+
+    original_mkdir = Path.mkdir
+
+    # Simulate a filesystem failure when initializing runtime logs.
+    def fail_logs_mkdir(path: Path, *args, **kwargs):
+        if path == runtime_root / "logs":
+            raise OSError("permission denied")
+        return original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fail_logs_mkdir)
+
+    with pytest.raises(LaunchError) as excinfo:
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_files_location="local",
+            runtime_root=runtime_root,
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert excinfo.value.code == "InvalidRuntimeRoot"
+    assert str(runtime_root / "logs") in str(excinfo.value)
 
 
 def test_launch_reuses_existing_session_with_global_location_options(

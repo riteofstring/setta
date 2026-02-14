@@ -18,6 +18,8 @@ SETTA_HOME_ARGS=()
 SETTA_FILES_ROOT_ARGS=()
 SETTA_FILES_LOCATION_ARGS=()
 RUNTIME_ROOT_ARGS=()
+CLI_SETTA_FILES_ROOT=0
+CLI_SETTA_FILES_LOCATION=0
 
 if [[ -n "${SETTA_PROFILE:-}" ]]; then
   PROFILE_ARGS=(--profile "${SETTA_PROFILE}")
@@ -49,9 +51,11 @@ for arg in "$@"; do
   fi
   if [[ "$arg" == "--setta-files-root" || "$arg" == "--setta-files-root="* ]]; then
     SETTA_FILES_ROOT_ARGS=()
+    CLI_SETTA_FILES_ROOT=1
   fi
   if [[ "$arg" == "--setta-files-location" || "$arg" == "--setta-files-location="* ]]; then
     SETTA_FILES_LOCATION_ARGS=()
+    CLI_SETTA_FILES_LOCATION=1
   fi
   if [[ "$arg" == "--runtime-root" || "$arg" == "--runtime-root="* ]]; then
     RUNTIME_ROOT_ARGS=()
@@ -60,7 +64,15 @@ done
 if [[ "${SETTA_NO_OPEN:-}" == "1" || "${SETTA_NO_OPEN:-}" == "true" ]]; then
   NO_OPEN_ARGS=(--no-open)
 fi
-if [[ "${#SETTA_FILES_ROOT_ARGS[@]}" -gt 0 && "${#SETTA_FILES_LOCATION_ARGS[@]}" -gt 0 ]]; then
+if [[ "${CLI_SETTA_FILES_ROOT}" -gt 0 && "${CLI_SETTA_FILES_LOCATION}" -gt 0 ]]; then
+  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
+  exit 1
+fi
+if [[ "${CLI_SETTA_FILES_ROOT}" -gt 0 ]]; then
+  SETTA_FILES_LOCATION_ARGS=()
+elif [[ "${CLI_SETTA_FILES_LOCATION}" -gt 0 ]]; then
+  SETTA_FILES_ROOT_ARGS=()
+elif [[ "${#SETTA_FILES_ROOT_ARGS[@]}" -gt 0 && "${#SETTA_FILES_LOCATION_ARGS[@]}" -gt 0 ]]; then
   # Explicit root is authoritative.
   SETTA_FILES_LOCATION_ARGS=()
 fi

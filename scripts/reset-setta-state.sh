@@ -69,9 +69,11 @@ if [[ -n "${setta_home_override}" ]]; then
 fi
 if [[ -n "${setta_files_root_override}" ]]; then
   export SETTA_FILES_ROOT="${setta_files_root_override}"
+  unset SETTA_FILES_LOCATION
 fi
 if [[ -n "${setta_files_location_override}" ]]; then
   export SETTA_FILES_LOCATION="${setta_files_location_override}"
+  unset SETTA_FILES_ROOT
 fi
 if [[ -n "${runtime_root_override}" ]]; then
   export SETTA_RUNTIME_ROOT="${runtime_root_override}"

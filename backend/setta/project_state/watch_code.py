@@ -206,10 +206,6 @@ def _build_ignore_predicate() -> Callable[[Path], bool]:
     state_is_in_workspace = state_root.is_relative_to(workspace_root)
     runtime_is_in_workspace = runtime_root.is_relative_to(workspace_root)
     ignored_names = set(DEFAULT_WATCH_CODE_IGNORE_DIRS)
-    if state_is_in_workspace:
-        ignored_names.add(state_root.name)
-    if runtime_is_in_workspace:
-        ignored_names.add(runtime_root.name)
 
     def should_ignore(path: Path) -> bool:
         resolved = (

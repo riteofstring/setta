@@ -11,8 +11,6 @@ from pathlib import Path
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.paths import (
     ConflictingSettaFilesRootAndLocationError,
-    InvalidGlobalSettaFilesRootError,
-    InvalidLocalSettaFilesRootError,
     InvalidSettaFilesLocationError,
     InvalidSettaFilesRootError,
     InvalidSettaProfileError,
@@ -91,11 +89,7 @@ def launch_workspace_session(
         )
     except InvalidSettaFilesLocationError as exc:
         raise LaunchError("InvalidSettaFilesLocation", str(exc)) from exc
-    except (
-        InvalidLocalSettaFilesRootError,
-        InvalidGlobalSettaFilesRootError,
-        InvalidSettaFilesRootError,
-    ) as exc:
+    except InvalidSettaFilesRootError as exc:
         raise LaunchError("InvalidSettaFilesRoot", str(exc)) from exc
     except ConflictingSettaFilesRootAndLocationError as exc:
         raise LaunchError("InvalidSettaFilesConfig", str(exc)) from exc
@@ -112,7 +106,9 @@ def launch_workspace_session(
     except ValueError as exc:
         raise LaunchError("InvalidWorkspace", str(exc)) from exc
     for raw_path, label, code in (
+        (paths.setta_home, "setta home", "InvalidSettaHome"),
         (paths.setta_files_root, "setta files root", "InvalidSettaFilesRoot"),
+        (paths.runtime_root, "runtime root", "InvalidRuntimeRoot"),
     ):
         message = get_optional_dir_validation_error(raw_path, label=label)
         if message:
@@ -188,9 +184,21 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
     if paths.uses_explicit_runtime_root:
         cmd.extend(["--runtime-root", str(paths.runtime_root)])
     log_dir = paths.runtime_logs_root
-    log_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise LaunchError(
+            "InvalidRuntimeRoot",
+            f"Failed to initialize runtime logs directory: {log_dir}\nReason: {exc}",
+        ) from exc
     log_path = log_dir / f"launch-{time.time_ns()}-{os.getpid()}.log"
-    handle = log_path.open("w", encoding="utf-8")
+    try:
+        handle = log_path.open("w", encoding="utf-8")
+    except OSError as exc:
+        raise LaunchError(
+            "InvalidRuntimeRoot",
+            f"Failed to create launch log file: {log_path}\nReason: {exc}",
+        ) from exc
     process: subprocess.Popen[str] | None = None
     try:
         popen_kwargs: dict[str, object] = {

@@ -20,6 +20,25 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "BadRequest"
 
+    def test_launch_returns_structured_error_for_invalid_runtime_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            runtime_root_file = tmp_path / "runtime-root-file"
+            runtime_root_file.write_text("not a directory", encoding="utf-8")
+
+            response = route_launch(
+                LaunchRequest(
+                    workspaceRoot=str(workspace_root),
+                    runtimeRoot=str(runtime_root_file),
+                )
+            )
+            assert response.ok is False
+            assert response.error is not None
+            assert response.error.code == "InvalidRuntimeRoot"
+            assert "runtime root is not a directory" in response.error.message
+
     def test_launch_over_ssh_returns_bootstrap_url(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
         ssh_stub_dir = repo_root / "scripts" / "test"

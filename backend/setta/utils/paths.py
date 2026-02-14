@@ -110,10 +110,6 @@ class SettaPaths:
         return (self.setta_files_root / "runtime").resolve(strict=False)
 
     @property
-    def uses_explicit_setta_files_root(self) -> bool:
-        return self.setta_files_location is None
-
-    @property
     def uses_explicit_runtime_root(self) -> bool:
         return self.runtime_root != self.default_runtime_root
 
