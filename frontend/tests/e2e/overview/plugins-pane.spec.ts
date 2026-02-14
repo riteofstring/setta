@@ -22,6 +22,8 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   const projectContext = await openIsolatedProject(page);
   await expect(page.getByText("Plugin Runtime")).toBeVisible();
   await expect(page.getByText("Install Plugin")).toBeVisible();
+  await page.getByRole("button", { name: "Restart Setta", exact: true }).click();
+  await expect(page.getByText("Manual restart required: setta")).toBeVisible();
   await expect(
     page.getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]"),
   ).toBeVisible();
