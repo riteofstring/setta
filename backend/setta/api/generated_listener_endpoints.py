@@ -60,6 +60,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
@@ -230,6 +231,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
+        | PluginSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]
@@ -886,12 +888,6 @@ class ListenerSetViewModeNameRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     viewModeId: ID
     name: str
-
-
-class ListenerSetViewModeSortOrderRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    orderedViewModeIds: list[ID]
 
 
 class ListenerSetViewportRequestPayload(TypedDict):
@@ -1556,11 +1552,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetViewModeNameRequestPayload
     ) -> None:
         return await self._caller("route_set_view_mode_name", payload)
-
-    async def set_view_mode_sort_order(
-        self, payload: ListenerSetViewModeSortOrderRequestPayload
-    ) -> None:
-        return await self._caller("route_set_view_mode_sort_order", payload)
 
     async def set_viewport(self, payload: ListenerSetViewportRequestPayload) -> None:
         return await self._caller("route_set_viewport", payload)
