@@ -2,6 +2,8 @@ import asyncio
 import logging
 from collections import defaultdict
 
+from setta.types.section_impls import CodeLanguage, CodeLanguageKey
+
 logger = logging.getLogger(__name__)
 LSP_RESPONSE_TIMEOUT_SECONDS = 5.0
 
@@ -12,11 +14,18 @@ class LanguageServer:
         workspace_folder,
         settings,
         name,
+        *,
+        language: CodeLanguageKey = CodeLanguage.python,
+        command: str = "basedpyright-langserver",
+        args: tuple[str, ...] = ("--stdio",),
     ):
         # Create folders if they don't exist
         workspace_folder.mkdir(parents=True, exist_ok=True)
         self.workspace_folder = workspace_folder
         self.server = None
+        self.language = language
+        self.command = command
+        self.args = args
         self.init_properties()
         if not isinstance(settings, dict):
             logger.warning(
@@ -30,8 +39,9 @@ class LanguageServer:
     async def start(self):
         logger.debug("Starting %s language server", self.name)
         self.init_properties()
-        self.server = await asyncio.create_subprocess_shell(
-            "basedpyright-langserver --stdio",
+        self.server = await asyncio.create_subprocess_exec(
+            self.command,
+            *self.args,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

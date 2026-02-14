@@ -25,7 +25,6 @@ import {
   SectionType,
   SectionTypeEnum,
   SliderParamCodeObjImpl,
-  TextParamCodeObjImpl,
 } from "utils/generatedTypes";
 
 function getIsSeriesElementHelper(
@@ -121,11 +120,6 @@ export type DropzoneConfigForFrontend = Pick<
   "mode" | "maxAttachments" | "placeholder"
 >;
 
-export type TextParamConfigForFrontend = Pick<
-  TextParamCodeObjImpl,
-  "uiType" | "timeDisplayFormat" | "dateDisplayFormat"
->;
-
 type ButtonConfigForFrontend = Pick<
   ButtonParamCodeObjImpl,
   | "label"
@@ -179,13 +173,6 @@ const UI_CONFIG_EXTRACTORS = {
     mode: obj.mode,
     maxAttachments: obj.maxAttachments,
     placeholder: obj.placeholder,
-  }),
-  [CodeObjTypeEnum.TextParam]: (
-    obj: TextParamCodeObjImpl,
-  ): TextParamConfigForFrontend => ({
-    uiType: obj.uiType,
-    timeDisplayFormat: obj.timeDisplayFormat,
-    dateDisplayFormat: obj.dateDisplayFormat,
   }),
 } as const;
 
