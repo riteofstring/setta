@@ -269,13 +269,16 @@ def _build_remote_setta_path_args(
     setta_files_location: str | None,
     runtime_root: str | None,
 ) -> str:
-    return ssh_common.build_remote_setta_path_args(
-        profile=profile,
-        setta_home=setta_home,
-        setta_files_root=setta_files_root,
-        setta_files_location=setta_files_location,
-        runtime_root=runtime_root,
-    )
+    try:
+        return ssh_common.build_remote_setta_path_args(
+            profile=profile,
+            setta_home=setta_home,
+            setta_files_root=setta_files_root,
+            setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
+        )
+    except LaunchError as exc:
+        raise click.ClickException(str(exc)) from exc
 
 
 def _fetch_remote_sessions(

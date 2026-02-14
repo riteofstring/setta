@@ -45,6 +45,36 @@ def test_reset_setta_state_script_deletes_explicit_root(tmp_path: Path) -> None:
     assert not explicit_root.exists()
 
 
+def test_reset_setta_state_script_allows_custom_canonical_root(tmp_path: Path) -> None:
+    # Reset should accept the same canonical roots that resolve_setta_paths accepts.
+    _ensure_local_venv_or_skip()
+    repo_root = _repo_root()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+    explicit_root = tmp_path / "custom" / "setta_files_dev"
+    (explicit_root / "nested").mkdir(parents=True, exist_ok=True)
+    (explicit_root / "nested" / "sentinel.txt").write_text("x", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(repo_root / "scripts" / "reset-setta-state.sh"),
+            "--workspace",
+            str(workspace),
+            "--setta-files-root",
+            str(explicit_root),
+        ],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Deleted Setta reset target" in result.stdout
+    assert not explicit_root.exists()
+
+
 def test_reset_setta_state_script_resolves_profile_root(tmp_path: Path) -> None:
     _ensure_local_venv_or_skip()
     repo_root = _repo_root()

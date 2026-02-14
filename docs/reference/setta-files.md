@@ -5,7 +5,8 @@ Setta stores runtime metadata under a `setta_files/` folder. There are two locat
 - **Local `setta_files`**: `<workspace>/setta_files` (default)
 - **Global `setta_files`**: a per-workspace folder under a configurable base directory
 
-Local always wins when it exists.
+Local `setta_files` wins when it exists, except when an explicit `setta_files_root`
+override is selected (CLI, env, or profile).
 
 ## Setta Home (`<setta_home>`)
 
@@ -52,8 +53,9 @@ Fields:
 
 Resolution rules:
 
-1. If `<workspace>/setta_files` exists and is a directory: **use local**.
-2. Otherwise, choose based on the requested location:
+1. If an explicit `setta_files_root` is provided (CLI/env/profile): **use it**.
+2. Otherwise, if `<workspace>/setta_files` exists and is a directory: **use local**.
+3. Otherwise, choose based on the requested location:
    - `local`: use `<workspace>/setta_files`
    - `global`: use `<globalSettaFilesBase>/<workspace-name>-<hash>`
    - `auto`: follow `autoMode` from config

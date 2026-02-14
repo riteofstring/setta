@@ -109,3 +109,56 @@ def test_stop_forwards_profile_without_local_profile_validation(monkeypatch) -> 
     assert captured["profile"] == "missing"
     assert captured["deleted_id"] == "session-2"
     assert "Unknown Setta profile" not in result.output
+
+
+def test_connect_surfaces_conflicting_path_flags_as_click_error() -> None:
+    # Conflicting remote path flags should be rendered as a normal CLI usage error.
+    runner = CliRunner()
+    result = runner.invoke(
+        start.cli,
+        [
+            "--setta-files-root",
+            "/tmp/state",
+            "--setta-files-location",
+            "local",
+            "connect",
+            "user@host",
+            "--workspace",
+            "/tmp/work",
+            "--latest",
+            "--print-only",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Cannot pass both --setta-files-root and --setta-files-location for remote commands."
+        in result.output
+    )
+    assert "Traceback" not in result.output
+
+
+def test_stop_surfaces_conflicting_path_flags_as_click_error() -> None:
+    # stop uses the same remote path flag builder and should avoid traceback output.
+    runner = CliRunner()
+    result = runner.invoke(
+        start.cli,
+        [
+            "--setta-files-root",
+            "/tmp/state",
+            "--setta-files-location",
+            "local",
+            "stop",
+            "user@host",
+            "--workspace",
+            "/tmp/work",
+            "--latest",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert (
+        "Cannot pass both --setta-files-root and --setta-files-location for remote commands."
+        in result.output
+    )
+    assert "Traceback" not in result.output

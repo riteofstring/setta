@@ -2,6 +2,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 . ./activate.sh
 
+SETTA_PATH_FLAGS_HELPER="${ROOT_DIR}/scripts/lib/setta_path_flags.sh"
+if [[ ! -f "${SETTA_PATH_FLAGS_HELPER}" ]]; then
+  echo "Missing Setta path flags helper: ${SETTA_PATH_FLAGS_HELPER}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${SETTA_PATH_FLAGS_HELPER}"
+
 # Default dev log file is backend.log, but allow wrappers (ai.sh) to isolate logs.
 LOG_FILE="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
 mkdir -p "$(dirname "${LOG_FILE}")"
@@ -18,63 +26,79 @@ SETTA_HOME_ARGS=()
 SETTA_FILES_ROOT_ARGS=()
 SETTA_FILES_LOCATION_ARGS=()
 RUNTIME_ROOT_ARGS=()
+CLI_PROFILE=0
+CLI_SETTA_HOME=0
 CLI_SETTA_FILES_ROOT=0
 CLI_SETTA_FILES_LOCATION=0
+CLI_RUNTIME_ROOT=0
 
+setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
 if [[ -n "${SETTA_PROFILE:-}" ]]; then
-  PROFILE_ARGS=(--profile "${SETTA_PROFILE}")
+  SETTA_PROFILE_OVERRIDE="${SETTA_PROFILE}"
 fi
-if [[ -n "${SETTA_HOME:-}" ]]; then
-  SETTA_HOME_ARGS=(--setta-home "${SETTA_HOME}")
-fi
-if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
-  SETTA_FILES_ROOT_ARGS=(--setta-files-root "${SETTA_FILES_ROOT}")
-fi
-if [[ -n "${SETTA_FILES_LOCATION:-}" ]]; then
-  SETTA_FILES_LOCATION_ARGS=(--setta-files-location "${SETTA_FILES_LOCATION}")
+if [[ -z "${SETTA_FILES_ROOT:-}" && -n "${SETTA_FILES_LOCATION:-}" ]]; then
+  EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION}"
 fi
 if [[ -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
-  RUNTIME_ROOT_ARGS=(--runtime-root "${SETTA_RUNTIME_ROOT}")
+  SETTA_RUNTIME_ROOT_OVERRIDE="${SETTA_RUNTIME_ROOT}"
 fi
-for arg in "$@"; do
+
+remaining=("$@")
+while [[ "${#remaining[@]}" -gt 0 ]]; do
+  arg="${remaining[0]}"
+  if setta_path_flags_try_parse "${remaining[@]}"; then
+    case "${arg}" in
+      --profile|--profile=*)
+        CLI_PROFILE=1
+        ;;
+      --setta-home|--setta-home=*)
+        CLI_SETTA_HOME=1
+        ;;
+      --setta-files-root|--setta-files-root=*)
+        CLI_SETTA_FILES_ROOT=1
+        ;;
+      --setta-files-location|--setta-files-location=*)
+        CLI_SETTA_FILES_LOCATION=1
+        ;;
+      --runtime-root|--runtime-root=*)
+        CLI_RUNTIME_ROOT=1
+        ;;
+    esac
+    consumed="${SETTA_PATH_FLAGS_CONSUMED}"
+    remaining=("${remaining[@]:${consumed}}")
+    continue
+  fi
   if [[ "$arg" == "--host" || "$arg" == "--host="* ]]; then
     HOST_ARGS=()
   fi
   if [[ "$arg" == "--port" || "$arg" == "--port="* ]]; then
     PORT_ARGS=()
   fi
-  if [[ "$arg" == "--profile" || "$arg" == "--profile="* ]]; then
-    PROFILE_ARGS=()
-  fi
-  if [[ "$arg" == "--setta-home" || "$arg" == "--setta-home="* ]]; then
-    SETTA_HOME_ARGS=()
-  fi
-  if [[ "$arg" == "--setta-files-root" || "$arg" == "--setta-files-root="* ]]; then
-    SETTA_FILES_ROOT_ARGS=()
-    CLI_SETTA_FILES_ROOT=1
-  fi
-  if [[ "$arg" == "--setta-files-location" || "$arg" == "--setta-files-location="* ]]; then
-    SETTA_FILES_LOCATION_ARGS=()
-    CLI_SETTA_FILES_LOCATION=1
-  fi
-  if [[ "$arg" == "--runtime-root" || "$arg" == "--runtime-root="* ]]; then
-    RUNTIME_ROOT_ARGS=()
-  fi
+  remaining=("${remaining[@]:1}")
 done
+
+setta_path_flags_validate
+setta_path_flags_apply_env
+
 if [[ "${SETTA_NO_OPEN:-}" == "1" || "${SETTA_NO_OPEN:-}" == "true" ]]; then
   NO_OPEN_ARGS=(--no-open)
 fi
-if [[ "${CLI_SETTA_FILES_ROOT}" -gt 0 && "${CLI_SETTA_FILES_LOCATION}" -gt 0 ]]; then
-  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
-  exit 1
+
+if [[ "${CLI_PROFILE}" -eq 0 && -n "${SETTA_PROFILE:-}" ]]; then
+  PROFILE_ARGS=(--profile "${SETTA_PROFILE}")
 fi
-if [[ "${CLI_SETTA_FILES_ROOT}" -gt 0 ]]; then
-  SETTA_FILES_LOCATION_ARGS=()
-elif [[ "${CLI_SETTA_FILES_LOCATION}" -gt 0 ]]; then
-  SETTA_FILES_ROOT_ARGS=()
-elif [[ "${#SETTA_FILES_ROOT_ARGS[@]}" -gt 0 && "${#SETTA_FILES_LOCATION_ARGS[@]}" -gt 0 ]]; then
-  # Explicit root is authoritative.
-  SETTA_FILES_LOCATION_ARGS=()
+if [[ "${CLI_SETTA_HOME}" -eq 0 && -n "${SETTA_HOME:-}" ]]; then
+  SETTA_HOME_ARGS=(--setta-home "${SETTA_HOME}")
+fi
+if [[ "${CLI_SETTA_FILES_ROOT}" -eq 0 && "${CLI_SETTA_FILES_LOCATION}" -eq 0 ]]; then
+  if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
+    SETTA_FILES_ROOT_ARGS=(--setta-files-root "${SETTA_FILES_ROOT}")
+  elif [[ -n "${SETTA_FILES_LOCATION:-}" ]]; then
+    SETTA_FILES_LOCATION_ARGS=(--setta-files-location "${SETTA_FILES_LOCATION}")
+  fi
+fi
+if [[ "${CLI_RUNTIME_ROOT}" -eq 0 && -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
+  RUNTIME_ROOT_ARGS=(--runtime-root "${SETTA_RUNTIME_ROOT}")
 fi
 
 SETTA_DEV_MODE="true" "${SETTA_BIN}" \

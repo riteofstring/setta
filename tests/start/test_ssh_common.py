@@ -106,6 +106,16 @@ def test_resolve_remote_logs_dir_uses_explicit_runtime_root() -> None:
     assert resolved == "/tmp/custom_runtime/logs"
 
 
+def test_resolve_remote_logs_dir_uses_tmp_for_tilde_runtime_root() -> None:
+    # We cannot safely expand ~ from the launcher side, so logs should fall back to /tmp.
+    resolved = ssh_common.resolve_remote_logs_dir(
+        workspace="/tmp/work",
+        setta_files_location="local",
+        runtime_root="~/runtime",
+    )
+    assert resolved == "/tmp"
+
+
 def test_resolve_remote_logs_dir_uses_explicit_setta_files_root() -> None:
     resolved = ssh_common.resolve_remote_logs_dir(
         workspace="/tmp/work",
@@ -113,6 +123,16 @@ def test_resolve_remote_logs_dir_uses_explicit_setta_files_root() -> None:
         setta_files_root="/tmp/custom_state",
     )
     assert resolved == "/tmp/custom_state/runtime/logs"
+
+
+def test_resolve_remote_logs_dir_uses_tmp_for_tilde_setta_files_root() -> None:
+    # Keep startup diagnostics predictable instead of creating <workspace>/~/... paths.
+    resolved = ssh_common.resolve_remote_logs_dir(
+        workspace="/tmp/work",
+        setta_files_location="local",
+        setta_files_root="~/state",
+    )
+    assert resolved == "/tmp"
 
 
 def test_resolve_remote_logs_dir_resolves_relative_runtime_root_from_workspace() -> None:

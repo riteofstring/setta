@@ -156,6 +156,13 @@ def test_frontend_reset_script_uses_workspace_without_hardcoded_root() -> None:
     assert "--setta-files-root" not in reset_script
 
 
+def test_backend_start_uses_shared_setta_path_flag_parser() -> None:
+    repo_root = _repo_root()
+    backend_start = (repo_root / "frontend" / "backendStart.sh").read_text(encoding="utf-8")
+    assert "scripts/lib/setta_path_flags.sh" in backend_start
+    assert "setta_path_flags_try_parse" in backend_start
+
+
 def test_ai_sh_reports_missing_value_for_profile(tmp_path: Path) -> None:
     sandbox_root = _build_ai_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"

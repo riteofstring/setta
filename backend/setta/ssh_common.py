@@ -606,9 +606,23 @@ def _is_safe_relative_remote_path(value: str) -> bool:
     return True
 
 
+def _has_tilde_prefix(value: str | None) -> bool:
+    trimmed = _normalize_optional_argument(value)
+    if trimmed is None:
+        return False
+    if not trimmed.startswith("~"):
+        return False
+    try:
+        return _split_tilde_path(trimmed) is not None
+    except LaunchError:
+        return False
+
+
 def _resolve_remote_root_for_logs(*, raw_root: str | None, workspace: str) -> str | None:
     trimmed_root = _normalize_optional_argument(raw_root)
     if trimmed_root is None:
+        return None
+    if _has_tilde_prefix(trimmed_root):
         return None
     if _is_safe_remote_path(trimmed_root):
         return trimmed_root.rstrip("/")
@@ -632,6 +646,8 @@ def resolve_remote_logs_dir(
     setta_files_root: str | None = None,
     runtime_root: str | None = None,
 ) -> str:
+    if _has_tilde_prefix(runtime_root):
+        return "/tmp"
     resolved_runtime_root = _resolve_remote_root_for_logs(
         raw_root=runtime_root,
         workspace=workspace,
@@ -640,6 +656,8 @@ def resolve_remote_logs_dir(
         root = resolved_runtime_root
         return f"{root}/logs"
 
+    if _has_tilde_prefix(setta_files_root):
+        return "/tmp"
     resolved_setta_files_root = _resolve_remote_root_for_logs(
         raw_root=setta_files_root,
         workspace=workspace,
