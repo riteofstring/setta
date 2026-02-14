@@ -77,9 +77,12 @@ fi
 
 source "${ROOT_DIR}/activate.sh"
 
+echo "link: linking fixture '${fixture_name}' from ${fixture_path} (scope=${scope})..."
 setta plugins link "${fixture_path}" --scope "${scope}" --force
 if [[ ${rescan_after_link} -eq 1 ]]; then
+  echo "link: rescanning plugins..."
   setta plugins rescan >/dev/null
+  echo "link: rescan complete."
 fi
 
 python - "${fixture_path}/setta.plugin.json" <<'PY'

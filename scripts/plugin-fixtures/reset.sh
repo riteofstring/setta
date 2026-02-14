@@ -12,6 +12,7 @@ fi
 
 source "${ROOT_DIR}/activate.sh"
 
+echo "reset: collecting fixture plugin ids from ${FIXTURE_ROOT}..."
 plugin_ids="$(
   python - "${FIXTURE_ROOT}" <<'PY'
 import json
@@ -32,9 +33,18 @@ for plugin_id in sorted(plugin_ids):
 PY
 )"
 
+plugin_count=0
+while IFS= read -r plugin_id; do
+  [[ -z "${plugin_id}" ]] && continue
+  plugin_count=$((plugin_count + 1))
+done <<< "${plugin_ids}"
+
+echo "reset: found ${plugin_count} fixture plugin id(s)."
+
 removed_count=0
 while IFS= read -r plugin_id; do
   [[ -z "${plugin_id}" ]] && continue
+  echo "reset: unlink attempts for ${plugin_id}..."
   for scope in workspace environment global; do
     if setta plugins unlink "${plugin_id}" --scope "${scope}" >/dev/null 2>&1; then
       echo "removed ${plugin_id} from ${scope}"
@@ -43,6 +53,8 @@ while IFS= read -r plugin_id; do
   done
 done <<< "${plugin_ids}"
 
+echo "reset: rescanning plugins..."
 setta plugins rescan >/dev/null || true
+echo "reset: rescan complete."
 
 echo "plugin fixture reset complete (removed entries: ${removed_count})"

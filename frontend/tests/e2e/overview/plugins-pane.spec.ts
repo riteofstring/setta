@@ -135,6 +135,21 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     page.getByText("Fixture pane mounted.", { exact: true }),
   ).toBeVisible();
 
+  const paneCommandRunsMetric = page.getByTestId("fixture-pane-command-runs");
+  await expect(paneCommandRunsMetric).toHaveText("0");
+  await page.getByTestId("fixture-pane-run-command").click();
+  await expect(paneCommandRunsMetric).toHaveText("1");
+
+  await page.getByTestId("fixture-pane-note-input").fill("plugin ux note");
+  await page.getByTestId("fixture-pane-save-note").click();
+  await expect(page.getByTestId("fixture-pane-note-preview")).toContainText(
+    "plugin ux note",
+  );
+  await page.getByTestId("fixture-pane-clear-note").click();
+  await expect(page.getByTestId("fixture-pane-note-preview")).toContainText(
+    "No scratchpad note saved yet.",
+  );
+
   await page.keyboard.press("Meta+Shift+P");
   await page.locator("#ProjectPageSearchBar").fill("Fixture Command");
   await expect(
@@ -147,7 +162,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
         .__settaFixtureCommandRuns || 0,
     );
   });
-  expect(commandRunCount).toBeGreaterThan(0);
+  expect(commandRunCount).toBeGreaterThan(1);
 
   await page.locator("#overview-tab-plugins").click();
   const fixtureCommandButton = page.getByRole("button", {
@@ -191,6 +206,21 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
 
   await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
   await expect(page.getByText("fixture:hello plugin")).toBeVisible();
+  const fixtureSectionCard = page.getByTestId("fixture-plugin-card").first();
+  const signalScore = fixtureSectionCard.getByTestId(
+    "fixture-card-signal-value",
+  );
+  const themeLabel = fixtureSectionCard.getByTestId("fixture-card-theme-label");
+  await expect(signalScore).toHaveText("0");
+  await expect(themeLabel).toContainText("theme:sunrise");
+  await fixtureSectionCard.getByTestId("fixture-card-boost").click();
+  await expect(signalScore).toHaveText("1");
+  await fixtureSectionCard.getByTestId("fixture-card-theme").click();
+  await expect(themeLabel).toContainText("theme:ocean");
+  await fixtureSectionCard.getByTestId("fixture-card-details").click();
+  await expect(signalScore).not.toBeVisible();
+  await fixtureSectionCard.getByTestId("fixture-card-details").click();
+  await expect(signalScore).toBeVisible();
 
   await postBackend(page, "/plugins/disable", {
     pluginId: "setta-fixture-frontend",
@@ -1259,28 +1289,31 @@ test("plugins pane remains interactive with a large plugin catalog", async ({
     effectiveCapabilities: [],
     restartRequired: false,
   }));
-  const statusPlugins = Array.from({ length: pluginCount }, (_unused, index) => ({
-    pluginId: `setta-large-plugin-${String(index).padStart(3, "0")}`,
-    name: `Setta Large Plugin ${index}`,
-    version: "0.1.0",
-    state: "active",
-    sourceScope: "workspace",
-    sourceScopeLabel: "workspace",
-    sourceManager: "setta",
-    sourceManagerHint: null,
-    sourcePath: `/tmp/setta-large-plugin-${index}`,
-    canonicalSourceKey: `pypi:setta-large-plugin-${index}`,
-    sourceDigestSha256: `digest-${index}`,
-    shadowedBySourcePath: null,
-    requestedCapabilities: [],
-    effectiveCapabilities: [],
-    blockedCapabilities: [],
-    registeredLanguageServers: [],
-    registeredExternalAgentAdapters: [],
-    registeredCodegenTargets: [],
-    restartRequired: false,
-    errors: [],
-  }));
+  const statusPlugins = Array.from(
+    { length: pluginCount },
+    (_unused, index) => ({
+      pluginId: `setta-large-plugin-${String(index).padStart(3, "0")}`,
+      name: `Setta Large Plugin ${index}`,
+      version: "0.1.0",
+      state: "active",
+      sourceScope: "workspace",
+      sourceScopeLabel: "workspace",
+      sourceManager: "setta",
+      sourceManagerHint: null,
+      sourcePath: `/tmp/setta-large-plugin-${index}`,
+      canonicalSourceKey: `pypi:setta-large-plugin-${index}`,
+      sourceDigestSha256: `digest-${index}`,
+      shadowedBySourcePath: null,
+      requestedCapabilities: [],
+      effectiveCapabilities: [],
+      blockedCapabilities: [],
+      registeredLanguageServers: [],
+      registeredExternalAgentAdapters: [],
+      registeredCodegenTargets: [],
+      restartRequired: false,
+      errors: [],
+    }),
+  );
 
   await setOverviewTab(page, "Plugins");
   await openIsolatedProject(page);

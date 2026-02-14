@@ -7,12 +7,15 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 link_fixture() {
   local fixture_name="$1"
   local scope="$2"
+  echo "[smoke] linking fixture '${fixture_name}' (scope=${scope})..."
   "${SCRIPT_DIR}/link.sh" "${fixture_name}" --scope "${scope}" --no-rescan
 }
 
 source "${ROOT_DIR}/activate.sh"
 
+echo "[smoke] resetting previously linked fixture plugins..."
 "${SCRIPT_DIR}/reset.sh"
+echo "[smoke] reset complete."
 
 # Core plugin coverage fixtures.
 link_fixture "frontend" "workspace"
@@ -31,7 +34,9 @@ link_fixture "scope-shadowing" "global"
 link_fixture "scope-shadowing" "environment"
 link_fixture "scope-shadowing" "workspace"
 
+echo "[smoke] rescanning plugins..."
 setta plugins rescan >/dev/null
+echo "[smoke] rescan complete."
 
 cat <<'CHECKLIST'
 Fixture smoke setup complete.
