@@ -335,6 +335,9 @@ class PluginManager:
         self._backend_startup_tasks = {}
         self._backend_shutdown_tasks = {}
 
+        # Refresh discovery after clearing pending-restart ids so eligible backend
+        # plugins transition from pending_restart to active before load selection.
+        self.rescan()
         backend_entries = self._backend_entries_for_load()
         for entry in backend_entries:
             try:
@@ -2094,9 +2097,24 @@ class PluginManager:
 
         if template in {"content", "full"}:
             content_dir = root / "content"
-            (content_dir / "blueprints").mkdir(parents=True, exist_ok=True)
-            (content_dir / "project_templates").mkdir(parents=True, exist_ok=True)
-            (content_dir / "prompts").mkdir(parents=True, exist_ok=True)
+            blueprints_dir = content_dir / "blueprints"
+            templates_dir = content_dir / "project_templates"
+            prompts_dir = content_dir / "prompts"
+            blueprints_dir.mkdir(parents=True, exist_ok=True)
+            templates_dir.mkdir(parents=True, exist_ok=True)
+            prompts_dir.mkdir(parents=True, exist_ok=True)
+            (blueprints_dir / "starter-blueprint.json").write_text(
+                "{\n  \"schemaVersion\": 1,\n  \"name\": \"Starter Blueprint\",\n  \"description\": \"Replace with your blueprint payload.\",\n  \"data\": {\n    \"project\": {},\n    \"sectionVariantMap\": {}\n  }\n}\n",
+                encoding="utf-8",
+            )
+            (templates_dir / "starter-template.json").write_text(
+                "{\n  \"schemaVersion\": 1,\n  \"name\": \"Starter Template\",\n  \"description\": \"Replace with your project template payload.\",\n  \"project\": {}\n}\n",
+                encoding="utf-8",
+            )
+            (prompts_dir / "starter-prompt.md").write_text(
+                "Replace this prompt template with your own content.\n",
+                encoding="utf-8",
+            )
             manifest["content"] = {
                 "blueprintsDir": "content/blueprints",
                 "projectTemplatesDir": "content/project_templates",
@@ -2118,8 +2136,15 @@ class PluginManager:
             'description = "Setta plugin"\n'
             'requires-python = ">=3.12"\n'
             "dependencies = []\n\n"
-            "[tool.setuptools.package-data]\n"
-            '"*" = ["setta.plugin.json", "frontend/dist/*", "content/**/*"]\n'
+            "[tool.setuptools]\n"
+            "py-modules = []\n\n"
+            "[tool.setuptools.data-files]\n"
+            '".\" = ["setta.plugin.json", "README.md"]\n'
+            '"backend" = ["backend/*.py"]\n'
+            '"frontend/dist" = ["frontend/dist/*"]\n'
+            '"content/blueprints" = ["content/blueprints/*"]\n'
+            '"content/project_templates" = ["content/project_templates/*"]\n'
+            '"content/prompts" = ["content/prompts/*"]\n'
         )
         (root / "pyproject.toml").write_text(pyproject_content, encoding="utf-8")
         workflow_dir = root / ".github" / "workflows"

@@ -3,6 +3,7 @@ import os
 import subprocess
 import shutil
 import tarfile
+import sys
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -166,6 +167,32 @@ def _build_local_github_bare_repo_from_fixture(
     )
     base_url = f"file://{(tmp_path / 'github-host').as_posix()}"
     return base_url, "main"
+
+
+def _build_python_package_artifacts(plugin_root: Path) -> Path:
+    dist_dir = plugin_root / "dist"
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir)
+    build_result = subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--sdist"],
+        cwd=plugin_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if build_result.returncode != 0:
+        raise AssertionError(
+            "python -m build failed:\n"
+            f"STDOUT:\n{build_result.stdout}\n"
+            f"STDERR:\n{build_result.stderr}"
+        )
+    if not dist_dir.exists():
+        raise AssertionError(f"Missing dist directory: {dist_dir}")
+    if len(list(dist_dir.glob("*.whl"))) == 0:
+        raise AssertionError(f"No wheel built in: {dist_dir}")
+    if len(list(dist_dir.glob("*.tar.gz"))) == 0:
+        raise AssertionError(f"No sdist built in: {dist_dir}")
+    return dist_dir
 
 
 @pytest.mark.parametrize("fixture_name", ["backend", "frontend", "content", "full"])
@@ -793,20 +820,25 @@ def test_backend_worker_processes_stay_alive_until_shutdown(tmp_path: Path) -> N
     manager.rescan()
 
     app = FastAPI()
-    manager.load_backend_plugins(app=app)
+    baseline_tools = list(SETTA_MCP_TOOLS)
+    try:
+        manager.load_backend_plugins(app=app)
 
-    process = manager._backend_worker_processes.get("setta-fixture-backend")
-    assert process is not None
-    assert process.poll() is None
-    assert "setta_fixture_backend_echo" in {tool.__name__ for tool in SETTA_MCP_TOOLS}
+        process = manager._backend_worker_processes.get("setta-fixture-backend")
+        assert process is not None
+        assert process.poll() is None
+        assert "setta_fixture_backend_echo" in {tool.__name__ for tool in SETTA_MCP_TOOLS}
 
-    manager.shutdown_backend_plugins()
+        manager.shutdown_backend_plugins()
 
-    assert manager._backend_worker_processes == {}
-    assert process.poll() is not None
-    assert "setta_fixture_backend_echo" not in {
-        tool.__name__ for tool in SETTA_MCP_TOOLS
-    }
+        assert manager._backend_worker_processes == {}
+        assert process.poll() is not None
+        assert [tool.__name__ for tool in SETTA_MCP_TOOLS] == [
+            tool.__name__ for tool in baseline_tools
+        ]
+    finally:
+        manager.shutdown_backend_plugins()
+        SETTA_MCP_TOOLS[:] = baseline_tools
 
 
 def test_load_backend_plugins_marks_import_failures_invalid(tmp_path: Path) -> None:
@@ -1189,6 +1221,95 @@ def test_init_template_can_be_linked_and_served(tmp_path: Path) -> None:
     )
     entrypoint_text = asset.read_text(encoding="utf-8")
     assert "export function register(host)" in entrypoint_text
+
+
+def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None:
+    # Golden path: init -> build artifact -> install via pypi source -> load/use plugin.
+    manager = _make_manager(tmp_path)
+    plugin_id = "setta-golden-path-plugin"
+    plugin_root = manager.init_plugin_template(
+        plugin_id=plugin_id,
+        template="full",
+        out_dir=str(tmp_path),
+    )
+
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "import json\n"
+        "from pathlib import Path\n\n"
+        "def register(plugin):\n"
+        "    marker_path = Path(plugin.plugin_root) / 'backend' / 'register.marker.json'\n"
+        "    marker_path.write_text(\n"
+        "        json.dumps({'pluginId': plugin.plugin_id, 'serverMode': plugin.server_mode}),\n"
+        "        encoding='utf-8',\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.validate_plugin_folder(plugin_root)
+    dist_dir = _build_python_package_artifacts(plugin_root)
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(dist_dir)
+    try:
+        installed = manager.install_plugin(
+            source_spec=f"pypi:{plugin_id}==0.1.0",
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert installed.pluginId == plugin_id
+    assert installed.version == "0.1.0"
+    assert installed.state == PluginRuntimeState.pending_restart
+    assert installed.restartRequired is True
+    assert installed.sourceDigestSha256 is not None
+
+    listed_entries = [
+        entry for entry in manager.get_list_response().plugins if entry.pluginId == plugin_id
+    ]
+    assert len(listed_entries) == 1
+    assert listed_entries[0].frontend.entrypointUrl is not None
+    assert listed_entries[0].sourceScope == PluginScope.workspace
+
+    app = FastAPI()
+    manager.load_backend_plugins(app=app)
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == plugin_id
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+    assert status_entries[0].restartRequired is False
+
+    marker_payload = json.loads(
+        (manager.workspace_root / "plugins" / plugin_id / "backend" / "register.marker.json")
+        .read_text(encoding="utf-8")
+    )
+    assert marker_payload == {
+        "pluginId": plugin_id,
+        "serverMode": "ide",
+    }
+
+    frontend_asset = manager.resolve_plugin_asset_path(
+        plugin_id=plugin_id,
+        asset_path="frontend/dist/index.js",
+    )
+    frontend_asset_text = frontend_asset.read_text(encoding="utf-8")
+    assert "export const apiVersion = 1;" in frontend_asset_text
 
 
 def test_validate_rejects_invalid_capability_value(tmp_path: Path) -> None:
