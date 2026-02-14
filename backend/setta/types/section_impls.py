@@ -109,6 +109,12 @@ class BrowserSearchScope(str, Enum):
     local = "local"
 
 
+class ChatPermissionMode(str, Enum):
+    minimal = "minimal"
+    yolo = "yolo"
+    config_toml_custom = "config_toml_custom"
+
+
 class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
     image: bool = True
     video: bool = True
@@ -358,6 +364,9 @@ class ChatSectionImpl(BaseSectionImpl):
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
+    permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
+    searchEnabled: bool = True
+    skillsEnabled: bool = True
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

@@ -61,6 +61,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     CallableSectionImpl,
+    ChatPermissionMode,
     ChatSectionImpl,
     MetaControlSectionImpl,
     PromptSectionImpl,
@@ -329,6 +330,9 @@ class TestChatSectionChatId:
             engineConfigId=engine_config_id,
             agentProfileId=agent_profile_id,
             thinking=True,
+            permissionMode=ChatPermissionMode.yolo,
+            searchEnabled=False,
+            skillsEnabled=False,
         )
 
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -340,6 +344,9 @@ class TestChatSectionChatId:
         assert section_impl.engineConfigId == engine_config_id
         assert section_impl.agentProfileId == agent_profile_id
         assert section_impl.thinking
+        assert section_impl.permissionMode == ChatPermissionMode.yolo
+        assert not section_impl.searchEnabled
+        assert not section_impl.skillsEnabled
 
 
 class TestPromptSection:

@@ -80,6 +80,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionState,
     SectionSize,
     SectionType,
@@ -583,6 +584,9 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    skillsEnabled: bool
 
 
 class ListenerSetChatSectionStateRequestPayload(TypedDict):
