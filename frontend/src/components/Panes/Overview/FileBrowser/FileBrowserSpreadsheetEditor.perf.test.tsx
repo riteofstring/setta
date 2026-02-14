@@ -26,6 +26,8 @@ describe("FileBrowserSpreadsheetEditor (perf)", () => {
         }}
         rows={rows}
         columnCount={columnCount}
+        showRowNumbers={true}
+        readOnly={false}
         gridTemplateColumns={getSpreadsheetGridTemplateColumns(columnCount)}
         onChangeCell={vi.fn()}
       />,

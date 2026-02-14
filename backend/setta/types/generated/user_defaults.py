@@ -34,6 +34,7 @@ from setta.types.section_impls import (
     PromptFormat,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -267,6 +268,10 @@ class UserDefaultSpreadsheetSectionImpl(UserDefaultBaseSectionImpl, extra="forbi
     )
     filePath: str = ""
     activeSheet: str | None = None
+    readOnly: bool = False
+    showRowNumbers: bool = True
+    density: SpreadsheetGridDensity = SpreadsheetGridDensity.compact
+    autoReloadOnExternalChange: bool = False
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

@@ -204,6 +204,7 @@ from setta.project_state.project_manager_types import (
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
+    SetSpreadsheetSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -348,6 +349,7 @@ from setta.types.helpers_lvl2 import (
     set_section_variant_name,
     set_social_url,
     set_spreadsheet_file_path,
+    set_spreadsheet_section_settings,
     set_task_board_section_state,
     set_text_block_display_mode,
     set_text_block_format,
@@ -3671,6 +3673,21 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.filePath,
             x.activeSheet,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_spreadsheet_section_settings(
+        self, x: SetSpreadsheetSectionSettingsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_spreadsheet_section_settings(
+            project_state,
+            x.sectionId,
+            x.readOnly,
+            x.showRowNumbers,
+            x.density,
+            x.autoReloadOnExternalChange,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

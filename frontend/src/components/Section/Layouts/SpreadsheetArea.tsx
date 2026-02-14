@@ -15,6 +15,7 @@ import { useShareCapabilities } from "state/hooks/share";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { route_set_spreadsheet_file_path } from "utils/generatedEndpoints";
 import {
+  SpreadsheetGridDensityEnum,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
@@ -30,7 +31,15 @@ function getFileNameFromPath(path: string): string {
 export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
   const flowZoom = useReactFlow((state) => state.transform[2]);
   const { canEditLayout } = useShareCapabilities();
-  const { filePath, activeSheet, isFrozen } = useProjectState((state) => {
+  const {
+    filePath,
+    activeSheet,
+    readOnly,
+    showRowNumbers,
+    density,
+    autoReloadOnExternalChange,
+    isFrozen,
+  } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,
       sectionId,
@@ -39,6 +48,10 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
     return {
       filePath: impl.filePath,
       activeSheet: impl.activeSheet,
+      readOnly: impl.readOnly,
+      showRowNumbers: impl.showRowNumbers,
+      density: impl.density,
+      autoReloadOnExternalChange: impl.autoReloadOnExternalChange,
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
@@ -175,6 +188,14 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
           selectedFile={selectedFile}
           gridMode="glide"
           flowZoom={flowZoom}
+          readOnly={readOnly}
+          showRowNumbers={showRowNumbers}
+          density={
+            density === SpreadsheetGridDensityEnum.comfortable
+              ? "comfortable"
+              : "compact"
+          }
+          autoReloadOnExternalChange={autoReloadOnExternalChange}
         />
       </div>
     </div>

@@ -680,7 +680,9 @@ def _ensure_settings_sections_exist(
         project_state.sectionImpls[section_impl.id] = section_impl
         project_state.sectionVariants[section_variant.id] = section_variant
         project_state.sections[section_core.id] = section_core
-        project_state.projectConfig.sectionVariantMap[section_core.id] = section_variant.id
+        project_state.projectConfig.sectionVariantMap[section_core.id] = (
+            section_variant.id
+        )
         section_name_to_id[section_name] = section_core.id
         changed = True
 

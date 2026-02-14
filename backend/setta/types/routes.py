@@ -219,6 +219,7 @@ class Route(str, Enum):
     SET_CALENDAR_SECTION_SETTINGS = "/setCalendarSectionSettings"
     SET_TASK_BOARD_SECTION_STATE = "/setTaskBoardSectionState"
     SET_SPREADSHEET_FILE_PATH = "/setSpreadsheetFilePath"
+    SET_SPREADSHEET_SECTION_SETTINGS = "/setSpreadsheetSectionSettings"
     SET_BROWSER_COLUMN_WIDTHS = "/setBrowserColumnWidths"
     SET_BROWSER_AREA_VIEW_MODE = "/setBrowserAreaViewMode"
     SET_BROWSER_HIDE_COLUMN = "/setBrowserHideColumn"

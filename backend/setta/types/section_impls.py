@@ -462,6 +462,11 @@ class TaskBoardSectionImpl(BaseSectionImpl):
     tasks: list[TaskBoardTask] = Field(default_factory=list)
 
 
+class SpreadsheetGridDensity(str, Enum):
+    compact = "compact"
+    comfortable = "comfortable"
+
+
 class SpreadsheetSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Spreadsheet] = SectionType.Spreadsheet
     size: SectionSize = Field(
@@ -469,3 +474,7 @@ class SpreadsheetSectionImpl(BaseSectionImpl):
     )
     filePath: str = ""
     activeSheet: str | None = None
+    readOnly: bool = False
+    showRowNumbers: bool = True
+    density: SpreadsheetGridDensity = SpreadsheetGridDensity.compact
+    autoReloadOnExternalChange: bool = False

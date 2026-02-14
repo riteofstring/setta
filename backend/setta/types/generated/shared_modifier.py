@@ -42,6 +42,7 @@ from setta.types.section_impls import (
     ListRootViewMode,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -67,6 +68,7 @@ class SharedModifier(TypedDict):
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
     attachedTerminalSectionId: NotRequired[ID | None]
+    autoReloadOnExternalChange: NotRequired[bool]
     branches: NotRequired[dict[ID, ChatSectionBranch]]
     brushColor: NotRequired[str]
     brushOpacity: NotRequired[float]
@@ -92,6 +94,7 @@ class SharedModifier(TypedDict):
     dateDisplayFormat: NotRequired[DateDisplayFormat]
     defaultChildSectionType: NotRequired[SectionType]
     defaultVal: NotRequired[str]
+    density: NotRequired[SpreadsheetGridDensity]
     description: NotRequired[str]
     diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
     drawThrottleDelay: NotRequired[int]
@@ -143,6 +146,7 @@ class SharedModifier(TypedDict):
     pinnedParams: NotRequired[list[ID]]
     placeholder: NotRequired[str]
     positionAndSizeLocked: NotRequired[bool]
+    readOnly: NotRequired[bool]
     renderError: NotRequired[str | None]
     renderedImagePath: NotRequired[str | None]
     renderedText: NotRequired[str]
@@ -155,6 +159,7 @@ class SharedModifier(TypedDict):
     selectedDateIso: NotRequired[str]
     selectedParams: NotRequired[list[ID]]
     showDate: NotRequired[bool]
+    showRowNumbers: NotRequired[bool]
     showSeconds: NotRequired[bool]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]

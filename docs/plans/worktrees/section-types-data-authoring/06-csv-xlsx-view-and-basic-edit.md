@@ -49,3 +49,13 @@ Allow CSV/XLSX files to be viewed and lightly edited with a styleable grid/table
 - CDP:
   - visual verification completed for browser carousel + overview spreadsheet panes.
   - performance trace captured for large CSV/XLSX preview/edit interactions.
+
+## Follow-up (2026-02-15)
+- Kept spreadsheet scope focused on data-grid display/edit, not spreadsheet-app parity.
+- Added section-level programmable grid settings:
+  - `readOnly`
+  - `showRowNumbers`
+  - `density` (`compact` / `comfortable`)
+  - `autoReloadOnExternalChange`
+- Added backend route + listener wiring: `setSpreadsheetSectionSettings`.
+- Updated spreadsheet section settings pane to control those fields directly; removed manual file-path input from section config (file binding remains drag/drop/browser-driven).

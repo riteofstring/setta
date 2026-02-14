@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  getSpreadsheetDensityMetrics,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   SPREADSHEET_DATA_COLUMN_WIDTH,
@@ -22,6 +23,17 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     expect(getSpreadsheetGridTemplateColumns(3)).toContain("repeat(3");
   });
 
+  it("supports row-number-less grid sizing and comfortable density", () => {
+    const comfortable = getSpreadsheetDensityMetrics("comfortable");
+    expect(comfortable.rowHeight).toBeGreaterThan(SPREADSHEET_ROW_HEIGHT);
+    expect(getSpreadsheetGridWidth(2, false, "compact")).toBe(
+      SPREADSHEET_DATA_COLUMN_WIDTH * 2,
+    );
+    expect(getSpreadsheetGridTemplateColumns(2, false, "comfortable")).toBe(
+      `repeat(2, ${comfortable.dataColumnWidth}px)`,
+    );
+  });
+
   it("renders cells with box-border and overflow guards to prevent bleed", () => {
     const markup = renderToStaticMarkup(
       <SpreadsheetRow
@@ -35,6 +47,8 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
         }}
         rows={[["task", "status"]]}
         columnCount={2}
+        showRowNumbers={true}
+        readOnly={false}
         gridTemplateColumns={getSpreadsheetGridTemplateColumns(2)}
         onChangeCell={vi.fn()}
       />,

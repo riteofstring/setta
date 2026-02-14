@@ -206,6 +206,7 @@ from setta.types.section_impls import (
     CodeSectionDiagnosticsIgnoreState,
     ListRootViewMode,
     CalendarWeekStart,
+    SpreadsheetGridDensity,
     TaskBoardViewMode,
     SectionSize,
     SectionSizeMode,

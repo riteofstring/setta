@@ -50,6 +50,7 @@ from setta.types.section_impls import (
     PromptFormat,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -79,6 +80,7 @@ class CoreArgs(TypedDict):
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
                 "attachedTerminalSectionId",
+                "autoReloadOnExternalChange",
                 "branches",
                 "brushColor",
                 "brushOpacity",
@@ -104,6 +106,7 @@ class CoreArgs(TypedDict):
                 "dateDisplayFormat",
                 "defaultChildSectionType",
                 "defaultVal",
+                "density",
                 "description",
                 "diagnosticsIgnoreState",
                 "drawThrottleDelay",
@@ -151,6 +154,7 @@ class CoreArgs(TypedDict):
                 "pinnedParams",
                 "placeholder",
                 "positionAndSizeLocked",
+                "readOnly",
                 "renderError",
                 "renderedImagePath",
                 "renderedText",
@@ -163,6 +167,7 @@ class CoreArgs(TypedDict):
                 "selectedDateIso",
                 "selectedParams",
                 "showDate",
+                "showRowNumbers",
                 "showSeconds",
                 "showSectionTitle",
                 "size",
@@ -801,6 +806,10 @@ class SpreadsheetSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Spreadsheet]]
     filePath: NotRequired[str]
     activeSheet: NotRequired[str | None]
+    readOnly: NotRequired[bool]
+    showRowNumbers: NotRequired[bool]
+    density: NotRequired[SpreadsheetGridDensity]
+    autoReloadOnExternalChange: NotRequired[bool]
 
 
 class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -810,6 +819,13 @@ class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     filePath: NotRequired[str | Callable[[str], str]]
     activeSheet: NotRequired[str | None | Callable[[str | None], str | None]]
+    readOnly: NotRequired[bool | Callable[[bool], bool]]
+    showRowNumbers: NotRequired[bool | Callable[[bool], bool]]
+    density: NotRequired[
+        SpreadsheetGridDensity
+        | Callable[[SpreadsheetGridDensity], SpreadsheetGridDensity]
+    ]
+    autoReloadOnExternalChange: NotRequired[bool | Callable[[bool], bool]]
 
 
 class BaseCodeObjImplArgs(TypedDict):

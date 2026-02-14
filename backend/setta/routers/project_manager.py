@@ -108,6 +108,7 @@ from setta.project_state.project_manager_types import (
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
+    SetSpreadsheetSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -1282,6 +1283,15 @@ async def route_set_spreadsheet_file_path(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_spreadsheet_file_path(x)
+
+
+@router.post(Route.SET_SPREADSHEET_SECTION_SETTINGS)
+async def route_set_spreadsheet_section_settings(
+    x: SetSpreadsheetSectionSettingsRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_spreadsheet_section_settings(x)
 
 
 @router.post(Route.SET_BROWSER_COLUMN_WIDTHS)

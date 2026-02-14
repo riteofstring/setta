@@ -278,6 +278,42 @@ Captured interaction window:
 - Explorer preview minimize/expand interaction.
 - Browser-section file search input update/clear.
 
+## 2026-02-15 Follow-up: Programmable Spreadsheet Grid Settings
+
+### Scope
+- Added spreadsheet section-level grid settings intended for programmable control:
+  - `readOnly`
+  - `showRowNumbers`
+  - `density` (`compact` / `comfortable`)
+  - `autoReloadOnExternalChange`
+- Added backend route and listener endpoint wiring for those settings.
+- Updated spreadsheet rendering to honor settings in Glide grid mode while keeping file binding drag/drop-driven.
+
+### Automated Performance + Regression Tests
+Commands:
+```bash
+source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_helpers_lvl2.py
+
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx \
+  src/components/Panes/UiEditor/SectionConfig/SectionDataAuthoringSettings.test.tsx \
+  src/utils/spreadsheet.perf.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts
+```
+
+Result:
+- Backend pytest: `43 passed`.
+- Vitest: `4 files passed`, including spreadsheet render/perf guardrails.
+- Playwright:
+  - `section-types-data-authoring.spec.ts`: `5 passed`.
+  - `browser-transfer-and-drop.spec.ts`: `2 passed`.
+
+### DevTools MCP
+- Attempted CDP visual/perf verification after implementation, but `chrome-devtools-mcp` was unavailable in this session (`Transport closed`), so no new trace artifact was captured for this follow-up.
+
 Top insights from DevTools:
 - `INP`: `155ms` (`pointerdown`)
   - Input delay: `2ms`

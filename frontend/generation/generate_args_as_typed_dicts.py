@@ -110,6 +110,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     ListRootViewMode,
     CalendarWeekStart,
+    SpreadsheetGridDensity,
     TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,

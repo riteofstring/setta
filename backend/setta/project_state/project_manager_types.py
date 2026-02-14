@@ -45,6 +45,7 @@ from setta.types.section_impls import (
     ListRootViewMode,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -1107,6 +1108,13 @@ class SetTaskBoardSectionStateRequest(ProjectManagerRequestWithSection):
 class SetSpreadsheetFilePathRequest(ProjectManagerRequestWithSection):
     filePath: str
     activeSheet: str | None
+
+
+class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
+    readOnly: bool
+    showRowNumbers: bool
+    density: SpreadsheetGridDensity
+    autoReloadOnExternalChange: bool
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):

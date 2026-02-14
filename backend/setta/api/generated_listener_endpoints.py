@@ -89,6 +89,7 @@ from setta.types.section_impls import (
     ListRootViewMode,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -885,6 +886,16 @@ class ListenerSetSpreadsheetFilePathRequestPayload(TypedDict):
     activeSheet: str | None
 
 
+class ListenerSetSpreadsheetSectionSettingsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    readOnly: bool
+    showRowNumbers: bool
+    density: SpreadsheetGridDensity
+    autoReloadOnExternalChange: bool
+
+
 class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1614,6 +1625,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetSpreadsheetFilePathRequestPayload
     ) -> None:
         return await self._caller("route_set_spreadsheet_file_path", payload)
+
+    async def set_spreadsheet_section_settings(
+        self, payload: ListenerSetSpreadsheetSectionSettingsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_spreadsheet_section_settings", payload)
 
     async def set_task_board_section_state(
         self, payload: ListenerSetTaskBoardSectionStateRequestPayload

@@ -698,6 +698,15 @@ export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
 export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
 
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
+
 export const TaskBoardViewModeEnum = {
   task_list: "task_list",
   kanban: "kanban",
@@ -1028,6 +1037,7 @@ export const RouteEnum = {
   SET_CALENDAR_SECTION_SETTINGS: "/setCalendarSectionSettings",
   SET_TASK_BOARD_SECTION_STATE: "/setTaskBoardSectionState",
   SET_SPREADSHEET_FILE_PATH: "/setSpreadsheetFilePath",
+  SET_SPREADSHEET_SECTION_SETTINGS: "/setSpreadsheetSectionSettings",
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
@@ -2324,6 +2334,7 @@ export const AllImplFieldsSchema = z.literal([
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
   "attachedTerminalSectionId",
+  "autoReloadOnExternalChange",
   "branches",
   "brushColor",
   "brushOpacity",
@@ -2349,6 +2360,7 @@ export const AllImplFieldsSchema = z.literal([
   "dateDisplayFormat",
   "defaultChildSectionType",
   "defaultVal",
+  "density",
   "description",
   "diagnosticsIgnoreState",
   "drawThrottleDelay",
@@ -2396,6 +2408,7 @@ export const AllImplFieldsSchema = z.literal([
   "pinnedParams",
   "placeholder",
   "positionAndSizeLocked",
+  "readOnly",
   "renderError",
   "renderedImagePath",
   "renderedText",
@@ -2408,6 +2421,7 @@ export const AllImplFieldsSchema = z.literal([
   "selectedDateIso",
   "selectedParams",
   "showDate",
+  "showRowNumbers",
   "showSeconds",
   "showSectionTitle",
   "size",
@@ -2857,6 +2871,7 @@ export const SharedModifierSchema = z.object({
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
+  autoReloadOnExternalChange: z.boolean().optional(),
   branches: z.record(IDSchema, ChatSectionBranchSchema).optional(),
   brushColor: z.string().optional(),
   brushOpacity: z.number().optional(),
@@ -2884,6 +2899,7 @@ export const SharedModifierSchema = z.object({
   dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
   defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
   defaultVal: z.string().optional(),
+  density: z.enum(SpreadsheetGridDensityEnum).optional(),
   description: z.string().optional(),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
   drawThrottleDelay: z.int().optional(),
@@ -2942,6 +2958,7 @@ export const SharedModifierSchema = z.object({
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
+  readOnly: z.boolean().optional(),
   renderError: z.union([z.string(), z.null()]).optional(),
   renderedImagePath: z.union([z.string(), z.null()]).optional(),
   renderedText: z.string().optional(),
@@ -2954,6 +2971,7 @@ export const SharedModifierSchema = z.object({
   selectedDateIso: z.string().optional(),
   selectedParams: z.array(IDSchema).optional(),
   showDate: z.boolean().optional(),
+  showRowNumbers: z.boolean().optional(),
   showSeconds: z.boolean().optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -3015,6 +3033,7 @@ export const CoreSchema = z.object({
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "attachedTerminalSectionId",
+        "autoReloadOnExternalChange",
         "branches",
         "brushColor",
         "brushOpacity",
@@ -3040,6 +3059,7 @@ export const CoreSchema = z.object({
         "dateDisplayFormat",
         "defaultChildSectionType",
         "defaultVal",
+        "density",
         "description",
         "diagnosticsIgnoreState",
         "drawThrottleDelay",
@@ -3087,6 +3107,7 @@ export const CoreSchema = z.object({
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
+        "readOnly",
         "renderError",
         "renderedImagePath",
         "renderedText",
@@ -3099,6 +3120,7 @@ export const CoreSchema = z.object({
         "selectedDateIso",
         "selectedParams",
         "showDate",
+        "showRowNumbers",
         "showSeconds",
         "showSectionTitle",
         "size",
@@ -3954,17 +3976,17 @@ export const TaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "8828b81f-81ac-4415-8d86-57b6f9d832d2" as const,
+        id: "d4994e28-d43b-4d85-9d76-f80d3f58727b" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "10b51f79-11ec-4071-b349-9ba7dbe9a882" as const,
+        id: "295f00fa-3bca-41ff-a860-bb302ca0dc5a" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "0f0bfcba-1247-4f4d-9310-a0bec6502f52" as const,
+        id: "90cc0a71-acad-4849-848e-7042030e19f3" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -4005,6 +4027,12 @@ export const SpreadsheetSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   filePath: z.string().default("" as const),
   activeSheet: z.union([z.string(), z.null()]).default(null),
+  readOnly: z.boolean().default(false),
+  showRowNumbers: z.boolean().default(true),
+  density: z
+    .enum(SpreadsheetGridDensityEnum)
+    .default(SpreadsheetGridDensityEnum.compact),
+  autoReloadOnExternalChange: z.boolean().default(false),
 });
 
 export type SpreadsheetSectionImpl = z.infer<
@@ -6638,6 +6666,10 @@ export const SpreadsheetSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   filePath: z.string().optional(),
   activeSheet: z.union([z.string(), z.null()]).optional(),
+  readOnly: z.boolean().optional(),
+  showRowNumbers: z.boolean().optional(),
+  density: z.enum(SpreadsheetGridDensityEnum).optional(),
+  autoReloadOnExternalChange: z.boolean().optional(),
 });
 
 export type SpreadsheetSectionImplArgs = z.infer<
@@ -9243,6 +9275,12 @@ export const UserDefaultSpreadsheetSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   filePath: z.string().default("" as const),
   activeSheet: z.union([z.string(), z.null()]).default(null),
+  readOnly: z.boolean().default(false),
+  showRowNumbers: z.boolean().default(true),
+  density: z
+    .enum(SpreadsheetGridDensityEnum)
+    .default(SpreadsheetGridDensityEnum.compact),
+  autoReloadOnExternalChange: z.boolean().default(false),
 });
 
 export type UserDefaultSpreadsheetSectionImpl = z.infer<
@@ -9274,17 +9312,17 @@ export const UserDefaultTaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "02d1f858-a6b9-4307-b699-825c3c70a5ae" as const,
+        id: "69f22dfd-da8e-4a02-ab28-30de1415de74" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "6c654562-d352-496d-8e10-b29abef07387" as const,
+        id: "84c3b1bc-4b66-4923-ad84-6542f01ca5a2" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "91917faf-6c96-4e02-927b-55e8a56ddd1c" as const,
+        id: "b92adeb0-90d9-4aa9-9cf7-c02490136f37" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -12983,6 +13021,10 @@ export const SpreadsheetSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   filePath: z.union([z.string(), z.any()]).optional(),
   activeSheet: z.union([z.string(), z.null(), z.any()]).optional(),
+  readOnly: z.union([z.boolean(), z.any()]).optional(),
+  showRowNumbers: z.union([z.boolean(), z.any()]).optional(),
+  density: z.union([z.enum(SpreadsheetGridDensityEnum), z.any()]).optional(),
+  autoReloadOnExternalChange: z.union([z.boolean(), z.any()]).optional(),
 });
 
 export type SpreadsheetSectionImplArgsWithCallable = z.infer<
@@ -13220,6 +13262,7 @@ export const CoreArgsSchema = z.object({
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "attachedTerminalSectionId",
+        "autoReloadOnExternalChange",
         "branches",
         "brushColor",
         "brushOpacity",
@@ -13245,6 +13288,7 @@ export const CoreArgsSchema = z.object({
         "dateDisplayFormat",
         "defaultChildSectionType",
         "defaultVal",
+        "density",
         "description",
         "diagnosticsIgnoreState",
         "drawThrottleDelay",
@@ -13292,6 +13336,7 @@ export const CoreArgsSchema = z.object({
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
+        "readOnly",
         "renderError",
         "renderedImagePath",
         "renderedText",
@@ -13304,6 +13349,7 @@ export const CoreArgsSchema = z.object({
         "selectedDateIso",
         "selectedParams",
         "showDate",
+        "showRowNumbers",
         "showSeconds",
         "showSectionTitle",
         "size",
@@ -19062,6 +19108,30 @@ export function createSetSpreadsheetFilePathRequest(
   options: Partial<SetSpreadsheetFilePathRequest> = {},
 ): SetSpreadsheetFilePathRequest {
   return SetSpreadsheetFilePathRequestSchema.parse(options);
+}
+
+export const SetSpreadsheetSectionSettingsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  readOnly: z.boolean(),
+  showRowNumbers: z.boolean(),
+  density: z.enum(SpreadsheetGridDensityEnum),
+  autoReloadOnExternalChange: z.boolean(),
+});
+
+export type SetSpreadsheetSectionSettingsRequest = z.infer<
+  typeof SetSpreadsheetSectionSettingsRequestSchema
+>;
+
+export type SetSpreadsheetSectionSettingsRequestInput = z.input<
+  typeof SetSpreadsheetSectionSettingsRequestSchema
+>;
+
+export function createSetSpreadsheetSectionSettingsRequest(
+  options: Partial<SetSpreadsheetSectionSettingsRequest> = {},
+): SetSpreadsheetSectionSettingsRequest {
+  return SetSpreadsheetSectionSettingsRequestSchema.parse(options);
 }
 
 export const SetTaskBoardSectionStateRequestSchema = z.object({

@@ -24,6 +24,10 @@ type LatestProjectStateResponse = {
         allowUnquotedStringArgs?: boolean;
         defaultChildSectionType?: string;
         viewMode?: string;
+        readOnly?: boolean;
+        showRowNumbers?: boolean;
+        density?: string;
+        autoReloadOnExternalChange?: boolean;
       }
     >;
     parentSectionMap?: Record<string, string | null>;
@@ -531,6 +535,48 @@ test.describe.serial("section types data authoring", () => {
         "spreadsheet-glide-grid",
       );
       await expect(spreadsheetGlideGrid).toBeVisible();
+
+      const spreadsheetAddRow = spreadsheetNode.getByTestId("spreadsheet-add-row");
+      await expect(spreadsheetAddRow).toBeEnabled();
+      await spreadsheetNode.click();
+      const uiEditorPane = page.locator("#UiEditorPane");
+      const readOnlyToggleLabel = uiEditorPane
+        .locator("label")
+        .filter({ hasText: "Read-only grid" })
+        .first();
+      await expect(readOnlyToggleLabel).toBeVisible();
+      const readOnlyToggle = readOnlyToggleLabel
+        .locator('input[type="checkbox"]')
+        .first();
+      await expect(readOnlyToggle).toBeAttached();
+      await readOnlyToggleLabel.click();
+      await expect(readOnlyToggle).toBeChecked();
+      await expect(spreadsheetAddRow).toBeDisabled();
+      await expect(spreadsheetNode.getByText("Read-only.")).toBeVisible();
+      await readOnlyToggleLabel.click();
+      await expect(readOnlyToggle).not.toBeChecked();
+      await expect(spreadsheetAddRow).toBeEnabled();
+
+      const rowNumbersToggleLabel = uiEditorPane
+        .locator("label")
+        .filter({ hasText: "Show row numbers" })
+        .first();
+      const rowNumbersToggle = rowNumbersToggleLabel
+        .locator('input[type="checkbox"]')
+        .first();
+      await rowNumbersToggleLabel.click();
+      await expect(rowNumbersToggle).not.toBeChecked();
+
+      const densitySelect = uiEditorPane
+        .locator("label")
+        .filter({ hasText: "Grid density" })
+        .locator("select")
+        .first();
+      await densitySelect.selectOption("comfortable");
+      await expect(densitySelect).toHaveValue("comfortable");
+
+      await spreadsheetAddRow.click();
+      await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
       await spreadsheetNode.getByTestId("spreadsheet-save").click();
       await expect(spreadsheetNode.getByText("Saved.")).toBeVisible();
 

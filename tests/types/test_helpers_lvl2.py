@@ -45,6 +45,7 @@ from setta.types.helpers_lvl2 import (
     set_section_param_filter,
     set_parent_default_child_section_type,
     set_section_allow_unquoted_string_args,
+    set_spreadsheet_section_settings,
     set_text_block_master_font_size,
     set_text_block_heading_as_section_name,
     set_text_block_text,
@@ -75,6 +76,8 @@ from setta.types.section_impls import (
     PromptSectionImpl,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
+    SpreadsheetSectionImpl,
     TextBlockFormat,
     TextBlockSectionImpl,
 )
@@ -1308,3 +1311,39 @@ class TestTextBlockFontSize:
             TextBlockSectionImpl,
         )
         assert impl.masterFontSizePx == 48.0
+
+
+class TestSpreadsheetSectionSettings:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_spreadsheet_section_settings_persist(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Spreadsheet,
+            Position(),
+        )
+
+        set_spreadsheet_section_settings(
+            self.project_state,
+            section_id,
+            True,
+            False,
+            SpreadsheetGridDensity.comfortable,
+            False,
+        )
+
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            SpreadsheetSectionImpl,
+        )
+        assert impl.readOnly is True
+        assert impl.showRowNumbers is False
+        assert impl.density == SpreadsheetGridDensity.comfortable
+        assert impl.autoReloadOnExternalChange is False

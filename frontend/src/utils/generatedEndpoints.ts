@@ -1283,6 +1283,12 @@ export async function route_set_spreadsheet_file_path(
   return await post("/setSpreadsheetFilePath", x);
 }
 
+export async function route_set_spreadsheet_section_settings(
+  x: gt.SetSpreadsheetSectionSettingsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSpreadsheetSectionSettings", x);
+}
+
 export async function route_set_browser_column_widths(
   x: gt.SetBrowserColumnWidthsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

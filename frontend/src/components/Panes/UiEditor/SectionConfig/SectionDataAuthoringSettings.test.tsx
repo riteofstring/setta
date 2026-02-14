@@ -261,7 +261,7 @@ describe("Section data-authoring settings", () => {
         createUserDefaultSpreadsheetSectionImpl(),
         {
           id: implId,
-          filePath: "/tmp/example.csv",
+          readOnly: true,
         },
       ),
     });
@@ -270,7 +270,9 @@ describe("Section data-authoring settings", () => {
       <SpreadsheetSectionSettings sectionId={sectionId} />,
     );
     expect(markup).toContain("Spreadsheet");
-    expect(markup).toContain("/tmp/example.csv");
-    expect(markup).toContain("File path");
+    expect(markup).toContain("Grid density");
+    expect(markup).toContain("Read-only grid");
+    expect(markup).toContain("Show row numbers");
+    expect(markup).toContain("Auto-reload when file changes");
   });
 });

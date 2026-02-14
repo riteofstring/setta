@@ -139,6 +139,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SpreadsheetGridDensity,
     SpreadsheetSectionImpl,
     TaskBoardColumn,
     TaskBoardSectionImpl,
@@ -2523,6 +2524,29 @@ def set_spreadsheet_file_path(
         {
             "filePath": filePath.strip(),
             "activeSheet": activeSheet,
+        },
+    )
+
+
+def set_spreadsheet_section_settings(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    readOnly: bool,
+    showRowNumbers: bool,
+    density: SpreadsheetGridDensity,
+    autoReloadOnExternalChange: bool,
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, SpreadsheetSectionImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "readOnly": readOnly,
+            "showRowNumbers": showRowNumbers,
+            "density": density,
+            "autoReloadOnExternalChange": autoReloadOnExternalChange,
         },
     )
 
