@@ -123,7 +123,7 @@ type PluginTopNavBarItemDefinition = {
   onClick: () => void | Promise<void>;
 };
 
-export type RegisteredPluginTopNavBarItem = PluginTopNavBarItemDefinition & {
+type RegisteredPluginTopNavBarItem = PluginTopNavBarItemDefinition & {
   pluginId: string;
 };
 

@@ -364,12 +364,12 @@ describe("plugins pane helpers", () => {
       value: {},
       error: null,
     });
-    expect(pluginsPaneTestApi.parsePluginConfigDraft('{"enabled": true}')).toEqual(
-      {
-        value: { enabled: true },
-        error: null,
-      },
-    );
+    expect(
+      pluginsPaneTestApi.parsePluginConfigDraft('{"enabled": true}'),
+    ).toEqual({
+      value: { enabled: true },
+      error: null,
+    });
     expect(pluginsPaneTestApi.parsePluginConfigDraft("[1,2]")).toEqual({
       value: {},
       error: "Plugin config must be a JSON object.",
