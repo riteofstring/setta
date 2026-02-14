@@ -60,7 +60,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
@@ -71,7 +70,6 @@ from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
-    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     Viewport,
@@ -232,7 +230,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
-        | PluginSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]
@@ -707,7 +704,7 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-    codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
+    codegenTargets: list[ProjectCodegenPythonTarget]
 
 
 class ListenerSetPromptFormatRequestPayload(TypedDict):
