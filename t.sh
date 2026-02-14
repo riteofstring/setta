@@ -16,7 +16,7 @@ Usage: ./t.sh [--b | --f] [--all]
 Options:
   --b              Run backend pytest only.
   --f              Run frontend Vitest + Playwright only.
-  --all            Enable opt-in external agent integration tests.
+  --all            Enable opt-in agent integration tests.
   -h, --help       Show this help.
 EOF
 }
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --all)
-      export SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1
+      export SETTA_RUN_AGENT_INTEGRATION_TESTS=1
       shift
       ;;
     -h|--help)

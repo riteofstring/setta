@@ -35,11 +35,48 @@ test("app config prompt preview can be edited and sent without tab switch", asyn
   const marker = `E2E-PROMPT-${Date.now()}`;
   await promptPreview.fill(`${prompt}\n\n${marker}`);
 
+  const mockedChatId = `pw-app-gen-${Date.now()}`;
+  await page.route("**/api/getLLMResponse", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(mockedChatId),
+    });
+  });
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "<no_thinking>Build complete</no_thinking>",
+              },
+            ],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: true,
+        llmConfig: null,
+      }),
+    });
+  });
+
   const requestPromise = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/getLLMResponse"),
   );
-  await page.getByRole("button", { name: "Send to Project AI Chat" }).click();
+  const generateButton = page.getByRole("button", {
+    name: "Generate",
+    exact: true,
+  });
+  await expect(generateButton).toBeVisible();
+  await generateButton.click();
   const request = await requestPromise;
   const payload = request.postDataJSON() as {
     message?: {
@@ -50,4 +87,15 @@ test("app config prompt preview can be edited and sent without tab switch", asyn
   expect(payload.message?.content?.[0]?.text ?? "").toContain(marker);
   expect(Array.isArray(payload.overrideSkillIds)).toBeTruthy();
   await expect(page.getByText("App Config")).toBeVisible();
+
+  const projectAIChatIcon = page.getByTestId("overview-project-ai-chat-icon");
+  await expect(projectAIChatIcon).toHaveAttribute("data-ai-active", "true");
+
+  await projectAIChatIcon.locator("xpath=ancestor::button[1]").click();
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+  await expect(overviewPane.getByText("Build complete")).toBeVisible();
+  await expect(overviewPane.getByText("no_thinking")).toHaveCount(0);
 });

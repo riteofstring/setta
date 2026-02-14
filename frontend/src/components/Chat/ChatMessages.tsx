@@ -177,9 +177,215 @@ type StreamActivitySummary = {
 };
 
 const ASSISTANT_ERROR_PREFIX = "[Error]";
+const NO_THINKING_TAG_PATTERN = /<\/?\s*no_thinking\s*>/giu;
+const TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN =
+  /<function_calls>([\s\S]*?)<\/function_calls>/giu;
+const TEXTUAL_INVOKE_PATTERN =
+  /<invoke\s+name=(["'])([^"']+)\1\s*>([\s\S]*?)<\/invoke>/giu;
+const TEXTUAL_INVOKE_OPEN_PATTERN = /<invoke\s+name=(["'])([^"']+)\1[^>]*>/giu;
+const TEXTUAL_PARAMETER_PATTERN =
+  /<parameter\s+name=(["'])([^"']+)\1\s*>([\s\S]*?)<\/parameter>/giu;
+const TEXTUAL_INVOKE_BLOCK_PATTERN = /<invoke\b[\s\S]*?<\/invoke>/giu;
+const TEXTUAL_FUNCTION_CALLS_TAG_PATTERN = /<\/?\s*function_calls\s*>/giu;
+const TEXTUAL_TOOL_SYNTAX_LINE_PATTERN =
+  /^[ \t]*<\s*\/?\s*(?:function_calls|invoke|parameter)\b[^>]*>.*$/gim;
+const TEXTUAL_TOOL_NAME_LINE_PATTERN =
+  /^\s*`?((?:mcp__)?setta(?:__|\.)[A-Za-z0-9_.]+)`?\s*$/gim;
+const TEXTUAL_TOOL_CALL_ERROR_MESSAGE =
+  "Tool call was returned as plain text and was not executed. This usually means tool calling was unavailable for this run (for example, MCP tools were not enabled).";
+
+type TextualToolCallFallback = {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+};
 
 function isAssistantErrorText(text: string): boolean {
   return text.trimStart().startsWith(ASSISTANT_ERROR_PREFIX);
+}
+
+function stripNoThinkingTags(text: string): string {
+  return text.replace(NO_THINKING_TAG_PATTERN, "").trim();
+}
+
+function parseTextualParameterValue(value: string): unknown {
+  const normalized = value.trim();
+  if (!normalized) {
+    return "";
+  }
+  if (
+    normalized === "true" ||
+    normalized === "false" ||
+    normalized === "null" ||
+    /^-?\d+(\.\d+)?$/u.test(normalized) ||
+    (normalized.startsWith("{") && normalized.endsWith("}")) ||
+    (normalized.startsWith("[") && normalized.endsWith("]"))
+  ) {
+    try {
+      return JSON.parse(normalized);
+    } catch {
+      return normalized;
+    }
+  }
+  return normalized;
+}
+
+function parseTextualToolCallsFromText(
+  text: string,
+  messageId: string,
+  startingIndex: number,
+): {
+  toolCalls: TextualToolCallFallback[];
+  nextIndex: number;
+} {
+  const toolCalls: TextualToolCallFallback[] = [];
+  const seenCallKeys = new Set<string>();
+  let callIndex = startingIndex;
+  const pushToolCall = (name: string, args: Record<string, unknown>) => {
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      return;
+    }
+    const dedupeKey = `${normalizedName}::${JSON.stringify(args)}`;
+    if (seenCallKeys.has(dedupeKey)) {
+      return;
+    }
+    seenCallKeys.add(dedupeKey);
+    toolCalls.push({
+      id: `${messageId}-text-tool-call-${callIndex}`,
+      name: normalizedName,
+      args,
+      result: TEXTUAL_TOOL_CALL_ERROR_MESSAGE,
+    });
+    callIndex += 1;
+  };
+
+  const blockMatches = Array.from(
+    text.matchAll(TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN),
+  );
+  const blocks = blockMatches.map((match) => match[1] ?? "");
+  const invokeSearchTargets = blocks.length > 0 ? blocks : [text];
+
+  for (const block of invokeSearchTargets) {
+    const invokeMatches = Array.from(block.matchAll(TEXTUAL_INVOKE_PATTERN));
+    for (const invokeMatch of invokeMatches) {
+      const toolName = (invokeMatch[2] ?? "").trim();
+      if (!toolName) {
+        continue;
+      }
+      const rawArgs = invokeMatch[3] ?? "";
+      const args: Record<string, unknown> = {};
+      const parameterMatches = Array.from(
+        rawArgs.matchAll(TEXTUAL_PARAMETER_PATTERN),
+      );
+      for (const parameterMatch of parameterMatches) {
+        const key = (parameterMatch[2] ?? "").trim();
+        if (!key) {
+          continue;
+        }
+        const rawValue = parameterMatch[3] ?? "";
+        args[key] = parseTextualParameterValue(rawValue);
+      }
+      pushToolCall(toolName, args);
+    }
+  }
+
+  const allParameters: Record<string, unknown> = {};
+  const allParameterMatches = Array.from(
+    text.matchAll(TEXTUAL_PARAMETER_PATTERN),
+  );
+  for (const parameterMatch of allParameterMatches) {
+    const key = (parameterMatch[2] ?? "").trim();
+    if (!key) {
+      continue;
+    }
+    allParameters[key] = parseTextualParameterValue(parameterMatch[3] ?? "");
+  }
+
+  const openInvokeMatches = Array.from(
+    text.matchAll(TEXTUAL_INVOKE_OPEN_PATTERN),
+  );
+  for (const openInvoke of openInvokeMatches) {
+    const name = (openInvoke[2] ?? "").trim();
+    if (!name) {
+      continue;
+    }
+    const argsForOpenInvoke =
+      openInvokeMatches.length === 1 && Object.keys(allParameters).length > 0
+        ? allParameters
+        : {};
+    pushToolCall(name, argsForOpenInvoke);
+  }
+
+  const toolNameLineMatches = Array.from(
+    text.matchAll(TEXTUAL_TOOL_NAME_LINE_PATTERN),
+  );
+  for (const lineMatch of toolNameLineMatches) {
+    const rawName = (lineMatch[1] ?? "").trim();
+    if (!rawName) {
+      continue;
+    }
+    const toolName = rawName.replace(/[.,;:]+$/u, "");
+    if (!toolName) {
+      continue;
+    }
+    pushToolCall(toolName, {});
+  }
+
+  if (toolCalls.length === 0) {
+    return { toolCalls: [], nextIndex: startingIndex };
+  }
+  return { toolCalls, nextIndex: callIndex };
+}
+
+function stripTextualToolCallBlocks(text: string): string {
+  return text
+    .replace(TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN, " ")
+    .replace(TEXTUAL_INVOKE_BLOCK_PATTERN, " ")
+    .replace(TEXTUAL_PARAMETER_PATTERN, " ")
+    .replace(TEXTUAL_TOOL_SYNTAX_LINE_PATTERN, " ")
+    .replace(TEXTUAL_TOOL_NAME_LINE_PATTERN, " ")
+    .replace(TEXTUAL_FUNCTION_CALLS_TAG_PATTERN, " ")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
+function normalizeAssistantTextForRender(text: string): string {
+  return stripNoThinkingTags(stripTextualToolCallBlocks(text));
+}
+
+function normalizeAssistantContentForRender(
+  messageId: string,
+  content: ChatContentItem[],
+): {
+  content: ChatContentItem[];
+  textualToolCalls: TextualToolCallFallback[];
+} {
+  const normalizedContent: ChatContentItem[] = [];
+  const textualToolCalls: TextualToolCallFallback[] = [];
+  let nextToolCallIndex = 0;
+  for (const item of content) {
+    if (item.type !== C.LLM_TEXT) {
+      normalizedContent.push(item);
+      continue;
+    }
+    const { toolCalls, nextIndex } = parseTextualToolCallsFromText(
+      item.text,
+      messageId,
+      nextToolCallIndex,
+    );
+    if (toolCalls.length > 0) {
+      textualToolCalls.push(...toolCalls);
+      nextToolCallIndex = nextIndex;
+    }
+    const text = normalizeAssistantTextForRender(item.text);
+    if (!text) {
+      continue;
+    }
+    normalizedContent.push({ ...item, text });
+  }
+  return { content: normalizedContent, textualToolCalls };
 }
 
 function stripAssistantErrorPrefix(text: string): string {
@@ -1077,19 +1283,24 @@ function StreamItem({
   showTypingIndicator?: boolean;
 }) {
   switch (item.type) {
-    case C.LLM_TEXT:
-      if (isAssistantErrorText(item.text)) {
-        return <AssistantErrorCallout content={item.text} />;
+    case C.LLM_TEXT: {
+      const text = normalizeAssistantTextForRender(item.text);
+      if (!text) {
+        return null;
+      }
+      if (isAssistantErrorText(text)) {
+        return <AssistantErrorCallout content={text} />;
       }
       return (
         <MarkdownContent
-          content={item.text}
+          content={text}
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400"
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
           typingIndicator={showTypingIndicator}
         />
       );
+    }
     case C.LLM_THINKING:
       return (
         <ThinkingBox
@@ -1288,7 +1499,10 @@ function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
   const output: string[] = [];
   for (const item of content) {
     if (item.type === C.LLM_TEXT) {
-      output.push(item.text);
+      const text = normalizeAssistantTextForRender(item.text);
+      if (text) {
+        output.push(text);
+      }
     } else if (item.type === C.LLM_THINKING) {
       output.push(item.thinking);
     }
@@ -1366,13 +1580,24 @@ const ChatMessage = memo(function ChatMessage({
   const assistantContent = isAssistant
     ? message.content
     : EMPTY_ASSISTANT_CONTENT;
+  const assistantRenderState = useMemo(
+    () => normalizeAssistantContentForRender(message.id, assistantContent),
+    [assistantContent, message.id],
+  );
+  const normalizedAssistantContent = assistantRenderState.content;
+  const textualToolCalls = assistantRenderState.textualToolCalls;
   const { activityKey, lastTextIndex } = useMemo(
-    () => getStreamActivitySummary(assistantContent),
-    [assistantContent],
+    () => getStreamActivitySummary(normalizedAssistantContent),
+    [normalizedAssistantContent],
   );
   const spinnerDelayMs =
-    assistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
+    normalizedAssistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
   const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
+  const showTextualToolCallFallbacks =
+    isAssistant &&
+    !isStreaming &&
+    toolCalls.length === 0 &&
+    textualToolCalls.length > 0;
   const showAssistantSpinner = useIdleStreamSpinner(
     isAssistant && isStreaming && toolCalls.length === 0,
     activityKey,
@@ -1388,7 +1613,7 @@ const ChatMessage = memo(function ChatMessage({
           attachmentUrlMap={attachmentUrlMap}
           requestAttachmentUrls={requestAttachmentUrls}
         />
-        {message.content.map((item, idx) => (
+        {normalizedAssistantContent.map((item, idx) => (
           <StreamItem
             key={idx}
             item={item}
@@ -1403,7 +1628,7 @@ const ChatMessage = memo(function ChatMessage({
             aria-hidden="true"
           />
         ) : null}
-        {toolCalls.length > 0 ? (
+        {toolCalls.length > 0 || showTextualToolCallFallbacks ? (
           <div className="flex flex-col gap-1">
             {toolCalls.map((toolCall: ToolCall) => {
               const toolResult = toolResultsById[toolCall.id];
@@ -1479,6 +1704,18 @@ const ChatMessage = memo(function ChatMessage({
                 />
               );
             })}
+            {showTextualToolCallFallbacks
+              ? textualToolCalls.map((toolCall) => (
+                  <ToolCallItem
+                    key={toolCall.id}
+                    name={toolCall.name}
+                    args={toolCall.args}
+                    result={toolCall.result}
+                    success={false}
+                    isStreaming={false}
+                  />
+                ))
+              : null}
           </div>
         ) : null}
       </LLMChatBubble>

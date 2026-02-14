@@ -1,13 +1,17 @@
 import os
 
-EXTERNAL_AGENT_INTEGRATION_ENV = "SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS"
-EXTERNAL_AGENT_INTEGRATION_SKIP_REASON = (
-    "External agent integration tests are opt-in; set "
-    f"{EXTERNAL_AGENT_INTEGRATION_ENV}=1 to run."
+AGENT_INTEGRATION_ENV = "SETTA_RUN_AGENT_INTEGRATION_TESTS"
+LEGACY_AGENT_INTEGRATION_ENV = "SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS"
+AGENT_INTEGRATION_SKIP_REASON = (
+    "Agent integration tests are opt-in; set "
+    f"{AGENT_INTEGRATION_ENV}=1 to run."
 )
 _TRUE_VALUES = {"1", "true", "yes"}
 
 
-def external_agent_integration_tests_enabled() -> bool:
-    value = os.environ.get(EXTERNAL_AGENT_INTEGRATION_ENV, "")
-    return value.strip().lower() in _TRUE_VALUES
+def agent_integration_tests_enabled() -> bool:
+    for env_name in (AGENT_INTEGRATION_ENV, LEGACY_AGENT_INTEGRATION_ENV):
+        value = os.environ.get(env_name, "")
+        if value.strip().lower() in _TRUE_VALUES:
+            return True
+    return False

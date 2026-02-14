@@ -5,6 +5,7 @@ import pytest
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_search_index import _build_parameter_text
 from setta.mcp.tools.tool_search import list_mcp_tools, search_mcp_tools
@@ -36,6 +37,8 @@ def _build_tool(
     tool_type: SettaToolType = SettaToolType.discoverable,
 ) -> Tool:
     def _noop(**kwargs: Any) -> None:
+        if kwargs:
+            return None
         return None
 
     metadata = func_metadata(_noop)
@@ -167,7 +170,30 @@ class TestListMCPTools:
     def test_returns_sorted_registered_tool_names(self) -> None:
         results = list_mcp_tools(ctx=self.ctx).tools
 
-        assert results == sorted(self.tool_names)
+        expected_namespaced = sorted(
+            build_namespaced_tool_name(SETTA_MCP_SERVER_ID, name)
+            for name in self.tool_names
+        )
+        assert results == expected_namespaced
+
+    def test_preserves_existing_namespaced_tool_names(self) -> None:
+        names = ["setta__already_namespaced", "read_file_range"]
+        specs = [
+            ToolSpec(
+                name=name,
+                description=f"description for {name}",
+                parameters={"properties": {}},
+            )
+            for name in names
+        ]
+        tools = [_build_tool(spec) for spec in specs]
+        setta_state = StubSettaState()
+        ctx = Context(fastmcp=StubFastMCP(tools, setta_state))
+
+        results = list_mcp_tools(ctx=ctx).tools
+
+        assert "setta__already_namespaced" in results
+        assert build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "read_file_range") in results
 
     def test_returns_empty_list_when_no_tools_registered(self) -> None:
         empty_state = StubSettaState()

@@ -62,3 +62,27 @@ export function findPreferredProjectChatEngineId(
   }
   return engineConfigs[0]?.id ?? null;
 }
+
+export function resolveEffectiveProjectChatEngineId(
+  engineConfigs: EngineConfig[],
+  preferredEngineId: string | null,
+  manuallySelectedEngineId: string | null,
+): string | null {
+  if (manuallySelectedEngineId) {
+    const manuallySelectedExists = engineConfigs.some(
+      (config) => config.id === manuallySelectedEngineId,
+    );
+    if (manuallySelectedExists) {
+      return manuallySelectedEngineId;
+    }
+  }
+  if (preferredEngineId) {
+    const preferredExists = engineConfigs.some(
+      (config) => config.id === preferredEngineId,
+    );
+    if (preferredExists) {
+      return preferredEngineId;
+    }
+  }
+  return engineConfigs[0]?.id ?? null;
+}

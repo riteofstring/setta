@@ -111,4 +111,114 @@ describe("ChatMessages assistant error rendering", () => {
     expect(markup).toContain("AI request failed");
     expect(markup).toContain("Your credit balance is too low.");
   });
+
+  it("strips no_thinking wrapper tags from assistant text", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m2",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: "<no_thinking>Build complete</no_thinking>",
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("Build complete");
+    expect(markup).not.toContain("no_thinking");
+  });
+
+  it("renders text-encoded function calls as failed tool cards", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m3",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "I will call tools now.",
+              "<function_calls>",
+              '<invoke name="setta__create_top_level_section">',
+              '<parameter name="projectConfigId">13</parameter>',
+              '<parameter name="implType">GlobalVariables</parameter>',
+              '<parameter name="name">Config</parameter>',
+              "</invoke>",
+              "</function_calls>",
+            ].join("\n"),
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("setta__create_top_level_section");
+    expect(markup).toContain("text-red-500");
+    expect(markup).not.toContain("&lt;function_calls&gt;");
+    expect(markup).not.toContain("&lt;invoke");
+  });
+
+  it("does not render fallback failed cards when real tool calls exist", () => {
+    const toolCallId = "tc-1";
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m4",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "<function_calls>",
+              '<invoke name="setta__get_app_catalog">',
+              '<parameter name="projectConfigId">13</parameter>',
+              "</invoke>",
+              "</function_calls>",
+            ].join("\n"),
+          },
+        ],
+        tool_calls: [
+          {
+            id: toolCallId,
+            type: "function",
+            function: {
+              name: "setta__get_app_catalog",
+              arguments: { projectConfigId: 13 },
+            },
+          },
+        ],
+      },
+      {
+        id: "tool-msg-1",
+        role: ChatRoleEnum.tool,
+        tool_call_id: toolCallId,
+        tool_name: "setta__get_app_catalog",
+        arguments: { projectConfigId: 13 },
+        result: { ok: true },
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T00:00:00Z",
+        completed_at: "2026-01-01T00:00:01Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("setta__get_app_catalog");
+    expect(markup).not.toContain(
+      "Tool call was returned as plain text and was not executed.",
+    );
+  });
 });

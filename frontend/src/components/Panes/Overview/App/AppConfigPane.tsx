@@ -50,10 +50,7 @@ import {
   type ViewModeConfig,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import {
-  findPreferredProjectChatEngineId,
-  isProjectChatEngineUsable,
-} from "../ProjectLevelAI/projectChatEngineSelection";
+import { isProjectChatEngineUsable } from "../ProjectLevelAI/projectChatEngineSelection";
 import {
   parseDraftAppAssets,
   parseDraftAppRoutes,
@@ -628,30 +625,30 @@ export function AppConfigPane() {
     }
     return ids;
   }, [allLLMConfigs, apiKeys]);
-  const preferredEngineId = useMemo(
-    () =>
-      findPreferredProjectChatEngineId(engineConfigs, {
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      }),
-    [
-      allLLMConfigs,
-      availableConfigIds,
-      engineConfigs,
-      externalAgentHealth,
-      externalAgentHealthInitialLoadComplete,
-    ],
-  );
   const effectiveEngineConfig = useMemo(() => {
-    if (!preferredEngineId) {
-      return null;
+    for (const config of engineConfigs) {
+      if (config.engineType !== EngineTypeEnum.setta_llm) {
+        continue;
+      }
+      if (
+        isProjectChatEngineUsable(config, {
+          allLLMConfigs,
+          availableConfigIds,
+          externalAgentHealth,
+          externalAgentHealthInitialLoadComplete,
+        })
+      ) {
+        return config;
+      }
     }
-    return (
-      engineConfigs.find((config) => config.id === preferredEngineId) ?? null
-    );
-  }, [engineConfigs, preferredEngineId]);
+    return null;
+  }, [
+    allLLMConfigs,
+    availableConfigIds,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
+  ]);
   const knownAppGenSkillIds = useMemo(() => {
     const skillIds = new Set<string>();
     for (const skill of capabilitySkills) {
@@ -1124,7 +1121,9 @@ export function AppConfigPane() {
       return;
     }
     if (!effectiveEngineConfig) {
-      addTemporaryNotification("No project chat engine is configured.");
+      addTemporaryNotification(
+        "No usable Setta LLM engine is configured. Open Project AI Chat and select an LLM config.",
+      );
       return;
     }
     const isEngineUsable = isProjectChatEngineUsable(effectiveEngineConfig, {
@@ -1134,15 +1133,9 @@ export function AppConfigPane() {
       externalAgentHealthInitialLoadComplete,
     });
     if (!isEngineUsable) {
-      if (effectiveEngineConfig.engineType === EngineTypeEnum.external_agent) {
-        addTemporaryNotification(
-          "Selected external engine is unavailable. Open Project AI Chat and choose a different engine.",
-        );
-      } else {
-        addTemporaryNotification(
-          "Selected LLM engine has no usable config. Open Project AI Chat and select an LLM config.",
-        );
-      }
+      addTemporaryNotification(
+        "Selected LLM engine has no usable config. Open Project AI Chat and select an LLM config.",
+      );
       return;
     }
     const attachments = styleImageAttachmentRef.current
@@ -1152,11 +1145,11 @@ export function AppConfigPane() {
     try {
       const chatId = await submitMessage(
         activeChatId ?? null,
-        promptPreviewDraft,
+        prompt,
         attachments,
         true,
         effectiveEngineConfig.id,
-        effectiveEngineConfig.engineType === EngineTypeEnum.external_agent,
+        false,
         undefined,
         null,
         null,
@@ -1861,7 +1854,7 @@ export function AppConfigPane() {
               onClick={() => void handleSendPromptPreviewToChat()}
               disabled={!canSendPromptPreview}
             >
-              {sendingPromptPreview ? "Sending..." : "Send to Project AI Chat"}
+              {sendingPromptPreview ? "Generating..." : "Generate"}
             </button>
           </div>
         </div>

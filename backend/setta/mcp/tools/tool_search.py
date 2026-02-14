@@ -1,7 +1,11 @@
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    build_namespaced_tool_name,
+    split_namespaced_tool_name,
+)
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_search_index import (
     ToolSearchIndex,
@@ -26,10 +30,14 @@ class MCPToolSearchResults(BaseModel):
 
 @setta_init_tool
 def list_mcp_tools(*, ctx: Context) -> MCPToolNameList:
-    """Return every registered MCP tool name without schemas or descriptions."""
+    """Return every registered MCP tool name without schemas or descriptions.
+
+    Names are returned in namespaced form (for example,
+    ``setta__create_top_level_section``) so callers can directly invoke them.
+    """
 
     tools = ctx.fastmcp.list_registered_tools()
-    names = sorted(tool.name for tool in tools)
+    names = sorted(_normalize_to_namespaced_tool_name(tool.name) for tool in tools)
     return MCPToolNameList(tools=names)
 
 
@@ -108,3 +116,10 @@ def _is_discoverable_tool(tool) -> bool:
         return False
     tool_type = getattr(annotations, "settaToolType", None)
     return tool_type in (SettaToolType.discoverable, SettaToolType.discoverable.value)
+
+
+def _normalize_to_namespaced_tool_name(tool_name: str) -> str:
+    server_id, base_name = split_namespaced_tool_name(tool_name)
+    if server_id:
+        return tool_name
+    return build_namespaced_tool_name(SETTA_MCP_SERVER_ID, base_name)

@@ -14,13 +14,7 @@ import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import {
-  SetStateAction,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { SetStateAction, useCallback, useMemo, useState } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
@@ -33,7 +27,7 @@ import { ProjectChatCapabilities } from "./ProjectChatCapabilities";
 import { ProjectChatCore } from "./ProjectChatCore";
 import {
   findPreferredProjectChatEngineId,
-  isProjectChatEngineUsable,
+  resolveEffectiveProjectChatEngineId,
 } from "./projectChatEngineSelection";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -96,7 +90,9 @@ export function ProjectChat() {
     _.isEqual,
   );
 
-  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const [manuallySelectedEngineId, setManuallySelectedEngineId] = useState<
+    string | null
+  >(null);
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -134,26 +130,24 @@ export function ProjectChat() {
 
   const availableConfigCount = countLLMConfigs(availableConfigGroups);
   const noConfigsAvailable = availableConfigCount === 0;
+  const effectiveEngineId = useMemo(
+    () =>
+      resolveEffectiveProjectChatEngineId(
+        engineConfigs,
+        preferredEngineId,
+        manuallySelectedEngineId,
+      ),
+    [engineConfigs, preferredEngineId, manuallySelectedEngineId],
+  );
   const selectedEngineConfig = useMemo(() => {
-    if (!selectedEngineId) {
+    if (!effectiveEngineId) {
       return null;
     }
     return (
-      engineConfigs.find((config) => config.id === selectedEngineId) ?? null
+      engineConfigs.find((config) => config.id === effectiveEngineId) ?? null
     );
-  }, [engineConfigs, selectedEngineId]);
-  const effectiveEngineConfig = useMemo(() => {
-    if (selectedEngineConfig) {
-      return selectedEngineConfig;
-    }
-    if (preferredEngineId) {
-      return (
-        engineConfigs.find((config) => config.id === preferredEngineId) ?? null
-      );
-    }
-    return engineConfigs[0] ?? null;
-  }, [engineConfigs, preferredEngineId, selectedEngineConfig]);
-  const effectiveEngineId = effectiveEngineConfig?.id ?? null;
+  }, [effectiveEngineId, engineConfigs]);
+  const effectiveEngineConfig = selectedEngineConfig;
   const engineType = effectiveEngineConfig?.engineType ?? null;
   const selectedLLMConfigId = useMemo(() => {
     if (!effectiveEngineConfig) {
@@ -239,14 +233,14 @@ export function ProjectChat() {
   const handleEngineChange = useCallback(
     (value: string | null) => {
       const nextEngineId = value ?? null;
-      if (nextEngineId === selectedEngineId) {
+      if (nextEngineId === manuallySelectedEngineId) {
         return;
       }
-      setSelectedEngineId(nextEngineId);
+      setManuallySelectedEngineId(nextEngineId);
       setChatId(undefined);
       useAIStore.setState({ viewHistory: false, viewCapabilities: false });
     },
-    [selectedEngineId, setChatId],
+    [manuallySelectedEngineId, setChatId],
   );
 
   const handleLLMConfigChange = useCallback(
@@ -265,47 +259,6 @@ export function ProjectChat() {
     },
     [effectiveEngineConfig],
   );
-
-  useEffect(() => {
-    if (!engineConfigsInitialLoadComplete) {
-      return;
-    }
-    if (engineConfigs.length === 0) {
-      if (selectedEngineId !== null) {
-        setSelectedEngineId(null);
-      }
-      return;
-    }
-    const selectedConfig = selectedEngineId
-      ? engineConfigs.find((config) => config.id === selectedEngineId) ?? null
-      : null;
-    const preferredId = preferredEngineId ?? engineConfigs[0].id;
-    if (!selectedConfig) {
-      setSelectedEngineId(preferredId);
-      return;
-    }
-    if (
-      preferredEngineId &&
-      preferredEngineId !== selectedEngineId &&
-      !isProjectChatEngineUsable(selectedConfig, {
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      setSelectedEngineId(preferredEngineId);
-    }
-  }, [
-    allLLMConfigs,
-    availableConfigIds,
-    engineConfigs,
-    engineConfigsInitialLoadComplete,
-    externalAgentHealth,
-    externalAgentHealthInitialLoadComplete,
-    preferredEngineId,
-    selectedEngineId,
-  ]);
 
   return (
     apiKeysInitialLoadComplete &&

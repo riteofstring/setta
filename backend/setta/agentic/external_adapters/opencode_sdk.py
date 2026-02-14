@@ -238,8 +238,10 @@ def _normalize_opencode_system_prompt(system_prompt: str) -> str:
     needle = "MCP tool names are always namespaced as `<serverId>__<toolName>`."
     replacement = "MCP tool names in OpenCode are `<serverId>_<toolName>`."
     if needle in normalized:
-        return normalized.replace(needle, replacement)
-    return f"{normalized}\n\n{replacement}"
+        normalized = normalized.replace(needle, replacement)
+    else:
+        normalized = f"{normalized}\n\n{replacement}"
+    return normalized.replace("setta__", "setta_")
 
 
 def _is_truthy_env(value: str | None) -> bool:

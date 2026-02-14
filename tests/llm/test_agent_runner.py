@@ -262,6 +262,35 @@ class TestAgentRunner:
                     inputs={"thinking": "yes", "allowUnscoped": True},
                 )
 
+    def test_empty_enabled_mcp_override_falls_back_to_llm_defaults(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                    )
+                },
+                mcpServers={
+                    "setta": MCPServerConfig(
+                        transport="sse",
+                        url="http://127.0.0.1:8000/mcp",
+                    )
+                },
+            )
+            runner = _build_runner(dbe, config)
+
+            resolved = runner._resolve_mcp_server_ids(
+                config.configs["primary"],
+                {"enabledMcpServerIds": []},
+            )
+
+            assert resolved == ["setta"]
+
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

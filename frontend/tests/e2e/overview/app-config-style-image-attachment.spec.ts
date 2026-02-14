@@ -42,7 +42,7 @@ test("app config includes style image in prompt preview and sends it to chat", a
     (request) =>
       request.method() === "POST" && request.url().endsWith("/getLLMResponse"),
   );
-  await page.getByRole("button", { name: "Send to Project AI Chat" }).click();
+  await page.getByRole("button", { name: "Generate", exact: true }).click();
   const request = await requestPromise;
   const payload = request.postDataJSON() as {
     message?: {

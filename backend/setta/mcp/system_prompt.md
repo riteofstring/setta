@@ -114,6 +114,7 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 
 ## Tooling flow
 - MCP tool names are always namespaced as `<serverId>__<toolName>`.
+- `setta__list_mcp_tools` returns namespaced names (for example, `setta__create_top_level_section`); use these names exactly when calling tools.
 - If an active project config is provided in the system prompt, use that
   `projectConfigId`; otherwise start with `getProjectConfigNamesAndIds`, then call
   `get_latest_project_state_summary` with the chosen `projectConfigId`.
@@ -137,48 +138,48 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 
 ## Common tool-call sequences
 - Create a top-level callable section:
-  1) `getProjectConfigNamesAndIds`
-  2) `get_latest_project_state_summary`
-  3) `create_top_level_section` (implType: `Callable`, optional position/viewport)
-  4) `set_section_name` (optional)
-  5) `set_callable` (callableName: `pkg.module.fn`, refetchParams: `true`)
-  6) `set_param_entered_value` for each param
+  1) `setta__getProjectConfigNamesAndIds`
+  2) `setta__get_latest_project_state_summary`
+  3) `setta__create_top_level_section` (implType: `Callable`, optional position/viewport)
+  4) `setta__set_section_name` (optional)
+  5) `setta__set_callable` (callableName: `pkg.module.fn`, refetchParams: `true`)
+  6) `setta__set_param_entered_value` for each param
 - Add or rename a param and set its value (GlobalVariables, Dict, add_kwarg):
-  1) `add_kwarg` (or create/locate the param)
-  2) `get_latest_project_state_summary`
-  3) `set_param_name_and_value`
+  1) `setta__add_kwarg` (or create/locate the param)
+  2) `setta__get_latest_project_state_summary`
+  3) `setta__set_param_name_and_value`
 - Update a parameter value:
-  1) `get_latest_project_state_summary`
-  2) `set_param_entered_value`
+  1) `setta__get_latest_project_state_summary`
+  2) `setta__set_param_entered_value`
 - Edit a Code section:
-  1) `get_latest_project_state_summary`
-  2) `set_code`
+  1) `setta__get_latest_project_state_summary`
+  2) `setta__set_code`
 - Add imports for generated expressions:
-  1) `get_latest_project_state_summary` (or reuse `projectConfigId`)
-  2) `set_gen_code_prefix`
+  1) `setta__get_latest_project_state_summary` (or reuse `projectConfigId`)
+  2) `setta__set_gen_code_prefix`
 
 ## Canonical examples
 Create a callable section + set params:
 ```
-getProjectConfigNamesAndIds {}
-get_latest_project_state_summary {"projectConfigId":"<config_id>"}
-create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable"}
-set_section_name {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","name":"Load Data"}
-set_callable {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","callableName":"my_pkg.load_data","refetchParams":true}
-set_param_entered_value {"sectionId":"<new_section_id>","paramInfoId":"<param_id>","projectConfigId":"<config_id>","value":"state.config__path"}
+setta__getProjectConfigNamesAndIds {}
+setta__get_latest_project_state_summary {"projectConfigId":"<config_id>"}
+setta__create_top_level_section {"projectConfigId":"<config_id>","implType":"Callable"}
+setta__set_section_name {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","name":"Load Data"}
+setta__set_callable {"sectionId":"<new_section_id>","projectConfigId":"<config_id>","callableName":"my_pkg.load_data","refetchParams":true}
+setta__set_param_entered_value {"sectionId":"<new_section_id>","paramInfoId":"<param_id>","projectConfigId":"<config_id>","value":"state.config__path"}
 ```
 
 Set a param name + value in one step:
 ```
-set_param_name_and_value {"sectionId":"<section_id>","codeObjId":"<param_id>","projectConfigId":"<config_id>","name":"batch_size","value":"64"}
+setta__set_param_name_and_value {"sectionId":"<section_id>","codeObjId":"<param_id>","projectConfigId":"<config_id>","name":"batch_size","value":"64"}
 ```
 
 Edit a Code section:
 ```
-set_code {"sectionId":"<code_section_id>","projectConfigId":"<config_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
+setta__set_code {"sectionId":"<code_section_id>","projectConfigId":"<config_id>","code":"from .setta_gen import state\n\nitems = state.data__items\nprint(len(items))"}
 ```
 
 Add a prefix import for generated expressions:
 ```
-set_gen_code_prefix {"projectConfigId":"<config_id>","genCodePrefix":"import numpy as np\n"}
+setta__set_gen_code_prefix {"projectConfigId":"<config_id>","genCodePrefix":"import numpy as np\n"}
 ```

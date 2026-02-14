@@ -12,6 +12,7 @@ import {
 import { RiGitCommitLine, RiPlayList2Fill, RiRadarLine } from "react-icons/ri";
 import { TbFolder, TbLayoutDashboard } from "react-icons/tb";
 import {
+  useAIStore,
   useBackendLogEvents,
   useLocalStorage,
   useShareSession,
@@ -95,6 +96,17 @@ export function Overview() {
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
+  const hasActiveProjectAIChat = useAIStore((state) => {
+    if (state.pendingChatDetails?.waitingForResponse) {
+      return true;
+    }
+    for (const chatDetails of Object.values(state.chatDetails)) {
+      if (chatDetails.waitingForResponse) {
+        return true;
+      }
+    }
+    return false;
+  });
   const commonProps = {
     vis,
     selectedTabName: effectiveTabName,
@@ -199,7 +211,22 @@ export function Overview() {
             tabName={OverviewTabNameEnum.ProjectAIChat}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-            icon={<IoChatbox size={20} />}
+            icon={
+              <span
+                data-testid="overview-project-ai-chat-icon"
+                data-ai-active={hasActiveProjectAIChat ? "true" : "false"}
+                className={
+                  hasActiveProjectAIChat
+                    ? "relative animate-pulse text-blue-500 drop-shadow-[0_0_6px_rgba(59,130,246,0.7)]"
+                    : "relative"
+                }
+              >
+                <IoChatbox size={20} />
+                {hasActiveProjectAIChat && (
+                  <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-blue-300" />
+                )}
+              </span>
+            }
           />
         )}
         {showLLMTabs && (
