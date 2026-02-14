@@ -535,8 +535,29 @@ test.describe.serial("section types data authoring", () => {
         "spreadsheet-glide-grid",
       );
       await expect(spreadsheetGlideGrid).toBeVisible();
+      await expect(
+        spreadsheetNode.getByText("2 rows · 2 columns"),
+      ).toBeVisible();
+      const filterInput = spreadsheetNode.getByTestId(
+        "spreadsheet-filter-input",
+      );
+      await filterInput.fill("alpha");
+      await expect(
+        spreadsheetNode.getByText("1 shown of 2 rows · 2 columns"),
+      ).toBeVisible();
+      const sortColumn = spreadsheetNode.getByTestId("spreadsheet-sort-column");
+      await sortColumn.selectOption("1");
+      await expect(sortColumn).toHaveValue("1");
+      await spreadsheetNode.getByTestId("spreadsheet-sort-direction").click();
+      await spreadsheetNode.getByTestId("spreadsheet-clear-view").click();
+      await expect(filterInput).toHaveValue("");
+      await expect(
+        spreadsheetNode.getByText("2 rows · 2 columns"),
+      ).toBeVisible();
 
-      const spreadsheetAddRow = spreadsheetNode.getByTestId("spreadsheet-add-row");
+      const spreadsheetAddRow = spreadsheetNode.getByTestId(
+        "spreadsheet-add-row",
+      );
       await expect(spreadsheetAddRow).toBeEnabled();
       await spreadsheetNode.click();
       const uiEditorPane = page.locator("#UiEditorPane");
@@ -590,6 +611,97 @@ test.describe.serial("section types data authoring", () => {
         "base64",
       ).toString("utf-8");
       expect(csvDecoded).toContain("alpha,todo");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("spreadsheet filter and sort controls render correctly in dark mode", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "dark",
+      darkMode: true,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const root = await postBackend<FileBrowserRootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+      const csvPath = `${rootPath}/pw-dark-sheet.csv`;
+      await fs.writeFile(
+        csvPath,
+        "task,status\nalpha,todo\nbeta,done\n",
+        "utf-8",
+      );
+
+      const spreadsheetSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Spreadsheet",
+      );
+      const browserSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Browser",
+      );
+
+      const spreadsheetNode = page.locator(
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+      );
+      const browserNode = page.locator(
+        `.react-flow__node[data-id="${browserSectionId}"]`,
+      );
+      await expect(spreadsheetNode).toBeVisible();
+      await expect(browserNode).toBeVisible();
+
+      const browserExplorer = browserNode
+        .locator('[role="region"][aria-label="File explorer"]')
+        .first();
+      await expect(browserExplorer).toBeVisible();
+      const csvRow = browserExplorer
+        .locator("button")
+        .filter({ hasText: "pw-dark-sheet.csv" })
+        .first();
+      await expect(csvRow).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
+
+      const filterInput = spreadsheetNode.getByTestId(
+        "spreadsheet-filter-input",
+      );
+      await expect(filterInput).toBeVisible();
+      const sortColumn = spreadsheetNode.getByTestId("spreadsheet-sort-column");
+      await expect(sortColumn).toBeVisible();
+      const pageIsDark = await page.evaluate(() =>
+        document.documentElement.classList.contains("dark"),
+      );
+      expect(pageIsDark).toBe(true);
+
+      const filterStyles = await filterInput.evaluate((element) => {
+        const styles = window.getComputedStyle(element);
+        return {
+          backgroundColor: styles.backgroundColor,
+          color: styles.color,
+          borderColor: styles.borderColor,
+        };
+      });
+      expect(filterStyles.backgroundColor).not.toBe("rgb(255, 255, 255)");
+      expect(filterStyles.color).not.toBe("rgb(0, 0, 0)");
+      expect(filterStyles.borderColor).not.toBe("rgb(0, 0, 0)");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

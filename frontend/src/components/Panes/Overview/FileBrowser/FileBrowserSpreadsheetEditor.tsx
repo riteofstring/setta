@@ -8,12 +8,19 @@ import {
 } from "@glideapps/glide-data-grid";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiColumns, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
+import {
+  FiColumns,
+  FiFilter,
+  FiPlus,
+  FiRefreshCw,
+  FiSave,
+  FiX,
+} from "react-icons/fi";
 import { List, useListRef } from "react-window";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_get_folder_contents,
   route_get_file_browser_file_content,
+  route_get_folder_contents,
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
 import {
@@ -71,6 +78,11 @@ type SpreadsheetDensityMetrics = {
   rowHeight: number;
   indexColumnWidth: number;
   dataColumnWidth: number;
+};
+
+type SpreadsheetSortState = {
+  columnIndex: number;
+  direction: "asc" | "desc";
 };
 
 function getPathFolderAndName(
@@ -158,6 +170,29 @@ function withColumnCount(row: string[], columnCount: number): string[] {
   return next;
 }
 
+function compareSpreadsheetCellValues(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+  const trimmedA = a.trim();
+  const trimmedB = b.trim();
+  if (trimmedA === "" && trimmedB !== "") {
+    return 1;
+  }
+  if (trimmedB === "" && trimmedA !== "") {
+    return -1;
+  }
+  const numericA = Number(trimmedA);
+  const numericB = Number(trimmedB);
+  if (Number.isFinite(numericA) && Number.isFinite(numericB)) {
+    return numericA - numericB;
+  }
+  return trimmedA.localeCompare(trimmedB, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 export function SpreadsheetRow({
   index,
   style,
@@ -229,6 +264,8 @@ export function FileBrowserSpreadsheetEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [hasExternalDiskChange, setHasExternalDiskChange] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
+  const [sortState, setSortState] = useState<SpreadsheetSortState | null>(null);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [columnWidths, setColumnWidths] = useState<Record<number, number>>({});
@@ -290,6 +327,8 @@ export function FileBrowserSpreadsheetEditor({
     });
     setIsDirty(false);
     setHasExternalDiskChange(false);
+    setFilterQuery("");
+    setSortState(null);
     setColumnWidths({});
     setIsLoading(false);
     listRef.current?.scrollToRow({ index: 0, align: "start" });
@@ -383,28 +422,76 @@ export function FileBrowserSpreadsheetEditor({
     sheet?.mtime,
   ]);
 
+  const displayedRowIndexes = useMemo(() => {
+    if (!sheet) {
+      return [];
+    }
+    const baseIndexes = Array.from(
+      { length: sheet.rowCount },
+      (_value, index) => index,
+    );
+    const normalizedFilter = filterQuery.trim().toLowerCase();
+    const filteredIndexes =
+      normalizedFilter.length === 0
+        ? baseIndexes
+        : baseIndexes.filter((rowIndex) => {
+            const row = sheet.rows[rowIndex] ?? [];
+            for (
+              let columnIndex = 0;
+              columnIndex < sheet.columnCount;
+              columnIndex += 1
+            ) {
+              const cellValue = (row[columnIndex] ?? "").toLowerCase();
+              if (cellValue.includes(normalizedFilter)) {
+                return true;
+              }
+            }
+            return false;
+          });
+    if (!sortState) {
+      return filteredIndexes;
+    }
+    const sorted = [...filteredIndexes];
+    sorted.sort((leftIndex, rightIndex) => {
+      const leftRow = sheet.rows[leftIndex] ?? [];
+      const rightRow = sheet.rows[rightIndex] ?? [];
+      const leftValue = leftRow[sortState.columnIndex] ?? "";
+      const rightValue = rightRow[sortState.columnIndex] ?? "";
+      const comparison = compareSpreadsheetCellValues(leftValue, rightValue);
+      return sortState.direction === "asc" ? comparison : -comparison;
+    });
+    return sorted;
+  }, [filterQuery, sheet, sortState]);
+
+  const displayedRows = useMemo(() => {
+    if (!sheet) {
+      return [];
+    }
+    return displayedRowIndexes.map((rowIndex) => sheet.rows[rowIndex] ?? []);
+  }, [displayedRowIndexes, sheet]);
+
+  const displayedRowCount = displayedRowIndexes.length;
+
   const onChangeCell = useCallback(
     (rowIndex: number, columnIndex: number, value: string) => {
       if (readOnly) {
+        return;
+      }
+      const sourceRowIndex = displayedRowIndexes[rowIndex];
+      if (sourceRowIndex === undefined) {
         return;
       }
       setSheet((prev) => {
         if (!prev) {
           return prev;
         }
-        const nextRows = [...prev.rows];
-        const existing = nextRows[rowIndex] ?? [];
+        const nextRows = prev.rows.map((row) =>
+          withColumnCount([...row], prev.columnCount),
+        );
+        const existing = nextRows[sourceRowIndex] ?? [];
         const nextRow = [...existing];
-        if (nextRow.length < prev.columnCount) {
-          nextRow.length = prev.columnCount;
-        }
         nextRow[columnIndex] = value;
-        for (let i = 0; i < nextRow.length; i += 1) {
-          if (nextRow[i] === undefined) {
-            nextRow[i] = "";
-          }
-        }
-        nextRows[rowIndex] = nextRow;
+        nextRows[sourceRowIndex] = withColumnCount(nextRow, prev.columnCount);
         return {
           ...prev,
           rows: nextRows,
@@ -413,7 +500,7 @@ export function FileBrowserSpreadsheetEditor({
       setIsDirty(true);
       setStatusText(null);
     },
-    [readOnly],
+    [displayedRowIndexes, readOnly],
   );
 
   const onCellsEdited = useCallback(
@@ -434,21 +521,23 @@ export function FileBrowserSpreadsheetEditor({
           if (edit.value.kind !== GridCellKind.Text) {
             continue;
           }
-          const [columnIndex, rowIndex] = edit.location;
+          const [columnIndex, visibleRowIndex] = edit.location;
+          const sourceRowIndex = displayedRowIndexes[visibleRowIndex];
           if (
-            rowIndex < 0 ||
-            rowIndex >= prev.rowCount ||
+            sourceRowIndex === undefined ||
+            sourceRowIndex < 0 ||
+            sourceRowIndex >= prev.rowCount ||
             columnIndex < 0 ||
             columnIndex >= prev.columnCount
           ) {
             continue;
           }
           const nextRow = [
-            ...(nextRows[rowIndex] ??
+            ...(nextRows[sourceRowIndex] ??
               Array.from({ length: prev.columnCount }, () => "")),
           ];
           nextRow[columnIndex] = edit.value.data;
-          nextRows[rowIndex] = withColumnCount(nextRow, prev.columnCount);
+          nextRows[sourceRowIndex] = withColumnCount(nextRow, prev.columnCount);
         }
         return {
           ...prev,
@@ -459,47 +548,61 @@ export function FileBrowserSpreadsheetEditor({
       setStatusText(null);
       return true;
     },
-    [],
+    [displayedRowIndexes],
   );
 
-  const onDeleteSelection = useCallback((selection: GridSelection) => {
-    if (readOnly) {
-      return false;
-    }
-    const range = selection.current?.range;
-    if (!range) {
-      return false;
-    }
-    setSheet((prev) => {
-      if (!prev) {
-        return prev;
+  const onDeleteSelection = useCallback(
+    (selection: GridSelection) => {
+      if (readOnly) {
+        return false;
       }
-      const nextRows = prev.rows.map((row) =>
-        withColumnCount([...row], prev.columnCount),
-      );
-      const xStart = Math.max(0, range.x);
-      const yStart = Math.max(0, range.y);
-      const xEnd = Math.min(prev.columnCount, range.x + range.width);
-      const yEnd = Math.min(prev.rowCount, range.y + range.height);
-      for (let rowIndex = yStart; rowIndex < yEnd; rowIndex += 1) {
-        const nextRow = [
-          ...(nextRows[rowIndex] ??
-            Array.from({ length: prev.columnCount }, () => "")),
-        ];
-        for (let columnIndex = xStart; columnIndex < xEnd; columnIndex += 1) {
-          nextRow[columnIndex] = "";
+      const range = selection.current?.range;
+      if (!range) {
+        return false;
+      }
+      setSheet((prev) => {
+        if (!prev) {
+          return prev;
         }
-        nextRows[rowIndex] = nextRow;
-      }
-      return {
-        ...prev,
-        rows: nextRows,
-      };
-    });
-    setIsDirty(true);
-    setStatusText(null);
-    return false;
-  }, [readOnly]);
+        const nextRows = prev.rows.map((row) =>
+          withColumnCount([...row], prev.columnCount),
+        );
+        const xStart = Math.max(0, range.x);
+        const yStart = Math.max(0, range.y);
+        const xEnd = Math.min(prev.columnCount, range.x + range.width);
+        const yEnd = Math.min(
+          displayedRowIndexes.length,
+          range.y + range.height,
+        );
+        for (
+          let visibleRowIndex = yStart;
+          visibleRowIndex < yEnd;
+          visibleRowIndex += 1
+        ) {
+          const sourceRowIndex = displayedRowIndexes[visibleRowIndex];
+          if (sourceRowIndex === undefined) {
+            continue;
+          }
+          const nextRow = [
+            ...(nextRows[sourceRowIndex] ??
+              Array.from({ length: prev.columnCount }, () => "")),
+          ];
+          for (let columnIndex = xStart; columnIndex < xEnd; columnIndex += 1) {
+            nextRow[columnIndex] = "";
+          }
+          nextRows[sourceRowIndex] = nextRow;
+        }
+        return {
+          ...prev,
+          rows: nextRows,
+        };
+      });
+      setIsDirty(true);
+      setStatusText(null);
+      return false;
+    },
+    [displayedRowIndexes, readOnly],
+  );
 
   const onAddRow = useCallback(() => {
     if (readOnly) {
@@ -586,6 +689,18 @@ export function FileBrowserSpreadsheetEditor({
     void loadFile(selectedPath);
   }, [loadFile, selectedPath]);
 
+  const onToggleSort = useCallback((columnIndex: number) => {
+    setSortState((prev) => {
+      if (!prev || prev.columnIndex !== columnIndex) {
+        return { columnIndex, direction: "asc" };
+      }
+      if (prev.direction === "asc") {
+        return { columnIndex, direction: "desc" };
+      }
+      return null;
+    });
+  }, []);
+
   const gridTemplateColumns = useMemo(
     () =>
       getSpreadsheetGridTemplateColumns(
@@ -631,23 +746,46 @@ export function FileBrowserSpreadsheetEditor({
     }
     return Array.from({ length: sheet.columnCount }, (_, columnIndex) => ({
       id: `col-${columnIndex}`,
-      title: getSpreadsheetColumnLabel(columnIndex),
+      title: `${getSpreadsheetColumnLabel(columnIndex)}${
+        sortState && sortState.columnIndex === columnIndex
+          ? sortState.direction === "asc"
+            ? " ↑"
+            : " ↓"
+          : ""
+      }`,
       width:
         (columnWidths[columnIndex] ?? densityMetrics.dataColumnWidth) *
         densityMultiplier,
       hasMenu: false,
       grow: 0,
     }));
-  }, [columnWidths, densityMetrics.dataColumnWidth, densityMultiplier, sheet]);
+  }, [
+    columnWidths,
+    densityMetrics.dataColumnWidth,
+    densityMultiplier,
+    sheet,
+    sortState,
+  ]);
   const getGlideCellContent = useCallback(
-    ([columnIndex, rowIndex]: Item) => {
-      if (!sheet || rowIndex < 0 || rowIndex >= sheet.rowCount) {
+    ([columnIndex, visibleRowIndex]: Item) => {
+      if (
+        !sheet ||
+        visibleRowIndex < 0 ||
+        visibleRowIndex >= displayedRowCount
+      ) {
         return {
           kind: GridCellKind.Loading,
           allowOverlay: false,
         };
       }
-      const row = sheet.rows[rowIndex] ?? [];
+      const sourceRowIndex = displayedRowIndexes[visibleRowIndex];
+      if (sourceRowIndex === undefined) {
+        return {
+          kind: GridCellKind.Loading,
+          allowOverlay: false,
+        };
+      }
+      const row = sheet.rows[sourceRowIndex] ?? [];
       const value = row[columnIndex] ?? "";
       return {
         kind: GridCellKind.Text,
@@ -657,7 +795,7 @@ export function FileBrowserSpreadsheetEditor({
         readonly: readOnly || isSaving,
       };
     },
-    [isSaving, readOnly, sheet],
+    [displayedRowCount, displayedRowIndexes, isSaving, readOnly, sheet],
   );
 
   if (!selectedPath) {
@@ -686,7 +824,9 @@ export function FileBrowserSpreadsheetEditor({
           </p>
           {sheet && (
             <p className="text-[11px] text-setta-500 dark:text-setta-400">
-              {sheet.rowCount} rows · {sheet.columnCount} columns
+              {displayedRowCount === sheet.rowCount
+                ? `${sheet.rowCount} rows · ${sheet.columnCount} columns`
+                : `${displayedRowCount} shown of ${sheet.rowCount} rows · ${sheet.columnCount} columns`}
             </p>
           )}
         </div>
@@ -733,10 +873,91 @@ export function FileBrowserSpreadsheetEditor({
           </button>
         </div>
       </div>
-      {(statusText || errorText || isDirty || hasExternalDiskChange || readOnly) && (
+      {sheet ? (
+        <div className="flex items-center gap-2 border-b border-setta-200 px-3 py-1.5 dark:border-setta-800">
+          <div className="inline-flex items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
+            <FiFilter size={12} />
+            Filter
+          </div>
+          <input
+            data-testid="spreadsheet-filter-input"
+            value={filterQuery}
+            onChange={(event) => setFilterQuery(event.target.value)}
+            className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+            placeholder="Filter rows"
+          />
+          <label className="text-[11px] text-setta-500 dark:text-setta-400">
+            Sort
+            <select
+              data-testid="spreadsheet-sort-column"
+              value={sortState ? String(sortState.columnIndex) : ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === "") {
+                  setSortState(null);
+                  return;
+                }
+                const columnIndex = Number(value);
+                if (!Number.isFinite(columnIndex)) {
+                  setSortState(null);
+                  return;
+                }
+                setSortState({ columnIndex, direction: "asc" });
+              }}
+              className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+            >
+              <option value="">None</option>
+              {Array.from({ length: sheet.columnCount }, (_value, index) => (
+                <option key={`sort-${index}`} value={index}>
+                  {getSpreadsheetColumnLabel(index)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            data-testid="spreadsheet-sort-direction"
+            className="rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+            onClick={() =>
+              setSortState((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      direction: prev.direction === "asc" ? "desc" : "asc",
+                    }
+                  : prev,
+              )
+            }
+            disabled={!sortState}
+          >
+            {sortState?.direction === "desc" ? "Desc" : "Asc"}
+          </button>
+          {(filterQuery.length > 0 || sortState) && (
+            <button
+              type="button"
+              data-testid="spreadsheet-clear-view"
+              className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              onClick={() => {
+                setFilterQuery("");
+                setSortState(null);
+              }}
+            >
+              <FiX size={12} />
+              Clear
+            </button>
+          )}
+        </div>
+      ) : null}
+      {(statusText ||
+        errorText ||
+        isDirty ||
+        hasExternalDiskChange ||
+        readOnly) && (
         <div className="border-b border-setta-200 px-3 py-1 text-[11px] dark:border-setta-800">
           {readOnly ? (
-            <span className="mr-2 text-setta-500 dark:text-setta-400">Read-only.</span>
+            <span className="mr-2 text-setta-500 dark:text-setta-400">
+              Read-only.
+            </span>
           ) : null}
           {isDirty ? (
             <span className="mr-2 text-amber-600 dark:text-amber-300">
@@ -781,13 +1002,15 @@ export function FileBrowserSpreadsheetEditor({
                   <DataEditor
                     width={glideRenderWidth}
                     height={glideRenderHeight}
-                    rows={sheet.rowCount}
+                    rows={displayedRowCount}
                     columns={glideColumns}
                     rowMarkers={
                       showRowNumbers
                         ? {
                             kind: "number",
-                            width: densityMetrics.indexColumnWidth * densityMultiplier,
+                            width:
+                              densityMetrics.indexColumnWidth *
+                              densityMultiplier,
                           }
                         : undefined
                     }
@@ -820,6 +1043,7 @@ export function FileBrowserSpreadsheetEditor({
                       }));
                     }}
                     onPaste={readOnly ? undefined : true}
+                    onHeaderClicked={onToggleSort}
                     drawFocusRing={false}
                     experimental={{
                       renderStrategy: "single-buffer",
@@ -855,17 +1079,28 @@ export function FileBrowserSpreadsheetEditor({
                         className="flex items-center border-r border-setta-200 px-1.5 dark:border-setta-800"
                         style={{ height: densityMetrics.headerHeight }}
                       >
-                        {getSpreadsheetColumnLabel(index)}
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-setta-500 transition-colors hover:text-setta-700 dark:text-setta-400 dark:hover:text-setta-200"
+                          onClick={() => onToggleSort(index)}
+                        >
+                          {getSpreadsheetColumnLabel(index)}
+                          {sortState && sortState.columnIndex === index
+                            ? sortState.direction === "asc"
+                              ? "↑"
+                              : "↓"
+                            : ""}
+                        </button>
                       </div>
                     ))}
                   </div>
                   <List
                     listRef={listRef}
                     rowComponent={SpreadsheetRow}
-                    rowCount={sheet.rowCount}
+                    rowCount={displayedRowCount}
                     rowHeight={densityMetrics.rowHeight}
                     rowProps={{
-                      rows: sheet.rows,
+                      rows: displayedRows,
                       columnCount: sheet.columnCount,
                       showRowNumbers,
                       readOnly,

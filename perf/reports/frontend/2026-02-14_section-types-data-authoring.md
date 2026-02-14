@@ -314,6 +314,32 @@ Result:
 ### DevTools MCP
 - Attempted CDP visual/perf verification after implementation, but `chrome-devtools-mcp` was unavailable in this session (`Transport closed`), so no new trace artifact was captured for this follow-up.
 
+## 2026-02-15 Follow-up: Spreadsheet Sort/Filter Interaction
+
+### Scope
+- Added spreadsheet-level interaction controls for data-grid workflows:
+  - global row filtering
+  - column sorting (header click and toolbar controls)
+- Ensured edits/deletes/paste work against the underlying source rows while view is filtered/sorted.
+- Added dark-mode Playwright coverage for the new spreadsheet controls.
+
+### Automated Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+```
+
+Result:
+- Vitest: `2 files passed`.
+- Playwright: `6 passed` (includes dark-mode spreadsheet controls check and filter/sort interaction assertions).
+
+### DevTools MCP
+- Attempted during this follow-up, but MCP remained unavailable in-session (`Transport closed`), so no new trace artifact was captured.
+
 Top insights from DevTools:
 - `INP`: `155ms` (`pointerdown`)
   - Input delay: `2ms`

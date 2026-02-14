@@ -59,3 +59,7 @@ Allow CSV/XLSX files to be viewed and lightly edited with a styleable grid/table
   - `autoReloadOnExternalChange`
 - Added backend route + listener wiring: `setSpreadsheetSectionSettings`.
 - Updated spreadsheet section settings pane to control those fields directly; removed manual file-path input from section config (file binding remains drag/drop/browser-driven).
+- Added lightweight data-grid interactions on top of Glide usage:
+  - global row filter query
+  - column sorting (header click + explicit sort controls)
+  - sorted/filtered view editing support (edits map back to source rows)
