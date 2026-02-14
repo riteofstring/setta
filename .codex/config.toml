@@ -1,7 +1,10 @@
 [mcp_servers.chrome-devtools]
-# Worktree-scoped Chrome DevTools MCP (ports/profiles derived from worktree root).
-command = "bash"
+command = "env"
 args = [
+  "LC_ALL=C",
+  "LANG=C",
+  "NODE_NO_WARNINGS=1",
+  "bash",
   "-lc",
   'ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd); "$ROOT/scripts/chrome-devtools-mcp.sh"'
 ]

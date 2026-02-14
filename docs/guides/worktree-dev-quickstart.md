@@ -11,12 +11,6 @@ If you create a single worktree, `./worktree.sh` will enter it by starting a new
 If you create multiple worktrees, `./worktree.sh` will stay in the current folder (equivalent to `--stay`).
 Use `--stay` to skip entering even for single-worktree runs.
 
-Create worktrees from existing local branches:
-```sh
-./worktree.sh --existing app-gen-styles
-```
-In `--existing` mode, each branch must already exist locally in the main repo.
-
 Run a dev instance (from each worktree root):
 ```sh
 ./scripts/run-dev-instance.sh
@@ -31,17 +25,10 @@ Optional overrides:
 SETTA_HOST=localhost SETTA_PORT=8100 SETTA_DEV_FRONTEND_PORT=3100 ./scripts/run-dev-instance.sh
 ```
 
-Centralize `setta_files` outside worktrees (global state):
-
-1. Configure global state base in `<setta_home>/config.json` (see `docs/reference/setta-files.md`). For example:
-```json
-{
-  "globalSettaFilesBase": "~/setta_state",
-  "autoMode": "create_global"
-}
-```
-2. Ensure the worktree does not already contain a local `setta_files/` folder (local always wins when it exists).
-3. Run the instance normally (or force global for that run):
+Centralize `setta_files` outside worktrees:
 ```sh
-SETTA_FILES_LOCATION=global ./scripts/run-dev-instance.sh
+SETTA_FILES_ROOT_BASE=~/setta_state ./scripts/run-dev-instance.sh
 ```
+Each worktree gets its own hashed subfolder under `SETTA_FILES_ROOT_BASE`, while
+code operations still point at the worktree root unless `SETTA_WORKSPACE_ROOT`
+is explicitly set.

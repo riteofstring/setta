@@ -30,6 +30,7 @@ from setta.agentic.store import list_agent_run_ids_by_metadata
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
+    validate_app_routes_or_raise,
     validate_app_theme_or_raise,
 )
 from setta.app.spec_store import (
@@ -129,6 +130,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetAppDefinitionRequest,
+    GetChatSectionCapabilityPolicyRequest,
     GetChatSectionChatIdRequest,
     GetLatestLspDiagnosticsRequest,
     GetLatestProjectStateRequest,
@@ -161,6 +163,7 @@ from setta.project_state.project_manager_types import (
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetChatSectionCapabilityPolicyRequest,
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
     SetChatSectionStateRequest,
@@ -192,8 +195,6 @@ from setta.project_state.project_manager_types import (
     SetSectionParamFilterRequest,
     SetSectionPinnedParamsRequest,
     SetSectionSizesRequest,
-    SetSectionStyleColorRequest,
-    SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetShowParamDisplayNamesRequest,
@@ -240,6 +241,7 @@ from setta.project_state.watch_code import (
 )
 from setta.types.agentic_edges import AgenticEdge
 from setta.types.app_definition import AppDefinition
+from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
@@ -304,6 +306,7 @@ from setta.types.helpers_lvl2 import (
     set_chart_area_data_path,
     set_chart_settings,
     set_chart_type,
+    set_chat_section_capability_policy,
     set_chat_section_chat_id,
     set_chat_section_settings,
     set_chat_section_state,
@@ -329,8 +332,6 @@ from setta.types.helpers_lvl2 import (
     set_section_param_filter,
     set_section_pinned_params,
     set_section_sizes,
-    set_section_style_color,
-    set_section_tag_color,
     set_section_variant,
     set_section_variant_name,
     set_social_url,
@@ -1834,6 +1835,7 @@ class BaseProjectManager(ABC):
             action_definitions=updated_definition.actions,
             data_bindings=updated_definition.dataBindings,
         )
+        validate_app_routes_or_raise(x.appSpec, updated_definition.routes)
         self.project_state_backend = self.project_state_backend.model_copy(
             update={"appDefinition": updated_definition}
         )
@@ -1866,6 +1868,7 @@ class BaseProjectManager(ABC):
             action_definitions=app_definition.actions,
             data_bindings=app_definition.dataBindings,
         )
+        validate_app_routes_or_raise(merged, app_definition.routes)
         write_app_spec(self.dbe, app_definition.appSpecPath, merged)
         return AppDefinitionResponse(
             appSpec=merged,
@@ -3465,40 +3468,6 @@ class BaseProjectManager(ABC):
         ),
         access_type="write",
     )
-    async def set_section_tag_color(self, x: SetSectionTagColorRequest):
-        """Set or clear the per-section color tag."""
-        self.add_new_history_entry(
-            coalesce_key=f"sectionTagColor:{x.projectConfigId}:{x.sectionId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-        )
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_tag_color(project_state, x.sectionId, x.tagColor)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
-    )
-    async def set_section_style_color(self, x: SetSectionStyleColorRequest):
-        """Set or clear the per-section style chrome color."""
-        self.add_new_history_entry(
-            coalesce_key=f"sectionStyleColor:{x.projectConfigId}:{x.sectionId}",
-            coalesce_window_s=HISTORY_COALESCE_WINDOW_TEXT_S,
-        )
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_style_color(project_state, x.sectionId, x.styleColor)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    @project_state_tool(
-        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
-            pathsByIdType={"section": ["sectionId"]}
-        ),
-        access_type="write",
-    )
     async def set_meta_control_show_section_title(
         self, x: SetMetaControlShowSectionTitleRequest
     ):
@@ -3625,6 +3594,30 @@ class BaseProjectManager(ABC):
             x.engineConfigId,
             x.agentProfileId,
             x.thinking,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def get_chat_section_capability_policy(
+        self, x: GetChatSectionCapabilityPolicyRequest
+    ) -> CapabilityPolicy:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            x.sectionId,
+            ChatSectionImpl,
+        )
+        return section_impl.capabilityPolicy
+
+    @enqueue_method
+    async def set_chat_section_capability_policy(
+        self, x: SetChatSectionCapabilityPolicyRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chat_section_capability_policy(
+            project_state,
+            x.sectionId,
+            x.capabilityPolicy,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

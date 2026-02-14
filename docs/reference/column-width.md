@@ -36,30 +36,6 @@ This document explains how column width sizing is calculated, persisted, and app
   `--browser-types-column-width` in `frontend/src/components/Section/Layouts/BrowserArea.tsx`.
 - Browser widths are raw pixel values, so no offset translation is applied.
 
-## Git Graph Overlay Widths
-
-- Stored in local state (`useLocalStorage`) as:
-  - `gitGraphSplitPct` (history/diff pane split).
-  - `gitGraphColWidthPx` (graph column width).
-  - `gitGraphAuthorWidthPx` (author column width).
-  - `gitGraphDateWidthPx` (date column width).
-  - `gitGraphHashWidthPx` (hash column width).
-- Default values are defined in `frontend/src/utils/gitGraphLayoutDefaults.ts`:
-  - split: `56`
-  - graph: `120px`
-  - author: `120px`
-  - date: `110px`
-  - hash: `84px`
-- Applied through CSS variables on the overlay root:
-  - `--git-graph-split-pct`
-  - `--git-graph-col-graph`
-  - `--git-graph-col-author`
-  - `--git-graph-col-date`
-  - `--git-graph-col-hash`
-- The pane splitter and each column boundary clamp width changes to min/max
-  bounds to prevent overlap and preserve a minimum message column width.
-- Double-clicking a graph-column boundary resets that boundary to its default.
-
 ## Persistence
 
 - Param column updates are sent through `route_set_section_column_width`.

@@ -12,16 +12,12 @@ import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { MetaControlSettings } from "./MetaControlSettings";
 import { PromptSettings } from "./PromptSettings";
-import { SectionStyleColorSettings } from "./SectionStyleColorSettings";
-import { SectionTagColorSettings } from "./SectionTagColorSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
 function _SectionConfig({ sectionId }: { sectionId: string }) {
   return (
-    <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
-      <SectionTagColorSettings sectionId={sectionId} />
-      <SectionStyleColorSettings sectionId={sectionId} />
+    <div className="flex h-full min-h-0 flex-col gap-1 overflow-y-auto">
       <SpecializedConfiguration sectionId={sectionId} />
     </div>
   );

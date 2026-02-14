@@ -27,16 +27,14 @@ worktree_sh_script_path() {
 
 worktree_sh_usage() {
   cat <<'EOF' >&2
-Usage: ./worktree.sh [--stay] [--existing] <branch-name ...>
+Usage: ./worktree.sh [--stay] <branch-name ...>
 Example: ./worktree.sh feature-auth-1 fix-realtime-2
-Example: ./worktree.sh --existing app-gen-styles
 
 Notes:
   - If you create a single worktree, this script will enter it by starting a new
     shell there (exit to return).
   - If you create multiple worktrees, this script will stay in the current folder
     (equivalent to --stay).
-  - Use --existing to create worktrees from already-existing local branches.
   - If you want it to 'cd' in your current shell (no subshell), source it:
       . ./worktree.sh feature-auth-1
   - Use --stay to skip the final enter/cd step.
@@ -47,8 +45,7 @@ worktree_sh_impl() {
   # Runs worktree creation + install. Safe to run with `set -e`.
   root_dir="$1"
   base_dir="$2"
-  use_existing_branches="$3"
-  shift 3
+  shift 2
 
   for name in "$@"; do
     case "${name}" in
@@ -66,21 +63,12 @@ worktree_sh_impl() {
       exit 1
     fi
 
-    if [ "${use_existing_branches}" -eq 1 ]; then
-      if ! git -C "${root_dir}" show-ref --verify --quiet "refs/heads/${branch_name}"; then
-        echo "Branch does not exist: ${branch_name}" >&2
-        exit 1
-      fi
-
-      git -C "${root_dir}" worktree add "${worktree_path}" "${branch_name}"
-    else
-      if git -C "${root_dir}" show-ref --verify --quiet "refs/heads/${branch_name}"; then
-        echo "Branch already exists: ${branch_name}" >&2
-        exit 1
-      fi
-
-      git -C "${root_dir}" worktree add -b "${branch_name}" "${worktree_path}" HEAD
+    if git -C "${root_dir}" show-ref --verify --quiet "refs/heads/${branch_name}"; then
+      echo "Branch already exists: ${branch_name}" >&2
+      exit 1
     fi
+
+    git -C "${root_dir}" worktree add -b "${branch_name}" "${worktree_path}" HEAD
 
     for env_file in .env .env.local .env.development.local .env.test.local .env.production.local; do
       if [ -f "${root_dir}/${env_file}" ] && [ ! -f "${worktree_path}/${env_file}" ]; then
@@ -98,16 +86,11 @@ worktree_sh_impl() {
 
 worktree_sh_main() {
   stay=0
-  use_existing_branches=0
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --stay)
         stay=1
-        shift
-        ;;
-      --existing)
-        use_existing_branches=1
         shift
         ;;
       -h|--help)
@@ -154,7 +137,7 @@ worktree_sh_main() {
     # In sourced mode, run the installs in a subshell so `set -e` can't kill the interactive shell.
     (
       set -e
-      worktree_sh_impl "${root_dir}" "${base_dir}" "${use_existing_branches}" "$@"
+      worktree_sh_impl "${root_dir}" "${base_dir}" "$@"
     )
     rc=$?
 
@@ -171,7 +154,7 @@ worktree_sh_main() {
 
   # Normal execution mode.
   set -e
-  worktree_sh_impl "${root_dir}" "${base_dir}" "${use_existing_branches}" "$@"
+  worktree_sh_impl "${root_dir}" "${base_dir}" "$@"
 
   if [ "${stay}" -eq 0 ] && [ -n "${final_path}" ]; then
     if [ -t 0 ] && [ -t 1 ]; then

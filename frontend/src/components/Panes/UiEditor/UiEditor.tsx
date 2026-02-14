@@ -10,7 +10,6 @@ import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
-import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   PaneNameEnum,
   UIEditorTabName,
@@ -37,7 +36,6 @@ export function UiEditor() {
     order: 30,
     rootRef: uiEditorRef,
   });
-  const hasViewModeTabs = useHasViewModeTabs();
   const sectionIds = useProjectState(
     (x) => x.projectConfig.activeIds,
     _.isEqual,
@@ -71,14 +69,7 @@ export function UiEditor() {
       ref={uiEditorRef}
       data-tab-scope="ui-editor"
     >
-      <div
-        data-testid="ui-editor-icon-rail"
-        className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
-        style={{
-          top: "calc(var(--setta-titlebar-height) + 36px)",
-          bottom: hasViewModeTabs ? "36px" : "0px",
-        }}
-      >
+      <div className="absolute right-0 z-[19] flex h-[calc(100%_-_36px)] w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900">
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
@@ -150,7 +141,7 @@ function TabsVisible({
 }) {
   const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
   return (
-    <div className="flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
+    <div className="flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>

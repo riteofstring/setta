@@ -188,7 +188,7 @@ test("app mode dropdown portal inherits dark mode + theme vars", async ({
     useServerMode.setState({ mode: "app", modeResolved: true });
   });
 
-  await expect(page.getByText("App Mode")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Config A" })).toBeVisible();
   await expect(page.getByText("Choice", { exact: true })).toBeVisible();
 
   await expect
@@ -220,8 +220,6 @@ test("app mode dropdown portal inherits dark mode + theme vars", async ({
     .first();
   await expect(list).toBeVisible();
 
-  const bg = await list.evaluate(
-    (el) => getComputedStyle(el).backgroundColor,
-  );
+  const bg = await list.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(bg).not.toBe("rgb(255, 255, 255)");
 });

@@ -10,6 +10,7 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
+from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -62,6 +63,7 @@ class SharedModifier(TypedDict):
     brushSize: NotRequired[int]
     callable: NotRequired[ID | None]
     canvasMode: NotRequired[DrawAreaMode]
+    capabilityPolicy: NotRequired[CapabilityPolicy]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
     chatId: NotRequired[ID | None]
     children: NotRequired[list[ID]]
@@ -139,8 +141,6 @@ class SharedModifier(TypedDict):
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
-    styleColor: NotRequired[str | None]
-    tagColor: NotRequired[str | None]
     template: NotRequired[str]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]

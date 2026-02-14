@@ -3,6 +3,15 @@ model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 approval_policy = "on-failure"
 
+[mcp_servers.context7]
+command = "npx"
+args = [
+    "-y",
+    "@upstash/context7-mcp",
+    "--api-key",
+    "SETTA_HISTORY_REDACTED"
+]
+
 [mcp_servers.setta]
 command = "bash"
 args = [

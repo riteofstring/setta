@@ -21,8 +21,6 @@ Use these first for day-to-day work.
   - Wrapper over `scripts/kill-setta.sh`.
 - `./worktree.sh`
   - Worktree creation + setup.
-  - Default mode creates a new branch per worktree (`git worktree add -b`).
-  - Use `--existing` to create worktrees from already-existing local branches.
   - If you create a single worktree, enters it (starts a new shell there).
   - If you create multiple worktrees, stays in the current folder (equivalent to `--stay`).
 - `./t.sh`
@@ -64,14 +62,12 @@ These are used by the top-level wrappers or for advanced workflows.
   - Playwright E2E runner (invoked by `t.sh`).
 - `./scripts/cdp-port.sh`
   - Prints the Chrome DevTools Protocol port for the worktree.
-  - Falls back to scanning running Chrome commands for this worktree profile when the MCP pid file is missing (for example when `TMPDIR` differs between shells).
 - `./scripts/kill-setta.sh`
   - Stops dev processes.
 - `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
   - Browser MCP utilities.
-  - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.
 - `./scripts/bootstrap-url.sh`
   - Prints a bootstrap URL for a running session.
 
