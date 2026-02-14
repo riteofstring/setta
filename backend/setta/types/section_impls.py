@@ -43,7 +43,6 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
-    Plugin = "Plugin"
 
 
 class SectionSizeMode(str, Enum):
@@ -165,6 +164,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 class BaseSectionWithParamsImpl(BaseSectionImpl):
     codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
     hideUnpinnedParams: bool = False
+    allowUnquotedStringArgs: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
@@ -225,12 +225,14 @@ class DictSectionImpl(BaseDictSectionImpl):
 
 class ListRootSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
+    defaultChildSectionType: SectionType = SectionType.Callable
 
 
 class GroupSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.Group] = SectionType.Group
     isHorizontalOrientation: bool = False
     overflowMode: bool = False
+    defaultChildSectionType: SectionType = SectionType.Callable
 
 
 class ImageSectionImpl(BaseSectionImpl):
@@ -271,6 +273,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
+    masterFontSizePx: float = 14.0
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
@@ -378,11 +381,3 @@ class BrowserSectionImpl(BaseSectionImpl):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
-
-
-class PluginSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.Plugin] = SectionType.Plugin
-    pluginId: str = ""
-    kind: str = "default"
-    data: dict[str, Any] = Field(default_factory=dict)
-    schemaVersion: int | None = None

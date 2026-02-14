@@ -19,16 +19,6 @@ export async function route_call_mcp_tool(
   return await post("/__setta__/tools/call", payload);
 }
 
-export async function route_plugin_asset(
-  pluginId: string,
-  assetPath: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/plugins/{pluginId}/{assetPath:path}", {
-    pluginId,
-    assetPath,
-  });
-}
-
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
@@ -1191,6 +1181,12 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
+export async function route_set_text_block_master_font_size(
+  x: gt.SetTextBlockMasterFontSizeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockMasterFontSize", x);
+}
+
 export async function route_set_text_block_heading_as_section_name(
   x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1215,6 +1211,12 @@ export async function route_set_section_hide_unpinned_params(
   return await post("/setSectionHideUnpinnedParams", x);
 }
 
+export async function route_set_section_allow_unquoted_string_args(
+  x: gt.SetSectionAllowUnquotedStringArgsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionAllowUnquotedStringArgs", x);
+}
+
 export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1225,6 +1227,12 @@ export async function route_set_section_column_width(
   x: gt.SetSectionColumnWidthRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionColumnWidth", x);
+}
+
+export async function route_set_parent_default_child_section_type(
+  x: gt.SetParentDefaultChildSectionTypeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setParentDefaultChildSectionType", x);
 }
 
 export async function route_set_browser_column_widths(
@@ -1381,102 +1389,6 @@ export async function route_set_chart_settings(
   x: gt.SetChartSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChartSettings", x);
-}
-
-export async function route_plugins_list(): Promise<
-  ResponseDataAndStatus<gt.PluginListResponse>
-> {
-  return await get("/plugins/list");
-}
-
-export async function route_plugins_status(): Promise<
-  ResponseDataAndStatus<gt.PluginStatusResponse>
-> {
-  return await get("/plugins/status");
-}
-
-export async function route_plugins_rescan(): Promise<
-  ResponseDataAndStatus<gt.PluginsRescanResponse>
-> {
-  return await post("/plugins/rescan", null);
-}
-
-export async function route_plugins_restart_capability(): Promise<
-  ResponseDataAndStatus<gt.PluginRestartCapability>
-> {
-  return await get("/plugins/restart-capability");
-}
-
-export async function route_plugins_restart(): Promise<
-  ResponseDataAndStatus<gt.PluginRestartResponse>
-> {
-  return await post("/plugins/restart", null);
-}
-
-export async function route_plugins_install(
-  x: gt.PluginInstallRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
-  return await post("/plugins/install", x);
-}
-
-export async function route_plugins_uninstall(
-  x: gt.PluginUninstallRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
-  return await post("/plugins/uninstall", x);
-}
-
-export async function route_plugins_link(
-  x: gt.PluginLinkRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
-  return await post("/plugins/link", x);
-}
-
-export async function route_plugins_unlink(
-  x: gt.PluginUninstallRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
-  return await post("/plugins/unlink", x);
-}
-
-export async function route_plugins_enable(
-  x: gt.PluginEnableDisableRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
-  return await post("/plugins/enable", x);
-}
-
-export async function route_plugins_disable(
-  x: gt.PluginEnableDisableRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
-  return await post("/plugins/disable", x);
-}
-
-export async function route_plugins_config(
-  x: gt.PluginConfigRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
-  return await post("/plugins/config", x);
-}
-
-export async function route_plugins_update(
-  x: gt.PluginUpdateRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginUpdateResponse>> {
-  return await post("/plugins/update", x);
-}
-
-export async function route_plugins_rollback(
-  x: gt.PluginRollbackRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginRollbackResponse>> {
-  return await post("/plugins/rollback", x);
-}
-
-export async function route_plugins_lock_write(): Promise<
-  ResponseDataAndStatus<gt.PluginLockWriteResponse>
-> {
-  return await post("/plugins/lock/write", null);
-}
-
-export async function route_plugins_lock_apply(
-  x: gt.PluginLockApplyRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginLockApplyResponse>> {
-  return await post("/plugins/lock/apply", x);
 }
 
 export async function route_get_backend_init_status(): Promise<

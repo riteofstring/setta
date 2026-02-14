@@ -1,7 +1,6 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,9 +11,12 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
+    DateDisplayFormat,
     DropzoneMode,
     HttpRequestMethod,
     ParamNameType,
+    TextParamInputUIType,
+    TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
 from setta.types.generated.chat_messages import BaseChatMessageUnion
@@ -29,6 +31,7 @@ from setta.types.section_impls import (
     ConfigLanguage,
     PromptFormat,
     SectionSize,
+    SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -46,6 +49,7 @@ class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
 
 class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     hideUnpinnedParams: bool = False
+    allowUnquotedStringArgs: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
@@ -86,12 +90,13 @@ class UserDefaultDictSectionImpl(UserDefaultBaseDictSectionImpl, extra="forbid")
 
 
 class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
-    pass
+    defaultChildSectionType: SectionType = SectionType.Callable
 
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     isHorizontalOrientation: bool = False
     overflowMode: bool = False
+    defaultChildSectionType: SectionType = SectionType.Callable
 
 
 class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -125,6 +130,7 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
+    masterFontSizePx: float = 14.0
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
@@ -215,13 +221,6 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
 
 
-class UserDefaultPluginSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pluginId: str = ""
-    kind: str = "default"
-    data: dict[str, Any] = Field(default_factory=dict)
-    schemaVersion: int | None = None
-
-
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
     pass
 
@@ -229,6 +228,7 @@ class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
 class UserDefaultBaseParamCodeObjImpl(UserDefaultBaseCodeObjImpl, extra="forbid"):
     coreNameType: ParamNameType = ParamNameType.TEXT
     coreNameEditable: bool = False
+    typeAnnotation: str = ""
 
 
 class UserDefaultBaseChildlessCodeObjImpl(
@@ -257,7 +257,9 @@ class UserDefaultCodeParamCodeObjImpl(
 class UserDefaultTextParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    pass
+    uiType: TextParamInputUIType = TextParamInputUIType.plain
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
 
 
 class UserDefaultButtonParamCodeObjImpl(

@@ -18,16 +18,18 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
+    DateDisplayFormat,
     DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
+    TextParamInputUIType,
+    TimeDisplayFormat,
 )
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
-    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
@@ -66,6 +68,7 @@ class CoreArgs(TypedDict):
                 "activeBranchId",
                 "activeLayerIdx",
                 "agentProfileId",
+                "allowUnquotedStringArgs",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -90,8 +93,9 @@ class CoreArgs(TypedDict):
                 "configLanguage",
                 "coreNameEditable",
                 "coreNameType",
-                "data",
                 "dataPath",
+                "dateDisplayFormat",
+                "defaultChildSectionType",
                 "defaultVal",
                 "description",
                 "diagnosticsIgnoreState",
@@ -120,10 +124,10 @@ class CoreArgs(TypedDict):
                 "isPreset",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
-                "kind",
                 "label",
                 "layers",
                 "managed",
+                "masterFontSizePx",
                 "max",
                 "maxAttachments",
                 "messages",
@@ -138,7 +142,6 @@ class CoreArgs(TypedDict):
                 "passingStyle",
                 "pinnedParams",
                 "placeholder",
-                "pluginId",
                 "positionAndSizeLocked",
                 "renderError",
                 "renderedImagePath",
@@ -149,7 +152,6 @@ class CoreArgs(TypedDict):
                 "requestMethod",
                 "requestUrl",
                 "savedSearches",
-                "schemaVersion",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
@@ -160,10 +162,13 @@ class CoreArgs(TypedDict):
                 "text",
                 "textDisplayMode",
                 "thinking",
+                "timeDisplayFormat",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
+                "typeAnnotation",
                 "typesColumnWidth",
+                "uiType",
                 "url",
                 "value",
                 "viewMode",
@@ -184,9 +189,7 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[
-        list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
-    ]
+    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -238,6 +241,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     codeObjVariantMap: NotRequired[dict[ID, ID]]
     hideUnpinnedParams: NotRequired[bool]
+    allowUnquotedStringArgs: NotRequired[bool]
     paramFilter: NotRequired[str]
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
@@ -254,6 +258,7 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
         dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
     ]
     hideUnpinnedParams: NotRequired[bool | Callable[[bool], bool]]
+    allowUnquotedStringArgs: NotRequired[bool | Callable[[bool], bool]]
     paramFilter: NotRequired[str | Callable[[str], str]]
     columnWidth: NotRequired[float | None | Callable[[float | None], float | None]]
     configLanguage: NotRequired[
@@ -350,6 +355,7 @@ class DictSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCallable):
 
 class ListRootSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.ListRoot]]
+    defaultChildSectionType: NotRequired[SectionType]
 
 
 class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -357,12 +363,16 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
         Literal[SectionType.ListRoot]
         | Callable[[Literal[SectionType.ListRoot]], Literal[SectionType.ListRoot]]
     ]
+    defaultChildSectionType: NotRequired[
+        SectionType | Callable[[SectionType], SectionType]
+    ]
 
 
 class GroupSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.Group]]
     isHorizontalOrientation: NotRequired[bool]
     overflowMode: NotRequired[bool]
+    defaultChildSectionType: NotRequired[SectionType]
 
 
 class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -372,6 +382,9 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     ]
     isHorizontalOrientation: NotRequired[bool | Callable[[bool], bool]]
     overflowMode: NotRequired[bool | Callable[[bool], bool]]
+    defaultChildSectionType: NotRequired[
+        SectionType | Callable[[SectionType], SectionType]
+    ]
 
 
 class ImageSectionImplArgs(BaseSectionImplArgs):
@@ -452,6 +465,7 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class TextBlockSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
+    masterFontSizePx: NotRequired[float]
     headingAsSectionName: NotRequired[bool]
     metaControlStyle: NotRequired[bool]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
@@ -464,6 +478,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.TextBlock]], Literal[SectionType.TextBlock]]
     ]
     format: NotRequired[TextBlockFormat | Callable[[TextBlockFormat], TextBlockFormat]]
+    masterFontSizePx: NotRequired[float | Callable[[float], float]]
     headingAsSectionName: NotRequired[bool | Callable[[bool], bool]]
     metaControlStyle: NotRequired[bool | Callable[[bool], bool]]
     textDisplayMode: NotRequired[
@@ -699,25 +714,6 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
 
 
-class PluginSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Plugin]]
-    pluginId: NotRequired[str]
-    kind: NotRequired[str]
-    data: NotRequired[dict[str, Any]]
-    schemaVersion: NotRequired[int | None]
-
-
-class PluginSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.Plugin]
-        | Callable[[Literal[SectionType.Plugin]], Literal[SectionType.Plugin]]
-    ]
-    pluginId: NotRequired[str | Callable[[str], str]]
-    kind: NotRequired[str | Callable[[str], str]]
-    data: NotRequired[dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]]]
-    schemaVersion: NotRequired[int | None | Callable[[int | None], int | None]]
-
-
 class BaseCodeObjImplArgs(TypedDict):
     type: NotRequired[Any]
     id: NotRequired[ID]
@@ -739,6 +735,7 @@ class BaseParamCodeObjImplArgs(BaseCodeObjImplArgs):
     coreNameType: NotRequired[ParamNameType]
     coreNameEditable: NotRequired[bool]
     passingStyle: NotRequired[ParameterPassingStyle]
+    typeAnnotation: NotRequired[str]
 
 
 class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
@@ -748,6 +745,7 @@ class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     passingStyle: NotRequired[
         ParameterPassingStyle | Callable[[ParameterPassingStyle], ParameterPassingStyle]
     ]
+    typeAnnotation: NotRequired[str | Callable[[str], str]]
 
 
 class BaseChildlessCodeObjImplArgs(BaseParamCodeObjImplArgs):
@@ -798,12 +796,24 @@ class CodeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
 
 class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.TextParam]]
+    uiType: NotRequired[TextParamInputUIType]
+    timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    dateDisplayFormat: NotRequired[DateDisplayFormat]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.TextParam]
         | Callable[[Literal[CodeObjType.TextParam]], Literal[CodeObjType.TextParam]]
+    ]
+    uiType: NotRequired[
+        TextParamInputUIType | Callable[[TextParamInputUIType], TextParamInputUIType]
+    ]
+    timeDisplayFormat: NotRequired[
+        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
+    ]
+    dateDisplayFormat: NotRequired[
+        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
     ]
 
 
