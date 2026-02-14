@@ -22,11 +22,9 @@ from setta.types.code_obj_impls import (
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     ButtonParamCodeObjImplArgs,
-    CalendarSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
-    ClockSectionImplArgs,
     CodeCallableCodeObjImplArgs,
     CodeParamCodeObjImplArgs,
     CodeSectionImplArgs,
@@ -45,13 +43,12 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     RotaryParamCodeObjImplArgs,
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
-    SpreadsheetSectionImplArgs,
     SwitchParamCodeObjImplArgs,
-    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextAreaParamCodeObjImplArgs,
     TextBlockSectionImplArgs,
@@ -62,11 +59,9 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 from setta.types.generated.user_defaults import (
     UserDefaultBrowserSectionImpl,
     UserDefaultButtonParamCodeObjImpl,
-    UserDefaultCalendarSectionImpl,
     UserDefaultCallableSectionImpl,
     UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
-    UserDefaultClockSectionImpl,
     UserDefaultCodeCallableCodeObjImpl,
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
@@ -85,13 +80,12 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
+    UserDefaultPluginSectionImpl,
     UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
-    UserDefaultSpreadsheetSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
-    UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
     UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
@@ -101,11 +95,9 @@ from setta.types.generated.user_defaults import (
 # Import implementation classes
 from setta.types.section_impls import (
     BrowserSectionImpl,
-    CalendarSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
     ChatSectionImpl,
-    ClockSectionImpl,
     CodeSectionImpl,
     DictSectionImpl,
     DrawSectionImpl,
@@ -117,11 +109,10 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
     SocialSectionImpl,
-    SpreadsheetSectionImpl,
-    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -281,34 +272,10 @@ def create_section_impl(
 
 @overload
 def create_section_impl(
-    type: Literal[SectionType.Clock],
-    defaults: UserDefaultClockSectionImpl,
-    overrides: ClockSectionImplArgs | None = None,
-) -> ClockSectionImpl: ...
-
-
-@overload
-def create_section_impl(
-    type: Literal[SectionType.Calendar],
-    defaults: UserDefaultCalendarSectionImpl,
-    overrides: CalendarSectionImplArgs | None = None,
-) -> CalendarSectionImpl: ...
-
-
-@overload
-def create_section_impl(
-    type: Literal[SectionType.TaskBoard],
-    defaults: UserDefaultTaskBoardSectionImpl,
-    overrides: TaskBoardSectionImplArgs | None = None,
-) -> TaskBoardSectionImpl: ...
-
-
-@overload
-def create_section_impl(
-    type: Literal[SectionType.Spreadsheet],
-    defaults: UserDefaultSpreadsheetSectionImpl,
-    overrides: SpreadsheetSectionImplArgs | None = None,
-) -> SpreadsheetSectionImpl: ...
+    type: Literal[SectionType.Plugin],
+    defaults: UserDefaultPluginSectionImpl,
+    overrides: PluginSectionImplArgs | None = None,
+) -> PluginSectionImpl: ...
 
 
 @overload
@@ -514,25 +481,10 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
                 overrides = {}
             return BrowserSectionImpl(**{**defaults.model_dump(), **overrides})
 
-        case SectionType.Clock:
+        case SectionType.Plugin:
             if overrides is None:
                 overrides = {}
-            return ClockSectionImpl(**{**defaults.model_dump(), **overrides})
-
-        case SectionType.Calendar:
-            if overrides is None:
-                overrides = {}
-            return CalendarSectionImpl(**{**defaults.model_dump(), **overrides})
-
-        case SectionType.TaskBoard:
-            if overrides is None:
-                overrides = {}
-            return TaskBoardSectionImpl(**{**defaults.model_dump(), **overrides})
-
-        case SectionType.Spreadsheet:
-            if overrides is None:
-                overrides = {}
-            return SpreadsheetSectionImpl(**{**defaults.model_dump(), **overrides})
+            return PluginSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None):

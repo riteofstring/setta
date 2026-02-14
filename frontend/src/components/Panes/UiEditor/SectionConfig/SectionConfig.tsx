@@ -3,11 +3,8 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { BrowserAreaSettings } from "./BrowserAreaSettings";
-import { CalendarSectionSettings } from "./CalendarSectionSettings";
-import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
-import { ClockSectionSettings } from "./ClockSectionSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { EdgePortsSettings } from "./EdgePortsSettings";
@@ -18,8 +15,6 @@ import { PromptSettings } from "./PromptSettings";
 import { SectionStyleColorSettings } from "./SectionStyleColorSettings";
 import { SectionTagColorSettings } from "./SectionTagColorSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
-import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
-import { TaskBoardSettings } from "./TaskBoardSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
 function _SectionConfig({ sectionId }: { sectionId: string }) {
@@ -47,9 +42,6 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
     case SectionTypeEnum.Dict:
     case SectionTypeEnum.GlobalVariables:
       return <EdgePortsSettings sectionId={sectionId} />;
-    case SectionTypeEnum.ListRoot:
-    case SectionTypeEnum.Group:
-      return <ChildDefaultsSettings sectionId={sectionId} />;
     case SectionTypeEnum.Code:
       return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
@@ -72,13 +64,5 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <ChatAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Clock:
-      return <ClockSectionSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Calendar:
-      return <CalendarSectionSettings sectionId={sectionId} />;
-    case SectionTypeEnum.TaskBoard:
-      return <TaskBoardSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Spreadsheet:
-      return <SpreadsheetSectionSettings sectionId={sectionId} />;
   }
 }
