@@ -357,8 +357,8 @@ def test_launch_workspace_session_spawns_profile_with_profile_lookup_home(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    lookup_home = tmp_path / "lookup_home"
-    runtime_home = tmp_path / "runtime_home"
+    lookup_home = tmp_path / ".setta"
+    runtime_home = tmp_path / ".setta-development"
     profile_path = lookup_home / "profiles" / "dev.json"
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(
@@ -547,7 +547,7 @@ def test_launch_rejects_conflicting_setta_files_root_and_location(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    explicit_root = tmp_path / "explicit_state"
+    explicit_root = tmp_path / "explicit_state" / "setta_files_dev"
 
     runner = CliRunner()
     result = runner.invoke(
@@ -580,7 +580,7 @@ def test_launch_reuses_existing_session_with_explicit_setta_files_root(
     workspace.mkdir()
     (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
 
-    explicit_root = tmp_path / "explicit_state"
+    explicit_root = tmp_path / "explicit_state" / "setta_files_dev"
     sessions_root = explicit_root / "runtime" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
 

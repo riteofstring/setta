@@ -21,7 +21,7 @@ def test_reset_setta_state_script_deletes_explicit_root(tmp_path: Path) -> None:
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
-    explicit_root = tmp_path / "setta_files_dev"
+    explicit_root = workspace / "setta_files_dev"
     (explicit_root / "nested").mkdir(parents=True, exist_ok=True)
     (explicit_root / "nested" / "sentinel.txt").write_text("x", encoding="utf-8")
 
@@ -50,8 +50,8 @@ def test_reset_setta_state_script_resolves_profile_root(tmp_path: Path) -> None:
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
-    setta_home = tmp_path / "setta_home"
-    profile_root = tmp_path / "setta_files"
+    setta_home = tmp_path / ".setta"
+    profile_root = setta_home / "setta_files" / "workspace_profile"
     (profile_root / "nested").mkdir(parents=True, exist_ok=True)
     (profile_root / "nested" / "sentinel.txt").write_text("x", encoding="utf-8")
 
@@ -97,7 +97,7 @@ def test_reset_setta_state_script_cli_root_overrides_inherited_location(
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
-    explicit_root = tmp_path / "setta_files"
+    explicit_root = workspace / "setta_files"
     (explicit_root / "nested").mkdir(parents=True, exist_ok=True)
     (explicit_root / "nested" / "sentinel.txt").write_text("x", encoding="utf-8")
 
@@ -162,7 +162,7 @@ def test_reset_setta_state_script_cli_location_overrides_inherited_root(
     assert inherited_root.exists()
 
 
-def test_reset_setta_state_script_deletes_detached_runtime_root(tmp_path: Path) -> None:
+def test_reset_setta_state_script_rejects_detached_runtime_root(tmp_path: Path) -> None:
     _ensure_local_venv_or_skip()
     repo_root = _repo_root()
     workspace = tmp_path / "workspace"
@@ -190,12 +190,13 @@ def test_reset_setta_state_script_deletes_detached_runtime_root(tmp_path: Path) 
         text=True,
     )
 
-    assert result.returncode == 0, result.stderr
-    assert not setta_files_root.exists()
-    assert not runtime_root.exists()
+    assert result.returncode != 0
+    assert "Refusing to reset with detached runtime root." in f"{result.stdout}{result.stderr}"
+    assert setta_files_root.exists()
+    assert runtime_root.exists()
 
 
-def test_reset_setta_state_script_deletes_custom_target_name(
+def test_reset_setta_state_script_rejects_custom_target_name(
     tmp_path: Path,
 ) -> None:
     _ensure_local_venv_or_skip()
@@ -221,8 +222,12 @@ def test_reset_setta_state_script_deletes_custom_target_name(
         text=True,
     )
 
-    assert result.returncode == 0, result.stderr
-    assert not nonstandard_root.exists()
+    assert result.returncode != 0
+    assert (
+        "Setta files root must include one of these folder names"
+        in f"{result.stdout}{result.stderr}"
+    )
+    assert nonstandard_root.exists()
 
 
 def test_reset_setta_state_script_rejects_conflicting_root_and_location_flags(
@@ -318,7 +323,10 @@ def test_reset_setta_state_script_refuses_home(tmp_path: Path) -> None:
     )
 
     assert result.returncode != 0
-    assert "Refusing to delete HOME" in f"{result.stdout}{result.stderr}"
+    assert (
+        "Setta files root must include one of these folder names"
+        in f"{result.stdout}{result.stderr}"
+    )
     assert home_root.exists()
 
 

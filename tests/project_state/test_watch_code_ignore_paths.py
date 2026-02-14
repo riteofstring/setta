@@ -17,10 +17,11 @@ def test_iter_python_files_ignores_custom_state_root_inside_workspace() -> None:
         workspace_root.mkdir(parents=True, exist_ok=True)
 
         # Global state root that happens to be inside the workspace (because the user
-        # configured globalSettaFilesBase that way). It is *not* named "setta_files",
-        # so the ignore logic must be path-based rather than name-based.
+        # configured globalSettaFilesBase that way). The final resolved root is
+        # workspace-specific and not literally named "setta_files", so the ignore
+        # logic must remain path-based rather than basename-based.
         setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-        base_root = workspace_root / "state_root_base"
+        base_root = workspace_root / "state_root_base" / "setta_files_dev"
         config_path = setta_home / "config.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(

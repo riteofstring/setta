@@ -112,7 +112,10 @@ def _setta_home_tmp(
 ) -> None:
     # Ensure tests never touch a real user config directory (for example ~/.setta or
     # %APPDATA%\\Setta). Individual tests can override SETTA_HOME explicitly.
-    monkeypatch.setenv("SETTA_HOME", str(tmp_path_factory.mktemp("setta_home")))
+    setta_home_parent = tmp_path_factory.mktemp("setta_home")
+    setta_home = setta_home_parent / ".setta"
+    setta_home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_HOME", str(setta_home))
     from setta.utils.paths import clear_setta_paths_cache
 
     clear_setta_paths_cache()

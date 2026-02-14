@@ -50,7 +50,7 @@ def test_apply_paths_to_env_clears_profile_auth_cookie_override(
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    setta_home = tmp_path / "setta_home"
+    setta_home = tmp_path / ".setta"
     profile_path = setta_home / "profiles" / "dev.json"
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(
@@ -114,8 +114,8 @@ def test_apply_paths_to_env_preserves_profile_lookup_home_for_profile_setta_home
 ) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
-    lookup_home = tmp_path / "lookup_home"
-    runtime_home = tmp_path / "runtime_home"
+    lookup_home = tmp_path / ".setta"
+    runtime_home = tmp_path / ".setta-development"
     profile_path = lookup_home / "profiles" / "dev.json"
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(

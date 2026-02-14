@@ -26,6 +26,8 @@ from setta.utils.user_config import load_setta_user_config
 
 SettaFilesLocation = Literal["auto", "local", "global"]
 ResolvedSettaFilesLocation = Literal["local", "global"]
+_ALLOWED_SETTA_HOME_NAMES = frozenset({".setta", ".setta-development"})
+_ALLOWED_SETTA_FILES_ROOT_SEGMENTS = frozenset({"setta_files", "setta_files_dev"})
 
 
 class SettaPathsError(ValueError):
@@ -45,6 +47,10 @@ class UnknownSettaProfileError(SettaPathsError):
 
 
 class InvalidSettaProfileError(SettaPathsError):
+    pass
+
+
+class InvalidSettaHomeError(SettaPathsError):
     pass
 
 
@@ -143,6 +149,14 @@ def resolve_setta_paths(
         explicit_setta_home=setta_home,
         profile_setta_home=profile_config.setta_home if profile_config else None,
     )
+    _validate_setta_home_name(
+        profile_lookup_home,
+        label="Setta profile lookup home",
+    )
+    _validate_setta_home_name(
+        resolved_setta_home,
+        label="Setta home",
+    )
     resolved_workspace = _resolve_workspace_root(
         workspace_root=workspace_root,
         profile_workspace_root=profile_config.workspace_root
@@ -166,6 +180,7 @@ def resolve_setta_paths(
         runtime_root=runtime_root,
         profile_runtime_root=profile_config.runtime_root if profile_config else None,
     )
+    _validate_setta_files_root_path(resolved_files_root)
     return SettaPaths(
         workspace_root=resolved_workspace,
         setta_home=resolved_setta_home,
@@ -531,3 +546,21 @@ def _sanitize_leaf(value: str) -> str:
     cleaned = "".join(cleaned_chars)
     cleaned = cleaned.strip("._-")
     return cleaned or "workspace"
+
+
+def _validate_setta_home_name(path: Path, *, label: str) -> None:
+    if path.name in _ALLOWED_SETTA_HOME_NAMES:
+        return
+    allowed = ", ".join(sorted(_ALLOWED_SETTA_HOME_NAMES))
+    raise InvalidSettaHomeError(
+        f"{label} must end with one of: {allowed}. Received: {path}"
+    )
+
+
+def _validate_setta_files_root_path(path: Path) -> None:
+    if any(part in _ALLOWED_SETTA_FILES_ROOT_SEGMENTS for part in path.parts):
+        return
+    allowed = ", ".join(sorted(_ALLOWED_SETTA_FILES_ROOT_SEGMENTS))
+    raise InvalidSettaFilesRootError(
+        f"Setta files root must include one of these folder names: {allowed}. Received: {path}"
+    )

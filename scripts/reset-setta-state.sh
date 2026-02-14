@@ -9,11 +9,10 @@ usage() {
 Usage: ./scripts/reset-setta-state.sh [--workspace path] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
 
 Resolves active Setta roots using the same precedence as runtime startup, then
-deletes:
-  - setta_files_root
-  - runtime_root when runtime_root is outside setta_files_root
+deletes only the canonical setta_files_root target.
 
-Safety guardrails block dangerous targets.
+Safety guardrails block dangerous or non-canonical targets.
+Detached runtime roots are rejected (no deletion occurs).
 EOF
 }
 
@@ -35,6 +34,27 @@ path_depth() {
   fi
   IFS='/' read -r -a parts <<< "${trimmed}"
   echo "${#parts[@]}"
+}
+
+is_allowed_setta_target() {
+  local target="$1"
+  local workspace_root="$2"
+  local setta_home="$3"
+  local local_setta_files="${workspace_root}/setta_files"
+  local local_setta_files_dev="${workspace_root}/setta_files_dev"
+  local global_setta_base="${setta_home}/setta_files"
+  local global_setta_base_dev="${setta_home}/setta_files_dev"
+
+  if [[ "${target}" == "${local_setta_files}" || "${target}" == "${local_setta_files_dev}" ]]; then
+    return 0
+  fi
+  if [[ "${target}" == "${global_setta_base}" || "${target}" == "${global_setta_base}/"* ]]; then
+    return 0
+  fi
+  if [[ "${target}" == "${global_setta_base_dev}" || "${target}" == "${global_setta_base_dev}/"* ]]; then
+    return 0
+  fi
+  return 1
 }
 
 workspace_override=""
@@ -119,30 +139,76 @@ if [[ -n "${runtime_root_override}" ]]; then
   export SETTA_RUNTIME_ROOT="${runtime_root_override}"
 fi
 
-resolved_roots="$(
+resolved_paths="$(
   cd "${ROOT_DIR}" && . ./activate.sh >/dev/null 2>&1 && python - <<'PY'
+import sys
+
 from setta.utils.paths import resolve_setta_paths
 
-paths = resolve_setta_paths()
+try:
+    paths = resolve_setta_paths()
+except ValueError as exc:
+    print(str(exc), file=sys.stderr)
+    raise SystemExit(1)
+
+workspace_root = paths.workspace_root.resolve(strict=False)
+setta_home = paths.setta_home.resolve(strict=False)
 setta_root = paths.setta_files_root.resolve(strict=False)
 runtime_root = paths.runtime_root.resolve(strict=False)
-print(setta_root)
-if not runtime_root.is_relative_to(setta_root):
-    print(runtime_root)
+
+print(f"WORKSPACE_ROOT={workspace_root}")
+print(f"SETTA_HOME={setta_home}")
+print(f"SETTA_FILES_ROOT={setta_root}")
+print(f"RUNTIME_ROOT={runtime_root}")
+print(f"RUNTIME_WITHIN_SETTA_ROOT={int(runtime_root.is_relative_to(setta_root))}")
 PY
 )"
 
-if [[ -z "${resolved_roots}" ]]; then
-  echo "Failed to resolve Setta reset targets." >&2
+if [[ -z "${resolved_paths}" ]]; then
+  echo "Failed to resolve Setta paths for reset." >&2
   exit 1
 fi
 
-delete_targets=()
-while IFS= read -r line; do
-  if [[ -n "${line}" ]]; then
-    delete_targets+=("${line}")
-  fi
-done <<< "${resolved_roots}"
+resolved_workspace_root=""
+resolved_setta_home=""
+resolved_setta_files_root=""
+resolved_runtime_root=""
+runtime_within_setta_root=""
+
+while IFS='=' read -r key value; do
+  case "${key}" in
+    WORKSPACE_ROOT)
+      resolved_workspace_root="${value}"
+      ;;
+    SETTA_HOME)
+      resolved_setta_home="${value}"
+      ;;
+    SETTA_FILES_ROOT)
+      resolved_setta_files_root="${value}"
+      ;;
+    RUNTIME_ROOT)
+      resolved_runtime_root="${value}"
+      ;;
+    RUNTIME_WITHIN_SETTA_ROOT)
+      runtime_within_setta_root="${value}"
+      ;;
+  esac
+done <<< "${resolved_paths}"
+
+if [[ -z "${resolved_workspace_root}" || -z "${resolved_setta_home}" || -z "${resolved_setta_files_root}" || -z "${resolved_runtime_root}" || -z "${runtime_within_setta_root}" ]]; then
+  echo "Failed to resolve Setta paths for reset." >&2
+  exit 1
+fi
+
+if [[ "${runtime_within_setta_root}" != "1" ]]; then
+  echo "Refusing to reset with detached runtime root." >&2
+  echo "Resolved setta_files_root: ${resolved_setta_files_root}" >&2
+  echo "Resolved runtime_root: ${resolved_runtime_root}" >&2
+  exit 1
+fi
+
+delete_targets=("${resolved_setta_files_root}")
+
 if [[ "${#delete_targets[@]}" -eq 0 ]]; then
   echo "Failed to resolve Setta reset targets." >&2
   exit 1
@@ -169,6 +235,11 @@ for target in "${delete_targets[@]}"; do
   target_depth="$(path_depth "${target}")"
   if [[ "${target_depth}" -lt 2 ]]; then
     echo "Refusing to delete shallow path (${target_depth}): ${target}" >&2
+    exit 1
+  fi
+  if ! is_allowed_setta_target "${target}" "${resolved_workspace_root}" "${resolved_setta_home}"; then
+    echo "Refusing to delete non-canonical Setta target: ${target}" >&2
+    echo "Allowed targets are workspace-local setta_files/setta_files_dev or paths under ${resolved_setta_home}/setta_files and ${resolved_setta_home}/setta_files_dev." >&2
     exit 1
   fi
 done
