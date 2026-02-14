@@ -42,15 +42,13 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import CodeObjType, DateDisplayFormat, TimeDisplayFormat
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
-    CalendarSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
-    ClockSectionImplArgs,
     CodeSectionImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
@@ -64,8 +62,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
-    SpreadsheetSectionImplArgs,
-    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
 )
@@ -84,14 +80,9 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    CalendarWeekStart,
     ChatSectionState,
-    ListRootViewMode,
     SectionSize,
     SectionType,
-    TaskBoardColumn,
-    TaskBoardTask,
-    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -239,10 +230,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
-        | ClockSectionImplArgs
-        | CalendarSectionImplArgs
-        | TaskBoardSectionImplArgs
-        | SpreadsheetSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]
@@ -544,14 +531,6 @@ class ListenerSetBrowserSavedSearchesRequestPayload(TypedDict):
     savedSearches: list[BrowserSavedSearch]
 
 
-class ListenerSetCalendarSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    selectedDateIso: str
-    weekStartsOn: CalendarWeekStart
-
-
 class ListenerSetCallableHideParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -616,17 +595,6 @@ class ListenerSetChatSectionStateRequestPayload(TypedDict):
 class ListenerSetChatSystemPromptRequestPayload(TypedDict):
     chatId: ID
     systemPrompt: str
-
-
-class ListenerSetClockSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    timeDisplayFormat: TimeDisplayFormat
-    dateDisplayFormat: DateDisplayFormat
-    showSeconds: bool
-    showDate: bool
-    timezone: str
 
 
 class ListenerSetCodeFileBindingRequestPayload(TypedDict):
@@ -718,13 +686,6 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     imagePath: str
 
 
-class ListenerSetListRootViewModeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    viewMode: ListRootViewMode
-
-
 class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -738,13 +699,6 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     sectionId: ID
     paramInfoId: ID
     value: str
-
-
-class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    defaultChildSectionType: SectionType
 
 
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
@@ -772,13 +726,6 @@ class ListenerSetPromptTemplateRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     template: str
-
-
-class ListenerSetSectionAllowUnquotedStringArgsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    allowUnquotedStringArgs: bool
 
 
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
@@ -877,23 +824,6 @@ class ListenerSetSocialUrlRequestPayload(TypedDict):
     url: str
 
 
-class ListenerSetSpreadsheetFilePathRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    filePath: str
-    activeSheet: str | None
-
-
-class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    viewMode: TaskBoardViewMode
-    columns: list[TaskBoardColumn]
-    tasks: list[TaskBoardTask]
-
-
 class ListenerSetTextBlockDisplayModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -913,13 +843,6 @@ class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     headingAsSectionName: bool
-
-
-class ListenerSetTextBlockMasterFontSizeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    masterFontSizePx: float
 
 
 class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
@@ -1377,11 +1300,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_browser_saved_searches", payload)
 
-    async def set_calendar_section_settings(
-        self, payload: ListenerSetCalendarSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_calendar_section_settings", payload)
-
     async def set_callable(
         self, payload: ListenerSetCallableRequestPayload
     ) -> SetCallableResponse:
@@ -1424,11 +1342,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetChatSystemPromptRequestPayload
     ) -> Chat:
         return await self._caller("route_set_chat_system_prompt", payload)
-
-    async def set_clock_section_settings(
-        self, payload: ListenerSetClockSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_clock_section_settings", payload)
 
     async def set_code(self, payload: ListenerSetCodeRequestPayload) -> None:
         return await self._caller("route_set_code", payload)
@@ -1493,11 +1406,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
 
-    async def set_list_root_view_mode(
-        self, payload: ListenerSetListRootViewModeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_list_root_view_mode", payload)
-
     async def set_meta_control_show_section_title(
         self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload
     ) -> None:
@@ -1507,13 +1415,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
-
-    async def set_parent_default_child_section_type(
-        self, payload: ListenerSetParentDefaultChildSectionTypeRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_parent_default_child_section_type", payload
-        )
 
     async def set_project_config_codegen_targets(
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
@@ -1534,13 +1435,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetPromptTemplateRequestPayload
     ) -> None:
         return await self._caller("route_set_prompt_template", payload)
-
-    async def set_section_allow_unquoted_string_args(
-        self, payload: ListenerSetSectionAllowUnquotedStringArgsRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_section_allow_unquoted_string_args", payload
-        )
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
@@ -1610,16 +1504,6 @@ class RouterEndpointAPI:
     async def set_social_url(self, payload: ListenerSetSocialUrlRequestPayload) -> None:
         return await self._caller("route_set_social_url", payload)
 
-    async def set_spreadsheet_file_path(
-        self, payload: ListenerSetSpreadsheetFilePathRequestPayload
-    ) -> None:
-        return await self._caller("route_set_spreadsheet_file_path", payload)
-
-    async def set_task_board_section_state(
-        self, payload: ListenerSetTaskBoardSectionStateRequestPayload
-    ) -> None:
-        return await self._caller("route_set_task_board_section_state", payload)
-
     async def set_text_block_display_mode(
         self, payload: ListenerSetTextBlockDisplayModeRequestPayload
     ) -> None:
@@ -1636,11 +1520,6 @@ class RouterEndpointAPI:
         return await self._caller(
             "route_set_text_block_heading_as_section_name", payload
         )
-
-    async def set_text_block_master_font_size(
-        self, payload: ListenerSetTextBlockMasterFontSizeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_text_block_master_font_size", payload)
 
     async def set_text_block_meta_control_style(
         self, payload: ListenerSetTextBlockMetaControlStyleRequestPayload

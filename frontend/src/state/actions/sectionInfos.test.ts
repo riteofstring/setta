@@ -7,7 +7,6 @@ import {
   getCurrShownParamIds,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
-  getSectionIsHorizontalOrientation,
   processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -25,62 +24,16 @@ import {
   createCore,
   createMessageTextContent,
   createProjectConfig,
-  createListRootSectionImpl,
   createSingletonSections,
-  createUserDefaultListRootSectionImpl,
   createTerminalSectionImpl,
   createUserDefaultChatSectionImpl,
   createVariant,
-  ListRootViewModeEnum,
   SectionTypeEnum,
   type ProjectStateSingleConfigWithCompletedOpIds,
   type ShownParamIds,
   type ViewModeConfig,
 } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
-
-describe("getSectionIsHorizontalOrientation", () => {
-  it("treats list root kanban view as horizontal", () => {
-    const sectionId = "list-root-1";
-    const variantId = "variant-1";
-    const implId = "impl-1";
-    useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        sectionVariantMap: { [sectionId]: variantId },
-      }),
-      sections: {},
-      sectionImpls: {
-        [implId]: createListRootSectionImpl(
-          createUserDefaultListRootSectionImpl(),
-          {
-            id: implId,
-            viewMode: ListRootViewModeEnum.kanban,
-          },
-        ),
-      },
-      sectionVariants: {
-        [variantId]: createVariant({
-          id: variantId,
-          name: "Variant",
-          impl: implId,
-          nonPresetImpls: [],
-        }),
-      },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: { [sectionId]: null },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    } as ZustandProjectState);
-
-    expect(getSectionIsHorizontalOrientation(sectionId)).toBe(true);
-  });
-});
 
 describe("getCurrShownParamIds", () => {
   it("returns pinned and unpinned entries for the active variant", () => {
