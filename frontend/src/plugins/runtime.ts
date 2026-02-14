@@ -140,6 +140,10 @@ export type SettaPluginHost = {
       schemaVersion: number | null;
     }>,
   ) => void;
+  openArtifact: (artifactId: string) => void;
+  createArtifact: (
+    payload: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>>;
   apiFetch: (path: string, init?: RequestInit) => Promise<Response>;
 };
 
@@ -500,6 +504,18 @@ function registerPluginModule({
           impl.schemaVersion = patch.schemaVersion;
         }
       });
+    },
+    openArtifact: (_artifactId) => {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.CapabilityDenied,
+        "openArtifact is not implemented in this host yet.",
+      );
+    },
+    createArtifact: async (_payload) => {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.CapabilityDenied,
+        "createArtifact is not implemented in this host yet.",
+      );
     },
     apiFetch: async (path, init) => {
       const normalizedPath = normalizePluginPath(path);

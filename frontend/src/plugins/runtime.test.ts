@@ -7,9 +7,35 @@ import {
   toPluginSectionKindKey,
   usePluginRuntimeStore,
 } from "plugins/runtime";
-import { PluginRuntimeStateEnum } from "utils/generatedTypes";
-import type { PluginStatusEntry } from "utils/generatedTypes";
+import {
+  createPluginStatusEntry,
+  PluginRuntimeStateEnum,
+  type PluginStatusEntry,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+function buildPluginStatusEntry(
+  overrides: Partial<PluginStatusEntry>,
+): PluginStatusEntry {
+  return createPluginStatusEntry({
+    pluginId: "acme.plugin",
+    name: "Acme Plugin",
+    version: "1.0.0",
+    state: PluginRuntimeStateEnum.active,
+    sourceScope: "workspace",
+    sourceScopeLabel: "workspace",
+    sourcePath: "/tmp/acme.plugin",
+    canonicalSourceKey: "github:acme/plugin",
+    sourceDigestSha256: null,
+    shadowedBySourcePath: null,
+    requestedCapabilities: [],
+    effectiveCapabilities: [],
+    blockedCapabilities: [],
+    restartRequired: false,
+    errors: [],
+    ...overrides,
+  });
+}
 
 describe("plugin runtime helpers", () => {
   beforeEach(() => {
@@ -35,23 +61,9 @@ describe("plugin runtime helpers", () => {
   it("returns plugin_disabled when plugin status is disabled", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {
-        "acme.plugin": {
-          pluginId: "acme.plugin",
-          name: "Acme Plugin",
-          version: "1.0.0",
+        "acme.plugin": buildPluginStatusEntry({
           state: PluginRuntimeStateEnum.disabled,
-          sourceScope: "workspace",
-          sourceScopeLabel: "workspace",
-          sourcePath: "/tmp/acme.plugin",
-          canonicalSourceKey: "github:acme/plugin",
-          sourceDigestSha256: null,
-          shadowedBySourcePath: null,
-          requestedCapabilities: [],
-          effectiveCapabilities: [],
-          blockedCapabilities: [],
-          restartRequired: false,
-          errors: [],
-        } as unknown as PluginStatusEntry,
+        }),
       },
     });
     expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
@@ -62,17 +74,7 @@ describe("plugin runtime helpers", () => {
   it("returns mode_blocked when section-kind capability is blocked", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {
-        "acme.plugin": {
-          pluginId: "acme.plugin",
-          name: "Acme Plugin",
-          version: "1.0.0",
-          state: PluginRuntimeStateEnum.active,
-          sourceScope: "workspace",
-          sourceScopeLabel: "workspace",
-          sourcePath: "/tmp/acme.plugin",
-          canonicalSourceKey: "github:acme/plugin",
-          sourceDigestSha256: null,
-          shadowedBySourcePath: null,
+        "acme.plugin": buildPluginStatusEntry({
           requestedCapabilities: ["registerSectionKinds"],
           effectiveCapabilities: [],
           blockedCapabilities: [
@@ -81,9 +83,7 @@ describe("plugin runtime helpers", () => {
               reason: "mode_policy",
             },
           ],
-          restartRequired: false,
-          errors: [],
-        } as unknown as PluginStatusEntry,
+        }),
       },
     });
     expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
@@ -94,23 +94,10 @@ describe("plugin runtime helpers", () => {
   it("returns frontend_load_failed when frontend registration failed", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {
-        "acme.plugin": {
-          pluginId: "acme.plugin",
-          name: "Acme Plugin",
-          version: "1.0.0",
-          state: PluginRuntimeStateEnum.active,
-          sourceScope: "workspace",
-          sourceScopeLabel: "workspace",
-          sourcePath: "/tmp/acme.plugin",
-          canonicalSourceKey: "github:acme/plugin",
-          sourceDigestSha256: null,
-          shadowedBySourcePath: null,
+        "acme.plugin": buildPluginStatusEntry({
           requestedCapabilities: ["registerSectionKinds"],
           effectiveCapabilities: ["registerSectionKinds"],
-          blockedCapabilities: [],
-          restartRequired: false,
-          errors: [],
-        } as unknown as PluginStatusEntry,
+        }),
       },
       frontendErrorsByPluginId: {
         "acme.plugin": {

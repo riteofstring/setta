@@ -19,7 +19,13 @@ import {
   route_plugins_uninstall,
   route_plugins_update,
 } from "utils/generatedEndpoints";
-import type * as gt from "utils/generatedTypes";
+import type {
+  PluginInstallRequestInput,
+  PluginListEntry,
+  PluginRollbackRequestInput,
+  PluginUninstallRequestInput,
+  PluginUpdateRequestInput,
+} from "utils/generatedTypes";
 
 type InstallScope = "workspace" | "environment" | "global";
 
@@ -104,14 +110,12 @@ export function PluginsPane() {
       "install",
       "Install plugin",
       async () =>
-        route_plugins_install(
-          {
-            sourceSpec: trimmedSourceSpec,
-            scope,
-            enable: enableAfterInstall,
-            force: false,
-          } as unknown as gt.PluginInstallRequestInput,
-        ),
+        route_plugins_install({
+          sourceSpec: trimmedSourceSpec,
+          scope,
+          enable: enableAfterInstall,
+          force: false,
+        } as PluginInstallRequestInput),
     );
     if (!response || !response.data) {
       return;
@@ -322,7 +326,7 @@ export function PluginsPane() {
 }
 
 type PluginListEntryCardProps = {
-  plugin: gt.PluginListEntry;
+  plugin: PluginListEntry;
   writeActionsLocked: boolean;
   busyActionKey: string | null;
   runAction: <T>(
@@ -361,24 +365,20 @@ function PluginListEntryCard({
 
   async function onUpdate() {
     await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
-      route_plugins_update(
-        {
-          pluginId: plugin.pluginId,
-          scope: plugin.sourceScope,
-          to: null,
-        } as unknown as gt.PluginUpdateRequestInput,
-      ),
+      route_plugins_update({
+        pluginId: plugin.pluginId,
+        scope: plugin.sourceScope,
+        to: null,
+      } as PluginUpdateRequestInput),
     );
   }
 
   async function onRollback() {
     await runAction(`rollback:${plugin.pluginId}`, "Rollback plugin", async () =>
-      route_plugins_rollback(
-        {
-          pluginId: plugin.pluginId,
-          scope: plugin.sourceScope,
-        } as unknown as gt.PluginRollbackRequestInput,
-      ),
+      route_plugins_rollback({
+        pluginId: plugin.pluginId,
+        scope: plugin.sourceScope,
+      } as PluginRollbackRequestInput),
     );
   }
 
@@ -387,12 +387,10 @@ function PluginListEntryCard({
       `uninstall:${plugin.pluginId}`,
       "Uninstall plugin",
       async () =>
-        route_plugins_uninstall(
-          {
-            pluginId: plugin.pluginId,
-            scope: plugin.sourceScope,
-          } as unknown as gt.PluginUninstallRequestInput,
-        ),
+        route_plugins_uninstall({
+          pluginId: plugin.pluginId,
+          scope: plugin.sourceScope,
+        } as PluginUninstallRequestInput),
     );
   }
 
