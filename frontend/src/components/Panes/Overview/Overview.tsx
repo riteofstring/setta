@@ -1,7 +1,8 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useRef, type RefObject } from "react";
+import { usePluginPaneTabs, type PluginPaneTabEntry } from "plugins/runtime";
+import { useMemo, useRef, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import {
@@ -19,10 +20,12 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
   PaneNameEnum,
+  parsePluginPaneOverviewTabName,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import {
@@ -35,6 +38,7 @@ import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
+import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
@@ -60,6 +64,14 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
+  const pluginPaneTabs = usePluginPaneTabs();
+  const pluginPaneTabByKey = useMemo(() => {
+    const values: Record<string, PluginPaneTabEntry> = {};
+    for (const pluginPaneTab of pluginPaneTabs) {
+      values[pluginPaneTab.tabKey] = pluginPaneTab;
+    }
+    return values;
+  }, [pluginPaneTabs]);
   const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
     isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
@@ -70,6 +82,12 @@ export function Overview() {
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
+  const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
+  const selectedTabIsPluginPane =
+    parsePluginPaneOverviewTabName(selectedTabName) !== null;
+  if (selectedTabIsPluginPane && !selectedPluginPaneTab) {
+    effectiveTabName = OverviewTabNameEnum.Plugins;
+  }
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -93,6 +111,7 @@ export function Overview() {
   if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
+  const effectivePluginPaneTab = pluginPaneTabByKey[effectiveTabName] ?? null;
   const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
@@ -121,20 +140,34 @@ export function Overview() {
           bottom: hasViewModeTabs ? "36px" : "0px",
         }}
       >
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
+          id="overview-tab-overview"
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
+          id="overview-tab-plugins"
           tabName={OverviewTabNameEnum.Plugins}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Plugins" })}
           icon={<MdExtension size={18} />}
         />
+        {pluginPaneTabs.map((pluginPaneTab) => (
+          <TabButton<OverviewTabKey>
+            key={pluginPaneTab.tabKey}
+            id={`overview-plugin-pane-tab-${encodeURIComponent(pluginPaneTab.pluginId)}-${encodeURIComponent(pluginPaneTab.paneId)}`}
+            tabName={pluginPaneTab.tabKey}
+            {...commonProps}
+            {...getFloatingBoxHandlers({
+              content: `${pluginPaneTab.title} (${pluginPaneTab.pluginId})`,
+            })}
+            icon={<MdExtension size={14} />}
+          />
+        ))}
         {showFileBrowserTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.FileBrowser}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Explorer" })}
@@ -142,7 +175,7 @@ export function Overview() {
           />
         )}
         {showGitTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.Git}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Git" })}
@@ -150,7 +183,7 @@ export function Overview() {
           />
         )}
         {showWatchCodeTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.WatchCode}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "Watch Code" })}
@@ -158,38 +191,38 @@ export function Overview() {
           />
         )}
         {showAppTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.App}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "App" })}
             icon={<TbLayoutDashboard size={18} />}
           />
         )}
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.ProjectConfigs}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Config Preview" })}
           icon={<i className="gg-git-branch !scale-100" />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Custom Runs" })}
           icon={<RiPlayList2Fill size={20} />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
           icon={<HiOutlineEye size={20} />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.Notifications}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Notifications" })}
           icon={<MdNotificationsNone size={20} />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.BackendLogs}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Backend Logs" })}
@@ -203,7 +236,7 @@ export function Overview() {
           }
         />
         {showLLMTabs && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.ProjectAIChat}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
@@ -211,7 +244,7 @@ export function Overview() {
           />
         )}
         {showLLMTabs && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.ProjectAISettings}
             {...commonProps}
             {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
@@ -229,7 +262,12 @@ export function Overview() {
         minimumWidth={250}
         {...(isFileBrowserTab ? { paddingClassName: "pt-2.5 pb-0" } : {})}
       >
-        {vis && <TabsVisible selectedTabName={effectiveTabName} />}
+        {vis && (
+          <TabsVisible
+            selectedTabName={effectiveTabName}
+            selectedPluginPaneTab={effectivePluginPaneTab}
+          />
+        )}
       </PaneContainer>
     </div>
   );
@@ -237,10 +275,14 @@ export function Overview() {
 
 function TabsVisible({
   selectedTabName,
+  selectedPluginPaneTab,
 }: {
-  selectedTabName: OverviewTabName;
+  selectedTabName: OverviewTabKey;
+  selectedPluginPaneTab: PluginPaneTabEntry | null;
 }) {
-  const title = OverviewTabNamePrettified[selectedTabName];
+  const title = selectedPluginPaneTab
+    ? selectedPluginPaneTab.title
+    : resolveOverviewTitle(selectedTabName);
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   return (
     <div
@@ -261,12 +303,30 @@ function TabsVisible({
           {title}
         </h2>
       )}
-      <TabContent selectedTabName={selectedTabName} />
+      <TabContent
+        selectedTabName={selectedTabName}
+        selectedPluginPaneTab={selectedPluginPaneTab}
+      />
     </div>
   );
 }
 
-function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
+function TabContent({
+  selectedTabName,
+  selectedPluginPaneTab,
+}: {
+  selectedTabName: OverviewTabKey;
+  selectedPluginPaneTab: PluginPaneTabEntry | null;
+}) {
+  if (selectedPluginPaneTab) {
+    return (
+      <PluginOverviewPane
+        pluginId={selectedPluginPaneTab.pluginId}
+        paneId={selectedPluginPaneTab.paneId}
+      />
+    );
+  }
+
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
@@ -300,6 +360,13 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
     case OverviewTabNameEnum.ProjectAISettings:
       return <ProjectAISettings />;
     default:
-      return selectedTabName satisfies never;
+      return <ProjectOverview />;
   }
+}
+
+function resolveOverviewTitle(selectedTabName: OverviewTabKey): string {
+  if (selectedTabName in OverviewTabNamePrettified) {
+    return OverviewTabNamePrettified[selectedTabName as OverviewTabName];
+  }
+  return OverviewTabNamePrettified[OverviewTabNameEnum.Overview];
 }

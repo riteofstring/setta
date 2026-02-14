@@ -32,6 +32,8 @@ export const OverviewTabNameEnum = {
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
+export type PluginOverviewTabName = `PluginPane:${string}:${string}`;
+export type OverviewTabKey = OverviewTabName | PluginOverviewTabName;
 
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
@@ -48,6 +50,40 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
   [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
 } as const satisfies Record<OverviewTabName, string>;
+
+const PLUGIN_OVERVIEW_TAB_PREFIX = "PluginPane";
+
+export function buildPluginPaneOverviewTabName(
+  pluginId: string,
+  paneId: string,
+): PluginOverviewTabName {
+  return `${PLUGIN_OVERVIEW_TAB_PREFIX}:${encodeURIComponent(pluginId)}:${encodeURIComponent(paneId)}`;
+}
+
+export function parsePluginPaneOverviewTabName(
+  tabName: string,
+): { pluginId: string; paneId: string } | null {
+  if (!tabName.startsWith(`${PLUGIN_OVERVIEW_TAB_PREFIX}:`)) {
+    return null;
+  }
+  const parts = tabName.split(":");
+  if (parts.length !== 3) {
+    return null;
+  }
+  const pluginIdPart = parts[1];
+  const paneIdPart = parts[2];
+  if (!pluginIdPart || !paneIdPart) {
+    return null;
+  }
+  try {
+    return {
+      pluginId: decodeURIComponent(pluginIdPart),
+      paneId: decodeURIComponent(paneIdPart),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export const UIEditorTabNameEnum = {
   SectionConfig: "SectionConfig",

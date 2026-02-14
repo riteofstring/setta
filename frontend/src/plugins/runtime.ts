@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
+import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_plugins_list,
@@ -91,7 +92,7 @@ export type PluginPaneDefinition = {
   renderer: PluginPaneRenderer;
 };
 
-type RegisteredPluginPane = PluginPaneDefinition & {
+export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
@@ -102,8 +103,16 @@ export type PluginCommandDefinition = {
   run: () => void | Promise<void>;
 };
 
-type RegisteredPluginCommand = PluginCommandDefinition & {
+export type RegisteredPluginCommand = PluginCommandDefinition & {
   pluginId: string;
+};
+
+export type PluginPaneTabEntry = {
+  tabKey: string;
+  pluginId: string;
+  paneId: string;
+  title: string;
+  description?: string;
 };
 
 type PluginFrontendError = {
@@ -437,10 +446,8 @@ function registerPluginModule({
       if (registryDelta.sectionKinds[sectionKey]) {
         throw new PluginRuntimeError(
           PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          (
-            `Plugin ${plugin.pluginId} registered duplicate section kind ` +
-            `${validated.kind}.`
-          ),
+          `Plugin ${plugin.pluginId} registered duplicate section kind ` +
+            `${validated.kind}.`,
         );
       }
       registryDelta.sectionKinds[sectionKey] = validated;
@@ -458,10 +465,8 @@ function registerPluginModule({
         if (existingPane.id === validated.id) {
           throw new PluginRuntimeError(
             PluginFrontendErrorCodeEnum.RegistrationInvalid,
-            (
-              `Plugin ${plugin.pluginId} registered duplicate pane ` +
-              `${validated.id}.`
-            ),
+            `Plugin ${plugin.pluginId} registered duplicate pane ` +
+              `${validated.id}.`,
           );
         }
       }
@@ -481,10 +486,8 @@ function registerPluginModule({
         if (existingCommand.id === validated.id) {
           throw new PluginRuntimeError(
             PluginFrontendErrorCodeEnum.RegistrationInvalid,
-            (
-              `Plugin ${plugin.pluginId} registered duplicate command ` +
-              `${validated.id}.`
-            ),
+            `Plugin ${plugin.pluginId} registered duplicate command ` +
+              `${validated.id}.`,
           );
         }
       }
@@ -582,14 +585,14 @@ function registerPluginModule({
     },
   };
 
-  const registerResult = (registerFn as (host: SettaPluginHost) => unknown)(host);
+  const registerResult = (registerFn as (host: SettaPluginHost) => unknown)(
+    host,
+  );
   if (isPromiseLike(registerResult)) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
-      (
-        `Plugin ${plugin.pluginId} returned a Promise from register(host); ` +
-        "async register is not supported in MVP."
-      ),
+      `Plugin ${plugin.pluginId} returned a Promise from register(host); ` +
+        "async register is not supported in MVP.",
     );
   }
 
@@ -965,20 +968,56 @@ export function usePluginSectionKinds(): RegisteredPluginSectionKind[] {
   );
 }
 
-function usePluginPanesByPluginId(pluginId: string): RegisteredPluginPane[] {
-  return usePluginRuntimeStore(
-    (state) => state.panesByPluginId[pluginId] ?? [],
-    _.isEqual,
-  );
+export function usePluginPaneTabs(): PluginPaneTabEntry[] {
+  return usePluginRuntimeStore((state) => {
+    const values: PluginPaneTabEntry[] = [];
+    for (const [pluginId, paneEntries] of Object.entries(
+      state.panesByPluginId,
+    )) {
+      for (const pane of paneEntries) {
+        values.push({
+          tabKey: buildPluginPaneOverviewTabName(pluginId, pane.id),
+          pluginId,
+          paneId: pane.id,
+          title: pane.title,
+          description: pane.description,
+        });
+      }
+    }
+    values.sort((a, b) => {
+      const byTitle = a.title.localeCompare(b.title);
+      if (byTitle !== 0) {
+        return byTitle;
+      }
+      const byPlugin = a.pluginId.localeCompare(b.pluginId);
+      if (byPlugin !== 0) {
+        return byPlugin;
+      }
+      return a.paneId.localeCompare(b.paneId);
+    });
+    return values;
+  }, _.isEqual);
 }
 
-function usePluginCommandsByPluginId(
-  pluginId: string,
-): RegisteredPluginCommand[] {
-  return usePluginRuntimeStore(
-    (state) => state.commandsByPluginId[pluginId] ?? [],
-    _.isEqual,
-  );
+export function usePluginCommands(): RegisteredPluginCommand[] {
+  return usePluginRuntimeStore((state) => {
+    const values: RegisteredPluginCommand[] = [];
+    for (const commandEntries of Object.values(state.commandsByPluginId)) {
+      values.push(...commandEntries);
+    }
+    values.sort((a, b) => {
+      const byTitle = a.title.localeCompare(b.title);
+      if (byTitle !== 0) {
+        return byTitle;
+      }
+      const byPlugin = a.pluginId.localeCompare(b.pluginId);
+      if (byPlugin !== 0) {
+        return byPlugin;
+      }
+      return a.id.localeCompare(b.id);
+    });
+    return values;
+  }, _.isEqual);
 }
 
 export function usePluginListEntries(): PluginListEntry[] {
@@ -1058,29 +1097,6 @@ export function resetPluginRuntimeStoreForTests(): void {
     restartCapability: null,
     loadGeneration: 0,
   });
-}
-
-function getPluginRuntimeSnapshot(): PluginRuntimeStore {
-  return usePluginRuntimeStore.getState();
-}
-
-function getPluginStatusEntry(pluginId: string): PluginStatusEntry | null {
-  const pluginStatusById = usePluginRuntimeStore.getState().pluginStatusById;
-  return pluginStatusById[pluginId] ?? null;
-}
-
-function getPluginRuntimeError(pluginId: string): PluginFrontendError | null {
-  const frontendErrorsByPluginId =
-    usePluginRuntimeStore.getState().frontendErrorsByPluginId;
-  return frontendErrorsByPluginId[pluginId] ?? null;
-}
-
-function getPluginPaneEntries(pluginId: string): RegisteredPluginPane[] {
-  return usePluginRuntimeStore.getState().panesByPluginId[pluginId] ?? [];
-}
-
-function getPluginCommandEntries(pluginId: string): RegisteredPluginCommand[] {
-  return usePluginRuntimeStore.getState().commandsByPluginId[pluginId] ?? [];
 }
 
 export function getPluginSectionKindsForCreateMenu(): Array<{

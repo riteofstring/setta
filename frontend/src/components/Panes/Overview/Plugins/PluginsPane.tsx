@@ -1,13 +1,18 @@
 import _ from "lodash";
 import {
+  buildPluginRestartActionPlan,
+  getRestartRequiredPluginIds,
+} from "plugins/restart";
+import {
   refreshPluginRuntime,
   usePluginListEntries,
   usePluginRuntimeStore,
   usePluginStatusEntries,
 } from "plugins/runtime";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
+import { buildPluginPaneOverviewTabName } from "utils/constants";
 import {
   getErrorDetail,
   res200,
@@ -26,11 +31,11 @@ import {
 import type {
   PluginInstallRequestInput,
   PluginListEntry,
-  PluginRestartCapability,
   PluginRollbackRequestInput,
   PluginUninstallRequestInput,
   PluginUpdateRequestInput,
 } from "utils/generatedTypes";
+import { onOverviewTabClick } from "../../paneFns";
 
 type InstallScope = "workspace" | "environment" | "global";
 
@@ -38,26 +43,6 @@ type PluginActionStatus = {
   type: "error" | "success" | "warning";
   message: string;
 };
-
-type RestartActionPlan =
-  | {
-      mode: "programmatic";
-      command: null;
-      reason: null;
-      message: null;
-    }
-  | {
-      mode: "manual";
-      command: string;
-      reason: string | null;
-      message: string;
-    }
-  | {
-      mode: "unavailable";
-      command: null;
-      reason: null;
-      message: string;
-    };
 
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
@@ -104,7 +89,7 @@ export function PluginsPane() {
     [pluginListEntries],
   );
   const restartActionPlan = useMemo(
-    () => buildRestartActionPlan(runtimeSummary.restartCapability),
+    () => buildPluginRestartActionPlan(runtimeSummary.restartCapability),
     [runtimeSummary.restartCapability],
   );
 
@@ -229,7 +214,8 @@ export function PluginsPane() {
               className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onRestart}
               disabled={
-                busyActionKey !== null || restartActionPlan.mode === "unavailable"
+                busyActionKey !== null ||
+                restartActionPlan.mode === "unavailable"
               }
             >
               Restart Setta
@@ -258,9 +244,12 @@ export function PluginsPane() {
 
       {restartRequiredPluginIds.length > 0 ? (
         <section className="rounded-md border border-yellow-300 bg-yellow-50 p-2 text-[11px] text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950/40 dark:text-yellow-200">
-          <p className="font-semibold uppercase tracking-wide">Restart required</p>
+          <p className="font-semibold uppercase tracking-wide">
+            Restart required
+          </p>
           <p className="mt-1">
-            Backend changes are pending for: {restartRequiredPluginIds.join(", ")}
+            Backend changes are pending for:{" "}
+            {restartRequiredPluginIds.join(", ")}
           </p>
           {restartActionPlan.mode === "manual" ? (
             <p className="mt-1">
@@ -481,6 +470,11 @@ function PluginListEntryCard({
   }
 
   const pluginActionDisabled = writeActionsLocked || busyActionKey !== null;
+  const paneButtonsDisabled = pluginActionDisabled;
+
+  function onOpenPane(paneId: string) {
+    onOverviewTabClick(buildPluginPaneOverviewTabName(plugin.pluginId, paneId));
+  }
 
   return (
     <article className="rounded border border-setta-200 bg-setta-50/60 p-2 dark:border-setta-800 dark:bg-setta-950/40">
@@ -569,17 +563,23 @@ function PluginListEntryCard({
       ) : null}
 
       {panes.length > 0 ? (
-        <section className="mt-2 flex flex-col gap-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
           <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
             Plugin Panes
           </h5>
-          {panes.map((pane) => (
-            <PluginPaneMount
-              key={`${plugin.pluginId}:${pane.id}`}
-              plugin={plugin}
-              pane={pane}
-            />
-          ))}
+          <div className="mt-2 flex flex-wrap gap-1">
+            {panes.map((pane) => (
+              <button
+                key={`${plugin.pluginId}:${pane.id}`}
+                type="button"
+                className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+                onClick={() => onOpenPane(pane.id)}
+                disabled={paneButtonsDisabled}
+              >
+                Open {pane.title}
+              </button>
+            ))}
+          </div>
         </section>
       ) : null}
     </article>
@@ -609,91 +609,6 @@ function ActionButton({
   );
 }
 
-function PluginPaneMount({
-  plugin,
-  pane,
-}: {
-  plugin: PluginListEntry;
-  pane: {
-    id: string;
-    title: string;
-    renderer: {
-      mount: (
-        el: HTMLElement,
-        props: {
-          pluginId: string;
-          serverMode: "ide" | "share" | "app";
-          effectiveCapabilities: string[];
-        },
-      ) => void;
-      update?: (
-        el: HTMLElement,
-        props: {
-          pluginId: string;
-          serverMode: "ide" | "share" | "app";
-          effectiveCapabilities: string[];
-        },
-      ) => void;
-      unmount?: (el: HTMLElement) => void;
-    };
-  };
-}) {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const runtime = usePluginRuntimeStore(
-    (state) => ({
-      serverMode: state.serverMode ?? "ide",
-      effectiveCapabilities: plugin.effectiveCapabilities,
-    }),
-    _.isEqual,
-  );
-
-  useEffect(() => {
-    const mountElement = mountRef.current;
-    if (!mountElement) {
-      return;
-    }
-    pane.renderer.mount(mountElement, {
-      pluginId: plugin.pluginId,
-      serverMode: runtime.serverMode,
-      effectiveCapabilities: runtime.effectiveCapabilities,
-    });
-    return () => {
-      pane.renderer.unmount?.(mountElement);
-    };
-  }, [
-    pane.renderer,
-    plugin.pluginId,
-    runtime.effectiveCapabilities,
-    runtime.serverMode,
-  ]);
-
-  useEffect(() => {
-    const mountElement = mountRef.current;
-    if (!mountElement || !pane.renderer.update) {
-      return;
-    }
-    pane.renderer.update(mountElement, {
-      pluginId: plugin.pluginId,
-      serverMode: runtime.serverMode,
-      effectiveCapabilities: runtime.effectiveCapabilities,
-    });
-  }, [
-    pane.renderer,
-    plugin.pluginId,
-    runtime.effectiveCapabilities,
-    runtime.serverMode,
-  ]);
-
-  return (
-    <article className="rounded border border-setta-200 p-2 dark:border-setta-800">
-      <h6 className="mb-1 text-[11px] font-semibold text-setta-700 dark:text-setta-200">
-        {pane.title}
-      </h6>
-      <div ref={mountRef} />
-    </article>
-  );
-}
-
 function buildPluginActionError<T>(
   actionLabel: string,
   response: ResponseDataAndStatus<T>,
@@ -718,14 +633,6 @@ function buildPluginActionError<T>(
     }
   }
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
-}
-
-function getRestartRequiredPluginIds(pluginListEntries: PluginListEntry[]): string[] {
-  const ids = pluginListEntries
-    .filter((plugin) => plugin.restartRequired)
-    .map((plugin) => plugin.pluginId);
-  ids.sort((a, b) => a.localeCompare(b));
-  return ids;
 }
 
 function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
@@ -756,46 +663,8 @@ function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
   return "Unsupported source spec. Use github: or pypi:.";
 }
 
-function buildRestartActionPlan(
-  restartCapability: PluginRestartCapability | null,
-): RestartActionPlan {
-  if (!restartCapability) {
-    return {
-      mode: "unavailable",
-      command: null,
-      reason: null,
-      message: "Restart capability is unavailable. Run restart manually.",
-    };
-  }
-
-  const mode = String(restartCapability.mode);
-  if (mode === "programmatic") {
-    return {
-      mode: "programmatic",
-      command: null,
-      reason: null,
-      message: null,
-    };
-  }
-
-  const commandRaw = restartCapability.command?.trim();
-  const command = commandRaw && commandRaw !== "" ? commandRaw : "setta";
-  const reasonRaw = restartCapability.reason?.trim();
-  const reason = reasonRaw && reasonRaw !== "" ? reasonRaw : null;
-  const message = reason
-    ? `Manual restart required: ${command}. ${reason}`
-    : `Manual restart required: ${command}`;
-
-  return {
-    mode: "manual",
-    command,
-    reason,
-    message,
-  };
-}
-
 export const pluginsPaneTestApi = {
-  buildRestartActionPlan,
+  buildRestartActionPlan: buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
   validateInstallSourceSpec,
 };
