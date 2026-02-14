@@ -12,7 +12,6 @@ import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getTextBlockText } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
@@ -37,24 +36,10 @@ function _TextBlock({ sectionId }) {
 }
 
 function _Markdown({ sectionId }) {
-  const { format, text, metaControlStyle, masterFontSizePx } = useProjectState(
+  const { format, text, metaControlStyle } = useProjectState(
     (x) => getTextBlockText(sectionId, x),
     _.isEqual,
   );
-  const typography = React.useMemo(
-    () => buildTextBlockTypographyScale(masterFontSizePx),
-    [masterFontSizePx],
-  );
-  const markdownTypographyStyle: React.CSSProperties = {
-    "--setta-textblock-body-size": `${typography.bodyPx}px`,
-    "--setta-textblock-code-size": `${typography.codePx}px`,
-    "--setta-textblock-h1-size": `${typography.h1Px}px`,
-    "--setta-textblock-h2-size": `${typography.h2Px}px`,
-    "--setta-textblock-h3-size": `${typography.h3Px}px`,
-    "--setta-textblock-h4-size": `${typography.h4Px}px`,
-    "--setta-textblock-h5-size": `${typography.h5Px}px`,
-    "--setta-textblock-h6-size": `${typography.h6Px}px`,
-  };
 
   const { ref, isScrollable } = useIsScrollable();
 
@@ -69,11 +54,11 @@ function _Markdown({ sectionId }) {
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041
   return format === TextBlockFormatEnum.Markdown ? (
-    <div ref={ref} className={wrapperClassName} style={markdownTypographyStyle}>
+    <div ref={ref} className={wrapperClassName}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
-        className={`prose-headings: prose min-w-[100%] [flex:1_1_auto] dark:prose-invert prose-headings:tracking-tighter ${proseContrastClassName} prose-code:before:hidden prose-code:after:hidden prose-p:text-[length:var(--setta-textblock-body-size)] prose-li:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-pre:text-[length:var(--setta-textblock-code-size)] prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] [&_*]:[word-wrap:break-word]`}
+        className={`prose-headings: prose prose-sm min-w-[100%] [flex:1_1_auto] dark:prose-invert prose-headings:tracking-tighter ${proseContrastClassName} prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&_*]:[word-wrap:break-word]`}
         components={{
           code: CodeBlock,
         }}
@@ -84,8 +69,7 @@ function _Markdown({ sectionId }) {
   ) : (
     <pre
       ref={ref}
-      className={`${wrapperClassName} overflow-x-clip text-wrap break-words ${preTextClassName}`}
-      style={{ fontSize: `${typography.bodyPx}px` }}
+      className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs ${preTextClassName}`}
     >
       {text}
     </pre>

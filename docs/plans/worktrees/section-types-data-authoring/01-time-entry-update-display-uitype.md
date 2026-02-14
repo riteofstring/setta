@@ -21,8 +21,3 @@ Add a time-focused UI type that supports entry, editing, and formatted display o
 - Add unit tests for parsing/format format option behavior.
 - Add Playwright flow for entry/edit/configure time display.
 - CDP visual check for controls in pane and canvas contexts.
-
-## Delivery Notes (2026-02-14)
-- Implemented `TextParam` time input mode via `uiType="time"` and a shared `TextParamDateTimeInput` component.
-- Added normalization/formatting utilities in `frontend/src/utils/textParamDateTime.ts` for 12h/24h parsing and display output.
-- Added/updated tests: `frontend/src/components/Params/ParamUIs/TextParamInput.test.tsx`, `frontend/src/utils/textParamDateTime.test.ts`, and `frontend/src/utils/sectionTypesDataAuthoring.performance.test.ts`.

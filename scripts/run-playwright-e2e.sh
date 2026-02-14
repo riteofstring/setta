@@ -122,7 +122,8 @@ SETTA_HOME="${SETTA_HOME:-}"
 TEMP_SETTA_HOME=""
 if [[ -z "${SETTA_HOME}" ]]; then
   TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-  SETTA_HOME="${TEMP_SETTA_HOME}"
+  SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
+  mkdir -p "${SETTA_HOME}"
 fi
 export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
@@ -389,6 +390,28 @@ PY
 )"
 
 declare -a PLAYWRIGHT_EXTRA_ARGS=()
+
+user_supplied_max_failures=0
+for arg in "$@"; do
+  case "${arg}" in
+    --max-failures|--max-failures=*)
+      user_supplied_max_failures=1
+      break
+      ;;
+  esac
+done
+
+if [[ "${user_supplied_max_failures}" -eq 0 ]]; then
+  max_failures_raw="${SETTA_E2E_MAX_FAILURES:-1}"
+  if ! [[ "${max_failures_raw}" =~ ^[0-9]+$ ]]; then
+    echo "Invalid SETTA_E2E_MAX_FAILURES: ${max_failures_raw}. Expected a non-negative integer." >&2
+    exit 1
+  fi
+  if [[ "${max_failures_raw}" != "0" ]]; then
+    PLAYWRIGHT_EXTRA_ARGS+=(--max-failures "${max_failures_raw}")
+  fi
+fi
+
 if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
   timeout_ms="$(
     "${PYTHON_BIN}" - <<'PY'
