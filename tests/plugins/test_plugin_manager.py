@@ -182,6 +182,29 @@ def test_backend_plugin_disable_stays_pending_restart(tmp_path: Path) -> None:
     assert status_entries[0].restartRequired is True
 
 
+def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
+    # Link/install flows should prepare plugin-scoped backend runtime metadata.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.sourceDigestSha256 is not None
+    runtime_marker = manager._runtime_marker_path(
+        plugin_id=linked.pluginId,
+        version=linked.version,
+        source_digest_sha256=linked.sourceDigestSha256,
+    )
+    assert runtime_marker.exists()
+    marker_payload = json.loads(runtime_marker.read_text(encoding="utf-8"))
+    assert marker_payload["pluginId"] == linked.pluginId
+    assert marker_payload["version"] == linked.version
+    assert marker_payload["sourceDigestSha256"] == linked.sourceDigestSha256
+    assert marker_payload["dependencies"] == []
+
+
 def test_programmatic_restart_capability_and_action(tmp_path: Path) -> None:
     # Programmatic restart mode should expose deterministic capability/action payloads.
     restart_calls: list[str] = []
@@ -416,6 +439,43 @@ def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> No
     assert backend_entries[0].state == PluginRuntimeState.invalid
     error_codes = {error.code for error in backend_entries[0].errors}
     assert "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR" in error_codes
+
+
+def test_backend_plugin_missing_dependency_runtime_is_invalid(tmp_path: Path) -> None:
+    # Backend plugins with declared dependencies should fail activation if runtime install is missing.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "pyproject.toml").write_text(
+        "[build-system]\n"
+        'requires = ["setuptools>=68", "wheel"]\n'
+        'build-backend = "setuptools.build_meta"\n\n'
+        "[project]\n"
+        'name = "setta-fixture-backend"\n'
+        'version = "0.1.0"\n'
+        'description = "Backend fixture plugin for Setta tests"\n'
+        'requires-python = ">=3.12"\n'
+        'dependencies = ["requests>=2"]\n',
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED" in error_codes
 
 
 def test_plugin_config_schema_validation_and_list_descriptors(

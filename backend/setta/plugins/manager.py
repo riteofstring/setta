@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -252,6 +253,7 @@ class PluginManager:
         )
         self._history_root = self.setta_files_root / "plugins_history"
         self._lockfile_path = self.workspace_root / "plugins" / "plugins.lock.json"
+        self._runtime_root = self.setta_files_root / "plugins_runtime"
 
         self._pending_restart_backend_ids: set[str] = set()
         self._backend_runtime_errors: dict[str, PluginErrorInfo] = {}
@@ -481,6 +483,7 @@ class PluginManager:
             code="PLUGIN_BACKEND_IMPORT_FAILED",
             message_prefix="Invalid backend entrypoint path",
         )
+        self._ensure_backend_runtime_for_entry(entry)
         self._run_backend_preflight_stage(
             entry=entry,
             entrypoint_path=entrypoint_path,
@@ -603,6 +606,197 @@ class PluginManager:
         if not isinstance(code, str) or not isinstance(message, str):
             return None
         return {"code": code, "message": message}
+
+    def _ensure_backend_runtime_for_entry(self, entry: DiscoveredPlugin) -> None:
+        if entry.manifest is None or entry.manifest.backend is None:
+            return
+        if entry.source_digest_sha256 is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                (
+                    f"Backend runtime identity is missing for plugin "
+                    f"{entry.plugin_id}."
+                ),
+            )
+        runtime_marker = self._runtime_marker_path(
+            plugin_id=entry.plugin_id,
+            version=entry.version,
+            source_digest_sha256=entry.source_digest_sha256,
+        )
+        if runtime_marker.exists():
+            return
+        dependencies = self._read_backend_dependencies(entry.source_path)
+        if len(dependencies) == 0:
+            self._prepare_backend_runtime(
+                plugin_id=entry.plugin_id,
+                version=entry.version,
+                source_digest_sha256=entry.source_digest_sha256,
+                plugin_root=entry.source_path,
+            )
+            return
+        raise PluginManagerError(
+            "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+            (
+                f"Backend runtime dependencies were not installed for plugin "
+                f"{entry.plugin_id}. Reinstall or update the plugin."
+            ),
+        )
+
+    def _prepare_backend_runtime(
+        self,
+        *,
+        plugin_id: str,
+        version: str,
+        source_digest_sha256: str | None,
+        plugin_root: Path,
+    ) -> None:
+        if source_digest_sha256 is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                f"Missing source digest for backend plugin runtime: {plugin_id}",
+            )
+        dependencies = self._read_backend_dependencies(plugin_root)
+        runtime_path = self._runtime_path(
+            plugin_id=plugin_id,
+            version=version,
+            source_digest_sha256=source_digest_sha256,
+        )
+        runtime_path.mkdir(parents=True, exist_ok=True)
+        if len(dependencies) > 0:
+            venv_path = runtime_path / ".venv"
+            if not venv_path.exists():
+                create_venv = subprocess.run(
+                    [sys.executable, "-m", "venv", str(venv_path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if create_venv.returncode != 0:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                        (
+                            f"Failed to create backend runtime for plugin {plugin_id}: "
+                            f"{create_venv.stderr.strip() or create_venv.stdout.strip()}"
+                        ),
+                    )
+            python_binary = (
+                venv_path / "Scripts" / "python.exe"
+                if os.name == "nt"
+                else venv_path / "bin" / "python"
+            )
+            install_result = subprocess.run(
+                [str(python_binary), "-m", "pip", "install", *dependencies],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if install_result.returncode != 0:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                    (
+                        f"Failed to install backend dependencies for plugin {plugin_id}: "
+                        f"{install_result.stderr.strip() or install_result.stdout.strip()}"
+                    ),
+                )
+        self._write_runtime_marker(
+            plugin_id=plugin_id,
+            version=version,
+            source_digest_sha256=source_digest_sha256,
+            dependencies=dependencies,
+        )
+
+    def _runtime_path(
+        self,
+        *,
+        plugin_id: str,
+        version: str,
+        source_digest_sha256: str,
+    ) -> Path:
+        version_token = self._sanitize_runtime_token(version)
+        digest_token = self._sanitize_runtime_token(source_digest_sha256)
+        return self._runtime_root / plugin_id / version_token / digest_token
+
+    def _runtime_marker_path(
+        self,
+        *,
+        plugin_id: str,
+        version: str,
+        source_digest_sha256: str,
+    ) -> Path:
+        return (
+            self._runtime_path(
+                plugin_id=plugin_id,
+                version=version,
+                source_digest_sha256=source_digest_sha256,
+            )
+            / "runtime.json"
+        )
+
+    def _write_runtime_marker(
+        self,
+        *,
+        plugin_id: str,
+        version: str,
+        source_digest_sha256: str,
+        dependencies: list[str],
+    ) -> None:
+        marker_path = self._runtime_marker_path(
+            plugin_id=plugin_id,
+            version=version,
+            source_digest_sha256=source_digest_sha256,
+        )
+        marker_path.parent.mkdir(parents=True, exist_ok=True)
+        marker_payload = {
+            "pluginId": plugin_id,
+            "version": version,
+            "sourceDigestSha256": source_digest_sha256,
+            "dependencies": dependencies,
+            "createdAtIso": datetime.now(UTC).isoformat(),
+        }
+        marker_path.write_text(
+            json.dumps(marker_payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+
+    def _read_backend_dependencies(self, plugin_root: Path) -> list[str]:
+        pyproject_path = plugin_root / "pyproject.toml"
+        if not pyproject_path.exists() or not pyproject_path.is_file():
+            return []
+        try:
+            parsed = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        except tomllib.TOMLDecodeError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                f"Invalid pyproject.toml for backend plugin runtime: {pyproject_path}",
+            ) from exc
+        if not isinstance(parsed, dict):
+            return []
+        project_payload = parsed.get("project")
+        if not isinstance(project_payload, dict):
+            return []
+        dependencies_payload = project_payload.get("dependencies")
+        if not isinstance(dependencies_payload, list):
+            return []
+        dependencies: list[str] = []
+        for raw_dependency in dependencies_payload:
+            if not isinstance(raw_dependency, str):
+                continue
+            normalized = raw_dependency.strip()
+            if normalized:
+                dependencies.append(normalized)
+        return dependencies
+
+    def _sanitize_runtime_token(self, value: str) -> str:
+        normalized_chars: list[str] = []
+        for char in value:
+            if char.isalnum() or char in {"-", "_", "."}:
+                normalized_chars.append(char)
+            else:
+                normalized_chars.append("_")
+        normalized = "".join(normalized_chars)
+        if normalized:
+            return normalized
+        return "_"
 
     def _import_backend_plugin_module(
         self,
@@ -952,6 +1146,13 @@ class PluginManager:
             had_backend_before = (
                 old_entry.has_backend if old_entry is not None else False
             )
+            if candidate.manifest.backend is not None:
+                self._prepare_backend_runtime(
+                    plugin_id=candidate.manifest.id,
+                    version=candidate.manifest.version,
+                    source_digest_sha256=candidate.source_digest_sha256,
+                    plugin_root=candidate.root,
+                )
 
             self._install_candidate(
                 candidate,
@@ -1007,6 +1208,13 @@ class PluginManager:
         manifest = self._load_and_validate_manifest(source_root / "setta.plugin.json")
         self._validate_manifest_paths(source_root, manifest)
         source_digest = self._compute_directory_digest(source_root)
+        if manifest.backend is not None:
+            self._prepare_backend_runtime(
+                plugin_id=manifest.id,
+                version=manifest.version,
+                source_digest_sha256=source_digest,
+                plugin_root=source_root,
+            )
         resolved_scope = normalize_scope(scope)
         target = self._target_plugin_path(resolved_scope, manifest.id)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -1245,6 +1453,17 @@ class PluginManager:
                 "PLUGIN_ROLLBACK_UNAVAILABLE",
                 f"Rollback snapshot missing for plugin: {plugin_id}",
             )
+        snapshot_manifest = self._load_and_validate_manifest(
+            snapshot_path / "setta.plugin.json"
+        )
+        snapshot_digest = self._compute_directory_digest(snapshot_path)
+        if snapshot_manifest.backend is not None:
+            self._prepare_backend_runtime(
+                plugin_id=plugin_id,
+                version=snapshot_manifest.version,
+                source_digest_sha256=snapshot_digest,
+                plugin_root=snapshot_path,
+            )
 
         target = self._target_plugin_path(resolved_scope, plugin_id)
         if target.exists() and target.is_dir() and not target.is_symlink():
@@ -1253,20 +1472,18 @@ class PluginManager:
             target.unlink()
         shutil.copytree(snapshot_path, target)
 
-        manifest = self._load_and_validate_manifest(target / "setta.plugin.json")
-        digest = self._compute_directory_digest(target)
-        entry.version = manifest.version
-        entry.sourceDigestSha256 = digest
+        entry.version = snapshot_manifest.version
+        entry.sourceDigestSha256 = snapshot_digest
         metadata.entries[metadata_key] = entry
         self._save_install_metadata(metadata)
-        if manifest.backend is not None:
+        if snapshot_manifest.backend is not None:
             self._pending_restart_backend_ids.add(plugin_id)
         self.rescan()
         return PluginRollbackResponse(
             pluginId=plugin_id,
-            restoredVersion=manifest.version,
-            sourceDigestSha256=digest,
-            restartRequired=manifest.backend is not None,
+            restoredVersion=snapshot_manifest.version,
+            sourceDigestSha256=snapshot_digest,
+            restartRequired=snapshot_manifest.backend is not None,
         )
 
     def write_lockfile(self) -> PluginLockWriteResponse:
