@@ -464,6 +464,14 @@ class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
     )
 
 
+class SetViewModeSortOrderRequest(ProjectManagerRequestWithProjectConfig):
+    """Persist a full ordered list of view mode IDs."""
+
+    orderedViewModeIds: list[ID] = Field(
+        description="Complete list of view mode IDs in desired order.",
+    )
+
+
 class DeleteViewModeRequest(ProjectManagerRequestWithProjectConfig):
     """Remove a view mode from the current project config."""
 
