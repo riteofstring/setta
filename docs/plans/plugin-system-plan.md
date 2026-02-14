@@ -534,7 +534,7 @@ Lock core install/update/restart contracts in MVP so frontend, CLI, and MCP inte
 - response: `{ accepted: boolean, mode: "programmatic" | "manual", command?: string, reason?: string }`
 - if restart cannot be performed programmatically in the current runtime, return `accepted=false` with `mode="manual"` and an exact fallback command.
 
-Future work (not MVP):
+Lockfile routes (implemented):
 
 - `POST /api/plugins/lock/write`
 - `POST /api/plugins/lock/apply`
@@ -1041,11 +1041,11 @@ Rollback semantics (normative MVP):
 
 - `rollback` restores the previous installed version/ref from installer history metadata when available; otherwise returns deterministic error (`PLUGIN_ROLLBACK_UNAVAILABLE`).
 
-Setta plugin lockfile (future work):
+Setta plugin lockfile (implemented):
 
-- Keep `<workspace>/plugins/plugins.lock.json` as a possible future Setta-specific reproducibility layer.
-- In MVP, rely on Python package-manager lockfiles (`uv.lock`, Poetry lock, pinned requirements, etc.) for package dependency reproducibility.
-- If implemented later, Setta lockfile should focus on Setta-specific runtime state (scope/enablement/provenance) rather than replacing package-manager dependency resolution.
+- Setta writes `<workspace>/plugins/plugins.lock.json` as a Setta-specific reproducibility layer.
+- Package-manager lockfiles (`uv.lock`, Poetry lock, pinned requirements, etc.) still remain the source of truth for Python dependency reproducibility.
+- Setta lockfile focuses on Setta runtime state (scope/source/provenance) and does not replace package-manager dependency resolution.
 
 ### AI-driven plugin install ("install this plugin source")
 
@@ -1137,122 +1137,98 @@ Guardrails:
 
 ## Testing Strategy
 
-Cross-layer requirement:
+Status snapshot (February 14, 2026):
 
-- Add unit, integration, and Playwright tests that simulate creating real plugins and verify the plugins actually work (registration, rendering, commands/panes, lifecycle, and fallback behavior).
+Implemented coverage:
 
-Backend:
+- Backend unit/integration coverage for discovery, manifest validation, scopes and precedence, shadowing, enablement and `pending_restart` lifecycle semantics.
+- Backend coverage for install/update/rollback/link/unlink, installer backend selection (`auto|pip|uv`), package-manager-managed discovery, worker handshake and timeout mapping, and restart capability endpoints.
+- Backend golden-path fixture coverage for source-driven install flows (`github:` and `pypi:`), plus publish-ready template initialization and validation.
+- Frontend unit coverage for runtime registration validation (`PLUGIN_FRONTEND_REGISTRATION_INVALID`, `PLUGIN_FRONTEND_API_VERSION_MISMATCH`), fallback reasons, and restart helpers.
+- Playwright coverage for plugin pane/command/section rendering, disabled fallback UI, install flow scope/backend UX, package-manager guidance UX, restart-required UX, and Share-mode capability visibility.
+- Playwright coverage for deeper integrations: language-server plugin registration, plugin external agent adapters, and plugin codegen target visibility.
+- First-party fixture suite and golden-path authoring documentation are in place.
 
-- Unit tests for manifest parsing and directory scanning using temp directories.
-- Tests for loading a minimal backend plugin that registers one router and one MCP tool.
-- Tests for deterministic load order and proper error reporting.
-- Tests for mode capability gating (IDE vs Share/App) and blocked API errors.
-- Tests for schema migration paths (for example v1 manifests/state accepted and migrated to current).
-- Tests for source-spec parsing and install behavior for `github:` and `pypi:`.
-- Tests for dev-only link/unlink behavior (`setta plugins link`, `setta plugins unlink`) including target-scope link creation, manifest validation, and precedence/shadowing visibility.
-- Tests for source root resolution errors (`PLUGIN_SOURCE_MANIFEST_NOT_FOUND`, `PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT`).
-- Tests for artifact identity mismatch errors (`PLUGIN_SOURCE_IDENTITY_MISMATCH`, `PLUGIN_SOURCE_VERSION_MISMATCH`).
-- Tests for enablement resolution order (`disabledPluginIds`, `enabledPluginIds`, `enabledByDefault`).
-- Tests for global auto-enable defaults (`plugins_global_state.json`) and workspace override precedence.
-- Tests for `pending_restart` transitions after backend plugin install/enable/disable/update/uninstall.
-- Tests for atomic installer rollback behavior (failed install leaves existing plugin unchanged).
-- Tests for uninstall semantics (single-scope uninstall, multi-scope scope-required error).
-- Tests for scope alias handling (`environment` accepted as alias for `setta_files`).
-- Tests for plugin config schema validation and `PLUGIN_CONFIG_INVALID` behavior.
-- Tests for rollback behavior (`PLUGIN_ROLLBACK_UNAVAILABLE` path included).
-- Tests for provenance digest persistence/display fields in plugin status/list responses.
-- Tests for install-time dependency resolution into plugin-scoped runtime env and deterministic worker boot failures.
-- Tests for installer backend selection (`auto|pip|uv`) and deterministic fallback/error behavior when a requested backend is unavailable.
-- Tests for package-manager-managed plugin discovery from active Python environments.
-- Tests for worker RPC handshake/version negotiation and timeout error mapping (`PLUGIN_BACKEND_STARTUP_TIMEOUT`, `PLUGIN_BACKEND_REGISTER_TIMEOUT`, `PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR`).
-- Tests for restart capability/restart endpoints (`restart-capability`, `restart`) across runtimes with and without programmatic restart support.
-- Golden-path install tests using first-party fixture plugins from `github:` and `pypi:` source specs.
+Coverage still planned is consolidated in `Future Work`.
 
-Frontend:
+## Implementation Status (Updated February 14, 2026)
 
-- Playwright E2E with a fixture plugin under a test workspace that registers one section kind and one pane.
-- Verify plugin list loads, plugin section renders, and disabling plugin yields fallback UI.
-- Verify Share mode behavior for partially active plugins (allowed contributions render; blocked contributions show clear status).
-- Add large-canvas performance coverage for plugin sections (for example 100+ sections, update fanout checks).
-- Add coverage for source-based install flow in the Plugins modal (`github:` / `pypi:` input + scope selector).
-- Add coverage for fallback card reasons (`plugin_disabled`, `plugin_not_installed`, `frontend_load_failed`, `mode_blocked`).
-- Add coverage for scope selector UX (`workspace`, `environment`, `global`) and source/scope visibility in plugin rows.
-- Add coverage for frontend SDK contract enforcement (`PLUGIN_FRONTEND_REGISTRATION_INVALID`, `PLUGIN_FRONTEND_API_VERSION_MISMATCH`).
-- Add coverage for digest cache-busting behavior (`entrypointUrl/styleUrl` update when source digest changes).
-- Add coverage for restart-required UX (banner + `Restart Setta` action/fallback command rendering).
-- Add coverage that `Restart Setta` uses `POST /api/plugins/restart` when available and shows exact manual fallback command from restart capability metadata otherwise.
+### Phase 0: Authoring baseline (Complete)
 
-## Implementation Phases
+- Manifest schema and config schema validation surfaces are published.
+- `setta plugins init` and `setta plugins validate` are implemented with publish-ready scaffolds.
+- Canonical fixture plugins and fixture documentation exist under `tests/fixtures/plugins/`.
+- Golden-path authoring docs are published.
 
-### Phase 0: Authoring baseline (schemas + starter tooling)
+### Phase 1: Backend skeleton (Complete)
 
-- Publish official JSON Schema files for manifest and plugin config validation surfaces.
-- Add `setta plugins init` templates (`backend`, `frontend`, `full`, `content`) and `setta plugins validate`.
-- Ensure `setta plugins init` outputs publish-ready scaffolds (`pyproject.toml`, packaging includes, validate/build wiring, release/publish instructions).
-- Add a canonical first-party fixture suite under `tests/fixtures/plugins/` (`backend`, `frontend`, `content`, `full`) with docs aimed at both humans and LLM-assisted authoring.
-- Add a "golden path" authoring doc that shows end-to-end flows: write plugin, validate/build, publish to GitHub/PyPI, install via `setta plugins install`.
+- Plugin discovery, status/list APIs, management APIs, restart contract APIs, and static asset serving are implemented.
+- Scope precedence and aliasing (`environment` -> `setta_files`) are implemented.
+- Provenance metadata (`canonicalSourceKey`, `sourceDigestSha256`, scope/path) and shadowing visibility are implemented.
+- Worker RPC contract, handshake validation, timeout/error mapping, and backend dependency runtime orchestration are implemented.
+- Package-manager-managed plugin discovery is implemented.
 
-### Phase 1: Backend skeleton (discovery + static serving + registry endpoints)
+### Phase 2: Frontend loader + minimal extension points (Complete)
 
-- Create `backend/setta/plugins/` package with manifest types, plugin directory scanning, enablement state, and status reporting.
-- Resolve `<setta_home>/plugins` using the same Setta-home logic as user config (`resolve_setta_home()`, `SETTA_HOME`) and include it in discovery.
-- Add backend routes `GET /api/plugins/list`, `GET /api/plugins/status`, and management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`) matching normative schemas in this document.
-- Add backend restart contract routes (`GET /api/plugins/restart-capability`, `POST /api/plugins/restart`) used by both UI and CLI.
-- Serve plugin static assets under `/plugins/<pluginId>/...` from the resolved active plugin source path (workspace/setta_files/global).
-- Built-mode note: ensure `/plugins/...` mounts are registered before the SPA catch-all route (or move the catch-all route to the end after mounting), otherwise requests for plugin JS/CSS can be swallowed by the app's `index.html` handler.
-- Implement enablement resolution (`disabledPluginIds`, `enabledPluginIds`, `autoEnabledPluginIds`, `enabledByDefault`) and `pending_restart` status semantics.
-- Implement installer history metadata for rollback.
-- Persist `sourceDigestSha256` and include provenance metadata in list/status endpoints.
-- Implement backend worker RPC protocol (JSON-RPC over stdio) with handshake/version checks, required method set, and timeout/error mapping.
-- Ensure CLI/API scope alias mapping supports user-facing `environment` while preserving canonical `setta_files`.
-- Implement install-time backend dependency resolution into plugin-scoped runtime environments and plugin worker boot orchestration.
-- Add package-manager-managed plugin discovery from active Python environments.
-- Add installer backend selection (`auto|pip|uv`) for source-based installs without requiring `uv`.
+- Frontend runtime loader and plugin registry are implemented with lazy ESM loading.
+- Pane/command/top-nav extension points and runtime registration validation are implemented.
+- Plugins UI includes source-based install controls, scope selector, package-manager guidance, restart-required UX, and provenance/capability summaries.
+- Share/App mode capability filtering is surfaced in status/UI.
 
-### Phase 2: Frontend loader + minimal extension points
+### Phase 3: Plugin sections (Complete)
 
-- Add frontend plugin loader module and a global registry in `frontend/src/`.
-- Load enabled plugins on app start (or on demand).
-- Add minimal extension points: panes and commands.
-- Ship frontend plugin SDK types and host-side runtime validation for all `register*` payloads.
-- Add a "Plugins" modal with source-based install controls (`github:` / `pypi:`), optional `FileBrowserPane` inspection view, scope selector, and "restart required" messaging.
-- Show package-manager guidance for environment-managed plugins (install/update/uninstall flows handled outside Setta).
-- Add `Restart Setta` UX path with fallback command display when programmatic restart is unavailable.
-- Add source/capability/provenance summary views in plugin rows and install confirmation dialogs.
+- `SectionType.Plugin` and `PluginSectionImpl` are implemented in backend/frontend types.
+- `PluginArea` renderer integration and create-menu registration are implemented.
+- Missing-renderer fallback UI is implemented and tested.
 
-### Phase 3: Plugin sections (core model + rendering)
+### Phase 4: Content plugins + export-from-Setta (Not implemented)
 
-- Add `SectionType.Plugin` and `PluginSectionImpl` to backend and frontend generated types.
-- Add a `PluginArea` renderer to `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`.
-- Add "Add" menu items for plugin section kinds.
-- Add fallback UI when renderer is missing.
-- Add a simple example plugin in `tests/fixtures/plugins/` to validate the pipeline.
+- Core runtime MVP shipped without this phase.
+- Remaining work is listed in `Future Work`.
 
-### Phase 4: Content plugins + export-from-Setta (group and project, future work)
+### Phase 5: Deeper integrations (Complete for MVP scope)
 
-This phase is valuable, but it is not required to complete the core plugin
-runtime MVP. Defer until backend/frontend plugin runtime hardening and deeper
-integration priorities are complete.
+- Language-server registration works end-to-end with mode-aware capability gating and failure reporting.
+- External agent adapter registration works end-to-end with mode-aware capability gating and failure reporting.
+- Plugin codegen target registration works end-to-end with mode-aware capability gating and failure reporting.
+- Follow-on Phase 5 enhancements are listed in `Future Work`.
+
+## Phase completion gates (status)
+
+- Phase 0: complete.
+- Phase 1: complete.
+- Phase 2: complete.
+- Phase 3: complete.
+- Phase 4: open (future milestone).
+- Phase 5: complete for MVP scope (follow-on enhancements remain).
+
+## Future Work
+
+**Content plugin import/export UX**
 
 - Add blueprint import UI and a "Blueprints" section in the Add menu.
-- Add "Export Group As Plugin..." flow that writes to `plugins/`.
-- Add "Export ProjectConfig As Plugin..." flow that writes to `plugins/` as a project template plugin.
-- Optional: copy referenced artifacts into plugin content assets.
+- Add "Export Group As Plugin..." flow that writes plugin folders/manifests under `plugins/`.
+- Add "Export ProjectConfig As Plugin..." flow that writes plugin folders/manifests under `plugins/` as project template plugins.
+- Add import roundtrip coverage for blueprint and project template plugin payloads.
+- Optional: copy referenced artifacts into plugin content assets during export.
 
-### Phase 5: Deeper integrations (language servers, external agents, codegen)
+**Frontend plugin host parity**
 
-- Language servers: allow plugins to register new LSP server definitions and settings UI; later open up `CodeLanguage` to allow plugin-defined languages (likely via a "Custom language key" field rather than enum).
-- AI: allow plugins to register external agent adapters and engine config templates; allow plugins to contribute MCP tools and prompt templates.
-- Codegen: allow plugin-defined codegen targets in a registry, without hardcoding new discriminated union variants per plugin.
+- Implement `registerContextMenu` host support (currently not implemented).
+- Add optional `FileBrowserPane` inspection view in the Plugins UI for plugin frontend/backend/content files.
 
-## Phase completion gates
+**Additional coverage and hardening**
 
-- Phase 0 complete when `setta plugins init` and `setta plugins validate` exist, schema files are published, publish-ready template scaffolds are generated, first-party fixture suite is documented, and golden-path authoring docs are published.
-- Phase 1 complete when `/api/plugins/list`, `/api/plugins/status`, management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`), and restart contract routes (`restart-capability`, `restart`) are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, rollback support, package-manager-managed discovery, installer backend selection (`auto|pip|uv`), backend worker/runtime dependency setup, explicit worker RPC contract/timeout handling, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
-- Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, with scope selector support (`workspace`, `environment`, `global`), frontend SDK/runtime registration validation, restart-required UX, package-manager guidance for environment-managed plugins, and Share-mode capability filtering visible in UI/status.
-- Phase 3 complete when `SectionType.Plugin` roundtrips through backend/frontend types, renders via registered plugin renderer, and missing renderer falls back without app instability.
-- Phase 4 is a future milestone (not required for core plugin runtime MVP), complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
-- Phase 5 complete when at least one deeper integration (for example language-server registration) works end-to-end with mode-aware capability gating and failure reporting.
+- Add large-canvas performance coverage for plugin sections (for example 100+ sections and update fanout assertions).
+- Add coverage for digest cache-busting behavior when `sourceDigestSha256` changes plugin frontend asset URLs.
+- Add backend tests that explicitly assert artifact identity mismatch errors (`PLUGIN_SOURCE_IDENTITY_MISMATCH`, `PLUGIN_SOURCE_VERSION_MISMATCH`) in source install paths.
+- Add explicit schema migration framework coverage (vN->vN+1 migration tests) when migration hooks are introduced beyond unsupported-schema rejection.
+- Add explicit dependency-conflict invalidation behavior (`PLUGIN_BACKEND_DEPENDENCY_CONFLICT`) if runtime isolation cannot be established.
+
+**Phase 5 follow-ons**
+
+- Allow plugins to contribute prompt templates and engine config templates.
+- Consider optional plugin-defined language enum extension design beyond current LSP/settings-only integration.
 
 ## MVP Decisions (Resolved)
 
@@ -1270,11 +1246,11 @@ integration priorities are complete.
 - Plugin identity invariants are strict in MVP: manifest `id/version` must match package metadata when metadata is present.
 - Plugin config supports optional schema-based validation via `configSchemaPath`.
 - Installer lifecycle includes update/pin/rollback in MVP.
-- Setta plugin lockfile workflows are deferred to future work; package-manager lockfiles handle package reproducibility in MVP.
+- Setta plugin lockfile workflows are implemented via `setta plugins lock write` and `setta plugins lock apply`; package-manager lockfiles still handle package dependency reproducibility.
 - Backend plugin changes remain restart-gated, but restart-required UX is first-class (button or exact fallback command).
 - Backend plugin execution uses plugin-scoped worker runtimes with install-time dependency resolution.
 - Content plugins are read-only template sources in MVP; users import/copy into mutable workspace stores explicitly.
 - Restart behavior is exposed via explicit backend restart capability/action contracts so UI and CLI share the same deterministic fallback behavior.
 - MVP includes provenance visibility (canonical source key, scope/path, source digest) and warning-only trust messaging.
 - Frontend plugin loading uses native ESM `import()` only in MVP.
-- Plugin-defined languages do not extend the core `CodeLanguage` enum in MVP. Language plugins register LSP/settings integrations only. Enum extension is deferred to Phase 5 follow-on design.
+- Plugin-defined languages do not extend the core `CodeLanguage` enum in MVP. Language plugins register LSP/settings integrations only; optional enum extension follow-on is tracked in `Future Work`.
