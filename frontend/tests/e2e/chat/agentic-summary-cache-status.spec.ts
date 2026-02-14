@@ -53,10 +53,15 @@ test.describe.serial("agentic summary cache status", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
 
-      const summaryCachePanel = uiEditorPane
-        .getByText("Summary cache")
-        .locator("..")
-        .locator("..");
+      const summaryCacheHeader = uiEditorPane.getByText("Summary cache");
+      if (!(await summaryCacheHeader.isVisible())) {
+        await uiEditorPane
+          .getByRole("button", { name: /^Context & Links/ })
+          .click();
+      }
+      await expect(summaryCacheHeader).toBeVisible();
+
+      const summaryCachePanel = summaryCacheHeader.locator("..").locator("..");
       await expect(summaryCachePanel).toContainText("Cached: 0/8");
       await expect(summaryCachePanel).toContainText("Missing: 8");
       await expect(summaryCachePanel).toContainText("Deferred due to cap (6): 2");
