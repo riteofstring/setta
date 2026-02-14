@@ -155,7 +155,10 @@ function TabsVisible({
 }) {
   const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
   return (
-    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
+    <div
+      data-testid="ui-editor-tab-content-shell"
+      className="mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
+    >
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
@@ -189,7 +192,7 @@ function TabContent({
 
 function Placeholder() {
   return (
-    <aside className="grid h-full min-h-0 w-full pr-1">
+    <aside className="mx-auto grid h-full min-h-0 w-[calc(100%_-_1rem)]">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
         <h4 className="text-center text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">

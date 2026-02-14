@@ -42,7 +42,7 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
-const FILE_BROWSER_META_INSET_CLASS = "w-full px-1.5";
+const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {
@@ -248,10 +248,11 @@ function TabsVisible({
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   return (
     <div
+      data-testid="overview-tab-content-shell"
       className={
         isFullWidth
           ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          : "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-1.5"
+          : "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
       }
     >
       {isFullWidth ? (

@@ -7,6 +7,7 @@ import {
 } from "../helpers";
 
 const OVERFLOW_TOLERANCE_PX = 6;
+const MIN_CONTENT_INSET_PX = 4;
 
 type CreateTopLevelSectionResponse = {
   sectionId?: string;
@@ -75,6 +76,49 @@ async function createCallableSectionAndFocus(page: Page): Promise<void> {
   }, sectionId);
 }
 
+async function assertPaneContentHasHorizontalInset(
+  page: Page,
+  paneSelector: string,
+  shellTestId: string,
+  contextLabel: string,
+): Promise<void> {
+  const shell = page.getByTestId(shellTestId).first();
+  await expect(shell).toBeVisible();
+
+  const insetStats = await page.evaluate(
+    ({ targetPaneSelector, targetShellTestId }) => {
+      const pane = document.querySelector(targetPaneSelector);
+      const shellElement = document.querySelector(
+        `[data-testid="${targetShellTestId}"]`,
+      );
+      if (!(pane instanceof HTMLElement) || !(shellElement instanceof HTMLElement)) {
+        return null;
+      }
+      const paneRect = pane.getBoundingClientRect();
+      const shellRect = shellElement.getBoundingClientRect();
+      return {
+        leftInset: shellRect.left - paneRect.left,
+        rightInset: paneRect.right - shellRect.right,
+      };
+    },
+    { targetPaneSelector: paneSelector, targetShellTestId: shellTestId },
+  );
+
+  if (!insetStats) {
+    throw new Error(`Unable to compute inset stats for ${contextLabel}.`);
+  }
+  if (insetStats.leftInset < MIN_CONTENT_INSET_PX) {
+    throw new Error(
+      `${contextLabel} left inset too small: ${insetStats.leftInset}px`,
+    );
+  }
+  if (insetStats.rightInset < MIN_CONTENT_INSET_PX) {
+    throw new Error(
+      `${contextLabel} right inset too small: ${insetStats.rightInset}px`,
+    );
+  }
+}
+
 test("overview and ui-editor pane content stays clipped at narrow widths", async ({
   page,
 }) => {
@@ -85,7 +129,7 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
     overviewTrueWidth: 250,
     uiEditorWidth: 425,
     uiEditorTrueWidth: 425,
-    overviewTab: "RunInstructions",
+    overviewTab: "Overview",
   });
   await ensureAppReady(page);
 
@@ -103,19 +147,31 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
       "#OverviewPane aside",
       `overview tab ${tabTestId}`,
     );
+    await assertPaneContentHasHorizontalInset(
+      page,
+      "#OverviewPane aside",
+      "overview-tab-content-shell",
+      `overview tab ${tabTestId}`,
+    );
   }
 
   const uiEditorTabs = [
-    "ui-editor-tab-section-config",
     "ui-editor-tab-ui-config",
     "ui-editor-tab-quick-info-config",
     "ui-editor-tab-section-variants-config",
+    "ui-editor-tab-section-config",
   ];
   for (const tabTestId of uiEditorTabs) {
     await page.getByTestId(tabTestId).click();
     await assertPaneHasNoRightBleed(
       page,
       "#UiEditorPane aside",
+      `ui editor tab ${tabTestId}`,
+    );
+    await assertPaneContentHasHorizontalInset(
+      page,
+      "#UiEditorPane aside",
+      "ui-editor-tab-content-shell",
       `ui editor tab ${tabTestId}`,
     );
   }
