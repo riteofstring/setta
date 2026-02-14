@@ -23,6 +23,7 @@ fi
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+. "${SCRIPT_DIR}/lib/setta_path_flags.sh"
 
 if [ -z "${INSTANCE_NAME}" ]; then
   INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
@@ -82,124 +83,49 @@ SETTA_HOST="${SETTA_HOST:-127.0.0.1}"
 SETTA_PORT="${SETTA_PORT:-${DEFAULT_BACKEND_PORT}}"
 SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT:-${DEFAULT_FRONTEND_PORT}}"
 RUN_MODE="start"
-SETTA_PROFILE_OVERRIDE=""
-SETTA_HOME_OVERRIDE=""
-SETTA_FILES_ROOT_OVERRIDE=""
-SETTA_FILES_LOCATION_OVERRIDE=""
-SETTA_RUNTIME_ROOT_OVERRIDE=""
-
-EFFECTIVE_SETTA_HOME="${DEFAULT_SETTA_HOME}"
-EFFECTIVE_SETTA_FILES_ROOT="${DEFAULT_DEV_SETTA_FILES_ROOT}"
-EFFECTIVE_SETTA_FILES_LOCATION=""
-
-require_option_value() {
-  flag="$1"
-  arg_count="$2"
-  if [ "${arg_count}" -lt 2 ]; then
-    echo "Missing value for ${flag}" >&2
-    exit 1
-  fi
-}
+setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --host)
-      require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#"
       SETTA_HOST="$2"
       shift 2
       ;;
     --backend-port)
-      require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#"
       SETTA_PORT="$2"
       shift 2
       ;;
     --frontend-port)
-      require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#"
       SETTA_DEV_FRONTEND_PORT="$2"
       shift 2
       ;;
     --mode)
-      require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#"
       RUN_MODE="$2"
       shift 2
       ;;
-    --profile)
-      require_option_value "$1" "$#"
-      SETTA_PROFILE_OVERRIDE="$2"
-      shift 2
-      ;;
-    --setta-home)
-      require_option_value "$1" "$#"
-      SETTA_HOME_OVERRIDE="$2"
-      shift 2
-      ;;
-    --setta-files-root)
-      require_option_value "$1" "$#"
-      SETTA_FILES_ROOT_OVERRIDE="$2"
-      shift 2
-      ;;
-    --setta-files-location)
-      require_option_value "$1" "$#"
-      SETTA_FILES_LOCATION_OVERRIDE="$2"
-      shift 2
-      ;;
-    --runtime-root)
-      require_option_value "$1" "$#"
-      SETTA_RUNTIME_ROOT_OVERRIDE="$2"
-      shift 2
-      ;;
     *)
-      echo "Unknown arg: $1" >&2
-      exit 1
+      if setta_path_flags_try_parse "$@"; then
+        shift "${SETTA_PATH_FLAGS_CONSUMED}"
+      else
+        echo "Unknown arg: $1" >&2
+        exit 1
+      fi
       ;;
   esac
 done
 
-if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ] && [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
-  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
-  exit 1
-fi
+setta_path_flags_validate
 
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
 export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
-if [ -n "${SETTA_HOME_OVERRIDE}" ]; then
-  EFFECTIVE_SETTA_HOME="${SETTA_HOME_OVERRIDE}"
-fi
-export SETTA_HOME="${EFFECTIVE_SETTA_HOME}"
-
-if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ]; then
-  EFFECTIVE_SETTA_FILES_ROOT="${SETTA_FILES_ROOT_OVERRIDE}"
-  EFFECTIVE_SETTA_FILES_LOCATION=""
-elif [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
-  EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION_OVERRIDE}"
-  EFFECTIVE_SETTA_FILES_ROOT=""
-fi
-
-if [ -n "${EFFECTIVE_SETTA_FILES_ROOT}" ]; then
-  export SETTA_FILES_ROOT="${EFFECTIVE_SETTA_FILES_ROOT}"
-  unset SETTA_FILES_LOCATION
-else
-  unset SETTA_FILES_ROOT
-  if [ -n "${EFFECTIVE_SETTA_FILES_LOCATION}" ]; then
-    export SETTA_FILES_LOCATION="${EFFECTIVE_SETTA_FILES_LOCATION}"
-  else
-    unset SETTA_FILES_LOCATION
-  fi
-fi
-
-if [ -n "${SETTA_PROFILE_OVERRIDE}" ]; then
-  export SETTA_PROFILE="${SETTA_PROFILE_OVERRIDE}"
-else
-  unset SETTA_PROFILE
-fi
-if [ -n "${SETTA_RUNTIME_ROOT_OVERRIDE}" ]; then
-  export SETTA_RUNTIME_ROOT="${SETTA_RUNTIME_ROOT_OVERRIDE}"
-else
-  unset SETTA_RUNTIME_ROOT
-fi
+setta_path_flags_apply_env
 
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then

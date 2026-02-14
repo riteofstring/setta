@@ -140,6 +140,21 @@ def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> 
         resolve_setta_paths(workspace_root=workspace)
 
 
+def test_explicit_setta_files_root_bypasses_invalid_local_root_file(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files").write_text("invalid", encoding="utf-8")
+    explicit_root = tmp_path / "explicit_state_root"
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        setta_files_root=explicit_root,
+    )
+
+    assert paths.setta_files_root == explicit_root.resolve(strict=False)
+    assert paths.setta_files_location is None
+
+
 def test_resolve_setta_paths_rejects_global_root_that_is_file(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -350,6 +365,54 @@ def test_runtime_root_env_override(
     paths = resolve_setta_paths(workspace_root=workspace)
 
     assert paths.runtime_root == runtime_root.resolve()
+
+
+@pytest.mark.parametrize(
+    ("raw_path", "expected_leaf"),
+    [
+        ("~/state_from_tilde", "state_from_tilde"),
+        ("$HOME/state_from_env", "state_from_env"),
+    ],
+)
+def test_setta_files_root_path_inputs_expand_user_and_env_vars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw_path: str, expected_leaf: str
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        setta_files_root=Path(raw_path),
+    )
+
+    assert paths.setta_files_root == (home / expected_leaf).resolve(strict=False)
+
+
+@pytest.mark.parametrize(
+    ("raw_path", "expected_leaf"),
+    [
+        ("~/runtime_from_tilde", "runtime_from_tilde"),
+        ("$HOME/runtime_from_env", "runtime_from_env"),
+    ],
+)
+def test_runtime_root_path_inputs_expand_user_and_env_vars(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, raw_path: str, expected_leaf: str
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        runtime_root=Path(raw_path),
+    )
+
+    assert paths.runtime_root == (home / expected_leaf).resolve(strict=False)
 
 
 def test_runtime_root_env_override_strips_whitespace(

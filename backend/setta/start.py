@@ -120,6 +120,12 @@ def _resolve_cli_paths(
     return paths
 
 
+def _should_resolve_group_paths(ctx: click.Context) -> bool:
+    # Remote connect/stop commands should forward profile/path flags without
+    # requiring local profile/path validation.
+    return ctx.invoked_subcommand not in {"connect", "c", "stop"}
+
+
 def _apply_paths_to_env(paths) -> None:
     os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
     os.environ[SETTA_HOME_ENV] = str(paths.setta_home)
@@ -2409,7 +2415,7 @@ def cli(
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
 
     paths_override = None
-    if (
+    if _should_resolve_group_paths(ctx) and (
         workspace is not None
         or profile is not None
         or setta_home is not None

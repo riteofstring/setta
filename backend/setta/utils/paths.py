@@ -367,10 +367,6 @@ def _resolve_files_root(
     profile_setta_files_location: SettaFilesLocation | None,
 ) -> tuple[Path, ResolvedSettaFilesLocation | None]:
     local_root = (workspace_root / "setta_files").resolve(strict=False)
-    if local_root.exists() and not local_root.is_dir():
-        raise InvalidLocalSettaFilesRootError(
-            f"Local setta_files path is not a directory: {local_root}"
-        )
 
     explicit_root = _resolve_optional_path_value(setta_files_root)
     explicit_location = _normalize_location_value(setta_files_location)
@@ -423,11 +419,17 @@ def _resolve_files_root(
             )
         return selected_root.resolve(strict=False), None
 
-    if local_root.is_dir():
-        return local_root, "local"
-
     if selected_location is None:
         selected_location = "auto"
+
+    if selected_location in ("local", "auto"):
+        if local_root.exists() and not local_root.is_dir():
+            raise InvalidLocalSettaFilesRootError(
+                f"Local setta_files path is not a directory: {local_root}"
+            )
+
+    if local_root.is_dir():
+        return local_root, "local"
 
     if selected_location == "local":
         return local_root, "local"
@@ -485,7 +487,7 @@ def _resolve_optional_path_value(raw: Path | str | None) -> Path | None:
     if raw is None:
         return None
     if isinstance(raw, Path):
-        return raw.resolve(strict=False)
+        return resolve_path(raw)
     trimmed = raw.strip()
     if not trimmed:
         return None

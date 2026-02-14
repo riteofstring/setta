@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+. "${SCRIPT_DIR}/lib/setta_path_flags.sh"
 if [[ -n "${HOME:-}" ]]; then
   DEFAULT_SETTA_HOME="${HOME}/.setta-development"
 else
@@ -177,54 +178,17 @@ Flags:
 EOF
 }
 
-require_option_value() {
-  local flag="$1"
-  local arg_count="$2"
-  if [[ "${arg_count}" -lt 2 ]]; then
-    echo "Missing value for ${flag}" >&2
-    exit 1
-  fi
-}
-
-SETTA_PROFILE_OVERRIDE=""
-SETTA_HOME_OVERRIDE=""
-SETTA_FILES_ROOT_OVERRIDE=""
-SETTA_FILES_LOCATION_OVERRIDE=""
-SETTA_RUNTIME_ROOT_OVERRIDE=""
-EFFECTIVE_SETTA_HOME="${DEFAULT_SETTA_HOME}"
-EFFECTIVE_SETTA_FILES_ROOT="${DEFAULT_DEV_SETTA_FILES_ROOT}"
-EFFECTIVE_SETTA_FILES_LOCATION=""
+setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
 
 while [[ $# -gt 0 ]]; do
+  if setta_path_flags_try_parse "$@"; then
+    shift "${SETTA_PATH_FLAGS_CONSUMED}"
+    continue
+  fi
   case "$1" in
     --reload)
       RUN_MODE="startr"
       shift
-      ;;
-    --profile)
-      require_option_value "$1" "$#"
-      SETTA_PROFILE_OVERRIDE="$2"
-      shift 2
-      ;;
-    --setta-home)
-      require_option_value "$1" "$#"
-      SETTA_HOME_OVERRIDE="$2"
-      shift 2
-      ;;
-    --setta-files-root)
-      require_option_value "$1" "$#"
-      SETTA_FILES_ROOT_OVERRIDE="$2"
-      shift 2
-      ;;
-    --setta-files-location)
-      require_option_value "$1" "$#"
-      SETTA_FILES_LOCATION_OVERRIDE="$2"
-      shift 2
-      ;;
-    --runtime-root)
-      require_option_value "$1" "$#"
-      SETTA_RUNTIME_ROOT_OVERRIDE="$2"
-      shift 2
       ;;
     -h|--help)
       usage
@@ -238,10 +202,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ] && [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
-  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
-  exit 1
-fi
+setta_path_flags_validate
 
 export SETTA_HOST
 export SETTA_PORT
@@ -252,40 +213,7 @@ export DEBUG_PORT
 export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 # Avoid clobbering repo-root backend.log, which start.sh/reset.sh use.
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
-if [ -n "${SETTA_HOME_OVERRIDE}" ]; then
-  EFFECTIVE_SETTA_HOME="${SETTA_HOME_OVERRIDE}"
-fi
-export SETTA_HOME="${EFFECTIVE_SETTA_HOME}"
-
-if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ]; then
-  EFFECTIVE_SETTA_FILES_ROOT="${SETTA_FILES_ROOT_OVERRIDE}"
-  EFFECTIVE_SETTA_FILES_LOCATION=""
-elif [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
-  EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION_OVERRIDE}"
-  EFFECTIVE_SETTA_FILES_ROOT=""
-fi
-if [ -n "${EFFECTIVE_SETTA_FILES_ROOT}" ]; then
-  export SETTA_FILES_ROOT="${EFFECTIVE_SETTA_FILES_ROOT}"
-  unset SETTA_FILES_LOCATION
-else
-  unset SETTA_FILES_ROOT
-  if [ -n "${EFFECTIVE_SETTA_FILES_LOCATION}" ]; then
-    export SETTA_FILES_LOCATION="${EFFECTIVE_SETTA_FILES_LOCATION}"
-  else
-    unset SETTA_FILES_LOCATION
-  fi
-fi
-
-if [ -n "${SETTA_PROFILE_OVERRIDE}" ]; then
-  export SETTA_PROFILE="${SETTA_PROFILE_OVERRIDE}"
-else
-  unset SETTA_PROFILE
-fi
-if [ -n "${SETTA_RUNTIME_ROOT_OVERRIDE}" ]; then
-  export SETTA_RUNTIME_ROOT="${SETTA_RUNTIME_ROOT_OVERRIDE}"
-else
-  unset SETTA_RUNTIME_ROOT
-fi
+setta_path_flags_apply_env
 
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then

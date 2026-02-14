@@ -28,6 +28,11 @@ def _build_aireset_sandbox(tmp_path: Path) -> Path:
     sandbox_root = tmp_path / "aireset_sandbox"
     scripts_dir = sandbox_root / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
+    helper_src = repo_root / "scripts" / "lib" / "setta_path_flags.sh"
+    helper_dst = scripts_dir / "lib" / "setta_path_flags.sh"
+    helper_dst.parent.mkdir(parents=True, exist_ok=True)
+    helper_dst.write_text(helper_src.read_text(encoding="utf-8"), encoding="utf-8")
+    helper_dst.chmod(0o755)
 
     sandbox_aireset = sandbox_root / "aireset.sh"
     sandbox_aireset.write_text(
@@ -75,6 +80,11 @@ def _build_run_dev_instance_sandbox(tmp_path: Path) -> Path:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         dst.chmod(0o755)
+    helper_src = repo_root / "scripts" / "lib" / "setta_path_flags.sh"
+    helper_dst = scripts_dir / "lib" / "setta_path_flags.sh"
+    helper_dst.parent.mkdir(parents=True, exist_ok=True)
+    helper_dst.write_text(helper_src.read_text(encoding="utf-8"), encoding="utf-8")
+    helper_dst.chmod(0o755)
 
     activate = sandbox_root / ".venv" / "bin" / "activate"
     activate.parent.mkdir(parents=True, exist_ok=True)
@@ -98,6 +108,11 @@ def _build_ai_sandbox(tmp_path: Path) -> Path:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         dst.chmod(0o755)
+    helper_src = repo_root / "scripts" / "lib" / "setta_path_flags.sh"
+    helper_dst = scripts_dir / "lib" / "setta_path_flags.sh"
+    helper_dst.parent.mkdir(parents=True, exist_ok=True)
+    helper_dst.write_text(helper_src.read_text(encoding="utf-8"), encoding="utf-8")
+    helper_dst.chmod(0o755)
 
     activate = sandbox_root / ".venv" / "bin" / "activate"
     activate.parent.mkdir(parents=True, exist_ok=True)
