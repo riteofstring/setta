@@ -6,9 +6,9 @@ def register(plugin):
     server_path = Path(__file__).resolve().parent / "mini_language_server.py"
     plugin.register_language_server(
         {
-            "language": "typescript",
+            "language": "fixturedsl",
             "command": sys.executable,
             "args": [str(server_path)],
-            "settingsKey": "fixtureTypescriptLanguageServer",
+            "settingsKey": "fixtureDslLanguageServer",
         }
     )

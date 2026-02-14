@@ -31,16 +31,16 @@ test("plugin language server fixture supports settings, diagnostics, and complet
     pluginCard.getByText("Registered Language Servers", { exact: true }),
   ).toBeVisible();
   await expect(
-    pluginCard.getByText("typescript", { exact: true }),
+    pluginCard.getByText("fixturedsl", { exact: true }),
   ).toBeVisible();
   await expect(
-    pluginCard.getByText("settings.fixtureTypescriptLanguageServer", {
+    pluginCard.getByText("settings.fixtureDslLanguageServer", {
       exact: true,
     }),
   ).toBeVisible();
 
   const settingsTextarea = pluginCard.getByRole("textbox", {
-    name: "settings.fixtureTypescriptLanguageServer",
+    name: "settings.fixtureDslLanguageServer",
     exact: true,
   });
   await expect(settingsTextarea).toBeVisible();
@@ -67,7 +67,7 @@ test("plugin language server fixture supports settings, diagnostics, and complet
       implType: "Code",
       implOverrides: {
         type: "Code",
-        codeLanguage: "typescript",
+        codeLanguage: "fixturedsl",
       },
     },
   );

@@ -64,14 +64,18 @@ from setta.types.helpers_lvl2 import (
 from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_config import get_python_codegen_target_with_type_guard
-from setta.types.project_state import CODE_LANGUAGE_EXTENSIONS, ProjectStateSingleConfig
+from setta.types.project_state import (
+    ProjectStateSingleConfig,
+    get_code_language_extension,
+)
 from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileBinding,
-    CodeLanguage,
+    CodeLanguageKey,
     CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
     TypeErrorIgnoreState,
+    code_language_to_string,
 )
 from setta.utils.constants import C
 from setta.utils.utils import GEN_CODE_META_FILENAME
@@ -735,7 +739,7 @@ class ProjectLSPCode(LSPCode):
         project_state: ProjectStateSingleConfig,
         sectionId,
         *,
-        code_language: CodeLanguage,
+        code_language: CodeLanguageKey,
     ):
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
@@ -743,7 +747,7 @@ class ProjectLSPCode(LSPCode):
         if section_impl.codeLanguage != code_language:
             raise ValueError(
                 "Code section language mismatch: "
-                f"expected {code_language.value}, got {section_impl.codeLanguage.value}"
+                f"expected {code_language_to_string(code_language)}, got {code_language_to_string(section_impl.codeLanguage)}"
             )
         binding = section_impl.codeFileBinding
         if binding is None:
@@ -874,7 +878,7 @@ class ProjectBasicCode(Code):
         code_files,
         project_state: ProjectStateSingleConfig,
         sectionId,
-        code_language: CodeLanguage,
+        code_language: CodeLanguageKey,
     ):
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
@@ -903,7 +907,7 @@ class ProjectBasicCode(Code):
         )
 
     def get_extension(self):
-        return CODE_LANGUAGE_EXTENSIONS[self.code_language]
+        return get_code_language_extension(self.code_language)
 
     def get_run_command(self, path: Path):
         raise ValueError(

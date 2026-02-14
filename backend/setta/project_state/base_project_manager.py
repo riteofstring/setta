@@ -399,6 +399,7 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
+    CodeLanguageKey,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
@@ -449,14 +450,14 @@ def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
 
 
 def _resolve_run_command_builder(
-    code_language: CodeLanguage,
+    code_language: CodeLanguageKey,
 ) -> Callable[[Path], str]:
     if code_language == CodeLanguage.python:
         return build_python_module_run_command
     if code_language == CodeLanguage.bash:
         return build_bash_run_command
 
-    def _unsupported(_path: Path, *, _language: CodeLanguage = code_language) -> str:
+    def _unsupported(_path: Path, *, _language: CodeLanguageKey = code_language) -> str:
         raise ValueError(f"Run is not supported for language {_language}")
 
     return _unsupported
@@ -2474,7 +2475,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
         if isinstance(section_impl, CodeSectionImpl):
-            if section_impl.codeLanguage is not CodeLanguage.python:
+            if section_impl.codeLanguage != CodeLanguage.python:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Format code only supports Python code sections.",

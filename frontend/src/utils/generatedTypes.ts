@@ -1538,7 +1538,7 @@ const SharedModifierSchema = z.object({
   choices: z.array(z.string()).optional(),
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
-  codeLanguage: z.enum(CodeLanguageEnum).optional(),
+  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.string()]).optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
@@ -2139,7 +2139,9 @@ const CodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
-  codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  codeLanguage: z
+    .union([z.enum(CodeLanguageEnum), z.string()])
+    .default(CodeLanguageEnum.python),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
     createCodeSectionDiagnosticsIgnoreState,
   ),
@@ -3168,7 +3170,7 @@ const CodeSectionImplArgsSchema = z.object({
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
-  codeLanguage: z.enum(CodeLanguageEnum).optional(),
+  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.string()]).optional(),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
 });
 
@@ -5042,7 +5044,9 @@ const UserDefaultCodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
-  codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
+  codeLanguage: z
+    .union([z.enum(CodeLanguageEnum), z.string()])
+    .default(CodeLanguageEnum.python),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
     createCodeSectionDiagnosticsIgnoreState,
   ),

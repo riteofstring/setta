@@ -74,6 +74,29 @@ class CodeLanguage(str, Enum):
     plaintext = "plaintext"
 
 
+CodeLanguageKey = CodeLanguage | str
+
+
+def normalize_code_language(language: CodeLanguageKey) -> CodeLanguageKey:
+    if isinstance(language, CodeLanguage):
+        return language
+    if not isinstance(language, str):
+        raise TypeError("Code language must be a string.")
+    normalized = language.strip().lower()
+    if normalized == "":
+        raise ValueError("Code language must be a non-empty string.")
+    try:
+        return CodeLanguage(normalized)
+    except ValueError:
+        return normalized
+
+
+def code_language_to_string(language: CodeLanguageKey) -> str:
+    if isinstance(language, CodeLanguage):
+        return language.value
+    return language
+
+
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
@@ -308,7 +331,7 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
-    codeLanguage: CodeLanguage = CodeLanguage.python
+    codeLanguage: CodeLanguageKey = CodeLanguage.python
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
         default_factory=CodeSectionDiagnosticsIgnoreState
     )

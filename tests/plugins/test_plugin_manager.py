@@ -1066,10 +1066,56 @@ def test_load_backend_plugins_registers_fixture_language_server(
     assert len(registrations) == 1
     registration = registrations[0]
     assert registration.plugin_id == "setta-fixture-backend-language-server"
-    assert registration.language.value == "typescript"
+    assert registration.language == "typescript"
     assert registration.command == "typescript-language-server"
     assert registration.args == ("--stdio",)
     assert registration.settings_key == "typescriptLanguageServer"
+
+
+def test_load_backend_plugins_registers_custom_language_server_key(
+    tmp_path: Path,
+) -> None:
+    # Language server registrations should accept plugin-defined language keys.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_language_server(\n"
+        "        {\n"
+        "            'language': 'fixturedsl',\n"
+        "            'command': 'typescript-language-server',\n"
+        "            'args': ['--stdio'],\n"
+        "            'settingsKey': 'fixtureDslLanguageServer',\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    registrations = manager.get_backend_language_servers()
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert registration.plugin_id == "setta-fixture-backend-language-server"
+    assert registration.name == "setta-fixture-backend-language-server:fixturedsl"
+    assert registration.language == "fixturedsl"
+    assert registration.settings_key == "fixtureDslLanguageServer"
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+    assert status_entries[0].registeredLanguageServers[0].language == "fixturedsl"
 
 
 def test_load_backend_plugins_registers_fixture_external_agent_adapter(

@@ -13,7 +13,6 @@ from setta.lsp.managers import (
     stop_lsps,
 )
 from setta.lsp.registrations import RegisteredLanguageServer
-from setta.types.section_impls import CodeLanguage
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -33,18 +32,18 @@ async def test_fixture_language_server_handles_diagnostics_and_completion(
     )
     registration = RegisteredLanguageServer(
         plugin_id="setta-fixture-backend-language-server-e2e",
-        name="setta-fixture-backend-language-server-e2e:typescript",
-        language=CodeLanguage.typescript,
+        name="setta-fixture-backend-language-server-e2e:fixturedsl",
+        language="fixturedsl",
         command=sys.executable,
         args=(str(fixture_server_path),),
-        settings_key="fixtureTypescriptLanguageServer",
+        settings_key="fixtureDslLanguageServer",
     )
 
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager)
     lsps = LSPServers(
         {
-            "fixtureTypescriptLanguageServer": {
+            "fixtureDslLanguageServer": {
                 "analysis": {
                     "emitDiagnostics": True,
                 }
@@ -65,7 +64,7 @@ async def test_fixture_language_server_handles_diagnostics_and_completion(
 
     try:
         await start_lsps(lsps, readers, writers)
-        writer = writers.get_for_language(CodeLanguage.typescript)
+        writer = writers.get_for_language("fixturedsl")
         assert writer is not None
 
         file_path = tmp_path / "fixture.ts"
@@ -73,7 +72,7 @@ async def test_fixture_language_server_handles_diagnostics_and_completion(
             filepath=file_path,
             code="const value = __fixture_error__;\n",
             diagnostics_callback=diagnostics_callback,
-            language_id=CodeLanguage.typescript.value,
+            language_id="fixturedsl",
         )
 
         await asyncio.wait_for(diagnostics_event.wait(), timeout=5)

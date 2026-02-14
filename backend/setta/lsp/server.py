@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import defaultdict
 
-from setta.types.section_impls import CodeLanguage
+from setta.types.section_impls import CodeLanguage, CodeLanguageKey
 
 logger = logging.getLogger(__name__)
 LSP_RESPONSE_TIMEOUT_SECONDS = 5.0
@@ -15,7 +15,7 @@ class LanguageServer:
         settings,
         name,
         *,
-        language: CodeLanguage = CodeLanguage.python,
+        language: CodeLanguageKey = CodeLanguage.python,
         command: str = "basedpyright-langserver",
         args: tuple[str, ...] = ("--stdio",),
     ):

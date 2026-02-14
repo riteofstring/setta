@@ -14,7 +14,13 @@ from setta.project_state.utils import (
     create_timestamped_folder,
 )
 from setta.types.id import ID
-from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding, CodeLanguage
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeLanguage,
+    CodeLanguageKey,
+    code_language_to_string,
+)
 from setta.utils.paths import normalize_workspace_path, workspace_relative_path
 from setta.utils.utils import GEN_CODE_META_FILENAME, compute_md5_hex
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -333,7 +339,7 @@ class LSPCode(Code):
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
         *,
-        language: CodeLanguage,
+        language: CodeLanguageKey,
     ):
         super().__init__(dbe, code_files, binding)
         self.language = language
@@ -352,7 +358,7 @@ class LSPCode(Code):
             filepath=filepath,
             code=code,
             diagnostics_callback=self.diagnostics_callback,
-            language_id=self.language.value,
+            language_id=code_language_to_string(self.language),
         )
 
     def callback_cleanup(self):
@@ -381,7 +387,7 @@ class LSPCode(Code):
             uri = await self.lsp_writer.send_document_open_request(
                 filepath=filepath,
                 code=code,
-                language_id=self.language.value,
+                language_id=code_language_to_string(self.language),
             )
             yield filepath
         finally:

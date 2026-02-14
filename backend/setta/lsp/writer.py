@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from setta.logging.context import logging_context
+from setta.types.section_impls import code_language_to_string
 
 from .server import LanguageServer, LanguageServerInteractor
 
@@ -89,7 +90,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         if uri not in self.latest_version_numbers:
             version = 0
             self.latest_version_numbers[uri] = version
-            resolved_language_id = language_id or self.server.language.value
+            resolved_language_id = language_id or code_language_to_string(
+                self.server.language
+            )
             params = {
                 "textDocument": {
                     "uri": uri,

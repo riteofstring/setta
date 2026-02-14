@@ -75,7 +75,12 @@ from setta.plugins.models import (
 )
 from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.project_config import ProjectCodegenLanguage
-from setta.types.section_impls import CodeLanguage
+from setta.types.section_impls import (
+    CodeLanguage,
+    CodeLanguageKey,
+    code_language_to_string,
+    normalize_code_language,
+)
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -353,7 +358,7 @@ class PluginManager:
         ] = {}
         self._backend_language_servers: dict[str, list[RegisteredLanguageServer]] = {}
         self._backend_language_server_by_language: dict[
-            CodeLanguage, RegisteredLanguageServer
+            CodeLanguageKey, RegisteredLanguageServer
         ] = {}
         self._backend_codegen_targets: dict[
             str, list[PluginRegisteredCodegenTarget]
@@ -570,7 +575,7 @@ class PluginManager:
         return [
             PluginRegisteredLanguageServer(
                 name=registration.name,
-                language=registration.language.value,
+                language=code_language_to_string(registration.language),
                 command=registration.command,
                 args=list(registration.args),
                 settingsKey=registration.settings_key,
@@ -578,7 +583,7 @@ class PluginManager:
             for registration in sorted(
                 registrations,
                 key=lambda registration: (
-                    registration.language.value,
+                    code_language_to_string(registration.language),
                     registration.name,
                 ),
             )
@@ -588,7 +593,7 @@ class PluginManager:
         return sorted(
             self._backend_language_server_by_language.values(),
             key=lambda registration: (
-                registration.language.value,
+                code_language_to_string(registration.language),
                 registration.plugin_id or "",
                 registration.name,
             ),
@@ -2192,7 +2197,7 @@ class PluginManager:
                 "PLUGIN_BACKEND_REGISTER_FAILED",
                 (
                     "Duplicate backend language server registration for "
-                    f"{registration.language.value}. Existing plugin: "
+                    f"{code_language_to_string(registration.language)}. Existing plugin: "
                     f"{existing_for_language.plugin_id}, new plugin: "
                     f"{registration.plugin_id}."
                 ),
@@ -2233,13 +2238,16 @@ class PluginManager:
                 "Plugin language server registration missing string language.",
             )
         try:
-            language = CodeLanguage(raw_language.strip())
-        except ValueError as exc:
+            language = normalize_code_language(raw_language)
+        except (TypeError, ValueError) as exc:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                f"Unsupported plugin language server language: {raw_language!r}.",
+                (
+                    "Plugin language server language must be a non-empty string. "
+                    f"Received: {raw_language!r}."
+                ),
             ) from exc
-        if language is CodeLanguage.python:
+        if language == CodeLanguage.python:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
                 (
@@ -2287,7 +2295,7 @@ class PluginManager:
             )
         return RegisteredLanguageServer(
             plugin_id=entry.plugin_id,
-            name=f"{entry.plugin_id}:{language.value}",
+            name=f"{entry.plugin_id}:{code_language_to_string(language)}",
             language=language,
             command=command,
             args=args,

@@ -68,7 +68,7 @@ class SharedModifier(TypedDict):
     choices: NotRequired[list[str]]
     code: NotRequired[str]
     codeFileBinding: NotRequired[CodeFileBinding | None]
-    codeLanguage: NotRequired[CodeLanguage]
+    codeLanguage: NotRequired[CodeLanguage | str]
     codeObjVariantMap: NotRequired[dict[ID, ID]]
     colorChoices: NotRequired[list[ColorPickerChoice]]
     columnWidth: NotRequired[float | None]

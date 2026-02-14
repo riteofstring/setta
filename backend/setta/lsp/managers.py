@@ -4,7 +4,11 @@ from contextlib import suppress
 
 from setta.logging.tasks import spawn_background_task
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.section_impls import CodeLanguage
+from setta.types.section_impls import (
+    CodeLanguage,
+    CodeLanguageKey,
+    code_language_to_string,
+)
 from setta.utils.paths import get_setta_paths
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -73,13 +77,13 @@ class LSPServers:
             command="basedpyright-langserver",
             args=("--stdio",),
         )
-        self.by_language: dict[CodeLanguage, LanguageServer] = {
+        self.by_language: dict[CodeLanguageKey, LanguageServer] = {
             CodeLanguage.python: self.full
         }
         registrations = sorted(
             plugin_language_servers or [],
             key=lambda registration: (
-                registration.language.value,
+                code_language_to_string(registration.language),
                 registration.plugin_id or "",
                 registration.name,
             ),
@@ -88,7 +92,7 @@ class LSPServers:
             if registration.language in self.by_language:
                 raise ValueError(
                     "Duplicate language server registration for "
-                    f"{registration.language.value}."
+                    f"{code_language_to_string(registration.language)}."
                 )
             self.by_language[registration.language] = LanguageServer(
                 workspace_folder=resolved_workspace_root,
@@ -114,17 +118,19 @@ class LSPServers:
 class LSPWriters:
     def __init__(self, servers: LSPServers):
         self.full = LanguageServerWriter(servers.full)
-        self.by_language: dict[CodeLanguage, LanguageServerWriter] = {
+        self.by_language: dict[CodeLanguageKey, LanguageServerWriter] = {
             CodeLanguage.python: self.full
         }
         for language, server in servers.by_language.items():
-            if language is CodeLanguage.python:
+            if language == CodeLanguage.python:
                 continue
             self.by_language[language] = LanguageServerWriter(server)
         self.file_watcher = LSPFileWatcher(self._send_did_change_watched_files)
         self.file_watcher.add_workspace_folder(servers.full.workspace_folder)
 
-    def get_for_language(self, language: CodeLanguage) -> LanguageServerWriter | None:
+    def get_for_language(
+        self, language: CodeLanguageKey
+    ) -> LanguageServerWriter | None:
         return self.by_language.get(language)
 
     async def _send_did_change_watched_files(self, changes):
@@ -145,10 +151,10 @@ class _NoopFileWatcher:
 class NoopLSPWriters:
     def __init__(self) -> None:
         self.full = None
-        self.by_language: dict[CodeLanguage, None] = {}
+        self.by_language: dict[CodeLanguageKey, None] = {}
         self.file_watcher = _NoopFileWatcher()
 
-    def get_for_language(self, _language: CodeLanguage):
+    def get_for_language(self, _language: CodeLanguageKey):
         return None
 
     async def start(self) -> None:
@@ -190,11 +196,11 @@ class LSPReaders:
                 server_name=servers.full.name,
             ),
         )
-        self.by_language: dict[CodeLanguage, LanguageServerReader] = {
+        self.by_language: dict[CodeLanguageKey, LanguageServerReader] = {
             CodeLanguage.python: self.full
         }
         for language, server in servers.by_language.items():
-            if language is CodeLanguage.python:
+            if language == CodeLanguage.python:
                 continue
             self.by_language[language] = LanguageServerReader(
                 server,

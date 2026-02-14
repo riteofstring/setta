@@ -199,6 +199,7 @@ from setta.types.edges import EdgePort
 from setta.types.id import ID
 from setta.types.section_impls import (
     CodeLanguage,
+    CodeLanguageKey,
     ConfigLanguage,
     CodeSectionDiagnosticsIgnoreState,
     SectionSize,

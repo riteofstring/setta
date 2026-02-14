@@ -25,6 +25,7 @@ from setta.types.section_impls import (
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
+    CodeLanguageKey,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     PromptFormat,
@@ -158,7 +159,7 @@ class UserDefaultGlobalVariablesSectionImpl(
 
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
-    codeLanguage: CodeLanguage = CodeLanguage.python
+    codeLanguage: CodeLanguageKey = CodeLanguage.python
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
         default_factory=CodeSectionDiagnosticsIgnoreState
     )

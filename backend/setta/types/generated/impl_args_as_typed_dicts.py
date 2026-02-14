@@ -542,7 +542,7 @@ class GlobalVariablesSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCall
 
 class CodeSectionImplArgs(BaseCodeSectionImplArgs):
     type: NotRequired[Literal[SectionType.Code]]
-    codeLanguage: NotRequired[CodeLanguage]
+    codeLanguage: NotRequired[CodeLanguage | str]
     diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
 
 
@@ -551,7 +551,9 @@ class CodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
         Literal[SectionType.Code]
         | Callable[[Literal[SectionType.Code]], Literal[SectionType.Code]]
     ]
-    codeLanguage: NotRequired[CodeLanguage | Callable[[CodeLanguage], CodeLanguage]]
+    codeLanguage: NotRequired[
+        CodeLanguage | str | Callable[[CodeLanguage | str], CodeLanguage | str]
+    ]
     diagnosticsIgnoreState: NotRequired[
         CodeSectionDiagnosticsIgnoreState
         | Callable[
