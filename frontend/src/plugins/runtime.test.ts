@@ -298,4 +298,51 @@ describe("plugin runtime helpers", () => {
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
   });
+
+  it("registers pane icon when a supported icon name is provided", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerPane({ id: 'pane', title: 'Pane', icon: 'dashboard', renderer: { mount() {} } });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+    expect(result?.registryDelta?.panes["acme.plugin"]?.[0]?.icon).toBe(
+      "dashboard",
+    );
+  });
+
+  it("rejects pane icon values outside the supported icon set", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerPane({ id: 'pane', title: 'Pane', icon: 'spaceship', renderer: { mount() {} } });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
 });

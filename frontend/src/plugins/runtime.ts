@@ -20,6 +20,13 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
+import {
+  isPluginPaneIconName,
+  PluginPaneIconNameEnum,
+  type PluginPaneIconName,
+} from "./paneIcons";
+
+export { PluginPaneIconNameEnum, type PluginPaneIconName } from "./paneIcons";
 
 export const PLUGIN_FRONTEND_API_VERSION = 1;
 
@@ -89,6 +96,7 @@ export type PluginPaneDefinition = {
   id: string;
   title: string;
   description?: string;
+  icon?: PluginPaneIconName;
   renderer: PluginPaneRenderer;
 };
 
@@ -113,6 +121,7 @@ export type PluginPaneTabEntry = {
   paneId: string;
   title: string;
   description?: string;
+  icon?: PluginPaneIconName;
 };
 
 type PluginFrontendError = {
@@ -741,6 +750,24 @@ function validatePaneDefinition(
       `Plugin ${pluginId} pane ${id} renderer.unmount must be a function when provided.`,
     );
   }
+  let icon: PluginPaneIconName | undefined;
+  if (definition.icon !== undefined) {
+    const iconValue = requireNonEmptyString(
+      definition.icon,
+      `Plugin ${pluginId} pane ${id} icon must be a supported icon name.`,
+    );
+    if (!isPluginPaneIconName(iconValue)) {
+      const supportedIconNames = Object.values(PluginPaneIconNameEnum).join(
+        ", ",
+      );
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} pane ${id} icon ${iconValue} is invalid. ` +
+          `Supported icons: ${supportedIconNames}.`,
+      );
+    }
+    icon = iconValue;
+  }
 
   const paneDefinition: RegisteredPluginPane = {
     pluginId,
@@ -750,6 +777,9 @@ function validatePaneDefinition(
   };
   if (definition.description !== undefined) {
     paneDefinition.description = definition.description;
+  }
+  if (icon !== undefined) {
+    paneDefinition.icon = icon;
   }
   return paneDefinition;
 }
@@ -981,6 +1011,7 @@ export function usePluginPaneTabs(): PluginPaneTabEntry[] {
           paneId: pane.id,
           title: pane.title,
           description: pane.description,
+          icon: pane.icon,
         });
       }
     }

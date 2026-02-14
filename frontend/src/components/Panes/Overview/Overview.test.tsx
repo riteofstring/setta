@@ -161,6 +161,7 @@ describe("Overview rail offsets", () => {
             id: paneId,
             title: "Fixture Pane",
             description: "Fixture plugin pane",
+            icon: "dashboard",
             renderer: {
               mount: () => undefined,
             },
@@ -184,5 +185,6 @@ describe("Overview rail offsets", () => {
       "overview-plugin-pane-tab-setta-fixture-frontend-fixture-overview-pane",
     );
     expect(markup).toContain("Fixture Pane");
+    expect(markup).toContain("setta-plugin-pane-icon--dashboard");
   });
 });

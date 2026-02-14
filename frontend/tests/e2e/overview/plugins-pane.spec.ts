@@ -95,6 +95,11 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
       exact: true,
     }),
   ).toBeVisible();
+  await expect(
+    page.locator(
+      "#overview-plugin-pane-tab-setta-fixture-frontend-fixture-overview-pane .setta-plugin-pane-icon--dashboard",
+    ),
+  ).toBeVisible();
   await frontendPluginCard
     .getByRole("button", { name: "Open Fixture Pane", exact: true })
     .click();

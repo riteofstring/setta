@@ -1,7 +1,9 @@
 export {
   PLUGIN_FRONTEND_API_VERSION,
+  PluginPaneIconNameEnum,
   type PluginCommandDefinition,
   type PluginPaneDefinition,
+  type PluginPaneIconName,
   type PluginPaneProps,
   type PluginSectionKindDefinition,
   type PluginSectionProps,

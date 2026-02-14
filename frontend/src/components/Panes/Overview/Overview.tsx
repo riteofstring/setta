@@ -1,8 +1,12 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { usePluginPaneTabs, type PluginPaneTabEntry } from "plugins/runtime";
-import { useMemo, useRef, type RefObject } from "react";
+import {
+  usePluginPaneTabs,
+  type PluginPaneIconName,
+  type PluginPaneTabEntry,
+} from "plugins/runtime";
+import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import {
@@ -163,7 +167,7 @@ export function Overview() {
             {...getFloatingBoxHandlers({
               content: `${pluginPaneTab.title} (${pluginPaneTab.pluginId})`,
             })}
-            icon={<MdExtension size={14} />}
+            icon={renderPluginPaneTabIcon(pluginPaneTab.icon)}
           />
         ))}
         {showFileBrowserTab && (
@@ -271,6 +275,55 @@ export function Overview() {
       </PaneContainer>
     </div>
   );
+}
+
+function renderPluginPaneTabIcon(
+  iconName: PluginPaneIconName | undefined,
+): ReactElement {
+  switch (iconName) {
+    case "folder":
+      return <TbFolder size={14} className="setta-plugin-pane-icon--folder" />;
+    case "git":
+      return (
+        <RiGitCommitLine size={14} className="setta-plugin-pane-icon--git" />
+      );
+    case "radar":
+      return (
+        <RiRadarLine size={14} className="setta-plugin-pane-icon--radar" />
+      );
+    case "dashboard":
+      return (
+        <TbLayoutDashboard
+          size={14}
+          className="setta-plugin-pane-icon--dashboard"
+        />
+      );
+    case "eye":
+      return <HiOutlineEye size={14} className="setta-plugin-pane-icon--eye" />;
+    case "notifications":
+      return (
+        <MdNotificationsNone
+          size={14}
+          className="setta-plugin-pane-icon--notifications"
+        />
+      );
+    case "bug":
+      return <MdBugReport size={14} className="setta-plugin-pane-icon--bug" />;
+    case "chat":
+      return <IoChatbox size={14} className="setta-plugin-pane-icon--chat" />;
+    case "robot":
+      return (
+        <MdOutlineSmartToy
+          size={14}
+          className="setta-plugin-pane-icon--robot"
+        />
+      );
+    case "extension":
+    default:
+      return (
+        <MdExtension size={14} className="setta-plugin-pane-icon--extension" />
+      );
+  }
 }
 
 function TabsVisible({
