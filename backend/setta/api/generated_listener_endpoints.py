@@ -81,7 +81,6 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
     ChatSectionState,
-    ListRootViewMode,
     SectionSize,
     SectionType,
     TextBlockDisplayMode,
@@ -687,13 +686,6 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     imagePath: str
 
 
-class ListenerSetListRootViewModeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    viewMode: ListRootViewMode
-
-
 class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -707,13 +699,6 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     sectionId: ID
     paramInfoId: ID
     value: str
-
-
-class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    defaultChildSectionType: SectionType
 
 
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
@@ -741,13 +726,6 @@ class ListenerSetPromptTemplateRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     template: str
-
-
-class ListenerSetSectionAllowUnquotedStringArgsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    allowUnquotedStringArgs: bool
 
 
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
@@ -865,13 +843,6 @@ class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     headingAsSectionName: bool
-
-
-class ListenerSetTextBlockMasterFontSizeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    masterFontSizePx: float
 
 
 class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
@@ -1435,11 +1406,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
 
-    async def set_list_root_view_mode(
-        self, payload: ListenerSetListRootViewModeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_list_root_view_mode", payload)
-
     async def set_meta_control_show_section_title(
         self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload
     ) -> None:
@@ -1449,13 +1415,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
-
-    async def set_parent_default_child_section_type(
-        self, payload: ListenerSetParentDefaultChildSectionTypeRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_parent_default_child_section_type", payload
-        )
 
     async def set_project_config_codegen_targets(
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
@@ -1476,13 +1435,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetPromptTemplateRequestPayload
     ) -> None:
         return await self._caller("route_set_prompt_template", payload)
-
-    async def set_section_allow_unquoted_string_args(
-        self, payload: ListenerSetSectionAllowUnquotedStringArgsRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_section_allow_unquoted_string_args", payload
-        )
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload
@@ -1568,11 +1520,6 @@ class RouterEndpointAPI:
         return await self._caller(
             "route_set_text_block_heading_as_section_name", payload
         )
-
-    async def set_text_block_master_font_size(
-        self, payload: ListenerSetTextBlockMasterFontSizeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_text_block_master_font_size", payload)
 
     async def set_text_block_meta_control_style(
         self, payload: ListenerSetTextBlockMetaControlStyleRequestPayload

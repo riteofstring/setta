@@ -2,38 +2,51 @@ import { expect, test } from "@playwright/test";
 
 import { ensureAppReady, seedLocalStorage } from "../helpers";
 
-test("app config generate button seeds project chat prompt", async ({
+test("prompt-builder mode sends hidden app generation request to chat", async ({
   page,
 }) => {
-  await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "prompt_builder",
+  });
   await ensureAppReady(page);
 
   await expect(page.getByText("App Config")).toBeVisible();
+  await page
+    .getByLabel("Generation Prompt")
+    .fill("Build a compact analytics dashboard with two cards.");
 
-  const catalogId = await page.getByLabel("Catalog ID").inputValue();
-  await page.getByRole("button", { name: "Generate App" }).click();
+  const capturedRequests: Array<Record<string, unknown>> = [];
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    capturedRequests.push(payload);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(`pw-chat-${Date.now()}`),
+    });
+  });
 
-  await page.waitForFunction(() => {
-    return Array.from(document.querySelectorAll("textarea")).some((node) =>
-      node.value.includes(
-        "Generate a JSON Render app spec using the catalog below.",
-      ),
-    );
-  });
-  const prompt = await page.evaluate(() => {
-    const match = Array.from(document.querySelectorAll("textarea")).find(
-      (node) =>
-        node.value.includes(
-          "Generate a JSON Render app spec using the catalog below.",
-        ),
-    );
-    return match?.value ?? "";
-  });
-  expect(prompt).toContain(
-    "Generate a JSON Render app spec using the catalog below.",
+  await page.getByRole("button", { name: "Send To Chat" }).click();
+  await expect(
+    page.getByText("App generation request sent to chat."),
+  ).toBeVisible();
+
+  expect(capturedRequests.length).toBe(1);
+  const request = capturedRequests[0];
+  expect(request.appGenerationMode).toBe("prompt_builder");
+  expect(request.appGenerationReferenceImageUrl).toBeNull();
+
+  const message = request.message as {
+    content?: Array<{ type?: string; text?: string }>;
+  };
+  const textContent = (message.content ?? [])
+    .filter((part) => part.type === "text")
+    .map((part) => part.text ?? "")
+    .join("\n");
+  expect(textContent).toContain("App generation mode: prompt_builder");
+  expect(textContent).toContain(
+    "Build a compact analytics dashboard with two cards.",
   );
-  expect(prompt).toContain("DO NOT paste JSON into the chat.");
-  expect(prompt).toContain("setta__set_app_definition");
-  expect(prompt).toContain(`Catalog: ${catalogId}`);
-  expect(prompt).toContain("Output format for appSpec should be a UITree object");
 });

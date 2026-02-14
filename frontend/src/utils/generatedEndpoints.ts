@@ -181,18 +181,6 @@ export async function route_get_file_browser_download_urls(
   return await post("/getFileBrowserDownloadUrls", x);
 }
 
-export async function route_get_file_browser_file_content(
-  x: gt.GetFileBrowserFileContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.FileBrowserFileContentResponse>> {
-  return await post("/getFileBrowserFileContent", x);
-}
-
-export async function route_write_file_browser_file_content(
-  x: gt.WriteFileBrowserFileContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.WriteFileBrowserFileContentResponse>> {
-  return await post("/writeFileBrowserFileContent", x);
-}
-
 export async function route_file_browser_download(
   token: string,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -431,6 +419,18 @@ export async function route_get_ai_follow_snapshot(
   ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
 > {
   return await post("/getAIFollowSnapshot", x);
+}
+
+export async function route_get_app_gen_skills(): Promise<
+  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
+> {
+  return await get("/getAppGenSkills");
+}
+
+export async function route_get_app_gen_skill_content(
+  x: gt.GetAppGenSkillContentRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+  return await post("/getAppGenSkillContent", x);
 }
 
 export async function route_get_agent_profiles(): Promise<
@@ -1193,12 +1193,6 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
-export async function route_set_text_block_master_font_size(
-  x: gt.SetTextBlockMasterFontSizeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTextBlockMasterFontSize", x);
-}
-
 export async function route_set_text_block_heading_as_section_name(
   x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1223,12 +1217,6 @@ export async function route_set_section_hide_unpinned_params(
   return await post("/setSectionHideUnpinnedParams", x);
 }
 
-export async function route_set_section_allow_unquoted_string_args(
-  x: gt.SetSectionAllowUnquotedStringArgsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionAllowUnquotedStringArgs", x);
-}
-
 export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1239,18 +1227,6 @@ export async function route_set_section_column_width(
   x: gt.SetSectionColumnWidthRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionColumnWidth", x);
-}
-
-export async function route_set_parent_default_child_section_type(
-  x: gt.SetParentDefaultChildSectionTypeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setParentDefaultChildSectionType", x);
-}
-
-export async function route_set_list_root_view_mode(
-  x: gt.SetListRootViewModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setListRootViewMode", x);
 }
 
 export async function route_set_browser_column_widths(

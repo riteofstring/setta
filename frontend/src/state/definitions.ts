@@ -842,6 +842,11 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
+export type AppGenerationModePreference =
+  | "json_render"
+  | "json_render_with_image"
+  | "prompt_builder"
+  | "mcp_server";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -852,6 +857,10 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
+  appGenerationMode: AppGenerationModePreference;
+  appGenerationPrompt: string;
+  appGenerationReferenceImageUrl: string;
+  appGenerationReferenceImageNotes: string;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -882,6 +891,10 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
+      appGenerationMode: "json_render",
+      appGenerationPrompt: "",
+      appGenerationReferenceImageUrl: "",
+      appGenerationReferenceImageNotes: "",
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
