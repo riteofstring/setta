@@ -39,6 +39,7 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
+from setta.types.external_agents import ExternalAgentToolType
 from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
@@ -88,7 +89,22 @@ def _build_execution_policy_prompt(
 
 def _resolve_external_approval_policy_override(
     permission_mode: ChatPermissionMode,
+    tool_type: ExternalAgentToolType,
 ) -> str | None:
+    if permission_mode == ChatPermissionMode.config_toml_custom:
+        return None
+    if tool_type == ExternalAgentToolType.claude_code:
+        if permission_mode == ChatPermissionMode.minimal:
+            return "default"
+        if permission_mode == ChatPermissionMode.yolo:
+            return "bypassPermissions"
+        return None
+    if tool_type == ExternalAgentToolType.opencode:
+        if permission_mode == ChatPermissionMode.minimal:
+            return "ask"
+        if permission_mode == ChatPermissionMode.yolo:
+            return "allow"
+        return None
     if permission_mode == ChatPermissionMode.minimal:
         return "on-request"
     if permission_mode == ChatPermissionMode.yolo:
@@ -516,7 +532,8 @@ async def route_get_llm_response(
             ],
         }
         approval_policy_override = _resolve_external_approval_policy_override(
-            x.permissionMode
+            x.permissionMode,
+            external_config.toolType,
         )
         if approval_policy_override is not None:
             inputs["approvalPolicy"] = approval_policy_override

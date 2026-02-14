@@ -466,12 +466,24 @@ class ExternalAgentRunner:
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
         payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)
+        effective_config = config
+        raw_approval_policy = payload_inputs.get("approvalPolicy")
+        if isinstance(raw_approval_policy, str):
+            stripped_policy = raw_approval_policy.strip()
+            if stripped_policy:
+                effective_config = config.model_copy(
+                    update={"approvalPolicy": stripped_policy}
+                )
 
         chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is not None:
             payload_inputs["chatId"] = str(chat_id)
             self._apply_session_history(
-                payload_inputs, config, engine_config_id, chat_id, project_config_id
+                payload_inputs,
+                effective_config,
+                engine_config_id,
+                chat_id,
+                project_config_id,
             )
         attachment_payload = self._build_attachment_payload(
             payload_inputs,
@@ -544,11 +556,11 @@ class ExternalAgentRunner:
         )
         if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-        working_dir = self._resolve_working_dir(config)
-        env = self._build_env(config)
+        working_dir = self._resolve_working_dir(effective_config)
+        env = self._build_env(effective_config)
         cleanup_paths: list[Path] = []
         self._configure_external_tools(
-            config=config,
+            config=effective_config,
             profile=profile,
             payload_inputs=payload_inputs,
             env=env,
@@ -561,7 +573,7 @@ class ExternalAgentRunner:
         runtime_inputs.update(attachment_payload)
         return ExternalAgentRunContext(
             run=run,
-            config=config,
+            config=effective_config,
             profile=profile,
             project_config_id=project_config_id,
             chat_id=chat_id,

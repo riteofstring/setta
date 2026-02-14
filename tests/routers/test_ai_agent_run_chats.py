@@ -697,6 +697,97 @@ class TestAgentRunChatRoutes:
             assert "- permissionMode: minimal" in system_prompt
             assert "## Required completion gate for create/scaffold work" in system_prompt
 
+    async def test_external_runner_maps_permission_mode_per_framework(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = ProjectConfig()
+            project_state = ProjectStateBackend(
+                projectConfigs={project_config.id: project_config},
+                defaultProjectConfigId=project_config.id,
+            )
+            dbe.write_project(project_state)
+            runner = _build_runner(dbe)
+            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+                external_agent_runner=external_runner,
+            )
+            external_config = ExternalAgentConfig(
+                id="external-claude-config",
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            external_engine_config_id = ID("engine-external-claude")
+            save_external_agent_configs(dbe, [external_config])
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=external_engine_config_id,
+                        name="External Claude Engine",
+                        engineType=EngineType.external_agent,
+                        externalAgentConfigId=external_config.id,
+                    )
+                ],
+            )
+
+            captured: dict[str, object] = {}
+
+            def _capture_external_start_run(
+                engine_config_id,
+                config,
+                profile,
+                inputs,
+            ):
+                captured["engine_config_id"] = engine_config_id
+                captured["config"] = config
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+                return create_agent_run(
+                    profile_id=profile.id if profile else None, inputs=inputs
+                )
+
+            monkeypatch.setattr(
+                external_runner, "start_run", _capture_external_start_run
+            )
+            monkeypatch.setattr(
+                "setta.routers.ai.build_external_agent_preflight_status",
+                lambda *_args, **_kwargs: SimpleNamespace(
+                    available=True,
+                    issues=[],
+                ),
+            )
+
+            with runtime_context(state) as ctx:
+                chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Create a new section.")],
+                        ),
+                        engineConfigId=external_engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config.id,
+                        allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.yolo,
+                        searchEnabled=True,
+                        skillsEnabled=True,
+                    ),
+                    ctx,
+                )
+
+            assert chat_id is not None
+            captured_inputs = captured.get("inputs")
+            assert isinstance(captured_inputs, dict)
+            assert captured_inputs.get("approvalPolicy") == "bypassPermissions"
+
     async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

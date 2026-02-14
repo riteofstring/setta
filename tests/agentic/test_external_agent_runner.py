@@ -639,6 +639,30 @@ class TestExternalAgentRunner:
             payload = json.loads(Path(str(config_path)).read_text(encoding="utf-8"))
             assert "permission" not in payload
 
+    def test_context_applies_runtime_approval_policy_override(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="default",
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "allowUnscoped": True,
+                    "approvalPolicy": "bypassPermissions",
+                },
+            )
+
+            assert context.config.approvalPolicy == "bypassPermissions"
+            assert config.approvalPolicy == "default"
+
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
