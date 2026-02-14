@@ -41,7 +41,6 @@ export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] = [
     summary: "Set permissions mode: minimal, yolo, or config_toml_custom.",
   },
   { command: "/search", action: "search", summary: "Toggle search: on or off." },
-  { command: "/skills", action: "skills", summary: "Toggle skills: on or off." },
   { command: "/help", action: "help", summary: "Show slash command help." },
 ];
 
@@ -126,4 +125,3 @@ export const CHAT_STARTER_PROMPTS: ChatStarterPrompt[] = [
     requiresPython: false,
   },
 ];
-

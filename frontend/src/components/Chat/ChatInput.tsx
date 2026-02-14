@@ -42,6 +42,10 @@ import {
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
 const MAX_STARTER_PROMPTS_RENDERED = 6;
+const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
+const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
+const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
+const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 
 type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;
@@ -96,7 +100,7 @@ type ChatInputProps = {
   starterPrompts?: ChatStarterPrompt[];
   showPythonStarterPrompts?: boolean;
   showQuickSlashButtons?: boolean;
-  slashSuggestionsPlacement?: "above" | "below";
+  slashSuggestionsPlacement?: "auto" | "above" | "below";
   dictationEnabledByProvider?: boolean;
 };
 
@@ -113,19 +117,22 @@ export const ChatInput = memo(function ChatInput({
   executionControlVisibility = {
     permissionMode: true,
     search: true,
-    skills: true,
+    skills: false,
   },
   slashCommands = CHAT_SLASH_COMMANDS,
   onSlashCommand,
   starterPrompts = [],
   showPythonStarterPrompts = false,
   showQuickSlashButtons = false,
-  slashSuggestionsPlacement = "above",
+  slashSuggestionsPlacement = "auto",
   dictationEnabledByProvider = true,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
   const [activeSlashIndex, setActiveSlashIndex] = useState(0);
+  const [resolvedSlashPlacement, setResolvedSlashPlacement] = useState<
+    "above" | "below"
+  >(slashSuggestionsPlacement === "above" ? "above" : "below");
   const [dictationState, setDictationState] = useState<DictationState>("idle");
   const [dictationFeedback, setDictationFeedback] = useState<string | null>(null);
   const isControlled = typeof value === "string" && Boolean(onChange);
@@ -279,6 +286,73 @@ export const ChatInput = memo(function ChatInput({
       Math.min(current, Math.max(0, slashSuggestions.length - 1)),
     );
   }, [shouldShowSlashSuggestions, slashSuggestions.length]);
+
+  const updateAutoSlashPlacement = useCallback(() => {
+    if (!shouldShowSlashSuggestions || slashSuggestionsPlacement !== "auto") {
+      return;
+    }
+    if (typeof window === "undefined") {
+      return;
+    }
+    const inputNode = textareaRef.current;
+    if (!inputNode) {
+      return;
+    }
+    const inputRect = inputNode.getBoundingClientRect();
+    const spaceAbove =
+      inputRect.top - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
+    const spaceBelow =
+      window.innerHeight -
+      inputRect.bottom -
+      SLASH_SUGGESTIONS_EDGE_PADDING_PX;
+    const estimatedMenuHeight = Math.min(
+      SLASH_SUGGESTIONS_MAX_HEIGHT_PX,
+      SLASH_SUGGESTIONS_BASE_HEIGHT_PX +
+        slashSuggestions.length * SLASH_SUGGESTIONS_ROW_HEIGHT_PX,
+    );
+    const nextPlacement =
+      spaceBelow >= estimatedMenuHeight || spaceBelow >= spaceAbove
+        ? "below"
+        : "above";
+    setResolvedSlashPlacement((current) =>
+      current === nextPlacement ? current : nextPlacement,
+    );
+  }, [
+    shouldShowSlashSuggestions,
+    slashSuggestions.length,
+    slashSuggestionsPlacement,
+  ]);
+
+  useEffect(() => {
+    if (slashSuggestionsPlacement === "auto") {
+      if (!shouldShowSlashSuggestions) {
+        setResolvedSlashPlacement("below");
+        return;
+      }
+      updateAutoSlashPlacement();
+      if (typeof window === "undefined") {
+        return;
+      }
+      const handleViewportChange = () => {
+        requestAnimationFrame(() => {
+          updateAutoSlashPlacement();
+        });
+      };
+      window.addEventListener("resize", handleViewportChange);
+      window.addEventListener("scroll", handleViewportChange, true);
+      return () => {
+        window.removeEventListener("resize", handleViewportChange);
+        window.removeEventListener("scroll", handleViewportChange, true);
+      };
+    }
+    setResolvedSlashPlacement(
+      slashSuggestionsPlacement === "above" ? "above" : "below",
+    );
+  }, [
+    shouldShowSlashSuggestions,
+    slashSuggestionsPlacement,
+    updateAutoSlashPlacement,
+  ]);
 
   const applySlashSuggestion = useCallback(
     (index: number) => {
@@ -454,7 +528,7 @@ export const ChatInput = memo(function ChatInput({
   const showExecutionControls =
     showPermissionControl || showSearchControl || showSkillsControl;
   const slashSuggestionsPositionClass =
-    slashSuggestionsPlacement === "below"
+    resolvedSlashPlacement === "below"
       ? "top-[calc(100%+4px)]"
       : "bottom-[calc(100%+4px)]";
 
@@ -663,7 +737,7 @@ export const ChatInput = memo(function ChatInput({
             </button>
             {shouldShowSlashSuggestions ? (
               <div
-                className={`absolute left-1 right-1 z-20 max-h-52 overflow-y-auto rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900 ${slashSuggestionsPositionClass}`}
+                className={`absolute left-1 right-1 z-20 max-h-52 overflow-x-hidden overflow-y-auto rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900 ${slashSuggestionsPositionClass}`}
               >
                 {slashSuggestions.map((suggestion, index) => (
                   <button
@@ -677,7 +751,9 @@ export const ChatInput = memo(function ChatInput({
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => applySlashSuggestion(index)}
                   >
-                    <span className="font-semibold">{suggestion.command}</span>
+                    <span className="w-full truncate font-semibold">
+                      {suggestion.command}
+                    </span>
                     <span className="w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
                       {suggestion.summary}
                     </span>

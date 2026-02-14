@@ -122,3 +122,23 @@ Branch/Commit: chat-agent-coordination @ 8b98af7e (plus uncommitted overview/doc
 - Notes:
   - This run intentionally included active typing and suggestion rendering in two chat composers, so it is not directly comparable to the earlier compactness run.
   - Visual verification confirmed project pane keeps starter/quick controls and section chat keeps permission-only footer controls.
+
+## Follow-up Update (Adaptive Slash Placement + Centered Starter Actions)
+
+- Date: 2026-02-14
+- Change set:
+  - slash suggestion placement now defaults to `auto` (below unless viewport space is tight, then above)
+  - section chat composer wrapped with horizontal padding to keep input/footer controls off card edges
+  - project chat starter actions moved to center empty-state pane (`Create Project`, `Summarize Codebase`, `Plan Next Steps`)
+  - removed visible `Skills` toggle button from chat composer footer controls
+  - slash dropdown enforces hidden horizontal overflow
+- Automated perf tests:
+  - `frontend/src/components/Chat/chatComposerControls.perf.test.ts`
+  - `frontend/src/components/Panes/Overview/ProjectOverview/aiActivity.perf.test.ts`
+- DevTools MCP trace artifact:
+  - `perf/artifacts/2026-02-14-chat-pane-adaptive-placement-trace.json`
+- Trace metrics:
+  - INP: `227ms`
+  - CLS: `0.00`
+- Visual artifact:
+  - `perf/artifacts/2026-02-14-chat-pane-adaptive-placement-and-center-prompts.png`

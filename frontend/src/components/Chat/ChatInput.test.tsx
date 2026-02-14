@@ -185,7 +185,7 @@ describe("ChatInput composer controls", () => {
 
     expect(markup).toContain("minimal");
     expect(markup).toContain("Search");
-    expect(markup).toContain("Skills");
+    expect(markup).not.toContain("Skills");
   });
 
   it("hides quick slash buttons unless explicitly enabled", () => {
@@ -197,5 +197,26 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("/new");
     expect(markup).not.toContain("/resume");
     expect(markup).not.toContain("/model");
+  });
+
+  it("defaults slash suggestions to below placement", () => {
+    const markup = renderChatInput({
+      value: "/res",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("top-[calc(100%+4px)]");
+    expect(markup).toContain("overflow-x-hidden");
+  });
+
+  it("supports explicit above placement for slash suggestions", () => {
+    const markup = renderChatInput({
+      value: "/res",
+      onChange: vi.fn(),
+      slashSuggestionsPlacement: "above",
+    });
+
+    expect(markup).toContain("bottom-[calc(100%+4px)]");
+    expect(markup).toContain("overflow-x-hidden");
   });
 });

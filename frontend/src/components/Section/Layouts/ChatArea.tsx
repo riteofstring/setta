@@ -727,7 +727,7 @@ function ScriptableChatArea({
       if (command.action === "help") {
         return {
           feedback:
-            "Commands: /new, /resume, /permissions, /search, /skills, /model, /help.",
+            "Commands: /new, /resume, /permissions, /search, /model, /help.",
         };
       }
       return false;
@@ -924,24 +924,26 @@ function ScriptableChatArea({
         onBranchSwitch={handleBranchSwitch}
         branchInfoByMessage={branchInfoByMessage}
       />
-      <ChatInput
-        placeholderText="Type a message..."
-        waitingForResponse={effectiveState.waitingForResponse}
-        submitDisabled={submitDisabled}
-        disabled={isFrozen}
-        value={effectiveInputText}
-        onChange={handleInputChange}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-        onSlashCommand={handleSlashCommand}
-        executionControls={executionControls}
-        executionControlVisibility={{
-          permissionMode: true,
-          search: false,
-          skills: false,
-        }}
-        showQuickSlashButtons={false}
-      />
+      <div className="px-2.5 pb-1">
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={effectiveState.waitingForResponse}
+          submitDisabled={submitDisabled}
+          disabled={isFrozen}
+          value={effectiveInputText}
+          onChange={handleInputChange}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          onSlashCommand={handleSlashCommand}
+          executionControls={executionControls}
+          executionControlVisibility={{
+            permissionMode: true,
+            search: false,
+            skills: false,
+          }}
+          showQuickSlashButtons={false}
+        />
+      </div>
     </div>
   );
 }
@@ -1614,7 +1616,7 @@ function ManagedChatArea({
       if (command.action === "help") {
         return {
           feedback:
-            "Commands: /new, /resume, /model, /permissions, /search, /skills, /help.",
+            "Commands: /new, /resume, /model, /permissions, /search, /help.",
         };
       }
       return false;
@@ -1766,23 +1768,25 @@ function ManagedChatArea({
           branchInfoByMessage={branchInfoByMessage}
         />
       )}
-      <ChatInput
-        placeholderText={placeholderText}
-        waitingForResponse={waitingForResponse}
-        submitDisabled={submitDisabled}
-        disabled={isDisabled}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-        onSlashCommand={handleSlashCommand}
-        executionControls={executionControls}
-        executionControlVisibility={{
-          permissionMode: true,
-          search: false,
-          skills: false,
-        }}
-        showQuickSlashButtons={false}
-        dictationEnabledByProvider={hasEngineConfig}
-      />
+      <div className="px-2.5 pb-1">
+        <ChatInput
+          placeholderText={placeholderText}
+          waitingForResponse={waitingForResponse}
+          submitDisabled={submitDisabled}
+          disabled={isDisabled}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          onSlashCommand={handleSlashCommand}
+          executionControls={executionControls}
+          executionControlVisibility={{
+            permissionMode: true,
+            search: false,
+            skills: false,
+          }}
+          showQuickSlashButtons={false}
+          dictationEnabledByProvider={hasEngineConfig}
+        />
+      </div>
     </div>
   );
 }

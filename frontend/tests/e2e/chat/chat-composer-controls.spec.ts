@@ -65,6 +65,13 @@ test.describe.serial("chat composer controls", () => {
         .filter({ hasText: "Resume the latest chat thread for this section." })
         .first();
       await expect(resumeSuggestion).toBeVisible();
+      const sectionSuggestions = section.locator(
+        "div.z-20.max-h-52.overflow-y-auto",
+      );
+      await expect(sectionSuggestions.first()).toBeVisible();
+      await expect(sectionSuggestions.first()).toHaveClass(
+        /overflow-x-hidden/,
+      );
       await input.press("Enter");
       await expect
         .poll(async () => {
@@ -125,6 +132,13 @@ test.describe.serial("chat composer controls", () => {
         .filter({ hasText: "Resume the latest chat thread for this section." })
         .first();
       await expect(resumeSuggestion).toBeVisible();
+      const projectSuggestions = overviewPane.locator(
+        "div.z-20.max-h-52.overflow-y-auto",
+      );
+      await expect(projectSuggestions.first()).toBeVisible();
+      await expect(projectSuggestions.first()).toHaveClass(
+        /overflow-x-hidden/,
+      );
       const inputBox = await input.boundingBox();
       const suggestionBox = await resumeSuggestion.boundingBox();
       if (!inputBox || !suggestionBox) {
@@ -148,13 +162,12 @@ test.describe.serial("chat composer controls", () => {
         overviewPane.getByRole("button", { name: /^minimal/i }),
       ).toBeVisible();
       const searchButton = overviewPane.getByRole("button", { name: "Search" });
-      const skillsButton = overviewPane.getByRole("button", { name: "Skills" });
       await expect(searchButton).toBeVisible();
-      await expect(skillsButton).toBeVisible();
+      await expect(
+        overviewPane.getByRole("button", { name: "Skills" }),
+      ).toHaveCount(0);
       await searchButton.click();
-      await skillsButton.click();
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
-      await expect(skillsButton).toHaveAttribute("aria-pressed", "false");
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
