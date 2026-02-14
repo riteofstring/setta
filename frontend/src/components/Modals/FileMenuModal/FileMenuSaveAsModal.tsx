@@ -23,7 +23,6 @@ export function FileMenuSaveProjectConfigAsModal({ open }) {
   const currentProjectConfigName = useProjectState((x) => x.projectConfig.name);
 
   async function onClickSaveAsProject({
-    selectedName,
     filename,
   }: {
     selectedName: string | null;
@@ -34,12 +33,14 @@ export function FileMenuSaveProjectConfigAsModal({ open }) {
       return;
     }
 
-    if (selectedName === currentProjectConfigName) {
+    if (normalizedFilename === currentProjectConfigName) {
       saveProject();
       return;
     }
 
-    const existingTarget = projectMetadata.find((x) => x.name === selectedName);
+    const existingTarget = projectMetadata.find(
+      (x) => x.name === normalizedFilename,
+    );
     if (existingTarget) {
       addTemporaryNotification(
         "Overwriting an existing project config directly is disabled. Use Save As New, then rename or delete configs as needed.",
