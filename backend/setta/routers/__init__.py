@@ -1,7 +1,6 @@
 from .agentic import router as agentic_router
 from .ai import router as ai_router
 from .app_deployments import router as app_deployments_router
-from .app_gen_extensions import router as app_gen_extensions_router
 from .app_spec_streaming import router as app_spec_streaming_router
 from .artifact import router as artifact_router
 from .attachments import router as attachments_router
