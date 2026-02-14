@@ -34,6 +34,7 @@ from setta.plugins.models import (
     PluginConfigDescriptor,
     PluginConfigWriteResponse,
     PluginContentDescriptor,
+    PluginEnablementSource,
     PluginEnableDisableResponse,
     PluginErrorInfo,
     PluginFrontendDescriptor,
@@ -161,6 +162,7 @@ class DiscoveredPlugin:
     requested_capabilities: list[str] = field(default_factory=list)
     effective_capabilities: list[str] = field(default_factory=list)
     blocked_capabilities: list[PluginBlockedCapability] = field(default_factory=list)
+    enablement_source: PluginEnablementSource | None = None
     restart_required: bool = False
 
     @property
@@ -433,6 +435,7 @@ class PluginManager:
                     content=content,
                     config=config,
                     effectiveCapabilities=entry.effective_capabilities,
+                    enablementSource=entry.enablement_source,
                     restartRequired=entry.restart_required,
                 )
             )
@@ -473,6 +476,7 @@ class PluginManager:
                     requestedCapabilities=entry.requested_capabilities,
                     effectiveCapabilities=entry.effective_capabilities,
                     blockedCapabilities=entry.blocked_capabilities,
+                    enablementSource=entry.enablement_source,
                     restartRequired=entry.restart_required,
                     errors=entry.errors,
                 )
@@ -2351,13 +2355,14 @@ class PluginManager:
             entry.restart_required = True
             return
 
-        enabled = self._resolve_enabled(
+        enabled, enablement_source = self._resolve_enabled(
             plugin_id=entry.plugin_id,
             scope=entry.scope,
             manifest_enabled_by_default=entry.manifest.enabledByDefault,
             plugins_state=plugins_state,
             plugins_global_state=plugins_global_state,
         )
+        entry.enablement_source = enablement_source
         if not enabled:
             entry.state = PluginRuntimeState.disabled
             entry.restart_required = False
@@ -2405,15 +2410,15 @@ class PluginManager:
         manifest_enabled_by_default: bool,
         plugins_state: PluginsStateFile,
         plugins_global_state: PluginsGlobalStateFile,
-    ) -> bool:
+    ) -> tuple[bool, PluginEnablementSource]:
         if plugin_id in plugins_state.disabledPluginIds:
-            return False
+            return False, PluginEnablementSource.workspace_disabled
         if plugin_id in plugins_state.enabledPluginIds:
-            return True
+            return True, PluginEnablementSource.workspace_enabled
         if scope == PluginScope.global_scope:
             if plugin_id in plugins_global_state.autoEnabledPluginIds:
-                return True
-        return manifest_enabled_by_default
+                return True, PluginEnablementSource.global_auto_enabled
+        return manifest_enabled_by_default, PluginEnablementSource.manifest_default
 
     def _resolve_effective_capabilities(
         self, requested: list[str]
@@ -2967,7 +2972,15 @@ class PluginManager:
         self, *, plugin_id: str, scope: PluginScope, enable: bool
     ) -> None:
         state_file = self._load_plugins_state()
-        if enable:
+        if scope == PluginScope.global_scope:
+            # Global installs use global auto-enable defaults, not workspace overrides.
+            state_file.enabledPluginIds = [
+                value for value in state_file.enabledPluginIds if value != plugin_id
+            ]
+            state_file.disabledPluginIds = [
+                value for value in state_file.disabledPluginIds if value != plugin_id
+            ]
+        elif enable:
             if plugin_id not in state_file.enabledPluginIds:
                 state_file.enabledPluginIds.append(plugin_id)
             state_file.disabledPluginIds = [

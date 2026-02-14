@@ -395,6 +395,72 @@ def test_scope_alias_environment_maps_to_setta_files() -> None:
     assert normalize_scope("environment") == PluginScope.setta_files
 
 
+def test_enablement_source_tracks_workspace_overrides(tmp_path: Path) -> None:
+    # Status should surface whether enablement is from manifest default or workspace overrides.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    initial_entry = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ][0]
+    assert initial_entry.state == PluginRuntimeState.active
+    assert initial_entry.enablementSource == "manifest_default"
+
+    manager.disable_plugin(plugin_id="setta-fixture-frontend")
+    disabled_entry = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ][0]
+    assert disabled_entry.state == PluginRuntimeState.disabled
+    assert disabled_entry.enablementSource == "workspace_disabled"
+
+    manager.enable_plugin(plugin_id="setta-fixture-frontend")
+    enabled_entry = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ][0]
+    assert enabled_entry.state == PluginRuntimeState.active
+    assert enabled_entry.enablementSource == "workspace_enabled"
+
+
+def test_global_install_uses_global_auto_enable_source(tmp_path: Path) -> None:
+    # Global install enablement should flow through global defaults, not workspace overrides.
+    manager = _make_manager(tmp_path)
+    install_result = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.global_scope,
+        enable=True,
+        force=False,
+    )
+    assert install_result.sourceScope == PluginScope.global_scope
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.global_scope
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+    assert status_entries[0].enablementSource == "global_auto_enabled"
+
+
 def test_uninstall_requires_scope_when_plugin_exists_in_multiple_scopes(
     tmp_path: Path,
 ) -> None:

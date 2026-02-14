@@ -40,6 +40,13 @@ class PluginRuntimeState(str, Enum):
     pending_restart = "pending_restart"
 
 
+class PluginEnablementSource(str, Enum):
+    workspace_disabled = "workspace_disabled"
+    workspace_enabled = "workspace_enabled"
+    global_auto_enabled = "global_auto_enabled"
+    manifest_default = "manifest_default"
+
+
 class BlockedCapabilityReason(str, Enum):
     mode_policy = "mode_policy"
     host_policy = "host_policy"
@@ -172,6 +179,7 @@ class PluginListEntry(BaseModel):
     content: PluginContentDescriptor
     config: PluginConfigDescriptor
     effectiveCapabilities: list[str]
+    enablementSource: PluginEnablementSource | None = None
     restartRequired: bool
 
 
@@ -200,6 +208,7 @@ class PluginStatusEntry(BaseModel):
     requestedCapabilities: list[str]
     effectiveCapabilities: list[str]
     blockedCapabilities: list[PluginBlockedCapability]
+    enablementSource: PluginEnablementSource | None = None
     restartRequired: bool
     errors: list[PluginErrorInfo]
 
