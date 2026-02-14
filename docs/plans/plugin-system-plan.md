@@ -1209,7 +1209,11 @@ Frontend:
 - Add fallback UI when renderer is missing.
 - Add a simple example plugin in `tests/fixtures/plugins/` to validate the pipeline.
 
-### Phase 4: Content plugins + export-from-Setta (group and project)
+### Phase 4: Content plugins + export-from-Setta (group and project, future work)
+
+This phase is valuable, but it is not required to complete the core plugin
+runtime MVP. Defer until backend/frontend plugin runtime hardening and deeper
+integration priorities are complete.
 
 - Add blueprint import UI and a "Blueprints" section in the Add menu.
 - Add "Export Group As Plugin..." flow that writes to `plugins/`.
@@ -1228,7 +1232,7 @@ Frontend:
 - Phase 1 complete when `/api/plugins/list`, `/api/plugins/status`, management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`, `lock/write`, `lock/apply`), and restart contract routes (`restart-capability`, `restart`) are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, lockfile/rollback support, backend worker/runtime dependency setup, explicit worker RPC contract/timeout handling, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
 - Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, with scope selector support (`workspace`, `environment`, `global`), frontend SDK/runtime registration validation, restart-required UX, and Share-mode capability filtering visible in UI/status.
 - Phase 3 complete when `SectionType.Plugin` roundtrips through backend/frontend types, renders via registered plugin renderer, and missing renderer falls back without app instability.
-- Phase 4 complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
+- Phase 4 is a future milestone (not required for core plugin runtime MVP), complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
 - Phase 5 complete when at least one deeper integration (for example language-server registration) works end-to-end with mode-aware capability gating and failure reporting.
 
 ## MVP Decisions (Resolved)
