@@ -144,13 +144,13 @@ def resolve_setta_paths(
         profile_lookup_home = _resolve_setta_home(
             explicit_setta_home=setta_home,
             profile_setta_home=None,
-            allow_env_overrides=True,
+            allow_env_overrides=allow_env_non_files_overrides,
         )
         profile_config = None
     else:
         profile_lookup_home = _resolve_setta_home_without_profile(
             setta_home,
-            allow_env_overrides=True,
+            allow_env_overrides=allow_env_non_files_overrides,
         )
         profile_config = _load_profile_config(
             profile_name=profile_name,
@@ -160,7 +160,7 @@ def resolve_setta_paths(
     resolved_setta_home = _resolve_setta_home(
         explicit_setta_home=setta_home,
         profile_setta_home=profile_config.setta_home if profile_config else None,
-        allow_env_overrides=True,
+        allow_env_overrides=allow_env_non_files_overrides,
     )
     _validate_setta_home_name(
         profile_lookup_home,
@@ -525,7 +525,9 @@ def _resolve_runtime_root(
     if profile_runtime_root is not None:
         return profile_runtime_root.resolve(strict=False)
     if allow_env_overrides:
-        env_runtime_root = _resolve_optional_path_value(os.environ.get(RUNTIME_ROOT_ENV))
+        env_runtime_root = _resolve_optional_path_value(
+            os.environ.get(RUNTIME_ROOT_ENV)
+        )
         if env_runtime_root is not None:
             return env_runtime_root
     return (setta_files_root / "runtime").resolve(strict=False)

@@ -10,6 +10,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
+from setta.utils.paths import get_setta_paths
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
@@ -69,9 +70,8 @@ def _normalize_optional_profile(profile: str | None) -> str | None:
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
         normalized_profile = _normalize_optional_profile(x.profile)
-        if (
-            x.settaFilesLocation == "auto"
-            and (x.settaFilesRoot is not None or normalized_profile is not None)
+        if x.settaFilesLocation == "auto" and (
+            x.settaFilesRoot is not None or normalized_profile is not None
         ):
             # Treat "auto" as omission when explicit routing inputs are provided.
             setta_files_location = None
@@ -120,11 +120,14 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ),
             )
         workspace_root = x.workspaceRoot
+        local_setta_home = x.settaHome
+        if local_setta_home is None:
+            local_setta_home = str(get_setta_paths().setta_home)
 
         result = launch_workspace_session(
             workspace_root=workspace_root,
             profile=normalized_profile,
-            setta_home=x.settaHome,
+            setta_home=local_setta_home,
             setta_files_root=x.settaFilesRoot,
             setta_files_location=setta_files_location,
             runtime_root=x.runtimeRoot,

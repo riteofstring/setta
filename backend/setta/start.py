@@ -818,6 +818,21 @@ def _format_session_payload(session: SessionMetadata) -> dict[str, Any]:
     }
 
 
+def _session_connect_info_paths_payload(session: SessionMetadata) -> dict[str, str]:
+    payload: dict[str, str] = {}
+    if session.settaFilesLocation is not None:
+        payload["settaFilesLocation"] = session.settaFilesLocation
+    if session.settaFilesRoot is not None:
+        payload["settaFilesRoot"] = session.settaFilesRoot
+    if session.runtimeRoot is not None:
+        payload["runtimeRoot"] = session.runtimeRoot
+    if session.settaHome is not None:
+        payload["settaHome"] = session.settaHome
+    if session.profile is not None:
+        payload["profile"] = session.profile
+    return payload
+
+
 def _load_session_secret(registry: SessionRegistry, session: SessionMetadata) -> bytes:
     secret_path = registry.resolve_secret_path(session)
     if not secret_path.exists():
@@ -1566,11 +1581,6 @@ def status(
 
     ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
     group_workspace = ctx_obj.get("workspace")
-    group_profile = ctx_obj.get("profile")
-    group_setta_home = ctx_obj.get("setta_home")
-    group_setta_files_root = ctx_obj.get("setta_files_root")
-    group_setta_files_location = ctx_obj.get("setta_files_location")
-    group_runtime_root = ctx_obj.get("runtime_root")
     resolved_workspace: Path | None = workspace
     if resolved_workspace is None:
         resolved_workspace = group_workspace
@@ -1654,39 +1664,13 @@ def status(
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
-        resolved_paths = resolve_setta_paths(
-            workspace_root=resolved_workspace,
-            profile=group_profile if isinstance(group_profile, str) else None,
-            setta_home=group_setta_home if isinstance(group_setta_home, Path) else None,
-            setta_files_root=group_setta_files_root
-            if isinstance(group_setta_files_root, Path)
-            else None,
-            setta_files_location=group_setta_files_location
-            if isinstance(group_setta_files_location, str)
-            else None,
-            runtime_root=group_runtime_root
-            if isinstance(group_runtime_root, Path)
-            else None,
-        )
         payload = {
-            "session": {
-                "id": session.id,
-                "workspacePath": session.workspacePath,
-                "workspacePathCanonical": session.workspacePathCanonical,
-                "host": session.host,
-                "port": session.port,
-                "pid": session.pid,
-                "startedAt": session.startedAt.isoformat(),
-            },
+            "session": _format_session_payload(session),
             "bootstrapUrlFragment": bootstrap_url_fragment,
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
-            "settaFilesLocation": resolved_paths.setta_files_location,
-            "settaFilesRoot": str(resolved_paths.setta_files_root),
-            "runtimeRoot": str(resolved_paths.runtime_root),
-            "settaHome": str(resolved_paths.setta_home),
-            "profile": resolved_paths.profile_name,
         }
+        payload.update(_session_connect_info_paths_payload(session))
         _emit_connect_info_json(payload)
         return
 
@@ -2480,6 +2464,11 @@ def cli(
             resolved_port,
             os.getpid(),
             workspace_display_path=str(display_workspace),
+            setta_files_location=paths.setta_files_location,
+            setta_files_root=str(paths.setta_files_root),
+            runtime_root=str(paths.runtime_root),
+            setta_home=str(paths.setta_home),
+            profile=paths.profile_name,
         )
         os.environ[SESSION_ID_ENV_VAR] = session.id
         os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)

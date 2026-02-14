@@ -8,9 +8,6 @@ setta_require_option_value() {
     echo "Missing value for ${flag}" >&2
     exit 1
   fi
-  if [ "$#" -lt 3 ]; then
-    return
-  fi
   case "${option_value}" in
     ""|-*)
       echo "Missing value for ${flag}" >&2

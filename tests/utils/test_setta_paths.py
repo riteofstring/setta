@@ -13,6 +13,7 @@ from setta.utils.paths import (
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.setta_home import resolve_setta_home
 
 
 @pytest.fixture(autouse=True)
@@ -153,7 +154,9 @@ def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> 
         resolve_setta_paths(workspace_root=workspace)
 
 
-def test_explicit_setta_files_root_bypasses_invalid_local_root_file(tmp_path: Path) -> None:
+def test_explicit_setta_files_root_bypasses_invalid_local_root_file(
+    tmp_path: Path,
+) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "setta_files").write_text("invalid", encoding="utf-8")
@@ -401,9 +404,12 @@ def test_non_files_env_overrides_disable_profile_and_runtime_env(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
     env_setta_home = tmp_path / "env_home" / ".setta-development"
     env_runtime_root = tmp_path / "env_runtime_root"
 
+    monkeypatch.setenv("HOME", str(home_dir))
     monkeypatch.setenv("SETTA_HOME", str(env_setta_home))
     monkeypatch.setenv("SETTA_PROFILE", "env-profile")
     monkeypatch.setenv("SETTA_RUNTIME_ROOT", str(env_runtime_root))
@@ -413,8 +419,12 @@ def test_non_files_env_overrides_disable_profile_and_runtime_env(
         allow_env_non_files_overrides=False,
     )
 
+    default_setta_home = resolve_setta_home(allow_env_override=False).resolve(
+        strict=False
+    )
     assert paths.profile_name is None
-    assert paths.setta_home == env_setta_home.resolve(strict=False)
+    assert paths.profile_lookup_home == default_setta_home
+    assert paths.setta_home == default_setta_home
     assert paths.runtime_root == (workspace / "setta_files" / "runtime").resolve(
         strict=False
     )
@@ -444,9 +454,9 @@ def test_setta_files_root_path_inputs_expand_user_and_env_vars(
         setta_files_root=Path(raw_path),
     )
 
-    assert paths.setta_files_root == (home / expected_path[0] / expected_path[1]).resolve(
-        strict=False
-    )
+    assert paths.setta_files_root == (
+        home / expected_path[0] / expected_path[1]
+    ).resolve(strict=False)
 
 
 @pytest.mark.parametrize(

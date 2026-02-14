@@ -401,6 +401,58 @@ def test_launch_workspace_session_clears_inherited_auth_cookie_name(
     assert "SETTA_AUTH_COOKIE_NAME" not in captured_env
 
 
+def test_launch_workspace_session_sanitizes_inherited_path_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_home = tmp_path / ".setta-development"
+    stale_root = tmp_path / "stale_state_root" / "setta_files_dev"
+    stale_runtime = tmp_path / "stale_runtime"
+
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(tmp_path / "stale_workspace"))
+    monkeypatch.setenv("SETTA_PROFILE", "stale-profile")
+    monkeypatch.setenv("SETTA_HOME", str(tmp_path / ".setta"))
+    monkeypatch.setenv("SETTA_PROFILE_LOOKUP_HOME", str(tmp_path / ".setta"))
+    monkeypatch.setenv("SETTA_FILES_ROOT", str(stale_root))
+    monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
+    monkeypatch.setenv("SETTA_RUNTIME_ROOT", str(stale_runtime))
+
+    captured_env: dict[str, str] = {}
+
+    def capture_spawn_env(*_args, **kwargs):
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            captured_env.update({str(k): str(v) for k, v in env.items()})
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", capture_spawn_env)
+
+    with pytest.raises(LaunchError):
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_home=setta_home,
+            setta_files_location="local",
+            allow_env_files_overrides=False,
+            allow_env_non_files_overrides=False,
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    expected_setta_home = str(setta_home.resolve(strict=False))
+    expected_workspace = str(workspace.resolve(strict=False))
+    expected_runtime_root = str(
+        (workspace / "setta_files" / "runtime").resolve(strict=False)
+    )
+    assert captured_env.get("SETTA_WORKSPACE_ROOT") == expected_workspace
+    assert captured_env.get("SETTA_HOME") == expected_setta_home
+    assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == expected_setta_home
+    assert captured_env.get("SETTA_FILES_LOCATION") == "local"
+    assert captured_env.get("SETTA_RUNTIME_ROOT") == expected_runtime_root
+    assert "SETTA_PROFILE" not in captured_env
+    assert "SETTA_FILES_ROOT" not in captured_env
+
+
 def test_launch_workspace_session_spawns_profile_with_runtime_home_and_lookup_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -453,13 +505,9 @@ def test_launch_workspace_session_spawns_profile_with_runtime_home_and_lookup_en
     assert "--profile" in captured_cmd
     assert captured_cmd[captured_cmd.index("--profile") + 1] == "dev"
     assert "--setta-home" not in captured_cmd
-    assert (
-        captured_env.get("SETTA_HOME")
-        == str(runtime_home.resolve(strict=False))
-    )
-    assert (
-        captured_env.get("SETTA_PROFILE_LOOKUP_HOME")
-        == str(lookup_home.resolve(strict=False))
+    assert captured_env.get("SETTA_HOME") == str(runtime_home.resolve(strict=False))
+    assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == str(
+        lookup_home.resolve(strict=False)
     )
 
 
