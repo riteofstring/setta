@@ -130,6 +130,7 @@ def resolve_setta_paths(
     *,
     workspace_root: Path | str | None = None,
     setta_home: Path | str | None = None,
+    profile_lookup_home: Path | str | None = None,
     setta_files_location: SettaFilesLocation | None = None,
     setta_files_root: Path | str | None = None,
     runtime_root: Path | str | None = None,
@@ -140,30 +141,31 @@ def resolve_setta_paths(
     profile_name = _resolve_profile_name(
         profile, allow_env_overrides=allow_env_non_files_overrides
     )
+    profile_config: SettaProfileConfig | None = None
     if profile_name is None:
-        profile_lookup_home = _resolve_setta_home(
+        resolved_setta_home = _resolve_setta_home(
             explicit_setta_home=setta_home,
             profile_setta_home=None,
             allow_env_overrides=allow_env_non_files_overrides,
         )
-        profile_config = None
+        resolved_profile_lookup_home = resolved_setta_home
     else:
-        profile_lookup_home = _resolve_setta_home_without_profile(
-            setta_home,
+        resolved_profile_lookup_home = _resolve_profile_lookup_home(
+            explicit_profile_lookup_home=profile_lookup_home,
+            explicit_setta_home=setta_home,
             allow_env_overrides=allow_env_non_files_overrides,
         )
         profile_config = _load_profile_config(
             profile_name=profile_name,
-            setta_home=profile_lookup_home,
+            setta_home=resolved_profile_lookup_home,
         )
-
-    resolved_setta_home = _resolve_setta_home(
-        explicit_setta_home=setta_home,
-        profile_setta_home=profile_config.setta_home if profile_config else None,
-        allow_env_overrides=allow_env_non_files_overrides,
-    )
+        resolved_setta_home = _resolve_setta_home(
+            explicit_setta_home=setta_home,
+            profile_setta_home=profile_config.setta_home,
+            allow_env_overrides=allow_env_non_files_overrides,
+        )
     _validate_setta_home_name(
-        profile_lookup_home,
+        resolved_profile_lookup_home,
         label="Setta profile lookup home",
     )
     _validate_setta_home_name(
@@ -204,7 +206,7 @@ def resolve_setta_paths(
     return SettaPaths(
         workspace_root=resolved_workspace,
         setta_home=resolved_setta_home,
-        profile_lookup_home=profile_lookup_home,
+        profile_lookup_home=resolved_profile_lookup_home,
         profile_name=profile_name,
         setta_files_root=resolved_files_root,
         setta_files_location=resolved_location,
@@ -363,6 +365,20 @@ def _resolve_setta_home_without_profile(
             if trimmed:
                 return resolve_path(trimmed)
     return resolve_setta_home(allow_env_override=False).resolve(strict=False)
+
+
+def _resolve_profile_lookup_home(
+    *,
+    explicit_profile_lookup_home: Path | str | None,
+    explicit_setta_home: Path | str | None,
+    allow_env_overrides: bool,
+) -> Path:
+    if explicit_profile_lookup_home is not None:
+        return resolve_path(explicit_profile_lookup_home)
+    return _resolve_setta_home_without_profile(
+        explicit_setta_home,
+        allow_env_overrides=allow_env_overrides,
+    )
 
 
 def _resolve_setta_home(

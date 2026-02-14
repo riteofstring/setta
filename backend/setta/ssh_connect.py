@@ -23,6 +23,7 @@ from setta.ssh_common import (
     fetch_remote_connect_info,
     fetch_remote_sessions,
     normalize_setta_files_location,
+    normalize_optional_argument,
     parse_ssh_args,
     resolve_remote_setta_command,
     resolve_remote_shell,
@@ -77,14 +78,6 @@ def _parse_optional_connect_info_field(
     trimmed = raw_value.strip()
     return trimmed or None
 
-
-def _normalize_optional_profile(profile: str | None) -> str | None:
-    if profile is None:
-        return None
-    trimmed = profile.strip()
-    return trimmed or None
-
-
 def connect_remote_workspace_session(
     *,
     ssh_target: str,
@@ -108,13 +101,9 @@ def connect_remote_workspace_session(
         )
     if local_port is not None and not (1 <= local_port <= 65535):
         raise LaunchError("InvalidLocalPort", f"Invalid local port: {local_port}")
-    trimmed_profile = _normalize_optional_profile(profile)
+    trimmed_profile = normalize_optional_argument(profile)
     trimmed_location = normalize_setta_files_location(setta_files_location)
-    trimmed_setta_files_root = (
-        setta_files_root.strip() if setta_files_root is not None else None
-    )
-    if trimmed_setta_files_root is not None and not trimmed_setta_files_root:
-        trimmed_setta_files_root = None
+    trimmed_setta_files_root = normalize_optional_argument(setta_files_root)
     if (
         trimmed_setta_files_root is None
         and trimmed_location is None

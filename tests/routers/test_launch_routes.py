@@ -74,13 +74,14 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
 
-    def test_launch_local_profile_without_setta_home_uses_profile_lookup_home(
+    def test_launch_local_profile_without_setta_home_uses_profile_lookup_home_only(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured: dict[str, object] = {}
 
         def fake_launch_workspace_session(**kwargs):
             captured["setta_home"] = kwargs.get("setta_home")
+            captured["profile_lookup_home"] = kwargs.get("profile_lookup_home")
             raise LaunchError("Captured", "intentional capture")
 
         class _Paths:
@@ -103,7 +104,8 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
-        assert captured["setta_home"] == str(_Paths.profile_lookup_home)
+        assert captured["setta_home"] is None
+        assert captured["profile_lookup_home"] == str(_Paths.profile_lookup_home)
 
     def test_launch_local_without_profile_uses_runtime_setta_home_default(
         self, monkeypatch: pytest.MonkeyPatch
@@ -163,6 +165,50 @@ class TestLaunchRoutes:
         assert captured["setta_files_location"] == "auto"
         assert captured["profile"] is None
 
+    def test_launch_local_normalizes_optional_path_arguments(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_home"] = kwargs.get("setta_home")
+            captured["setta_files_root"] = kwargs.get("setta_files_root")
+            captured["runtime_root"] = kwargs.get("runtime_root")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.get_setta_paths",
+            lambda: type(
+                "_Paths",
+                (),
+                {
+                    "setta_home": Path("/tmp/runtime/.setta-development"),
+                    "profile_lookup_home": Path("/tmp/lookup/.setta"),
+                },
+            )(),
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                profile="dev",
+                settaHome="   ",
+                settaFilesRoot="\t",
+                runtimeRoot="\n",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_home"] is None
+        assert captured["setta_files_root"] is None
+        assert captured["runtime_root"] is None
+
     def test_launch_local_explicit_root_preserves_omitted_location(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -189,7 +235,7 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] is None
 
-    def test_launch_local_profile_with_auto_treated_as_omitted_location(
+    def test_launch_local_profile_with_auto_keeps_explicit_auto_location(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured: dict[str, object] = {}
@@ -214,9 +260,9 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
-        assert captured["setta_files_location"] is None
+        assert captured["setta_files_location"] == "auto"
 
-    def test_launch_local_explicit_root_with_auto_treated_as_omitted_location(
+    def test_launch_local_explicit_root_with_auto_keeps_explicit_auto_location(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured: dict[str, object] = {}
@@ -241,7 +287,24 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
-        assert captured["setta_files_location"] is None
+        assert captured["setta_files_location"] == "auto"
+
+    def test_launch_local_explicit_root_with_auto_returns_conflict_error(self) -> None:
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                settaFilesRoot="/tmp/workspace/setta_files_dev",
+                settaFilesLocation="auto",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "InvalidSettaFilesConfig"
+        assert (
+            "--setta-files-root together with --setta-files-location"
+            in response.error.message
+        )
 
     def test_launch_local_disables_all_env_overrides(
         self, monkeypatch: pytest.MonkeyPatch
@@ -747,6 +810,79 @@ class TestLaunchRoutes:
             assert response.settaFilesRoot == str(
                 (workspace_root / "setta_files").resolve(strict=False)
             )
+
+    def test_launch_profile_uses_profile_setta_home_for_runtime_roots(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+
+            lookup_home = tmp_path / "lookup" / ".setta"
+            runtime_home = tmp_path / "runtime" / ".setta-development"
+            profiles_dir = lookup_home / "profiles"
+            profiles_dir.mkdir(parents=True, exist_ok=True)
+            (profiles_dir / "dev.json").write_text(
+                json.dumps(
+                    {
+                        "name": "dev",
+                        "workspaceRoot": str(workspace_root),
+                        "settaHome": str(runtime_home),
+                        "settaFilesLocation": "global",
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            class _Paths:
+                setta_home = runtime_home.resolve(strict=False)
+                profile_lookup_home = lookup_home.resolve(strict=False)
+
+            monkeypatch.setattr("setta.routers.launch.get_setta_paths", lambda: _Paths())
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
+            global_base = (runtime_home / "setta_files").resolve(strict=False)
+            global_root = build_files_root_from_base(global_base, workspace_root).resolve(
+                strict=False
+            )
+            sessions_root = global_root / "runtime" / "sessions"
+            sessions_root.mkdir(parents=True, exist_ok=True)
+
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                server_socket.bind(("127.0.0.1", 0))
+            except OSError:
+                pytest.skip("Socket binds are not permitted in this test environment.")
+            server_socket.listen(1)
+            port = server_socket.getsockname()[1]
+
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=port,
+                pid=os.getpid(),
+            )
+
+            try:
+                response = route_launch(
+                    LaunchRequest(
+                        workspaceRoot=str(workspace_root),
+                        profile="dev",
+                    )
+                )
+            finally:
+                server_socket.close()
+
+            assert response.ok is True
+            assert response.sessionId == session.id
+            assert response.settaHome == str(runtime_home.resolve(strict=False))
+            assert response.settaFilesLocation == "global"
+            assert response.settaFilesRoot == str(global_root)
 
     def test_launch_does_not_inherit_server_runtime_root_env(
         self, monkeypatch: pytest.MonkeyPatch

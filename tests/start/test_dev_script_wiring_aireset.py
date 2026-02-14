@@ -14,7 +14,6 @@ def test_aireset_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
     env = script_env(tmp_path / "unused-bin", home_dir)
     env["SETTA_HOME"] = str(tmp_path / "previous_home")
     env["SETTA_FILES_ROOT"] = str(tmp_path / "previous_state")
-    env["SETTA_FILES_LOCATION"] = "global"
     env["SETTA_PROFILE"] = "built"
     env["SETTA_RUNTIME_ROOT"] = str(tmp_path / "previous_runtime")
 
@@ -41,6 +40,29 @@ def test_aireset_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
     assert "SETTA_FILES_LOCATION=" not in ai_env
     assert "SETTA_PROFILE=built" in ai_env
     assert f"SETTA_RUNTIME_ROOT={tmp_path / 'previous_runtime'}" in ai_env
+
+
+def test_aireset_rejects_conflicting_env_root_and_location(tmp_path: Path) -> None:
+    sandbox_root = build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(tmp_path / "unused-bin", home_dir)
+    env["SETTA_FILES_ROOT"] = str(tmp_path / "previous_state")
+    env["SETTA_FILES_LOCATION"] = "global"
+
+    result = run_script(
+        ["bash", str(sandbox_root / "aireset.sh")],
+        cwd=sandbox_root,
+        env=env,
+    )
+
+    assert result.returncode != 0
+    assert (
+        "Environment variables SETTA_FILES_ROOT and SETTA_FILES_LOCATION cannot both be set."
+        in f"{result.stdout}{result.stderr}"
+    )
+    assert not (sandbox_root / "reset_env.txt").exists()
+    assert not (sandbox_root / "ai_env.txt").exists()
 
 
 def test_aireset_always_passes_worktree_workspace_to_reset(tmp_path: Path) -> None:

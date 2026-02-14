@@ -518,12 +518,70 @@ def test_launch_workspace_session_spawns_profile_with_runtime_home_and_lookup_en
     assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == str(
         lookup_home.resolve(strict=False)
     )
-    assert "SETTA_HOME" not in captured_env
+    assert captured_env.get("SETTA_HOME") == str(runtime_home.resolve(strict=False))
     assert "SETTA_WORKSPACE_ROOT" not in captured_env
     assert "SETTA_FILES_ROOT" not in captured_env
     assert "SETTA_FILES_LOCATION" not in captured_env
     assert "SETTA_RUNTIME_ROOT" not in captured_env
     assert "SETTA_PROFILE" not in captured_env
+
+
+def test_launch_workspace_session_profile_lookup_home_arg_keeps_runtime_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    lookup_home = tmp_path / ".setta"
+    runtime_home = tmp_path / ".setta-development"
+    profile_path = lookup_home / "profiles" / "dev.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+                "settaHome": str(runtime_home),
+                "settaFilesLocation": "local",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    captured_cmd: list[str] = []
+    captured_env: dict[str, str] = {}
+
+    def capture_spawn_command(*args, **kwargs):
+        command = args[0] if args else None
+        if isinstance(command, list):
+            captured_cmd.extend(str(part) for part in command)
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            captured_env.update({str(k): str(v) for k, v in env.items()})
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", capture_spawn_command)
+    monkeypatch.delenv("SETTA_PROFILE_LOOKUP_HOME", raising=False)
+
+    with pytest.raises(LaunchError):
+        launch_workspace_session(
+            workspace_root=workspace,
+            profile="dev",
+            profile_lookup_home=lookup_home,
+            setta_files_location=None,
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert "--profile" in captured_cmd
+    assert captured_cmd[captured_cmd.index("--profile") + 1] == "dev"
+    assert "--setta-home" not in captured_cmd
+    assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == str(
+        lookup_home.resolve(strict=False)
+    )
+    assert captured_env.get("SETTA_HOME") == str(runtime_home.resolve(strict=False))
 
 
 def test_launch_workspace_session_non_profile_keeps_setta_home_cli_flag(

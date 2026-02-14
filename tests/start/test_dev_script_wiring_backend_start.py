@@ -28,8 +28,6 @@ echo "$*" > "{capture_args}"
     env["SETTA_BACKEND_LOG_FILE"] = str(tmp_path / "backend.log")
     env["SETTA_PROFILE"] = "dev"
     env["SETTA_FILES_ROOT"] = str(tmp_path / "state_root")
-    # When both are provided through env, backendStart should pass only explicit root.
-    env["SETTA_FILES_LOCATION"] = "global"
 
     result = run_script(
         ["bash", str(root / "frontend" / "backendStart.sh"), "--no-open"],
@@ -43,6 +41,29 @@ echo "$*" > "{capture_args}"
     assert f"--setta-files-root {tmp_path / 'state_root'}" in args
     assert "--setta-files-location global" not in args
     assert "--log-level debug" in args
+
+
+def test_backend_start_rejects_conflicting_env_root_and_location(
+    tmp_path: Path,
+) -> None:
+    ensure_dev_dependencies_or_skip()
+    root = repo_root()
+    env = os.environ.copy()
+    env["SETTA_BACKEND_LOG_FILE"] = str(tmp_path / "backend.log")
+    env["SETTA_FILES_ROOT"] = str(tmp_path / "state_root")
+    env["SETTA_FILES_LOCATION"] = "global"
+
+    result = run_script(
+        ["bash", str(root / "frontend" / "backendStart.sh"), "--no-open"],
+        cwd=root,
+        env=env,
+    )
+
+    assert result.returncode != 0
+    assert (
+        "Environment variables SETTA_FILES_ROOT and SETTA_FILES_LOCATION cannot both be set."
+        in f"{result.stdout}{result.stderr}"
+    )
 
 
 def test_backend_start_cli_location_overrides_env_root(tmp_path: Path) -> None:

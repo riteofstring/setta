@@ -82,6 +82,7 @@ def launch_workspace_session(
     *,
     workspace_root: Path | str | None,
     setta_home: Path | str | None = None,
+    profile_lookup_home: Path | str | None = None,
     profile: str | None = None,
     setta_files_root: Path | str | None = None,
     setta_files_location: SettaFilesLocation | None,
@@ -95,6 +96,7 @@ def launch_workspace_session(
         paths = resolve_setta_paths(
             workspace_root=workspace_root,
             setta_home=setta_home,
+            profile_lookup_home=profile_lookup_home,
             profile=profile,
             setta_files_root=setta_files_root,
             setta_files_location=setta_files_location,
@@ -241,6 +243,8 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
         if paths.profile_name:
             # Profile lookup home has no CLI flag, so pass it via env.
             env[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
+            # Preserve the parent-resolved runtime home for deterministic profile launches.
+            env[SETTA_HOME_ENV] = str(paths.setta_home)
         if paths.auth_cookie_name:
             env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
         else:

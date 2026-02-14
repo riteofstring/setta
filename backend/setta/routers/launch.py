@@ -7,6 +7,7 @@ from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.launch import LaunchError, launch_workspace_session
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.network import build_bootstrap_urls
@@ -58,26 +59,17 @@ class LaunchResponse(BaseModel):
     remoteCmdResolved: str | None = None
     error: LaunchErrorPayload | None = None
 
-
-def _normalize_optional_profile(profile: str | None) -> str | None:
-    if profile is None:
-        return None
-    trimmed = profile.strip()
-    return trimmed or None
-
-
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
-        normalized_profile = _normalize_optional_profile(x.profile)
-        if x.settaFilesLocation == "auto" and (
-            x.settaFilesRoot is not None or normalized_profile is not None
-        ):
-            # Treat "auto" as omission when explicit routing inputs are provided.
-            setta_files_location = None
-        elif x.settaFilesLocation is not None:
+        normalized_profile = normalize_optional_argument(x.profile)
+        normalized_setta_home = normalize_optional_argument(x.settaHome)
+        normalized_setta_files_root = normalize_optional_argument(x.settaFilesRoot)
+        normalized_runtime_root = normalize_optional_argument(x.runtimeRoot)
+
+        if x.settaFilesLocation is not None:
             setta_files_location = x.settaFilesLocation
-        elif x.settaFilesRoot is not None or normalized_profile is not None:
+        elif normalized_setta_files_root is not None or normalized_profile is not None:
             # Preserve omission so explicit root/profile config can drive location/root selection.
             setta_files_location = None
         else:
@@ -88,10 +80,10 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ssh_target=x.sshTarget,
                 workspace=x.workspaceRoot or "",
                 profile=normalized_profile,
-                setta_home=x.settaHome,
-                setta_files_root=x.settaFilesRoot,
+                setta_home=normalized_setta_home,
+                setta_files_root=normalized_setta_files_root,
                 setta_files_location=setta_files_location,
-                runtime_root=x.runtimeRoot,
+                runtime_root=normalized_runtime_root,
                 ssh_args=x.sshArgs,
                 remote_cmd=x.remoteCmd,
                 local_port=x.localPort,
@@ -120,21 +112,23 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ),
             )
         workspace_root = x.workspaceRoot
-        local_setta_home = x.settaHome
+        local_setta_home = normalized_setta_home
+        local_profile_lookup_home: str | None = None
         if local_setta_home is None:
             paths = get_setta_paths()
             if normalized_profile is None:
                 local_setta_home = str(paths.setta_home)
             else:
-                local_setta_home = str(paths.profile_lookup_home)
+                local_profile_lookup_home = str(paths.profile_lookup_home)
 
         result = launch_workspace_session(
             workspace_root=workspace_root,
             profile=normalized_profile,
             setta_home=local_setta_home,
-            setta_files_root=x.settaFilesRoot,
+            profile_lookup_home=local_profile_lookup_home,
+            setta_files_root=normalized_setta_files_root,
             setta_files_location=setta_files_location,
-            runtime_root=x.runtimeRoot,
+            runtime_root=normalized_runtime_root,
             allow_env_files_overrides=False,
             allow_env_non_files_overrides=False,
         )

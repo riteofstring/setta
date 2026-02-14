@@ -733,6 +733,99 @@ def test_profile_lookup_home_env_keeps_profile_lookup_stable(
     assert paths.workspace_root == workspace.resolve(strict=False)
 
 
+def test_profile_lookup_home_argument_keeps_lookup_and_runtime_separate(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    profile_lookup_home = tmp_path / ".setta"
+    profile_runtime_home = tmp_path / ".setta-development"
+    profile_path = profile_lookup_home / "profiles" / "dev.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+                "settaHome": str(profile_runtime_home),
+                "settaFilesLocation": "local",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        profile="dev",
+        profile_lookup_home=profile_lookup_home,
+    )
+
+    assert paths.profile_name == "dev"
+    assert paths.profile_lookup_home == profile_lookup_home.resolve(strict=False)
+    assert paths.setta_home == profile_runtime_home.resolve(strict=False)
+
+
+def test_profile_lookup_home_argument_with_explicit_runtime_home(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    profile_lookup_home = tmp_path / "lookup" / ".setta"
+    profile_runtime_home = tmp_path / "profile-runtime" / ".setta"
+    explicit_runtime_home = tmp_path / "explicit-runtime" / ".setta-development"
+    profile_path = profile_lookup_home / "profiles" / "dev.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+                "settaHome": str(profile_runtime_home),
+                "settaFilesLocation": "local",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        profile="dev",
+        profile_lookup_home=profile_lookup_home,
+        setta_home=explicit_runtime_home,
+    )
+
+    assert paths.profile_name == "dev"
+    assert paths.profile_lookup_home == profile_lookup_home.resolve(strict=False)
+    assert paths.setta_home == explicit_runtime_home.resolve(strict=False)
+
+
+def test_profile_lookup_home_argument_is_ignored_without_profile(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    lookup_home = tmp_path / ".setta"
+    runtime_home = tmp_path / ".setta-development"
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        profile_lookup_home=lookup_home,
+        setta_home=runtime_home,
+    )
+
+    assert paths.profile_name is None
+    assert paths.profile_lookup_home == runtime_home.resolve(strict=False)
+    assert paths.setta_home == runtime_home.resolve(strict=False)
+
+
 def test_profile_lookup_home_uses_setta_home_when_profile_not_selected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

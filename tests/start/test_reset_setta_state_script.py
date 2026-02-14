@@ -292,6 +292,39 @@ def test_reset_setta_state_script_rejects_conflicting_root_and_location_flags(
     )
 
 
+def test_reset_setta_state_script_rejects_conflicting_env_root_and_location(
+    tmp_path: Path,
+) -> None:
+    _ensure_local_venv_or_skip()
+    repo_root = _repo_root()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["SETTA_FILES_ROOT"] = str(tmp_path / "state_root")
+    env["SETTA_FILES_LOCATION"] = "global"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(repo_root / "scripts" / "reset-setta-state.sh"),
+            "--workspace",
+            str(workspace),
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert (
+        "Environment variables SETTA_FILES_ROOT and SETTA_FILES_LOCATION cannot both be set."
+        in f"{result.stdout}{result.stderr}"
+    )
+
+
 def test_reset_setta_state_script_rejects_nonstandard_target_with_force_flag(
     tmp_path: Path,
 ) -> None:

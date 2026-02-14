@@ -163,7 +163,6 @@ exit 0
     env = script_env(stub_dir, home_dir)
     env["SETTA_HOME"] = str(tmp_path / "previous_home")
     env["SETTA_FILES_ROOT"] = str(tmp_path / "previous_state")
-    env["SETTA_FILES_LOCATION"] = "global"
     env["SETTA_PROFILE"] = "built"
     env["SETTA_RUNTIME_ROOT"] = str(tmp_path / "previous_runtime")
 
@@ -181,3 +180,27 @@ exit 0
     assert "SETTA_FILES_LOCATION" not in captured_env
     assert captured_env.get("SETTA_PROFILE") == "built"
     assert captured_env.get("SETTA_RUNTIME_ROOT") == str(tmp_path / "previous_runtime")
+
+
+def test_ai_sh_rejects_conflicting_env_root_and_location(tmp_path: Path) -> None:
+    sandbox_root = build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    env = script_env(stub_dir, home_dir)
+    env["SETTA_FILES_ROOT"] = str(tmp_path / "previous_state")
+    env["SETTA_FILES_LOCATION"] = "global"
+
+    result = run_script(
+        ["bash", str(sandbox_root / "ai.sh")],
+        cwd=sandbox_root,
+        env=env,
+    )
+
+    assert result.returncode != 0
+    assert (
+        "Environment variables SETTA_FILES_ROOT and SETTA_FILES_LOCATION cannot both be set."
+        in f"{result.stdout}{result.stderr}"
+    )

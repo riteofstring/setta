@@ -43,6 +43,7 @@ if [[ -n "${HOME:-}" && -d "${HOME}" ]]; then
 fi
 
 setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
+setta_path_flags_seed_from_env
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -76,26 +77,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 setta_path_flags_validate
+setta_path_flags_apply_env
 
 if [[ -n "${workspace_override}" ]]; then
   export SETTA_WORKSPACE_ROOT="${workspace_override}"
-fi
-if [[ -n "${SETTA_PROFILE_OVERRIDE}" ]]; then
-  export SETTA_PROFILE="${SETTA_PROFILE_OVERRIDE}"
-fi
-if [[ -n "${SETTA_HOME_OVERRIDE}" ]]; then
-  export SETTA_HOME="${SETTA_HOME_OVERRIDE}"
-fi
-if [[ -n "${SETTA_FILES_ROOT_OVERRIDE}" ]]; then
-  export SETTA_FILES_ROOT="${SETTA_FILES_ROOT_OVERRIDE}"
-  unset SETTA_FILES_LOCATION
-fi
-if [[ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]]; then
-  export SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION_OVERRIDE}"
-  unset SETTA_FILES_ROOT
-fi
-if [[ -n "${SETTA_RUNTIME_ROOT_OVERRIDE}" ]]; then
-  export SETTA_RUNTIME_ROOT="${SETTA_RUNTIME_ROOT_OVERRIDE}"
 fi
 
 resolved_paths="$(

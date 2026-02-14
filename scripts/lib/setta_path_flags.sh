@@ -25,6 +25,7 @@ setta_path_flags_init() {
   SETTA_FILES_ROOT_OVERRIDE=""
   SETTA_FILES_LOCATION_OVERRIDE=""
   SETTA_RUNTIME_ROOT_OVERRIDE=""
+  SETTA_FILES_ENV_CONFLICT=0
 
   EFFECTIVE_SETTA_HOME="${default_setta_home}"
   EFFECTIVE_SETTA_FILES_ROOT="${default_setta_files_root}"
@@ -38,7 +39,9 @@ setta_path_flags_seed_from_env() {
     EFFECTIVE_SETTA_HOME="${SETTA_HOME}"
   fi
 
-  if [ -n "${SETTA_FILES_ROOT:-}" ]; then
+  if [ -n "${SETTA_FILES_ROOT:-}" ] && [ -n "${SETTA_FILES_LOCATION:-}" ]; then
+    SETTA_FILES_ENV_CONFLICT=1
+  elif [ -n "${SETTA_FILES_ROOT:-}" ]; then
     EFFECTIVE_SETTA_FILES_ROOT="${SETTA_FILES_ROOT}"
     EFFECTIVE_SETTA_FILES_LOCATION=""
   elif [ -n "${SETTA_FILES_LOCATION:-}" ]; then
@@ -138,6 +141,10 @@ setta_path_flags_try_parse() {
 }
 
 setta_path_flags_validate() {
+  if [ "${SETTA_FILES_ENV_CONFLICT}" -eq 1 ]; then
+    echo "Environment variables SETTA_FILES_ROOT and SETTA_FILES_LOCATION cannot both be set." >&2
+    exit 1
+  fi
   if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ] && [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
     echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
     exit 1
