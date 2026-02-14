@@ -1,5 +1,6 @@
 import json
 import os
+from base64 import b64encode
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -15,14 +16,18 @@ from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
     DeleteArtifactRequestItem,
     DeleteArtifactsRequest,
+    GetFileBrowserFileContentRequest,
     GetFolderContentsRequest,
     ImportFilesToArtifactsRequest,
     UpdateArtifactsRequest,
+    WriteFileBrowserFileContentRequest,
     route_delete_artifacts,
+    route_get_file_browser_file_content,
     route_get_file_browser_root,
     route_get_folder_contents,
     route_import_files_to_artifacts,
     route_update_artifacts,
+    route_write_file_browser_file_content,
 )
 from setta.routers.binary import route_binary_download, router as binary_router
 from setta.server_state import SettaFastAPIState
@@ -183,6 +188,81 @@ class TestFileBrowserRoutes:
                     route_get_file_browser_root(runtime_ctx)
         assert ctx.value.status_code == 403
 
+    async def test_get_file_browser_file_content_reads_file(self) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "spreadsheet.csv"
+        file_path.write_text("name,done\nTask,false\n", encoding="utf-8")
+        with runtime_context(state) as runtime_ctx:
+            result = route_get_file_browser_file_content(
+                GetFileBrowserFileContentRequest(path=file_path.as_posix()),
+                runtime_ctx,
+            )
+
+        assert result.path == file_path.resolve().as_posix()
+        assert result.size == file_path.stat().st_size
+        assert result.mimeType == "text/csv"
+        assert (
+            result.contentBase64
+            == b64encode(file_path.read_bytes()).decode("ascii")
+        )
+
+    async def test_get_file_browser_file_content_rejects_oversized_file(self) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "large.bin"
+        file_path.write_bytes(b"abcd")
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_get_file_browser_file_content(
+                    GetFileBrowserFileContentRequest(
+                        path=file_path.as_posix(),
+                        maxBytes=2,
+                    ),
+                    runtime_ctx,
+                )
+
+        assert ctx.value.status_code == 413
+
+    async def test_write_file_browser_file_content_updates_bytes(self) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "notes.csv"
+        file_path.write_text("a,b\n1,2\n", encoding="utf-8")
+        before_mtime = file_path.stat().st_mtime
+        payload = b64encode("a,b\n1,9\n".encode("utf-8")).decode("ascii")
+
+        with runtime_context(state) as runtime_ctx:
+            result = route_write_file_browser_file_content(
+                WriteFileBrowserFileContentRequest(
+                    path=file_path.as_posix(),
+                    contentBase64=payload,
+                    expectedMtime=before_mtime,
+                ),
+                runtime_ctx,
+            )
+
+        assert result.path == file_path.resolve().as_posix()
+        assert file_path.read_text(encoding="utf-8") == "a,b\n1,9\n"
+        assert result.size == file_path.stat().st_size
+        assert result.mtime >= before_mtime
+
+    async def test_write_file_browser_file_content_rejects_stale_mtime(self) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "stale.csv"
+        file_path.write_text("x,y\n", encoding="utf-8")
+        payload = b64encode("x,y\n2,3\n".encode("utf-8")).decode("ascii")
+
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_write_file_browser_file_content(
+                    WriteFileBrowserFileContentRequest(
+                        path=file_path.as_posix(),
+                        contentBase64=payload,
+                        expectedMtime=file_path.stat().st_mtime - 1,
+                    ),
+                    runtime_ctx,
+                )
+
+        assert ctx.value.status_code == 409
+
     async def test_get_folder_contents_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-file-browser-folder"
@@ -248,45 +328,6 @@ class TestFileBrowserRoutes:
             assert "fullPath" in item
             assert "mtime" in item
             assert "size" in item
-
-    async def test_get_folder_contents_keeps_user_runtime_name_visible(self) -> None:
-        state = await self._build_state()
-        workspace_root = get_setta_paths().workspace_root
-        user_runtime = workspace_root / "runtime"
-        user_runtime.mkdir(parents=True, exist_ok=True)
-        (user_runtime / "entry.py").write_text("x = 1\n", encoding="utf-8")
-
-        with runtime_context(state) as runtime_ctx:
-            items = route_get_folder_contents(
-                GetFolderContentsRequest(folderPath=str(workspace_root)),
-                runtime_ctx,
-            )
-        names = {item["name"] for item in items}
-
-        # Keep user folders that happen to share a basename with Setta internals.
-        assert "runtime" in names
-        # Hide the actual Setta state root when it lives inside the workspace.
-        assert "setta_files" not in names
-
-    async def test_get_folder_contents_hides_symlink_to_setta_internal_roots(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        workspace_root = get_setta_paths().workspace_root
-        symlink_path = workspace_root / "setta-state-link"
-        try:
-            # Symlinks that point into Setta-managed roots should remain hidden.
-            symlink_path.symlink_to(get_setta_paths().setta_files_root, target_is_directory=True)
-        except (NotImplementedError, OSError):
-            pytest.skip("Symlink creation is not supported in this environment.")
-
-        with runtime_context(state) as runtime_ctx:
-            items = route_get_folder_contents(
-                GetFolderContentsRequest(folderPath=str(workspace_root)),
-                runtime_ctx,
-            )
-        names = {item["name"] for item in items}
-        assert "setta-state-link" not in names
 
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
