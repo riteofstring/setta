@@ -230,6 +230,40 @@ def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:
     manager.validate_plugin_folder(plugin_root)
 
 
+def test_init_template_can_be_linked_and_served(tmp_path: Path) -> None:
+    # A freshly scaffolded plugin should be linkable and serve frontend assets.
+    manager = _make_manager(tmp_path)
+    plugin_root = manager.init_plugin_template(
+        plugin_id="setta-runtime-fixture",
+        template="frontend",
+        out_dir=str(tmp_path),
+    )
+    manager.validate_plugin_folder(plugin_root)
+
+    linked = manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.pluginId == "setta-runtime-fixture"
+    assert linked.state == PluginRuntimeState.active
+    assert linked.restartRequired is False
+
+    listed = manager.get_list_response().plugins
+    assert len(listed) == 1
+    plugin_entry = listed[0]
+    assert plugin_entry.pluginId == "setta-runtime-fixture"
+    assert plugin_entry.frontend.entrypointUrl is not None
+
+    asset = manager.resolve_plugin_asset_path(
+        plugin_id="setta-runtime-fixture",
+        asset_path="frontend/dist/index.js",
+    )
+    entrypoint_text = asset.read_text(encoding="utf-8")
+    assert "export function register(host)" in entrypoint_text
+
+
 def test_validate_rejects_invalid_capability_value(tmp_path: Path) -> None:
     # Manifest capability names must come from the host's closed vocabulary.
     manager = _make_manager(tmp_path)

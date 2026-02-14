@@ -36,6 +36,16 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
   await expect(page.getByText("setta-fixture-frontend@0.1.0")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Fixture Pane", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Fixture pane mounted.", { exact: true })).toBeVisible();
+  const fixtureCommandButton = page.getByRole("button", {
+    name: "Fixture Command",
+    exact: true,
+  });
+  await expect(fixtureCommandButton).toBeVisible();
+  await fixtureCommandButton.click();
 
   const viewportBounds = await getViewportBoundsForPlacement(page);
   if (!viewportBounds) {
