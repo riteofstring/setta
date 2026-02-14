@@ -2181,7 +2181,6 @@ def connect(
     proc.wait()
 
 
-
 @click.group()
 def plugins() -> None:
     """Manage Setta plugins."""
@@ -2443,9 +2442,7 @@ def plugins_update(
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
-    click.echo(
-        f"Updated {result.pluginId}: {result.fromVersion} -> {result.toVersion}"
-    )
+    click.echo(f"Updated {result.pluginId}: {result.fromVersion} -> {result.toVersion}")
     if result.restartRequired:
         click.echo("Backend restart required.")
 
@@ -2489,9 +2486,7 @@ def plugins_pin(
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
-    click.echo(
-        f"Pinned {result.pluginId}: {result.fromVersion} -> {result.toVersion}"
-    )
+    click.echo(f"Pinned {result.pluginId}: {result.fromVersion} -> {result.toVersion}")
     if result.restartRequired:
         click.echo("Backend restart required.")
 
@@ -2601,9 +2596,7 @@ def plugins_restart_required(json_output: bool) -> None:
     manager = _build_plugin_manager_for_cli()
     status = manager.get_status_response()
     pending = [
-        plugin
-        for plugin in status.plugins
-        if plugin.state.value == "pending_restart"
+        plugin for plugin in status.plugins if plugin.state.value == "pending_restart"
     ]
     if json_output:
         _emit_json_output([plugin.model_dump(mode="json") for plugin in pending])
@@ -2698,11 +2691,11 @@ def plugins_unlink(
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
-    click.echo(
-        f"Unlinked {result.pluginId} from {result.removedFromScope.value} scope"
-    )
+    click.echo(f"Unlinked {result.pluginId} from {result.removedFromScope.value} scope")
     if result.restartRequired:
         click.echo("Backend restart required.")
+
+
 @click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
