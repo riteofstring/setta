@@ -435,6 +435,14 @@ def _ensure_background_process_started(
         raise click.ClickException(f"{exc} Try --print-only or --verbose.") from exc
 
 
+def _run_uvicorn_server(server: Any) -> None:
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        # Treat Ctrl+C as a normal stop so interactive shells with errexit do not exit.
+        return
+
+
 def _extract_token_from_bootstrap_url(url: str) -> str:
     try:
         return extract_token_from_bootstrap_url(url)
@@ -1246,7 +1254,7 @@ def share(
         timeout_graceful_shutdown=1,
     )
     server = uvicorn.Server(config)
-    server.run()
+    _run_uvicorn_server(server)
 
 
 @click.command()
@@ -1508,7 +1516,7 @@ def app(
         timeout_graceful_shutdown=1,
     )
     server = uvicorn.Server(config)
-    server.run()
+    _run_uvicorn_server(server)
 
 
 @click.command()
@@ -2485,8 +2493,7 @@ def cli(
             timeout_graceful_shutdown=1,
         )
         server = uvicorn.Server(config)
-
-        server.run()
+        _run_uvicorn_server(server)
 
 
 cli.add_command(version)

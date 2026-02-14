@@ -60,6 +60,52 @@ echo "$*" > "{ai_capture_args}"
     return sandbox_root
 
 
+def _build_run_dev_instance_sandbox(tmp_path: Path) -> Path:
+    repo_root = _repo_root()
+    sandbox_root = tmp_path / "run_dev_instance_sandbox"
+    scripts_dir = sandbox_root / "scripts"
+    frontend_dir = sandbox_root / "frontend"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    frontend_dir.mkdir(parents=True, exist_ok=True)
+
+    for rel_path in ("scripts/run-dev-instance.sh", "start.sh", "reset.sh"):
+        src = repo_root / rel_path
+        dst = sandbox_root / rel_path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        dst.chmod(0o755)
+
+    activate = sandbox_root / ".venv" / "bin" / "activate"
+    activate.parent.mkdir(parents=True, exist_ok=True)
+    activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
+    (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
+
+    return sandbox_root
+
+
+def _build_ai_sandbox(tmp_path: Path) -> Path:
+    repo_root = _repo_root()
+    sandbox_root = tmp_path / "ai_sandbox"
+    scripts_dir = sandbox_root / "scripts"
+    frontend_dir = sandbox_root / "frontend"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    frontend_dir.mkdir(parents=True, exist_ok=True)
+
+    for rel_path in ("ai.sh", "scripts/ai.sh"):
+        src = repo_root / rel_path
+        dst = sandbox_root / rel_path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        dst.chmod(0o755)
+
+    activate = sandbox_root / ".venv" / "bin" / "activate"
+    activate.parent.mkdir(parents=True, exist_ok=True)
+    activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
+    (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
+
+    return sandbox_root
+
+
 def _script_env(stub_dir: Path, home_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     for key in (
@@ -75,9 +121,18 @@ def _script_env(stub_dir: Path, home_dir: Path) -> dict[str, str]:
     return env
 
 
+def _parse_env_snapshot(snapshot: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for line in snapshot.strip().splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        parsed[key] = value
+    return parsed
+
+
 def test_run_dev_instance_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
-    _ensure_dev_dependencies_or_skip()
-    repo_root = _repo_root()
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -97,11 +152,11 @@ env | sort > "{capture_env}"
     result = subprocess.run(
         [
             "bash",
-            str(repo_root / "scripts" / "run-dev-instance.sh"),
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
             "--mode",
             "reset",
         ],
-        cwd=repo_root,
+        cwd=sandbox_root,
         env=_script_env(stub_dir, home_dir),
         check=False,
         capture_output=True,
@@ -111,16 +166,18 @@ env | sort > "{capture_env}"
     assert result.returncode == 0, result.stderr
     assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
 
-    captured_env = capture_env.read_text(encoding="utf-8")
-    assert f"SETTA_HOME={home_dir / '.setta-development'}" in captured_env
-    assert f"SETTA_FILES_ROOT={repo_root / 'setta_files_dev'}" in captured_env
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
+    assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
+    assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
+    assert "SETTA_FILES_LOCATION" not in captured_env
 
 
 def test_run_dev_instance_defaults_override_existing_path_env(
     tmp_path: Path,
 ) -> None:
-    _ensure_dev_dependencies_or_skip()
-    repo_root = _repo_root()
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -147,11 +204,11 @@ env | sort > "{capture_env}"
     result = subprocess.run(
         [
             "bash",
-            str(repo_root / "scripts" / "run-dev-instance.sh"),
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
             "--mode",
             "reset",
         ],
-        cwd=repo_root,
+        cwd=sandbox_root,
         env=env,
         check=False,
         capture_output=True,
@@ -161,17 +218,18 @@ env | sort > "{capture_env}"
     assert result.returncode == 0, result.stderr
     assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
 
-    captured_env = capture_env.read_text(encoding="utf-8")
-    assert f"SETTA_HOME={home_dir / '.setta-development'}" in captured_env
-    assert f"SETTA_FILES_ROOT={repo_root / 'setta_files_dev'}" in captured_env
-    assert "SETTA_FILES_LOCATION=" not in captured_env
-    assert "SETTA_PROFILE=" not in captured_env
-    assert "SETTA_RUNTIME_ROOT=" not in captured_env
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
+    assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
+    assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
+    assert "SETTA_FILES_LOCATION" not in captured_env
+    assert "SETTA_PROFILE" not in captured_env
+    assert "SETTA_RUNTIME_ROOT" not in captured_env
 
 
 def test_run_dev_instance_exports_profile_and_setta_files_root(tmp_path: Path) -> None:
-    _ensure_dev_dependencies_or_skip()
-    repo_root = _repo_root()
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -191,7 +249,7 @@ env | sort > "{capture_env}"
     result = subprocess.run(
         [
             "bash",
-            str(repo_root / "scripts" / "run-dev-instance.sh"),
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
             "--profile",
             "dev",
             "--setta-files-root",
@@ -199,7 +257,7 @@ env | sort > "{capture_env}"
             "--mode",
             "reset",
         ],
-        cwd=repo_root,
+        cwd=sandbox_root,
         env=_script_env(stub_dir, home_dir),
         check=False,
         capture_output=True,
@@ -209,9 +267,141 @@ env | sort > "{capture_env}"
     assert result.returncode == 0, result.stderr
     assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
 
-    captured_env = capture_env.read_text(encoding="utf-8")
-    assert "SETTA_PROFILE=dev" in captured_env
-    assert f"SETTA_FILES_ROOT={tmp_path / 'state_root'}" in captured_env
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_PROFILE") == "dev"
+    assert captured_env.get("SETTA_FILES_ROOT") == str(tmp_path / "state_root")
+
+
+def test_start_sh_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    _write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "start.sh")],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "start"
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
+    assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
+    assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
+    assert "SETTA_FILES_LOCATION" not in captured_env
+
+
+def test_reset_sh_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    _write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "reset.sh")],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
+    assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
+    assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
+    assert "SETTA_FILES_LOCATION" not in captured_env
+
+
+def test_ai_sh_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
+    sandbox_root = _build_ai_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    _write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+    _write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+    _write_stub_executable(
+        sandbox_root / "scripts" / "start-browser-mcp.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+    _write_stub_executable(
+        sandbox_root / "scripts" / "stop-browser-mcp.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "ai.sh")],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "start"
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_HOME") == str(home_dir / ".setta-development")
+    assert captured_env.get("SETTA_FILES_ROOT") == str(sandbox_root / "setta_files_dev")
+    assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
+    assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
+    assert "SETTA_FILES_LOCATION" not in captured_env
 
 
 def test_backend_start_forwards_profile_and_explicit_root(tmp_path: Path) -> None:
