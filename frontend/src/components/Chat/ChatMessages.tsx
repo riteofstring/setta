@@ -1048,7 +1048,7 @@ function AssistantErrorCallout({ content }: { content: string }) {
   const displayText = stripAssistantErrorPrefix(content);
   return (
     <div
-      className="flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-red-900 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-50"
+      className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-900 dark:border-red-800/60 dark:bg-red-950/40 dark:text-red-50"
       data-chat-assistant-error="true"
     >
       <MdErrorOutline className="mt-0.5 shrink-0 text-red-500 dark:text-red-400" />
@@ -1058,7 +1058,7 @@ function AssistantErrorCallout({ content }: { content: string }) {
         </div>
         <MarkdownContent
           content={displayText}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-red-900 prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-red-200 [&_*]:break-words [&_*]:marker:text-red-400"
+          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-red-900 prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-red-200 [&_*]:break-words [&_*]:marker:text-red-400"
           role={ChatRoleEnum.assistant}
           isStreaming={false}
         />
@@ -1084,7 +1084,7 @@ function StreamItem({
       return (
         <MarkdownContent
           content={item.text}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400"
+          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400"
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
           typingIndicator={showTypingIndicator}
@@ -1116,12 +1116,12 @@ function LLMChatBubble({
   messageId?: string;
 }) {
   return (
-    <div className="my-2 flex justify-start">
+    <div className="my-4 flex justify-start">
       <div
-        className="group flex max-w-[min(90%,820px)] flex-col items-start"
+        className="group flex max-w-[min(85%,800px)] flex-col items-start"
         data-message-id={messageId}
       >
-        <div className="flex min-h-[24px] w-fit min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 px-3 py-2 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
+        <div className="flex min-h-[25px] w-fit min-w-[25px] max-w-full flex-shrink cursor-text flex-col gap-2 rounded-b-lg rounded-tr-lg bg-setta-100 px-4 py-4 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50">
           {children}
         </div>
         {actions}
@@ -1140,12 +1140,12 @@ function UserChatBubble({
   messageId?: string;
 }) {
   return (
-    <div className="my-2 flex justify-end">
+    <div className="my-4 flex justify-end">
       <div
-        className="group flex max-w-[min(90%,820px)] flex-col items-end"
+        className="group flex max-w-[min(85%,800px)] flex-col items-end"
         data-message-id={messageId}
       >
-        <div className="flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg bg-blue-500 px-3 py-2 text-white dark:bg-blue-700">
+        <div className="flex w-fit max-w-full flex-shrink cursor-text flex-col gap-3 rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:bg-blue-700">
           {children}
         </div>
         {actions}
@@ -1164,12 +1164,12 @@ function SystemChatBubble({
   messageId?: string;
 }) {
   return (
-    <div className="my-2 flex justify-center">
+    <div className="my-3 flex justify-center">
       <div
         className="group flex max-w-[min(90%,800px)] flex-col items-start"
         data-message-id={messageId}
       >
-        <div className="flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 py-1.5 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+        <div className="flex max-w-full cursor-text flex-col gap-2 rounded-md border border-setta-200 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
           {children}
         </div>
         {actions}
@@ -1179,9 +1179,9 @@ function SystemChatBubble({
 }
 
 const USER_MARKDOWN_CLASS =
-  "prose prose-sm text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400";
+  "prose prose-sm text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400";
 const SYSTEM_MARKDOWN_CLASS =
-  "prose prose-sm text-setta-600 dark:prose-invert prose-p:my-1 prose-p:text-[12px] prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
+  "prose prose-sm text-setta-600 dark:prose-invert prose-p:text-xs prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
 
 type ChatMessageActionAlignment = "left" | "right";
 
@@ -1214,7 +1214,7 @@ function ChatMessageActions({
 
   return (
     <div
-      className={`mt-0.5 flex w-full items-center gap-1.5 text-[11px] text-setta-400 opacity-0 transition-opacity group-hover:opacity-100 ${alignmentClass}`}
+      className={`mt-1 flex w-full items-center gap-2 text-xs text-setta-400 opacity-0 transition-opacity group-hover:opacity-100 ${alignmentClass}`}
     >
       <button
         type="button"
@@ -1806,7 +1806,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   );
   const toolArgs = toolCallArguments ?? {};
   const wrapperClassName =
-    `flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-1 ${className ?? ""}`.trim();
+    `flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-2 ${className ?? ""}`.trim();
 
   return (
     <div ref={scrollRef} className={wrapperClassName}>

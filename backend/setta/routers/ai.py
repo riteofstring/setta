@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -39,77 +40,23 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
-from setta.types.external_agents import ExternalAgentToolType
-from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
 
-_REQUIRED_ERROR_CHECK_PROMPT = (
-    "## Required completion gate for create/scaffold work\n"
-    "- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n"
-    "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
-    "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
-)
+AppGenerationMode = Literal[
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+]
 
-
-def _combine_prompt_sections(*sections: str | None) -> str:
-    parts: list[str] = []
-    for section in sections:
-        if section is None:
-            continue
-        stripped = section.strip()
-        if not stripped:
-            continue
-        parts.append(stripped)
-    return "\n\n".join(parts).strip()
-
-
-def _build_execution_policy_prompt(
-    permission_mode: ChatPermissionMode,
-    search_enabled: bool,
-    skills_enabled: bool,
-) -> str:
-    lines = [
-        "## Runtime execution settings",
-        f"- permissionMode: {permission_mode.value}",
-        f"- searchEnabled: {'true' if search_enabled else 'false'}",
-        f"- skillsEnabled: {'true' if skills_enabled else 'false'}",
-    ]
-    if not search_enabled:
-        lines.append(
-            "- Search is disabled for this run. Do not rely on search tools; use existing context and local tools only."
-        )
-    if not skills_enabled:
-        lines.append(
-            "- Skills are disabled for this run. Do not use skill-specific workflows or assumptions."
-        )
-    return "\n".join(lines)
-
-
-def _resolve_external_approval_policy_override(
-    permission_mode: ChatPermissionMode,
-    tool_type: ExternalAgentToolType,
-) -> str | None:
-    if permission_mode == ChatPermissionMode.config_toml_custom:
-        return None
-    if tool_type == ExternalAgentToolType.claude_code:
-        if permission_mode == ChatPermissionMode.minimal:
-            return "default"
-        if permission_mode == ChatPermissionMode.yolo:
-            return "bypassPermissions"
-        return None
-    if tool_type == ExternalAgentToolType.opencode:
-        if permission_mode == ChatPermissionMode.minimal:
-            return "ask"
-        if permission_mode == ChatPermissionMode.yolo:
-            return "allow"
-        return None
-    if permission_mode == ChatPermissionMode.minimal:
-        return "on-request"
-    if permission_mode == ChatPermissionMode.yolo:
-        return "never"
-    return None
+_APP_GENERATION_MODES: set[str] = {
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+}
 
 
 def _get_llm_chat_runs(
@@ -295,6 +242,147 @@ def _resolve_branch_root_chat_id(
     return parent_chat_id
 
 
+def _normalize_app_generation_mode(raw_mode: str | None) -> AppGenerationMode | None:
+    if raw_mode is None:
+        return None
+    normalized = raw_mode.strip().lower()
+    if normalized not in _APP_GENERATION_MODES:
+        return None
+    return normalized  # type: ignore[return-value]
+
+
+def _extract_user_message_text(
+    message: BaseChatMessageUnionWithDiscriminator,
+) -> str:
+    if getattr(message, "role", None) != "user":
+        return ""
+    raw_content = getattr(message, "content", None)
+    if not isinstance(raw_content, list):
+        return ""
+    text_parts: list[str] = []
+    for item in raw_content:
+        item_type = getattr(item, "type", None)
+        if item_type != "text":
+            continue
+        text = getattr(item, "text", None)
+        if isinstance(text, str) and text.strip():
+            text_parts.append(text.strip())
+    return "\n".join(text_parts).strip()
+
+
+def _infer_app_generation_mode_from_user_message(
+    message_text: str,
+) -> AppGenerationMode | None:
+    normalized = message_text.strip().lower()
+    if normalized == "":
+        return None
+
+    if "figma" in normalized or "mcp" in normalized:
+        return "mcp_server"
+
+    if "prompt builder" in normalized or "build a prompt" in normalized:
+        return "prompt_builder"
+
+    mentions_image = (
+        "reference image" in normalized
+        or "source image" in normalized
+        or "screenshot" in normalized
+    )
+    mentions_appgen = (
+        "json render" in normalized
+        or "app spec" in normalized
+        or "appgen" in normalized
+        or "standalone app" in normalized
+    )
+    if mentions_image and mentions_appgen:
+        return "json_render_with_image"
+    if mentions_appgen:
+        return "json_render"
+    return None
+
+
+def _build_app_generation_mode_prompt(
+    *,
+    mode: AppGenerationMode | None,
+    app_spec_streaming_enabled: bool,
+    reference_image_url: str | None,
+    reference_image_notes: str | None,
+) -> str | None:
+    if mode is None and not app_spec_streaming_enabled:
+        return None
+
+    lines = [
+        "## App spec generation mode",
+        f"- mode: {mode or 'unspecified'}",
+        (
+            "- streamingPreview: enabled"
+            if app_spec_streaming_enabled
+            else "- streamingPreview: disabled"
+        ),
+    ]
+
+    if mode in (None, "json_render", "json_render_with_image", "prompt_builder"):
+        lines.extend(
+            [
+                "- If you are generating/updating the App spec (json-render):",
+                "  - Use catalog-compatible components only.",
+                "  - Persist via Setta app tools.",
+            ]
+        )
+        if app_spec_streaming_enabled:
+            lines.extend(
+                [
+                    "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
+                    "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
+                    "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
+                ]
+            )
+
+    if mode == "json_render_with_image":
+        lines.extend(
+            [
+                "- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
+                "- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
+            ]
+        )
+
+    if mode == "prompt_builder":
+        lines.extend(
+            [
+                "- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+            ]
+        )
+
+    if mode == "mcp_server":
+        lines.extend(
+            [
+                "- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
+                "- For Figma-oriented requests, support both paths:",
+                "  - Pull an existing Figma design into a JSON-render appSpec.",
+                "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
+                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition` or `setta__stream_app_definition`.",
+            ]
+        )
+
+    if reference_image_url:
+        lines.extend(
+            [
+                f"- Reference image URL: {reference_image_url}",
+                "- Use this image as layout/style guidance when composing the app spec.",
+            ]
+        )
+        if reference_image_notes:
+            lines.append(f"- Reference image notes: {reference_image_notes}")
+
+    return "\n".join(lines)
+
+
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -312,9 +400,18 @@ class GetLLMResponseRequest(BaseModel):
             "Whether the UI is configured to stream app spec patches for live preview."
         ),
     )
-    permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
-    searchEnabled: bool = True
-    skillsEnabled: bool = True
+    appGenerationMode: AppGenerationMode | None = Field(
+        default=None,
+        description="Optional app generation mode selected in the UI.",
+    )
+    appGenerationReferenceImageUrl: str | None = Field(
+        default=None,
+        description="Optional reference image URL for app generation fidelity.",
+    )
+    appGenerationReferenceImageNotes: str | None = Field(
+        default=None,
+        description="Optional notes describing reference-image fidelity goals.",
+    )
 
 
 class GetLLMChatRequest(BaseModel):
@@ -422,19 +519,28 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    app_generation_mode_prompt: str | None = None
-    if x.appSpecStreamingEnabled:
-        app_generation_mode_prompt = (
-            "## App spec generation mode\n"
-            "- streamingPreview: enabled\n"
-            "- If you are generating/updating the App spec (json-render):\n"
-            "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
-            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
-        )
-    execution_policy_prompt = _build_execution_policy_prompt(
-        x.permissionMode,
-        x.searchEnabled,
-        x.skillsEnabled,
+    requested_mode = _normalize_app_generation_mode(x.appGenerationMode)
+    inferred_mode = _infer_app_generation_mode_from_user_message(
+        _extract_user_message_text(x.message)
+    )
+    resolved_mode = requested_mode or inferred_mode
+    reference_image_url = (
+        x.appGenerationReferenceImageUrl.strip()
+        if isinstance(x.appGenerationReferenceImageUrl, str)
+        and x.appGenerationReferenceImageUrl.strip()
+        else None
+    )
+    reference_image_notes = (
+        x.appGenerationReferenceImageNotes.strip()
+        if isinstance(x.appGenerationReferenceImageNotes, str)
+        and x.appGenerationReferenceImageNotes.strip()
+        else None
+    )
+    app_generation_mode_prompt = _build_app_generation_mode_prompt(
+        mode=resolved_mode,
+        app_spec_streaming_enabled=x.appSpecStreamingEnabled,
+        reference_image_url=reference_image_url,
+        reference_image_notes=reference_image_notes,
     )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
@@ -446,12 +552,14 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        combined_system_prompt = _combine_prompt_sections(
-            profile.systemPrompt or "",
-            app_generation_mode_prompt,
-            execution_policy_prompt,
-            _REQUIRED_ERROR_CHECK_PROMPT,
-        )
+        existing_system_prompt = profile.systemPrompt or ""
+        combined_system_prompt = existing_system_prompt
+        if app_generation_mode_prompt is not None:
+            combined_system_prompt = (
+                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
+                if existing_system_prompt.strip()
+                else app_generation_mode_prompt.strip()
+            )
         profile = profile.model_copy(
             update={
                 "engineConfigId": x.engineConfigId,
@@ -464,9 +572,6 @@ async def route_get_llm_response(
             "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
             "runType": LLM_CHAT_RUN_TYPE,
-            "permissionMode": x.permissionMode.value,
-            "searchEnabled": x.searchEnabled,
-            "skillsEnabled": x.skillsEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
@@ -524,23 +629,10 @@ async def route_get_llm_response(
             "projectConfigId": str(x.projectConfigId),
             "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
-            "permissionMode": x.permissionMode.value,
-            "searchEnabled": x.searchEnabled,
-            "skillsEnabled": x.skillsEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
-        approval_policy_override = _resolve_external_approval_policy_override(
-            x.permissionMode,
-            external_config.toolType,
-        )
-        if approval_policy_override is not None:
-            inputs["approvalPolicy"] = approval_policy_override
-        inputs["systemPrompt"] = _combine_prompt_sections(
-            execution_policy_prompt,
-            _REQUIRED_ERROR_CHECK_PROMPT,
-        )
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(
                 parent_run=parent_run,

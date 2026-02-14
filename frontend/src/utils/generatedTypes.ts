@@ -355,6 +355,21 @@ export const SINGLETON_SECTION_TYPES = new Set([
 
 export const RUNNABLE_CODE_LANGUAGES = new Set(["bash", "python"]);
 
+export const _APP_GENERATION_MODES = new Set([
+  "json_render",
+  "json_render_with_image",
+  "mcp_server",
+  "prompt_builder",
+]);
+
+export const _SKIP_SEGMENTS = new Set([
+  ".git",
+  "build",
+  "dist",
+  "node_modules",
+  "setta_files",
+]);
+
 export const ALLOWED_PATCH_OPS = new Set(["add", "remove", "replace", "set"]);
 
 export const AgentRunStatusEnum = {
@@ -617,14 +632,6 @@ export const BrowserAreaViewModeEnum = {
 } as const;
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
-
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-
-export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
 
 export const CodeLanguageEnum = {
   python: "python",
@@ -909,6 +916,8 @@ export const RouteEnum = {
   GET_APP_CATALOG: "/getAppCatalog",
   LIST_APP_COMPONENTS: "/listAppComponents",
   STREAM_APP_SPEC: "/streamAppSpec",
+  GET_APP_GEN_SKILLS: "/getAppGenSkills",
+  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -2317,7 +2326,6 @@ export const AllImplFieldsSchema = z.literal([
   "overflowMode",
   "paramFilter",
   "passingStyle",
-  "permissionMode",
   "pinnedParams",
   "placeholder",
   "positionAndSizeLocked",
@@ -2330,11 +2338,9 @@ export const AllImplFieldsSchema = z.literal([
   "requestMethod",
   "requestUrl",
   "savedSearches",
-  "searchEnabled",
   "selectedParams",
   "showSectionTitle",
   "size",
-  "skillsEnabled",
   "step",
   "styleColor",
   "tagColor",
@@ -2813,7 +2819,6 @@ export const SharedModifierSchema = z.object({
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
-  permissionMode: z.enum(ChatPermissionModeEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
@@ -2826,11 +2831,9 @@ export const SharedModifierSchema = z.object({
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
   savedSearches: z.array(BrowserSavedSearchSchema).optional(),
-  searchEnabled: z.boolean().optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
-  skillsEnabled: z.boolean().optional(),
   step: z.union([z.number(), z.int()]).optional(),
   styleColor: z.union([z.string(), z.null()]).optional(),
   tagColor: z.union([z.string(), z.null()]).optional(),
@@ -2939,7 +2942,6 @@ export const CoreSchema = z.object({
         "overflowMode",
         "paramFilter",
         "passingStyle",
-        "permissionMode",
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
@@ -2952,11 +2954,9 @@ export const CoreSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
-        "searchEnabled",
         "selectedParams",
         "showSectionTitle",
         "size",
-        "skillsEnabled",
         "step",
         "styleColor",
         "tagColor",
@@ -3629,11 +3629,6 @@ export const ChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
-  permissionMode: z
-    .enum(ChatPermissionModeEnum)
-    .default(ChatPermissionModeEnum.minimal),
-  searchEnabled: z.boolean().default(true),
-  skillsEnabled: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -6081,9 +6076,6 @@ export const ChatSectionImplArgsSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
-  permissionMode: z.enum(ChatPermissionModeEnum).optional(),
-  searchEnabled: z.boolean().optional(),
-  skillsEnabled: z.boolean().optional(),
   messages: z
     .array(
       z.union([
@@ -8200,11 +8192,6 @@ export const UserDefaultChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
-  permissionMode: z
-    .enum(ChatPermissionModeEnum)
-    .default(ChatPermissionModeEnum.minimal),
-  searchEnabled: z.boolean().default(true),
-  skillsEnabled: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -10538,6 +10525,17 @@ export type FollowIdType = z.infer<typeof FollowIdTypeSchema>;
 
 export type FollowIdTypeInput = z.input<typeof FollowIdTypeSchema>;
 
+export const AppGenerationModeSchema = z.literal([
+  "json_render",
+  "json_render_with_image",
+  "prompt_builder",
+  "mcp_server",
+]);
+
+export type AppGenerationMode = z.infer<typeof AppGenerationModeSchema>;
+
+export type AppGenerationModeInput = z.input<typeof AppGenerationModeSchema>;
+
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: IDSchema.optional(),
@@ -11341,9 +11339,6 @@ export const ChatSectionImplArgsWithCallableSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null(), z.any()]).optional(),
   chatId: z.union([IDSchema, z.null(), z.any()]).optional(),
   thinking: z.union([z.boolean(), z.any()]).optional(),
-  permissionMode: z.union([z.enum(ChatPermissionModeEnum), z.any()]).optional(),
-  searchEnabled: z.union([z.boolean(), z.any()]).optional(),
-  skillsEnabled: z.union([z.boolean(), z.any()]).optional(),
   messages: z
     .union([
       z.array(
@@ -12371,7 +12366,6 @@ export const CoreArgsSchema = z.object({
         "overflowMode",
         "paramFilter",
         "passingStyle",
-        "permissionMode",
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
@@ -12384,11 +12378,9 @@ export const CoreArgsSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
-        "searchEnabled",
         "selectedParams",
         "showSectionTitle",
         "size",
-        "skillsEnabled",
         "step",
         "styleColor",
         "tagColor",
@@ -14990,11 +14982,21 @@ export const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
-  permissionMode: z
-    .enum(ChatPermissionModeEnum)
-    .default(ChatPermissionModeEnum.minimal),
-  searchEnabled: z.boolean().default(true),
-  skillsEnabled: z.boolean().default(true),
+  appGenerationMode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  appGenerationReferenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  appGenerationReferenceImageNotes: z
+    .union([z.string(), z.null()])
+    .default(null),
 });
 
 export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;
@@ -15089,6 +15091,59 @@ export function createPublishAppDeploymentRequest(
   return PublishAppDeploymentRequestSchema.parse(options);
 }
 
+export const AppGenSkillContentSchema = z.object({
+  skillId: z.string(),
+  content: z.string(),
+});
+
+export type AppGenSkillContent = z.infer<typeof AppGenSkillContentSchema>;
+
+export type AppGenSkillContentInput = z.input<typeof AppGenSkillContentSchema>;
+
+export function createAppGenSkillContent(
+  options: Partial<AppGenSkillContent> = {},
+): AppGenSkillContent {
+  return AppGenSkillContentSchema.parse(options);
+}
+
+export const AppGenSkillEntrySchema = z.object({
+  skillId: z.string(),
+  name: z.string(),
+  rootLabel: z.string(),
+  rootPath: z.string(),
+  relativePath: z.string(),
+  skillPath: z.string(),
+  description: z.string().default("" as const),
+});
+
+export type AppGenSkillEntry = z.infer<typeof AppGenSkillEntrySchema>;
+
+export type AppGenSkillEntryInput = z.input<typeof AppGenSkillEntrySchema>;
+
+export function createAppGenSkillEntry(
+  options: Partial<AppGenSkillEntry> = {},
+): AppGenSkillEntry {
+  return AppGenSkillEntrySchema.parse(options);
+}
+
+export const GetAppGenSkillContentRequestSchema = z.object({
+  skillId: z.string(),
+});
+
+export type GetAppGenSkillContentRequest = z.infer<
+  typeof GetAppGenSkillContentRequestSchema
+>;
+
+export type GetAppGenSkillContentRequestInput = z.input<
+  typeof GetAppGenSkillContentRequestSchema
+>;
+
+export function createGetAppGenSkillContentRequest(
+  options: Partial<GetAppGenSkillContentRequest> = {},
+): GetAppGenSkillContentRequest {
+  return GetAppGenSkillContentRequestSchema.parse(options);
+}
+
 export const StreamingChoicesSchema = z.object({});
 
 export type StreamingChoices = z.infer<typeof StreamingChoicesSchema>;
@@ -15127,6 +15182,19 @@ export function createModelResponseStream(
 
 export const StreamAppSpecRequestSchema = z.object({
   prompt: z.string(),
+  mode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  referenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  referenceImageNotes: z.union([z.string(), z.null()]).default(null),
   context: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   currentSpec: z.union([z.any(), z.null()]).default(null),
 });
@@ -17146,9 +17214,6 @@ export const SetChatSectionSettingsRequestSchema = z.object({
   engineConfigId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
   thinking: z.boolean(),
-  permissionMode: z.enum(ChatPermissionModeEnum),
-  searchEnabled: z.boolean(),
-  skillsEnabled: z.boolean(),
 });
 
 export type SetChatSectionSettingsRequest = z.infer<

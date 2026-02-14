@@ -157,6 +157,8 @@ class Route(str, Enum):
     GET_APP_CATALOG = "/getAppCatalog"
     LIST_APP_COMPONENTS = "/listAppComponents"
     STREAM_APP_SPEC = "/streamAppSpec"
+    GET_APP_GEN_SKILLS = "/getAppGenSkills"
+    GET_APP_GEN_SKILL_CONTENT = "/getAppGenSkillContent"
     SET_PROMPT_TEMPLATE = "/setPromptTemplate"
     SET_PROMPT_INPUTS = "/setPromptInputs"
     SET_PROMPT_FORMAT = "/setPromptFormat"
