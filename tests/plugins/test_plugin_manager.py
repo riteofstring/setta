@@ -1,5 +1,6 @@
 import json
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
@@ -18,6 +19,7 @@ FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugin
 def _make_manager(
     tmp_path: Path,
     server_mode: Literal["ide", "share", "app"] = "ide",
+    restart_callback: Callable[[], bool] | None = None,
     backend_startup_timeout_seconds: float = 10.0,
     backend_register_timeout_seconds: float = 10.0,
 ) -> PluginManager:
@@ -33,6 +35,7 @@ def _make_manager(
         setta_home=setta_home,
         server_mode=server_mode,
         setta_version="0.1.0",
+        restart_callback=restart_callback,
         backend_startup_timeout_seconds=backend_startup_timeout_seconds,
         backend_register_timeout_seconds=backend_register_timeout_seconds,
     )
@@ -177,6 +180,46 @@ def test_backend_plugin_disable_stays_pending_restart(tmp_path: Path) -> None:
     assert len(status_entries) == 1
     assert status_entries[0].state == PluginRuntimeState.pending_restart
     assert status_entries[0].restartRequired is True
+
+
+def test_programmatic_restart_capability_and_action(tmp_path: Path) -> None:
+    # Programmatic restart mode should expose deterministic capability/action payloads.
+    restart_calls: list[str] = []
+
+    def restart_callback() -> bool:
+        restart_calls.append("called")
+        return True
+
+    manager = _make_manager(tmp_path, restart_callback=restart_callback)
+
+    capability = manager.get_restart_capability()
+    assert capability.mode == "programmatic"
+    assert capability.command is None
+    assert capability.reason is None
+
+    response = manager.restart_backend()
+    assert response == {
+        "accepted": True,
+        "mode": "programmatic",
+        "command": None,
+        "reason": None,
+    }
+    assert restart_calls == ["called"]
+
+
+def test_programmatic_restart_rejection_falls_back_to_manual_command(
+    tmp_path: Path,
+) -> None:
+    # A rejected programmatic restart should include explicit fallback command details.
+    manager = _make_manager(tmp_path, restart_callback=lambda: False)
+
+    response = manager.restart_backend()
+    assert response == {
+        "accepted": False,
+        "mode": "programmatic",
+        "command": "setta",
+        "reason": "Programmatic restart request was rejected.",
+    }
 
 
 def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(

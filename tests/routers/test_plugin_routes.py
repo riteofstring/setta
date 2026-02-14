@@ -114,6 +114,56 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
             assert disable_response.json()["state"] == "disabled"
 
 
+def test_plugin_restart_routes_support_programmatic_mode() -> None:
+    # Restart contract routes should expose programmatic mode when callback support exists.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        restart_calls: list[str] = []
+
+        def restart_callback() -> bool:
+            restart_calls.append("called")
+            return True
+
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+            restart_callback=restart_callback,
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            capability_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART_CAPABILITY.value}"
+            )
+            assert capability_response.status_code == 200
+            assert capability_response.json() == {
+                "mode": "programmatic",
+                "command": None,
+                "reason": None,
+            }
+
+            restart_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}"
+            )
+            assert restart_response.status_code == 200
+            assert restart_response.json() == {
+                "accepted": True,
+                "mode": "programmatic",
+                "command": None,
+                "reason": None,
+            }
+        assert restart_calls == ["called"]
+
+
 def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
     # Deployment mode should block plugin mutation routes but still allow read routes.
     with TemporaryDirectory() as tmpdir:

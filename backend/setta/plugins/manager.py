@@ -226,6 +226,7 @@ class PluginManager:
         server_mode: Literal["ide", "share", "app"],
         setta_version: str,
         restart_command: str | None = None,
+        restart_callback: Callable[[], bool] | None = None,
         backend_startup_timeout_seconds: float = 10.0,
         backend_register_timeout_seconds: float = 10.0,
     ) -> None:
@@ -235,6 +236,7 @@ class PluginManager:
         self.server_mode = server_mode
         self.setta_version = setta_version
         self._restart_command = restart_command or "setta"
+        self._restart_callback = restart_callback
         self._backend_startup_timeout_seconds = backend_startup_timeout_seconds
         self._backend_register_timeout_seconds = backend_register_timeout_seconds
 
@@ -415,6 +417,8 @@ class PluginManager:
         )
 
     def get_restart_capability(self) -> PluginRestartCapability:
+        if self._restart_callback is not None:
+            return PluginRestartCapability(mode="programmatic")
         return PluginRestartCapability(
             mode="manual",
             command=self._restart_command,
@@ -423,6 +427,22 @@ class PluginManager:
 
     def restart_backend(self) -> dict[str, Any]:
         capability = self.get_restart_capability()
+        if capability.mode == "programmatic":
+            assert self._restart_callback is not None
+            accepted = bool(self._restart_callback())
+            if accepted:
+                return {
+                    "accepted": True,
+                    "mode": capability.mode,
+                    "command": None,
+                    "reason": None,
+                }
+            return {
+                "accepted": False,
+                "mode": capability.mode,
+                "command": self._restart_command,
+                "reason": "Programmatic restart request was rejected.",
+            }
         return {
             "accepted": False,
             "mode": capability.mode,
