@@ -971,11 +971,8 @@ class TestCodexAppServerAdapterMapping:
                 "params": {
                     "item": {
                         "type": "commandExecution",
-                        "command": "rm -rf /tmp/example-dir",
-                        "parsedCmd": {
-                            "cmd": "rm",
-                            "args": ["-rf", "/tmp/example-dir"],
-                        },
+                        "command": "rm -rf /",
+                        "parsedCmd": {"cmd": "rm", "args": ["-rf", "/"]},
                     }
                 },
             },
@@ -983,7 +980,7 @@ class TestCodexAppServerAdapterMapping:
 
         assert approval_payload.get("type") == "approval_request"
         assert approval_payload.get("approvalId") == "42"
-        assert approval_payload.get("command") == "rm -rf /tmp/example-dir"
+        assert approval_payload.get("command") == "rm -rf /"
         assert state.approval_id_map.get("42") == 42
 
     def test_build_approval_payload_for_file_change(self) -> None:
