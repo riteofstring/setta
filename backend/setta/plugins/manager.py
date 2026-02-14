@@ -243,6 +243,7 @@ class PluginManager:
         setta_home: Path,
         server_mode: Literal["ide", "share", "app"],
         setta_version: str,
+        github_base_url: str | None = None,
         restart_command: str | None = None,
         restart_callback: Callable[[], bool] | None = None,
         backend_startup_timeout_seconds: float = 10.0,
@@ -253,6 +254,11 @@ class PluginManager:
         self.setta_home = setta_home
         self.server_mode = server_mode
         self.setta_version = setta_version
+        if github_base_url is None:
+            github_base_url = os.environ.get(
+                "SETTA_PLUGIN_GITHUB_BASE_URL", "https://github.com"
+            )
+        self._github_base_url = github_base_url.rstrip("/")
         self._restart_command = restart_command or "setta"
         self._restart_callback = restart_callback
         self._backend_startup_timeout_seconds = backend_startup_timeout_seconds
@@ -2645,7 +2651,9 @@ class PluginManager:
         assert source_spec.repo is not None
 
         clone_root = tmp_dir / "repo"
-        clone_url = f"https://github.com/{source_spec.owner}/{source_spec.repo}.git"
+        clone_url = (
+            f"{self._github_base_url}/{source_spec.owner}/{source_spec.repo}.git"
+        )
         clone_cmd = ["git", "clone", "--depth", "1"]
         if source_spec.ref:
             clone_cmd.extend(["--branch", source_spec.ref])

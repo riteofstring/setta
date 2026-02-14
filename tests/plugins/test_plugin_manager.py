@@ -1,5 +1,6 @@
 import json
 import os
+import subprocess
 import shutil
 import zipfile
 from collections.abc import Callable
@@ -21,6 +22,7 @@ FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugin
 def _make_manager(
     tmp_path: Path,
     server_mode: Literal["ide", "share", "app"] = "ide",
+    github_base_url: str | None = None,
     restart_callback: Callable[[], bool] | None = None,
     backend_startup_timeout_seconds: float = 10.0,
     backend_register_timeout_seconds: float = 10.0,
@@ -37,6 +39,7 @@ def _make_manager(
         setta_home=setta_home,
         server_mode=server_mode,
         setta_version="0.1.0",
+        github_base_url=github_base_url,
         restart_callback=restart_callback,
         backend_startup_timeout_seconds=backend_startup_timeout_seconds,
         backend_register_timeout_seconds=backend_register_timeout_seconds,
@@ -125,6 +128,45 @@ def _build_local_pypi_wheel_from_fixture(
     return artifact_path
 
 
+def _build_local_github_bare_repo_from_fixture(
+    *,
+    tmp_path: Path,
+    fixture_name: str,
+    owner: str,
+    repo: str,
+) -> tuple[str, str]:
+    source_root = _fixture_path(fixture_name)
+    working_repo = tmp_path / "git-working" / repo
+    working_repo.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_root, working_repo)
+
+    subprocess.run(["git", "init", "-q"], check=True, cwd=working_repo)
+    subprocess.run(
+        ["git", "config", "user.name", "Setta Tests"],
+        check=True,
+        cwd=working_repo,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "setta-tests@example.com"],
+        check=True,
+        cwd=working_repo,
+    )
+    subprocess.run(["git", "add", "."], check=True, cwd=working_repo)
+    subprocess.run(["git", "commit", "-qm", "fixture"], check=True, cwd=working_repo)
+    subprocess.run(["git", "branch", "-M", "main"], check=True, cwd=working_repo)
+
+    host_root = tmp_path / "github-host" / owner
+    host_root.mkdir(parents=True, exist_ok=True)
+    bare_repo = host_root / f"{repo}.git"
+    subprocess.run(
+        ["git", "clone", "--bare", str(working_repo), str(bare_repo)],
+        check=True,
+        cwd=tmp_path,
+    )
+    base_url = f"file://{(tmp_path / 'github-host').as_posix()}"
+    return base_url, "main"
+
+
 @pytest.mark.parametrize("fixture_name", ["backend", "frontend", "content", "full"])
 def test_fixture_plugins_validate(fixture_name: str, tmp_path: Path) -> None:
     # Each first-party fixture should be a valid standalone plugin root.
@@ -169,6 +211,38 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     assert installed.version == version
     assert installed.state == PluginRuntimeState.active
     assert installed.sourceDigestSha256 is not None
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+
+
+def test_install_plugin_from_local_github_artifact(tmp_path: Path) -> None:
+    # Install flow should support github: source specs through real git clone paths.
+    github_base_url, ref = _build_local_github_bare_repo_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        owner="acme",
+        repo="setta-fixture-frontend",
+    )
+    manager = _make_manager(tmp_path, github_base_url=github_base_url)
+
+    installed = manager.install_plugin(
+        source_spec=f"github:acme/setta-fixture-frontend#{ref}",
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    assert installed.pluginId == "setta-fixture-frontend"
+    assert installed.state == PluginRuntimeState.active
+    assert installed.canonicalSourceKey == "github:acme/setta-fixture-frontend"
 
     status_entries = [
         entry
