@@ -192,10 +192,7 @@ test("app mode param widgets use theme tokens (dropzone + color picker)", async 
       sectionImpls: { [sectionImplId]: sectionImpl },
       sectionVariants: { [sectionVariantId]: sectionVariant },
       codeObjs: { [colorParamId]: colorCore, [dropzoneParamId]: dropzoneCore },
-      codeObjImpls: {
-        [colorParamImplId]: colorImpl,
-        [dropzoneParamImplId]: dropzoneImpl,
-      },
+      codeObjImpls: { [colorParamImplId]: colorImpl, [dropzoneParamImplId]: dropzoneImpl },
       codeObjVariants: {
         [colorParamVariantId]: colorVariant,
         [dropzoneParamVariantId]: dropzoneVariant,
@@ -243,7 +240,7 @@ test("app mode param widgets use theme tokens (dropzone + color picker)", async 
     useServerMode.setState({ mode: "app", modeResolved: true });
   });
 
-  await expect(page.getByRole("heading", { name: "Config A" })).toBeVisible();
+  await expect(page.getByText("App Mode")).toBeVisible();
   await expect(page.getByText("Color", { exact: true })).toBeVisible();
   await expect(page.getByText("Dropzone", { exact: true })).toBeVisible();
 

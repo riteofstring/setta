@@ -1,7 +1,7 @@
 # Auto-generated shared modifier model - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from setta.types.artifact import (
     DrawAreaBrushShape,
@@ -10,7 +10,6 @@ from setta.types.artifact import (
     LineChartSettings,
     ScatterChartSettings,
 )
-from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
@@ -63,7 +62,6 @@ class SharedModifier(TypedDict):
     brushSize: NotRequired[int]
     callable: NotRequired[ID | None]
     canvasMode: NotRequired[DrawAreaMode]
-    capabilityPolicy: NotRequired[CapabilityPolicy]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
     chatId: NotRequired[ID | None]
     children: NotRequired[list[ID]]
@@ -77,6 +75,7 @@ class SharedModifier(TypedDict):
     configLanguage: NotRequired[ConfigLanguage]
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
+    data: NotRequired[dict[str, Any]]
     dataPath: NotRequired[str]
     defaultVal: NotRequired[str]
     description: NotRequired[str]
@@ -106,6 +105,7 @@ class SharedModifier(TypedDict):
     isPreset: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
+    kind: NotRequired[str]
     label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
     managed: NotRequired[bool]
@@ -127,6 +127,7 @@ class SharedModifier(TypedDict):
     passingStyle: NotRequired[ParameterPassingStyle]
     pinnedParams: NotRequired[list[ID]]
     placeholder: NotRequired[str]
+    pluginId: NotRequired[str]
     positionAndSizeLocked: NotRequired[bool]
     renderError: NotRequired[str | None]
     renderedImagePath: NotRequired[str | None]
@@ -137,6 +138,7 @@ class SharedModifier(TypedDict):
     requestMethod: NotRequired[HttpRequestMethod]
     requestUrl: NotRequired[str]
     savedSearches: NotRequired[list[BrowserSavedSearch]]
+    schemaVersion: NotRequired[int | None]
     selectedParams: NotRequired[list[ID]]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
