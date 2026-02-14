@@ -4,6 +4,7 @@ import subprocess
 import shutil
 import tarfile
 import sys
+import threading
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -13,6 +14,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta.mcp.tool_metadata import get_tool_access
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
@@ -843,6 +845,61 @@ def test_same_scope_setta_plugins_shadow_package_manager_plugins(
     assert list_entries[0].sourceScope == PluginScope.setta_files
 
 
+def test_package_manager_plugins_shadow_global_setta_plugins_across_scopes(
+    tmp_path: Path,
+) -> None:
+    # Scope precedence should beat source-manager precedence across scopes.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+    global_source_path = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.global_scope,
+    )
+    manager.rescan()
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+    ]
+    assert len(status_entries) == 2
+    package_manager_entry = next(
+        entry for entry in status_entries if entry.sourceManager == "package_manager"
+    )
+    global_entry = next(
+        entry
+        for entry in status_entries
+        if entry.sourceManager == "setta"
+        and entry.sourceScope == PluginScope.global_scope
+    )
+    assert package_manager_entry.state == PluginRuntimeState.active
+    assert package_manager_entry.sourceScope == PluginScope.setta_files
+    assert package_manager_entry.shadowedBySourcePath is None
+    assert global_entry.state == PluginRuntimeState.shadowed
+    assert global_entry.shadowedBySourcePath == str(package_manager_entry.sourcePath)
+    assert str(global_entry.sourcePath) == str(global_source_path)
+
+    list_entries = [
+        entry
+        for entry in manager.get_list_response().plugins
+        if entry.pluginId == package_name
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].sourceManager == "package_manager"
+    assert list_entries[0].sourceScope == PluginScope.setta_files
+
+
 def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
     tmp_path: Path,
 ) -> None:
@@ -958,6 +1015,69 @@ def test_update_plugin_marks_pending_restart_for_backend_only(
     assert len(frontend_entries) == 1
     assert frontend_entries[0].state == PluginRuntimeState.active
     assert frontend_entries[0].restartRequired is False
+
+
+def test_update_plugin_with_explicit_target_persists_source_metadata(
+    tmp_path: Path,
+) -> None:
+    # update_plugin(to=...) should persist retargeted source metadata and canonical source key.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    replacement_source_spec = f"pypi:setta_fixture_frontend=={version}"
+    replacement_canonical_source_key = "pypi:setta_fixture_frontend"
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        update_result = manager.update_plugin(
+            plugin_id=package_name,
+            scope=PluginScope.workspace,
+            to=replacement_source_spec,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert update_result.pluginId == package_name
+    assert update_result.fromVersion == version
+    assert update_result.toVersion == version
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].canonicalSourceKey == replacement_canonical_source_key
+
+    metadata_key = manager._metadata_key(package_name, PluginScope.workspace)
+    metadata = manager._load_install_metadata().entries[metadata_key]
+    assert metadata.sourceSpec == replacement_source_spec
+    assert metadata.canonicalSourceKey == replacement_canonical_source_key
 
 
 def test_scope_alias_environment_maps_to_setta_files() -> None:
@@ -1434,6 +1554,32 @@ def test_load_backend_plugins_registers_multiple_fixture_mcp_tools(
             tools_by_name["setta_fixture_mcp_write"](value="ok")
             == "write:setta-fixture-backend-mcp-tools:ok"
         )
+    finally:
+        SETTA_MCP_TOOLS[:] = baseline_tools
+
+
+def test_load_backend_plugins_applies_mcp_tool_access_metadata(
+    tmp_path: Path,
+) -> None:
+    # MCP annotations should attach tool access metadata to registered plugin tools.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-mcp-tools",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    baseline_tools = list(SETTA_MCP_TOOLS)
+    try:
+        manager.load_backend_plugins(app=FastAPI())
+        tools_by_name = {tool.__name__: tool for tool in SETTA_MCP_TOOLS}
+        read_meta = get_tool_access(tools_by_name["setta_fixture_mcp_read"])
+        write_meta = get_tool_access(tools_by_name["setta_fixture_mcp_write"])
+        assert read_meta is not None
+        assert write_meta is not None
+        assert read_meta.accessType == "read"
+        assert write_meta.accessType == "write"
     finally:
         SETTA_MCP_TOOLS[:] = baseline_tools
 
@@ -2440,6 +2586,52 @@ def test_plugin_config_schema_validation_and_list_descriptors(
     }
 
 
+@pytest.mark.parametrize("removal_api", ["uninstall_plugin", "unlink_plugin"])
+def test_plugin_config_is_cleared_when_plugin_is_removed(
+    tmp_path: Path,
+    removal_api: str,
+) -> None:
+    # Removing a plugin should clear persisted config so relink starts from defaults.
+    manager = _make_manager(tmp_path)
+    full_root = _fixture_path("full")
+    manager.link_plugin(
+        local_plugin_root=str(full_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": True, "label": "persisted-config"},
+    )
+    configured_entry = next(
+        plugin
+        for plugin in manager.get_list_response().plugins
+        if plugin.pluginId == "setta-fixture-full"
+    )
+    assert configured_entry.config.currentConfig == {
+        "enabled": True,
+        "label": "persisted-config",
+    }
+
+    remove_plugin = getattr(manager, removal_api)
+    remove_plugin(plugin_id="setta-fixture-full", scope=PluginScope.workspace)
+
+    manager.link_plugin(
+        local_plugin_root=str(full_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    relinked_entry = next(
+        plugin
+        for plugin in manager.get_list_response().plugins
+        if plugin.pluginId == "setta-fixture-full"
+    )
+    assert relinked_entry.config.currentConfig == {}
+
+
 def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:
     # `setta plugins init` should output validate/build/publish-ready starter files.
     manager = _make_manager(tmp_path)
@@ -2460,6 +2652,51 @@ def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:
     assert "export const apiVersion = 1;" in entrypoint_text
 
     manager.validate_plugin_folder(plugin_root)
+
+
+def test_init_template_supports_backend_and_content_variants(tmp_path: Path) -> None:
+    # Backend/content templates should generate only the expected component scaffolding.
+    manager = _make_manager(tmp_path)
+
+    backend_root = manager.init_plugin_template(
+        plugin_id="setta-init-backend-fixture",
+        template="backend",
+        out_dir=str(tmp_path),
+    )
+    manager.validate_plugin_folder(backend_root)
+    backend_manifest = json.loads(
+        (backend_root / "setta.plugin.json").read_text(encoding="utf-8")
+    )
+    assert backend_manifest["backend"] == {"entrypoint": "backend/entrypoint.py"}
+    assert "frontend" not in backend_manifest
+    assert "content" not in backend_manifest
+    assert (backend_root / "backend" / "entrypoint.py").exists()
+    assert not (backend_root / "frontend").exists()
+    assert not (backend_root / "content").exists()
+
+    content_root = manager.init_plugin_template(
+        plugin_id="setta-init-content-fixture",
+        template="content",
+        out_dir=str(tmp_path),
+    )
+    manager.validate_plugin_folder(content_root)
+    content_manifest = json.loads(
+        (content_root / "setta.plugin.json").read_text(encoding="utf-8")
+    )
+    assert content_manifest["content"] == {
+        "blueprintsDir": "content/blueprints",
+        "projectTemplatesDir": "content/project_templates",
+        "promptsDir": "content/prompts",
+    }
+    assert "backend" not in content_manifest
+    assert "frontend" not in content_manifest
+    assert (content_root / "content" / "blueprints" / "starter-blueprint.json").exists()
+    assert (
+        content_root / "content" / "project_templates" / "starter-template.json"
+    ).exists()
+    assert (content_root / "content" / "prompts" / "starter-prompt.md").exists()
+    assert not (content_root / "backend").exists()
+    assert not (content_root / "frontend").exists()
 
 
 def test_init_template_can_be_linked_and_served(tmp_path: Path) -> None:
@@ -3545,6 +3782,14 @@ def test_normalize_worker_route_methods_validates_shape_and_values(
         )
     assert unsupported_error.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
 
+    with pytest.raises(PluginManagerError) as options_error:
+        manager._normalize_worker_route_methods(
+            plugin_id="fixture.plugin",
+            route_id="route_4",
+            raw_methods=["OPTIONS"],
+        )
+    assert options_error.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+
 
 def test_build_uv_install_env_maps_pip_env_vars(tmp_path: Path, monkeypatch) -> None:
     # UV install env should inherit pip index flags when uv-specific vars are absent.
@@ -4160,6 +4405,80 @@ def test_call_backend_worker_method_rejects_response_id_mismatch(
     assert "response id mismatch" in exc_info.value.message
 
 
+def test_call_backend_worker_method_serializes_requests_per_plugin(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Per-plugin worker lock should prevent concurrent request interleaving.
+    manager = _make_manager(tmp_path)
+    write_request_ids: list[int] = []
+    pending_request_ids: list[int] = []
+    read_call_count = 0
+    first_read_started = threading.Event()
+    release_first_read = threading.Event()
+    results: dict[int, dict[str, bool | int]] = {}
+    raised: list[Exception] = []
+
+    class _DummyProcess:
+        pass
+
+    def _patched_write(**kwargs):
+        payload = kwargs["payload"]
+        request_id = payload["id"]
+        assert isinstance(request_id, int)
+        write_request_ids.append(request_id)
+        pending_request_ids.append(request_id)
+
+    def _patched_read(**_kwargs):
+        nonlocal read_call_count
+        read_call_count += 1
+        if read_call_count == 1:
+            first_read_started.set()
+            assert release_first_read.wait(timeout=2.0)
+        request_id = pending_request_ids.pop(0)
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {"ok": True, "requestId": request_id},
+        }
+
+    monkeypatch.setattr(manager, "_write_backend_worker_payload", _patched_write)
+    monkeypatch.setattr(manager, "_read_backend_worker_message", _patched_read)
+
+    def _run_call(request_id: int) -> None:
+        try:
+            result = manager._call_backend_worker_method(
+                process=_DummyProcess(),  # type: ignore[arg-type]
+                plugin_id="fixture-plugin",
+                request_id=request_id,
+                method="plugin.register",
+                timeout_seconds=2.0,
+                timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            )
+            assert isinstance(result, dict)
+            results[request_id] = result
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised.append(exc)
+
+    thread_one = threading.Thread(target=_run_call, args=(1000,))
+    thread_two = threading.Thread(target=_run_call, args=(1001,))
+    thread_one.start()
+    assert first_read_started.wait(timeout=2.0)
+    thread_two.start()
+
+    # If locking failed, thread_two would write before thread_one read returns.
+    assert write_request_ids == [1000]
+    release_first_read.set()
+
+    thread_one.join(timeout=2.0)
+    thread_two.join(timeout=2.0)
+
+    assert raised == []
+    assert write_request_ids == [1000, 1001]
+    assert results[1000]["requestId"] == 1000
+    assert results[1001]["requestId"] == 1001
+
+
 @pytest.mark.parametrize(
     ("prefix", "expected"),
     [
@@ -4369,3 +4688,88 @@ def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
             status_fallback_response = client.get(route_path)
         assert status_fallback_response.status_code == 200
         assert status_fallback_response.json() == {"ok": True, "source": "worker"}
+
+
+def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy should pass through non-JSON request bodies and avoid body forwarding for HEAD/OPTIONS.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET", "POST"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    captured_params: list[dict[str, object]] = []
+
+    def _capture_call(**kwargs):
+        params = kwargs["params"]
+        assert isinstance(params, dict)
+        captured_params.append(params)
+        return {"statusCode": 200, "body": {"jsonBody": params.get("jsonBody")}}
+
+    monkeypatch.setattr(manager, "_call_backend_worker_method", _capture_call)
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    with TestClient(app) as client:
+        plain_text_response = client.post(
+            route_path,
+            data="plain-text-body",
+            headers={"Content-Type": "text/plain"},
+        )
+        assert plain_text_response.status_code == 200
+        assert plain_text_response.json() == {"jsonBody": "plain-text-body"}
+
+        calls_after_post = len(captured_params)
+        head_response = client.head(route_path)
+        assert head_response.status_code in {200, 405}
+        calls_after_head = len(captured_params)
+        if head_response.status_code == 200:
+            assert calls_after_head == calls_after_post + 1
+            assert captured_params[-1]["jsonBody"] is None
+        else:
+            assert calls_after_head == calls_after_post
+
+        calls_before_options = len(captured_params)
+        options_response = client.request(
+            "OPTIONS",
+            route_path,
+            content="ignored-options-body",
+            headers={"Content-Type": "text/plain"},
+        )
+        assert options_response.status_code in {200, 405}
+        calls_after_options = len(captured_params)
+        if options_response.status_code == 200:
+            assert calls_after_options == calls_before_options + 1
+            assert captured_params[-1]["jsonBody"] is None
+        else:
+            assert calls_after_options == calls_before_options
+
+    assert len(captured_params) >= 1
+    assert captured_params[0]["jsonBody"] == "plain-text-body"

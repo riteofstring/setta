@@ -1,12 +1,14 @@
 # Plugin Test Expansion Plan
 
-Coverage is already strong, but these additions are still worth adding.
+Coverage is already strong, and the items in `docs/plans/plugin-test-expansion-plan.md` appear to be implemented now.
 
-1. `[Unit]` Add `response id mismatch` coverage for worker RPC replies in `backend/setta/plugins/manager.py:993`. You already test nearby contracts in `tests/plugins/test_plugin_manager.py:3979`, but not this mismatch branch.
-2. `[Unit]` Expand transport-read failure coverage in `backend/setta/plugins/manager.py:1150` and `backend/setta/plugins/manager.py:1165` for `stdout=None`, timeout, and EOF with stderr detail. Current tests around `tests/plugins/test_plugin_manager.py:3917` only cover invalid JSON/non-object payloads.
-3. `[Unit]` Add normalization cases for route prefixes in `backend/setta/plugins/manager.py:1874` (`None`, `""`, `"/"`, `"foo"`, `"/foo"`). I don’t see direct tests for this helper.
-4. `[Unit]` Add frontend runtime error-path tests for missing section variant/impl in `frontend/src/plugins/runtime.ts:585` and `frontend/src/plugins/runtime.ts:599`. Existing update tests in `frontend/src/plugins/runtime.test.ts:1051` and `frontend/src/plugins/runtime.test.ts:1085` cover non-plugin + happy path, but not missing-state branches.
-5. `[Integration]` Add backend route-proxy error mapping tests for `backend/setta/plugins/manager.py:1572` branches: worker unavailable `503`, worker exception `502`, non-object response `502`, and non-int `statusCode` fallback to `200`.
-6. `[Integration]` Add MCP lifecycle scope-alias coverage for `scope="environment"` in `backend/setta/mcp/tools/plugins.py:24` (install/update/rollback/uninstall). Current MCP tests in `tests/mcp/test_plugin_tools.py:221` are workspace-only.
-7. `[Playwright]` Add a real plugin-host `apiFetch` roundtrip test for `frontend/src/plugins/runtime.ts:635` (path normalization + request headers). Today this behavior is unit-tested with mocked `fetch` in `frontend/src/plugins/runtime.test.ts:841`, but not verified in-browser end-to-end.
-8. `[Playwright]` Add a plugin backend route payload test (query params + JSON body passthrough) to validate manager proxy serialization in `backend/setta/plugins/manager.py:1589` and `backend/setta/plugins/manager.py:1607` through the actual UI/runtime path.
+1. `[Unit]` Add `init_plugin_template` coverage for `template="backend"` and `template="content"` (`backend/setta/plugins/manager.py:3207`). Current tests only hit `frontend`/`full`.
+2. `[Unit]` Verify uninstall/unlink clears persisted plugin config (`backend/setta/plugins/manager.py:4466`) after a prior `write_plugin_config` (`backend/setta/plugins/manager.py:2889`).
+3. `[Unit]` Assert MCP tool metadata propagation from `annotations.accessType` (`backend/setta/plugins/manager.py:1930`) using `get_tool_access` (`backend/setta/mcp/tool_metadata.py:149`).
+4. `[Unit]` Add concurrency test for per-plugin worker request locking (`backend/setta/plugins/manager.py:910`) to ensure same-plugin parallel requests serialize safely.
+5. `[Integration]` Add route-proxy tests for non-JSON request bodies and `HEAD`/`OPTIONS` semantics (`backend/setta/plugins/manager.py:1572`, `backend/setta/plugins/manager.py:1592`).
+6. `[Integration]` Add `update_plugin(to=...)` persistence test to verify retargeted source is reflected in install metadata and status (`backend/setta/plugins/manager.py:2915`).
+7. `[Integration]` Add precedence test for package-manager discovered plugins vs filesystem plugins across scopes (`backend/setta/plugins/manager.py:88`, `backend/setta/plugins/manager.py:3534`).
+8. `[Playwright]` Add deployment-mode `apiFetch` test validating `X-Share-Session-Id` forwarding in-browser (`frontend/src/plugins/runtime.ts:635`).
+9. `[Playwright]` Add style lifecycle check to verify plugin `<link>` elements are removed on disable/unlink/rescan (`frontend/src/plugins/runtime.ts:993`, `frontend/src/plugins/runtime.ts:1042`).
+10. `[Playwright]` Extend config editor E2E to verify config persists across reload and plugin re-enable (`frontend/tests/e2e/overview/plugin-config-editor.spec.ts`).
