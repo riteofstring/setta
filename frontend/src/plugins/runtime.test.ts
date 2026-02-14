@@ -1,3 +1,4 @@
+import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
   getPluginSectionFallbackReason,
   getPluginSectionKindsForCreateMenu,
@@ -7,22 +8,21 @@ import {
   refreshPluginRuntime,
   resetPluginRuntimeStoreForTests,
   toPluginSectionKindKey,
-  usePluginSectionKind,
-  usePluginSectionKinds,
   usePluginCommands,
   usePluginListEntries,
   usePluginPaneTabs,
   usePluginRuntimeStore,
+  usePluginSectionKind,
+  usePluginSectionKinds,
   usePluginStatusEntries,
   usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
-import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { useProjectState, useShareSession } from "state/definitions";
-import * as generatedEndpoints from "utils/generatedEndpoints";
 import { C_ADDRESSES } from "utils/c_addresses";
+import * as generatedEndpoints from "utils/generatedEndpoints";
 import {
   createCore,
   createDictSectionImpl,
@@ -32,11 +32,11 @@ import {
   createVariant,
   PluginRuntimeStateEnum,
   SectionTypeEnum,
+  type PluginListEntry,
   type PluginListResponse,
   type PluginRestartCapability,
-  type PluginListEntry,
-  type PluginStatusResponse,
   type PluginStatusEntry,
+  type PluginStatusResponse,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -126,7 +126,10 @@ type CapturedPluginHost = {
   registerContextMenu: (definition: Record<string, unknown>) => void;
   getProjectContext: () => { projectConfigId: string; serverMode: string };
   subscribeProjectContext: (
-    listener: (context: { projectConfigId: string; serverMode: string }) => void,
+    listener: (context: {
+      projectConfigId: string;
+      serverMode: string;
+    }) => void,
   ) => () => void;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
@@ -178,9 +181,11 @@ function expectPluginFrontendErrorCode(
     throw new Error("Expected plugin host call to throw.");
   } catch (error) {
     expect(
-      (error as {
-        code?: string;
-      }).code,
+      (
+        error as {
+          code?: string;
+        }
+      ).code,
     ).toBe(expectedCode);
   }
 }
@@ -465,7 +470,9 @@ describe("plugin runtime helpers", () => {
     );
     expect(missing).toBeNull();
 
-    const sectionKinds = readPluginRuntimeHookValue(() => usePluginSectionKinds());
+    const sectionKinds = readPluginRuntimeHookValue(() =>
+      usePluginSectionKinds(),
+    );
     expect(sectionKinds.map((entry) => entry.title)).toEqual([
       "Alpha Widget",
       "Zeta Widget",
@@ -676,7 +683,9 @@ describe("plugin runtime helpers", () => {
       plugin,
       "ide",
     );
-    expect(result?.error?.code).toBe(PluginFrontendErrorCodeEnum.CapabilityDenied);
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
   });
 
   it("rejects invalid command registrations", async () => {
@@ -697,7 +706,9 @@ describe("plugin runtime helpers", () => {
       plugin,
       "ide",
     );
-    expect(result?.error?.code).toBe(PluginFrontendErrorCodeEnum.RegistrationInvalid);
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
   });
 
   it("rejects invalid top-nav registrations", async () => {
@@ -718,7 +729,9 @@ describe("plugin runtime helpers", () => {
       plugin,
       "ide",
     );
-    expect(result?.error?.code).toBe(PluginFrontendErrorCodeEnum.RegistrationInvalid);
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
   });
 
   it("reports runtime error when plugins list request fails", async () => {
@@ -737,7 +750,9 @@ describe("plugin runtime helpers", () => {
 
     const state = usePluginRuntimeStore.getState();
     expect(state.status).toBe("error");
-    expect(state.statusMessage).toBe("Failed to fetch plugins list: status 500.");
+    expect(state.statusMessage).toBe(
+      "Failed to fetch plugins list: status 500.",
+    );
   });
 
   it("reports runtime error when plugins status request fails without response", async () => {
@@ -843,14 +858,12 @@ describe("plugin runtime helpers", () => {
       isDeploymentMode: true,
       shareSessionId: "share-session-123",
     });
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -991,11 +1004,11 @@ describe("plugin runtime helpers", () => {
       () => host.openArtifact("artifact-1"),
       PluginFrontendErrorCodeEnum.CapabilityDenied,
     );
-    await expect(host.createArtifact({ kind: "artifact" })).rejects.toMatchObject(
-      {
-        code: PluginFrontendErrorCodeEnum.CapabilityDenied,
-      },
-    );
+    await expect(
+      host.createArtifact({ kind: "artifact" }),
+    ).rejects.toMatchObject({
+      code: PluginFrontendErrorCodeEnum.CapabilityDenied,
+    });
   });
 
   it("supports project-context subscriptions and readSection snapshots", async () => {
@@ -1028,8 +1041,10 @@ describe("plugin runtime helpers", () => {
     const secondRead = host.readSection(sectionId);
     expect(secondRead.paramFilter).toBe("");
 
-    const observedContexts: Array<{ projectConfigId: string; serverMode: string }> =
-      [];
+    const observedContexts: Array<{
+      projectConfigId: string;
+      serverMode: string;
+    }> = [];
     const unsubscribe = host.subscribeProjectContext((context) => {
       observedContexts.push(context);
     });
@@ -1243,13 +1258,13 @@ describe("plugin runtime helpers", () => {
     });
 
     const tabs = readPluginRuntimeHookValue(() => usePluginPaneTabs());
-    expect(tabs.map((tab) => `${tab.title}:${tab.pluginId}:${tab.paneId}`)).toEqual(
-      [
-        "Alpha:acme.plugin:pane-a",
-        "Alpha:beta.plugin:pane-z",
-        "Beta:acme.plugin:pane-c",
-      ],
-    );
+    expect(
+      tabs.map((tab) => `${tab.title}:${tab.pluginId}:${tab.paneId}`),
+    ).toEqual([
+      "Alpha:acme.plugin:pane-a",
+      "Alpha:beta.plugin:pane-z",
+      "Beta:acme.plugin:pane-c",
+    ]);
   });
 
   it("returns sorted plugin commands by title then plugin id then command id", () => {
@@ -1282,7 +1297,9 @@ describe("plugin runtime helpers", () => {
 
     const commands = readPluginRuntimeHookValue(() => usePluginCommands());
     expect(
-      commands.map((command) => `${command.title}:${command.pluginId}:${command.id}`),
+      commands.map(
+        (command) => `${command.title}:${command.pluginId}:${command.id}`,
+      ),
     ).toEqual([
       "Action:acme.plugin:cmd-a",
       "Action:beta.plugin:cmd-z",
@@ -1322,12 +1339,15 @@ describe("plugin runtime helpers", () => {
     });
 
     const items = readPluginRuntimeHookValue(() => usePluginTopNavBarItems());
-    expect(items.map((item) => `${item.order}:${item.label}:${item.pluginId}:${item.id}`))
-      .toEqual([
-        "1:Deploy:acme.plugin:item-a",
-        "1:Deploy:beta.plugin:item-z",
-        "2:Build:acme.plugin:item-build",
-      ]);
+    expect(
+      items.map(
+        (item) => `${item.order}:${item.label}:${item.pluginId}:${item.id}`,
+      ),
+    ).toEqual([
+      "1:Deploy:acme.plugin:item-a",
+      "1:Deploy:beta.plugin:item-z",
+      "2:Build:acme.plugin:item-build",
+    ]);
   });
 
   it("returns plugin list entries sorted by plugin id", () => {

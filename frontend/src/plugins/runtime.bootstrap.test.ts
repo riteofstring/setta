@@ -38,10 +38,9 @@ describe("plugin runtime bootstrap", () => {
     }));
 
     vi.doMock("utils/generatedEndpoints", async () => {
-      const actual =
-        await vi.importActual<typeof import("utils/generatedEndpoints")>(
-          "utils/generatedEndpoints",
-        );
+      const actual = await vi.importActual<
+        typeof import("utils/generatedEndpoints")
+      >("utils/generatedEndpoints");
       return {
         ...actual,
         route_plugins_list: routePluginsList,
