@@ -82,12 +82,15 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
+    SetParentDefaultChildSectionTypeRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
     SetPromptTemplateRequest,
+    SetSectionAllowUnquotedStringArgsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -105,13 +108,13 @@ from setta.project_state.project_manager_types import (
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockHeadingAsSectionNameRequest,
+    SetTextBlockMasterFontSizeRequest,
     SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
-    SetViewModeSortOrderRequest,
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -458,15 +461,6 @@ async def route_set_view_mode_name(
         await manager.set_view_mode_name(x)
     except InvalidViewModeName as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.SET_VIEW_MODE_SORT_ORDER)
-async def route_set_view_mode_sort_order(
-    x: SetViewModeSortOrderRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _deny_deployment_mode_view_modes(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_view_mode_sort_order(x)
 
 
 @router.post(Route.DELETE_VIEW_MODE)
@@ -1160,6 +1154,15 @@ async def route_set_text_block_display_mode(
     await manager.set_text_block_display_mode(x)
 
 
+@router.post(Route.SET_TEXT_BLOCK_MASTER_FONT_SIZE)
+async def route_set_text_block_master_font_size(
+    x: SetTextBlockMasterFontSizeRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_text_block_master_font_size(x)
+
+
 @router.post(Route.SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME)
 async def route_set_text_block_heading_as_section_name(
     x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
@@ -1196,6 +1199,15 @@ async def route_set_section_hide_unpinned_params(
     await manager.set_section_hide_unpinned_params(x)
 
 
+@router.post(Route.SET_SECTION_ALLOW_UNQUOTED_STRING_ARGS)
+async def route_set_section_allow_unquoted_string_args(
+    x: SetSectionAllowUnquotedStringArgsRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_section_allow_unquoted_string_args(x)
+
+
 @router.post(Route.SET_SECTION_PINNED_PARAMS)
 async def route_set_section_pinned_params(
     x: SetSectionPinnedParamsRequest, ctx: RuntimeContextFromRequest
@@ -1212,6 +1224,24 @@ async def route_set_section_column_width(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_column_width(x)
+
+
+@router.post(Route.SET_PARENT_DEFAULT_CHILD_SECTION_TYPE)
+async def route_set_parent_default_child_section_type(
+    x: SetParentDefaultChildSectionTypeRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_parent_default_child_section_type(x)
+
+
+@router.post(Route.SET_LIST_ROOT_VIEW_MODE)
+async def route_set_list_root_view_mode(
+    x: SetListRootViewModeRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_deployment_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_list_root_view_mode(x)
 
 
 @router.post(Route.SET_BROWSER_COLUMN_WIDTHS)

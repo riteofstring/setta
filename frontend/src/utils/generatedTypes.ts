@@ -347,6 +347,12 @@ export const WebsocketMsgTypeSet = new Set([
   "UpdateSettings",
 ]);
 
+export const DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES = new Set([
+  "GenPythonCode",
+  "GenPythonMetadata",
+  "GlobalVariables",
+]);
+
 export const SINGLETON_SECTION_TYPES = new Set([
   "GenPythonCode",
   "GenPythonMetadata",
@@ -484,6 +490,15 @@ export const CodeObjTypeEnum = {
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
 
+export const DateDisplayFormatEnum = {
+  iso: "iso",
+  us: "us",
+  eu: "eu",
+  long: "long",
+} as const;
+
+export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
+
 export const DropzoneModeEnum = {
   STATEFUL: "STATEFUL",
   STATELESS: "STATELESS",
@@ -518,6 +533,23 @@ export const ParameterPassingStyleEnum = {
 export type ParameterPassingStyle = ObjectValues<
   typeof ParameterPassingStyleEnum
 >;
+
+export const TextParamInputUITypeEnum = {
+  plain: "plain",
+  time: "time",
+  date: "date",
+} as const;
+
+export type TextParamInputUIType = ObjectValues<
+  typeof TextParamInputUITypeEnum
+>;
+
+export const TimeDisplayFormatEnum = {
+  twenty_four_hour: "twenty_four_hour",
+  twelve_hour: "twelve_hour",
+} as const;
+
+export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
 
 export const SectionTypeEnum = {
   Callable: "Callable",
@@ -634,6 +666,14 @@ export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
+
+export const ListRootViewModeEnum = {
+  default: "default",
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+
+export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
 
 export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
@@ -878,7 +918,6 @@ export const RouteEnum = {
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
   SET_VIEW_MODE_NAME: "/setViewModeName",
-  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
   DELETE_VIEW_MODE: "/deleteViewMode",
   UNDO: "/undo",
   REDO: "/redo",
@@ -951,10 +990,14 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
   SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
+  SET_TEXT_BLOCK_MASTER_FONT_SIZE: "/setTextBlockMasterFontSize",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
+  SET_SECTION_ALLOW_UNQUOTED_STRING_ARGS: "/setSectionAllowUnquotedStringArgs",
   SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
+  SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
+  SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
@@ -982,6 +1025,8 @@ export const RouteEnum = {
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
+  GET_FILE_BROWSER_FILE_CONTENT: "/getFileBrowserFileContent",
+  WRITE_FILE_BROWSER_FILE_CONTENT: "/writeFileBrowserFileContent",
   FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
   GET_GIT_STATUS: "/git/status",
   GET_GIT_DIFF: "/git/diff",
@@ -2242,6 +2287,7 @@ export const AllImplFieldsSchema = z.literal([
   "activeBranchId",
   "activeLayerIdx",
   "agentProfileId",
+  "allowUnquotedStringArgs",
   "aspectRatio",
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
@@ -2267,6 +2313,8 @@ export const AllImplFieldsSchema = z.literal([
   "coreNameEditable",
   "coreNameType",
   "dataPath",
+  "dateDisplayFormat",
+  "defaultChildSectionType",
   "defaultVal",
   "description",
   "diagnosticsIgnoreState",
@@ -2298,6 +2346,7 @@ export const AllImplFieldsSchema = z.literal([
   "label",
   "layers",
   "managed",
+  "masterFontSizePx",
   "max",
   "maxAttachments",
   "messages",
@@ -2332,10 +2381,13 @@ export const AllImplFieldsSchema = z.literal([
   "text",
   "textDisplayMode",
   "thinking",
+  "timeDisplayFormat",
   "toolCallArguments",
   "topLevelParamId",
   "type",
+  "typeAnnotation",
   "typesColumnWidth",
+  "uiType",
   "url",
   "value",
   "viewMode",
@@ -2722,6 +2774,7 @@ export const SharedModifierSchema = z.object({
   activeBranchId: z.union([IDSchema, z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
+  allowUnquotedStringArgs: z.boolean().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
@@ -2749,6 +2802,8 @@ export const SharedModifierSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
+  dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
+  defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
@@ -2782,6 +2837,7 @@ export const SharedModifierSchema = z.object({
   label: z.string().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   managed: z.boolean().optional(),
+  masterFontSizePx: z.number().optional(),
   max: z.union([z.number(), z.int()]).optional(),
   maxAttachments: z.union([z.int(), z.null()]).optional(),
   messages: z
@@ -2825,12 +2881,17 @@ export const SharedModifierSchema = z.object({
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   thinking: z.boolean().optional(),
+  timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
+  typeAnnotation: z.string().optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
+  uiType: z.enum(TextParamInputUITypeEnum).optional(),
   url: z.string().optional(),
   value: z.string().optional(),
-  viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
+  viewMode: z
+    .union([z.enum(BrowserAreaViewModeEnum), z.enum(ListRootViewModeEnum)])
+    .optional(),
   waitingForResponse: z.boolean().optional(),
 });
 
@@ -2858,6 +2919,7 @@ export const CoreSchema = z.object({
         "activeBranchId",
         "activeLayerIdx",
         "agentProfileId",
+        "allowUnquotedStringArgs",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -2883,6 +2945,8 @@ export const CoreSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
+        "dateDisplayFormat",
+        "defaultChildSectionType",
         "defaultVal",
         "description",
         "diagnosticsIgnoreState",
@@ -2914,6 +2978,7 @@ export const CoreSchema = z.object({
         "label",
         "layers",
         "managed",
+        "masterFontSizePx",
         "max",
         "maxAttachments",
         "messages",
@@ -2948,10 +3013,13 @@ export const CoreSchema = z.object({
         "text",
         "textDisplayMode",
         "thinking",
+        "timeDisplayFormat",
         "toolCallArguments",
         "topLevelParamId",
         "type",
+        "typeAnnotation",
         "typesColumnWidth",
+        "uiType",
         "url",
         "value",
         "viewMode",
@@ -2994,6 +3062,7 @@ export const CallableSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -3038,6 +3107,7 @@ export const DictSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -3081,6 +3151,10 @@ export const ListRootSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   children: z.array(IDSchema).default([]),
+  defaultChildSectionType: z
+    .enum(SectionTypeEnum)
+    .default(SectionTypeEnum.Callable),
+  viewMode: z.enum(ListRootViewModeEnum).default(ListRootViewModeEnum.default),
 });
 
 export type ListRootSectionImpl = z.infer<typeof ListRootSectionImplSchema>;
@@ -3114,6 +3188,9 @@ export const GroupSectionImplSchema = z.object({
   children: z.array(IDSchema).default([]),
   isHorizontalOrientation: z.boolean().default(false),
   overflowMode: z.boolean().default(false),
+  defaultChildSectionType: z
+    .enum(SectionTypeEnum)
+    .default(SectionTypeEnum.Callable),
 });
 
 export type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
@@ -3249,6 +3326,7 @@ export const TextBlockSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
+  masterFontSizePx: z.number().default(14.0),
   headingAsSectionName: z.boolean().default(false),
   metaControlStyle: z.boolean().default(false),
   textDisplayMode: z
@@ -3387,6 +3465,7 @@ export const GlobalVariablesSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -3731,6 +3810,7 @@ export const CodeParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
 });
@@ -3759,8 +3839,18 @@ export const TextParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  uiType: z
+    .enum(TextParamInputUITypeEnum)
+    .default(TextParamInputUITypeEnum.plain),
+  timeDisplayFormat: z
+    .enum(TimeDisplayFormatEnum)
+    .default(TimeDisplayFormatEnum.twenty_four_hour),
+  dateDisplayFormat: z
+    .enum(DateDisplayFormatEnum)
+    .default(DateDisplayFormatEnum.iso),
 });
 
 export type TextParamCodeObjImpl = z.infer<typeof TextParamCodeObjImplSchema>;
@@ -3787,6 +3877,7 @@ export const ButtonParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   label: z.string().default("Trigger" as const),
   actionMode: z
     .enum(ButtonActionModeEnum)
@@ -3826,6 +3917,7 @@ export const SliderParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("0" as const),
   min: z.int().default(0),
@@ -3859,6 +3951,7 @@ export const RotaryParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("0" as const),
   min: z.number().default(0),
@@ -3892,6 +3985,7 @@ export const SwitchParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("false" as const),
 });
@@ -3922,6 +4016,7 @@ export const ColorPickerParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("#ff0000" as const),
   colorChoices: z.array(ColorPickerChoiceSchema).default([]),
@@ -3953,6 +4048,7 @@ export const DropdownParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
   choices: z.array(z.string()).default([]),
@@ -3984,6 +4080,7 @@ export const PasswordParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
   hasSecret: z.boolean().default(false),
@@ -4015,6 +4112,7 @@ export const TextAreaParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
 });
@@ -4045,6 +4143,7 @@ export const DropzoneParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
   mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
@@ -4079,6 +4178,7 @@ export const NestedParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
 });
 
 export type NestedParamCodeObjImpl = z.infer<
@@ -4687,6 +4787,7 @@ export const CodeParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
 });
@@ -4714,8 +4815,12 @@ export const TextParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
+  uiType: z.enum(TextParamInputUITypeEnum).optional(),
+  timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
+  dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
 });
 
 export type TextParamCodeObjImplArgs = z.infer<
@@ -4741,6 +4846,7 @@ export const SliderParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
   min: z.int().optional(),
@@ -4771,6 +4877,7 @@ export const RotaryParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
   min: z.number().optional(),
@@ -4801,6 +4908,7 @@ export const SwitchParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
 });
@@ -4828,6 +4936,7 @@ export const ColorPickerParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
@@ -4856,6 +4965,7 @@ export const DropdownParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
   choices: z.array(z.string()).optional(),
@@ -4884,6 +4994,7 @@ export const PasswordParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
   hasSecret: z.boolean().optional(),
@@ -4912,6 +5023,7 @@ export const TextAreaParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
 });
@@ -4939,6 +5051,7 @@ export const DropzoneParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
   mode: z.enum(DropzoneModeEnum).optional(),
@@ -5071,6 +5184,7 @@ export const ButtonParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   label: z.string().optional(),
   actionMode: z.enum(ButtonActionModeEnum).optional(),
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
@@ -5103,6 +5217,7 @@ export const NestedParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   children: z.array(IDSchema).optional(),
 });
 
@@ -5386,6 +5501,7 @@ export const DictSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
+  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -5429,6 +5545,7 @@ export const GlobalVariablesSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
+  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -5662,6 +5779,8 @@ export const ListRootSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(IDSchema).optional(),
+  defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
+  viewMode: z.enum(ListRootViewModeEnum).optional(),
 });
 
 export type ListRootSectionImplArgs = z.infer<
@@ -5696,6 +5815,7 @@ export const GroupSectionImplArgsSchema = z.object({
   children: z.array(IDSchema).optional(),
   isHorizontalOrientation: z.boolean().optional(),
   overflowMode: z.boolean().optional(),
+  defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
 });
 
 export type GroupSectionImplArgs = z.infer<typeof GroupSectionImplArgsSchema>;
@@ -5789,6 +5909,7 @@ export const CallableSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
+  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -5861,6 +5982,7 @@ export const TextBlockSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   format: z.enum(TextBlockFormatEnum).optional(),
+  masterFontSizePx: z.number().optional(),
   headingAsSectionName: z.boolean().optional(),
   metaControlStyle: z.boolean().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
@@ -8112,6 +8234,7 @@ export const UserDefaultCallableSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -8247,6 +8370,7 @@ export const UserDefaultDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -8372,6 +8496,7 @@ export const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -8405,6 +8530,9 @@ export const UserDefaultGroupSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isHorizontalOrientation: z.boolean().default(false),
   overflowMode: z.boolean().default(false),
+  defaultChildSectionType: z
+    .enum(SectionTypeEnum)
+    .default(SectionTypeEnum.Callable),
 });
 
 export type UserDefaultGroupSectionImpl = z.infer<
@@ -8478,6 +8606,10 @@ export const UserDefaultListRootSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
+  defaultChildSectionType: z
+    .enum(SectionTypeEnum)
+    .default(SectionTypeEnum.Callable),
+  viewMode: z.enum(ListRootViewModeEnum).default(ListRootViewModeEnum.default),
 });
 
 export type UserDefaultListRootSectionImpl = z.infer<
@@ -8611,6 +8743,7 @@ export const UserDefaultTextBlockSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
+  masterFontSizePx: z.number().default(14.0),
   headingAsSectionName: z.boolean().default(false),
   metaControlStyle: z.boolean().default(false),
   textDisplayMode: z
@@ -8636,6 +8769,7 @@ export function createUserDefaultTextBlockSectionImpl(
 export const UserDefaultButtonParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   label: z.string().default("Trigger" as const),
   actionMode: z
     .enum(ButtonActionModeEnum)
@@ -8682,6 +8816,7 @@ export function createUserDefaultCodeCallableCodeObjImpl(
 export const UserDefaultCodeParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
 });
@@ -8703,6 +8838,7 @@ export function createUserDefaultCodeParamCodeObjImpl(
 export const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("#ff0000" as const),
   colorChoices: z.array(ColorPickerChoiceSchema).default([]),
@@ -8725,6 +8861,7 @@ export function createUserDefaultColorPickerParamCodeObjImpl(
 export const UserDefaultDropdownParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
   choices: z.array(z.string()).default([]),
@@ -8747,6 +8884,7 @@ export function createUserDefaultDropdownParamCodeObjImpl(
 export const UserDefaultDropzoneParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
   mode: z.enum(DropzoneModeEnum).default(DropzoneModeEnum.STATEFUL),
@@ -8771,6 +8909,7 @@ export function createUserDefaultDropzoneParamCodeObjImpl(
 export const UserDefaultNestedParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
 });
 
 export type UserDefaultNestedParamCodeObjImpl = z.infer<
@@ -8790,6 +8929,7 @@ export function createUserDefaultNestedParamCodeObjImpl(
 export const UserDefaultPasswordParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
   hasSecret: z.boolean().default(false),
@@ -8812,6 +8952,7 @@ export function createUserDefaultPasswordParamCodeObjImpl(
 export const UserDefaultRotaryParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("0" as const),
   min: z.number().default(0),
@@ -8836,6 +8977,7 @@ export function createUserDefaultRotaryParamCodeObjImpl(
 export const UserDefaultSliderParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("0" as const),
   min: z.int().default(0),
@@ -8860,6 +9002,7 @@ export function createUserDefaultSliderParamCodeObjImpl(
 export const UserDefaultSwitchParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("false" as const),
 });
@@ -8881,6 +9024,7 @@ export function createUserDefaultSwitchParamCodeObjImpl(
 export const UserDefaultTextAreaParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
 });
@@ -8902,8 +9046,18 @@ export function createUserDefaultTextAreaParamCodeObjImpl(
 export const UserDefaultTextParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
+  uiType: z
+    .enum(TextParamInputUITypeEnum)
+    .default(TextParamInputUITypeEnum.plain),
+  timeDisplayFormat: z
+    .enum(TimeDisplayFormatEnum)
+    .default(TimeDisplayFormatEnum.twenty_four_hour),
+  dateDisplayFormat: z
+    .enum(DateDisplayFormatEnum)
+    .default(DateDisplayFormatEnum.iso),
 });
 
 export type UserDefaultTextParamCodeObjImpl = z.infer<
@@ -10580,6 +10734,7 @@ export const BaseChildlessCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
 });
@@ -10609,6 +10764,7 @@ export const BaseChildlessCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
 });
@@ -10758,6 +10914,7 @@ export const BaseDictSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
+  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -10805,6 +10962,7 @@ export const BaseDictSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(IDSchema, IDSchema), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  allowUnquotedStringArgs: z.union([z.boolean(), z.any()]).optional(),
   paramFilter: z.union([z.string(), z.any()]).optional(),
   columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
@@ -10842,6 +11000,7 @@ export const BaseParamCodeObjImplArgsSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
 });
 
 export type BaseParamCodeObjImplArgs = z.infer<
@@ -10869,6 +11028,7 @@ export const BaseParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
 });
 
 export type BaseParamCodeObjImplArgsWithCallable = z.infer<
@@ -11072,6 +11232,7 @@ export const BaseSectionWithParamsImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
+  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -11115,6 +11276,7 @@ export const BaseSectionWithParamsImplArgsWithCallableSchema = z.object({
     .union([z.record(IDSchema, IDSchema), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  allowUnquotedStringArgs: z.union([z.boolean(), z.any()]).optional(),
   paramFilter: z.union([z.string(), z.any()]).optional(),
   columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
@@ -11189,6 +11351,7 @@ export const ButtonParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   label: z.union([z.string(), z.any()]).optional(),
   actionMode: z.union([z.enum(ButtonActionModeEnum), z.any()]).optional(),
   requestMethod: z.union([z.enum(HttpRequestMethodEnum), z.any()]).optional(),
@@ -11231,6 +11394,7 @@ export const CallableSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(IDSchema, IDSchema), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  allowUnquotedStringArgs: z.union([z.boolean(), z.any()]).optional(),
   paramFilter: z.union([z.string(), z.any()]).optional(),
   columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
@@ -11384,6 +11548,7 @@ export const CodeParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
 });
@@ -11454,6 +11619,7 @@ export const ColorPickerParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
   colorChoices: z.union([z.array(ColorPickerChoiceSchema), z.any()]).optional(),
@@ -11492,6 +11658,7 @@ export const DictSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(IDSchema, IDSchema), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  allowUnquotedStringArgs: z.union([z.boolean(), z.any()]).optional(),
   paramFilter: z.union([z.string(), z.any()]).optional(),
   columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
@@ -11573,6 +11740,7 @@ export const DropdownParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
   choices: z.union([z.array(z.string()), z.any()]).optional(),
@@ -11603,6 +11771,7 @@ export const DropzoneParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
   mode: z.union([z.enum(DropzoneModeEnum), z.any()]).optional(),
@@ -11717,6 +11886,7 @@ export const GlobalVariablesSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(IDSchema, IDSchema), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  allowUnquotedStringArgs: z.union([z.boolean(), z.any()]).optional(),
   paramFilter: z.union([z.string(), z.any()]).optional(),
   columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
   configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
@@ -11763,6 +11933,9 @@ export const GroupSectionImplArgsWithCallableSchema = z.object({
   children: z.union([z.array(IDSchema), z.any()]).optional(),
   isHorizontalOrientation: z.union([z.boolean(), z.any()]).optional(),
   overflowMode: z.union([z.boolean(), z.any()]).optional(),
+  defaultChildSectionType: z
+    .union([z.enum(SectionTypeEnum), z.any()])
+    .optional(),
 });
 
 export type GroupSectionImplArgsWithCallable = z.infer<
@@ -11858,6 +12031,10 @@ export const ListRootSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   children: z.union([z.array(IDSchema), z.any()]).optional(),
+  defaultChildSectionType: z
+    .union([z.enum(SectionTypeEnum), z.any()])
+    .optional(),
+  viewMode: z.union([z.enum(ListRootViewModeEnum), z.any()]).optional(),
 });
 
 export type ListRootSectionImplArgsWithCallable = z.infer<
@@ -11921,6 +12098,7 @@ export const NestedParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   children: z.union([z.array(IDSchema), z.any()]).optional(),
 });
 
@@ -11949,6 +12127,7 @@ export const PasswordParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
   hasSecret: z.union([z.boolean(), z.any()]).optional(),
@@ -12016,6 +12195,7 @@ export const RotaryParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
   min: z.union([z.number(), z.any()]).optional(),
@@ -12048,6 +12228,7 @@ export const SliderParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
   min: z.union([z.int(), z.any()]).optional(),
@@ -12112,6 +12293,7 @@ export const SwitchParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
 });
@@ -12172,6 +12354,7 @@ export const TextAreaParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
 });
@@ -12206,6 +12389,7 @@ export const TextBlockSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   format: z.union([z.enum(TextBlockFormatEnum), z.any()]).optional(),
+  masterFontSizePx: z.union([z.number(), z.any()]).optional(),
   headingAsSectionName: z.union([z.boolean(), z.any()]).optional(),
   metaControlStyle: z.union([z.boolean(), z.any()]).optional(),
   textDisplayMode: z
@@ -12239,8 +12423,16 @@ export const TextParamCodeObjImplArgsWithCallableSchema = z.object({
   passingStyle: z
     .union([z.enum(ParameterPassingStyleEnum), z.any()])
     .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
   defaultVal: z.union([z.string(), z.any()]).optional(),
   value: z.union([z.string(), z.any()]).optional(),
+  uiType: z.union([z.enum(TextParamInputUITypeEnum), z.any()]).optional(),
+  timeDisplayFormat: z
+    .union([z.enum(TimeDisplayFormatEnum), z.any()])
+    .optional(),
+  dateDisplayFormat: z
+    .union([z.enum(DateDisplayFormatEnum), z.any()])
+    .optional(),
 });
 
 export type TextParamCodeObjImplArgsWithCallable = z.infer<
@@ -12271,6 +12463,7 @@ export const CoreArgsSchema = z.object({
         "activeBranchId",
         "activeLayerIdx",
         "agentProfileId",
+        "allowUnquotedStringArgs",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -12296,6 +12489,8 @@ export const CoreArgsSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
+        "dateDisplayFormat",
+        "defaultChildSectionType",
         "defaultVal",
         "description",
         "diagnosticsIgnoreState",
@@ -12327,6 +12522,7 @@ export const CoreArgsSchema = z.object({
         "label",
         "layers",
         "managed",
+        "masterFontSizePx",
         "max",
         "maxAttachments",
         "messages",
@@ -12361,10 +12557,13 @@ export const CoreArgsSchema = z.object({
         "text",
         "textDisplayMode",
         "thinking",
+        "timeDisplayFormat",
         "toolCallArguments",
         "topLevelParamId",
         "type",
+        "typeAnnotation",
         "typesColumnWidth",
+        "uiType",
         "url",
         "value",
         "viewMode",
@@ -12425,7 +12624,6 @@ export const FolderContentItemSchema = z.object({
   fullPath: z.string(),
   mtime: z.number().optional(),
   size: z.int().optional(),
-  isSettaInitialized: z.boolean().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
@@ -13109,6 +13307,7 @@ export const BaseChildlessCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
 });
@@ -13156,6 +13355,7 @@ export const BaseParamCodeObjImplSchema = z.object({
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
 });
 
 export type BaseParamCodeObjImpl = z.infer<typeof BaseParamCodeObjImplSchema>;
@@ -13372,6 +13572,7 @@ export const BaseDictSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -13447,6 +13648,7 @@ export const BaseSectionWithParamsImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -13500,6 +13702,7 @@ export function createUserDefaultBaseCanvasSectionImpl(
 export const UserDefaultBaseChildlessCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
 });
@@ -13570,6 +13773,7 @@ export const UserDefaultBaseDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -13596,6 +13800,7 @@ export function createUserDefaultBaseDictSectionImpl(
 export const UserDefaultBaseParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
 });
 
 export type UserDefaultBaseParamCodeObjImpl = z.infer<
@@ -13685,6 +13890,7 @@ export const UserDefaultBaseSectionWithParamsImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
+  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -15197,6 +15403,28 @@ export function createFileBrowserDownloadUrlEntry(
   return FileBrowserDownloadUrlEntrySchema.parse(options);
 }
 
+export const FileBrowserFileContentResponseSchema = z.object({
+  path: z.string(),
+  mimeType: z.string(),
+  contentBase64: z.string(),
+  mtime: z.number(),
+  size: z.int(),
+});
+
+export type FileBrowserFileContentResponse = z.infer<
+  typeof FileBrowserFileContentResponseSchema
+>;
+
+export type FileBrowserFileContentResponseInput = z.input<
+  typeof FileBrowserFileContentResponseSchema
+>;
+
+export function createFileBrowserFileContentResponse(
+  options: Partial<FileBrowserFileContentResponse> = {},
+): FileBrowserFileContentResponse {
+  return FileBrowserFileContentResponseSchema.parse(options);
+}
+
 export const GetFileBrowserDownloadUrlsRequestSchema = z.object({
   paths: z.array(z.string()),
 });
@@ -15213,6 +15441,25 @@ export function createGetFileBrowserDownloadUrlsRequest(
   options: Partial<GetFileBrowserDownloadUrlsRequest> = {},
 ): GetFileBrowserDownloadUrlsRequest {
   return GetFileBrowserDownloadUrlsRequestSchema.parse(options);
+}
+
+export const GetFileBrowserFileContentRequestSchema = z.object({
+  path: z.string(),
+  maxBytes: z.union([z.int(), z.null()]).default(null),
+});
+
+export type GetFileBrowserFileContentRequest = z.infer<
+  typeof GetFileBrowserFileContentRequestSchema
+>;
+
+export type GetFileBrowserFileContentRequestInput = z.input<
+  typeof GetFileBrowserFileContentRequestSchema
+>;
+
+export function createGetFileBrowserFileContentRequest(
+  options: Partial<GetFileBrowserFileContentRequest> = {},
+): GetFileBrowserFileContentRequest {
+  return GetFileBrowserFileContentRequestSchema.parse(options);
 }
 
 export const GetFileBrowserRootResponseSchema = z.object({
@@ -15240,7 +15487,6 @@ export const GetFolderContentsRequestSchema = z.object({
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),
-  includeSettaInitialized: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),
 });
@@ -15346,6 +15592,47 @@ export function createUpdateArtifactsRequest(
   options: Partial<UpdateArtifactsRequest> = {},
 ): UpdateArtifactsRequest {
   return UpdateArtifactsRequestSchema.parse(options);
+}
+
+export const WriteFileBrowserFileContentRequestSchema = z.object({
+  path: z.string(),
+  contentBase64: z.string(),
+  expectedMtime: z.union([z.number(), z.null()]).default(null),
+});
+
+export type WriteFileBrowserFileContentRequest = z.infer<
+  typeof WriteFileBrowserFileContentRequestSchema
+>;
+
+export type WriteFileBrowserFileContentRequestInput = z.input<
+  typeof WriteFileBrowserFileContentRequestSchema
+>;
+
+export function createWriteFileBrowserFileContentRequest(
+  options: Partial<WriteFileBrowserFileContentRequest> = {},
+): WriteFileBrowserFileContentRequest {
+  return WriteFileBrowserFileContentRequestSchema.parse(options);
+}
+
+export const WriteFileBrowserFileContentResponseSchema = z.object({
+  path: z.string(),
+  mimeType: z.string(),
+  mtime: z.number(),
+  size: z.int(),
+});
+
+export type WriteFileBrowserFileContentResponse = z.infer<
+  typeof WriteFileBrowserFileContentResponseSchema
+>;
+
+export type WriteFileBrowserFileContentResponseInput = z.input<
+  typeof WriteFileBrowserFileContentResponseSchema
+>;
+
+export function createWriteFileBrowserFileContentResponse(
+  options: Partial<WriteFileBrowserFileContentResponse> = {},
+): WriteFileBrowserFileContentResponse {
+  return WriteFileBrowserFileContentResponseSchema.parse(options);
 }
 
 export const AttachmentDownloadUrlEntrySchema = z.object({
@@ -17423,6 +17710,27 @@ export function createSetImageAreaImagePathRequest(
   return SetImageAreaImagePathRequestSchema.parse(options);
 }
 
+export const SetListRootViewModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  viewMode: z.enum(ListRootViewModeEnum),
+});
+
+export type SetListRootViewModeRequest = z.infer<
+  typeof SetListRootViewModeRequestSchema
+>;
+
+export type SetListRootViewModeRequestInput = z.input<
+  typeof SetListRootViewModeRequestSchema
+>;
+
+export function createSetListRootViewModeRequest(
+  options: Partial<SetListRootViewModeRequest> = {},
+): SetListRootViewModeRequest {
+  return SetListRootViewModeRequestSchema.parse(options);
+}
+
 export const SetMetaControlShowSectionTitleRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -17464,6 +17772,27 @@ export function createSetParamEnteredValueRequest(
   options: Partial<SetParamEnteredValueRequest> = {},
 ): SetParamEnteredValueRequest {
   return SetParamEnteredValueRequestSchema.parse(options);
+}
+
+export const SetParentDefaultChildSectionTypeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  defaultChildSectionType: z.enum(SectionTypeEnum),
+});
+
+export type SetParentDefaultChildSectionTypeRequest = z.infer<
+  typeof SetParentDefaultChildSectionTypeRequestSchema
+>;
+
+export type SetParentDefaultChildSectionTypeRequestInput = z.input<
+  typeof SetParentDefaultChildSectionTypeRequestSchema
+>;
+
+export function createSetParentDefaultChildSectionTypeRequest(
+  options: Partial<SetParentDefaultChildSectionTypeRequest> = {},
+): SetParentDefaultChildSectionTypeRequest {
+  return SetParentDefaultChildSectionTypeRequestSchema.parse(options);
 }
 
 export const SetProjectConfigCodegenTargetsRequestSchema = z.object({
@@ -17547,6 +17876,27 @@ export function createSetPromptTemplateRequest(
   options: Partial<SetPromptTemplateRequest> = {},
 ): SetPromptTemplateRequest {
   return SetPromptTemplateRequestSchema.parse(options);
+}
+
+export const SetSectionAllowUnquotedStringArgsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  allowUnquotedStringArgs: z.boolean(),
+});
+
+export type SetSectionAllowUnquotedStringArgsRequest = z.infer<
+  typeof SetSectionAllowUnquotedStringArgsRequestSchema
+>;
+
+export type SetSectionAllowUnquotedStringArgsRequestInput = z.input<
+  typeof SetSectionAllowUnquotedStringArgsRequestSchema
+>;
+
+export function createSetSectionAllowUnquotedStringArgsRequest(
+  options: Partial<SetSectionAllowUnquotedStringArgsRequest> = {},
+): SetSectionAllowUnquotedStringArgsRequest {
+  return SetSectionAllowUnquotedStringArgsRequestSchema.parse(options);
 }
 
 export const SetSectionColumnWidthRequestSchema = z.object({
@@ -17900,6 +18250,27 @@ export function createSetTextBlockHeadingAsSectionNameRequest(
   return SetTextBlockHeadingAsSectionNameRequestSchema.parse(options);
 }
 
+export const SetTextBlockMasterFontSizeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  masterFontSizePx: z.number(),
+});
+
+export type SetTextBlockMasterFontSizeRequest = z.infer<
+  typeof SetTextBlockMasterFontSizeRequestSchema
+>;
+
+export type SetTextBlockMasterFontSizeRequestInput = z.input<
+  typeof SetTextBlockMasterFontSizeRequestSchema
+>;
+
+export function createSetTextBlockMasterFontSizeRequest(
+  options: Partial<SetTextBlockMasterFontSizeRequest> = {},
+): SetTextBlockMasterFontSizeRequest {
+  return SetTextBlockMasterFontSizeRequestSchema.parse(options);
+}
+
 export const SetTextBlockMetaControlStyleRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -18025,26 +18396,6 @@ export function createSetViewModeNameRequest(
   options: Partial<SetViewModeNameRequest> = {},
 ): SetViewModeNameRequest {
   return SetViewModeNameRequestSchema.parse(options);
-}
-
-export const SetViewModeSortOrderRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  orderedViewModeIds: z.array(IDSchema),
-});
-
-export type SetViewModeSortOrderRequest = z.infer<
-  typeof SetViewModeSortOrderRequestSchema
->;
-
-export type SetViewModeSortOrderRequestInput = z.input<
-  typeof SetViewModeSortOrderRequestSchema
->;
-
-export function createSetViewModeSortOrderRequest(
-  options: Partial<SetViewModeSortOrderRequest> = {},
-): SetViewModeSortOrderRequest {
-  return SetViewModeSortOrderRequestSchema.parse(options);
 }
 
 export const SetViewportRequestSchema = z.object({
@@ -19072,34 +19423,12 @@ export function createBackendInitEvent(
   return BackendInitEventSchema.parse(options);
 }
 
-export const BackendInitWorktreeOptionSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  isActive: z.boolean(),
-});
-
-export type BackendInitWorktreeOption = z.infer<
-  typeof BackendInitWorktreeOptionSchema
->;
-
-export type BackendInitWorktreeOptionInput = z.input<
-  typeof BackendInitWorktreeOptionSchema
->;
-
-export function createBackendInitWorktreeOption(
-  options: Partial<BackendInitWorktreeOption> = {},
-): BackendInitWorktreeOption {
-  return BackendInitWorktreeOptionSchema.parse(options);
-}
-
 export const BackendInitStatusResponseSchema = z.object({
   events: z.array(BackendInitEventSchema),
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
   worktreeName: z.union([z.string(), z.null()]),
-  worktreeOptions: z.array(z.string()),
-  worktreeOptionDetails: z.array(BackendInitWorktreeOptionSchema),
 });
 
 export type BackendInitStatusResponse = z.infer<

@@ -3,6 +3,7 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { BrowserAreaSettings } from "./BrowserAreaSettings";
+import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
@@ -42,6 +43,9 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
     case SectionTypeEnum.Dict:
     case SectionTypeEnum.GlobalVariables:
       return <EdgePortsSettings sectionId={sectionId} />;
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.Group:
+      return <ChildDefaultsSettings sectionId={sectionId} />;
     case SectionTypeEnum.Code:
       return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:

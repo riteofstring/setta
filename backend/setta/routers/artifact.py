@@ -2,6 +2,8 @@ import fnmatch
 import mimetypes
 import os
 import stat
+from base64 import b64decode, b64encode
+from binascii import Error as BinasciiError
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -58,6 +60,7 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
+DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES = 10 * 1024 * 1024
 _FILE_BROWSER_TOKEN_MANAGER = AttachmentTokenManager(
     C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
 )
@@ -78,7 +81,6 @@ class GetFolderContentsRequest(BaseModel):
     includeMtime: bool = False
     includeSize: bool = False
     includeHidden: bool = False
-    includeSettaInitialized: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
 
@@ -93,13 +95,38 @@ class FileBrowserDownloadUrlEntry(BaseModel):
     expiresAt: int
 
 
+class GetFileBrowserFileContentRequest(BaseModel):
+    path: str
+    maxBytes: int | None = Field(default=None, gt=0)
+
+
+class FileBrowserFileContentResponse(BaseModel):
+    path: str
+    mimeType: str
+    contentBase64: str
+    mtime: float
+    size: int
+
+
+class WriteFileBrowserFileContentRequest(BaseModel):
+    path: str
+    contentBase64: str
+    expectedMtime: float | None = None
+
+
+class WriteFileBrowserFileContentResponse(BaseModel):
+    path: str
+    mimeType: str
+    mtime: float
+    size: int
+
+
 class FolderContentItem(TypedDict):
     name: str
     type: str
     fullPath: str
     mtime: NotRequired[float]
     size: NotRequired[int]
-    isSettaInitialized: NotRequired[bool]
 
 
 class LoadCachedPathsRequest(BaseModel):
@@ -257,6 +284,21 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
     return resolved
 
 
+def _resolve_file_path_for_edit(path_str: str) -> Path:
+    resolved = _resolve_file_path(path_str)
+    if not resolved.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"File does not exist: {path_str}",
+        )
+    if not resolved.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Path is not a file: {path_str}",
+        )
+    return resolved
+
+
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
@@ -366,7 +408,6 @@ def route_get_folder_contents(
     include_hidden = x.includeHidden
     include_mtime = x.includeMtime
     include_size = x.includeSize
-    include_setta_initialized = x.includeSettaInitialized
 
     for item in path.iterdir():
         if not include_hidden and item.name.startswith("."):
@@ -390,8 +431,6 @@ def route_get_folder_contents(
                 entry["mtime"] = stat_result.st_mtime
             if include_size:
                 entry["size"] = stat_result.st_size
-        if include_setta_initialized and is_dir:
-            entry["isSettaInitialized"] = (item / "setta_files").is_dir()
         contents.append(entry)
         if len(contents) >= max_entries:
             break
@@ -440,6 +479,106 @@ def route_get_file_browser_download_urls(
             )
         )
     return entries
+
+
+@router.post(Route.GET_FILE_BROWSER_FILE_CONTENT)
+def route_get_file_browser_file_content(
+    x: GetFileBrowserFileContentRequest,
+    ctx: RuntimeContextFromRequest,
+) -> FileBrowserFileContentResponse:
+    if ctx.deployment_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in deployment mode.",
+        )
+    resolved = _resolve_file_path_for_edit(x.path)
+    try:
+        stat_result = resolved.stat()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to stat file: {x.path}",
+        ) from exc
+    max_bytes = (
+        x.maxBytes
+        if x.maxBytes is not None
+        else DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES
+    )
+    if stat_result.st_size > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds max size ({max_bytes} bytes): {x.path}",
+        )
+    try:
+        content = resolved.read_bytes()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to read file: {x.path}",
+        ) from exc
+    mime_type, _ = mimetypes.guess_type(resolved.as_posix())
+    return FileBrowserFileContentResponse(
+        path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
+        mimeType=mime_type or "application/octet-stream",
+        contentBase64=b64encode(content).decode("ascii"),
+        mtime=stat_result.st_mtime,
+        size=stat_result.st_size,
+    )
+
+
+@router.post(Route.WRITE_FILE_BROWSER_FILE_CONTENT)
+def route_write_file_browser_file_content(
+    x: WriteFileBrowserFileContentRequest,
+    ctx: RuntimeContextFromRequest,
+) -> WriteFileBrowserFileContentResponse:
+    if ctx.deployment_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in deployment mode.",
+        )
+    resolved = _resolve_file_path_for_edit(x.path)
+    try:
+        stat_result = resolved.stat()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to stat file: {x.path}",
+        ) from exc
+    if x.expectedMtime is not None and stat_result.st_mtime != x.expectedMtime:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="File changed on disk since it was loaded.",
+        )
+    try:
+        decoded = b64decode(x.contentBase64, validate=True)
+    except (BinasciiError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid base64 content payload.",
+        ) from exc
+    if len(decoded) > DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                "Updated file content exceeds maximum supported size "
+                f"({DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES} bytes)."
+            ),
+        )
+    try:
+        resolved.write_bytes(decoded)
+        updated_stat = resolved.stat()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to write file: {x.path}",
+        ) from exc
+    mime_type, _ = mimetypes.guess_type(resolved.as_posix())
+    return WriteFileBrowserFileContentResponse(
+        path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
+        mimeType=mime_type or "application/octet-stream",
+        mtime=updated_stat.st_mtime,
+        size=updated_stat.st_size,
+    )
 
 
 @router.get(Route.FILE_BROWSER_DOWNLOAD)
