@@ -26,7 +26,7 @@ export function ProjectChatHistory({
   }, []);
 
   const historyEntries = useMemo(() => {
-    return buildChatHistoryEntries(agentRuns);
+    return buildChatHistoryEntries(agentRuns, { unscopedOnly: true });
   }, [agentRuns]);
 
   const sortedEntries = useMemo(() => {

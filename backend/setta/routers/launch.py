@@ -16,11 +16,7 @@ router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 class LaunchRequest(BaseModel):
     workspaceRoot: str | None = None
-    profile: str | None = None
-    settaHome: str | None = None
-    settaFilesRoot: str | None = None
     settaFilesLocation: Literal["auto", "local", "global"] | None = None
-    runtimeRoot: str | None = None
     sshTarget: str | None = None
     sshArgs: str | None = None
     remoteCmd: str | None = None
@@ -47,10 +43,6 @@ class LaunchResponse(BaseModel):
     bootstrapUrlFragment: str | None = None
     workspaceRoot: str | None = None
     settaFilesLocation: Literal["local", "global"] | None = None
-    settaFilesRoot: str | None = None
-    runtimeRoot: str | None = None
-    settaHome: str | None = None
-    profile: str | None = None
     sessionId: str | None = None
     startedNew: bool | None = None
     session: LaunchSessionInfo | None = None
@@ -58,40 +50,14 @@ class LaunchResponse(BaseModel):
     error: LaunchErrorPayload | None = None
 
 
-def _normalize_optional_profile(profile: str | None) -> str | None:
-    if profile is None:
-        return None
-    trimmed = profile.strip()
-    return trimmed or None
-
-
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
-        normalized_profile = _normalize_optional_profile(x.profile)
-        if (
-            x.settaFilesLocation == "auto"
-            and (x.settaFilesRoot is not None or normalized_profile is not None)
-        ):
-            # Treat "auto" as omission when explicit routing inputs are provided.
-            setta_files_location = None
-        elif x.settaFilesLocation is not None:
-            setta_files_location = x.settaFilesLocation
-        elif x.settaFilesRoot is not None or normalized_profile is not None:
-            # Preserve omission so explicit root/profile config can drive location/root selection.
-            setta_files_location = None
-        else:
-            # Keep API launches insulated from server-process SETTA_FILES_LOCATION env.
-            setta_files_location = "auto"
         if x.sshTarget:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,
                 workspace=x.workspaceRoot or "",
-                profile=normalized_profile,
-                setta_home=x.settaHome,
-                setta_files_root=x.settaFilesRoot,
-                setta_files_location=setta_files_location,
-                runtime_root=x.runtimeRoot,
+                setta_files_location=x.settaFilesLocation or "auto",
                 ssh_args=x.sshArgs,
                 remote_cmd=x.remoteCmd,
                 local_port=x.localPort,
@@ -102,10 +68,6 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 bootstrapUrlFragment=remote.bootstrap_url_fragment,
                 workspaceRoot=resolved_workspace_root,
                 settaFilesLocation=remote.setta_files_location,
-                settaFilesRoot=remote.setta_files_root,
-                runtimeRoot=remote.runtime_root,
-                settaHome=remote.setta_home,
-                profile=remote.profile,
                 sessionId=remote.session.id,
                 startedNew=remote.started_new,
                 remoteCmdResolved=remote.remote_cmd_resolved,
@@ -120,16 +82,11 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ),
             )
         workspace_root = x.workspaceRoot
+        setta_files_location = x.settaFilesLocation or "auto"
 
         result = launch_workspace_session(
             workspace_root=workspace_root,
-            profile=normalized_profile,
-            setta_home=x.settaHome,
-            setta_files_root=x.settaFilesRoot,
             setta_files_location=setta_files_location,
-            runtime_root=x.runtimeRoot,
-            allow_env_files_overrides=False,
-            allow_env_non_files_overrides=False,
         )
     except LaunchError as exc:
         return LaunchResponse(
@@ -161,10 +118,6 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         bootstrapUrlFragment=bootstrap_url_fragment,
         workspaceRoot=str(result.paths.workspace_root),
         settaFilesLocation=result.paths.setta_files_location,
-        settaFilesRoot=str(result.paths.setta_files_root),
-        runtimeRoot=str(result.paths.runtime_root),
-        settaHome=str(result.paths.setta_home),
-        profile=result.paths.profile_name,
         sessionId=result.session.id,
         startedNew=result.started_new,
         session=session_info,
