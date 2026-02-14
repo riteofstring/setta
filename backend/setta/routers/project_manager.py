@@ -111,7 +111,6 @@ from setta.project_state.project_manager_types import (
     SetTypeErrorIgnoreRequest,
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
-    SetViewModeSortOrderRequest,
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -458,15 +457,6 @@ async def route_set_view_mode_name(
         await manager.set_view_mode_name(x)
     except InvalidViewModeName as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.post(Route.SET_VIEW_MODE_SORT_ORDER)
-async def route_set_view_mode_sort_order(
-    x: SetViewModeSortOrderRequest, ctx: RuntimeContextFromRequest
-) -> None:
-    await _deny_deployment_mode_view_modes(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_view_mode_sort_order(x)
 
 
 @router.post(Route.DELETE_VIEW_MODE)

@@ -355,6 +355,21 @@ export const SINGLETON_SECTION_TYPES = new Set([
 
 export const RUNNABLE_CODE_LANGUAGES = new Set(["bash", "python"]);
 
+export const _APP_GENERATION_MODES = new Set([
+  "json_render",
+  "json_render_with_image",
+  "mcp_server",
+  "prompt_builder",
+]);
+
+export const _SKIP_SEGMENTS = new Set([
+  ".git",
+  "build",
+  "dist",
+  "node_modules",
+  "setta_files",
+]);
+
 export const ALLOWED_PATCH_OPS = new Set(["add", "remove", "replace", "set"]);
 
 export const AgentRunStatusEnum = {
@@ -878,7 +893,6 @@ export const RouteEnum = {
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
   SET_VIEW_MODE_NAME: "/setViewModeName",
-  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
   DELETE_VIEW_MODE: "/deleteViewMode",
   UNDO: "/undo",
   REDO: "/redo",
@@ -902,6 +916,8 @@ export const RouteEnum = {
   GET_APP_CATALOG: "/getAppCatalog",
   LIST_APP_COMPONENTS: "/listAppComponents",
   STREAM_APP_SPEC: "/streamAppSpec",
+  GET_APP_GEN_SKILLS: "/getAppGenSkills",
+  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -10509,6 +10525,17 @@ export type FollowIdType = z.infer<typeof FollowIdTypeSchema>;
 
 export type FollowIdTypeInput = z.input<typeof FollowIdTypeSchema>;
 
+export const AppGenerationModeSchema = z.literal([
+  "json_render",
+  "json_render_with_image",
+  "prompt_builder",
+  "mcp_server",
+]);
+
+export type AppGenerationMode = z.infer<typeof AppGenerationModeSchema>;
+
+export type AppGenerationModeInput = z.input<typeof AppGenerationModeSchema>;
+
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: IDSchema.optional(),
@@ -12425,7 +12452,6 @@ export const FolderContentItemSchema = z.object({
   fullPath: z.string(),
   mtime: z.number().optional(),
   size: z.int().optional(),
-  isSettaInitialized: z.boolean().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
@@ -14956,6 +14982,21 @@ export const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
+  appGenerationMode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  appGenerationReferenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  appGenerationReferenceImageNotes: z
+    .union([z.string(), z.null()])
+    .default(null),
 });
 
 export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;
@@ -15050,6 +15091,59 @@ export function createPublishAppDeploymentRequest(
   return PublishAppDeploymentRequestSchema.parse(options);
 }
 
+export const AppGenSkillContentSchema = z.object({
+  skillId: z.string(),
+  content: z.string(),
+});
+
+export type AppGenSkillContent = z.infer<typeof AppGenSkillContentSchema>;
+
+export type AppGenSkillContentInput = z.input<typeof AppGenSkillContentSchema>;
+
+export function createAppGenSkillContent(
+  options: Partial<AppGenSkillContent> = {},
+): AppGenSkillContent {
+  return AppGenSkillContentSchema.parse(options);
+}
+
+export const AppGenSkillEntrySchema = z.object({
+  skillId: z.string(),
+  name: z.string(),
+  rootLabel: z.string(),
+  rootPath: z.string(),
+  relativePath: z.string(),
+  skillPath: z.string(),
+  description: z.string().default("" as const),
+});
+
+export type AppGenSkillEntry = z.infer<typeof AppGenSkillEntrySchema>;
+
+export type AppGenSkillEntryInput = z.input<typeof AppGenSkillEntrySchema>;
+
+export function createAppGenSkillEntry(
+  options: Partial<AppGenSkillEntry> = {},
+): AppGenSkillEntry {
+  return AppGenSkillEntrySchema.parse(options);
+}
+
+export const GetAppGenSkillContentRequestSchema = z.object({
+  skillId: z.string(),
+});
+
+export type GetAppGenSkillContentRequest = z.infer<
+  typeof GetAppGenSkillContentRequestSchema
+>;
+
+export type GetAppGenSkillContentRequestInput = z.input<
+  typeof GetAppGenSkillContentRequestSchema
+>;
+
+export function createGetAppGenSkillContentRequest(
+  options: Partial<GetAppGenSkillContentRequest> = {},
+): GetAppGenSkillContentRequest {
+  return GetAppGenSkillContentRequestSchema.parse(options);
+}
+
 export const StreamingChoicesSchema = z.object({});
 
 export type StreamingChoices = z.infer<typeof StreamingChoicesSchema>;
@@ -15088,6 +15182,19 @@ export function createModelResponseStream(
 
 export const StreamAppSpecRequestSchema = z.object({
   prompt: z.string(),
+  mode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  referenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  referenceImageNotes: z.union([z.string(), z.null()]).default(null),
   context: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   currentSpec: z.union([z.any(), z.null()]).default(null),
 });
@@ -15240,7 +15347,6 @@ export const GetFolderContentsRequestSchema = z.object({
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),
-  includeSettaInitialized: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),
 });
@@ -18027,26 +18133,6 @@ export function createSetViewModeNameRequest(
   return SetViewModeNameRequestSchema.parse(options);
 }
 
-export const SetViewModeSortOrderRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  orderedViewModeIds: z.array(IDSchema),
-});
-
-export type SetViewModeSortOrderRequest = z.infer<
-  typeof SetViewModeSortOrderRequestSchema
->;
-
-export type SetViewModeSortOrderRequestInput = z.input<
-  typeof SetViewModeSortOrderRequestSchema
->;
-
-export function createSetViewModeSortOrderRequest(
-  options: Partial<SetViewModeSortOrderRequest> = {},
-): SetViewModeSortOrderRequest {
-  return SetViewModeSortOrderRequestSchema.parse(options);
-}
-
 export const SetViewportRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -19072,34 +19158,12 @@ export function createBackendInitEvent(
   return BackendInitEventSchema.parse(options);
 }
 
-export const BackendInitWorktreeOptionSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  isActive: z.boolean(),
-});
-
-export type BackendInitWorktreeOption = z.infer<
-  typeof BackendInitWorktreeOptionSchema
->;
-
-export type BackendInitWorktreeOptionInput = z.input<
-  typeof BackendInitWorktreeOptionSchema
->;
-
-export function createBackendInitWorktreeOption(
-  options: Partial<BackendInitWorktreeOption> = {},
-): BackendInitWorktreeOption {
-  return BackendInitWorktreeOptionSchema.parse(options);
-}
-
 export const BackendInitStatusResponseSchema = z.object({
   events: z.array(BackendInitEventSchema),
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
   worktreeName: z.union([z.string(), z.null()]),
-  worktreeOptions: z.array(z.string()),
-  worktreeOptionDetails: z.array(BackendInitWorktreeOptionSchema),
 });
 
 export type BackendInitStatusResponse = z.infer<
