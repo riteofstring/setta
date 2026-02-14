@@ -181,3 +181,55 @@ Result:
 
 ### DevTools MCP Profiling
 - Attempted to run `chrome-devtools-mcp` profiling, but MCP transport was unavailable in this session (`Transport closed`), so no new trace artifact was captured for this follow-up run.
+
+## 2026-02-14 Rerun After Reset: Explorer Universal Preview + Dedicated Sections
+
+### Scope
+- Re-verified bottom universal preview behavior in Explorer:
+  - CSV/XLSX preview rendering in the bottom pane.
+  - Inline spreadsheet edit + save path.
+  - Preview-pane resize handle.
+  - Preview-pane minimize/expand toggle.
+- Re-verified dedicated section coverage (`Clock`, `Calendar`, `TaskBoard`, `Spreadsheet`) through automated E2E flow.
+
+### Automated Test Rerun
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserWorkspace.test.ts \
+  src/components/Panes/UiEditor/SectionConfig/SectionDataAuthoringSettings.test.tsx \
+  src/utils/spreadsheet.test.ts \
+  src/utils/spreadsheet.perf.test.ts \
+  src/utils/taskBoard.test.ts \
+  src/utils/taskBoard.perf.test.ts \
+  src/utils/calendarGrid.test.ts \
+  src/utils/calendarGrid.perf.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+```
+
+Result:
+- Vitest: `8 passed`, `26 tests passed`.
+- Playwright: `5 passed`.
+  - Includes dedicated section visibility/interactivity test for clock/calendar/task-board/spreadsheet.
+  - Includes bottom universal preview behavior checks for CSV/XLSX/PDF.
+
+### DevTools Trace (Saved Artifact)
+Trace artifact:
+- `perf/artifacts/2026-02-14-section-types-data-authoring-explorer-universal-preview-cdp-trace.json`
+
+Captured interaction window:
+- Switch between XLSX and CSV files in Explorer.
+- Spreadsheet cell edit + save.
+- Bottom preview resize drag.
+- Preview minimize/expand toggle.
+
+Top insights from DevTools:
+- `INP`: `90ms` (`pointerdown`)
+  - Input delay: `0.7ms`
+  - Processing duration: `51ms`
+  - Presentation delay: `39ms`
+- `CLS`: `0.00`
+
+### Notes
+- This rerun confirms the previously implemented Explorer bottom-pane UX and dedicated data-authoring section flows in a clean post-reset session.
