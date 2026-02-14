@@ -109,6 +109,7 @@ def _ensure_watch_code_observer_started() -> Observer:
 DEFAULT_WATCH_CODE_IGNORE_DIRS = {
     "node_modules",
     ".venv",
+    "setta_files",
     "__pycache__",
 }
 
@@ -205,7 +206,6 @@ def _build_ignore_predicate() -> Callable[[Path], bool]:
     runtime_root = paths.runtime_root.resolve(strict=False)
     state_is_in_workspace = state_root.is_relative_to(workspace_root)
     runtime_is_in_workspace = runtime_root.is_relative_to(workspace_root)
-    ignored_names = set(DEFAULT_WATCH_CODE_IGNORE_DIRS)
 
     def should_ignore(path: Path) -> bool:
         resolved = (
@@ -220,7 +220,7 @@ def _build_ignore_predicate() -> Callable[[Path], bool]:
         if runtime_is_in_workspace and resolved.is_relative_to(runtime_root):
             return True
         for part in resolved.parts:
-            if part in ignored_names:
+            if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
                 return True
         return False
 
@@ -258,7 +258,13 @@ def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
     output: list[Path] = []
     for current_root, dirs, files in os.walk(root):
         root_path = Path(current_root)
-        dirs[:] = [d for d in dirs if d and not should_ignore(root_path / d)]
+        dirs[:] = [
+            d
+            for d in dirs
+            if d
+            and d not in DEFAULT_WATCH_CODE_IGNORE_DIRS
+            and not should_ignore(root_path / d)
+        ]
         for filename in files:
             if not filename.endswith(".py"):
                 continue
