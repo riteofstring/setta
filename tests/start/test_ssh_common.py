@@ -97,7 +97,36 @@ def test_resolve_remote_logs_dir_uses_tmp_for_global_location() -> None:
     assert resolved == "/tmp"
 
 
-def test_resolve_remote_setta_command_ignores_whitespace_remote_cmd(monkeypatch) -> None:
+def test_resolve_remote_logs_dir_uses_explicit_runtime_root() -> None:
+    resolved = ssh_common.resolve_remote_logs_dir(
+        workspace="/tmp/work",
+        setta_files_location=None,
+        runtime_root="/tmp/custom_runtime",
+    )
+    assert resolved == "/tmp/custom_runtime/logs"
+
+
+def test_resolve_remote_logs_dir_uses_explicit_setta_files_root() -> None:
+    resolved = ssh_common.resolve_remote_logs_dir(
+        workspace="/tmp/work",
+        setta_files_location=None,
+        setta_files_root="/tmp/custom_state",
+    )
+    assert resolved == "/tmp/custom_state/runtime/logs"
+
+
+def test_build_remote_setta_path_args_rejects_conflicting_root_and_location() -> None:
+    with pytest.raises(LaunchError) as excinfo:
+        ssh_common.build_remote_setta_path_args(
+            setta_files_root="/tmp/state",
+            setta_files_location="global",
+        )
+    assert excinfo.value.code == "InvalidSettaFilesConfig"
+
+
+def test_resolve_remote_setta_command_ignores_whitespace_remote_cmd(
+    monkeypatch,
+) -> None:
     def fake_run_ssh_command(_ssh_target, _ssh_args, _remote_command, **_kwargs):
         return subprocess.CompletedProcess([], 0, stdout="setta\n", stderr="")
 
