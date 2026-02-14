@@ -2,8 +2,8 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import React, {
-  DragEvent as ReactDragEvent,
   memo,
+  DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   useRef,
@@ -18,6 +18,7 @@ import {
   SelectionModeEnum,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
@@ -194,7 +195,8 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       return;
     }
     const payload = getFileBrowserDragPayload(event.dataTransfer);
-    if (!payload || payload.type !== "file") {
+    const hasNativeFiles = event.dataTransfer.files.length > 0;
+    if ((!payload || payload.type !== "file") && !hasNativeFiles) {
       return;
     }
     event.preventDefault();
@@ -205,21 +207,18 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     if (event.target !== container.current) {
       return;
     }
-    const payload = getFileBrowserDragPayload(event.dataTransfer);
-    if (!payload || payload.type !== "file") {
-      return;
-    }
-    event.preventDefault();
     const position = screenToFlowPosition({
       x: event.clientX,
       y: event.clientY,
     });
-    void openFileAsSectionForDrop({
-      filePath: payload.fullPath,
-      fileName: payload.name,
-      position,
-      focusOnSection: false,
-    }).then((result) => {
+    const payload = getFileBrowserDragPayload(event.dataTransfer);
+    const openFileForDrop = async (filePath: string, fileName: string) => {
+      const result = await openFileAsSectionForDrop({
+        filePath,
+        fileName,
+        position,
+        focusOnSection: false,
+      });
       if (result.status === "unsupported_binary") {
         addTemporaryNotification(
           "Binary files cannot be auto-opened as sections from drag-and-drop.",
@@ -233,7 +232,29 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
           SettaNotificationTypeEnum.error,
         );
       }
-    });
+    };
+    if (payload && payload.type === "file") {
+      event.preventDefault();
+      void openFileForDrop(payload.fullPath, payload.name);
+      return;
+    }
+    const nativeFile = event.dataTransfer.files.item(0);
+    if (!nativeFile) {
+      return;
+    }
+    event.preventDefault();
+    const openNativeFileDrop = async () => {
+      const importResult = await importNativeFileToWorkspace(nativeFile);
+      if (importResult.status !== "ok") {
+        addTemporaryNotification(
+          importResult.error,
+          SettaNotificationTypeEnum.error,
+        );
+        return;
+      }
+      await openFileForDrop(importResult.filePath, importResult.fileName);
+    };
+    void openNativeFileDrop();
   };
 
   const hasActiveSelection = isSelecting || userSelectionActive;

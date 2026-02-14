@@ -122,7 +122,9 @@ async function fillCodeMirror(editorRoot: Locator, page: Page, value: string) {
     { targetId: editorId, nextValue: value },
   );
   if (updatedWithEditorState) {
-    await expect.poll(() => readCodeMirrorValue(page, editorId)).toContain(value);
+    await expect
+      .poll(() => readCodeMirrorValue(page, editorId))
+      .toContain(value);
     return;
   }
   const content = editorRoot.locator(".cm-content").first();
@@ -154,6 +156,42 @@ async function dragBrowserRowToTarget(
   await target.dispatchEvent("dragover", { dataTransfer });
   await target.dispatchEvent("drop", { dataTransfer });
   await source.dispatchEvent("dragend", { dataTransfer });
+}
+
+async function dropNativeFileToTarget(
+  target: Locator,
+  file: {
+    name: string;
+    content: string;
+    mimeType?: string;
+  },
+): Promise<void> {
+  const page = target.page();
+  const targetHandle = await target.elementHandle();
+  if (!targetHandle) {
+    throw new Error("Failed to resolve drop target element.");
+  }
+  await page.evaluate(
+    ({ element, name, content, mimeType }) => {
+      const transfer = new DataTransfer();
+      const nativeFile = new File([content], name, {
+        type: mimeType ?? "application/octet-stream",
+      });
+      transfer.items.add(nativeFile);
+      for (const eventName of ["dragenter", "dragover", "drop"]) {
+        const dragEvent = new DragEvent(eventName, {
+          bubbles: true,
+          cancelable: true,
+          dataTransfer: transfer,
+        });
+        element.dispatchEvent(dragEvent);
+      }
+    },
+    {
+      element: targetHandle,
+      ...file,
+    },
+  );
 }
 
 async function loadLatestProjectState(
@@ -388,10 +426,12 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         spreadsheetNode.locator(".section-main").first(),
       );
 
-      const spreadsheetPathInput = spreadsheetNode
-        .getByPlaceholder("/absolute/path/to/file.csv")
-        .first();
-      await expect(spreadsheetPathInput).toHaveValue(csvPath);
+      await expect(
+        spreadsheetNode.getByPlaceholder("/absolute/path/to/file.csv"),
+      ).toHaveCount(0);
+      await expect(
+        spreadsheetNode.locator('[data-spreadsheet-cell="1:0"]').first(),
+      ).toHaveValue("alpha");
       await expect(
         spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
       ).toHaveValue("todo");
@@ -428,7 +468,55 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         carouselItem,
         spreadsheetNode.locator(".section-main").first(),
       );
-      await expect(spreadsheetPathInput).toHaveValue(viewsCsvPath);
+      await expect(
+        spreadsheetNode.locator('[data-spreadsheet-cell="1:0"]').first(),
+      ).toHaveValue("beta");
+      await expect(
+        spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
+      ).toHaveValue("doing");
+
+      const nativeCanvasCsvName = `pw-native-canvas-${Date.now()}.csv`;
+      const nativeCanvasCsvPath = path.join(rootPath, nativeCanvasCsvName);
+      await dropNativeFileToTarget(canvasPane, {
+        name: nativeCanvasCsvName,
+        content: "task,status\nos-canvas,queued\n",
+        mimeType: "text/csv",
+      });
+      await expect
+        .poll(async () => {
+          const latest = await loadLatestProjectState(
+            page,
+            projectContext.projectConfigId,
+          );
+          return findSpreadsheetSectionIdForPath(latest, nativeCanvasCsvPath);
+        })
+        .not.toBeNull();
+
+      await dropNativeFileToTarget(
+        spreadsheetNode.locator(".section-main").first(),
+        {
+          name: `pw-native-sheet-${Date.now()}.csv`,
+          content: "task,status\nos-sheet,done\n",
+          mimeType: "text/csv",
+        },
+      );
+      await expect(
+        spreadsheetNode.locator('[data-spreadsheet-cell="1:0"]').first(),
+      ).toHaveValue("os-sheet");
+      await expect(
+        spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
+      ).toHaveValue("done");
+
+      await dropNativeFileToTarget(canvasPane, {
+        name: `pw-native-binary-${Date.now()}.bin`,
+        content: "\u0000\u00ff\u0001\u0002",
+        mimeType: "application/octet-stream",
+      });
+      await expect(
+        page.getByText(
+          "Binary files cannot be auto-opened as sections from drag-and-drop.",
+        ),
+      ).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

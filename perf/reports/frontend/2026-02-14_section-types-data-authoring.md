@@ -447,3 +447,66 @@ In-app metric sample (post-fix, measured via CDP evaluate):
 ### Notes
 - The dark mode mismatch was traced to a one-off invalid class token (`dark:bg-setta-920`) in spreadsheet rows; it is now replaced with valid palette classes.
 - Scrollbar flashing could not be asserted directly by a deterministic test, so guardrails were added via structural invariants (stable gutter + fixed overflow lanes) and E2E visual/layout assertions.
+
+## 2026-02-14 Follow-up: Spreadsheet Pathless UX + Native File Drop Import
+
+### Scope
+- Removed the Spreadsheet section top file-path input/load control from section UI.
+- Kept file selection strictly through:
+  - File Browser open flow.
+  - File Browser drag/drop to canvas and spreadsheet sections.
+  - Native OS file drag/drop to canvas and spreadsheet sections.
+- Added native-drop workspace import path that:
+  - resolves unique destination filename,
+  - creates the target file in workspace,
+  - writes dropped bytes to disk,
+  - then opens/binds the resulting file.
+
+### Automated Regression + Performance Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx \
+  src/utils/spreadsheet.perf.test.ts
+
+pnpm -C frontend exec vitest run \
+  src/utils/fileDropSectionKind.perf.test.ts \
+  src/utils/fileBrowserPathRelation.perf.test.ts \
+  src/components/Utils/MediaCarousel.perf.test.tsx
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-carousel-spreadsheet-preview.spec.ts
+```
+
+Result:
+- Vitest:
+  - `6 files passed`, `7 tests passed`.
+  - Spreadsheet parse/serialize budgets and drag-path classification budgets remain passing.
+- Playwright:
+  - `browser-transfer-and-drop.spec.ts`: `2 passed`.
+    - Includes native file drop to canvas (new spreadsheet section), native file drop to spreadsheet section (content load), and native binary-drop warning path.
+  - `section-types-data-authoring.spec.ts`: `5 passed`.
+  - `browser-carousel-spreadsheet-preview.spec.ts`: `1 passed`.
+
+### DevTools MCP Trace + Visual Check
+Trace artifact:
+- `perf/artifacts/2026-02-14-native-file-drop-and-spreadsheet-no-path-cdp-trace.json`
+
+Visual artifact:
+- `perf/artifacts/2026-02-14-spreadsheet-no-path-native-drop-check.png`
+
+Captured checks:
+- Spreadsheet section renders without top path input; empty state prompts drop/open flow.
+- Native CSV drop onto canvas creates a new spreadsheet section (verified with section title + loaded cells).
+- DevTools trace summary:
+  - LCP: `3700ms`
+  - CLS: `0.00`
+- Insight sample:
+  - DOM elements: `922`
+  - Forced reflow total: `1047ms` (dominant callsites remain in shared canvas/layout stacks, not newly added native-import endpoint calls).
+
+### Notes
+- Native import initially failed because `/checkIfFileExists` expects `filepath`, and `/writeFileBrowserFileContent` requires pre-existing files; the flow now uses `route_create_file` before write.
+- This update keeps existing section-open behavior while removing direct path entry from spreadsheet UI.

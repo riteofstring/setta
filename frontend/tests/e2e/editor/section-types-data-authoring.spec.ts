@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {
@@ -43,9 +43,13 @@ async function getLatestProjectState(
   projectConfigId: string,
 ): Promise<LatestProjectStateResponse> {
   return (
-    (await postBackend<LatestProjectStateResponse>(page, "/getLatestProjectState", {
-      projectConfigId,
-    })) ?? {}
+    (await postBackend<LatestProjectStateResponse>(
+      page,
+      "/getLatestProjectState",
+      {
+        projectConfigId,
+      },
+    )) ?? {}
   );
 }
 
@@ -67,6 +71,19 @@ async function createTopLevelSection(
     throw new Error(`Failed to create ${implType} section.`);
   }
   return sectionId;
+}
+
+async function dragBrowserRowToTarget(
+  source: Locator,
+  target: Locator,
+): Promise<void> {
+  const page = source.page();
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  await source.dispatchEvent("dragstart", { dataTransfer });
+  await target.dispatchEvent("dragenter", { dataTransfer });
+  await target.dispatchEvent("dragover", { dataTransfer });
+  await target.dispatchEvent("drop", { dataTransfer });
+  await source.dispatchEvent("dragend", { dataTransfer });
 }
 
 function getChildSectionIds(
@@ -291,7 +308,10 @@ test.describe.serial("section types data authoring", () => {
         .filter({ hasText: "Default Child Section" })
         .first();
       await expect(defaultChildCard).toBeVisible();
-      await defaultChildCard.locator("select").first().selectOption("TextBlock");
+      await defaultChildCard
+        .locator("select")
+        .first()
+        .selectOption("TextBlock");
 
       const plusButton = node.locator("button.gg-math-plus").first();
       await expect(plusButton).toBeVisible();
@@ -341,9 +361,9 @@ test.describe.serial("section types data authoring", () => {
         };
       }, childIds);
       expect(kanbanDistances).not.toBeNull();
-      expect((kanbanDistances?.xDelta ?? 0) > (kanbanDistances?.yDelta ?? 0)).toBe(
-        true,
-      );
+      expect(
+        (kanbanDistances?.xDelta ?? 0) > (kanbanDistances?.yDelta ?? 0),
+      ).toBe(true);
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForSelector(".react-flow__pane");
@@ -382,9 +402,9 @@ test.describe.serial("section types data authoring", () => {
         };
       }, childIds);
       expect(taskListDistances).not.toBeNull();
-      expect((taskListDistances?.yDelta ?? 0) >= (taskListDistances?.xDelta ?? 0)).toBe(
-        true,
-      );
+      expect(
+        (taskListDistances?.yDelta ?? 0) >= (taskListDistances?.xDelta ?? 0),
+      ).toBe(true);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -436,6 +456,11 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "Spreadsheet",
       );
+      const browserSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Browser",
+      );
 
       const clockNode = page.locator(
         `.react-flow__node[data-id="${clockSectionId}"]`,
@@ -449,41 +474,59 @@ test.describe.serial("section types data authoring", () => {
       const spreadsheetNode = page.locator(
         `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
+      const browserNode = page.locator(
+        `.react-flow__node[data-id="${browserSectionId}"]`,
+      );
 
       await expect(clockNode).toBeVisible();
       await expect(calendarNode).toBeVisible();
       await expect(taskBoardNode).toBeVisible();
       await expect(spreadsheetNode).toBeVisible();
+      await expect(browserNode).toBeVisible();
 
       await expect(clockNode.locator("text=/\\d{1,2}:\\d{2}/")).toBeVisible();
 
       const calendarDateButton = calendarNode
         .locator("[data-calendar-date]")
         .nth(12);
-      const calendarIso = await calendarDateButton.getAttribute(
-        "data-calendar-date",
-      );
+      const calendarIso =
+        await calendarDateButton.getAttribute("data-calendar-date");
       if (!calendarIso) {
         throw new Error("Missing calendar date identifier.");
       }
       await calendarDateButton.click();
-      await expect(calendarNode.getByText(`Selected: ${calendarIso}`)).toBeVisible();
+      await expect(
+        calendarNode.getByText(`Selected: ${calendarIso}`),
+      ).toBeVisible();
 
-      await taskBoardNode.getByPlaceholder("Add task title").fill("ship task board");
+      await taskBoardNode
+        .getByPlaceholder("Add task title")
+        .fill("ship task board");
       await taskBoardNode.getByTestId("task-board-add-task").click();
       await expect(
         taskBoardNode.locator('input[value="ship task board"]').first(),
       ).toBeVisible();
       await taskBoardNode.getByTestId("task-board-view-kanban").click();
-      await expect(taskBoardNode.locator("[data-task-board-column-id]")).toHaveCount(
-        3,
-      );
+      await expect(
+        taskBoardNode.locator("[data-task-board-column-id]"),
+      ).toHaveCount(3);
 
-      const spreadsheetPathInput = spreadsheetNode
-        .getByPlaceholder("/absolute/path/to/file.csv")
+      await expect(
+        spreadsheetNode.getByPlaceholder("/absolute/path/to/file.csv"),
+      ).toHaveCount(0);
+      const browserExplorer = browserNode
+        .locator('[role="region"][aria-label="File explorer"]')
         .first();
-      await spreadsheetPathInput.fill(csvPath);
-      await spreadsheetPathInput.press("Enter");
+      await expect(browserExplorer).toBeVisible();
+      const csvRow = browserExplorer
+        .locator("button")
+        .filter({ hasText: "pw-spreadsheet-section.csv" })
+        .first();
+      await expect(csvRow).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
       const spreadsheetCell = spreadsheetNode
         .locator('[data-spreadsheet-cell="1:1"]')
         .first();
@@ -599,7 +642,9 @@ test.describe.serial("section types data authoring", () => {
       expect(resizedPreviewBox.height).toBeLessThan(previewBox.height - 20);
 
       await previewToggle.click();
-      await expect(page.getByTestId("file-browser-preview-pane")).toHaveCount(0);
+      await expect(page.getByTestId("file-browser-preview-pane")).toHaveCount(
+        0,
+      );
       await previewToggle.click();
       await expect(page.getByTestId("file-browser-preview-pane")).toBeVisible();
 
@@ -659,5 +704,4 @@ test.describe.serial("section types data authoring", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
-
 });

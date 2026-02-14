@@ -51,7 +51,9 @@ export function getSpreadsheetGridTemplateColumns(columnCount: number): string {
 }
 
 export function getSpreadsheetGridWidth(columnCount: number): number {
-  return SPREADSHEET_INDEX_COLUMN_WIDTH + columnCount * SPREADSHEET_DATA_COLUMN_WIDTH;
+  return (
+    SPREADSHEET_INDEX_COLUMN_WIDTH + columnCount * SPREADSHEET_DATA_COLUMN_WIDTH
+  );
 }
 
 function encodeBytesToBase64(bytes: Uint8Array): string {
@@ -231,7 +233,10 @@ export function FileBrowserSpreadsheetEditor({
       }
       return {
         ...prev,
-        rows: [...prev.rows, Array.from({ length: prev.columnCount }, () => "")],
+        rows: [
+          ...prev.rows,
+          Array.from({ length: prev.columnCount }, () => ""),
+        ],
         rowCount: prev.rowCount + 1,
       };
     });
@@ -258,7 +263,11 @@ export function FileBrowserSpreadsheetEditor({
     setIsSaving(true);
     setErrorText(null);
     setStatusText(null);
-    const bytes = serializeSpreadsheetBytes(sheet.path, sheet.sheetName, sheet.rows);
+    const bytes = serializeSpreadsheetBytes(
+      sheet.path,
+      sheet.sheetName,
+      sheet.rows,
+    );
     const response = await route_write_file_browser_file_content({
       path: sheet.path,
       contentBase64: encodeBytesToBase64(bytes),
@@ -285,9 +294,7 @@ export function FileBrowserSpreadsheetEditor({
 
   const gridTemplateColumns = useMemo(
     () =>
-      getSpreadsheetGridTemplateColumns(
-        Math.max(0, sheet?.columnCount ?? 0),
-      ),
+      getSpreadsheetGridTemplateColumns(Math.max(0, sheet?.columnCount ?? 0)),
     [sheet?.columnCount],
   );
   const sheetWidth = useMemo(
@@ -299,7 +306,7 @@ export function FileBrowserSpreadsheetEditor({
   if (!selectedPath) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-dashed border-setta-300 bg-white/60 px-4 text-center text-xs text-setta-500 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-400">
-        Select a CSV/XLSX file to preview and edit.
+        Drop a CSV/XLSX file from your OS or File Browser to preview and edit.
       </div>
     );
   }
