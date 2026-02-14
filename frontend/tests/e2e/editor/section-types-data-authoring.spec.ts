@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs/promises";
+import * as XLSX from "xlsx";
 import {
   cleanupIsolatedProject,
   createTextBlockSection,
@@ -26,6 +28,14 @@ type LatestProjectStateResponse = {
     >;
     parentSectionMap?: Record<string, string | null>;
   };
+};
+
+type FileBrowserRootResponse = {
+  rootPath: string;
+};
+
+type FileBrowserFileContentResponse = {
+  contentBase64: string;
 };
 
 async function getLatestProjectState(
@@ -375,6 +385,84 @@ test.describe.serial("section types data authoring", () => {
       expect((taskListDistances?.yDelta ?? 0) >= (taskListDistances?.xDelta ?? 0)).toBe(
         true,
       );
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("file browser spreadsheet panel edits csv and previews xlsx", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "FileBrowser",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const root = await postBackend<FileBrowserRootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+
+      const csvPath = `${rootPath}/pw-sheet.csv`;
+      await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet([
+        ["Task", "Owner"],
+        ["Beta", "Dev"],
+      ]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+      const xlsxBytes = XLSX.write(workbook, {
+        type: "buffer",
+        bookType: "xlsx",
+      }) as Buffer;
+      const xlsxPath = `${rootPath}/pw-sheet.xlsx`;
+      await fs.writeFile(xlsxPath, xlsxBytes);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".react-flow__pane");
+
+      const csvRow = page.locator("button").filter({ hasText: "pw-sheet.csv" });
+      await expect(csvRow).toBeVisible({ timeout: 20000 });
+      await csvRow.first().click();
+
+      const targetCell = page.locator('[data-spreadsheet-cell="1:1"]').first();
+      await expect(targetCell).toBeVisible();
+      await targetCell.fill("done");
+      await page.getByTestId("spreadsheet-save").click();
+      await expect(page.getByText("Saved.")).toBeVisible();
+
+      const csvRead = await postBackend<FileBrowserFileContentResponse>(
+        page,
+        "/getFileBrowserFileContent",
+        { path: csvPath },
+      );
+      const csvDecoded = Buffer.from(
+        csvRead?.contentBase64 ?? "",
+        "base64",
+      ).toString("utf-8");
+      expect(csvDecoded).toContain("alpha,done");
+
+      const xlsxRow = page
+        .locator("button")
+        .filter({ hasText: "pw-sheet.xlsx" });
+      await expect(xlsxRow).toBeVisible({ timeout: 20000 });
+      await xlsxRow.first().click();
+
+      const xlsxCell = page.locator('[data-spreadsheet-cell="1:0"]').first();
+      await expect(xlsxCell).toBeVisible();
+      await expect(xlsxCell).toHaveValue("Beta");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
