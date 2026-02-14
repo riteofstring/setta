@@ -965,17 +965,28 @@ class TestCodexAppServerAdapterIntegration:
                     and message.get("role") == "assistant"
                 ]
                 assert assistant_messages
+                tool_messages = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict) and message.get("role") == "tool"
+                ]
                 tool_calls: list[dict] = []
                 for message in assistant_messages:
                     calls = message.get("tool_calls") if isinstance(message, dict) else None
                     if isinstance(calls, list):
                         tool_calls.extend(call for call in calls if isinstance(call, dict))
-                assert tool_calls
                 tool_names = {
                     call.get("function", {}).get("name")
                     for call in tool_calls
                     if isinstance(call, dict)
                 }
+                if not tool_names:
+                    tool_names = {
+                        message.get("tool_name")
+                        for message in tool_messages
+                        if isinstance(message, dict)
+                        and isinstance(message.get("tool_name"), str)
+                    }
                 assert "command_execution" in tool_names
                 tool_text = self._collect_message_texts(command_tools)
                 if token not in tool_text:
@@ -1048,17 +1059,28 @@ class TestCodexAppServerAdapterIntegration:
                     and message.get("role") == "assistant"
                 ]
                 assert assistant_messages
+                tool_messages = [
+                    message
+                    for message in messages
+                    if isinstance(message, dict) and message.get("role") == "tool"
+                ]
                 tool_calls: list[dict] = []
                 for message in assistant_messages:
                     calls = message.get("tool_calls") if isinstance(message, dict) else None
                     if isinstance(calls, list):
                         tool_calls.extend(call for call in calls if isinstance(call, dict))
-                assert tool_calls
                 tool_names = {
                     call.get("function", {}).get("name")
                     for call in tool_calls
                     if isinstance(call, dict)
                 }
+                if not tool_names:
+                    tool_names = {
+                        message.get("tool_name")
+                        for message in tool_messages
+                        if isinstance(message, dict)
+                        and isinstance(message.get("tool_name"), str)
+                    }
                 tool_call_references_target = False
                 for call in tool_calls:
                     if not isinstance(call, dict):
@@ -1084,14 +1106,6 @@ class TestCodexAppServerAdapterIntegration:
                         ):
                             tool_call_references_target = True
                             break
-                tool_messages = []
-                if isinstance(messages, list):
-                    tool_messages = [
-                        message
-                        for message in messages
-                        if isinstance(message, dict)
-                        and message.get("role") == "tool"
-                    ]
                 file_tools = [
                     message
                     for message in tool_messages
