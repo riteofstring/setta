@@ -6,8 +6,6 @@ import tempfile
 import time
 from pathlib import Path
 
-import pytest
-
 from setta.sessions.registry import SessionRegistry
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.utils.constants import C
@@ -44,6 +42,37 @@ def test_create_and_load_session() -> None:
 
         secret_bytes = registry.load_secret(loaded)
         assert len(secret_bytes) == C.SESSION_SECRET_BYTES
+
+
+def test_create_session_persists_connect_info_path_fields() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        sessions_root = Path(temp_dir) / "sessions"
+        workspace = Path(temp_dir) / "workspace"
+        workspace.mkdir()
+        registry = SessionRegistry(sessions_root=sessions_root)
+        setta_files_root = str((workspace / "setta_files").resolve())
+        runtime_root = str((workspace / "setta_files" / "runtime").resolve())
+        setta_home = str((Path(temp_dir) / ".setta-development").resolve())
+
+        created = registry.create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=61234,
+            pid=12345,
+            setta_files_location="local",
+            setta_files_root=setta_files_root,
+            runtime_root=runtime_root,
+            setta_home=setta_home,
+            profile="dev",
+        )
+        loaded = registry.load_session(created.id, prune_stale=False)
+
+        assert loaded is not None
+        assert loaded.settaFilesLocation == "local"
+        assert loaded.settaFilesRoot == setta_files_root
+        assert loaded.runtimeRoot == runtime_root
+        assert loaded.settaHome == setta_home
+        assert loaded.profile == "dev"
 
 
 def test_load_sessions_skips_missing_workspace_path_canonical(
