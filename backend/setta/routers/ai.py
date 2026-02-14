@@ -41,6 +41,7 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
+from setta.types.capabilities import CapabilityMode
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -289,7 +290,7 @@ def _resolve_capabilities_for_request(
     section_id: ID | None,
     policy_chat_id: ID | None,
     override_skill_ids: list[ID] | None,
-) -> tuple[list[str], list[str], str | None]:
+) -> tuple[list[str], list[str] | None, str | None]:
     catalog = get_skills_catalog(dbe)
     known_skill_ids = {entry.id for entry in catalog.skills}
     known_mcp_server_ids = set(llm_config.mcpServers.keys())
@@ -320,6 +321,15 @@ def _resolve_capabilities_for_request(
         known_skill_ids=known_skill_ids,
         known_mcp_server_ids=known_mcp_server_ids,
     )
+    # Empty MCP selections should not disable MCP by accident when the policy is
+    # inherit/custom. Keep explicit empty override only for disabled mode.
+    enabled_mcp_server_ids_override: list[str] | None
+    if enabled_mcp_server_ids:
+        enabled_mcp_server_ids_override = enabled_mcp_server_ids
+    elif policy.mode == CapabilityMode.disabled:
+        enabled_mcp_server_ids_override = []
+    else:
+        enabled_mcp_server_ids_override = None
     resolved_override_skill_ids = _resolve_override_skill_ids(
         override_skill_ids,
         known_skill_ids,
@@ -328,7 +338,7 @@ def _resolve_capabilities_for_request(
         enabled_skill_ids = resolved_override_skill_ids
     skill_blocks = load_skill_prompt_blocks_from_catalog(catalog, enabled_skill_ids)
     skills_prompt = _build_enabled_skills_prompt(skill_blocks)
-    return enabled_skill_ids, enabled_mcp_server_ids, skills_prompt
+    return enabled_skill_ids, enabled_mcp_server_ids_override, skills_prompt
 
 
 class GetLLMResponseRequest(BaseModel):
@@ -531,8 +541,9 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
             "enabledSkillIds": enabled_skill_ids,
-            "enabledMcpServerIds": enabled_mcp_server_ids,
         }
+        if enabled_mcp_server_ids is not None:
+            inputs["enabledMcpServerIds"] = enabled_mcp_server_ids
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(
                 parent_run=parent_run,
@@ -607,8 +618,9 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
             "enabledSkillIds": enabled_skill_ids,
-            "enabledMcpServerIds": enabled_mcp_server_ids,
         }
+        if enabled_mcp_server_ids is not None:
+            inputs["enabledMcpServerIds"] = enabled_mcp_server_ids
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(
                 parent_run=parent_run,

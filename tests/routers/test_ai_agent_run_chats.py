@@ -559,6 +559,103 @@ class TestAgentRunChatRoutes:
                 == "sectionId is required unless allowUnscoped is true."
             )
 
+    async def test_get_llm_response_inherit_policy_omits_empty_mcp_override(
+        self,
+    ) -> None:
+        # Default project chat policy is inherit with no explicit MCP server ids.
+        # In this case, route_get_llm_response should omit the override input so
+        # AgentRunner can use engine/default MCP resolution.
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-inherit-mcp")
+
+            captured_inputs: dict[str, object] = {}
+
+            def capture_start_run(_: AgentProfile, inputs: dict[str, object]) -> None:
+                captured_inputs["inputs"] = inputs
+
+            state.agent_runner.start_run = capture_start_run  # type: ignore[method-assign]
+
+            with runtime_context(state) as ctx:
+                response_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Generate app spec")],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                    ),
+                    ctx,
+                )
+
+            assert response_chat_id is not None
+            inputs = captured_inputs.get("inputs")
+            assert isinstance(inputs, dict)
+            assert "enabledMcpServerIds" not in inputs
+
+    async def test_get_llm_response_disabled_policy_keeps_empty_mcp_override(
+        self,
+    ) -> None:
+        # Disabled mode should preserve an explicit empty MCP override so the
+        # runner disables tools for this chat.
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-disabled-mcp")
+            set_project_chat_capability_policy(
+                dbe,
+                project_config_id=project_config_id,
+                chat_id=None,
+                policy=CapabilityPolicy(mode=CapabilityMode.disabled),
+            )
+
+            captured_inputs: dict[str, object] = {}
+
+            def capture_start_run(_: AgentProfile, inputs: dict[str, object]) -> None:
+                captured_inputs["inputs"] = inputs
+
+            state.agent_runner.start_run = capture_start_run  # type: ignore[method-assign]
+
+            with runtime_context(state) as ctx:
+                response_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Generate app spec")],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                    ),
+                    ctx,
+                )
+
+            assert response_chat_id is not None
+            inputs = captured_inputs.get("inputs")
+            assert isinstance(inputs, dict)
+            assert inputs["enabledMcpServerIds"] == []
+
     async def test_get_llm_response_override_skill_ids_replaces_policy_skills(
         self,
     ) -> None:
@@ -640,7 +737,7 @@ class TestAgentRunChatRoutes:
             inputs = captured_inputs.get("inputs")
             assert isinstance(inputs, dict)
             assert inputs["enabledSkillIds"] == ["test_source::appgen-skill"]
-            assert inputs["enabledMcpServerIds"] == []
+            assert "enabledMcpServerIds" not in inputs
             prompt = captured_inputs.get("profileSystemPrompt")
             assert isinstance(prompt, str)
             assert "test_source::appgen-skill" in prompt
