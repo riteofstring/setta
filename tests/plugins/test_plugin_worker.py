@@ -6,6 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
 
@@ -115,6 +117,15 @@ def _stop_worker(worker: subprocess.Popen[str]) -> None:
         worker.stderr.close()
 
 
+def _read_worker_response(worker: subprocess.Popen[str]) -> dict[str, Any]:
+    assert worker.stdout is not None
+    line = worker.stdout.readline()
+    assert line != ""
+    payload = json.loads(line)
+    assert isinstance(payload, dict)
+    return payload
+
+
 def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
     # Worker should handle initialize/register/shutdown RPC methods over stdio.
     plugin_root = _copy_backend_fixture(tmp_path)
@@ -170,6 +181,219 @@ def test_worker_returns_error_for_unknown_method(tmp_path: Path) -> None:
         )
         assert response["id"] == 1
         assert response["error"]["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_main_loop_rejects_invalid_json_payload(tmp_path: Path) -> None:
+    # Main loop should reject invalid JSON input while keeping worker transport alive.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    worker = _start_worker(plugin_root)
+    try:
+        assert worker.stdin is not None
+        worker.stdin.write("{not-json\n")
+        worker.stdin.flush()
+        response = _read_worker_response(worker)
+        assert response["id"] is None
+        assert response["error"]["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        assert "Invalid JSON-RPC payload." in response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_main_loop_rejects_non_object_json_payload(tmp_path: Path) -> None:
+    # Main loop should reject non-object JSON-RPC payloads deterministically.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    worker = _start_worker(plugin_root)
+    try:
+        assert worker.stdin is not None
+        worker.stdin.write("[]\n")
+        worker.stdin.flush()
+        response = _read_worker_response(worker)
+        assert response["id"] is None
+        assert response["error"]["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        assert "JSON-RPC payload must be an object." in response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_main_loop_rejects_non_string_method(tmp_path: Path) -> None:
+    # Main loop should reject JSON-RPC requests whose method is not a string.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    worker = _start_worker(plugin_root)
+    try:
+        assert worker.stdin is not None
+        worker.stdin.write(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 42,
+                    "method": 123,
+                    "params": {},
+                }
+            )
+            + "\n"
+        )
+        worker.stdin.flush()
+        response = _read_worker_response(worker)
+        assert response["id"] == 42
+        assert response["error"]["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        assert "JSON-RPC method must be a string." in response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
+@pytest.mark.parametrize(
+    ("plugin_id", "plugin_version", "expected_message"),
+    [
+        ("   ", "0.1.0", "Missing plugin id."),
+        ("setta-fixture-backend", "   ", "Missing plugin version."),
+    ],
+)
+def test_worker_cli_rejects_missing_identity_args(
+    tmp_path: Path,
+    plugin_id: str,
+    plugin_version: str,
+    expected_message: str,
+) -> None:
+    # Worker startup should fail fast when plugin id/version args are blank.
+    plugin_root = tmp_path / "plugin-root"
+    plugin_root.mkdir(parents=True, exist_ok=True)
+    entrypoint = tmp_path / "entrypoint.py"
+    entrypoint.write_text("def register(plugin):\n    return None\n", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "setta.plugins.worker",
+            "--plugin-id",
+            plugin_id,
+            "--plugin-version",
+            plugin_version,
+            "--plugin-root",
+            str(plugin_root),
+            "--entrypoint",
+            str(entrypoint),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 1
+    payload = json.loads(completed.stdout.strip())
+    assert payload["error"]["code"] == "PLUGIN_BACKEND_IMPORT_FAILED"
+    assert expected_message in payload["error"]["message"]
+
+
+def test_worker_cli_rejects_missing_entrypoint(tmp_path: Path) -> None:
+    # Worker startup should fail when backend entrypoint path does not exist.
+    plugin_root = tmp_path / "plugin-root"
+    plugin_root.mkdir(parents=True, exist_ok=True)
+    missing_entrypoint = tmp_path / "missing-entrypoint.py"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "setta.plugins.worker",
+            "--plugin-id",
+            "setta-fixture-backend",
+            "--plugin-version",
+            "0.1.0",
+            "--plugin-root",
+            str(plugin_root),
+            "--entrypoint",
+            str(missing_entrypoint),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 1
+    payload = json.loads(completed.stdout.strip())
+    assert payload["error"]["code"] == "PLUGIN_BACKEND_IMPORT_FAILED"
+    assert "Backend entrypoint not found" in payload["error"]["message"]
+
+
+@pytest.mark.parametrize(
+    ("entrypoint_source", "expected_message_fragment"),
+    [
+        (
+            "def register(plugin):\n"
+            "    plugin.register_router('not-a-router')\n",
+            "invalid router",
+        ),
+        (
+            "def register(plugin):\n"
+            "    def tool() -> str:\n"
+            "        return 'ok'\n"
+            "    plugin.register_mcp_tool(tool, annotations=['bad'])\n",
+            "invalid MCP annotations payload",
+        ),
+        (
+            "def register(plugin):\n"
+            "    plugin.register_codegen_target({\n"
+            "        'id': 'typescript',\n"
+            "        'name': 'TypeScript',\n"
+            "        'language': 'typescript',\n"
+            "        'generate': lambda _state, _options: {'files': []},\n"
+            "    })\n"
+            "    plugin.register_codegen_target({\n"
+            "        'id': 'typescript',\n"
+            "        'name': 'TypeScript Duplicate',\n"
+            "        'language': 'typescript',\n"
+            "        'generate': lambda _state, _options: {'files': []},\n"
+            "    })\n",
+            "duplicate codegen target id",
+        ),
+        (
+            "def register(plugin):\n"
+            "    plugin.register_codegen_target({\n"
+            "        'id': 'bad:id',\n"
+            "        'name': 'TypeScript',\n"
+            "        'language': 'typescript',\n"
+            "        'generate': lambda _state, _options: {'files': []},\n"
+            "    })\n",
+            "cannot contain ':' in worker mode",
+        ),
+        (
+            "def register(plugin):\n"
+            "    plugin.register_startup_task(lambda: None)\n",
+            "register_startup_task is not supported",
+        ),
+        (
+            "def register(plugin):\n"
+            "    plugin.register_shutdown_task(lambda: None)\n",
+            "register_shutdown_task is not supported",
+        ),
+    ],
+)
+def test_worker_register_rejects_invalid_registration_contracts(
+    tmp_path: Path,
+    entrypoint_source: str,
+    expected_message_fragment: str,
+) -> None:
+    # Worker registration should reject unsupported registration contracts in MVP.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        entrypoint_source,
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        assert register_response["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
+        assert expected_message_fragment in register_response["error"]["message"]
     finally:
         _stop_worker(worker)
 

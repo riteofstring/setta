@@ -7,15 +7,26 @@ import {
   refreshPluginRuntime,
   resetPluginRuntimeStoreForTests,
   toPluginSectionKindKey,
+  usePluginCommands,
+  usePluginListEntries,
+  usePluginPaneTabs,
   usePluginRuntimeStore,
+  usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
-import { useShareSession } from "state/definitions";
+import { syncStoreInitialState } from "components/Panes/paneTestUtils";
+import React from "react";
+import { renderToString } from "react-dom/server";
+import { useProjectState, useShareSession } from "state/definitions";
 import * as generatedEndpoints from "utils/generatedEndpoints";
 import { C_ADDRESSES } from "utils/c_addresses";
 import {
+  createCore,
+  createDictSectionImpl,
   createPluginListEntry,
   createPluginStatusEntry,
+  createUserDefaultDictSectionImpl,
+  createVariant,
   PluginRuntimeStateEnum,
   type PluginListResponse,
   type PluginRestartCapability,
@@ -107,10 +118,104 @@ function buildPluginStatusResponse(
   };
 }
 
+type CapturedPluginHost = {
+  registerContextMenu: (definition: Record<string, unknown>) => void;
+  getProjectContext: () => { projectConfigId: string; serverMode: string };
+  subscribeProjectContext: (
+    listener: (context: { projectConfigId: string; serverMode: string }) => void,
+  ) => () => void;
+  readSection: (sectionId: string) => Record<string, unknown>;
+  updateSection: (
+    sectionId: string,
+    patch: Partial<{
+      data: Record<string, unknown>;
+      kind: string;
+      schemaVersion: number | null;
+    }>,
+  ) => void;
+  openArtifact: (artifactId: string) => void;
+  createArtifact: (
+    payload: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>>;
+};
+
+function readPluginRuntimeHookValue<T>(read: () => T): T {
+  syncStoreInitialState(usePluginRuntimeStore);
+  let captured: T | null = null;
+  function Capture(): null {
+    captured = read();
+    return null;
+  }
+  renderToString(React.createElement(Capture));
+  if (captured === null) {
+    throw new Error("Expected plugin runtime hook to produce a value.");
+  }
+  return captured;
+}
+
+function getCapturedPluginHost(): CapturedPluginHost {
+  const globalScope = globalThis as {
+    __settaCapturedPluginHost?: CapturedPluginHost;
+  };
+  if (!globalScope.__settaCapturedPluginHost) {
+    throw new Error("Plugin test module did not capture host object.");
+  }
+  return globalScope.__settaCapturedPluginHost;
+}
+
+function expectPluginFrontendErrorCode(
+  invoke: () => void,
+  expectedCode: string,
+): void {
+  try {
+    invoke();
+    throw new Error("Expected plugin host call to throw.");
+  } catch (error) {
+    expect(
+      (error as {
+        code?: string;
+      }).code,
+    ).toBe(expectedCode);
+  }
+}
+
+function seedRuntimeSectionState(sectionId: string): void {
+  const implId = "impl-dict-runtime";
+  const variantId = "variant-dict-runtime";
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-config-initial";
+    state.projectConfig.sectionVariantMap = {
+      ...state.projectConfig.sectionVariantMap,
+      [sectionId]: variantId,
+    };
+    state.sections[sectionId] = createCore({ id: sectionId });
+    state.sectionImpls[implId] = createDictSectionImpl(
+      createUserDefaultDictSectionImpl(),
+      {
+        id: implId,
+        name: "Runtime Dict Section",
+      },
+    );
+    state.sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+    });
+  });
+}
+
 describe("plugin runtime helpers", () => {
   beforeEach(() => {
     resetPluginRuntimeStoreForTests();
     vi.restoreAllMocks();
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-before-each";
+      state.projectConfig.sectionVariantMap = {};
+      state.sections = {};
+      state.sectionImpls = {};
+      state.sectionVariants = {};
+      state.previewSectionVariantMap = {};
+    });
     useShareSession.setState({
       isDeploymentMode: false,
       shareSessionId: null,
@@ -121,6 +226,18 @@ describe("plugin runtime helpers", () => {
     resetPluginRuntimeStoreForTests();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    const globalScope = globalThis as {
+      __settaCapturedPluginHost?: CapturedPluginHost;
+    };
+    delete globalScope.__settaCapturedPluginHost;
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-after-each";
+      state.projectConfig.sectionVariantMap = {};
+      state.sections = {};
+      state.sectionImpls = {};
+      state.sectionVariants = {};
+      state.previewSectionVariantMap = {};
+    });
     useShareSession.setState({
       isDeploymentMode: false,
       shareSessionId: null,
@@ -753,6 +870,263 @@ describe("plugin runtime helpers", () => {
     );
     expect(noStyleLoad?.error).toBeNull();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
+  });
+
+  it("captures host APIs and enforces unimplemented host capabilities", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () => host.registerContextMenu({ id: "ctx-menu" }),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    expectPluginFrontendErrorCode(
+      () => host.openArtifact("artifact-1"),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    await expect(host.createArtifact({ kind: "artifact" })).rejects.toMatchObject(
+      {
+        code: PluginFrontendErrorCodeEnum.CapabilityDenied,
+      },
+    );
+  });
+
+  it("supports project-context subscriptions and readSection snapshots", async () => {
+    const sectionId = "section-runtime-dict";
+    seedRuntimeSectionState(sectionId);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const firstRead = host.readSection(sectionId);
+    firstRead.paramFilter = "mutated-client-only";
+    const secondRead = host.readSection(sectionId);
+    expect(secondRead.paramFilter).toBe("");
+
+    const observedContexts: Array<{ projectConfigId: string; serverMode: string }> =
+      [];
+    const unsubscribe = host.subscribeProjectContext((context) => {
+      observedContexts.push(context);
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-updated";
+    });
+    unsubscribe();
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-config-after-unsubscribe";
+    });
+    expect(observedContexts).toEqual([
+      {
+        projectConfigId: "project-config-updated",
+        serverMode: "ide",
+      },
+    ]);
+  });
+
+  it("rejects updateSection calls for non-plugin sections", async () => {
+    const sectionId = "section-runtime-dict-update";
+    seedRuntimeSectionState(sectionId);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () =>
+        host.updateSection(sectionId, {
+          kind: "updated",
+        }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
+  it("returns sorted plugin pane tabs by title then plugin id then pane id", () => {
+    usePluginRuntimeStore.setState({
+      panesByPluginId: {
+        "beta.plugin": [
+          {
+            pluginId: "beta.plugin",
+            id: "pane-z",
+            title: "Alpha",
+            renderer: { mount: () => undefined },
+          },
+        ],
+        "acme.plugin": [
+          {
+            pluginId: "acme.plugin",
+            id: "pane-c",
+            title: "Beta",
+            renderer: { mount: () => undefined },
+          },
+          {
+            pluginId: "acme.plugin",
+            id: "pane-a",
+            title: "Alpha",
+            renderer: { mount: () => undefined },
+          },
+        ],
+      },
+    });
+
+    const tabs = readPluginRuntimeHookValue(() => usePluginPaneTabs());
+    expect(tabs.map((tab) => `${tab.title}:${tab.pluginId}:${tab.paneId}`)).toEqual(
+      [
+        "Alpha:acme.plugin:pane-a",
+        "Alpha:beta.plugin:pane-z",
+        "Beta:acme.plugin:pane-c",
+      ],
+    );
+  });
+
+  it("returns sorted plugin commands by title then plugin id then command id", () => {
+    usePluginRuntimeStore.setState({
+      commandsByPluginId: {
+        "beta.plugin": [
+          {
+            pluginId: "beta.plugin",
+            id: "cmd-z",
+            title: "Action",
+            run: () => undefined,
+          },
+        ],
+        "acme.plugin": [
+          {
+            pluginId: "acme.plugin",
+            id: "cmd-a",
+            title: "Action",
+            run: () => undefined,
+          },
+          {
+            pluginId: "acme.plugin",
+            id: "cmd-b",
+            title: "Build",
+            run: () => undefined,
+          },
+        ],
+      },
+    });
+
+    const commands = readPluginRuntimeHookValue(() => usePluginCommands());
+    expect(
+      commands.map((command) => `${command.title}:${command.pluginId}:${command.id}`),
+    ).toEqual([
+      "Action:acme.plugin:cmd-a",
+      "Action:beta.plugin:cmd-z",
+      "Build:acme.plugin:cmd-b",
+    ]);
+  });
+
+  it("returns sorted top-nav items by order then label then plugin id and id", () => {
+    usePluginRuntimeStore.setState({
+      topNavBarItemsByPluginId: {
+        "beta.plugin": [
+          {
+            pluginId: "beta.plugin",
+            id: "item-z",
+            label: "Deploy",
+            order: 1,
+            onClick: () => undefined,
+          },
+        ],
+        "acme.plugin": [
+          {
+            pluginId: "acme.plugin",
+            id: "item-a",
+            label: "Deploy",
+            order: 1,
+            onClick: () => undefined,
+          },
+          {
+            pluginId: "acme.plugin",
+            id: "item-build",
+            label: "Build",
+            order: 2,
+            onClick: () => undefined,
+          },
+        ],
+      },
+    });
+
+    const items = readPluginRuntimeHookValue(() => usePluginTopNavBarItems());
+    expect(items.map((item) => `${item.order}:${item.label}:${item.pluginId}:${item.id}`))
+      .toEqual([
+        "1:Deploy:acme.plugin:item-a",
+        "1:Deploy:beta.plugin:item-z",
+        "2:Build:acme.plugin:item-build",
+      ]);
+  });
+
+  it("returns plugin list entries sorted by plugin id", () => {
+    usePluginRuntimeStore.setState({
+      pluginListById: {
+        "zeta.plugin": buildPluginListEntry({
+          pluginId: "zeta.plugin",
+        }),
+        "alpha.plugin": buildPluginListEntry({
+          pluginId: "alpha.plugin",
+        }),
+      },
+    });
+
+    const entries = readPluginRuntimeHookValue(() => usePluginListEntries());
+    expect(entries.map((entry) => entry.pluginId)).toEqual([
+      "alpha.plugin",
+      "zeta.plugin",
+    ]);
   });
 
   it("removes stale plugin styles when a plugin is removed from plugin list", async () => {

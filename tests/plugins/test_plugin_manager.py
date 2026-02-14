@@ -19,6 +19,7 @@ from setta.plugins.manager import PluginManager
 from setta.plugins.models import (
     BlockedCapabilityReason,
     PluginInstallerBackend,
+    PluginInstallHistoryEntry,
     PluginRuntimeState,
     PluginScope,
     normalize_scope,
@@ -2310,6 +2311,84 @@ def test_apply_lockfile_requires_source_spec_for_missing_plugin(tmp_path: Path) 
     assert exc_info.value.code == "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE"
 
 
+def test_apply_lockfile_plans_uninstall_for_plugins_missing_from_lockfile(
+    tmp_path: Path,
+) -> None:
+    # Lockfile check mode should plan uninstall operations for extra installed plugins.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    check_result = manager.apply_lockfile(check=True)
+    assert check_result.applied is False
+    assert any(
+        "uninstall setta-fixture-frontend from workspace" in change
+        for change in check_result.plannedChanges
+    )
+
+
+def test_apply_lockfile_executes_uninstall_for_plugins_missing_from_lockfile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Lockfile apply mode should execute uninstall operations for extra plugins.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    uninstall_calls: list[tuple[str, PluginScope | None]] = []
+    original_uninstall = manager.uninstall_plugin
+
+    def _record_uninstall(
+        *, plugin_id: str, scope: str | PluginScope | None = None
+    ):
+        resolved_scope = None if scope is None else normalize_scope(scope)
+        uninstall_calls.append((plugin_id, resolved_scope))
+        return original_uninstall(plugin_id=plugin_id, scope=scope)
+
+    monkeypatch.setattr(manager, "uninstall_plugin", _record_uninstall)
+    apply_result = manager.apply_lockfile(check=False)
+    assert apply_result.applied is True
+    assert uninstall_calls == [("setta-fixture-frontend", PluginScope.workspace)]
+
+    remaining_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert remaining_entries == []
+
+
 def test_resolve_plugin_asset_path_rejects_traversal_and_missing_files(
     tmp_path: Path,
 ) -> None:
@@ -2356,6 +2435,230 @@ def test_generate_backend_codegen_target_rejects_unknown_target(tmp_path: Path) 
             target_options={},
         )
     assert unknown_error.value.code == "PLUGIN_CODEGEN_TARGET_NOT_FOUND"
+
+
+def test_generate_backend_codegen_target_validates_input_payload_shapes(
+    tmp_path: Path,
+) -> None:
+    # Codegen generation should reject non-object project_state/target_options payloads.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as project_state_error:
+        manager.generate_backend_codegen_target(
+            target_id="setta-fixture-backend-codegen:typescript",
+            project_state=[],
+            target_options={},
+        )
+    assert project_state_error.value.code == "PLUGIN_BACKEND_CODEGEN_FAILED"
+
+    with pytest.raises(PluginManagerError) as target_options_error:
+        manager.generate_backend_codegen_target(
+            target_id="setta-fixture-backend-codegen:typescript",
+            project_state={},
+            target_options=[],
+        )
+    assert target_options_error.value.code == "PLUGIN_BACKEND_CODEGEN_FAILED"
+
+
+def test_generate_backend_codegen_target_rejects_invalid_worker_result_payload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Worker generation payloads should still be normalized/validated by manager.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+
+    monkeypatch.setattr(manager, "_call_backend_worker_method", lambda **_kwargs: {})
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.generate_backend_codegen_target(
+            target_id="setta-fixture-backend-codegen:typescript",
+            project_state={"projectConfig": {"name": "FixtureProject"}},
+            target_options={"className": "FixtureState"},
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_CODEGEN_FAILED"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_message_fragment"),
+    [
+        ({}, "must include files array"),
+        ({"files": []}, "must generate at least one file"),
+        (
+            {
+                "files": [
+                    {
+                        "relativePath": "/tmp/absolute.ts",
+                        "content": "export const x = 1;\n",
+                    }
+                ]
+            },
+            "relativePath cannot be absolute",
+        ),
+        (
+            {
+                "files": [
+                    {
+                        "relativePath": "../escape.ts",
+                        "content": "export const x = 1;\n",
+                    }
+                ]
+            },
+            "relativePath cannot escape target root",
+        ),
+        (
+            {
+                "files": [
+                    {
+                        "relativePath": "setta_gen.ts",
+                        "content": "first",
+                    },
+                    {
+                        "relativePath": "setta_gen.ts",
+                        "content": "second",
+                    },
+                ]
+            },
+            "relativePath is duplicated",
+        ),
+        (
+            {
+                "files": [
+                    {
+                        "relativePath": "setta_gen.ts",
+                        "content": 123,
+                    }
+                ]
+            },
+            "content must be a string",
+        ),
+    ],
+)
+def test_normalize_codegen_generation_payload_rejects_invalid_file_entries(
+    tmp_path: Path,
+    payload: dict[str, object],
+    expected_message_fragment: str,
+) -> None:
+    # Normalization should reject malformed file arrays from plugin codegen handlers.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._normalize_codegen_generation_payload(
+            plugin_id="setta-fixture-backend-codegen",
+            target_id="setta-fixture-backend-codegen:typescript",
+            payload=payload,
+            default_file_name="setta_gen.ts",
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_CODEGEN_FAILED"
+    assert expected_message_fragment in str(exc_info.value)
+
+
+def test_rollback_plugin_requires_history(tmp_path: Path) -> None:
+    # Rollback should fail when the plugin has no prior snapshot history.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.rollback_plugin(
+            plugin_id="setta-fixture-frontend",
+            scope=PluginScope.workspace,
+        )
+    assert exc_info.value.code == "PLUGIN_ROLLBACK_UNAVAILABLE"
+
+
+def test_rollback_plugin_requires_existing_snapshot_path(tmp_path: Path) -> None:
+    # Rollback should fail deterministically when history references a missing snapshot.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    metadata = manager._load_install_metadata()
+    metadata_key = manager._metadata_key("setta-fixture-frontend", PluginScope.workspace)
+    entry = metadata.entries[metadata_key]
+    entry.history.append(
+        PluginInstallHistoryEntry(
+            version=entry.version,
+            sourceDigestSha256=entry.sourceDigestSha256,
+            snapshotPath=str(tmp_path / "missing-rollback-snapshot"),
+            timestampIso="2026-01-01T00:00:00+00:00",
+        )
+    )
+    metadata.entries[metadata_key] = entry
+    manager._save_install_metadata(metadata)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.rollback_plugin(
+            plugin_id="setta-fixture-frontend",
+            scope=PluginScope.workspace,
+        )
+    assert exc_info.value.code == "PLUGIN_ROLLBACK_UNAVAILABLE"
+
+
+def test_rollback_plugin_flags_restart_when_restoring_backend_plugin(
+    tmp_path: Path,
+) -> None:
+    # Restoring a backend plugin snapshot should mark the plugin as restart-required.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    snapshot_root = tmp_path / "backend-rollback-snapshot"
+    shutil.copytree(_fixture_path("backend"), snapshot_root)
+    snapshot_manifest_path = snapshot_root / "setta.plugin.json"
+    snapshot_manifest = json.loads(snapshot_manifest_path.read_text(encoding="utf-8"))
+    snapshot_manifest["version"] = "0.0.9"
+    snapshot_manifest_path.write_text(
+        json.dumps(snapshot_manifest, indent=2),
+        encoding="utf-8",
+    )
+    metadata = manager._load_install_metadata()
+    metadata_key = manager._metadata_key("setta-fixture-backend", PluginScope.workspace)
+    entry = metadata.entries[metadata_key]
+    entry.history.append(
+        PluginInstallHistoryEntry(
+            version="0.0.9",
+            sourceDigestSha256=None,
+            snapshotPath=str(snapshot_root),
+            timestampIso="2026-01-01T00:00:00+00:00",
+        )
+    )
+    metadata.entries[metadata_key] = entry
+    manager._save_install_metadata(metadata)
+
+    rollback_result = manager.rollback_plugin(
+        plugin_id="setta-fixture-backend",
+        scope=PluginScope.workspace,
+    )
+    assert rollback_result.restoredVersion == "0.0.9"
+    assert rollback_result.restartRequired is True
+
+    restored_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(restored_entries) == 1
+    assert restored_entries[0].state == PluginRuntimeState.pending_restart
 
 
 def test_plugins_state_file_invalid_payload_raises(tmp_path: Path) -> None:
@@ -2502,6 +2805,10 @@ def test_retarget_source_spec_rewrites_github_and_pypi_targets(tmp_path: Path) -
     manager = _make_manager(tmp_path)
     assert (
         manager._retarget_source_spec("github:acme/plugin#main", "v2")
+        == "github:acme/plugin#v2"
+    )
+    assert (
+        manager._retarget_source_spec("github:acme/plugin@main", "v2")
         == "github:acme/plugin#v2"
     )
     assert (

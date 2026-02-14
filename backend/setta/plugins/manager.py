@@ -5019,8 +5019,18 @@ class PluginManager:
         if ":" in trimmed_to:
             return trimmed_to
         if source_spec.startswith("github:"):
-            repo_spec, _, _ = source_spec.partition("#")
-            return f"{repo_spec}#{trimmed_to}"
+            github_spec = source_spec[len("github:") :]
+            hash_index = github_spec.find("#")
+            at_index = github_spec.find("@")
+            split_index = -1
+            if hash_index != -1 and at_index != -1:
+                split_index = min(hash_index, at_index)
+            elif hash_index != -1:
+                split_index = hash_index
+            elif at_index != -1:
+                split_index = at_index
+            repo_spec = github_spec if split_index == -1 else github_spec[:split_index]
+            return f"github:{repo_spec}#{trimmed_to}"
         if source_spec.startswith("pypi:"):
             package_spec = source_spec[len("pypi:") :]
             package_name, _ = self._split_pypi_spec(package_spec)

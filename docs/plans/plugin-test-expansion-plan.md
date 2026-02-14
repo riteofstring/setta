@@ -1,16 +1,33 @@
 # Plugin Test Expansion Plan
 
-Coverage is already strong, but there are still meaningful additions.
+Coverage is strong, but there are still high-value additions.
 
-1. Add a cross-layer source-spec contract test for `github:owner/repo@ref` vs `#ref` (`frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx:1961`, `backend/setta/plugins/manager.py:4615`).
-2. Expand worker RPC transport tests for host-response failures (EOF, invalid JSON, id mismatch, missing `result`) in `tests/plugins/test_plugin_worker.py` against `backend/setta/plugins/worker.py:35`.
-3. Add worker MCP invoke matrix tests (success, async success, `args` non-list, `kwargs` non-dict, missing toolName) for `backend/setta/plugins/worker.py:524`.
-4. Add worker route async/body-mapping tests (async handler success/failure, required param from `jsonBody`) for `backend/setta/plugins/worker.py:460`.
-5. Add manager unit tests for worker-route normalization helpers (`backend/setta/plugins/manager.py:1654`, `backend/setta/plugins/manager.py:1667`).
-6. Add manager unit tests for source retarget/env mapping helpers (`backend/setta/plugins/manager.py:4998`, `backend/setta/plugins/manager.py:4304`).
-7. Route integration coverage is missing for several endpoints; add success/error tests for install/uninstall/unlink/enable/rescan in `tests/routers/test_plugin_routes.py`.
-8. MCP integration: deployment-mode blocking currently only checks uninstall; add install/update/rollback parity tests in `tests/mcp/test_plugin_tools.py:169`.
-9. Frontend runtime unit tests should cover command/section/top-nav validation and capability-denied paths in `frontend/src/plugins/runtime.ts:467`.
-10. Frontend runtime should test concurrent `refreshPluginRuntime()` dedupe and stale style cleanup (`frontend/src/plugins/runtime.ts:253`, `frontend/src/plugins/runtime.ts:1022`).
-11. Playwright: add non-mocked lifecycle flow (real install/update/rollback/uninstall) instead of only intercepted responses in `frontend/tests/e2e/overview/plugins-pane.spec.ts`.
-12. Playwright: add asset cache-busting regression test verifying `?v=<digest>` changes after update/relink (`backend/setta/plugins/manager.py:4913`, `frontend/src/plugins/runtime.ts:1009`).
+1. High: add a regression test for GitHub `@ref` retargeting in `backend/setta/plugins/manager.py:5015`.
+Current behavior turns `github:acme/plugin@main` + `to=v2` into `github:acme/plugin@main#v2`; test should require replacing the ref, not appending.
+
+2. High: expand manager codegen failure-path tests in `backend/setta/plugins/manager.py:649` and `backend/setta/plugins/manager.py:2451`.
+You currently cover success + unknown target; add malformed generation payload cases (`files` missing, traversal/absolute paths, duplicate paths, non-string content, empty files).
+
+3. High: add manager rollback edge tests in `backend/setta/plugins/manager.py:2962`.
+Missing coverage for `no history`, `missing snapshot path`, and restart-required behavior when rolling back backend plugins.
+
+4. Medium: add lockfile uninstall-branch tests in `backend/setta/plugins/manager.py:3115`.
+`apply_lockfile` has uninstall planning/execution paths that are not deeply asserted today.
+
+5. Medium: expand worker transport/parser tests for `backend/setta/plugins/worker.py:795`.
+Missing direct tests for invalid JSON input, non-object JSON-RPC payload, non-string method, and startup arg validation (`missing plugin id/version`, missing entrypoint).
+
+6. Medium: expand worker registration contract tests in `backend/setta/plugins/worker.py:192`, `backend/setta/plugins/worker.py:257`, `backend/setta/plugins/worker.py:327`, `backend/setta/plugins/worker.py:758`.
+Add invalid router type, invalid MCP annotations payload, duplicate/invalid codegen target definitions, and `register_startup_task`/`register_shutdown_task` unsupported paths.
+
+7. Medium: add frontend runtime host-API behavior tests in `frontend/src/plugins/runtime.ts:558`, `frontend/src/plugins/runtime.ts:578`, `frontend/src/plugins/runtime.ts:603`.
+`registerContextMenu`, `openArtifact`, `createArtifact`, `readSection`, `updateSection`, and `subscribeProjectContext` are mostly untested.
+
+8. Medium: add selector/sort tests for plugin runtime views in `frontend/src/plugins/runtime.ts:1096`, `frontend/src/plugins/runtime.ts:1128`, `frontend/src/plugins/runtime.ts:1149`.
+`usePluginPaneTabs`, `usePluginCommands`, `usePluginTopNavBarItems`, `usePluginListEntries` ordering/tie-breaks are not directly covered.
+
+9. Playwright: add a real (non-intercepted) update/rollback lifecycle flow for plugins.
+`frontend/tests/e2e/overview/plugins-pane.spec.ts:468` covers mocked update/rollback; only enable/disable/uninstall currently hit real backend.
+
+10. Playwright: add multi-scope shadowing UI flow (workspace vs environment/global) in `frontend/tests/e2e/overview/plugins-pane.spec.ts`.
+Validate status table visibility for shadowed copies and scope-specific uninstall behavior.
