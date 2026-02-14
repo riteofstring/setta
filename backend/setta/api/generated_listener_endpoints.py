@@ -888,6 +888,12 @@ class ListenerSetViewModeNameRequestPayload(TypedDict):
     name: str
 
 
+class ListenerSetViewModeSortOrderRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    orderedViewModeIds: list[ID]
+
+
 class ListenerSetViewportRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1550,6 +1556,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetViewModeNameRequestPayload
     ) -> None:
         return await self._caller("route_set_view_mode_name", payload)
+
+    async def set_view_mode_sort_order(
+        self, payload: ListenerSetViewModeSortOrderRequestPayload
+    ) -> None:
+        return await self._caller("route_set_view_mode_sort_order", payload)
 
     async def set_viewport(self, payload: ListenerSetViewportRequestPayload) -> None:
         return await self._caller("route_set_viewport", payload)

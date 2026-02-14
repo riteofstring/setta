@@ -137,18 +137,42 @@ describe("Overview rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 
-  it("renders the project ai chat icon before the overview icon by default", () => {
+  it("maps legacy ProjectConfigs tab selection into the View Modes internal pane", () => {
+    const viewId = "view-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: viewId,
+      viewModes: {
+        [viewId]: {
+          id: viewId,
+          name: "Default View",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: false,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+      },
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+    });
+    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ProjectConfigs });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useLocalStorage);
+
     const markup = renderToStaticMarkup(
       <MemoryRouter>
         <Overview />
       </MemoryRouter>,
     );
 
-    const chatIndex = markup.indexOf('data-testid="overview-tab-project-ai-chat"');
-    const overviewIndex = markup.indexOf('data-testid="overview-tab-overview"');
-
-    expect(chatIndex).toBeGreaterThanOrEqual(0);
-    expect(overviewIndex).toBeGreaterThanOrEqual(0);
-    expect(chatIndex).toBeLessThan(overviewIndex);
+    expect(markup).toContain("View Modes");
+    expect(markup).toContain("data-pane=\"projectConfigs\"");
+    expect(markup).toContain("aria-pressed=\"true\"");
+    expect(markup).toContain("Toggle config previews.");
   });
 });
