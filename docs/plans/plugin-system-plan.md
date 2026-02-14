@@ -1123,6 +1123,10 @@ Guardrails:
 
 ## Testing Strategy
 
+Cross-layer requirement:
+
+- Add unit, integration, and Playwright tests that simulate creating real plugins and verify the plugins actually work (registration, rendering, commands/panes, lifecycle, and fallback behavior).
+
 Backend:
 
 - Unit tests for manifest parsing and directory scanning using temp directories.
