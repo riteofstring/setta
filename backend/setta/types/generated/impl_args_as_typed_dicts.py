@@ -40,6 +40,7 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    CalendarWeekStart,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -49,6 +50,9 @@ from setta.types.section_impls import (
     PromptFormat,
     SectionSize,
     SectionType,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -68,6 +72,7 @@ class CoreArgs(TypedDict):
                 "actionMode",
                 "activeBranchId",
                 "activeLayerIdx",
+                "activeSheet",
                 "agentProfileId",
                 "allowUnquotedStringArgs",
                 "aspectRatio",
@@ -91,6 +96,7 @@ class CoreArgs(TypedDict):
                 "codeObjVariantMap",
                 "colorChoices",
                 "columnWidth",
+                "columns",
                 "configLanguage",
                 "coreNameEditable",
                 "coreNameType",
@@ -105,6 +111,7 @@ class CoreArgs(TypedDict):
                 "edgeOutputPorts",
                 "engineConfigId",
                 "eraserBrushSize",
+                "filePath",
                 "folder",
                 "format",
                 "hasSecret",
@@ -153,17 +160,22 @@ class CoreArgs(TypedDict):
                 "requestMethod",
                 "requestUrl",
                 "savedSearches",
+                "selectedDateIso",
                 "selectedParams",
+                "showDate",
+                "showSeconds",
                 "showSectionTitle",
                 "size",
                 "step",
                 "styleColor",
                 "tagColor",
+                "tasks",
                 "template",
                 "text",
                 "textDisplayMode",
                 "thinking",
                 "timeDisplayFormat",
+                "timezone",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
@@ -174,6 +186,7 @@ class CoreArgs(TypedDict):
                 "value",
                 "viewMode",
                 "waitingForResponse",
+                "weekStartsOn",
             ]
         ]
     ]
@@ -717,6 +730,86 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         list[BrowserSavedSearch]
         | Callable[[list[BrowserSavedSearch]], list[BrowserSavedSearch]]
     ]
+
+
+class ClockSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Clock]]
+    timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    dateDisplayFormat: NotRequired[DateDisplayFormat]
+    showSeconds: NotRequired[bool]
+    showDate: NotRequired[bool]
+    timezone: NotRequired[str]
+
+
+class ClockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Clock]
+        | Callable[[Literal[SectionType.Clock]], Literal[SectionType.Clock]]
+    ]
+    timeDisplayFormat: NotRequired[
+        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
+    ]
+    dateDisplayFormat: NotRequired[
+        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
+    ]
+    showSeconds: NotRequired[bool | Callable[[bool], bool]]
+    showDate: NotRequired[bool | Callable[[bool], bool]]
+    timezone: NotRequired[str | Callable[[str], str]]
+
+
+class CalendarSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Calendar]]
+    selectedDateIso: NotRequired[str]
+    weekStartsOn: NotRequired[CalendarWeekStart]
+
+
+class CalendarSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Calendar]
+        | Callable[[Literal[SectionType.Calendar]], Literal[SectionType.Calendar]]
+    ]
+    selectedDateIso: NotRequired[str | Callable[[str], str]]
+    weekStartsOn: NotRequired[
+        CalendarWeekStart | Callable[[CalendarWeekStart], CalendarWeekStart]
+    ]
+
+
+class TaskBoardSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.TaskBoard]]
+    viewMode: NotRequired[TaskBoardViewMode]
+    columns: NotRequired[list[TaskBoardColumn]]
+    tasks: NotRequired[list[TaskBoardTask]]
+
+
+class TaskBoardSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.TaskBoard]
+        | Callable[[Literal[SectionType.TaskBoard]], Literal[SectionType.TaskBoard]]
+    ]
+    viewMode: NotRequired[
+        TaskBoardViewMode | Callable[[TaskBoardViewMode], TaskBoardViewMode]
+    ]
+    columns: NotRequired[
+        list[TaskBoardColumn] | Callable[[list[TaskBoardColumn]], list[TaskBoardColumn]]
+    ]
+    tasks: NotRequired[
+        list[TaskBoardTask] | Callable[[list[TaskBoardTask]], list[TaskBoardTask]]
+    ]
+
+
+class SpreadsheetSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Spreadsheet]]
+    filePath: NotRequired[str]
+    activeSheet: NotRequired[str | None]
+
+
+class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Spreadsheet]
+        | Callable[[Literal[SectionType.Spreadsheet]], Literal[SectionType.Spreadsheet]]
+    ]
+    filePath: NotRequired[str | Callable[[str], str]]
+    activeSheet: NotRequired[str | None | Callable[[str | None], str | None]]
 
 
 class BaseCodeObjImplArgs(TypedDict):

@@ -109,6 +109,8 @@ from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
     ListRootViewMode,
+    CalendarWeekStart,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     PromptFormat,
@@ -121,6 +123,8 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
     CodeSectionDiagnosticsIgnoreState,
     ChatSectionBranch,
+    TaskBoardColumn,
+    TaskBoardTask,
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,

@@ -4,9 +4,11 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.section_impls import (
     BrowserSectionImpl,
+    CalendarSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
     ChatSectionImpl,
+    ClockSectionImpl,
     CodeSectionImpl,
     DictSectionImpl,
     DrawSectionImpl,
@@ -20,6 +22,8 @@ from setta.types.section_impls import (
     MetaControlSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
+    SpreadsheetSectionImpl,
+    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -44,6 +48,10 @@ BaseSectionImplUnion = (
     | IFrameSectionImpl
     | ChatSectionImpl
     | BrowserSectionImpl
+    | ClockSectionImpl
+    | CalendarSectionImpl
+    | TaskBoardSectionImpl
+    | SpreadsheetSectionImpl
 )
 
 BaseSectionImplUnionWithDiscriminator = Annotated[
@@ -73,6 +81,10 @@ BaseSectionImplTypeSet = set(
         "IFrame",
         "Chat",
         "Browser",
+        "Clock",
+        "Calendar",
+        "TaskBoard",
+        "Spreadsheet",
     ]
 )
 
@@ -300,9 +312,11 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
+    CalendarSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
+    ClockSectionImplArgs,
     CodeSectionImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
@@ -316,6 +330,8 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
+    SpreadsheetSectionImplArgs,
+    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
 )
@@ -340,6 +356,10 @@ BaseSectionImplArgsUnion = (
     | IFrameSectionImplArgs
     | ChatSectionImplArgs
     | BrowserSectionImplArgs
+    | ClockSectionImplArgs
+    | CalendarSectionImplArgs
+    | TaskBoardSectionImplArgs
+    | SpreadsheetSectionImplArgs
 )
 
 BaseSectionImplArgsUnionWithDiscriminator = Annotated[
@@ -369,6 +389,10 @@ BaseSectionImplArgsTypeSet = set(
         "IFrame",
         "Chat",
         "Browser",
+        "Clock",
+        "Calendar",
+        "TaskBoard",
+        "Spreadsheet",
     ]
 )
 

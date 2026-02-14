@@ -12,7 +12,11 @@ from setta.types.artifact import (
     DrawAreaMode,
     LineChartSettings,
 )
-from setta.types.code_obj_impls import ColorPickerChoice
+from setta.types.code_obj_impls import (
+    ColorPickerChoice,
+    DateDisplayFormat,
+    TimeDisplayFormat,
+)
 from setta.types.edges import EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
@@ -43,6 +47,10 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
+    Clock = "Clock"
+    Calendar = "Calendar"
+    TaskBoard = "TaskBoard"
+    Spreadsheet = "Spreadsheet"
 
 
 class SectionSizeMode(str, Enum):
@@ -115,6 +123,11 @@ class BrowserSearchScope(str, Enum):
     local = "local"
 
 
+class TaskBoardViewMode(str, Enum):
+    task_list = "task_list"
+    kanban = "kanban"
+
+
 class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
     image: bool = True
     video: bool = True
@@ -148,6 +161,23 @@ class BrowserAreaItem(BaseModel, extra="forbid"):
     id: str
     type: Any
     lastModified: datetime
+
+
+class TaskBoardColumn(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str = ""
+    color: str = "#3b82f6"
+    sortIndex: int = 0
+
+
+class TaskBoardTask(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    title: str = ""
+    description: str = ""
+    completed: bool = False
+    columnId: ID | None = None
+    dueDateIso: str = ""
+    sortIndex: int = 0
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
@@ -388,3 +418,54 @@ class BrowserSectionImpl(BaseSectionImpl):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
+
+
+class ClockSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Clock] = SectionType.Clock
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=320.0, height=170.0)
+    )
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.long
+    showSeconds: bool = True
+    showDate: bool = True
+    timezone: str = "local"
+
+
+class CalendarWeekStart(str, Enum):
+    sunday = "sunday"
+    monday = "monday"
+
+
+class CalendarSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Calendar] = SectionType.Calendar
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=420.0, height=360.0)
+    )
+    selectedDateIso: str = ""
+    weekStartsOn: CalendarWeekStart = CalendarWeekStart.sunday
+
+
+class TaskBoardSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.TaskBoard] = SectionType.TaskBoard
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=720.0, height=430.0)
+    )
+    viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
+    columns: list[TaskBoardColumn] = Field(
+        default_factory=lambda: [
+            TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
+            TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
+            TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
+        ]
+    )
+    tasks: list[TaskBoardTask] = Field(default_factory=list)
+
+
+class SpreadsheetSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Spreadsheet] = SectionType.Spreadsheet
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=760.0, height=500.0)
+    )
+    filePath: str = ""
+    activeSheet: str | None = None

@@ -118,13 +118,17 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
     BrowserSectionImpl,
+    CalendarSectionImpl,
+    CalendarWeekStart,
     CallableSectionImpl,
     ChatSectionImpl,
     ChatSectionState,
+    ClockSectionImpl,
     CodeFileBinding,
     CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
     ConfigLanguage,
+    DateDisplayFormat,
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
@@ -135,10 +139,16 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SpreadsheetSectionImpl,
+    TaskBoardColumn,
+    TaskBoardSectionImpl,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TerminalSectionImpl,
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
+    TimeDisplayFormat,
     TypeErrorIgnoreState,
 )
 from setta.utils.errors import InvalidSectionName
@@ -2422,6 +2432,98 @@ def set_list_root_view_mode(
         p,
         sectionId,
         ListRootSectionImplArgsWithCallable(viewMode=viewMode),
+    )
+
+
+def set_clock_section_settings(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    timeDisplayFormat: TimeDisplayFormat,
+    dateDisplayFormat: DateDisplayFormat,
+    showSeconds: bool,
+    showDate: bool,
+    timezone: str,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ClockSectionImpl)
+    resolved_timezone = timezone.strip() or "local"
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "timeDisplayFormat": timeDisplayFormat,
+            "dateDisplayFormat": dateDisplayFormat,
+            "showSeconds": showSeconds,
+            "showDate": showDate,
+            "timezone": resolved_timezone,
+        },
+    )
+
+
+def set_calendar_section_settings(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    selectedDateIso: str,
+    weekStartsOn: CalendarWeekStart,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, CalendarSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "selectedDateIso": selectedDateIso.strip(),
+            "weekStartsOn": weekStartsOn,
+        },
+    )
+
+
+def set_task_board_section_state(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    viewMode: TaskBoardViewMode,
+    columns: list[TaskBoardColumn],
+    tasks: list[TaskBoardTask],
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, TaskBoardSectionImpl)
+    normalized_columns: list[TaskBoardColumn] = []
+    seen_column_ids: set[ID] = set()
+    for column in columns:
+        if column.id in seen_column_ids:
+            continue
+        seen_column_ids.add(column.id)
+        normalized_columns.append(column.model_copy(deep=True))
+    normalized_tasks: list[TaskBoardTask] = []
+    for task in tasks:
+        normalized = task.model_copy(deep=True)
+        if normalized.columnId not in seen_column_ids:
+            normalized.columnId = None
+        normalized_tasks.append(normalized)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "viewMode": viewMode,
+            "columns": normalized_columns,
+            "tasks": normalized_tasks,
+        },
+    )
+
+
+def set_spreadsheet_file_path(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    filePath: str,
+    activeSheet: str | None,
+):
+    get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, SpreadsheetSectionImpl
+    )
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        {
+            "filePath": filePath.strip(),
+            "activeSheet": activeSheet,
+        },
     )
 
 

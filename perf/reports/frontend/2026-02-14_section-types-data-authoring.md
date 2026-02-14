@@ -135,3 +135,49 @@ Command:
 Result:
 - `4 passed`
 - Includes bottom-pane placement assertion (preview pane Y-position below list pane) plus CSV/XLSX/PDF preview path checks in the unified pane.
+
+## 2026-02-14 Follow-up: Dedicated Clock/Calendar/TaskBoard/Spreadsheet Sections + Resizable Preview Pane
+
+### Scope
+- Added dedicated section renderers and section-config panels for:
+  - `Clock`
+  - `Calendar`
+  - `TaskBoard`
+  - `Spreadsheet`
+- Added explorer-file-browser universal preview controls:
+  - Bottom-pane resize handle.
+  - Preview pane minimize/expand toggle.
+
+### Automated Performance Tests
+Command:
+```bash
+pnpm -C frontend exec vitest run \
+  src/utils/sectionTypesDataAuthoring.performance.test.ts \
+  src/utils/spreadsheet.perf.test.ts \
+  src/state/actions/sectionInfos.listRootViewMode.perf.test.ts \
+  src/utils/calendarGrid.perf.test.ts \
+  src/utils/taskBoard.perf.test.ts
+```
+
+Result:
+- `5 files passed`, `6 tests passed`.
+- Guardrails exercised:
+  - calendar month-grid generation loop within budget.
+  - task-board lane normalization/grouping within budget.
+  - previously established section-type/list-root/spreadsheet perf budgets remained passing.
+
+### Playwright Verification
+Commands:
+```bash
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-carousel-spreadsheet-preview.spec.ts
+```
+
+Result:
+- `section-types-data-authoring.spec.ts`: `5 passed`
+  - Includes dedicated section visibility + interaction checks for clock/calendar/task-board/spreadsheet.
+  - Includes bottom-preview resize and minimize/expand behavior checks.
+- `browser-carousel-spreadsheet-preview.spec.ts`: `1 passed`
+
+### DevTools MCP Profiling
+- Attempted to run `chrome-devtools-mcp` profiling, but MCP transport was unavailable in this session (`Transport closed`), so no new trace artifact was captured for this follow-up run.

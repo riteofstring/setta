@@ -213,9 +213,11 @@ export const BaseParentSectionImplTypeSet = new Set([
 
 export const BaseSectionImplArgsTypeSet = new Set([
   "Browser",
+  "Calendar",
   "Callable",
   "Chart",
   "Chat",
+  "Clock",
   "Code",
   "Dict",
   "Draw",
@@ -229,15 +231,19 @@ export const BaseSectionImplArgsTypeSet = new Set([
   "MetaControl",
   "Prompt",
   "Social",
+  "Spreadsheet",
+  "TaskBoard",
   "Terminal",
   "TextBlock",
 ]);
 
 export const BaseSectionImplTypeSet = new Set([
   "Browser",
+  "Calendar",
   "Callable",
   "Chart",
   "Chat",
+  "Clock",
   "Code",
   "Dict",
   "Draw",
@@ -251,6 +257,8 @@ export const BaseSectionImplTypeSet = new Set([
   "MetaControl",
   "Prompt",
   "Social",
+  "Spreadsheet",
+  "TaskBoard",
   "Terminal",
   "TextBlock",
 ]);
@@ -571,6 +579,10 @@ export const SectionTypeEnum = {
   IFrame: "IFrame",
   Chat: "Chat",
   Browser: "Browser",
+  Clock: "Clock",
+  Calendar: "Calendar",
+  TaskBoard: "TaskBoard",
+  Spreadsheet: "Spreadsheet",
 } as const;
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
@@ -650,6 +662,13 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
+export const CalendarWeekStartEnum = {
+  sunday: "sunday",
+  monday: "monday",
+} as const;
+
+export type CalendarWeekStart = ObjectValues<typeof CalendarWeekStartEnum>;
+
 export const CodeLanguageEnum = {
   python: "python",
   bash: "bash",
@@ -678,6 +697,13 @@ export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
 export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
 export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
 
 export const TextBlockDisplayModeEnum = {
   Render: "Render",
@@ -998,6 +1024,10 @@ export const RouteEnum = {
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
   SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
+  SET_CLOCK_SECTION_SETTINGS: "/setClockSectionSettings",
+  SET_CALENDAR_SECTION_SETTINGS: "/setCalendarSectionSettings",
+  SET_TASK_BOARD_SECTION_STATE: "/setTaskBoardSectionState",
+  SET_SPREADSHEET_FILE_PATH: "/setSpreadsheetFilePath",
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
@@ -2286,6 +2316,7 @@ export const AllImplFieldsSchema = z.literal([
   "actionMode",
   "activeBranchId",
   "activeLayerIdx",
+  "activeSheet",
   "agentProfileId",
   "allowUnquotedStringArgs",
   "aspectRatio",
@@ -2309,6 +2340,7 @@ export const AllImplFieldsSchema = z.literal([
   "codeObjVariantMap",
   "colorChoices",
   "columnWidth",
+  "columns",
   "configLanguage",
   "coreNameEditable",
   "coreNameType",
@@ -2323,6 +2355,7 @@ export const AllImplFieldsSchema = z.literal([
   "edgeOutputPorts",
   "engineConfigId",
   "eraserBrushSize",
+  "filePath",
   "folder",
   "format",
   "hasSecret",
@@ -2371,17 +2404,22 @@ export const AllImplFieldsSchema = z.literal([
   "requestMethod",
   "requestUrl",
   "savedSearches",
+  "selectedDateIso",
   "selectedParams",
+  "showDate",
+  "showSeconds",
   "showSectionTitle",
   "size",
   "step",
   "styleColor",
   "tagColor",
+  "tasks",
   "template",
   "text",
   "textDisplayMode",
   "thinking",
   "timeDisplayFormat",
+  "timezone",
   "toolCallArguments",
   "topLevelParamId",
   "type",
@@ -2392,6 +2430,7 @@ export const AllImplFieldsSchema = z.literal([
   "value",
   "viewMode",
   "waitingForResponse",
+  "weekStartsOn",
 ]);
 
 export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
@@ -2620,6 +2659,23 @@ export function createColorPickerChoice(
   return ColorPickerChoiceSchema.parse(options);
 }
 
+export const TaskBoardColumnSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string().default("" as const),
+  color: z.string().default("#3b82f6" as const),
+  sortIndex: z.int().default(0),
+});
+
+export type TaskBoardColumn = z.infer<typeof TaskBoardColumnSchema>;
+
+export type TaskBoardColumnInput = z.input<typeof TaskBoardColumnSchema>;
+
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  return TaskBoardColumnSchema.parse(options);
+}
+
 export const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
   muted: z.boolean().default(false),
   suppressedCodes: z.array(z.union([z.string(), z.int()])).default([]),
@@ -2769,10 +2825,31 @@ export function createSectionSize(
   return SectionSizeSchema.parse(options);
 }
 
+export const TaskBoardTaskSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  title: z.string().default("" as const),
+  description: z.string().default("" as const),
+  completed: z.boolean().default(false),
+  columnId: z.union([IDSchema, z.null()]).default(null),
+  dueDateIso: z.string().default("" as const),
+  sortIndex: z.int().default(0),
+});
+
+export type TaskBoardTask = z.infer<typeof TaskBoardTaskSchema>;
+
+export type TaskBoardTaskInput = z.input<typeof TaskBoardTaskSchema>;
+
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  return TaskBoardTaskSchema.parse(options);
+}
+
 export const SharedModifierSchema = z.object({
   actionMode: z.enum(ButtonActionModeEnum).optional(),
   activeBranchId: z.union([IDSchema, z.null()]).optional(),
   activeLayerIdx: z.int().optional(),
+  activeSheet: z.union([z.string(), z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   allowUnquotedStringArgs: z.boolean().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
@@ -2798,6 +2875,7 @@ export const SharedModifierSchema = z.object({
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
+  columns: z.array(TaskBoardColumnSchema).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -2812,6 +2890,7 @@ export const SharedModifierSchema = z.object({
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
   engineConfigId: z.union([IDSchema, z.null()]).optional(),
   eraserBrushSize: z.int().optional(),
+  filePath: z.string().optional(),
   folder: z.string().optional(),
   format: z
     .union([z.enum(PromptFormatEnum), z.enum(TextBlockFormatEnum)])
@@ -2871,17 +2950,22 @@ export const SharedModifierSchema = z.object({
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
   savedSearches: z.array(BrowserSavedSearchSchema).optional(),
+  selectedDateIso: z.string().optional(),
   selectedParams: z.array(IDSchema).optional(),
+  showDate: z.boolean().optional(),
+  showSeconds: z.boolean().optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
   styleColor: z.union([z.string(), z.null()]).optional(),
   tagColor: z.union([z.string(), z.null()]).optional(),
+  tasks: z.array(TaskBoardTaskSchema).optional(),
   template: z.string().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   thinking: z.boolean().optional(),
   timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
+  timezone: z.string().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   typeAnnotation: z.string().optional(),
@@ -2890,9 +2974,14 @@ export const SharedModifierSchema = z.object({
   url: z.string().optional(),
   value: z.string().optional(),
   viewMode: z
-    .union([z.enum(BrowserAreaViewModeEnum), z.enum(ListRootViewModeEnum)])
+    .union([
+      z.enum(BrowserAreaViewModeEnum),
+      z.enum(ListRootViewModeEnum),
+      z.enum(TaskBoardViewModeEnum),
+    ])
     .optional(),
   waitingForResponse: z.boolean().optional(),
+  weekStartsOn: z.enum(CalendarWeekStartEnum).optional(),
 });
 
 export type SharedModifier = z.infer<typeof SharedModifierSchema>;
@@ -2918,6 +3007,7 @@ export const CoreSchema = z.object({
         "actionMode",
         "activeBranchId",
         "activeLayerIdx",
+        "activeSheet",
         "agentProfileId",
         "allowUnquotedStringArgs",
         "aspectRatio",
@@ -2941,6 +3031,7 @@ export const CoreSchema = z.object({
         "codeObjVariantMap",
         "colorChoices",
         "columnWidth",
+        "columns",
         "configLanguage",
         "coreNameEditable",
         "coreNameType",
@@ -2955,6 +3046,7 @@ export const CoreSchema = z.object({
         "edgeOutputPorts",
         "engineConfigId",
         "eraserBrushSize",
+        "filePath",
         "folder",
         "format",
         "hasSecret",
@@ -3003,17 +3095,22 @@ export const CoreSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
+        "selectedDateIso",
         "selectedParams",
+        "showDate",
+        "showSeconds",
         "showSectionTitle",
         "size",
         "step",
         "styleColor",
         "tagColor",
+        "tasks",
         "template",
         "text",
         "textDisplayMode",
         "thinking",
         "timeDisplayFormat",
+        "timezone",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -3024,6 +3121,7 @@ export const CoreSchema = z.object({
         "value",
         "viewMode",
         "waitingForResponse",
+        "weekStartsOn",
       ]),
     )
     .default(() => [
@@ -3758,6 +3856,171 @@ export function createBrowserSectionImpl(
   return BrowserSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
+export const ClockSectionImplSchema = z.object({
+  type: z.literal("Clock").default(SectionTypeEnum.Clock),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 320.0, height: 170.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  timeDisplayFormat: z
+    .enum(TimeDisplayFormatEnum)
+    .default(TimeDisplayFormatEnum.twenty_four_hour),
+  dateDisplayFormat: z
+    .enum(DateDisplayFormatEnum)
+    .default(DateDisplayFormatEnum.long),
+  showSeconds: z.boolean().default(true),
+  showDate: z.boolean().default(true),
+  timezone: z.string().default("local" as const),
+});
+
+export type ClockSectionImpl = z.infer<typeof ClockSectionImplSchema>;
+
+export type ClockSectionImplInput = z.input<typeof ClockSectionImplSchema>;
+
+export function createClockSectionImpl(
+  defaults: UserDefaultClockSectionImpl,
+  overrides: Partial<ClockSectionImpl> = {},
+): ClockSectionImpl {
+  return ClockSectionImplSchema.parse({ ...defaults, ...overrides });
+}
+
+export const CalendarSectionImplSchema = z.object({
+  type: z.literal("Calendar").default(SectionTypeEnum.Calendar),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 420.0, height: 360.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  selectedDateIso: z.string().default("" as const),
+  weekStartsOn: z
+    .enum(CalendarWeekStartEnum)
+    .default(CalendarWeekStartEnum.sunday),
+});
+
+export type CalendarSectionImpl = z.infer<typeof CalendarSectionImplSchema>;
+
+export type CalendarSectionImplInput = z.input<
+  typeof CalendarSectionImplSchema
+>;
+
+export function createCalendarSectionImpl(
+  defaults: UserDefaultCalendarSectionImpl,
+  overrides: Partial<CalendarSectionImpl> = {},
+): CalendarSectionImpl {
+  return CalendarSectionImplSchema.parse({ ...defaults, ...overrides });
+}
+
+export const TaskBoardSectionImplSchema = z.object({
+  type: z.literal("TaskBoard").default(SectionTypeEnum.TaskBoard),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 720.0, height: 430.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
+  columns: z
+    .array(TaskBoardColumnSchema)
+    .default(() => [
+      createTaskBoardColumn({
+        id: "e11ec97a-1ea4-4f9e-9f64-0e3c8e34abba" as const,
+        name: "Todo" as const,
+      }),
+      createTaskBoardColumn({
+        id: "5759a8da-bd37-4035-8aa4-08f8abe7788e" as const,
+        name: "Doing" as const,
+        color: "#a855f7" as const,
+        sortIndex: 1,
+      }),
+      createTaskBoardColumn({
+        id: "ef95b2af-27a6-4c6e-9945-299da4a724bf" as const,
+        name: "Done" as const,
+        color: "#10b981" as const,
+        sortIndex: 2,
+      }),
+    ]),
+  tasks: z.array(TaskBoardTaskSchema).default([]),
+});
+
+export type TaskBoardSectionImpl = z.infer<typeof TaskBoardSectionImplSchema>;
+
+export type TaskBoardSectionImplInput = z.input<
+  typeof TaskBoardSectionImplSchema
+>;
+
+export function createTaskBoardSectionImpl(
+  defaults: UserDefaultTaskBoardSectionImpl,
+  overrides: Partial<TaskBoardSectionImpl> = {},
+): TaskBoardSectionImpl {
+  return TaskBoardSectionImplSchema.parse({ ...defaults, ...overrides });
+}
+
+export const SpreadsheetSectionImplSchema = z.object({
+  type: z.literal("Spreadsheet").default(SectionTypeEnum.Spreadsheet),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  isFrozen: z.boolean().default(false),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 760.0, height: 500.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+  filePath: z.string().default("" as const),
+  activeSheet: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SpreadsheetSectionImpl = z.infer<
+  typeof SpreadsheetSectionImplSchema
+>;
+
+export type SpreadsheetSectionImplInput = z.input<
+  typeof SpreadsheetSectionImplSchema
+>;
+
+export function createSpreadsheetSectionImpl(
+  defaults: UserDefaultSpreadsheetSectionImpl,
+  overrides: Partial<SpreadsheetSectionImpl> = {},
+): SpreadsheetSectionImpl {
+  return SpreadsheetSectionImplSchema.parse({ ...defaults, ...overrides });
+}
+
 export const VariantSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -4221,6 +4484,10 @@ export const ProjectStateCoreSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
+        ClockSectionImplSchema,
+        CalendarSectionImplSchema,
+        TaskBoardSectionImplSchema,
+        SpreadsheetSectionImplSchema,
       ]),
     )
     .default({}),
@@ -4621,6 +4888,10 @@ export const BaseSectionImplUnionSchema = z.union([
   IFrameSectionImplSchema,
   ChatSectionImplSchema,
   BrowserSectionImplSchema,
+  ClockSectionImplSchema,
+  CalendarSectionImplSchema,
+  TaskBoardSectionImplSchema,
+  SpreadsheetSectionImplSchema,
 ]);
 
 export type BaseSectionImplUnion = z.infer<typeof BaseSectionImplUnionSchema>;
@@ -6248,6 +6519,140 @@ export function createBrowserSectionImplArgs(
   return BrowserSectionImplArgsSchema.parse(options);
 }
 
+export const ClockSectionImplArgsSchema = z.object({
+  type: z.literal("Clock").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
+  dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
+  showSeconds: z.boolean().optional(),
+  showDate: z.boolean().optional(),
+  timezone: z.string().optional(),
+});
+
+export type ClockSectionImplArgs = z.infer<typeof ClockSectionImplArgsSchema>;
+
+export type ClockSectionImplArgsInput = z.input<
+  typeof ClockSectionImplArgsSchema
+>;
+
+export function createClockSectionImplArgs(
+  options: Partial<ClockSectionImplArgs> = {},
+): ClockSectionImplArgs {
+  return ClockSectionImplArgsSchema.parse(options);
+}
+
+export const CalendarSectionImplArgsSchema = z.object({
+  type: z.literal("Calendar").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  selectedDateIso: z.string().optional(),
+  weekStartsOn: z.enum(CalendarWeekStartEnum).optional(),
+});
+
+export type CalendarSectionImplArgs = z.infer<
+  typeof CalendarSectionImplArgsSchema
+>;
+
+export type CalendarSectionImplArgsInput = z.input<
+  typeof CalendarSectionImplArgsSchema
+>;
+
+export function createCalendarSectionImplArgs(
+  options: Partial<CalendarSectionImplArgs> = {},
+): CalendarSectionImplArgs {
+  return CalendarSectionImplArgsSchema.parse(options);
+}
+
+export const TaskBoardSectionImplArgsSchema = z.object({
+  type: z.literal("TaskBoard").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  viewMode: z.enum(TaskBoardViewModeEnum).optional(),
+  columns: z.array(TaskBoardColumnSchema).optional(),
+  tasks: z.array(TaskBoardTaskSchema).optional(),
+});
+
+export type TaskBoardSectionImplArgs = z.infer<
+  typeof TaskBoardSectionImplArgsSchema
+>;
+
+export type TaskBoardSectionImplArgsInput = z.input<
+  typeof TaskBoardSectionImplArgsSchema
+>;
+
+export function createTaskBoardSectionImplArgs(
+  options: Partial<TaskBoardSectionImplArgs> = {},
+): TaskBoardSectionImplArgs {
+  return TaskBoardSectionImplArgsSchema.parse(options);
+}
+
+export const SpreadsheetSectionImplArgsSchema = z.object({
+  type: z.literal("Spreadsheet").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  filePath: z.string().optional(),
+  activeSheet: z.union([z.string(), z.null()]).optional(),
+});
+
+export type SpreadsheetSectionImplArgs = z.infer<
+  typeof SpreadsheetSectionImplArgsSchema
+>;
+
+export type SpreadsheetSectionImplArgsInput = z.input<
+  typeof SpreadsheetSectionImplArgsSchema
+>;
+
+export function createSpreadsheetSectionImplArgs(
+  options: Partial<SpreadsheetSectionImplArgs> = {},
+): SpreadsheetSectionImplArgs {
+  return SpreadsheetSectionImplArgsSchema.parse(options);
+}
+
 export const BaseSectionImplArgsUnionSchema = z.union([
   CallableSectionImplArgsSchema,
   DictSectionImplArgsSchema,
@@ -6268,6 +6673,10 @@ export const BaseSectionImplArgsUnionSchema = z.union([
   IFrameSectionImplArgsSchema,
   ChatSectionImplArgsSchema,
   BrowserSectionImplArgsSchema,
+  ClockSectionImplArgsSchema,
+  CalendarSectionImplArgsSchema,
+  TaskBoardSectionImplArgsSchema,
+  SpreadsheetSectionImplArgsSchema,
 ]);
 
 export type BaseSectionImplArgsUnion = z.infer<
@@ -6299,6 +6708,10 @@ export const BaseSectionImplArgsUnionWithDiscriminatorSchema =
     IFrameSectionImplArgsSchema,
     ChatSectionImplArgsSchema,
     BrowserSectionImplArgsSchema,
+    ClockSectionImplArgsSchema,
+    CalendarSectionImplArgsSchema,
+    TaskBoardSectionImplArgsSchema,
+    SpreadsheetSectionImplArgsSchema,
   ]);
 
 export type BaseSectionImplArgsUnionWithDiscriminator = z.infer<
@@ -6337,6 +6750,10 @@ export const BaseSectionImplUnionWithDiscriminatorSchema = z.discriminatedUnion(
     IFrameSectionImplSchema,
     ChatSectionImplSchema,
     BrowserSectionImplSchema,
+    ClockSectionImplSchema,
+    CalendarSectionImplSchema,
+    TaskBoardSectionImplSchema,
+    SpreadsheetSectionImplSchema,
   ],
 );
 
@@ -7174,6 +7591,10 @@ export const SectionCodegenPolicySchema = z.object({
         representation: SectionRepresentationModeEnum.file_read,
       }),
       Browser: createSectionTypeCodegenPolicy(),
+      Clock: createSectionTypeCodegenPolicy(),
+      Calendar: createSectionTypeCodegenPolicy(),
+      TaskBoard: createSectionTypeCodegenPolicy(),
+      Spreadsheet: createSectionTypeCodegenPolicy(),
     })),
   sectionOverrides: z
     .record(IDSchema, SectionCodegenOverrideSchema)
@@ -7511,6 +7932,10 @@ export const ProjectStateSingleConfigSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
+        ClockSectionImplSchema,
+        CalendarSectionImplSchema,
+        TaskBoardSectionImplSchema,
+        SpreadsheetSectionImplSchema,
       ]),
     )
     .default({}),
@@ -8225,6 +8650,36 @@ export function createUserDefaultBrowserSectionImpl(
   return UserDefaultBrowserSectionImplSchema.parse(options);
 }
 
+export const UserDefaultCalendarSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 420.0, height: 360.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  selectedDateIso: z.string().default("" as const),
+  weekStartsOn: z
+    .enum(CalendarWeekStartEnum)
+    .default(CalendarWeekStartEnum.sunday),
+});
+
+export type UserDefaultCalendarSectionImpl = z.infer<
+  typeof UserDefaultCalendarSectionImplSchema
+>;
+
+export type UserDefaultCalendarSectionImplInput = z.input<
+  typeof UserDefaultCalendarSectionImplSchema
+>;
+
+export function createUserDefaultCalendarSectionImpl(
+  options: Partial<UserDefaultCalendarSectionImpl> = {},
+): UserDefaultCalendarSectionImpl {
+  return UserDefaultCalendarSectionImplSchema.parse(options);
+}
+
 export const UserDefaultCallableSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   tagColor: z.union([z.string(), z.null()]).default(null),
@@ -8328,6 +8783,41 @@ export function createUserDefaultChatSectionImpl(
   options: Partial<UserDefaultChatSectionImpl> = {},
 ): UserDefaultChatSectionImpl {
   return UserDefaultChatSectionImplSchema.parse(options);
+}
+
+export const UserDefaultClockSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 320.0, height: 170.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  timeDisplayFormat: z
+    .enum(TimeDisplayFormatEnum)
+    .default(TimeDisplayFormatEnum.twenty_four_hour),
+  dateDisplayFormat: z
+    .enum(DateDisplayFormatEnum)
+    .default(DateDisplayFormatEnum.long),
+  showSeconds: z.boolean().default(true),
+  showDate: z.boolean().default(true),
+  timezone: z.string().default("local" as const),
+});
+
+export type UserDefaultClockSectionImpl = z.infer<
+  typeof UserDefaultClockSectionImplSchema
+>;
+
+export type UserDefaultClockSectionImplInput = z.input<
+  typeof UserDefaultClockSectionImplSchema
+>;
+
+export function createUserDefaultClockSectionImpl(
+  options: Partial<UserDefaultClockSectionImpl> = {},
+): UserDefaultClockSectionImpl {
+  return UserDefaultClockSectionImplSchema.parse(options);
 }
 
 export const UserDefaultCodeSectionImplSchema = z.object({
@@ -8706,6 +9196,82 @@ export function createUserDefaultSocialSectionImpl(
   options: Partial<UserDefaultSocialSectionImpl> = {},
 ): UserDefaultSocialSectionImpl {
   return UserDefaultSocialSectionImplSchema.parse(options);
+}
+
+export const UserDefaultSpreadsheetSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 760.0, height: 500.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  filePath: z.string().default("" as const),
+  activeSheet: z.union([z.string(), z.null()]).default(null),
+});
+
+export type UserDefaultSpreadsheetSectionImpl = z.infer<
+  typeof UserDefaultSpreadsheetSectionImplSchema
+>;
+
+export type UserDefaultSpreadsheetSectionImplInput = z.input<
+  typeof UserDefaultSpreadsheetSectionImplSchema
+>;
+
+export function createUserDefaultSpreadsheetSectionImpl(
+  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
+): UserDefaultSpreadsheetSectionImpl {
+  return UserDefaultSpreadsheetSectionImplSchema.parse(options);
+}
+
+export const UserDefaultTaskBoardSectionImplSchema = z.object({
+  isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 720.0, height: 430.0 }),
+  ),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
+  columns: z
+    .array(TaskBoardColumnSchema)
+    .default(() => [
+      createTaskBoardColumn({
+        id: "49c2ed1c-6651-4e73-85bd-45b2f9074708" as const,
+        name: "Todo" as const,
+      }),
+      createTaskBoardColumn({
+        id: "8ff29fa6-f153-4e5f-a27a-3588921b52d1" as const,
+        name: "Doing" as const,
+        color: "#a855f7" as const,
+        sortIndex: 1,
+      }),
+      createTaskBoardColumn({
+        id: "1b47dade-86f7-4c11-b54d-84354e4a1ebd" as const,
+        name: "Done" as const,
+        color: "#10b981" as const,
+        sortIndex: 2,
+      }),
+    ]),
+  tasks: z.array(TaskBoardTaskSchema).default([]),
+});
+
+export type UserDefaultTaskBoardSectionImpl = z.infer<
+  typeof UserDefaultTaskBoardSectionImplSchema
+>;
+
+export type UserDefaultTaskBoardSectionImplInput = z.input<
+  typeof UserDefaultTaskBoardSectionImplSchema
+>;
+
+export function createUserDefaultTaskBoardSectionImpl(
+  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
+): UserDefaultTaskBoardSectionImpl {
+  return UserDefaultTaskBoardSectionImplSchema.parse(options);
 }
 
 export const UserDefaultTerminalSectionImplSchema = z.object({
@@ -9098,6 +9664,9 @@ export const SettingsStateSchema = z.object({
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
+  calendarSectionDefault: UserDefaultCalendarSectionImplSchema.default(
+    createUserDefaultCalendarSectionImpl,
+  ),
   callableSectionDefault: UserDefaultCallableSectionImplSchema.default(
     createUserDefaultCallableSectionImpl,
   ),
@@ -9106,6 +9675,9 @@ export const SettingsStateSchema = z.object({
   ),
   chatSectionDefault: UserDefaultChatSectionImplSchema.default(
     createUserDefaultChatSectionImpl,
+  ),
+  clockSectionDefault: UserDefaultClockSectionImplSchema.default(
+    createUserDefaultClockSectionImpl,
   ),
   codeSectionDefault: UserDefaultCodeSectionImplSchema.default(
     createUserDefaultCodeSectionImpl,
@@ -9148,6 +9720,12 @@ export const SettingsStateSchema = z.object({
   ),
   socialSectionDefault: UserDefaultSocialSectionImplSchema.default(
     createUserDefaultSocialSectionImpl,
+  ),
+  spreadsheetSectionDefault: UserDefaultSpreadsheetSectionImplSchema.default(
+    createUserDefaultSpreadsheetSectionImpl,
+  ),
+  taskBoardSectionDefault: UserDefaultTaskBoardSectionImplSchema.default(
+    createUserDefaultTaskBoardSectionImpl,
   ),
   terminalSectionDefault: UserDefaultTerminalSectionImplSchema.default(
     createUserDefaultTerminalSectionImpl,
@@ -11375,6 +11953,39 @@ export function createButtonParamCodeObjImplArgsWithCallable(
   return ButtonParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
+export const CalendarSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Calendar"), z.any()]).optional(),
+  id: z.union([IDSchema, z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  tagColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  styleColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  selectedDateIso: z.union([z.string(), z.any()]).optional(),
+  weekStartsOn: z.union([z.enum(CalendarWeekStartEnum), z.any()]).optional(),
+});
+
+export type CalendarSectionImplArgsWithCallable = z.infer<
+  typeof CalendarSectionImplArgsWithCallableSchema
+>;
+
+export type CalendarSectionImplArgsWithCallableInput = z.input<
+  typeof CalendarSectionImplArgsWithCallableSchema
+>;
+
+export function createCalendarSectionImplArgsWithCallable(
+  options: Partial<CalendarSectionImplArgsWithCallable> = {},
+): CalendarSectionImplArgsWithCallable {
+  return CalendarSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const CallableSectionImplArgsWithCallableSchema = z.object({
   type: z.union([z.literal("Callable"), z.any()]).optional(),
   id: z.union([IDSchema, z.any()]).optional(),
@@ -11512,6 +12123,46 @@ export function createChatSectionImplArgsWithCallable(
   options: Partial<ChatSectionImplArgsWithCallable> = {},
 ): ChatSectionImplArgsWithCallable {
   return ChatSectionImplArgsWithCallableSchema.parse(options);
+}
+
+export const ClockSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Clock"), z.any()]).optional(),
+  id: z.union([IDSchema, z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  tagColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  styleColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  timeDisplayFormat: z
+    .union([z.enum(TimeDisplayFormatEnum), z.any()])
+    .optional(),
+  dateDisplayFormat: z
+    .union([z.enum(DateDisplayFormatEnum), z.any()])
+    .optional(),
+  showSeconds: z.union([z.boolean(), z.any()]).optional(),
+  showDate: z.union([z.boolean(), z.any()]).optional(),
+  timezone: z.union([z.string(), z.any()]).optional(),
+});
+
+export type ClockSectionImplArgsWithCallable = z.infer<
+  typeof ClockSectionImplArgsWithCallableSchema
+>;
+
+export type ClockSectionImplArgsWithCallableInput = z.input<
+  typeof ClockSectionImplArgsWithCallableSchema
+>;
+
+export function createClockSectionImplArgsWithCallable(
+  options: Partial<ClockSectionImplArgsWithCallable> = {},
+): ClockSectionImplArgsWithCallable {
+  return ClockSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const CodeCallableCodeObjImplArgsWithCallableSchema = z.object({
@@ -12282,6 +12933,39 @@ export function createSocialSectionImplArgsWithCallable(
   return SocialSectionImplArgsWithCallableSchema.parse(options);
 }
 
+export const SpreadsheetSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Spreadsheet"), z.any()]).optional(),
+  id: z.union([IDSchema, z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  tagColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  styleColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  filePath: z.union([z.string(), z.any()]).optional(),
+  activeSheet: z.union([z.string(), z.null(), z.any()]).optional(),
+});
+
+export type SpreadsheetSectionImplArgsWithCallable = z.infer<
+  typeof SpreadsheetSectionImplArgsWithCallableSchema
+>;
+
+export type SpreadsheetSectionImplArgsWithCallableInput = z.input<
+  typeof SpreadsheetSectionImplArgsWithCallableSchema
+>;
+
+export function createSpreadsheetSectionImplArgsWithCallable(
+  options: Partial<SpreadsheetSectionImplArgsWithCallable> = {},
+): SpreadsheetSectionImplArgsWithCallable {
+  return SpreadsheetSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const SwitchParamCodeObjImplArgsWithCallableSchema = z.object({
   type: z.union([z.literal("SwitchParam"), z.any()]).optional(),
   id: z.union([IDSchema, z.any()]).optional(),
@@ -12310,6 +12994,40 @@ export function createSwitchParamCodeObjImplArgsWithCallable(
   options: Partial<SwitchParamCodeObjImplArgsWithCallable> = {},
 ): SwitchParamCodeObjImplArgsWithCallable {
   return SwitchParamCodeObjImplArgsWithCallableSchema.parse(options);
+}
+
+export const TaskBoardSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("TaskBoard"), z.any()]).optional(),
+  id: z.union([IDSchema, z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  tagColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  styleColor: z.union([z.string(), z.null(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  viewMode: z.union([z.enum(TaskBoardViewModeEnum), z.any()]).optional(),
+  columns: z.union([z.array(TaskBoardColumnSchema), z.any()]).optional(),
+  tasks: z.union([z.array(TaskBoardTaskSchema), z.any()]).optional(),
+});
+
+export type TaskBoardSectionImplArgsWithCallable = z.infer<
+  typeof TaskBoardSectionImplArgsWithCallableSchema
+>;
+
+export type TaskBoardSectionImplArgsWithCallableInput = z.input<
+  typeof TaskBoardSectionImplArgsWithCallableSchema
+>;
+
+export function createTaskBoardSectionImplArgsWithCallable(
+  options: Partial<TaskBoardSectionImplArgsWithCallable> = {},
+): TaskBoardSectionImplArgsWithCallable {
+  return TaskBoardSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const TerminalSectionImplArgsWithCallableSchema = z.object({
@@ -12462,6 +13180,7 @@ export const CoreArgsSchema = z.object({
         "actionMode",
         "activeBranchId",
         "activeLayerIdx",
+        "activeSheet",
         "agentProfileId",
         "allowUnquotedStringArgs",
         "aspectRatio",
@@ -12485,6 +13204,7 @@ export const CoreArgsSchema = z.object({
         "codeObjVariantMap",
         "colorChoices",
         "columnWidth",
+        "columns",
         "configLanguage",
         "coreNameEditable",
         "coreNameType",
@@ -12499,6 +13219,7 @@ export const CoreArgsSchema = z.object({
         "edgeOutputPorts",
         "engineConfigId",
         "eraserBrushSize",
+        "filePath",
         "folder",
         "format",
         "hasSecret",
@@ -12547,17 +13268,22 @@ export const CoreArgsSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
+        "selectedDateIso",
         "selectedParams",
+        "showDate",
+        "showSeconds",
         "showSectionTitle",
         "size",
         "step",
         "styleColor",
         "tagColor",
+        "tasks",
         "template",
         "text",
         "textDisplayMode",
         "thinking",
         "timeDisplayFormat",
+        "timezone",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -12568,6 +13294,7 @@ export const CoreArgsSchema = z.object({
         "value",
         "viewMode",
         "waitingForResponse",
+        "weekStartsOn",
       ]),
     )
     .optional(),
@@ -14250,6 +14977,10 @@ export const ProjectStateBackendSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
+        ClockSectionImplSchema,
+        CalendarSectionImplSchema,
+        TaskBoardSectionImplSchema,
+        SpreadsheetSectionImplSchema,
       ]),
     )
     .default({}),
@@ -16318,6 +17049,10 @@ export const CreateTopLevelSectionRequestSchema = z.object({
         IFrameSectionImplArgsSchema,
         ChatSectionImplArgsSchema,
         BrowserSectionImplArgsSchema,
+        ClockSectionImplArgsSchema,
+        CalendarSectionImplArgsSchema,
+        TaskBoardSectionImplArgsSchema,
+        SpreadsheetSectionImplArgsSchema,
       ]),
       z.null(),
     ])
@@ -17220,6 +17955,28 @@ export function createSetBrowserSavedSearchesRequest(
   return SetBrowserSavedSearchesRequestSchema.parse(options);
 }
 
+export const SetCalendarSectionSettingsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  selectedDateIso: z.string(),
+  weekStartsOn: z.enum(CalendarWeekStartEnum),
+});
+
+export type SetCalendarSectionSettingsRequest = z.infer<
+  typeof SetCalendarSectionSettingsRequestSchema
+>;
+
+export type SetCalendarSectionSettingsRequestInput = z.input<
+  typeof SetCalendarSectionSettingsRequestSchema
+>;
+
+export function createSetCalendarSectionSettingsRequest(
+  options: Partial<SetCalendarSectionSettingsRequest> = {},
+): SetCalendarSectionSettingsRequest {
+  return SetCalendarSectionSettingsRequestSchema.parse(options);
+}
+
 export const SetCallableHideParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -17430,6 +18187,31 @@ export function createSetChatSectionStateRequest(
   options: Partial<SetChatSectionStateRequest> = {},
 ): SetChatSectionStateRequest {
   return SetChatSectionStateRequestSchema.parse(options);
+}
+
+export const SetClockSectionSettingsRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  timeDisplayFormat: z.enum(TimeDisplayFormatEnum),
+  dateDisplayFormat: z.enum(DateDisplayFormatEnum),
+  showSeconds: z.boolean(),
+  showDate: z.boolean(),
+  timezone: z.string(),
+});
+
+export type SetClockSectionSettingsRequest = z.infer<
+  typeof SetClockSectionSettingsRequestSchema
+>;
+
+export type SetClockSectionSettingsRequestInput = z.input<
+  typeof SetClockSectionSettingsRequestSchema
+>;
+
+export function createSetClockSectionSettingsRequest(
+  options: Partial<SetClockSectionSettingsRequest> = {},
+): SetClockSectionSettingsRequest {
+  return SetClockSectionSettingsRequestSchema.parse(options);
 }
 
 export const CodeFileBindingUpdateSchema = z.object({
@@ -18185,6 +18967,51 @@ export function createSetSocialUrlRequest(
   options: Partial<SetSocialUrlRequest> = {},
 ): SetSocialUrlRequest {
   return SetSocialUrlRequestSchema.parse(options);
+}
+
+export const SetSpreadsheetFilePathRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  filePath: z.string(),
+  activeSheet: z.union([z.string(), z.null()]),
+});
+
+export type SetSpreadsheetFilePathRequest = z.infer<
+  typeof SetSpreadsheetFilePathRequestSchema
+>;
+
+export type SetSpreadsheetFilePathRequestInput = z.input<
+  typeof SetSpreadsheetFilePathRequestSchema
+>;
+
+export function createSetSpreadsheetFilePathRequest(
+  options: Partial<SetSpreadsheetFilePathRequest> = {},
+): SetSpreadsheetFilePathRequest {
+  return SetSpreadsheetFilePathRequestSchema.parse(options);
+}
+
+export const SetTaskBoardSectionStateRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  viewMode: z.enum(TaskBoardViewModeEnum),
+  columns: z.array(TaskBoardColumnSchema),
+  tasks: z.array(TaskBoardTaskSchema),
+});
+
+export type SetTaskBoardSectionStateRequest = z.infer<
+  typeof SetTaskBoardSectionStateRequestSchema
+>;
+
+export type SetTaskBoardSectionStateRequestInput = z.input<
+  typeof SetTaskBoardSectionStateRequestSchema
+>;
+
+export function createSetTaskBoardSectionStateRequest(
+  options: Partial<SetTaskBoardSectionStateRequest> = {},
+): SetTaskBoardSectionStateRequest {
+  return SetTaskBoardSectionStateRequestSchema.parse(options);
 }
 
 export const SetTextBlockDisplayModeRequestSchema = z.object({
@@ -19957,6 +20784,35 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       BrowserSectionImplArgs,
       BrowserSectionImpl
+    >;
+  };
+
+  ClockSection: {
+    impl: ClockSectionImpl;
+    args: ImplArgsBundleWithUpdaters<ClockSectionImplArgs, ClockSectionImpl>;
+  };
+
+  CalendarSection: {
+    impl: CalendarSectionImpl;
+    args: ImplArgsBundleWithUpdaters<
+      CalendarSectionImplArgs,
+      CalendarSectionImpl
+    >;
+  };
+
+  TaskBoardSection: {
+    impl: TaskBoardSectionImpl;
+    args: ImplArgsBundleWithUpdaters<
+      TaskBoardSectionImplArgs,
+      TaskBoardSectionImpl
+    >;
+  };
+
+  SpreadsheetSection: {
+    impl: SpreadsheetSectionImpl;
+    args: ImplArgsBundleWithUpdaters<
+      SpreadsheetSectionImplArgs,
+      SpreadsheetSectionImpl
     >;
   };
 

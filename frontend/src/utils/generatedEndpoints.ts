@@ -1253,6 +1253,30 @@ export async function route_set_list_root_view_mode(
   return await post("/setListRootViewMode", x);
 }
 
+export async function route_set_clock_section_settings(
+  x: gt.SetClockSectionSettingsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setClockSectionSettings", x);
+}
+
+export async function route_set_calendar_section_settings(
+  x: gt.SetCalendarSectionSettingsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCalendarSectionSettings", x);
+}
+
+export async function route_set_task_board_section_state(
+  x: gt.SetTaskBoardSectionStateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTaskBoardSectionState", x);
+}
+
+export async function route_set_spreadsheet_file_path(
+  x: gt.SetSpreadsheetFilePathRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSpreadsheetFilePath", x);
+}
+
 export async function route_set_browser_column_widths(
   x: gt.SetBrowserColumnWidthsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

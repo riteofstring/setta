@@ -24,6 +24,7 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    CalendarWeekStart,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -33,6 +34,9 @@ from setta.types.section_impls import (
     PromptFormat,
     SectionSize,
     SectionType,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -221,6 +225,48 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
+
+
+class UserDefaultClockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=320.0, height=170.0)
+    )
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.long
+    showSeconds: bool = True
+    showDate: bool = True
+    timezone: str = "local"
+
+
+class UserDefaultCalendarSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=420.0, height=360.0)
+    )
+    selectedDateIso: str = ""
+    weekStartsOn: CalendarWeekStart = CalendarWeekStart.sunday
+
+
+class UserDefaultTaskBoardSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=720.0, height=430.0)
+    )
+    viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
+    columns: list[TaskBoardColumn] = Field(
+        default_factory=lambda: [
+            TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
+            TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
+            TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
+        ]
+    )
+    tasks: list[TaskBoardTask] = Field(default_factory=list)
+
+
+class UserDefaultSpreadsheetSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=760.0, height=500.0)
+    )
+    filePath: str = ""
+    activeSheet: str | None = None
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

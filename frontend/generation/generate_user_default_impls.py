@@ -52,6 +52,10 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
     "ChatSectionImpl": DEFAULT_EXCLUSIONS,
     "BrowserSectionImpl": DEFAULT_EXCLUSIONS,
+    "ClockSectionImpl": DEFAULT_EXCLUSIONS,
+    "CalendarSectionImpl": DEFAULT_EXCLUSIONS,
+    "TaskBoardSectionImpl": DEFAULT_EXCLUSIONS,
+    "SpreadsheetSectionImpl": DEFAULT_EXCLUSIONS,
 }
 
 CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
@@ -201,6 +205,8 @@ from setta.types.section_impls import (
     ConfigLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ListRootViewMode,
+    CalendarWeekStart,
+    TaskBoardViewMode,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -213,6 +219,8 @@ from setta.types.section_impls import (
     BrowserSavedSearch,
     CodeFileBinding,
     ChatSectionBranch,
+    TaskBoardColumn,
+    TaskBoardTask,
 )
 
 # Code object type imports

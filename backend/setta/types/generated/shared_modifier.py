@@ -33,6 +33,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    CalendarWeekStart,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -41,6 +42,9 @@ from setta.types.section_impls import (
     ListRootViewMode,
     SectionSize,
     SectionType,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -52,10 +56,11 @@ class SharedModifier(TypedDict):
     # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
-    # Field 'viewMode' present with conflicting annotations: BrowserAreaViewMode (BrowserSectionImpl), ListRootViewMode (ListRootSectionImpl)
+    # Field 'viewMode' present with conflicting annotations: BrowserAreaViewMode (BrowserSectionImpl), ListRootViewMode (ListRootSectionImpl), TaskBoardViewMode (TaskBoardSectionImpl)
     actionMode: NotRequired[ButtonActionMode]
     activeBranchId: NotRequired[ID | None]
     activeLayerIdx: NotRequired[int]
+    activeSheet: NotRequired[str | None]
     agentProfileId: NotRequired[ID | None]
     allowUnquotedStringArgs: NotRequired[bool]
     aspectRatio: NotRequired[bool | float]
@@ -79,6 +84,7 @@ class SharedModifier(TypedDict):
     codeObjVariantMap: NotRequired[dict[ID, ID]]
     colorChoices: NotRequired[list[ColorPickerChoice]]
     columnWidth: NotRequired[float | None]
+    columns: NotRequired[list[TaskBoardColumn]]
     configLanguage: NotRequired[ConfigLanguage]
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
@@ -93,6 +99,7 @@ class SharedModifier(TypedDict):
     edgeOutputPorts: NotRequired[list[EdgePort]]
     engineConfigId: NotRequired[ID | None]
     eraserBrushSize: NotRequired[int]
+    filePath: NotRequired[str]
     folder: NotRequired[str]
     format: NotRequired[PromptFormat | TextBlockFormat]
     hasSecret: NotRequired[bool]
@@ -145,17 +152,22 @@ class SharedModifier(TypedDict):
     requestMethod: NotRequired[HttpRequestMethod]
     requestUrl: NotRequired[str]
     savedSearches: NotRequired[list[BrowserSavedSearch]]
+    selectedDateIso: NotRequired[str]
     selectedParams: NotRequired[list[ID]]
+    showDate: NotRequired[bool]
+    showSeconds: NotRequired[bool]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
     styleColor: NotRequired[str | None]
     tagColor: NotRequired[str | None]
+    tasks: NotRequired[list[TaskBoardTask]]
     template: NotRequired[str]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     thinking: NotRequired[bool]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    timezone: NotRequired[str]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
     typeAnnotation: NotRequired[str]
@@ -163,5 +175,6 @@ class SharedModifier(TypedDict):
     uiType: NotRequired[TextParamInputUIType]
     url: NotRequired[str]
     value: NotRequired[str]
-    viewMode: NotRequired[BrowserAreaViewMode | ListRootViewMode]
+    viewMode: NotRequired[BrowserAreaViewMode | ListRootViewMode | TaskBoardViewMode]
     waitingForResponse: NotRequired[bool]
+    weekStartsOn: NotRequired[CalendarWeekStart]

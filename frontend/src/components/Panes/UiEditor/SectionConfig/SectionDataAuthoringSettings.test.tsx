@@ -2,21 +2,34 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  createCalendarSectionImpl,
   createCallableSectionImpl,
+  createClockSectionImpl,
   SectionTypeEnum,
   createCore,
   createListRootSectionImpl,
   ListRootViewModeEnum,
   createProjectConfig,
+  createSpreadsheetSectionImpl,
+  createTaskBoardSectionImpl,
   createTextBlockSectionImpl,
+  createUserDefaultCalendarSectionImpl,
   createUserDefaultCallableSectionImpl,
+  createUserDefaultClockSectionImpl,
   createUserDefaultListRootSectionImpl,
+  createUserDefaultSpreadsheetSectionImpl,
+  createUserDefaultTaskBoardSectionImpl,
   createUserDefaultTextBlockSectionImpl,
   createVariant,
+  TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { CalendarSectionSettings } from "./CalendarSectionSettings";
 import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
+import { ClockSectionSettings } from "./ClockSectionSettings";
 import { EdgePortsSettings } from "./EdgePortsSettings";
+import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
+import { TaskBoardSettings } from "./TaskBoardSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
 function syncStoreInitialState(store: {
@@ -169,5 +182,95 @@ describe("Section data-authoring settings", () => {
     expect(markup).toContain(
       "When enabled, string-typed code params accept unquoted values.",
     );
+  });
+
+  it("renders clock section settings controls", () => {
+    const sectionId = "clock-section";
+    const implId = "clock-impl";
+    seedSectionState({
+      sectionId,
+      sectionName: "Clock",
+      variantId: "clock-variant",
+      implId,
+      impl: createClockSectionImpl(createUserDefaultClockSectionImpl(), {
+        id: implId,
+        timezone: "America/New_York",
+      }),
+    });
+
+    const markup = renderToStaticMarkup(
+      <ClockSectionSettings sectionId={sectionId} />,
+    );
+    expect(markup).toContain("Clock");
+    expect(markup).toContain("Time format");
+    expect(markup).toContain("Timezone");
+    expect(markup).toContain("America/New_York");
+  });
+
+  it("renders calendar section settings controls", () => {
+    const sectionId = "calendar-section";
+    const implId = "calendar-impl";
+    seedSectionState({
+      sectionId,
+      sectionName: "Calendar",
+      variantId: "calendar-variant",
+      implId,
+      impl: createCalendarSectionImpl(createUserDefaultCalendarSectionImpl(), {
+        id: implId,
+        selectedDateIso: "2026-02-14",
+      }),
+    });
+
+    const markup = renderToStaticMarkup(
+      <CalendarSectionSettings sectionId={sectionId} />,
+    );
+    expect(markup).toContain("Calendar");
+    expect(markup).toContain("Selected date");
+    expect(markup).toContain("option value=\"sunday\" selected");
+  });
+
+  it("renders task board section settings", () => {
+    const sectionId = "task-board-section";
+    const implId = "task-board-impl";
+    seedSectionState({
+      sectionId,
+      sectionName: "TaskBoard",
+      variantId: "task-board-variant",
+      implId,
+      impl: createTaskBoardSectionImpl(createUserDefaultTaskBoardSectionImpl(), {
+        id: implId,
+        viewMode: TaskBoardViewModeEnum.task_list,
+      }),
+    });
+
+    const markup = renderToStaticMarkup(<TaskBoardSettings sectionId={sectionId} />);
+    expect(markup).toContain("Task Board");
+    expect(markup).toContain("View mode");
+    expect(markup).toContain("option value=\"task_list\" selected");
+  });
+
+  it("renders spreadsheet section settings", () => {
+    const sectionId = "spreadsheet-section";
+    const implId = "spreadsheet-impl";
+    seedSectionState({
+      sectionId,
+      sectionName: "Spreadsheet",
+      variantId: "spreadsheet-variant",
+      implId,
+      impl: createSpreadsheetSectionImpl(
+        createUserDefaultSpreadsheetSectionImpl(),
+        {
+          id: implId,
+          filePath: "/tmp/example.csv",
+        },
+      ),
+    });
+
+    const markup = renderToStaticMarkup(
+      <SpreadsheetSectionSettings sectionId={sectionId} />,
+    );
+    expect(markup).toContain("Spreadsheet");
+    expect(markup).toContain("/tmp/example.csv");
+    expect(markup).toContain("File path");
   });
 });

@@ -42,13 +42,15 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import CodeObjType
+from setta.types.code_obj_impls import CodeObjType, DateDisplayFormat, TimeDisplayFormat
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
+    CalendarSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
+    ClockSectionImplArgs,
     CodeSectionImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
@@ -62,6 +64,8 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
+    SpreadsheetSectionImplArgs,
+    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
 )
@@ -80,10 +84,14 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    CalendarWeekStart,
     ChatSectionState,
     ListRootViewMode,
     SectionSize,
     SectionType,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -231,6 +239,10 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
+        | ClockSectionImplArgs
+        | CalendarSectionImplArgs
+        | TaskBoardSectionImplArgs
+        | SpreadsheetSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]
@@ -532,6 +544,14 @@ class ListenerSetBrowserSavedSearchesRequestPayload(TypedDict):
     savedSearches: list[BrowserSavedSearch]
 
 
+class ListenerSetCalendarSectionSettingsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    selectedDateIso: str
+    weekStartsOn: CalendarWeekStart
+
+
 class ListenerSetCallableHideParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -596,6 +616,17 @@ class ListenerSetChatSectionStateRequestPayload(TypedDict):
 class ListenerSetChatSystemPromptRequestPayload(TypedDict):
     chatId: ID
     systemPrompt: str
+
+
+class ListenerSetClockSectionSettingsRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    timeDisplayFormat: TimeDisplayFormat
+    dateDisplayFormat: DateDisplayFormat
+    showSeconds: bool
+    showDate: bool
+    timezone: str
 
 
 class ListenerSetCodeFileBindingRequestPayload(TypedDict):
@@ -844,6 +875,23 @@ class ListenerSetSocialUrlRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     url: str
+
+
+class ListenerSetSpreadsheetFilePathRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    filePath: str
+    activeSheet: str | None
+
+
+class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    viewMode: TaskBoardViewMode
+    columns: list[TaskBoardColumn]
+    tasks: list[TaskBoardTask]
 
 
 class ListenerSetTextBlockDisplayModeRequestPayload(TypedDict):
@@ -1329,6 +1377,11 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_browser_saved_searches", payload)
 
+    async def set_calendar_section_settings(
+        self, payload: ListenerSetCalendarSectionSettingsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_calendar_section_settings", payload)
+
     async def set_callable(
         self, payload: ListenerSetCallableRequestPayload
     ) -> SetCallableResponse:
@@ -1371,6 +1424,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetChatSystemPromptRequestPayload
     ) -> Chat:
         return await self._caller("route_set_chat_system_prompt", payload)
+
+    async def set_clock_section_settings(
+        self, payload: ListenerSetClockSectionSettingsRequestPayload
+    ) -> None:
+        return await self._caller("route_set_clock_section_settings", payload)
 
     async def set_code(self, payload: ListenerSetCodeRequestPayload) -> None:
         return await self._caller("route_set_code", payload)
@@ -1551,6 +1609,16 @@ class RouterEndpointAPI:
 
     async def set_social_url(self, payload: ListenerSetSocialUrlRequestPayload) -> None:
         return await self._caller("route_set_social_url", payload)
+
+    async def set_spreadsheet_file_path(
+        self, payload: ListenerSetSpreadsheetFilePathRequestPayload
+    ) -> None:
+        return await self._caller("route_set_spreadsheet_file_path", payload)
+
+    async def set_task_board_section_state(
+        self, payload: ListenerSetTaskBoardSectionStateRequestPayload
+    ) -> None:
+        return await self._caller("route_set_task_board_section_state", payload)
 
     async def set_text_block_display_mode(
         self, payload: ListenerSetTextBlockDisplayModeRequestPayload

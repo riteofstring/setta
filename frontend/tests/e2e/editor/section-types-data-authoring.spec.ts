@@ -390,6 +390,123 @@ test.describe.serial("section types data authoring", () => {
     }
   });
 
+  test("clock, calendar, task board, and spreadsheet sections are visible and interactive", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const root = await postBackend<FileBrowserRootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+      const csvPath = `${rootPath}/pw-spreadsheet-section.csv`;
+      await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
+
+      const clockSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Clock",
+      );
+      const calendarSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Calendar",
+      );
+      const taskBoardSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "TaskBoard",
+      );
+      const spreadsheetSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Spreadsheet",
+      );
+
+      const clockNode = page.locator(
+        `.react-flow__node[data-id="${clockSectionId}"]`,
+      );
+      const calendarNode = page.locator(
+        `.react-flow__node[data-id="${calendarSectionId}"]`,
+      );
+      const taskBoardNode = page.locator(
+        `.react-flow__node[data-id="${taskBoardSectionId}"]`,
+      );
+      const spreadsheetNode = page.locator(
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+      );
+
+      await expect(clockNode).toBeVisible();
+      await expect(calendarNode).toBeVisible();
+      await expect(taskBoardNode).toBeVisible();
+      await expect(spreadsheetNode).toBeVisible();
+
+      await expect(clockNode.locator("text=/\\d{1,2}:\\d{2}/")).toBeVisible();
+
+      const calendarDateButton = calendarNode
+        .locator("[data-calendar-date]")
+        .nth(12);
+      const calendarIso = await calendarDateButton.getAttribute(
+        "data-calendar-date",
+      );
+      if (!calendarIso) {
+        throw new Error("Missing calendar date identifier.");
+      }
+      await calendarDateButton.click();
+      await expect(calendarNode.getByText(`Selected: ${calendarIso}`)).toBeVisible();
+
+      await taskBoardNode.getByPlaceholder("Add task title").fill("ship task board");
+      await taskBoardNode.getByTestId("task-board-add-task").click();
+      await expect(
+        taskBoardNode.locator('input[value="ship task board"]').first(),
+      ).toBeVisible();
+      await taskBoardNode.getByTestId("task-board-view-kanban").click();
+      await expect(taskBoardNode.locator("[data-task-board-column-id]")).toHaveCount(
+        3,
+      );
+
+      const spreadsheetPathInput = spreadsheetNode
+        .getByPlaceholder("/absolute/path/to/file.csv")
+        .first();
+      await spreadsheetPathInput.fill(csvPath);
+      await spreadsheetPathInput.press("Enter");
+      const spreadsheetCell = spreadsheetNode
+        .locator('[data-spreadsheet-cell="1:1"]')
+        .first();
+      await expect(spreadsheetCell).toBeVisible();
+      await spreadsheetCell.fill("done");
+      await spreadsheetNode.getByTestId("spreadsheet-save").click();
+      await expect(spreadsheetNode.getByText("Saved.")).toBeVisible();
+
+      const csvRead = await postBackend<FileBrowserFileContentResponse>(
+        page,
+        "/getFileBrowserFileContent",
+        { path: csvPath },
+      );
+      const csvDecoded = Buffer.from(
+        csvRead?.contentBase64 ?? "",
+        "base64",
+      ).toString("utf-8");
+      expect(csvDecoded).toContain("alpha,done");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("file browser uses bottom universal preview with csv/xlsx/pdf support", async ({
     page,
   }) => {
@@ -443,14 +560,48 @@ test.describe.serial("section types data authoring", () => {
 
       const listPane = page.getByTestId("file-browser-list-pane");
       const previewPane = page.getByTestId("file-browser-preview-pane");
+      const previewToggle = page.getByTestId("file-browser-preview-toggle");
+      const previewResizeHandle = page.getByTestId(
+        "file-browser-preview-resize-handle",
+      );
       await expect(listPane).toBeVisible();
       await expect(previewPane).toBeVisible();
+      await expect(previewToggle).toBeVisible();
+      await expect(previewResizeHandle).toBeVisible();
       const listBox = await listPane.boundingBox();
       const previewBox = await previewPane.boundingBox();
       if (!listBox || !previewBox) {
         throw new Error("Missing file browser pane bounding boxes.");
       }
       expect(previewBox.y).toBeGreaterThan(listBox.y + 10);
+
+      const resizeBox = await previewResizeHandle.boundingBox();
+      if (!resizeBox) {
+        throw new Error("Missing preview resize handle bounds.");
+      }
+      await page.mouse.move(
+        resizeBox.x + resizeBox.width / 2,
+        resizeBox.y + resizeBox.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        resizeBox.x + resizeBox.width / 2,
+        resizeBox.y + resizeBox.height / 2 + 80,
+      );
+      await page.mouse.up();
+
+      const resizedListBox = await listPane.boundingBox();
+      const resizedPreviewBox = await previewPane.boundingBox();
+      if (!resizedListBox || !resizedPreviewBox) {
+        throw new Error("Missing resized pane bounds.");
+      }
+      expect(resizedListBox.height).toBeGreaterThan(listBox.height + 20);
+      expect(resizedPreviewBox.height).toBeLessThan(previewBox.height - 20);
+
+      await previewToggle.click();
+      await expect(page.getByTestId("file-browser-preview-pane")).toHaveCount(0);
+      await previewToggle.click();
+      await expect(page.getByTestId("file-browser-preview-pane")).toBeVisible();
 
       const pdfRow = page.locator("button").filter({ hasText: "pw-sheet.pdf" });
       await expect(pdfRow).toBeVisible({ timeout: 20000 });

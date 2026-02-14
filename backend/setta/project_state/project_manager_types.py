@@ -38,13 +38,19 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    CalendarWeekStart,
     ChatSectionState,
     CodeFileAccessMode,
+    DateDisplayFormat,
     ListRootViewMode,
     SectionSize,
     SectionType,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
+    TimeDisplayFormat,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
 from setta.utils.constants import C
@@ -1077,6 +1083,30 @@ class SetParentDefaultChildSectionTypeRequest(ProjectManagerRequestWithSection):
 
 class SetListRootViewModeRequest(ProjectManagerRequestWithSection):
     viewMode: ListRootViewMode
+
+
+class SetClockSectionSettingsRequest(ProjectManagerRequestWithSection):
+    timeDisplayFormat: TimeDisplayFormat
+    dateDisplayFormat: DateDisplayFormat
+    showSeconds: bool
+    showDate: bool
+    timezone: str
+
+
+class SetCalendarSectionSettingsRequest(ProjectManagerRequestWithSection):
+    selectedDateIso: str
+    weekStartsOn: CalendarWeekStart
+
+
+class SetTaskBoardSectionStateRequest(ProjectManagerRequestWithSection):
+    viewMode: TaskBoardViewMode
+    columns: list[TaskBoardColumn]
+    tasks: list[TaskBoardTask]
+
+
+class SetSpreadsheetFilePathRequest(ProjectManagerRequestWithSection):
+    filePath: str
+    activeSheet: str | None
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
