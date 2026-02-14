@@ -16,6 +16,7 @@ import {
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
+  type DragEventHandler,
   type ReactNode,
   useCallback,
   useEffect,
@@ -88,6 +89,7 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import { clamp } from "utils/utils";
 
@@ -96,7 +98,7 @@ const artifactTypes = [
   { type: "video" as const, label: "Video", icon: <IoVideocam /> },
   { type: "audio" as const, label: "Audio", icon: <FiMusic /> },
   { type: "text" as const, label: "Text", icon: <FiFileText /> },
-  { type: "data" as const, label: "Data", icon: <MdDataArray /> },
+  { type: "data" as const, label: "Other", icon: <MdDataArray /> },
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
@@ -569,6 +571,8 @@ function ThumbnailItem({
   onDoubleClick,
   onMouseEnter,
   onMouseLeave,
+  draggable,
+  onDragStart,
 }: {
   size: string;
   thumbnailUrl?: string | null;
@@ -580,6 +584,8 @@ function ThumbnailItem({
   onDoubleClick?: React.MouseEventHandler<HTMLDivElement>;
   onMouseEnter?: React.MouseEventHandler<HTMLDivElement>;
   onMouseLeave?: React.MouseEventHandler<HTMLDivElement>;
+  draggable?: boolean;
+  onDragStart?: DragEventHandler<HTMLDivElement>;
 }) {
   return (
     <div
@@ -589,6 +595,8 @@ function ThumbnailItem({
       onDoubleClick={onDoubleClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      draggable={draggable}
+      onDragStart={onDragStart}
     >
       <div
         className="single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
@@ -912,6 +920,19 @@ function ViewSwitch({
                   thumbnailUrl={thumbnailUrl}
                   label={item.name}
                   onClick={handleClick ?? handleDoubleClickClick}
+                  draggable={previewKind !== "folder"}
+                  onDragStart={
+                    previewKind === "folder"
+                      ? undefined
+                      : (event) => {
+                          setFileBrowserDragPayload(event.dataTransfer, {
+                            name: item.name,
+                            fullPath: item.fullPath,
+                            type: item.type === "folder" ? "folder" : "file",
+                          });
+                          event.dataTransfer.effectAllowed = "copy";
+                        }
+                  }
                   {...(tooltipHandlers ?? {})}
                 >
                   <span className="block w-full break-words">{item.name}</span>

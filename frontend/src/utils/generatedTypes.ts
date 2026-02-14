@@ -1057,6 +1057,7 @@ export const RouteEnum = {
   GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
   GET_FILE_BROWSER_FILE_CONTENT: "/getFileBrowserFileContent",
   WRITE_FILE_BROWSER_FILE_CONTENT: "/writeFileBrowserFileContent",
+  TRANSFER_FILE_BROWSER_ENTRY: "/transferFileBrowserEntry",
   FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
   GET_GIT_STATUS: "/git/status",
   GET_GIT_DIFF: "/git/diff",
@@ -3953,17 +3954,17 @@ export const TaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "e11ec97a-1ea4-4f9e-9f64-0e3c8e34abba" as const,
+        id: "8828b81f-81ac-4415-8d86-57b6f9d832d2" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "5759a8da-bd37-4035-8aa4-08f8abe7788e" as const,
+        id: "10b51f79-11ec-4071-b349-9ba7dbe9a882" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "ef95b2af-27a6-4c6e-9945-299da4a724bf" as const,
+        id: "0f0bfcba-1247-4f4d-9310-a0bec6502f52" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -8430,6 +8431,38 @@ export const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
+  Clock: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 120.0,
+      maxHeight: 100000.0,
+      minWidth: 220.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  Calendar: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 260.0,
+      maxHeight: 100000.0,
+      minWidth: 280.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  TaskBoard: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 240.0,
+      maxHeight: 100000.0,
+      minWidth: 360.0,
+      maxWidth: 100000.0,
+    }),
+  ),
+  Spreadsheet: SectionSizingPolicyTypeEntrySchema.default(() =>
+    createSectionSizingPolicyTypeEntry({
+      minHeight: 260.0,
+      maxHeight: 100000.0,
+      minWidth: 420.0,
+      maxWidth: 100000.0,
+    }),
+  ),
 });
 
 export type SectionSizingPolicyByType = z.infer<
@@ -9241,17 +9274,17 @@ export const UserDefaultTaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "49c2ed1c-6651-4e73-85bd-45b2f9074708" as const,
+        id: "02d1f858-a6b9-4307-b699-825c3c70a5ae" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "8ff29fa6-f153-4e5f-a27a-3588921b52d1" as const,
+        id: "6c654562-d352-496d-8e10-b29abef07387" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "1b47dade-86f7-4c11-b54d-84354e4a1ebd" as const,
+        id: "91917faf-6c96-4e02-927b-55e8a56ddd1c" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -16293,6 +16326,46 @@ export function createLoadCachedPathsRequest(
   options: Partial<LoadCachedPathsRequest> = {},
 ): LoadCachedPathsRequest {
   return LoadCachedPathsRequestSchema.parse(options);
+}
+
+export const TransferFileBrowserEntryRequestSchema = z.object({
+  sourcePath: z.string(),
+  destinationFolderPath: z.string(),
+  operation: z.literal(["copy", "move"]),
+});
+
+export type TransferFileBrowserEntryRequest = z.infer<
+  typeof TransferFileBrowserEntryRequestSchema
+>;
+
+export type TransferFileBrowserEntryRequestInput = z.input<
+  typeof TransferFileBrowserEntryRequestSchema
+>;
+
+export function createTransferFileBrowserEntryRequest(
+  options: Partial<TransferFileBrowserEntryRequest> = {},
+): TransferFileBrowserEntryRequest {
+  return TransferFileBrowserEntryRequestSchema.parse(options);
+}
+
+export const TransferFileBrowserEntryResponseSchema = z.object({
+  sourcePath: z.string(),
+  destinationPath: z.string(),
+  operation: z.literal(["copy", "move"]),
+});
+
+export type TransferFileBrowserEntryResponse = z.infer<
+  typeof TransferFileBrowserEntryResponseSchema
+>;
+
+export type TransferFileBrowserEntryResponseInput = z.input<
+  typeof TransferFileBrowserEntryResponseSchema
+>;
+
+export function createTransferFileBrowserEntryResponse(
+  options: Partial<TransferFileBrowserEntryResponse> = {},
+): TransferFileBrowserEntryResponse {
+  return TransferFileBrowserEntryResponseSchema.parse(options);
 }
 
 export const UpdateArtifactsRequestSchema = z.object({

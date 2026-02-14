@@ -193,6 +193,12 @@ export async function route_write_file_browser_file_content(
   return await post("/writeFileBrowserFileContent", x);
 }
 
+export async function route_transfer_file_browser_entry(
+  x: gt.TransferFileBrowserEntryRequestInput,
+): Promise<ResponseDataAndStatus<gt.TransferFileBrowserEntryResponse>> {
+  return await post("/transferFileBrowserEntry", x);
+}
+
 export async function route_file_browser_download(
   token: string,
 ): Promise<ResponseDataAndStatus<null>> {
