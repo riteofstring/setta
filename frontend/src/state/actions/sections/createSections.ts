@@ -210,7 +210,9 @@ export function getValidSectionNameForOpenedFile(fileName: string): string {
   const trimmedName = fileName.trim();
   const extensionIndex = trimmedName.lastIndexOf(".");
   const baseName =
-    extensionIndex > 0 ? trimmedName.slice(0, extensionIndex).trim() : trimmedName;
+    extensionIndex > 0
+      ? trimmedName.slice(0, extensionIndex).trim()
+      : trimmedName;
   const fallbackName = "Opened File";
   const candidates = [trimmedName, baseName, fallbackName];
 
