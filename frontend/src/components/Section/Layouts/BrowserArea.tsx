@@ -4,6 +4,7 @@ import {
   FileBrowserFilter,
   FileBrowserPane,
 } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
+import { FileBrowserSpreadsheetEditor } from "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
@@ -15,6 +16,7 @@ import {
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import {
+  type DragEventHandler,
   type ReactNode,
   useCallback,
   useEffect,
@@ -27,6 +29,7 @@ import {
   FiArchive,
   FiChevronLeft,
   FiChevronRight,
+  FiColumns,
   FiFileText,
   FiMusic,
 } from "react-icons/fi";
@@ -43,6 +46,7 @@ import {
 import {
   openFileInCodeSection,
   openFileInImageSection,
+  openFileInSpreadsheetSection,
   openFileInTextSection,
 } from "state/actions/sections/createSections";
 import {
@@ -86,6 +90,8 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
+import { isSpreadsheetPath } from "utils/spreadsheet";
 import { clamp } from "utils/utils";
 
 const artifactTypes = [
@@ -93,7 +99,7 @@ const artifactTypes = [
   { type: "video" as const, label: "Video", icon: <IoVideocam /> },
   { type: "audio" as const, label: "Audio", icon: <FiMusic /> },
   { type: "text" as const, label: "Text", icon: <FiFileText /> },
-  { type: "data" as const, label: "Data", icon: <MdDataArray /> },
+  { type: "data" as const, label: "Other", icon: <MdDataArray /> },
 ];
 
 const TYPES_COLUMN_MIN_CONTAINER_WIDTH = 384;
@@ -136,6 +142,7 @@ type BrowserPreviewKind =
   | "pdf"
   | "audio"
   | "video"
+  | "spreadsheet"
   | "text"
   | "archive"
   | "folder"
@@ -148,6 +155,7 @@ const PREVIEW_KIND_ICON_MAP: Record<BrowserPreviewKind, PreviewIcon> = {
   pdf: FiFileText,
   audio: FiMusic,
   video: IoVideocam,
+  spreadsheet: FiColumns,
   text: FiFileText,
   archive: FiArchive,
   folder: TbFolder,
@@ -159,6 +167,7 @@ const PREVIEW_KIND_ICON_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   pdf: "text-rose-500/80 dark:text-rose-300",
   audio: "text-amber-500/80 dark:text-amber-300",
   video: "text-emerald-500/80 dark:text-emerald-300",
+  spreadsheet: "text-lime-500/80 dark:text-lime-300",
   text: "text-sky-500/80 dark:text-sky-300",
   archive: "text-amber-500/80 dark:text-amber-300",
   folder: "text-setta-300 dark:text-setta-600",
@@ -171,6 +180,8 @@ const PREVIEW_KIND_BADGE_CLASS_MAP: Record<BrowserPreviewKind, string> = {
   audio: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
   video:
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+  spreadsheet:
+    "bg-lime-100 text-lime-700 dark:bg-lime-500/20 dark:text-lime-200",
   text: "bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200",
   archive:
     "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
@@ -221,6 +232,9 @@ function toBrowserAttachment(item: FolderContentItem): BrowserFileAttachment {
 function getBrowserPreviewKind(item: FolderContentItem): BrowserPreviewKind {
   if (item.type.toLowerCase() === "folder") {
     return "folder";
+  }
+  if (isSpreadsheetPath(item.name) || isSpreadsheetPath(item.fullPath)) {
+    return "spreadsheet";
   }
   return getAttachmentPreviewKind(toBrowserAttachment(item));
 }
@@ -558,6 +572,9 @@ function ThumbnailItem({
   onDoubleClick,
   onMouseEnter,
   onMouseLeave,
+  draggable,
+  onDragStart,
+  itemPath,
 }: {
   size: string;
   thumbnailUrl?: string | null;
@@ -569,15 +586,21 @@ function ThumbnailItem({
   onDoubleClick?: React.MouseEventHandler<HTMLDivElement>;
   onMouseEnter?: React.MouseEventHandler<HTMLDivElement>;
   onMouseLeave?: React.MouseEventHandler<HTMLDivElement>;
+  draggable?: boolean;
+  onDragStart?: DragEventHandler<HTMLDivElement>;
+  itemPath?: string;
 }) {
   return (
     <div
       className="nodrag group/thumbnail flex cursor-pointer flex-col items-center gap-1"
       style={{ width: size }}
+      data-browser-thumbnail-path={itemPath}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      draggable={draggable}
+      onDragStart={onDragStart}
     >
       <div
         className="single-cell-container overflow-clip rounded-md border border-solid border-setta-500/20 bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800"
@@ -742,6 +765,18 @@ function ViewSwitch({
           </div>
         );
       }
+      if (previewKind === "spreadsheet") {
+        return (
+          <div className="h-full w-full min-h-0">
+            <FileBrowserSpreadsheetEditor
+              selectedFile={{
+                name: data.name,
+                fullPath: data.fullPath,
+              }}
+            />
+          </div>
+        );
+      }
       if (previewKind === "pdf") {
         if (data.size && data.size > PDF_PREVIEW_MAX_BYTES) {
           return renderFileCard(
@@ -884,11 +919,25 @@ function ViewSwitch({
               return (
                 <ThumbnailItem
                   key={item.fullPath}
+                  itemPath={item.fullPath}
                   previewKind={previewKind}
                   badgeText={badgeText}
                   thumbnailUrl={thumbnailUrl}
                   label={item.name}
                   onClick={handleClick ?? handleDoubleClickClick}
+                  draggable={previewKind !== "folder"}
+                  onDragStart={
+                    previewKind === "folder"
+                      ? undefined
+                      : (event) => {
+                          setFileBrowserDragPayload(event.dataTransfer, {
+                            name: item.name,
+                            fullPath: item.fullPath,
+                            type: item.type === "folder" ? "folder" : "file",
+                          });
+                          event.dataTransfer.effectAllowed = "copy";
+                        }
+                  }
                   {...(tooltipHandlers ?? {})}
                 >
                   <span className="block w-full break-words">{item.name}</span>
@@ -944,6 +993,25 @@ function ViewSwitch({
                 return;
               }
               onOpenFile(data);
+            }}
+            isThumbnailDraggable={(item) => {
+              const data = item.data as FolderContentItem | undefined;
+              if (!data) {
+                return false;
+              }
+              return data.type.toLowerCase() !== "folder";
+            }}
+            onThumbnailDragStart={(item, event) => {
+              const data = item.data as FolderContentItem | undefined;
+              if (!data || data.type.toLowerCase() === "folder") {
+                return;
+              }
+              setFileBrowserDragPayload(event.dataTransfer, {
+                name: data.name,
+                fullPath: data.fullPath,
+                type: "file",
+              });
+              event.dataTransfer.effectAllowed = "copy";
             }}
             renderPreview={renderPreview}
             renderThumbnail={(item) => {
@@ -1562,7 +1630,6 @@ function ItemsColumn({
         folderPath: safeFolder,
         ignorePatterns: rootInfo?.ignorePatterns ?? null,
         includeSize: true,
-        missingFolderBehavior: "empty",
       });
       if (folderRequestIdRef.current !== requestId) {
         return;
@@ -1681,6 +1748,13 @@ function ItemsColumn({
       if (item.type.toLowerCase() === "folder") {
         return;
       }
+      if (isSpreadsheetPath(item.name) || isSpreadsheetPath(item.fullPath)) {
+        void openFileInSpreadsheetSection({
+          filePath: item.fullPath,
+          fileName: item.name,
+        });
+        return;
+      }
       const previewKind = getAttachmentPreviewKind({
         id: item.fullPath,
         name: item.name,
@@ -1752,6 +1826,7 @@ function ItemsColumn({
       getFileUrlEntry,
       openFileInCodeSection,
       openFileInImageSection,
+      openFileInSpreadsheetSection,
       openFileInTextSection,
       resolveCodeLanguageFromPath,
     ],
@@ -1902,7 +1977,6 @@ function ItemsColumn({
             folderPath: folder,
             ignorePatterns: rootInfo.ignorePatterns ?? null,
             includeSize: true,
-            missingFolderBehavior: "empty",
           });
           if (recursiveFilterRequestIdRef.current !== requestId) {
             return;
