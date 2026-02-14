@@ -224,6 +224,17 @@ setta_root = workspace / "setta_files"
 _seed_minimal_setta_files(setta_root)
 PY
   ) >"${LOG_DIR}/seed.log" 2>&1
+  if [[ "${SETTA_E2E_SEED_PLUGIN_FIXTURES:-1}" != "0" ]]; then
+    local fixture_root="${ROOT_DIR}/tests/fixtures/plugins/backend-language-server-e2e"
+    if [[ -d "${fixture_root}" ]]; then
+      local plugins_root="${SETTA_WORKSPACE_ROOT}/plugins"
+      local seeded_fixture_root="${plugins_root}/backend-language-server-e2e"
+      mkdir -p "${plugins_root}"
+      rm -rf "${seeded_fixture_root}"
+      cp -R "${fixture_root}" "${seeded_fixture_root}"
+      log "Seeded plugin fixture: ${seeded_fixture_root}"
+    fi
+  fi
   log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
 }
 

@@ -202,7 +202,14 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
 
 @pytest.mark.parametrize(
     "fixture_name",
-    ["backend", "backend-language-server", "frontend", "content", "full"],
+    [
+        "backend",
+        "backend-language-server",
+        "backend-language-server-e2e",
+        "frontend",
+        "content",
+        "full",
+    ],
 )
 def test_fixture_plugins_validate(fixture_name: str, tmp_path: Path) -> None:
     # Each first-party fixture should be a valid standalone plugin root.
@@ -844,7 +851,9 @@ def test_load_backend_plugins_registers_fixture_language_server(
     assert backend_entries[0].state == PluginRuntimeState.active
     assert len(backend_entries[0].registeredLanguageServers) == 1
     status_registration = backend_entries[0].registeredLanguageServers[0]
-    assert status_registration.name == "setta-fixture-backend-language-server:typescript"
+    assert (
+        status_registration.name == "setta-fixture-backend-language-server:typescript"
+    )
     assert status_registration.language == "typescript"
     assert status_registration.command == "typescript-language-server"
     assert status_registration.args == ["--stdio"]
