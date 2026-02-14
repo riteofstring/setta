@@ -91,7 +91,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.utils.constants import C
-from setta.utils.paths import get_setta_paths
 from setta.websockets.binary_frames import decode_binary_frame
 
 from .scheduling import ListenerCallbackScheduler
@@ -139,12 +138,19 @@ def _hosts_equivalent(left: str, right: str) -> bool:
 
 
 def _find_workspace_sessions_root(start_dir: Path) -> tuple[Path, Path] | None:
-    """Return (workspace_root, sessions_root) when runtime sessions exist."""
+    """Return (workspace_root, sessions_root) if setta_files runtime sessions exist."""
     sessions_root = C.RUNTIME_SESSIONS_FOLDER
     if sessions_root.is_absolute():
-        paths = get_setta_paths()
-        workspace_root = paths.workspace_root.resolve(strict=False)
-        return workspace_root, sessions_root.resolve(strict=False)
+        # Best-effort inference. Common layout: <workspace>/setta_files/runtime/sessions
+        workspace_root = sessions_root
+        try:
+            parts = list(sessions_root.parts)
+            suffix = ("setta_files", "runtime", "sessions")
+            if tuple(parts[-3:]) == suffix:
+                workspace_root = Path(*parts[:-3])
+        except Exception:
+            workspace_root = start_dir.resolve()
+        return workspace_root, sessions_root
 
     start = start_dir.resolve()
     for parent in (start, *start.parents):

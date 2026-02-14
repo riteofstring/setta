@@ -11,19 +11,9 @@ Local always wins when it exists.
 
 `<setta_home>` is the per-user Setta directory that contains the config file.
 
-- Canonical names only: `<setta_home>` must end with `.setta` or `.setta-development`.
-- macOS/Linux default: `~/.setta`
-- Dev scripts default: `~/.setta-development`
-- Windows recommended override: `SETTA_HOME=%APPDATA%\\.setta`
-- Override example: `SETTA_HOME=/abs/path/to/.setta-development`
-
-## Canonical Naming Rules
-
-Path resolution enforces canonical naming for state roots:
-
-- `setta_home` must end with `.setta` or `.setta-development`.
-- resolved `setta_files_root` must include a folder segment named `setta_files` or `setta_files_dev`.
-- This applies to explicit overrides (`--setta-home`, `--setta-files-root`) and to config-driven global roots (`globalSettaFilesBase`), because global roots are derived from that base.
+- macOS/Linux: `~/.setta`
+- Windows: `%APPDATA%\\Setta`
+- Override: `SETTA_HOME=/custom/path`
 
 ## Config File
 
@@ -95,7 +85,7 @@ Prefer global state for new workspaces (via config):
 
 ```json
 {
-  "globalSettaFilesBase": "~/.setta/setta_files_dev",
+  "globalSettaFilesBase": "~/setta_state",
   "autoMode": "create_global"
 }
 ```
