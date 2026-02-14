@@ -1316,6 +1316,18 @@ class PluginManager:
                 f"Invalid JSON in plugin manifest: {manifest_path}",
             ) from exc
 
+        raw_schema_version = (
+            raw_json.get("schemaVersion") if isinstance(raw_json, dict) else None
+        )
+        if (
+            isinstance(raw_schema_version, int)
+            and raw_schema_version != PLUGIN_MANIFEST_SCHEMA_VERSION
+        ):
+            raise PluginManagerError(
+                "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA",
+                f"Unsupported plugin manifest schema version: {raw_schema_version}",
+            )
+
         self._validate_manifest_capabilities(raw_json)
 
         try:
