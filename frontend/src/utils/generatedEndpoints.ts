@@ -1181,6 +1181,12 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
+export async function route_set_text_block_master_font_size(
+  x: gt.SetTextBlockMasterFontSizeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockMasterFontSize", x);
+}
+
 export async function route_set_text_block_heading_as_section_name(
   x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1205,6 +1211,12 @@ export async function route_set_section_hide_unpinned_params(
   return await post("/setSectionHideUnpinnedParams", x);
 }
 
+export async function route_set_section_allow_unquoted_string_args(
+  x: gt.SetSectionAllowUnquotedStringArgsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionAllowUnquotedStringArgs", x);
+}
+
 export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1215,6 +1227,12 @@ export async function route_set_section_column_width(
   x: gt.SetSectionColumnWidthRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionColumnWidth", x);
+}
+
+export async function route_set_parent_default_child_section_type(
+  x: gt.SetParentDefaultChildSectionTypeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setParentDefaultChildSectionType", x);
 }
 
 export async function route_set_browser_column_widths(

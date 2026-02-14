@@ -58,6 +58,24 @@ class DropzoneMode(str, Enum):
     STATELESS = "STATELESS"
 
 
+class TextParamInputUIType(str, Enum):
+    plain = "plain"
+    time = "time"
+    date = "date"
+
+
+class TimeDisplayFormat(str, Enum):
+    twenty_four_hour = "twenty_four_hour"
+    twelve_hour = "twelve_hour"
+
+
+class DateDisplayFormat(str, Enum):
+    iso = "iso"
+    us = "us"
+    eu = "eu"
+    long = "long"
+
+
 class ColorPickerChoice(BaseModel):
     color: str
     description: str
@@ -75,6 +93,7 @@ class BaseParamCodeObjImpl(BaseCodeObjImpl):
     coreNameType: ParamNameType = ParamNameType.TEXT
     coreNameEditable: bool = False
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
+    typeAnnotation: str = ""
 
 
 class BaseChildlessCodeObjImpl(BaseParamCodeObjImpl):
@@ -96,6 +115,9 @@ class CodeParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
+    uiType: TextParamInputUIType = TextParamInputUIType.plain
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
 
 
 class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
