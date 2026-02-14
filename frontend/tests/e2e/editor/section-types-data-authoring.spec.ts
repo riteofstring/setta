@@ -390,7 +390,7 @@ test.describe.serial("section types data authoring", () => {
     }
   });
 
-  test("file browser spreadsheet panel edits csv and previews xlsx", async ({
+  test("file browser uses bottom universal preview with csv/xlsx/pdf support", async ({
     page,
   }) => {
     await seedLocalStorage(page, {
@@ -416,6 +416,14 @@ test.describe.serial("section types data authoring", () => {
 
       const csvPath = `${rootPath}/pw-sheet.csv`;
       await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
+      const pdfPath = `${rootPath}/pw-sheet.pdf`;
+      await fs.writeFile(
+        pdfPath,
+        Buffer.from(
+          "%PDF-1.1\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 120] /Contents 4 0 R >>\nendobj\n4 0 obj\n<< /Length 38 >>\nstream\nBT /F1 14 Tf 24 60 Td (PDF Preview) Tj ET\nendstream\nendobj\nxref\n0 5\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000202 00000 n \ntrailer\n<< /Root 1 0 R /Size 5 >>\nstartxref\n287\n%%EOF\n",
+          "utf-8",
+        ),
+      );
 
       const workbook = XLSX.utils.book_new();
       const worksheet = XLSX.utils.aoa_to_sheet([
@@ -433,11 +441,42 @@ test.describe.serial("section types data authoring", () => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForSelector(".react-flow__pane");
 
+      const listPane = page.getByTestId("file-browser-list-pane");
+      const previewPane = page.getByTestId("file-browser-preview-pane");
+      await expect(listPane).toBeVisible();
+      await expect(previewPane).toBeVisible();
+      const listBox = await listPane.boundingBox();
+      const previewBox = await previewPane.boundingBox();
+      if (!listBox || !previewBox) {
+        throw new Error("Missing file browser pane bounding boxes.");
+      }
+      expect(previewBox.y).toBeGreaterThan(listBox.y + 10);
+
+      const pdfRow = page.locator("button").filter({ hasText: "pw-sheet.pdf" });
+      await expect(pdfRow).toBeVisible({ timeout: 20000 });
+      await pdfRow.first().click();
+      await expect(
+        previewPane.locator('[data-spreadsheet-cell="1:1"]'),
+      ).toHaveCount(0);
+      await expect
+        .poll(async () => {
+          const pdfCount = await page
+            .getByTestId("file-browser-universal-preview-pdf")
+            .count();
+          const unavailableCount = await previewPane
+            .getByText("Preview unavailable.")
+            .count();
+          return pdfCount + unavailableCount;
+        })
+        .toBeGreaterThan(0);
+
       const csvRow = page.locator("button").filter({ hasText: "pw-sheet.csv" });
       await expect(csvRow).toBeVisible({ timeout: 20000 });
       await csvRow.first().click();
 
-      const targetCell = page.locator('[data-spreadsheet-cell="1:1"]').first();
+      const targetCell = previewPane
+        .locator('[data-spreadsheet-cell="1:1"]')
+        .first();
       await expect(targetCell).toBeVisible();
       await targetCell.fill("done");
       await page.getByTestId("spreadsheet-save").click();
@@ -460,7 +499,9 @@ test.describe.serial("section types data authoring", () => {
       await expect(xlsxRow).toBeVisible({ timeout: 20000 });
       await xlsxRow.first().click();
 
-      const xlsxCell = page.locator('[data-spreadsheet-cell="1:0"]').first();
+      const xlsxCell = previewPane
+        .locator('[data-spreadsheet-cell="1:0"]')
+        .first();
       await expect(xlsxCell).toBeVisible();
       await expect(xlsxCell).toHaveValue("Beta");
     } finally {

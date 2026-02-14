@@ -107,3 +107,31 @@ Top insights from DevTools:
 ### Notes
 - The largest interaction cost is processing-heavy work on spreadsheet preview switch/update; no layout shift regressions were observed.
 - Virtualized row rendering kept the browser-section spreadsheet preview usable on a 2k-row CSV while preserving edit/save flow.
+
+## 2026-02-14 Follow-up: Overview Bottom Universal Preview Pane
+
+### Scope
+- Replaced side-by-side spreadsheet panel in Overview File Browser with a bottom universal preview pane.
+- Unified preview routing in the bottom pane for spreadsheet, PDF, image, audio, video, and text files.
+
+### Automated Performance Tests
+Command:
+```bash
+pnpm -C frontend exec vitest run \
+  src/utils/spreadsheet.perf.test.ts \
+  src/state/actions/sectionInfos.listRootViewMode.perf.test.ts
+```
+
+Result:
+- `2 passed`
+- Spreadsheet parse/serialize budget guardrail remained within thresholds after preview-layout refactor.
+
+### Playwright Verification
+Command:
+```bash
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+```
+
+Result:
+- `4 passed`
+- Includes bottom-pane placement assertion (preview pane Y-position below list pane) plus CSV/XLSX/PDF preview path checks in the unified pane.
