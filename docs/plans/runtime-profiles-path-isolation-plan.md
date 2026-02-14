@@ -18,7 +18,9 @@ Today, the development and built installations can collide because both derive s
 Important current constraints:
 
 1. Local `<workspace>/setta_files` takes precedence when present.
-2. Several places still assume the literal folder name `setta_files`.
+2. Runtime path resolution enforces canonical naming:
+   - `setta_home` must end with `.setta` or `.setta-development`.
+   - `setta_files_root` must include `setta_files` or `setta_files_dev`.
 3. Existing dev scripts (`start.sh`, `reset.sh`, `ai.sh`) are not profile-aware.
 
 Result: running dev and built Setta in one worktree is hard to isolate cleanly.
@@ -29,7 +31,7 @@ Result: running dev and built Setta in one worktree is hard to isolate cleanly.
 2. Make state roots explicit and deterministic.
 3. Keep `setta` (no flags) working exactly as now.
 4. Make `start.sh`, `reset.sh`, and `ai.sh` profile-aware.
-5. Eliminate reliance on literal `setta_files` path assumptions.
+5. Enforce canonical root naming consistently across CLI, scripts, and docs.
 
 ## Non-Goals
 
@@ -48,6 +50,7 @@ Treat runtime identity as a first-class profile with explicit roots:
 5. optional namespace values (for example auth cookie suffix)
 
 `--setta-files-location` (`auto|local|global`) stays as a convenience mode for default users, but explicit `--setta-files-root` is the primary isolation primitive.
+Explicit path overrides must still satisfy canonical naming constraints.
 
 ## CLI Contract
 
@@ -74,6 +77,7 @@ When `--setta-files-root` is set:
 1. it is authoritative
 2. `--setta-files-location` is ignored or rejected (prefer explicit CLI error to avoid ambiguity)
 3. local `<workspace>/setta_files` must not override it
+4. the resolved path must include `setta_files` or `setta_files_dev`
 
 ## Default Behavior (Must Preserve)
 
@@ -110,9 +114,9 @@ Equivalent explicit form:
 ```bash
 setta \
   --workspace "$PWD" \
-  --setta-home "$PWD/.setta_home_built" \
-  --setta-files-root "$PWD/.setta_state_built" \
-  --runtime-root "$PWD/.setta_runtime_built"
+  --setta-home "$PWD/profiles/built/.setta" \
+  --setta-files-root "$PWD/profiles/built/setta_files" \
+  --runtime-root "$PWD/profiles/built/setta_files/runtime_built"
 ```
 
 ## Profile Storage Model
@@ -127,9 +131,9 @@ Suggested JSON schema:
 {
   "name": "dev",
   "workspaceRoot": "/abs/path/to/workspace",
-  "settaHome": "/abs/path/to/.setta_home_dev",
-  "settaFilesRoot": "/abs/path/to/.setta_state_dev",
-  "runtimeRoot": "/abs/path/to/.setta_runtime_dev",
+  "settaHome": "/abs/path/to/profiles/dev/.setta-development",
+  "settaFilesRoot": "/abs/path/to/profiles/dev/setta_files_dev",
+  "runtimeRoot": "/abs/path/to/profiles/dev/setta_files_dev/runtime",
   "settaFilesLocation": "auto",
   "authCookieName": "setta_auth_dev"
 }
@@ -191,7 +195,7 @@ Acceptance criteria:
 2. flags override profile values.
 3. unknown profile errors clearly.
 
-### Phase 3: Remove Literal `setta_files` Assumptions
+### Phase 3: Canonical `setta_files` Path Integration
 
 Target files:
 
@@ -202,13 +206,13 @@ Target files:
 
 Work:
 
-1. Replace literal `"setta_files"` path assumptions with resolved path references.
+1. Replace ad-hoc `"setta_files"` path assumptions with resolved path references from the central resolver.
 2. Update session-root inference to use configured runtime root when available.
 3. Keep behavior equivalent for default users.
 
 Acceptance criteria:
 
-1. non-default state root works with watcher/session discovery.
+1. non-default state root works with watcher/session discovery when canonical naming rules are satisfied.
 2. default behavior remains identical.
 
 ### Phase 4: Dev Script Support (`start.sh`, `reset.sh`, `ai.sh`)
@@ -310,7 +314,7 @@ Add one end-to-end scenario:
 
 1. ensure no change for users typing only `setta`
 2. ensure current tests that assume local `setta_files` still pass under default mode
-3. update tests that hardcode literal `setta_files` only where behavior is now profile-driven
+3. update tests that use non-canonical roots so they follow enforced canonical naming
 
 ## Risk Areas and Mitigations
 
@@ -320,8 +324,8 @@ Mitigation: dedicated parity tests asserting current default path outcomes.
 2. Risk: script flag plumbing inconsistencies.
 Mitigation: one canonical environment/arg contract documented and tested.
 
-3. Risk: partial literal path assumptions left behind.
-Mitigation: repo-wide search gate for literal `setta_files` assumptions in runtime logic.
+3. Risk: inconsistent canonical-name enforcement across call paths.
+Mitigation: resolver-level validation tests plus script/CLI integration tests for canonical path handling.
 
 4. Risk: developer confusion during transition.
 Mitigation: add explicit profile examples for common workflows.
@@ -340,5 +344,5 @@ All of the following must be true:
 1. `setta` (no flags) still behaves exactly as before.
 2. `start.sh/reset.sh/ai.sh --profile <name>` work end-to-end.
 3. built and dev installations can run concurrently in one workspace with isolated state.
-4. no runtime-critical code path depends on literal `setta_files` naming.
+4. runtime-critical path resolution enforces canonical `setta_files` / `setta_files_dev` naming consistently.
 5. updated automated tests cover precedence, isolation, and default parity.

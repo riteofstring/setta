@@ -405,6 +405,54 @@ env | sort > "{capture_env}"
     assert captured_env.get("SETTA_FILES_ROOT") == str(tmp_path / "state_root")
 
 
+def test_run_dev_instance_accepts_equals_style_path_flags(tmp_path: Path) -> None:
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    _write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+
+    setta_home = tmp_path / ".setta-development"
+    setta_files_root = tmp_path / "state" / "setta_files_dev"
+    runtime_root = setta_files_root / "runtime_custom"
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--profile=dev",
+            f"--setta-home={setta_home}",
+            f"--setta-files-root={setta_files_root}",
+            f"--runtime-root={runtime_root}",
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
+    captured_env = _parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_PROFILE") == "dev"
+    assert captured_env.get("SETTA_HOME") == str(setta_home)
+    assert captured_env.get("SETTA_FILES_ROOT") == str(setta_files_root)
+    assert captured_env.get("SETTA_RUNTIME_ROOT") == str(runtime_root)
+
+
 def test_start_sh_defaults_to_dev_home_and_dev_state_root(tmp_path: Path) -> None:
     sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"

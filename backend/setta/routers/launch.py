@@ -61,11 +61,16 @@ class LaunchResponse(BaseModel):
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
-        setta_files_location = (
-            x.settaFilesLocation
-            if x.settaFilesRoot is not None
-            else (x.settaFilesLocation or "auto")
-        )
+        if x.settaFilesRoot is not None:
+            setta_files_location = x.settaFilesLocation
+        elif x.settaFilesLocation is not None:
+            setta_files_location = x.settaFilesLocation
+        elif x.profile is not None:
+            # Preserve omission so profile config can drive location/root selection.
+            setta_files_location = None
+        else:
+            # Keep API launches insulated from server-process SETTA_FILES_LOCATION env.
+            setta_files_location = "auto"
         if x.sshTarget:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,

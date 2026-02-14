@@ -400,6 +400,87 @@ test("workspace launch does not dedupe in-flight requests that only differ by pr
   ).toBeVisible();
 });
 
+test("workspace launch dedupes in-flight requests when optionals differ only by missing vs null", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  const capturedLaunchBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/launch", async (route, request) => {
+    const body = request.postDataJSON();
+    if (isObjectRecord(body)) {
+      capturedLaunchBodies.push(body);
+    } else {
+      capturedLaunchBodies.push({});
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: { message: "Intentional failure for null-vs-missing dedupe test." },
+        }),
+      });
+    } catch {
+      // Ignore requests that were cancelled during navigation churn.
+    }
+  });
+
+  const firstRequest = {
+    workspaceRoot: "/tmp/workspace",
+  };
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, firstRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+
+  const secondRequest = {
+    workspaceRoot: "/tmp/workspace",
+    profile: null,
+    settaHome: null,
+    settaFilesRoot: null,
+    settaFilesLocation: null,
+    runtimeRoot: null,
+    sshTarget: null,
+    sshArgs: null,
+    remoteCmd: null,
+    localPort: null,
+  };
+  await page.goto(new URL("/", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, secondRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+  await expect(
+    page.getByText("Intentional failure for null-vs-missing dedupe test."),
+  ).toBeVisible();
+});
+
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.utils.env_vars import PROFILE_LOOKUP_HOME_ENV
 from setta.utils.paths import (
     ConflictingSettaFilesRootAndLocationError,
     InvalidSettaFilesLocationError,
@@ -173,7 +174,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
         "--workspace",
         str(paths.workspace_root),
         "--setta-home",
-        str(paths.profile_lookup_home),
+        str(paths.setta_home),
     ]
     if paths.profile_name:
         cmd.extend(["--profile", paths.profile_name])
@@ -209,6 +210,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             "cwd": str(paths.workspace_root),
         }
         env = os.environ.copy()
+        env[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
         if paths.auth_cookie_name:
             env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
         else:

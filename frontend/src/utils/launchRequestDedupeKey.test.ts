@@ -55,4 +55,26 @@ describe("buildLaunchRequestDedupeKey", () => {
       buildLaunchRequestDedupeKey(differentProfileAndRoots),
     );
   });
+
+  it("treats omitted optional launch fields the same as explicit nulls", () => {
+    const omittedOptionalFields: LaunchRequestInput = {
+      workspaceRoot: "/tmp/workspace",
+    };
+    const explicitNullOptionalFields: LaunchRequestInput = {
+      workspaceRoot: "/tmp/workspace",
+      profile: null,
+      settaHome: null,
+      settaFilesRoot: null,
+      settaFilesLocation: null,
+      runtimeRoot: null,
+      sshTarget: null,
+      sshArgs: null,
+      remoteCmd: null,
+      localPort: null,
+    };
+
+    expect(buildLaunchRequestDedupeKey(omittedOptionalFields)).toBe(
+      buildLaunchRequestDedupeKey(explicitNullOptionalFields),
+    );
+  });
 });

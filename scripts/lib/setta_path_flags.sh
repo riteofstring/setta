@@ -35,10 +35,28 @@ setta_path_flags_try_parse() {
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
       ;;
+    --profile=*)
+      SETTA_PROFILE_OVERRIDE="${1#--profile=}"
+      if [ -z "${SETTA_PROFILE_OVERRIDE}" ]; then
+        echo "Missing value for --profile" >&2
+        exit 1
+      fi
+      SETTA_PATH_FLAGS_CONSUMED=1
+      return 0
+      ;;
     --setta-home)
       setta_require_option_value "$1" "$#"
       SETTA_HOME_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
+      return 0
+      ;;
+    --setta-home=*)
+      SETTA_HOME_OVERRIDE="${1#--setta-home=}"
+      if [ -z "${SETTA_HOME_OVERRIDE}" ]; then
+        echo "Missing value for --setta-home" >&2
+        exit 1
+      fi
+      SETTA_PATH_FLAGS_CONSUMED=1
       return 0
       ;;
     --setta-files-root)
@@ -47,16 +65,43 @@ setta_path_flags_try_parse() {
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
       ;;
+    --setta-files-root=*)
+      SETTA_FILES_ROOT_OVERRIDE="${1#--setta-files-root=}"
+      if [ -z "${SETTA_FILES_ROOT_OVERRIDE}" ]; then
+        echo "Missing value for --setta-files-root" >&2
+        exit 1
+      fi
+      SETTA_PATH_FLAGS_CONSUMED=1
+      return 0
+      ;;
     --setta-files-location)
       setta_require_option_value "$1" "$#"
       SETTA_FILES_LOCATION_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
       return 0
       ;;
+    --setta-files-location=*)
+      SETTA_FILES_LOCATION_OVERRIDE="${1#--setta-files-location=}"
+      if [ -z "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
+        echo "Missing value for --setta-files-location" >&2
+        exit 1
+      fi
+      SETTA_PATH_FLAGS_CONSUMED=1
+      return 0
+      ;;
     --runtime-root)
       setta_require_option_value "$1" "$#"
       SETTA_RUNTIME_ROOT_OVERRIDE="$2"
       SETTA_PATH_FLAGS_CONSUMED=2
+      return 0
+      ;;
+    --runtime-root=*)
+      SETTA_RUNTIME_ROOT_OVERRIDE="${1#--runtime-root=}"
+      if [ -z "${SETTA_RUNTIME_ROOT_OVERRIDE}" ]; then
+        echo "Missing value for --runtime-root" >&2
+        exit 1
+      fi
+      SETTA_PATH_FLAGS_CONSUMED=1
       return 0
       ;;
   esac

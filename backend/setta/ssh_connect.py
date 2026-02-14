@@ -107,7 +107,11 @@ def connect_remote_workspace_session(
     )
     if trimmed_setta_files_root is not None and not trimmed_setta_files_root:
         trimmed_setta_files_root = None
-    if trimmed_setta_files_root is None and trimmed_location is None:
+    if (
+        trimmed_setta_files_root is None
+        and trimmed_location is None
+        and profile is None
+    ):
         trimmed_location = "auto"
 
     ssh_prefix = ssh_command_prefix(batch_mode=True)

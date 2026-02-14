@@ -2027,10 +2027,22 @@ def stop(
         raise click.ClickException("Use either --session or --latest, not both.")
     if stop_all and (session_id or latest):
         raise click.ClickException("Use --all by itself.")
+    params = ctx.obj or {}
 
     if ssh_target is None:
-        registry = _build_session_registry(workspace)
-        sessions = registry.find_sessions_by_workspace(workspace)
+        resolved_paths = _resolve_cli_paths(
+            workspace=workspace,
+            setta_home=_to_optional_string(params.get("setta_home")),
+            profile=_to_optional_string(params.get("profile")),
+            setta_files_root=_to_optional_string(params.get("setta_files_root")),
+            setta_files_location=_to_optional_string(
+                params.get("setta_files_location")
+            ),
+            runtime_root=_to_optional_string(params.get("runtime_root")),
+            validate=False,
+        )
+        registry = SessionRegistry(sessions_root=resolved_paths.runtime_sessions_root)
+        sessions = registry.find_sessions_by_workspace(resolved_paths.workspace_root)
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")
         targets = _select_local_stop_targets(sessions, session_id, latest, stop_all)
@@ -2041,7 +2053,6 @@ def stop(
             click.echo(f"Stopped session {session.id}.")
         return
 
-    params = ctx.obj or {}
     setta_path_args = _build_remote_setta_path_args(
         profile=_to_optional_string(params.get("profile")),
         setta_home=_to_optional_string(params.get("setta_home")),

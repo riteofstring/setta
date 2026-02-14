@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+from setta.launch import LaunchError
 from setta.routers.launch import LaunchRequest, route_launch
 from setta.ssh_common import RemoteSessionSummary
 from setta.ssh_connect import RemoteConnectResult
@@ -17,6 +18,100 @@ from tests.utils.setta_paths import temporary_setta_paths
 
 
 class TestLaunchRoutes:
+    def test_launch_local_profile_preserves_omitted_setta_files_location(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                profile="dev",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_files_location"] is None
+
+    def test_launch_local_without_profile_defaults_to_auto_location(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_files_location"] == "auto"
+
+    def test_launch_ssh_profile_preserves_omitted_setta_files_location(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_connect_remote_workspace_session(**kwargs) -> RemoteConnectResult:
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=False,
+                remote_cmd_resolved="setta",
+                setta_files_location="local",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile="dev",
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+                profile="dev",
+            )
+        )
+
+        assert response.ok is True
+        assert captured["setta_files_location"] is None
+
     def test_launch_returns_structured_error_for_value_error(self) -> None:
         response = route_launch(LaunchRequest(workspaceRoot="bad\u0000path"))
         assert response.ok is False
@@ -334,7 +429,7 @@ class TestLaunchRoutes:
             workspace_root = tmp_path / "workspace"
             workspace_root.mkdir(parents=True, exist_ok=True)
             (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
-            explicit_root = tmp_path / "explicit_state"
+            explicit_root = tmp_path / "explicit_state" / "setta_files_dev"
             sessions_root = explicit_root / "runtime" / "sessions"
             sessions_root.mkdir(parents=True, exist_ok=True)
 
