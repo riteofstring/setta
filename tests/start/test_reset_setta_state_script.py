@@ -16,6 +16,60 @@ def _ensure_local_venv_or_skip() -> None:
         pytest.skip("reset-setta-state.sh requires repo .venv activation script.")
 
 
+def _build_reset_script_sandbox(tmp_path: Path, *, activate_body: str) -> Path:
+    repo_root = _repo_root()
+    sandbox_root = tmp_path / "reset_script_sandbox"
+    scripts_dir = sandbox_root / "scripts"
+    lib_dir = scripts_dir / "lib"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    lib_dir.mkdir(parents=True, exist_ok=True)
+
+    reset_src = repo_root / "scripts" / "reset-setta-state.sh"
+    flags_src = repo_root / "scripts" / "lib" / "setta_path_flags.sh"
+    reset_dst = scripts_dir / "reset-setta-state.sh"
+    flags_dst = lib_dir / "setta_path_flags.sh"
+
+    reset_dst.write_text(reset_src.read_text(encoding="utf-8"), encoding="utf-8")
+    flags_dst.write_text(flags_src.read_text(encoding="utf-8"), encoding="utf-8")
+    reset_dst.chmod(0o755)
+    flags_dst.chmod(0o755)
+
+    activate_dst = sandbox_root / "activate.sh"
+    activate_dst.write_text(activate_body, encoding="utf-8")
+    activate_dst.chmod(0o755)
+    return sandbox_root
+
+
+def test_reset_setta_state_script_surfaces_activation_stderr(tmp_path: Path) -> None:
+    sandbox_root = _build_reset_script_sandbox(
+        tmp_path,
+        activate_body=(
+            "#!/usr/bin/env bash\n"
+            "echo 'sandbox activation failed: missing venv' >&2\n"
+            "return 1\n"
+        ),
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    # Activation errors should be visible instead of being swallowed by redirection.
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "reset-setta-state.sh"),
+            "--workspace",
+            str(workspace),
+        ],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "sandbox activation failed: missing venv" in f"{result.stdout}{result.stderr}"
+
+
 def test_reset_setta_state_script_deletes_explicit_root(tmp_path: Path) -> None:
     _ensure_local_venv_or_skip()
     repo_root = _repo_root()

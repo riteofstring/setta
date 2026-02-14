@@ -580,6 +580,96 @@ test("workspace launch does not dedupe when unknown future request fields differ
   ).toBeVisible();
 });
 
+test("workspace launch dedupes when nested future fields only differ by key order", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  const responseGate = createRouteGate();
+  const capturedLaunchBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/launch", async (route, request) => {
+    const body = request.postDataJSON();
+    if (isObjectRecord(body)) {
+      capturedLaunchBodies.push(body);
+    } else {
+      capturedLaunchBodies.push({});
+    }
+    await responseGate.wait;
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: {
+            message: "Intentional failure for nested future-field dedupe test.",
+          },
+        }),
+      });
+    } catch {
+      // Ignore requests that were cancelled during navigation churn.
+    }
+  });
+
+  const firstRequest = {
+    workspaceRoot: "/tmp/workspace",
+    futureLaunchConfig: {
+      routing: {
+        mode: "isolated",
+        retries: 2,
+      },
+      labels: ["alpha", { left: "L", right: "R" }],
+    },
+  };
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, firstRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+
+  const secondRequest = {
+    workspaceRoot: "/tmp/workspace",
+    futureLaunchConfig: {
+      labels: ["alpha", { right: "R", left: "L" }],
+      routing: {
+        retries: 2,
+        mode: "isolated",
+      },
+    },
+  };
+  await page.goto(new URL("/", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, secondRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+  responseGate.release();
+  await expect(
+    page.getByText("Intentional failure for nested future-field dedupe test."),
+  ).toBeVisible();
+});
+
 test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
   page,
 }) => {

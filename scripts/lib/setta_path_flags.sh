@@ -16,6 +16,24 @@ setta_require_option_value() {
   esac
 }
 
+setta_normalize_setta_files_location() {
+  case "$1" in
+    [Aa][Uu][Tt][Oo])
+      printf "auto"
+      return 0
+      ;;
+    [Ll][Oo][Cc][Aa][Ll])
+      printf "local"
+      return 0
+      ;;
+    [Gg][Ll][Oo][Bb][Aa][Ll])
+      printf "global"
+      return 0
+      ;;
+  esac
+  return 1
+}
+
 setta_path_flags_init() {
   default_setta_home="$1"
   default_setta_files_root="$2"
@@ -141,6 +159,15 @@ setta_path_flags_try_parse() {
 }
 
 setta_path_flags_validate() {
+  if [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
+    if ! normalized_setta_files_location="$(
+      setta_normalize_setta_files_location "${SETTA_FILES_LOCATION_OVERRIDE}"
+    )"; then
+      echo "Invalid value for --setta-files-location: ${SETTA_FILES_LOCATION_OVERRIDE}. Expected auto, local, or global." >&2
+      exit 1
+    fi
+    SETTA_FILES_LOCATION_OVERRIDE="${normalized_setta_files_location}"
+  fi
   if [ "${SETTA_FILES_ENV_CONFLICT}" -eq 1 ]; then
     echo "Environment variables SETTA_FILES_ROOT and SETTA_FILES_LOCATION cannot both be set." >&2
     exit 1

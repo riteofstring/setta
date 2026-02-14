@@ -16,6 +16,14 @@ EOF
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+install_root_helper="${repo_root}/scripts/lib/install_root_path.sh"
+
+if [[ ! -f "${install_root_helper}" ]]; then
+  echo "Missing install root helper: ${install_root_helper}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${install_root_helper}"
 
 cleanup_on_exit() {
   (cd "$repo_root" && ./cleanup.sh) || true
@@ -52,7 +60,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-install_root_abs="$(mkdir -p "$(dirname "$install_root")" && cd "$(dirname "$install_root")" && pwd)/$(basename "$install_root")"
+install_root_abs="$(setta_resolve_install_root "${install_root}")"
+mkdir -p "$(dirname "${install_root_abs}")"
 
 cd "$repo_root"
 ./build.sh

@@ -84,7 +84,7 @@ if [[ -n "${workspace_override}" ]]; then
 fi
 
 resolved_paths="$(
-  cd "${ROOT_DIR}" && . ./activate.sh >/dev/null 2>&1 && python - <<'PY'
+  cd "${ROOT_DIR}" && . ./activate.sh >/dev/null && python - <<'PY'
 import sys
 
 from setta.utils.paths import resolve_setta_paths

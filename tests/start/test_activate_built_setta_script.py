@@ -61,3 +61,39 @@ def test_activate_built_setta_sets_built_path_defaults(tmp_path: Path) -> None:
     assert lines["SETTA_FILES_ROOT"] == "__unset__"
     assert lines["SETTA_RUNTIME_ROOT"] == "__unset__"
     assert lines["SETTA_PROFILE_LOOKUP_HOME"] == "__unset__"
+
+
+def test_activate_built_setta_expands_tilde_install_root(tmp_path: Path) -> None:
+    repo_root = _repo_root()
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    install_root = home_dir / "built_venv"
+    activate_file = install_root / "bin" / "activate"
+    activate_file.parent.mkdir(parents=True, exist_ok=True)
+    activate_file.write_text(
+        "export SETTA_ACTIVATE_MARKER='expanded-tilde'\n",
+        encoding="utf-8",
+    )
+
+    env = os.environ.copy()
+    env["HOME"] = str(home_dir)
+
+    result = subprocess.run(
+        [
+            "bash",
+            "-lc",
+            (
+                f'source "{repo_root / "activate_built_setta.sh"}" '
+                '--install-root "~/built_venv" >/dev/null && '
+                'printf "SETTA_ACTIVATE_MARKER=%s\\n" "${SETTA_ACTIVATE_MARKER:-}"'
+            ),
+        ],
+        cwd=repo_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "SETTA_ACTIVATE_MARKER=expanded-tilde" in result.stdout

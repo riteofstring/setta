@@ -68,7 +68,14 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         normalized_runtime_root = normalize_optional_argument(x.runtimeRoot)
 
         if x.settaFilesLocation is not None:
-            setta_files_location = x.settaFilesLocation
+            if (
+                normalized_setta_files_root is not None
+                and x.settaFilesLocation == "auto"
+            ):
+                # Treat explicit "auto" as omitted when an explicit files root is set.
+                setta_files_location = None
+            else:
+                setta_files_location = x.settaFilesLocation
         elif normalized_setta_files_root is not None or normalized_profile is not None:
             # Preserve omission so explicit root/profile config can drive location/root selection.
             setta_files_location = None
@@ -116,9 +123,8 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         local_profile_lookup_home: str | None = None
         if local_setta_home is None:
             paths = get_setta_paths()
-            if normalized_profile is None:
-                local_setta_home = str(paths.setta_home)
-            else:
+            local_setta_home = str(paths.setta_home)
+            if normalized_profile is not None:
                 local_profile_lookup_home = str(paths.profile_lookup_home)
 
         result = launch_workspace_session(

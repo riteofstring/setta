@@ -17,6 +17,15 @@ EOF
 }
 
 install_root=".venv_for_built_setta"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+install_root_helper="${script_dir}/scripts/lib/install_root_path.sh"
+
+if [[ ! -f "${install_root_helper}" ]]; then
+  echo "Missing install root helper: ${install_root_helper}" >&2
+  return 1 2>/dev/null || exit 1
+fi
+# shellcheck source=/dev/null
+. "${install_root_helper}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -62,14 +71,18 @@ if [[ "$is_sourced" -eq 0 ]]; then
   exit 1
 fi
 
-if [[ ! -f "$install_root/bin/activate" ]]; then
-  echo "Environment not found at: $install_root" >&2
-  echo "Create it first with: ./install_built_setta.sh --install-root \"$install_root\"" >&2
+if ! install_root_abs="$(setta_resolve_install_root "${install_root}")"; then
+  return 1
+fi
+
+if [[ ! -f "${install_root_abs}/bin/activate" ]]; then
+  echo "Environment not found at: ${install_root_abs}" >&2
+  echo "Create it first with: ./install_built_setta.sh --install-root \"${install_root_abs}\"" >&2
   return 1
 fi
 
 # shellcheck disable=SC1090
-source "$install_root/bin/activate"
+source "${install_root_abs}/bin/activate"
 
 if [[ -n "${HOME:-}" ]]; then
   export SETTA_HOME="${HOME}/.setta"

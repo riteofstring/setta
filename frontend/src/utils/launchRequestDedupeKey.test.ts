@@ -91,4 +91,31 @@ describe("buildLaunchRequestDedupeKey", () => {
       buildLaunchRequestDedupeKey(futureFieldRequest),
     );
   });
+
+  it("stably dedupes when nested future objects only differ by key order", () => {
+    const firstRequest = {
+      workspaceRoot: "/tmp/workspace",
+      futureLaunchConfig: {
+        routing: {
+          mode: "isolated",
+          retries: 2,
+        },
+        labels: ["alpha", { left: "L", right: "R" }],
+      },
+    } as LaunchRequestInput;
+    const secondRequest = {
+      workspaceRoot: "/tmp/workspace",
+      futureLaunchConfig: {
+        labels: ["alpha", { right: "R", left: "L" }],
+        routing: {
+          retries: 2,
+          mode: "isolated",
+        },
+      },
+    } as LaunchRequestInput;
+
+    expect(buildLaunchRequestDedupeKey(firstRequest)).toBe(
+      buildLaunchRequestDedupeKey(secondRequest),
+    );
+  });
 });

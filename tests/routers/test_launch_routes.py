@@ -74,7 +74,7 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
 
-    def test_launch_local_profile_without_setta_home_uses_profile_lookup_home_only(
+    def test_launch_local_profile_without_setta_home_uses_runtime_and_lookup_homes(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured: dict[str, object] = {}
@@ -104,7 +104,7 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
-        assert captured["setta_home"] is None
+        assert captured["setta_home"] == str(_Paths.setta_home)
         assert captured["profile_lookup_home"] == str(_Paths.profile_lookup_home)
 
     def test_launch_local_without_profile_uses_runtime_setta_home_default(
@@ -205,7 +205,7 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
-        assert captured["setta_home"] is None
+        assert captured["setta_home"] == "/tmp/runtime/.setta-development"
         assert captured["setta_files_root"] is None
         assert captured["runtime_root"] is None
 
@@ -287,9 +287,11 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
-        assert captured["setta_files_location"] == "auto"
+        assert captured["setta_files_location"] is None
 
-    def test_launch_local_explicit_root_with_auto_returns_conflict_error(self) -> None:
+    def test_launch_local_explicit_root_with_auto_surfaces_workspace_validation(
+        self,
+    ) -> None:
         response = route_launch(
             LaunchRequest(
                 workspaceRoot="/tmp/workspace",
@@ -300,11 +302,8 @@ class TestLaunchRoutes:
 
         assert response.ok is False
         assert response.error is not None
-        assert response.error.code == "InvalidSettaFilesConfig"
-        assert (
-            "--setta-files-root together with --setta-files-location"
-            in response.error.message
-        )
+        assert response.error.code == "InvalidWorkspace"
+        assert "Workspace root does not exist" in response.error.message
 
     def test_launch_local_disables_all_env_overrides(
         self, monkeypatch: pytest.MonkeyPatch

@@ -6,7 +6,6 @@ import shlex
 import signal
 import subprocess
 import sys
-import time
 import webbrowser
 from functools import lru_cache
 from pathlib import Path
@@ -405,27 +404,36 @@ def _wait_for_remote_session(
     workspace: str,
     setta_command: str,
     setta_files_args: str,
+    *,
+    setta_files_location: str | None,
+    setta_files_root: str | None = None,
+    runtime_root: str | None = None,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
 ) -> RemoteSessionSummary:
-    deadline = time.monotonic() + timeout_seconds
-    attempt = 0
-    while True:
-        attempt += 1
-        sessions = _fetch_remote_sessions(
-            ssh_target, ssh_args, shell, workspace, setta_command, setta_files_args
+    try:
+        sessions = ssh_common.wait_for_remote_sessions(
+            ssh_target,
+            ssh_args,
+            shell,
+            workspace,
+            setta_command,
+            setta_files_args,
+            ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+            timeout_seconds=timeout_seconds,
+            setta_files_location=setta_files_location,
+            setta_files_root=setta_files_root,
+            runtime_root=runtime_root,
         )
-        if verbose:
-            click.echo(
-                f"Remote session poll #{attempt}: {len(sessions)} session(s) found."
-            )
-        if sessions:
-            return max(sessions, key=lambda session: session.started_at)
-        if time.monotonic() >= deadline:
+    except LaunchError as exc:
+        if exc.code == "RemoteLaunchTimeout":
             raise click.ClickException(
                 "Timed out waiting for remote Setta session to start."
-            )
-        time.sleep(0.5)
+            ) from exc
+        raise click.ClickException(str(exc)) from exc
+    if verbose:
+        click.echo(f"Remote session poll complete: {len(sessions)} session(s) found.")
+    return max(sessions, key=lambda session: session.started_at)
 
 
 def _stop_session_process(pid: int) -> None:
@@ -2234,6 +2242,9 @@ def connect(
                 remote_workspace,
                 setta_command,
                 setta_path_args,
+                setta_files_location=setta_files_location,
+                setta_files_root=setta_files_root,
+                runtime_root=runtime_root,
                 verbose=verbose,
             )
         except click.ClickException as exc:
