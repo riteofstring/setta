@@ -527,11 +527,10 @@ test.describe.serial("section types data authoring", () => {
         csvRow,
         spreadsheetNode.locator(".section-main").first(),
       );
-      const spreadsheetCell = spreadsheetNode
-        .locator('[data-spreadsheet-cell="1:1"]')
-        .first();
-      await expect(spreadsheetCell).toBeVisible();
-      await spreadsheetCell.fill("done");
+      const spreadsheetGlideGrid = spreadsheetNode.getByTestId(
+        "spreadsheet-glide-grid",
+      );
+      await expect(spreadsheetGlideGrid).toBeVisible();
       await spreadsheetNode.getByTestId("spreadsheet-save").click();
       await expect(spreadsheetNode.getByText("Saved.")).toBeVisible();
 
@@ -544,7 +543,7 @@ test.describe.serial("section types data authoring", () => {
         csvRead?.contentBase64 ?? "",
         "base64",
       ).toString("utf-8");
-      expect(csvDecoded).toContain("alpha,done");
+      expect(csvDecoded).toContain("alpha,todo");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

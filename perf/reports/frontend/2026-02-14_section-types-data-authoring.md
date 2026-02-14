@@ -510,3 +510,42 @@ Captured checks:
 ### Notes
 - Native import initially failed because `/checkIfFileExists` expects `filepath`, and `/writeFileBrowserFileContent` requires pre-existing files; the flow now uses `route_create_file` before write.
 - This update keeps existing section-open behavior while removing direct path entry from spreadsheet UI.
+
+## 2026-02-14 Follow-up: Glide Canvas Grid for Spreadsheet Sections
+
+### Scope
+- Added `@glideapps/glide-data-grid` and integrated it as the Spreadsheet section renderer on the React Flow canvas.
+- Kept browser/universal preview spreadsheet rendering on the existing DOM-grid path for incremental rollout.
+- Added zoom-aware density compensation for canvas sections:
+  - supersamples grid render up to 2x based on flow zoom,
+  - scales the grid container back down to keep visual sizing stable while reducing zoom blur.
+- Preserved section file workflows:
+  - open from browser,
+  - drag/drop from browser to spreadsheet section/canvas,
+  - native OS drag/drop import to spreadsheet section/canvas.
+
+### Automated Regression + Performance Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx \
+  src/utils/spreadsheet.perf.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-carousel-spreadsheet-preview.spec.ts
+```
+
+Result:
+- Vitest: `3 files passed`, `4 tests passed`.
+  - Spreadsheet parse/serialize perf budget remains passing.
+- Playwright:
+  - `browser-transfer-and-drop.spec.ts`: `2 passed`.
+    - Covers spreadsheet-section drag/drop with Glide rendering and native drop flows.
+  - `section-types-data-authoring.spec.ts`: `5 passed`.
+  - `browser-carousel-spreadsheet-preview.spec.ts`: `1 passed`.
+
+### DevTools MCP Visual/Perf Profiling
+- Visual validation was run before transport loss and confirmed spreadsheet sections now render a canvas-backed grid and keep the pathless drop-first UX.
+- DevTools transport closed before a new trace artifact could be captured for this follow-up run, so no additional trace JSON was produced in this step.

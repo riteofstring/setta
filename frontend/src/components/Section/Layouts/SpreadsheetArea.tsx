@@ -1,4 +1,5 @@
 import { FileBrowserSpreadsheetEditor } from "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import type { DragEvent } from "react";
 import { useCallback, useMemo, useState } from "react";
@@ -27,6 +28,7 @@ function getFileNameFromPath(path: string): string {
 }
 
 export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
+  const flowZoom = useReactFlow((state) => state.transform[2]);
   const { canEditLayout } = useShareCapabilities();
   const { filePath, activeSheet, isFrozen } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -169,7 +171,11 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
       onDragLeave={handleDragLeave}
     >
       <div className="min-h-0 flex-1">
-        <FileBrowserSpreadsheetEditor selectedFile={selectedFile} />
+        <FileBrowserSpreadsheetEditor
+          selectedFile={selectedFile}
+          gridMode="glide"
+          flowZoom={flowZoom}
+        />
       </div>
     </div>
   );

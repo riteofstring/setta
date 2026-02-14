@@ -1,3 +1,11 @@
+import {
+  DataEditor,
+  GridCellKind,
+  type EditableGridCell,
+  type GridColumn,
+  type GridSelection,
+  type Item,
+} from "@glideapps/glide-data-grid";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiColumns, FiPlus, FiSave } from "react-icons/fi";
@@ -18,6 +26,7 @@ export const SPREADSHEET_HEADER_HEIGHT = 24;
 export const SPREADSHEET_ROW_HEIGHT = 22;
 export const SPREADSHEET_INDEX_COLUMN_WIDTH = 36;
 export const SPREADSHEET_DATA_COLUMN_WIDTH = 88;
+const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 2;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 type SpreadsheetDraft = {
@@ -46,6 +55,8 @@ export type SpreadsheetSelectedFile = {
   fullPath: string;
 };
 
+export type SpreadsheetGridMode = "dom" | "glide";
+
 export function getSpreadsheetGridTemplateColumns(columnCount: number): string {
   return `${SPREADSHEET_INDEX_COLUMN_WIDTH}px repeat(${columnCount}, ${SPREADSHEET_DATA_COLUMN_WIDTH}px)`;
 }
@@ -71,6 +82,17 @@ function decodeBase64ToBytes(contentBase64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+function withColumnCount(row: string[], columnCount: number): string[] {
+  if (row.length === columnCount) {
+    return row;
+  }
+  const next = Array.from({ length: columnCount }, () => "");
+  for (let i = 0; i < Math.min(row.length, columnCount); i += 1) {
+    next[i] = row[i] ?? "";
+  }
+  return next;
 }
 
 export function SpreadsheetRow({
@@ -118,14 +140,19 @@ export function SpreadsheetRow({
 
 export function FileBrowserSpreadsheetEditor({
   selectedFile,
+  gridMode = "dom",
+  flowZoom = 1,
 }: {
   selectedFile: SpreadsheetSelectedFile | null;
+  gridMode?: SpreadsheetGridMode;
+  flowZoom?: number;
 }) {
   const [sheet, setSheet] = useState<SpreadsheetDraft | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [columnWidths, setColumnWidths] = useState<Record<number, number>>({});
   const [viewportSize, setViewportSize] = useState({ width: 400, height: 300 });
   const listRef = useListRef();
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -178,6 +205,7 @@ export function FileBrowserSpreadsheetEditor({
       columnCount: parsed.columnCount,
       mtime: response.data.mtime,
     });
+    setColumnWidths({});
     setIsLoading(false);
     listRef.current?.scrollToRow({ index: 0, align: "start" });
   }, []);
@@ -225,6 +253,84 @@ export function FileBrowserSpreadsheetEditor({
     },
     [],
   );
+
+  const onCellsEdited = useCallback(
+    (
+      newValues: readonly {
+        location: Item;
+        value: EditableGridCell;
+      }[],
+    ) => {
+      setSheet((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        const nextRows = prev.rows.map((row) =>
+          withColumnCount([...row], prev.columnCount),
+        );
+        for (const edit of newValues) {
+          if (edit.value.kind !== GridCellKind.Text) {
+            continue;
+          }
+          const [columnIndex, rowIndex] = edit.location;
+          if (
+            rowIndex < 0 ||
+            rowIndex >= prev.rowCount ||
+            columnIndex < 0 ||
+            columnIndex >= prev.columnCount
+          ) {
+            continue;
+          }
+          const nextRow = [
+            ...(nextRows[rowIndex] ??
+              Array.from({ length: prev.columnCount }, () => "")),
+          ];
+          nextRow[columnIndex] = edit.value.data;
+          nextRows[rowIndex] = withColumnCount(nextRow, prev.columnCount);
+        }
+        return {
+          ...prev,
+          rows: nextRows,
+        };
+      });
+      return true;
+    },
+    [],
+  );
+
+  const onDeleteSelection = useCallback((selection: GridSelection) => {
+    const range = selection.current?.range;
+    if (!range) {
+      return false;
+    }
+    setSheet((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      const nextRows = prev.rows.map((row) =>
+        withColumnCount([...row], prev.columnCount),
+      );
+      const xStart = Math.max(0, range.x);
+      const yStart = Math.max(0, range.y);
+      const xEnd = Math.min(prev.columnCount, range.x + range.width);
+      const yEnd = Math.min(prev.rowCount, range.y + range.height);
+      for (let rowIndex = yStart; rowIndex < yEnd; rowIndex += 1) {
+        const nextRow = [
+          ...(nextRows[rowIndex] ??
+            Array.from({ length: prev.columnCount }, () => "")),
+        ];
+        for (let columnIndex = xStart; columnIndex < xEnd; columnIndex += 1) {
+          nextRow[columnIndex] = "";
+        }
+        nextRows[rowIndex] = nextRow;
+      }
+      return {
+        ...prev,
+        rows: nextRows,
+      };
+    });
+    return false;
+  }, []);
 
   const onAddRow = useCallback(() => {
     setSheet((prev) => {
@@ -302,6 +408,60 @@ export function FileBrowserSpreadsheetEditor({
     [sheet?.columnCount],
   );
   const listWidth = Math.max(viewportSize.width, sheetWidth);
+  const densityMultiplier = useMemo(() => {
+    const safeZoom = flowZoom > 0 ? flowZoom : 1;
+    return Math.min(
+      SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER,
+      Math.max(1, Math.max(safeZoom, 1 / safeZoom)),
+    );
+  }, [flowZoom]);
+  const glideViewportWidth = Math.max(1, viewportSize.width);
+  const glideViewportHeight = Math.max(
+    1,
+    viewportSize.height - SPREADSHEET_HEADER_HEIGHT,
+  );
+  const glideRenderWidth = Math.max(
+    1,
+    Math.round(glideViewportWidth * densityMultiplier),
+  );
+  const glideRenderHeight = Math.max(
+    1,
+    Math.round(glideViewportHeight * densityMultiplier),
+  );
+  const glideColumns = useMemo<readonly GridColumn[]>(() => {
+    if (!sheet) {
+      return [];
+    }
+    return Array.from({ length: sheet.columnCount }, (_, columnIndex) => ({
+      id: `col-${columnIndex}`,
+      title: getSpreadsheetColumnLabel(columnIndex),
+      width:
+        (columnWidths[columnIndex] ?? SPREADSHEET_DATA_COLUMN_WIDTH) *
+        densityMultiplier,
+      hasMenu: false,
+      grow: 0,
+    }));
+  }, [columnWidths, densityMultiplier, sheet]);
+  const getGlideCellContent = useCallback(
+    ([columnIndex, rowIndex]: Item) => {
+      if (!sheet || rowIndex < 0 || rowIndex >= sheet.rowCount) {
+        return {
+          kind: GridCellKind.Loading,
+          allowOverlay: false,
+        };
+      }
+      const row = sheet.rows[rowIndex] ?? [];
+      const value = row[columnIndex] ?? "";
+      return {
+        kind: GridCellKind.Text,
+        allowOverlay: true,
+        displayData: value,
+        data: value,
+        readonly: isSaving,
+      };
+    },
+    [isSaving, sheet],
+  );
 
   if (!selectedPath) {
     return (
@@ -384,52 +544,112 @@ export function FileBrowserSpreadsheetEditor({
           </div>
         )}
         {!isLoading && sheet && (
-          <div
-            data-testid="spreadsheet-grid-scroll"
-            className="h-full overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
-          >
-            <div className="min-h-full" style={{ minWidth: listWidth }}>
+          <div className="h-full overflow-hidden">
+            {gridMode === "glide" ? (
               <div
-                className="grid border-b border-setta-200 bg-setta-50 text-[10px] font-semibold text-setta-500 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-400"
-                style={{
-                  gridTemplateColumns,
-                  width: listWidth,
-                }}
+                data-testid="spreadsheet-glide-grid"
+                className="h-full overflow-hidden [scrollbar-gutter:stable]"
               >
-                <div className="flex h-[24px] items-center justify-center border-r border-setta-200 dark:border-setta-800">
-                  #
+                <div
+                  style={{
+                    width: glideRenderWidth,
+                    height: glideRenderHeight,
+                    transform: `scale(${1 / densityMultiplier})`,
+                    transformOrigin: "top left",
+                  }}
+                >
+                  <DataEditor
+                    width={glideRenderWidth}
+                    height={glideRenderHeight}
+                    rows={sheet.rowCount}
+                    columns={glideColumns}
+                    rowMarkers={{
+                      kind: "number",
+                      width: SPREADSHEET_INDEX_COLUMN_WIDTH * densityMultiplier,
+                    }}
+                    getCellContent={getGlideCellContent}
+                    getCellsForSelection
+                    rowHeight={Math.round(
+                      SPREADSHEET_ROW_HEIGHT * densityMultiplier,
+                    )}
+                    headerHeight={Math.round(
+                      SPREADSHEET_HEADER_HEIGHT * densityMultiplier,
+                    )}
+                    smoothScrollX
+                    smoothScrollY
+                    fillHandle
+                    onDelete={onDeleteSelection}
+                    onCellEdited={(cell, newValue) =>
+                      onCellsEdited([{ location: cell, value: newValue }])
+                    }
+                    onCellsEdited={onCellsEdited}
+                    onColumnResize={(_column, newSize, colIndex) => {
+                      setColumnWidths((prev) => ({
+                        ...prev,
+                        [colIndex]: Math.max(
+                          48,
+                          Math.round(newSize / densityMultiplier),
+                        ),
+                      }));
+                    }}
+                    onPaste
+                    drawFocusRing={false}
+                    experimental={{
+                      renderStrategy: "single-buffer",
+                      enableFirefoxRescaling: true,
+                    }}
+                  />
                 </div>
-                {Array.from({ length: sheet.columnCount }, (_, index) => (
-                  <div
-                    key={`header-${index}`}
-                    className="flex h-[24px] items-center border-r border-setta-200 px-1.5 dark:border-setta-800"
-                  >
-                    {getSpreadsheetColumnLabel(index)}
-                  </div>
-                ))}
               </div>
-              <List
-                listRef={listRef}
-                rowComponent={SpreadsheetRow}
-                rowCount={sheet.rowCount}
-                rowHeight={SPREADSHEET_ROW_HEIGHT}
-                rowProps={{
-                  rows: sheet.rows,
-                  columnCount: sheet.columnCount,
-                  gridTemplateColumns,
-                  onChangeCell,
-                }}
-                style={{
-                  width: listWidth,
-                  height: Math.max(
-                    1,
-                    viewportSize.height - SPREADSHEET_HEADER_HEIGHT,
-                  ),
-                  overflowX: "hidden",
-                  overflowY: "scroll",
-                }}
-              />
-            </div>
+            ) : (
+              <div
+                data-testid="spreadsheet-grid-scroll"
+                className="h-full overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
+              >
+                <div className="min-h-full" style={{ minWidth: listWidth }}>
+                  <div
+                    className="grid border-b border-setta-200 bg-setta-50 text-[10px] font-semibold text-setta-500 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-400"
+                    style={{
+                      gridTemplateColumns,
+                      width: listWidth,
+                    }}
+                  >
+                    <div className="flex h-[24px] items-center justify-center border-r border-setta-200 dark:border-setta-800">
+                      #
+                    </div>
+                    {Array.from({ length: sheet.columnCount }, (_, index) => (
+                      <div
+                        key={`header-${index}`}
+                        className="flex h-[24px] items-center border-r border-setta-200 px-1.5 dark:border-setta-800"
+                      >
+                        {getSpreadsheetColumnLabel(index)}
+                      </div>
+                    ))}
+                  </div>
+                  <List
+                    listRef={listRef}
+                    rowComponent={SpreadsheetRow}
+                    rowCount={sheet.rowCount}
+                    rowHeight={SPREADSHEET_ROW_HEIGHT}
+                    rowProps={{
+                      rows: sheet.rows,
+                      columnCount: sheet.columnCount,
+                      gridTemplateColumns,
+                      onChangeCell,
+                    }}
+                    style={{
+                      width: listWidth,
+                      height: Math.max(
+                        1,
+                        viewportSize.height - SPREADSHEET_HEADER_HEIGHT,
+                      ),
+                      overflowX: "hidden",
+                      overflowY: "scroll",
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

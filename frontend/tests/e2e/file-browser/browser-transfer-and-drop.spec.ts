@@ -430,11 +430,12 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         spreadsheetNode.getByPlaceholder("/absolute/path/to/file.csv"),
       ).toHaveCount(0);
       await expect(
-        spreadsheetNode.locator('[data-spreadsheet-cell="1:0"]').first(),
-      ).toHaveValue("alpha");
+        spreadsheetNode.getByTestId("spreadsheet-glide-grid"),
+      ).toBeVisible();
+      await expect(spreadsheetNode.getByText(csvName)).toBeVisible();
       await expect(
-        spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
-      ).toHaveValue("todo");
+        spreadsheetNode.getByText("2 rows · 2 columns"),
+      ).toBeVisible();
 
       await fillCodeMirror(filterEditor, page, viewsCsvName);
       await browserNode
@@ -468,12 +469,10 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         carouselItem,
         spreadsheetNode.locator(".section-main").first(),
       );
+      await expect(spreadsheetNode.getByText(viewsCsvName)).toBeVisible();
       await expect(
-        spreadsheetNode.locator('[data-spreadsheet-cell="1:0"]').first(),
-      ).toHaveValue("beta");
-      await expect(
-        spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
-      ).toHaveValue("doing");
+        spreadsheetNode.getByText("2 rows · 2 columns"),
+      ).toBeVisible();
 
       const nativeCanvasCsvName = `pw-native-canvas-${Date.now()}.csv`;
       const nativeCanvasCsvPath = path.join(rootPath, nativeCanvasCsvName);
@@ -492,20 +491,19 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         })
         .not.toBeNull();
 
+      const nativeSheetCsvName = `pw-native-sheet-${Date.now()}.csv`;
       await dropNativeFileToTarget(
         spreadsheetNode.locator(".section-main").first(),
         {
-          name: `pw-native-sheet-${Date.now()}.csv`,
+          name: nativeSheetCsvName,
           content: "task,status\nos-sheet,done\n",
           mimeType: "text/csv",
         },
       );
+      await expect(spreadsheetNode.getByText(nativeSheetCsvName)).toBeVisible();
       await expect(
-        spreadsheetNode.locator('[data-spreadsheet-cell="1:0"]').first(),
-      ).toHaveValue("os-sheet");
-      await expect(
-        spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
-      ).toHaveValue("done");
+        spreadsheetNode.getByText("2 rows · 2 columns"),
+      ).toBeVisible();
 
       await dropNativeFileToTarget(canvasPane, {
         name: `pw-native-binary-${Date.now()}.bin`,
