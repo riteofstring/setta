@@ -15,6 +15,7 @@ function buildRun({
   branchFromMessageId,
   outputName,
   nameSource,
+  sectionId,
 }: {
   chatId: string;
   messageText: string;
@@ -23,6 +24,7 @@ function buildRun({
   branchFromMessageId?: string;
   outputName?: string;
   nameSource?: string;
+  sectionId?: string;
 }): AgentRun {
   const timestamp = startedAt ?? "2024-01-01T00:00:00Z";
   return {
@@ -36,6 +38,7 @@ function buildRun({
       chatId,
       branchParentChatId,
       branchFromMessageId,
+      sectionId,
       messages: [
         {
           id: `msg-${chatId}`,
@@ -103,5 +106,27 @@ describe("chatHistory", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0].label).toBe("External title");
     expect(entries[0].nameSource).toBe("external");
+  });
+
+  it("filters history entries by section id when requested", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-a",
+        messageText: "A",
+        sectionId: "section-a",
+      }),
+      buildRun({
+        chatId: "chat-b",
+        messageText: "B",
+        sectionId: "section-b",
+      }),
+    ];
+
+    const sectionEntries = buildChatHistoryEntries(runs, {
+      sectionId: "section-a",
+    });
+
+    expect(sectionEntries).toHaveLength(1);
+    expect(sectionEntries[0]?.chatId).toBe("chat-a");
   });
 });

@@ -38,9 +38,9 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
-    ListRootViewMode,
     SectionSize,
     SectionType,
     TextBlockDisplayMode,
@@ -1014,10 +1014,6 @@ class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
 
 
-class SetTextBlockMasterFontSizeRequest(ProjectManagerRequestWithSection):
-    masterFontSizePx: float
-
-
 class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
     """Request payload for toggling text block heading-as-title behavior."""
 
@@ -1036,10 +1032,6 @@ class SetCallableHideParamsRequest(ProjectManagerRequestWithSection):
 
 class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
-
-
-class SetSectionAllowUnquotedStringArgsRequest(ProjectManagerRequestWithSection):
-    allowUnquotedStringArgs: bool
 
 
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
@@ -1071,19 +1063,14 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
 
 
-class SetParentDefaultChildSectionTypeRequest(ProjectManagerRequestWithSection):
-    defaultChildSectionType: SectionType
-
-
-class SetListRootViewModeRequest(ProjectManagerRequestWithSection):
-    viewMode: ListRootViewMode
-
-
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    skillsEnabled: bool
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

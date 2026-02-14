@@ -72,6 +72,8 @@ import {
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatFileAttachment,
+  ChatPermissionMode,
+  ChatPermissionModeEnum,
   ChatRoleEnum,
   ChatSectionBranch,
   ChatSectionState,
@@ -117,6 +119,18 @@ const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
+
+type ChatExecutionSettings = {
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  skillsEnabled: boolean;
+};
+
+const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
+  permissionMode: ChatPermissionModeEnum.minimal,
+  searchEnabled: true,
+  skillsEnabled: true,
+};
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -756,11 +770,14 @@ export async function submitMessage(
   messageId?: string,
   agentProfileId?: string | null,
   sectionId?: string | null,
+  executionSettings?: ChatExecutionSettings | null,
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
+  const resolvedExecutionSettings =
+    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -790,6 +807,9 @@ export async function submitMessage(
       projectConfigId,
       sectionId: sectionId ?? null,
       allowUnscoped: sectionId == null,
+      permissionMode: resolvedExecutionSettings.permissionMode,
+      searchEnabled: resolvedExecutionSettings.searchEnabled,
+      skillsEnabled: resolvedExecutionSettings.skillsEnabled,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
@@ -825,6 +845,7 @@ export async function submitEditedMessage({
   isExternalEngine,
   agentProfileId,
   sectionId,
+  executionSettings,
 }: {
   parentChatId: string;
   messages: Array<BaseChatMessageUnion>;
@@ -836,11 +857,14 @@ export async function submitEditedMessage({
   isExternalEngine: boolean;
   agentProfileId?: string | null;
   sectionId?: string | null;
+  executionSettings?: ChatExecutionSettings | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
   if (!trimmed && attachments.length === 0) {
     return null;
   }
+  const resolvedExecutionSettings =
+    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
 
   const content = [];
   if (trimmed) {
@@ -903,6 +927,9 @@ export async function submitEditedMessage({
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
+      permissionMode: resolvedExecutionSettings.permissionMode,
+      searchEnabled: resolvedExecutionSettings.searchEnabled,
+      skillsEnabled: resolvedExecutionSettings.skillsEnabled,
     });
     if (!res200(res)) {
       clearPendingChatDetails();
