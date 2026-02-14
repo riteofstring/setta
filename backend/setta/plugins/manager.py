@@ -891,6 +891,7 @@ class PluginManager:
             frontend_dist_dir = root / "frontend" / "dist"
             frontend_dist_dir.mkdir(parents=True, exist_ok=True)
             (frontend_dist_dir / "index.js").write_text(
+                "export const apiVersion = 1;\n\n"
                 "export function register(host) {\n  void host;\n}\n",
                 encoding="utf-8",
             )
@@ -933,6 +934,30 @@ class PluginManager:
             '"*" = ["setta.plugin.json", "frontend/dist/*", "content/**/*"]\n'
         )
         (root / "pyproject.toml").write_text(pyproject_content, encoding="utf-8")
+        workflow_dir = root / ".github" / "workflows"
+        workflow_dir.mkdir(parents=True, exist_ok=True)
+        (workflow_dir / "release.yml").write_text(
+            "name: publish-plugin\n\n"
+            "on:\n"
+            "  workflow_dispatch:\n"
+            "  push:\n"
+            "    tags:\n"
+            "      - \"v*\"\n\n"
+            "jobs:\n"
+            "  build-and-publish:\n"
+            "    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - uses: actions/checkout@v4\n"
+            "      - uses: actions/setup-python@v5\n"
+            "        with:\n"
+            "          python-version: \"3.12\"\n"
+            "      - run: python -m pip install --upgrade build twine\n"
+            "      - run: setta plugins validate .\n"
+            "      - run: python -m build\n"
+            "      - run: python -m twine check dist/*\n"
+            "      # Configure publish credentials/secrets for your registry.\n",
+            encoding="utf-8",
+        )
         (root / "README.md").write_text(
             "# Setta Plugin\n\n"
             "## Validate\n\n"
@@ -942,6 +967,16 @@ class PluginManager:
             "## Build\n\n"
             "```bash\n"
             "python -m build\n"
+            "```\n\n"
+            "## Publish\n\n"
+            "1. Push a git tag (for example `v0.1.0`) to trigger `.github/workflows/release.yml`.\n"
+            "2. Or run manual publish using your package registry credentials.\n\n"
+            "## Install\n\n"
+            "```bash\n"
+            "setta plugins install github:OWNER/REPO#v0.1.0\n"
+            "setta plugins install pypi:"
+            + normalized_id
+            + "==0.1.0\n"
             "```\n",
             encoding="utf-8",
         )
