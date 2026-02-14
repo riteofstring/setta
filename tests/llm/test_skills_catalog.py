@@ -66,7 +66,7 @@ Used by external coding agents only.
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_location=str(setta_root),
+        setta_files_root=setta_root,
     ):
         dbe = DBE(setta_root)
         set_skill_sources(
@@ -130,7 +130,7 @@ This file should trigger a parse error.
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_location=str(setta_root),
+        setta_files_root=setta_root,
     ):
         dbe = DBE(setta_root)
         set_skill_sources(
@@ -170,7 +170,7 @@ def test_import_and_delete_skills_from_markdown(tmp_path: Path) -> None:
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_location=str(setta_root),
+        setta_files_root=setta_root,
     ):
         dbe = DBE(setta_root)
 
@@ -213,7 +213,7 @@ Builtin skills should not be removable from the in-app catalog.
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_location=str(setta_root),
+        setta_files_root=setta_root,
     ):
         dbe = DBE(setta_root)
         set_skill_sources(
@@ -265,7 +265,7 @@ Nested skill document.
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_location=str(setta_root),
+        setta_files_root=setta_root,
     ):
         dbe = DBE(setta_root)
         set_skill_sources(
