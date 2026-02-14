@@ -38,6 +38,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
+    ListRootViewMode,
     SectionSize,
     SectionType,
     TextBlockDisplayMode,
@@ -51,6 +52,7 @@ class SharedModifier(TypedDict):
     # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    # Field 'viewMode' present with conflicting annotations: BrowserAreaViewMode (BrowserSectionImpl), ListRootViewMode (ListRootSectionImpl)
     actionMode: NotRequired[ButtonActionMode]
     activeBranchId: NotRequired[ID | None]
     activeLayerIdx: NotRequired[int]
@@ -161,5 +163,5 @@ class SharedModifier(TypedDict):
     uiType: NotRequired[TextParamInputUIType]
     url: NotRequired[str]
     value: NotRequired[str]
-    viewMode: NotRequired[BrowserAreaViewMode]
+    viewMode: NotRequired[BrowserAreaViewMode | ListRootViewMode]
     waitingForResponse: NotRequired[bool]

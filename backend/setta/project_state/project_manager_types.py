@@ -40,6 +40,7 @@ from setta.types.section_impls import (
     BrowserSavedSearch,
     ChatSectionState,
     CodeFileAccessMode,
+    ListRootViewMode,
     SectionSize,
     SectionType,
     TextBlockDisplayMode,
@@ -1072,6 +1073,10 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
 
 class SetParentDefaultChildSectionTypeRequest(ProjectManagerRequestWithSection):
     defaultChildSectionType: SectionType
+
+
+class SetListRootViewModeRequest(ProjectManagerRequestWithSection):
+    viewMode: ListRootViewMode
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):

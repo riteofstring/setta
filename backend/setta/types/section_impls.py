@@ -98,6 +98,12 @@ class TextBlockFormat(str, Enum):
     Markdown = "Markdown"
 
 
+class ListRootViewMode(str, Enum):
+    default = "default"
+    task_list = "task_list"
+    kanban = "kanban"
+
+
 class BrowserAreaViewMode(str, Enum):
     list = "list"
     thumbnail = "thumbnail"
@@ -226,6 +232,7 @@ class DictSectionImpl(BaseDictSectionImpl):
 class ListRootSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
     defaultChildSectionType: SectionType = SectionType.Callable
+    viewMode: ListRootViewMode = ListRootViewMode.default
 
 
 class GroupSectionImpl(BaseParentSectionImpl):

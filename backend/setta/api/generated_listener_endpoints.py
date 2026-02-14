@@ -81,6 +81,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
     ChatSectionState,
+    ListRootViewMode,
     SectionSize,
     SectionType,
     TextBlockDisplayMode,
@@ -684,6 +685,13 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     imagePath: str
+
+
+class ListenerSetListRootViewModeRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    sectionId: ID
+    viewMode: ListRootViewMode
 
 
 class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
@@ -1426,6 +1434,11 @@ class RouterEndpointAPI:
         self, payload: ListenerSetImageAreaImagePathRequestPayload
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
+
+    async def set_list_root_view_mode(
+        self, payload: ListenerSetListRootViewModeRequestPayload
+    ) -> None:
+        return await self._caller("route_set_list_root_view_mode", payload)
 
     async def set_meta_control_show_section_title(
         self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload

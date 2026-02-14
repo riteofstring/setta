@@ -200,6 +200,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
     CodeSectionDiagnosticsIgnoreState,
+    ListRootViewMode,
     SectionSize,
     SectionSizeMode,
     SectionType,

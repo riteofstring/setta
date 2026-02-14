@@ -45,6 +45,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
+    ListRootViewMode,
     PromptFormat,
     SectionSize,
     SectionType,
@@ -356,6 +357,7 @@ class DictSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCallable):
 class ListRootSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.ListRoot]]
     defaultChildSectionType: NotRequired[SectionType]
+    viewMode: NotRequired[ListRootViewMode]
 
 
 class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -365,6 +367,9 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
     ]
     defaultChildSectionType: NotRequired[
         SectionType | Callable[[SectionType], SectionType]
+    ]
+    viewMode: NotRequired[
+        ListRootViewMode | Callable[[ListRootViewMode], ListRootViewMode]
     ]
 
 

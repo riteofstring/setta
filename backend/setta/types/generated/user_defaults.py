@@ -29,6 +29,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
+    ListRootViewMode,
     PromptFormat,
     SectionSize,
     SectionType,
@@ -91,6 +92,7 @@ class UserDefaultDictSectionImpl(UserDefaultBaseDictSectionImpl, extra="forbid")
 
 class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     defaultChildSectionType: SectionType = SectionType.Callable
+    viewMode: ListRootViewMode = ListRootViewMode.default
 
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):

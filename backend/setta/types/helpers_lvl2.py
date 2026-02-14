@@ -128,6 +128,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
+    ListRootViewMode,
     MetaControlSectionImpl,
     PromptFormat,
     PromptSectionImpl,
@@ -2409,6 +2410,19 @@ def set_parent_default_child_section_type(
         )
         return
     raise TypeError(f"Section {sectionId} does not support default child section type.")
+
+
+def set_list_root_view_mode(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    viewMode: ListRootViewMode,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ListRootSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ListRootSectionImplArgsWithCallable(viewMode=viewMode),
+    )
 
 
 def get_first_heading_or_text(markdown: str):

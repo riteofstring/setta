@@ -108,6 +108,7 @@ from setta.types.section_impls import (
     SectionSize,
     CodeLanguage,
     ConfigLanguage,
+    ListRootViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     PromptFormat,

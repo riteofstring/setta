@@ -82,6 +82,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
@@ -1232,6 +1233,15 @@ async def route_set_parent_default_child_section_type(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_parent_default_child_section_type(x)
+
+
+@router.post(Route.SET_LIST_ROOT_VIEW_MODE)
+async def route_set_list_root_view_mode(
+    x: SetListRootViewModeRequest, ctx: RuntimeContextFromRequest
+):
+    await _deny_deployment_mode_structural(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await manager.set_list_root_view_mode(x)
 
 
 @router.post(Route.SET_BROWSER_COLUMN_WIDTHS)

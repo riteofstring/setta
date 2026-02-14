@@ -667,6 +667,14 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
 
+export const ListRootViewModeEnum = {
+  default: "default",
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+
+export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
+
 export const PromptFormatEnum = { Jinja: "Jinja" } as const;
 
 export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
@@ -989,6 +997,7 @@ export const RouteEnum = {
   SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
+  SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
   SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
@@ -1016,6 +1025,8 @@ export const RouteEnum = {
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
+  GET_FILE_BROWSER_FILE_CONTENT: "/getFileBrowserFileContent",
+  WRITE_FILE_BROWSER_FILE_CONTENT: "/writeFileBrowserFileContent",
   FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
   GET_GIT_STATUS: "/git/status",
   GET_GIT_DIFF: "/git/diff",
@@ -2878,7 +2889,9 @@ export const SharedModifierSchema = z.object({
   uiType: z.enum(TextParamInputUITypeEnum).optional(),
   url: z.string().optional(),
   value: z.string().optional(),
-  viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
+  viewMode: z
+    .union([z.enum(BrowserAreaViewModeEnum), z.enum(ListRootViewModeEnum)])
+    .optional(),
   waitingForResponse: z.boolean().optional(),
 });
 
@@ -3141,6 +3154,7 @@ export const ListRootSectionImplSchema = z.object({
   defaultChildSectionType: z
     .enum(SectionTypeEnum)
     .default(SectionTypeEnum.Callable),
+  viewMode: z.enum(ListRootViewModeEnum).default(ListRootViewModeEnum.default),
 });
 
 export type ListRootSectionImpl = z.infer<typeof ListRootSectionImplSchema>;
@@ -5766,6 +5780,7 @@ export const ListRootSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   children: z.array(IDSchema).optional(),
   defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
+  viewMode: z.enum(ListRootViewModeEnum).optional(),
 });
 
 export type ListRootSectionImplArgs = z.infer<
@@ -8594,6 +8609,7 @@ export const UserDefaultListRootSectionImplSchema = z.object({
   defaultChildSectionType: z
     .enum(SectionTypeEnum)
     .default(SectionTypeEnum.Callable),
+  viewMode: z.enum(ListRootViewModeEnum).default(ListRootViewModeEnum.default),
 });
 
 export type UserDefaultListRootSectionImpl = z.infer<
@@ -12018,6 +12034,7 @@ export const ListRootSectionImplArgsWithCallableSchema = z.object({
   defaultChildSectionType: z
     .union([z.enum(SectionTypeEnum), z.any()])
     .optional(),
+  viewMode: z.union([z.enum(ListRootViewModeEnum), z.any()]).optional(),
 });
 
 export type ListRootSectionImplArgsWithCallable = z.infer<
@@ -15386,6 +15403,28 @@ export function createFileBrowserDownloadUrlEntry(
   return FileBrowserDownloadUrlEntrySchema.parse(options);
 }
 
+export const FileBrowserFileContentResponseSchema = z.object({
+  path: z.string(),
+  mimeType: z.string(),
+  contentBase64: z.string(),
+  mtime: z.number(),
+  size: z.int(),
+});
+
+export type FileBrowserFileContentResponse = z.infer<
+  typeof FileBrowserFileContentResponseSchema
+>;
+
+export type FileBrowserFileContentResponseInput = z.input<
+  typeof FileBrowserFileContentResponseSchema
+>;
+
+export function createFileBrowserFileContentResponse(
+  options: Partial<FileBrowserFileContentResponse> = {},
+): FileBrowserFileContentResponse {
+  return FileBrowserFileContentResponseSchema.parse(options);
+}
+
 export const GetFileBrowserDownloadUrlsRequestSchema = z.object({
   paths: z.array(z.string()),
 });
@@ -15402,6 +15441,25 @@ export function createGetFileBrowserDownloadUrlsRequest(
   options: Partial<GetFileBrowserDownloadUrlsRequest> = {},
 ): GetFileBrowserDownloadUrlsRequest {
   return GetFileBrowserDownloadUrlsRequestSchema.parse(options);
+}
+
+export const GetFileBrowserFileContentRequestSchema = z.object({
+  path: z.string(),
+  maxBytes: z.union([z.int(), z.null()]).default(null),
+});
+
+export type GetFileBrowserFileContentRequest = z.infer<
+  typeof GetFileBrowserFileContentRequestSchema
+>;
+
+export type GetFileBrowserFileContentRequestInput = z.input<
+  typeof GetFileBrowserFileContentRequestSchema
+>;
+
+export function createGetFileBrowserFileContentRequest(
+  options: Partial<GetFileBrowserFileContentRequest> = {},
+): GetFileBrowserFileContentRequest {
+  return GetFileBrowserFileContentRequestSchema.parse(options);
 }
 
 export const GetFileBrowserRootResponseSchema = z.object({
@@ -15534,6 +15592,47 @@ export function createUpdateArtifactsRequest(
   options: Partial<UpdateArtifactsRequest> = {},
 ): UpdateArtifactsRequest {
   return UpdateArtifactsRequestSchema.parse(options);
+}
+
+export const WriteFileBrowserFileContentRequestSchema = z.object({
+  path: z.string(),
+  contentBase64: z.string(),
+  expectedMtime: z.union([z.number(), z.null()]).default(null),
+});
+
+export type WriteFileBrowserFileContentRequest = z.infer<
+  typeof WriteFileBrowserFileContentRequestSchema
+>;
+
+export type WriteFileBrowserFileContentRequestInput = z.input<
+  typeof WriteFileBrowserFileContentRequestSchema
+>;
+
+export function createWriteFileBrowserFileContentRequest(
+  options: Partial<WriteFileBrowserFileContentRequest> = {},
+): WriteFileBrowserFileContentRequest {
+  return WriteFileBrowserFileContentRequestSchema.parse(options);
+}
+
+export const WriteFileBrowserFileContentResponseSchema = z.object({
+  path: z.string(),
+  mimeType: z.string(),
+  mtime: z.number(),
+  size: z.int(),
+});
+
+export type WriteFileBrowserFileContentResponse = z.infer<
+  typeof WriteFileBrowserFileContentResponseSchema
+>;
+
+export type WriteFileBrowserFileContentResponseInput = z.input<
+  typeof WriteFileBrowserFileContentResponseSchema
+>;
+
+export function createWriteFileBrowserFileContentResponse(
+  options: Partial<WriteFileBrowserFileContentResponse> = {},
+): WriteFileBrowserFileContentResponse {
+  return WriteFileBrowserFileContentResponseSchema.parse(options);
 }
 
 export const AttachmentDownloadUrlEntrySchema = z.object({
@@ -17609,6 +17708,27 @@ export function createSetImageAreaImagePathRequest(
   options: Partial<SetImageAreaImagePathRequest> = {},
 ): SetImageAreaImagePathRequest {
   return SetImageAreaImagePathRequestSchema.parse(options);
+}
+
+export const SetListRootViewModeRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  viewMode: z.enum(ListRootViewModeEnum),
+});
+
+export type SetListRootViewModeRequest = z.infer<
+  typeof SetListRootViewModeRequestSchema
+>;
+
+export type SetListRootViewModeRequestInput = z.input<
+  typeof SetListRootViewModeRequestSchema
+>;
+
+export function createSetListRootViewModeRequest(
+  options: Partial<SetListRootViewModeRequest> = {},
+): SetListRootViewModeRequest {
+  return SetListRootViewModeRequestSchema.parse(options);
 }
 
 export const SetMetaControlShowSectionTitleRequestSchema = z.object({

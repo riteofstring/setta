@@ -177,6 +177,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
@@ -318,6 +319,7 @@ from setta.types.helpers_lvl2 import (
     set_edges,
     set_group_overflow_mode,
     set_image_area_image_path,
+    set_list_root_view_mode,
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_parent_default_child_section_type,
@@ -3603,6 +3605,16 @@ class BaseProjectManager(ABC):
             project_state,
             x.sectionId,
             x.defaultChildSectionType,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_list_root_view_mode(self, x: SetListRootViewModeRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_list_root_view_mode(
+            project_state,
+            x.sectionId,
+            x.viewMode,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

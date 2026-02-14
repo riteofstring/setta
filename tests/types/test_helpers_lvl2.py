@@ -41,6 +41,7 @@ from setta.types.helpers_lvl2 import (
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
+    set_list_root_view_mode,
     set_section_param_filter,
     set_parent_default_child_section_type,
     set_section_allow_unquoted_string_args,
@@ -68,6 +69,8 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
+    ListRootSectionImpl,
+    ListRootViewMode,
     MetaControlSectionImpl,
     PromptSectionImpl,
     SectionSize,
@@ -1226,6 +1229,26 @@ class TestListAndGroupChildDefaults:
                 parent_id,
                 SectionType.GlobalVariables,
             )
+
+    def test_list_root_view_mode_persists_on_section_impl(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.ListRoot,
+            Position(),
+        )
+        set_list_root_view_mode(
+            self.project_state,
+            section_id,
+            ListRootViewMode.kanban,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ListRootSectionImpl,
+        )
+        assert section_impl.viewMode == ListRootViewMode.kanban
 
 
 class TestSectionConfigFlags:
