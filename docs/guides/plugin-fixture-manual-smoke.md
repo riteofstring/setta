@@ -45,6 +45,7 @@ scripts/plugin-fixtures/reset.sh
 1. Open Setta and go to `Overview > Plugins`.
 2. Verify frontend fixture surfaces:
    - `setta-fixture-frontend` has an `Open Fixture Pane` action.
+   - `setta-fixture-frontend-react` exposes section kind `React Fixture Card`.
    - `setta-fixture-frontend-topnav` shows a top-nav button `Fixture Nav`.
 3. Verify backend restart semantics:
    - backend fixtures appear as `pending_restart` until backend restart.

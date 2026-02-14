@@ -19,6 +19,7 @@ echo "[smoke] reset complete."
 
 # Core plugin coverage fixtures.
 link_fixture "frontend" "workspace"
+link_fixture "frontend-react" "workspace"
 link_fixture "frontend-topnav" "workspace"
 link_fixture "content" "workspace"
 link_fixture "full" "workspace"
@@ -45,6 +46,7 @@ Suggested manual checks:
 1. Open Setta, then go to Overview > Plugins.
 2. Confirm frontend surfaces are visible:
    - "Open Fixture Pane" button (setta-fixture-frontend)
+   - section kind "React Fixture Card" available from setta-fixture-frontend-react
    - top-nav button "Fixture Nav" (setta-fixture-frontend-topnav)
 3. Confirm backend lifecycle state:
    - backend fixtures show "pending_restart" until backend restart.

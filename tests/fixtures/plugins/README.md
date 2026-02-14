@@ -23,6 +23,7 @@ Current fixtures:
 - `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
 - `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
 - `frontend/`: frontend-only plugin with prebuilt ESM/CSS and section/pane/command registration.
+- `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
 - `frontend-errors/`: frontend fixture that intentionally registers invalid runtime payloads.
 - `content/`: content-only plugin with blueprint/template/prompt payloads.
@@ -45,8 +46,8 @@ Target fixture catalog (coverage baseline):
 
 Current count:
 
-- 21 fixture directories are currently present under `tests/fixtures/plugins/`.
-- 20 are standalone plugin roots (`setta.plugin.json` at fixture root).
+- 23 fixture directories are currently present under `tests/fixtures/plugins/`.
+- 22 are standalone plugin roots (`setta.plugin.json` at fixture root).
 - 1 (`metadata-mismatch-layout`) is an intentional multi-root archive fixture.
 
 Each fixture should include:
