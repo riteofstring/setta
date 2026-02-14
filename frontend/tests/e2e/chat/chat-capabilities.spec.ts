@@ -76,14 +76,17 @@ test.describe.serial("chat capabilities", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
       await expect(uiEditorPane.getByText("AI Capabilities")).toBeVisible();
-      await uiEditorPane.getByRole("button", { name: "MCP" }).first().click();
+      await uiEditorPane.getByRole("tab", { name: "MCP" }).first().click();
       await expect(
         uiEditorPane.getByText("MCP Servers", { exact: true }),
       ).toBeVisible();
 
       await uiEditorPane
-        .getByRole("button", { name: "Skills" })
+        .getByRole("tab", { name: "Skills" })
         .first()
+        .click();
+      await uiEditorPane
+        .getByRole("button", { name: "Custom", exact: true })
         .click();
       const sectionSkillLabel = uiEditorPane.locator(
         `div.max-h-36 label:has-text("${skillId}")`,
@@ -113,13 +116,13 @@ test.describe.serial("chat capabilities", () => {
       await expect(
         overviewPane.getByText("Project Chat Capabilities"),
       ).toBeVisible();
-      await overviewPane.getByRole("button", { name: "MCP" }).first().click();
+      await overviewPane.getByRole("tab", { name: "MCP" }).first().click();
       await expect(
         overviewPane.getByText("MCP Servers", { exact: true }),
       ).toBeVisible();
 
       await overviewPane
-        .getByRole("button", { name: "Skills" })
+        .getByRole("tab", { name: "Skills" })
         .first()
         .click();
       await overviewPane.getByRole("button", { name: "Custom" }).click();

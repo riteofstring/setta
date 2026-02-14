@@ -20,6 +20,7 @@ test("custom runs pane does not horizontally overflow on narrow viewports", asyn
       return { missing: true, offenders: [] as string[] };
     }
 
+    const paneRect = overviewPane.getBoundingClientRect();
     const candidateRows = Array.from(
       overviewPane.querySelectorAll("div.flex-wrap.items-center.gap-2"),
     ).filter((node) => {
@@ -38,11 +39,10 @@ test("custom runs pane does not horizontally overflow on narrow viewports", asyn
         if (element.offsetParent === null) {
           return false;
         }
-        const style = window.getComputedStyle(element);
-        if (style.overflowX === "hidden" || style.overflowX === "clip") {
-          return false;
-        }
-        return element.scrollWidth - element.clientWidth > 2;
+        const rect = element.getBoundingClientRect();
+        const overflowsLeft = paneRect.left - rect.left > 2;
+        const overflowsRight = rect.right - paneRect.right > 2;
+        return overflowsLeft || overflowsRight;
       })
       .slice(0, 10)
       .map((element) => {

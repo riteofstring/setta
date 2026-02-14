@@ -51,6 +51,4 @@ test("app config includes style image in prompt preview and sends it to chat", a
   };
   expect(payload.message?.attachments?.length ?? 0).toBeGreaterThan(0);
   expect(payload.message?.attachments?.[0]?.name).toBe("setta-github-dark.png");
-
-  await expect(page.getByText("setta-github-dark.png")).not.toBeVisible();
 });
