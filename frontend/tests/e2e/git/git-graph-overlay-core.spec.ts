@@ -60,6 +60,7 @@ test("git graph clears stale rows when refresh fails", async ({ page }) => {
     allowExpectedApiError(page, {
       path: "/api/git/log",
       statuses: [500],
+      method: "POST",
       count: 1,
     });
     shouldFailRefresh = true;

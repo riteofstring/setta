@@ -14,10 +14,17 @@ const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
-type AllowedApiError = { path: string; statuses: readonly number[] };
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
+type AllowedApiError = {
+  path: string;
+  statuses: readonly number[];
+  method?: HttpMethod;
+};
 type ExpectedApiErrorOverride = {
   path: string;
   statuses: number[];
+  method?: HttpMethod;
+  expiresAtMs: number;
   remainingCount: number;
 };
 type UnexpectedApiErrorGuard = {
@@ -27,7 +34,7 @@ type UnexpectedApiErrorGuard = {
   expectedApiErrorOverrides: ExpectedApiErrorOverride[];
 };
 const DEFAULT_ALLOWED_API_ERRORS: readonly AllowedApiError[] = [
-  { path: "/api/formatCode", statuses: [422] },
+  { path: "/api/formatCode", statuses: [422], method: "POST" },
 ];
 const unexpectedApiErrorGuards = new WeakMap<Page, UnexpectedApiErrorGuard>();
 
@@ -196,7 +203,9 @@ export function allowExpectedApiError(
   rule: {
     path: string;
     statuses: readonly number[];
+    method?: HttpMethod;
     count?: number;
+    ttlMs?: number;
   },
 ): void {
   if (!rule.path.startsWith("/api/")) {
@@ -213,6 +222,12 @@ export function allowExpectedApiError(
       `Expected API error count must be a positive integer: ${String(count)}`,
     );
   }
+  const ttlMs = rule.ttlMs ?? 15000;
+  if (!Number.isInteger(ttlMs) || ttlMs <= 0) {
+    throw new Error(
+      `Expected API error ttlMs must be a positive integer: ${String(ttlMs)}`,
+    );
+  }
 
   installUnexpectedApiErrorGuard(page);
   const guard = unexpectedApiErrorGuards.get(page);
@@ -223,6 +238,8 @@ export function allowExpectedApiError(
   guard.expectedApiErrorOverrides.push({
     path: rule.path,
     statuses: [...rule.statuses],
+    method: rule.method,
+    expiresAtMs: Date.now() + ttlMs,
     remainingCount: count,
   });
 }
@@ -732,14 +749,15 @@ function installUnexpectedApiErrorGuard(page: Page): void {
     if (status < 400 || status >= 600) {
       return;
     }
-    const apiPath = extractApiPath(response.url());
-    if (!apiPath || isAllowedApiError(apiPath, status)) {
-      return;
-    }
-    if (consumeExpectedApiErrorOverride(guard, apiPath, status)) {
-      return;
-    }
     const request = response.request();
+    const method = request.method().toUpperCase() as HttpMethod;
+    const apiPath = extractApiPath(response.url());
+    if (!apiPath || isAllowedApiError(apiPath, status, method)) {
+      return;
+    }
+    if (consumeExpectedApiErrorOverride(guard, apiPath, status, method)) {
+      return;
+    }
     const message = `[E2E unexpected API error] ${request.method()} ${apiPath} -> ${status}`;
     if (guard.seenMessages.has(message)) {
       return;
@@ -767,10 +785,20 @@ function consumeExpectedApiErrorOverride(
   guard: UnexpectedApiErrorGuard,
   path: string,
   status: number,
+  method: HttpMethod,
 ): boolean {
+  const now = Date.now();
   for (let index = 0; index < guard.expectedApiErrorOverrides.length; index += 1) {
     const override = guard.expectedApiErrorOverrides[index];
+    if (override.expiresAtMs < now) {
+      guard.expectedApiErrorOverrides.splice(index, 1);
+      index -= 1;
+      continue;
+    }
     if (override.path !== path || !override.statuses.includes(status)) {
+      continue;
+    }
+    if (override.method && override.method !== method) {
       continue;
     }
     override.remainingCount -= 1;
@@ -801,9 +829,16 @@ function extractApiPath(rawUrl: string): string | null {
   return null;
 }
 
-function isAllowedApiError(path: string, status: number): boolean {
+function isAllowedApiError(
+  path: string,
+  status: number,
+  method: HttpMethod,
+): boolean {
   return DEFAULT_ALLOWED_API_ERRORS.some(
-    (entry) => entry.path === path && entry.statuses.includes(status),
+    (entry) =>
+      entry.path === path &&
+      entry.statuses.includes(status) &&
+      (!entry.method || entry.method === method),
   );
 }
 

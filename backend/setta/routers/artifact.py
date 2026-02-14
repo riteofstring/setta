@@ -79,6 +79,7 @@ class GetFolderContentsRequest(BaseModel):
     includeHidden: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
+    missingFolderBehavior: Literal["error", "empty"] = "error"
 
 
 class GetFileBrowserDownloadUrlsRequest(BaseModel):
@@ -370,6 +371,8 @@ def route_get_folder_contents(
 
     # Check if path exists and is a directory
     if not path.exists():
+        if x.missingFolderBehavior == "empty":
+            return []
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Path does not exist: {x.folderPath}",

@@ -52,7 +52,8 @@ async function setBrowserPath({
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await cmContent.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(targetPath);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(targetPath);
     await page.keyboard.press("Enter");
 
     const startedAt = Date.now();

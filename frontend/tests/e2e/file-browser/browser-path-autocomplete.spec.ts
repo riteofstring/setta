@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
-  allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
   getViewportBoundsForPlacement,
@@ -148,13 +147,6 @@ test("browser path input autocompletes folders", async ({ page }) => {
         .toContain(normalizedWorkspaceRoot);
       const pathInputId = `CodeMirror-${sectionId}-browser-path`;
       const typedParentPath = `${parentDir}${path.sep}`;
-      // While replacing the full absolute path, the Browser can probe transient
-      // in-progress values that legitimately 404.
-      allowExpectedApiError(page, {
-        path: "/api/getFolderContents",
-        statuses: [404],
-        count: 20,
-      });
       await typeBrowserPath({
         page,
         pathInputId,

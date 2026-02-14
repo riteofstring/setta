@@ -282,6 +282,7 @@ test("app mode Run button recovers after a run failure", async ({ page }) => {
   allowExpectedApiError(page, {
     path: "/api/runCode",
     statuses: [500],
+    method: "POST",
     count: 1,
   });
 

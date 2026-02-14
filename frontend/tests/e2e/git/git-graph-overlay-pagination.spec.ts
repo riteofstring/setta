@@ -182,6 +182,7 @@ test("git graph pauses auto-pagination after a load-more error until Retry is cl
     allowExpectedApiError(page, {
       path: "/api/git/log",
       statuses: [500],
+      method: "POST",
       count: 2,
     });
     await page.getByRole("button", { name: "Graph" }).click();

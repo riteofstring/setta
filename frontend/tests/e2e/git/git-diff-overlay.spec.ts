@@ -144,6 +144,7 @@ test("git pane clears stale status entries when refresh fails", async ({
     allowExpectedApiError(page, {
       path: "/api/git/status",
       statuses: [500],
+      method: "POST",
       count: 1,
     });
     shouldFailRefresh = true;
