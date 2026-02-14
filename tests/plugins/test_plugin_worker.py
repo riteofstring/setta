@@ -495,6 +495,51 @@ def test_worker_register_surfaces_host_rpc_missing_result_field(tmp_path: Path) 
         _stop_worker(worker)
 
 
+def test_worker_register_surfaces_host_rpc_invalid_error_payload(
+    tmp_path: Path,
+) -> None:
+    # Host RPC error payloads with invalid code/message types should map to transport errors.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+
+        def _invalid_error_payload(
+            payload: dict[str, Any], _worker: subprocess.Popen[str]
+        ) -> dict[str, Any]:
+            nested_id = payload.get("id")
+            return {
+                "jsonrpc": "2.0",
+                "id": nested_id,
+                "error": {
+                    "code": 123,
+                    "message": ["bad"],
+                },
+            }
+
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_response_factory=_invalid_error_payload,
+        )
+        assert register_response["id"] == 2
+        assert (
+            register_response["error"]["code"]
+            == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        )
+        assert (
+            "invalid JSON-RPC error payload"
+            in register_response["error"]["message"]
+        )
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_register_surfaces_host_rpc_transport_close(tmp_path: Path) -> None:
     # Host transport closure during nested host RPC should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)
@@ -524,6 +569,37 @@ def test_worker_register_surfaces_host_rpc_transport_close(tmp_path: Path) -> No
             register_response["error"]["code"]
             == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
         )
+    finally:
+        _stop_worker(worker)
+
+
+@pytest.mark.parametrize(
+    ("override_content", "expected_message_fragment"),
+    [
+        ("{not-json", "Invalid handshake override JSON"),
+        ("[]", "must be an object"),
+    ],
+)
+def test_worker_initialize_rejects_invalid_handshake_override_payload(
+    tmp_path: Path,
+    override_content: str,
+    expected_message_fragment: str,
+) -> None:
+    # Handshake override payload must be valid JSON object when override file is present.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    override_path = plugin_root / "backend" / "handshake.override.json"
+    override_path.write_text(override_content, encoding="utf-8")
+
+    worker = _start_worker(plugin_root)
+    try:
+        response = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        assert response["id"] == 1
+        assert response["error"]["code"] == "PLUGIN_BACKEND_HANDSHAKE_INVALID"
+        assert expected_message_fragment in response["error"]["message"]
     finally:
         _stop_worker(worker)
 
@@ -870,6 +946,97 @@ def test_worker_invoke_mcp_tool_supports_async_tools(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
+@pytest.mark.parametrize(
+    ("entrypoint_source", "expected_payload_label"),
+    [
+        (
+            "def register(plugin):\n"
+            "    class NotSerializable:\n"
+            "        pass\n\n"
+            "    def tool() -> str:\n"
+            "        return 'ok'\n\n"
+            "    plugin.register_mcp_tool(\n"
+            "        tool,\n"
+            "        name='tool_with_bad_annotations',\n"
+            "        annotations={'bad': NotSerializable()},\n"
+            "    )\n",
+            "MCP annotations payload",
+        ),
+        (
+            "def register(plugin):\n"
+            "    class NotSerializable:\n"
+            "        pass\n\n"
+            "    plugin.register_external_agent_adapter(\n"
+            "        {\n"
+            "            'id': 'fixture-agent',\n"
+            "            'name': 'Fixture Agent',\n"
+            "            'runModes': ['sdk'],\n"
+            "            'command': 'python',\n"
+            "            'args': ['agent.py'],\n"
+            "            'envVarWhitelist': ['OPENAI_API_KEY'],\n"
+            "            'defaultModel': NotSerializable(),\n"
+            "        }\n"
+            "    )\n",
+            "external agent adapter payload",
+        ),
+    ],
+)
+def test_worker_register_rejects_non_json_serializable_registration_payloads(
+    tmp_path: Path,
+    entrypoint_source: str,
+    expected_payload_label: str,
+) -> None:
+    # Worker registration should reject non-JSON-serializable host registration payloads.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        entrypoint_source,
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        assert register_response["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
+        assert "non-JSON-serializable" in register_response["error"]["message"]
+        assert expected_payload_label in register_response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_register_rejects_async_register(tmp_path: Path) -> None:
+    # Worker registration should reject async register(plugin) contracts in MVP.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "async def register(_plugin):\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        assert register_response["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
+        assert "async register is not supported" in register_response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_invoke_route_supports_json_body_and_async_handlers(
     tmp_path: Path,
 ) -> None:
@@ -999,5 +1166,51 @@ def test_worker_invoke_codegen_target_validates_handler_and_payload(
             invalid_project_state_response["error"]["code"]
             == "PLUGIN_BACKEND_CODEGEN_FAILED"
         )
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_codegen_target_rejects_non_json_serializable_result(
+    tmp_path: Path,
+) -> None:
+    # Codegen invocation should reject result payloads that cannot be JSON serialized.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_codegen_target(\n"
+        "        {\n"
+        "            'id': 'typescript',\n"
+        "            'name': 'TypeScript',\n"
+        "            'language': 'typescript',\n"
+        "            'defaultFileName': 'setta_gen.ts',\n"
+        "            'generate': lambda _state, _options: {'files': [], 'bad': {1, 2}},\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_codegen_target",
+            params={
+                "handlerId": "typescript",
+                "projectState": {"projectConfig": {"name": "WorkerFixture"}},
+                "targetOptions": {},
+            },
+        )
+        assert response["error"]["code"] == "PLUGIN_BACKEND_REGISTER_FAILED"
+        assert "codegen target result payload" in response["error"]["message"]
     finally:
         _stop_worker(worker)

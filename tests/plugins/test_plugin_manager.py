@@ -731,6 +731,72 @@ def test_package_manager_plugins_are_discovered_from_environment_search_paths(
     assert list_entries[0].sourceScopeLabel == "environment"
 
 
+def test_package_manager_discovery_marks_multiple_manifest_roots_invalid(
+    tmp_path: Path,
+) -> None:
+    # Distributions exposing multiple plugin manifests should be surfaced as invalid.
+    package_name = "setta-fixture-layout-bundle"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="metadata-mismatch-layout",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+
+    entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.setta_files
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.sourceManager == "package_manager"
+    assert entry.state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in entry.errors}
+    assert "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT" in error_codes
+
+
+def test_package_manager_discovery_marks_invalid_manifest_payloads_invalid(
+    tmp_path: Path,
+) -> None:
+    # Package-manager discovery should expose manifest parse failures as invalid entries.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    plugin_root = site_packages / package_name
+    (plugin_root / "setta.plugin.json").write_text("{not-json", encoding="utf-8")
+
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+    entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.setta_files
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.sourceManager == "package_manager"
+    assert entry.state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in entry.errors}
+    assert "PLUGIN_MANIFEST_INVALID" in error_codes
+
+
 def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
     tmp_path: Path,
 ) -> None:
@@ -761,6 +827,91 @@ def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
             scope=PluginScope.setta_files,
         )
     assert update_error.value.code == "PLUGIN_MANAGED_EXTERNALLY"
+
+
+def test_update_plugin_marks_pending_restart_for_backend_only(
+    tmp_path: Path,
+) -> None:
+    # Backend updates should require restart while frontend-only updates should not.
+    manager = _make_manager(tmp_path)
+    backend_package = "setta-fixture-backend"
+    frontend_package = "setta-fixture-frontend"
+    version = "0.1.0"
+    backend_artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="backend",
+        package_name=backend_package,
+        version=version,
+    )
+    _ = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=frontend_package,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(backend_artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{backend_package}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        manager.install_plugin(
+            source_spec=f"pypi:{frontend_package}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+
+        backend_update = manager.update_plugin(
+            plugin_id=backend_package,
+            scope=PluginScope.workspace,
+        )
+        frontend_update = manager.update_plugin(
+            plugin_id=frontend_package,
+            scope=PluginScope.workspace,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert backend_update.restartRequired is True
+    assert frontend_update.restartRequired is False
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == backend_package
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.pending_restart
+    assert backend_entries[0].restartRequired is True
+
+    frontend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == frontend_package
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(frontend_entries) == 1
+    assert frontend_entries[0].state == PluginRuntimeState.active
+    assert frontend_entries[0].restartRequired is False
 
 
 def test_scope_alias_environment_maps_to_setta_files() -> None:
@@ -2387,6 +2538,76 @@ def test_apply_lockfile_executes_uninstall_for_plugins_missing_from_lockfile(
         and entry.shadowedBySourcePath is None
     ]
     assert remaining_entries == []
+
+
+def test_apply_lockfile_reconciles_digest_mismatches_for_existing_plugins(
+    tmp_path: Path,
+) -> None:
+    # Lockfile apply should plan and execute digest reconciliation when version matches.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+        lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+        lockfile_path.write_text(
+            json.dumps(
+                {
+                    "plugins": [
+                        {
+                            "pluginId": package_name,
+                            "version": version,
+                            "canonicalSourceKey": f"pypi:{package_name}",
+                            "scope": "workspace",
+                            "sourceDigestSha256": "digest-reconcile-target",
+                            "sourceSpec": f"pypi:{package_name}=={version}",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        check_result = manager.apply_lockfile(check=True)
+        assert check_result.applied is False
+        assert any(
+            "reconcile digest for setta-fixture-frontend in workspace" in change
+            for change in check_result.plannedChanges
+        )
+
+        apply_result = manager.apply_lockfile(check=False)
+        assert apply_result.applied is True
+        assert any(
+            "reconcile digest for setta-fixture-frontend in workspace" in change
+            for change in apply_result.plannedChanges
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
 
 
 def test_resolve_plugin_asset_path_rejects_traversal_and_missing_files(

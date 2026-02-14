@@ -8,49 +8,9 @@ import {
 test("plugin external agent adapters are visible in plugins pane and selectable in AI settings", async ({
   page,
 }) => {
-  const pluginId = "setta-fixture-backend-language-server-e2e";
+  const pluginId = "setta-fixture-backend-external-agent";
   const pluginHeading = `${pluginId}@0.1.0`;
   const adapterId = `${pluginId}:fixture-agent`;
-
-  await page.route("**/api/plugins/status", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    payload.plugins = payload.plugins.map(
-      (plugin: {
-        pluginId: string;
-        registeredExternalAgentAdapters: Array<{
-          adapterId: string;
-          pluginId: string;
-          name: string;
-          runModes: string[];
-          command: string;
-          args: string[];
-          defaultModel: string | null;
-          envVarWhitelist: string[];
-        }>;
-      }) => {
-        if (plugin.pluginId !== pluginId) {
-          return plugin;
-        }
-        return {
-          ...plugin,
-          registeredExternalAgentAdapters: [
-            {
-              adapterId,
-              pluginId,
-              name: "Fixture External Agent",
-              runModes: ["sdk"],
-              command: "python",
-              args: [],
-              defaultModel: "fixture-model",
-              envVarWhitelist: ["OPENAI_API_KEY"],
-            },
-          ],
-        };
-      },
-    );
-    await route.fulfill({ response, json: payload });
-  });
 
   await setOverviewTab(page, "Plugins");
   const projectContext = await openIsolatedProject(page);
@@ -123,9 +83,6 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
         .getByRole("button", { name: "Save", exact: true })
         .first(),
     ).toBeEnabled();
-    await expect(
-      externalAgentsSection.getByPlaceholder("python", { exact: true }),
-    ).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

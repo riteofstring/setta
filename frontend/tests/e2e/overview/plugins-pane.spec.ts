@@ -642,6 +642,63 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
   await expect(page.getByText("Uninstall plugin completed.")).toBeVisible();
 });
 
+test("plugins pane update and rollback actions work against real backend endpoints", async ({
+  page,
+}) => {
+  const packageName = "setta-fixture-frontend";
+  const version = "0.1.0";
+
+  await setOverviewTab(page, "Plugins");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await postBackend(page, "/plugins/install", {
+      sourceSpec: `pypi:${packageName}==${version}`,
+      scope: "workspace",
+      installer: "pip",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const pluginCard = page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "setta-fixture-frontend@0.1.0",
+          exact: true,
+        }),
+      })
+      .first();
+    await expect(pluginCard).toBeVisible();
+
+    await pluginCard.getByRole("button", { name: "Update", exact: true }).click();
+    await expect(page.getByText("Update plugin completed.")).toBeVisible();
+
+    const refreshedPluginCard = page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "setta-fixture-frontend@0.1.0",
+          exact: true,
+        }),
+      })
+      .first();
+    await refreshedPluginCard
+      .getByRole("button", { name: "Rollback", exact: true })
+      .click();
+    await expect(page.getByText("Rollback plugin completed.")).toBeVisible();
+  } finally {
+    await postBackend(page, "/plugins/uninstall", {
+      pluginId: packageName,
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("plugins pane lifecycle actions work against real backend endpoints", async ({
   page,
 }) => {

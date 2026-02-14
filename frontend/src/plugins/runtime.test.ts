@@ -28,6 +28,7 @@ import {
   createUserDefaultDictSectionImpl,
   createVariant,
   PluginRuntimeStateEnum,
+  SectionTypeEnum,
   type PluginListResponse,
   type PluginRestartCapability,
   type PluginListEntry,
@@ -196,6 +197,49 @@ function seedRuntimeSectionState(sectionId: string): void {
         name: "Runtime Dict Section",
       },
     );
+    state.sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+    });
+  });
+}
+
+function seedRuntimePluginSectionState(sectionId: string): void {
+  const implId = "impl-plugin-runtime";
+  const variantId = "variant-plugin-runtime";
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-config-plugin-initial";
+    state.projectConfig.sectionVariantMap = {
+      ...state.projectConfig.sectionVariantMap,
+      [sectionId]: variantId,
+    };
+    state.sections[sectionId] = createCore({ id: sectionId });
+    state.sectionImpls[implId] = {
+      type: "Plugin",
+      id: implId,
+      name: "Runtime Plugin Section",
+      isFrozen: false,
+      isInOtherProjectConfigs: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        width: 300,
+        height: 200,
+      },
+      aspectRatio: false,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      isPreset: false,
+      pluginId: "acme.plugin",
+      kind: "fixture-card",
+      data: {
+        text: "initial",
+      },
+      schemaVersion: null,
+    };
     state.sectionVariants[variantId] = createVariant({
       id: variantId,
       impl: implId,
@@ -992,6 +1036,56 @@ describe("plugin runtime helpers", () => {
         }),
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
+  });
+
+  it("supports updateSection for plugin sections and clones patch payloads", async () => {
+    const sectionId = "section-runtime-plugin-update";
+    seedRuntimePluginSectionState(sectionId);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const patchData = {
+      text: "updated",
+      nested: {
+        enabled: true,
+      },
+    };
+    host.updateSection(sectionId, {
+      data: patchData,
+      kind: "updated-kind",
+      schemaVersion: 2,
+    });
+    patchData.nested.enabled = false;
+
+    const updated = host.readSection(sectionId);
+    expect(updated.type).toBe(SectionTypeEnum.Plugin);
+    expect(updated.kind).toBe("updated-kind");
+    expect(updated.schemaVersion).toBe(2);
+    expect(updated.data).toEqual({
+      text: "updated",
+      nested: {
+        enabled: true,
+      },
+    });
   });
 
   it("returns sorted plugin pane tabs by title then plugin id then pane id", () => {

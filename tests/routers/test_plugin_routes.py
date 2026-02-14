@@ -266,6 +266,39 @@ def test_plugin_restart_routes_support_programmatic_mode() -> None:
         assert restart_calls == ["called"]
 
 
+def test_plugin_restart_route_handles_programmatic_rejection() -> None:
+    # Programmatic restart rejection should return explicit manual fallback details.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+            restart_callback=lambda: False,
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            restart_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}"
+            )
+            assert restart_response.status_code == 200
+            assert restart_response.json() == {
+                "accepted": False,
+                "mode": "programmatic",
+                "command": "setta",
+                "reason": "Programmatic restart request was rejected.",
+            }
+
+
 def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
     # Deployment mode should block plugin mutation routes but still allow read routes.
     with TemporaryDirectory() as tmpdir:
@@ -599,3 +632,28 @@ def test_plugin_asset_route_maps_invalid_and_missing_paths() -> None:
             )
             assert missing_response.status_code == 404
             assert missing_response.json()["detail"]["code"] == "PLUGIN_ASSET_NOT_FOUND"
+
+
+def test_plugin_asset_route_maps_unknown_plugin_to_not_found() -> None:
+    # Asset route should return PLUGIN_NOT_FOUND when plugin id is unknown.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            response = client.get("/plugins/missing-plugin/frontend/dist/index.js")
+            assert response.status_code == 404
+            assert response.json()["detail"]["code"] == "PLUGIN_NOT_FOUND"

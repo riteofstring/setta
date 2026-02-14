@@ -173,6 +173,53 @@ def test_plugins_restart_required_reports_pending_ids_without_status(
     assert "- setta-fixture-backend (status unavailable)" in result.output
 
 
+def test_plugins_install_cli_rejects_scope_and_shortcut_conflicts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Install CLI should reject combining --scope with shortcut scope flags.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        plugins,
+        [
+            "install",
+            "pypi:setta-fixture-frontend==0.1.0",
+            "--scope",
+            "workspace",
+            "--global",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Use either --scope or scope shortcut flags, not both." in result.output
+
+
+def test_plugins_uninstall_cli_rejects_multiple_scope_shortcuts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Uninstall CLI should reject conflicting shortcut scope flags.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        plugins,
+        [
+            "uninstall",
+            "setta-fixture-frontend",
+            "--global",
+            "--environment",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Use only one of --global, --setta-files, or --environment." in result.output
+
+
 def test_plugins_lock_write_and_apply_cli_json_roundtrip(
     tmp_path: Path,
     monkeypatch,

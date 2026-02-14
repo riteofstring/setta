@@ -582,7 +582,27 @@ function registerPluginModule({
     },
     updateSection: (sectionId, patch) => {
       useProjectState.setState((state) => {
-        const impl = getCurrEffectiveSectionImpl(state, sectionId);
+        const variantId = state.projectConfig.sectionVariantMap[sectionId];
+        if (!variantId) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `updateSection could not resolve section variant. sectionId=${sectionId}`,
+          );
+        }
+        const variant = state.sectionVariants[variantId];
+        if (!variant) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `updateSection could not resolve section variant. sectionId=${sectionId}`,
+          );
+        }
+        const impl = state.sectionImpls[variant.impl];
+        if (!impl) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `updateSection could not resolve section implementation. sectionId=${sectionId}`,
+          );
+        }
         if (impl.type !== SectionTypeEnum.Plugin) {
           throw new PluginRuntimeError(
             PluginFrontendErrorCodeEnum.RegistrationInvalid,

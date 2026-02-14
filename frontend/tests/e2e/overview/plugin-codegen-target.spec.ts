@@ -8,52 +8,8 @@ import {
 test("plugin codegen targets are visible in run instructions and can be enabled", async ({
   page,
 }) => {
-  const pluginId = "fixture.codegen";
-  const targetId = "fixture.codegen:typescript";
+  const targetId = "setta-fixture-backend-codegen:typescript";
   const codegenRequests: Array<Record<string, unknown>> = [];
-
-  await page.route("**/api/plugins/status", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    const syntheticStatusEntry = {
-      pluginId,
-      name: "Fixture Codegen",
-      version: "0.1.0",
-      state: "active",
-      sourceScope: "workspace",
-      sourceScopeLabel: "workspace",
-      sourcePath: "/tmp/fixture.codegen",
-      canonicalSourceKey: "local:fixture.codegen",
-      sourceDigestSha256: null,
-      shadowedBySourcePath: null,
-      requestedCapabilities: ["registerCodegenTarget"],
-      effectiveCapabilities: ["registerCodegenTarget"],
-      blockedCapabilities: [],
-      registeredLanguageServers: [],
-      registeredExternalAgentAdapters: [],
-      registeredCodegenTargets: [
-        {
-          targetId,
-          pluginId,
-          language: "typescript",
-          name: "TypeScript",
-          defaultFileName: "setta_gen.ts",
-        },
-      ],
-      enablementSource: "manifest_default",
-      restartRequired: false,
-      errors: [],
-    };
-    const existingIndex = payload.plugins.findIndex(
-      (plugin: { pluginId: string }) => plugin.pluginId === pluginId,
-    );
-    if (existingIndex >= 0) {
-      payload.plugins[existingIndex] = syntheticStatusEntry;
-    } else {
-      payload.plugins.push(syntheticStatusEntry);
-    }
-    await route.fulfill({ response, json: payload });
-  });
 
   await page.route("**/api/setProjectConfigCodegenTargets", async (route) => {
     const requestPayload = route.request().postDataJSON() as Record<

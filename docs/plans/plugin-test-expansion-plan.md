@@ -1,33 +1,24 @@
 # Plugin Test Expansion Plan
 
-Coverage is strong, but there are still high-value additions.
+Coverage is already strong; net-new gaps to add are:
 
-1. High: add a regression test for GitHub `@ref` retargeting in `backend/setta/plugins/manager.py:5015`.
-Current behavior turns `github:acme/plugin@main` + `to=v2` into `github:acme/plugin@main#v2`; test should require replacing the ref, not appending.
+## Unit tests
 
-2. High: expand manager codegen failure-path tests in `backend/setta/plugins/manager.py:649` and `backend/setta/plugins/manager.py:2451`.
-You currently cover success + unknown target; add malformed generation payload cases (`files` missing, traversal/absolute paths, duplicate paths, non-string content, empty files).
+1. `tests/plugins/test_plugin_manager.py`: exercise `apply_lockfile` “digest reconcile” path (same version, different `sourceDigestSha256`) in both `check=True` and apply mode (`backend/setta/plugins/manager.py`).
+2. `tests/plugins/test_plugin_manager.py`: package-manager discovery failure branches for environment distributions with multiple `setta.plugin.json` files and invalid manifests (`backend/setta/plugins/manager.py`).
+3. `tests/plugins/test_plugin_worker.py`: worker host-RPC error payload edge cases (error payload with non-string code/message) and non-JSON-serializable payload rejection paths (`backend/setta/plugins/worker.py`).
+4. `tests/plugins/test_plugin_worker.py`: async `register(plugin)` rejection and invalid `handshake.override.json` payload shapes (`backend/setta/plugins/worker.py`).
+5. `frontend/src/plugins/runtime.test.ts`: positive `updateSection` path for plugin sections (data/kind/schemaVersion updates + clone behavior), not just rejection path.
 
-3. High: add manager rollback edge tests in `backend/setta/plugins/manager.py:2962`.
-Missing coverage for `no history`, `missing snapshot path`, and restart-required behavior when rolling back backend plugins.
+## Integration tests
 
-4. Medium: add lockfile uninstall-branch tests in `backend/setta/plugins/manager.py:3115`.
-`apply_lockfile` has uninstall planning/execution paths that are not deeply asserted today.
+1. `tests/plugins/test_plugin_manager.py`: backend plugin `update_plugin(...)` should always mark `pending_restart`; frontend-only update should not.
+2. `tests/routers/test_plugin_routes.py`: asset route for unknown plugin id (`PLUGIN_NOT_FOUND`) and restart route when programmatic callback rejects.
+3. `tests/start/test_start_plugins.py`: CLI scope-flag conflict errors (`--scope` + shortcut flags, or multiple shortcut flags) via `_plugin_scope_choice_to_value` behavior in real CLI commands.
 
-5. Medium: expand worker transport/parser tests for `backend/setta/plugins/worker.py:795`.
-Missing direct tests for invalid JSON input, non-object JSON-RPC payload, non-string method, and startup arg validation (`missing plugin id/version`, missing entrypoint).
+## Playwright tests
 
-6. Medium: expand worker registration contract tests in `backend/setta/plugins/worker.py:192`, `backend/setta/plugins/worker.py:257`, `backend/setta/plugins/worker.py:327`, `backend/setta/plugins/worker.py:758`.
-Add invalid router type, invalid MCP annotations payload, duplicate/invalid codegen target definitions, and `register_startup_task`/`register_shutdown_task` unsupported paths.
-
-7. Medium: add frontend runtime host-API behavior tests in `frontend/src/plugins/runtime.ts:558`, `frontend/src/plugins/runtime.ts:578`, `frontend/src/plugins/runtime.ts:603`.
-`registerContextMenu`, `openArtifact`, `createArtifact`, `readSection`, `updateSection`, and `subscribeProjectContext` are mostly untested.
-
-8. Medium: add selector/sort tests for plugin runtime views in `frontend/src/plugins/runtime.ts:1096`, `frontend/src/plugins/runtime.ts:1128`, `frontend/src/plugins/runtime.ts:1149`.
-`usePluginPaneTabs`, `usePluginCommands`, `usePluginTopNavBarItems`, `usePluginListEntries` ordering/tie-breaks are not directly covered.
-
-9. Playwright: add a real (non-intercepted) update/rollback lifecycle flow for plugins.
-`frontend/tests/e2e/overview/plugins-pane.spec.ts:468` covers mocked update/rollback; only enable/disable/uninstall currently hit real backend.
-
-10. Playwright: add multi-scope shadowing UI flow (workspace vs environment/global) in `frontend/tests/e2e/overview/plugins-pane.spec.ts`.
-Validate status table visibility for shadowed copies and scope-specific uninstall behavior.
+1. `frontend/tests/e2e/overview/plugins-pane.spec.ts`: real (non-mocked) update + rollback lifecycle using local fixture artifacts (current update/rollback UI test is mocked).
+2. `frontend/tests/e2e/overview/plugin-external-agent.spec.ts`: real backend registration flow (no `/api/plugins/status` interception), then select adapter in AI settings.
+3. `frontend/tests/e2e/overview/plugin-codegen-target.spec.ts`: real plugin codegen target registration end-to-end (no synthetic status injection).
+4. `frontend/tests/e2e/overview/plugin-sections-large-dom.spec.ts`: add lightweight perf guardrails for large DOM updates (e.g., bounded re-render/fanout indicators, not fragile timing thresholds).

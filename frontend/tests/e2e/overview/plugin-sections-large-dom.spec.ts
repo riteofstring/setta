@@ -81,6 +81,26 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       )
       .toBeGreaterThan(80);
 
+    const renderMetrics = await page.evaluate(() => {
+      const scope = window as {
+        __settaFixtureRenderCount?: number;
+        __settaFixtureRenderBySectionId?: Record<string, number>;
+      };
+      const bySection = scope.__settaFixtureRenderBySectionId ?? {};
+      const perSectionCounts = Object.values(bySection).map((count) =>
+        Number(count || 0),
+      );
+      return {
+        totalRenders: Number(scope.__settaFixtureRenderCount || 0),
+        uniqueSectionsRendered: Object.keys(bySection).length,
+        maxRendersForAnySection:
+          perSectionCounts.length > 0 ? Math.max(...perSectionCounts) : 0,
+      };
+    });
+    expect(renderMetrics.uniqueSectionsRendered).toBeGreaterThan(80);
+    expect(renderMetrics.totalRenders).toBeLessThan(totalSections * 20);
+    expect(renderMetrics.maxRendersForAnySection).toBeLessThan(20);
+
     const commandButton = page.getByRole("button", {
       name: "Fixture Command",
       exact: true,
