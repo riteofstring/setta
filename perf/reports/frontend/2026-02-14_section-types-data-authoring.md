@@ -291,3 +291,48 @@ Top insights from DevTools:
 ### Notes
 - New transfer/move functionality is covered by backend unit tests plus end-to-end browser automation.
 - The trace shows acceptable interaction latency for the exercised flow, with reflow pressure concentrated in existing resize/list mechanics rather than the new transfer endpoint path itself.
+
+## 2026-02-14 Follow-up: Explorer Preview Flicker Fix (Loading/Unavailable loop)
+
+### Scope
+- Fixed Explorer universal preview state thrash for non-spreadsheet files.
+- Root cause: preview fetch effects depended on a transient `selectedFile` object, so unrelated rerenders could retrigger network loads and briefly swap between `Loading preview…` and `Preview unavailable.`.
+- Updated preview effects to depend on stable scalar keys (`selectedFilePath`, `selectedFileName`) instead of object identity.
+
+### Automated Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserUniversalPreview.test.ts \
+  src/components/Panes/Overview/FileBrowser/FileBrowserUniversalPreview.perf.test.ts \
+  src/components/Panes/Overview/FileBrowser/FileBrowserWorkspace.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+```
+
+Result:
+- Vitest: `3 files passed`, `6 tests passed`.
+  - Includes preview-kind regression checks and classification perf guardrail.
+- Playwright: `5 passed`.
+  - Includes Explorer bottom universal preview coverage for CSV/XLSX/PDF paths.
+
+### DevTools Trace + Visual Validation
+Trace artifact:
+- `perf/artifacts/2026-02-14-file-browser-preview-flicker-fix-cdp-trace.json`
+
+Visual artifact:
+- `perf/artifacts/2026-02-14-file-browser-preview-no-flicker-check.png`
+
+Captured interaction window:
+- Explorer selection toggles across non-spreadsheet text files (`AGENTS.md` / `ai.sh`).
+- Preview kept on stable text content without oscillating loading/error messaging.
+
+Top insights:
+- `INP`: `122ms` (`pointerdown`)
+  - Input delay: `1ms`
+  - Processing duration: `80ms`
+  - Presentation delay: `41ms`
+- `CLS`: `0.00`
+
+### Notes
+- A 2.5s in-page MutationObserver sample on the selected text preview recorded no `Loading preview…` and no `Preview unavailable.` transitions while idle.

@@ -23,16 +23,38 @@ function decodeBase64ToText(contentBase64: string): string {
   return new TextDecoder().decode(bytes);
 }
 
+export function resolveFileBrowserPreviewKind({
+  filePath,
+  fileName,
+}: {
+  filePath: string;
+  fileName: string;
+}): ReturnType<typeof getAttachmentPreviewKind> | "spreadsheet" {
+  if (isSpreadsheetPath(filePath)) {
+    return "spreadsheet";
+  }
+  return getAttachmentPreviewKind({
+    id: filePath,
+    name: fileName,
+    mimeType: null,
+    size: null,
+  });
+}
+
 export function FileBrowserUniversalPreview({
   selectedNode,
 }: {
   selectedNode: FileNode | null;
 }) {
+  const selectedFilePath =
+    selectedNode && selectedNode.type === "file" ? selectedNode.fullPath : null;
+  const selectedFileName =
+    selectedNode && selectedNode.type === "file" ? selectedNode.name : null;
   const selectedFile =
-    selectedNode && selectedNode.type === "file"
+    selectedFilePath && selectedFileName
       ? {
-          name: selectedNode.name,
-          fullPath: selectedNode.fullPath,
+          name: selectedFileName,
+          fullPath: selectedFilePath,
         }
       : null;
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -51,19 +73,14 @@ export function FileBrowserUniversalPreview({
   });
 
   const previewKind = useMemo(() => {
-    if (!selectedFile) {
+    if (!selectedFilePath || !selectedFileName) {
       return null;
     }
-    if (isSpreadsheetPath(selectedFile.fullPath)) {
-      return "spreadsheet" as const;
-    }
-    return getAttachmentPreviewKind({
-      id: selectedFile.fullPath,
-      name: selectedFile.name,
-      mimeType: null,
-      size: null,
+    return resolveFileBrowserPreviewKind({
+      filePath: selectedFilePath,
+      fileName: selectedFileName,
     });
-  }, [selectedFile]);
+  }, [selectedFileName, selectedFilePath]);
 
   useEffect(() => {
     setFileUrl(null);
@@ -75,10 +92,10 @@ export function FileBrowserUniversalPreview({
       isLoading: false,
       error: null,
     });
-  }, [selectedFile?.fullPath]);
+  }, [selectedFilePath]);
 
   useEffect(() => {
-    if (!selectedFile) {
+    if (!selectedFilePath) {
       return;
     }
     if (
@@ -95,7 +112,7 @@ export function FileBrowserUniversalPreview({
     const loadUrl = async () => {
       try {
         const response = await route_get_file_browser_download_urls({
-          paths: [selectedFile.fullPath],
+          paths: [selectedFilePath],
         });
         if (!isMounted) {
           return;
@@ -105,7 +122,7 @@ export function FileBrowserUniversalPreview({
           setIsUrlLoading(false);
           return;
         }
-        const entry = response.data.find((x) => x.path === selectedFile.fullPath);
+        const entry = response.data.find((x) => x.path === selectedFilePath);
         if (!entry) {
           setUrlError("Preview unavailable.");
           setIsUrlLoading(false);
@@ -125,10 +142,10 @@ export function FileBrowserUniversalPreview({
     return () => {
       isMounted = false;
     };
-  }, [previewKind, selectedFile]);
+  }, [previewKind, selectedFilePath]);
 
   useEffect(() => {
-    if (!selectedFile || previewKind !== "text") {
+    if (!selectedFilePath || previewKind !== "text") {
       return;
     }
     let isMounted = true;
@@ -141,7 +158,7 @@ export function FileBrowserUniversalPreview({
     const loadText = async () => {
       try {
         const response = await route_get_file_browser_file_content({
-          path: selectedFile.fullPath,
+          path: selectedFilePath,
           maxBytes: TEXT_PREVIEW_MAX_BYTES,
         });
         if (!isMounted) {
@@ -180,7 +197,7 @@ export function FileBrowserUniversalPreview({
     return () => {
       isMounted = false;
     };
-  }, [previewKind, selectedFile]);
+  }, [previewKind, selectedFilePath]);
 
   if (!selectedNode) {
     return (
