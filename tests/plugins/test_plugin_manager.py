@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import shutil
+import tarfile
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -221,6 +222,39 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     ]
     assert len(status_entries) == 1
     assert status_entries[0].state == PluginRuntimeState.active
+
+
+def test_extract_artifact_rejects_zip_path_traversal(tmp_path: Path) -> None:
+    # Source extraction must reject archive entries that escape extract_root.
+    manager = _make_manager(tmp_path)
+    malicious_zip = tmp_path / "malicious.whl"
+    with zipfile.ZipFile(malicious_zip, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        zipf.writestr("../escape.txt", "not allowed")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._extract_artifact(
+            artifact_path=malicious_zip,
+            extract_root=tmp_path / "extract",
+        )
+    assert exc_info.value.code == "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL"
+
+
+def test_extract_artifact_rejects_tar_symlink_entries(tmp_path: Path) -> None:
+    # Source extraction must reject tar symlink/hardlink entries.
+    manager = _make_manager(tmp_path)
+    malicious_tar = tmp_path / "malicious.tgz"
+    with tarfile.open(malicious_tar, "w:gz") as archive:
+        link = tarfile.TarInfo("link-out")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "/etc/passwd"
+        archive.addfile(link)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._extract_artifact(
+            artifact_path=malicious_tar,
+            extract_root=tmp_path / "extract",
+        )
+    assert exc_info.value.code == "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL"
 
 
 def test_lockfile_apply_reinstalls_from_pypi_source(tmp_path: Path) -> None:

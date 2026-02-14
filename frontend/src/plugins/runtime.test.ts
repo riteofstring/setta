@@ -1,15 +1,19 @@
 import {
-  type RegisteredPluginSectionKind,
   getPluginSectionFallbackReason,
   getPluginSectionKindsForCreateMenu,
+  PluginFrontendErrorCodeEnum,
+  pluginRuntimeTestApi,
   PluginSectionFallbackReasonEnum,
   resetPluginRuntimeStoreForTests,
   toPluginSectionKindKey,
   usePluginRuntimeStore,
+  type RegisteredPluginSectionKind,
 } from "plugins/runtime";
 import {
+  createPluginListEntry,
   createPluginStatusEntry,
   PluginRuntimeStateEnum,
+  type PluginListEntry,
   type PluginStatusEntry,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -33,6 +37,36 @@ function buildPluginStatusEntry(
     blockedCapabilities: [],
     restartRequired: false,
     errors: [],
+    ...overrides,
+  });
+}
+
+function buildPluginListEntry(
+  overrides: Partial<PluginListEntry>,
+): PluginListEntry {
+  return createPluginListEntry({
+    pluginId: "acme.plugin",
+    name: "Acme Plugin",
+    version: "1.0.0",
+    sourceScope: "workspace",
+    sourceScopeLabel: "workspace",
+    canonicalSourceKey: "github:acme/plugin",
+    sourceDigestSha256: null,
+    frontend: {
+      entrypointUrl: null,
+      styleUrl: null,
+    },
+    content: {
+      hasBlueprints: false,
+      hasProjectTemplates: false,
+      hasPrompts: false,
+    },
+    config: {
+      hasSchema: false,
+      schemaJson: null,
+    },
+    effectiveCapabilities: [],
+    restartRequired: false,
     ...overrides,
   });
 }
@@ -148,5 +182,74 @@ describe("plugin runtime helpers", () => {
         initialData: {},
       },
     ]);
+  });
+
+  it("surfaces API version mismatch frontend load errors", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 999;\nexport function register(host) { void host; }\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.ApiVersionMismatch,
+    );
+  });
+
+  it("surfaces registration-invalid frontend load errors", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerPane({ id: '', title: 'Broken', renderer: { mount() {} } });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
+  it("keeps unknown frontend load errors mapped to load-failed", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(_host) {\n  throw new Error('boom');\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.FrontendLoadFailed,
+    );
   });
 });

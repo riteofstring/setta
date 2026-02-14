@@ -3133,16 +3133,67 @@ class PluginManager:
         name = artifact_path.name.lower()
         if name.endswith(".whl") or name.endswith(".zip"):
             with zipfile.ZipFile(artifact_path, "r") as archive:
+                for member in archive.infolist():
+                    self._validate_archive_member_path(
+                        extract_root=extract_root,
+                        member_path=member.filename,
+                        source_name=artifact_path.name,
+                    )
                 archive.extractall(extract_root)
             return
         if name.endswith(".tar.gz") or name.endswith(".tgz"):
             with tarfile.open(artifact_path, "r:gz") as archive:
+                for member in archive.getmembers():
+                    if member.issym() or member.islnk():
+                        raise PluginManagerError(
+                            "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL",
+                            (
+                                "Plugin archive contains symbolic/hard link entries "
+                                f"which are not allowed: {member.name!r}"
+                            ),
+                        )
+                    self._validate_archive_member_path(
+                        extract_root=extract_root,
+                        member_path=member.name,
+                        source_name=artifact_path.name,
+                    )
                 archive.extractall(extract_root)
             return
         raise PluginManagerError(
             "PLUGIN_SOURCE_FETCH_FAILED",
             f"Unsupported artifact type for plugin source: {artifact_path.name}",
         )
+
+    def _validate_archive_member_path(
+        self,
+        *,
+        extract_root: Path,
+        member_path: str,
+        source_name: str,
+    ) -> None:
+        normalized_member_path = member_path.strip()
+        if normalized_member_path == "":
+            return
+        if normalized_member_path.startswith("/") or normalized_member_path.startswith(
+            "\\"
+        ):
+            raise PluginManagerError(
+                "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL",
+                (
+                    "Plugin archive extraction refused absolute member path "
+                    f"{member_path!r} in {source_name}."
+                ),
+            )
+        extract_root_resolved = extract_root.resolve(strict=False)
+        candidate = (extract_root / normalized_member_path).resolve(strict=False)
+        if not candidate.is_relative_to(extract_root_resolved):
+            raise PluginManagerError(
+                "PLUGIN_SOURCE_ARCHIVE_TRAVERSAL",
+                (
+                    "Plugin archive extraction refused out-of-root member path "
+                    f"{member_path!r} in {source_name}."
+                ),
+            )
 
     def _read_pyproject_metadata_optional(
         self, root: Path

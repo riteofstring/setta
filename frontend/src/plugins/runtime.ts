@@ -239,7 +239,10 @@ async function loadPluginRuntime(): Promise<void> {
     route_plugins_status(),
   ]);
   if (!res200(listResponse)) {
-    const message = buildPluginRequestErrorMessage("plugins list", listResponse);
+    const message = buildPluginRequestErrorMessage(
+      "plugins list",
+      listResponse,
+    );
     usePluginRuntimeStore.setState((state) => ({
       ...state,
       status: "error",
@@ -274,7 +277,10 @@ async function loadPluginRuntime(): Promise<void> {
 
   await Promise.all(
     listData.plugins.map(async (plugin) => {
-      const result = await loadPluginFrontendModule(plugin, listData.serverMode);
+      const result = await loadPluginFrontendModule(
+        plugin,
+        listData.serverMode,
+      );
       if (!result) {
         return;
       }
@@ -283,10 +289,14 @@ async function loadPluginRuntime(): Promise<void> {
         return;
       }
       if (result.registryDelta) {
-        for (const [key, value] of Object.entries(result.registryDelta.sectionKinds)) {
+        for (const [key, value] of Object.entries(
+          result.registryDelta.sectionKinds,
+        )) {
           registryAccumulator.sectionKinds[key] = value;
         }
-        for (const [pluginId, panes] of Object.entries(result.registryDelta.panes)) {
+        for (const [pluginId, panes] of Object.entries(
+          result.registryDelta.panes,
+        )) {
           const existingPanes = registryAccumulator.panes[pluginId] ?? [];
           existingPanes.push(...panes);
           registryAccumulator.panes[pluginId] = existingPanes;
@@ -361,15 +371,8 @@ async function loadPluginFrontendModule(
       registryDelta,
     };
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : `Unknown plugin frontend load error for ${plugin.pluginId}`;
     return {
-      error: {
-        code: PluginFrontendErrorCodeEnum.FrontendLoadFailed,
-        message,
-      },
+      error: toPluginFrontendLoadError(plugin.pluginId, error),
       registryDelta: null,
     };
   }
@@ -393,7 +396,10 @@ function registerPluginModule({
   }
 
   const apiVersion = importedModule.apiVersion;
-  if (typeof apiVersion !== "number" || apiVersion !== PLUGIN_FRONTEND_API_VERSION) {
+  if (
+    typeof apiVersion !== "number" ||
+    apiVersion !== PLUGIN_FRONTEND_API_VERSION
+  ) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.ApiVersionMismatch,
       `Plugin ${plugin.pluginId} apiVersion mismatch. Expected ${PLUGIN_FRONTEND_API_VERSION}.`,
@@ -420,8 +426,14 @@ function registerPluginModule({
         sectionKindCapability,
         "registerSectionKind",
       );
-      const validated = validateSectionKindDefinition(plugin.pluginId, definition);
-      const sectionKey = toPluginSectionKindKey(validated.pluginId, validated.kind);
+      const validated = validateSectionKindDefinition(
+        plugin.pluginId,
+        definition,
+      );
+      const sectionKey = toPluginSectionKindKey(
+        validated.pluginId,
+        validated.kind,
+      );
       registryDelta.sectionKinds[sectionKey] = validated;
     },
     registerPane: (definition) => {
@@ -619,7 +631,10 @@ function validateSectionKindDefinition(
       `Plugin ${pluginId} section kind ${kind} renderer.unmount must be a function when provided.`,
     );
   }
-  if (definition.initialData !== undefined && !isPlainRecord(definition.initialData)) {
+  if (
+    definition.initialData !== undefined &&
+    !isPlainRecord(definition.initialData)
+  ) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
       `Plugin ${pluginId} section kind ${kind} initialData must be a plain object when provided.`,
@@ -760,7 +775,30 @@ class PluginRuntimeError extends Error {
   }
 }
 
-function ensurePluginStyleLoaded(pluginId: string, styleUrl: string | null): void {
+function toPluginFrontendLoadError(
+  pluginId: string,
+  error: unknown,
+): PluginFrontendError {
+  if (error instanceof PluginRuntimeError) {
+    return {
+      code: error.code,
+      message: error.message,
+    };
+  }
+  const message =
+    error instanceof Error
+      ? error.message
+      : `Unknown plugin frontend load error for ${pluginId}`;
+  return {
+    code: PluginFrontendErrorCodeEnum.FrontendLoadFailed,
+    message,
+  };
+}
+
+function ensurePluginStyleLoaded(
+  pluginId: string,
+  styleUrl: string | null,
+): void {
   if (!styleUrl) {
     const existingStyle = styleElementByPluginId.get(pluginId);
     if (existingStyle) {
@@ -817,7 +855,9 @@ function removeInactivePluginStyles(activePluginIds: Set<string>): void {
   }
 }
 
-function mapPluginListById(response: PluginListResponse): Record<string, PluginListEntry> {
+function mapPluginListById(
+  response: PluginListResponse,
+): Record<string, PluginListEntry> {
   const pluginListById: Record<string, PluginListEntry> = {};
   for (const plugin of response.plugins) {
     pluginListById[plugin.pluginId] = plugin;
@@ -923,7 +963,10 @@ export function getPluginSectionFallbackReason(
     return PluginSectionFallbackReasonEnum.plugin_disabled;
   }
   if (
-    isCapabilityBlocked(statusEntry.blockedCapabilities, sectionKindCapability) ||
+    isCapabilityBlocked(
+      statusEntry.blockedCapabilities,
+      sectionKindCapability,
+    ) ||
     !statusEntry.effectiveCapabilities.includes(sectionKindCapability)
   ) {
     return PluginSectionFallbackReasonEnum.mode_blocked;
@@ -976,7 +1019,9 @@ export function getPluginRuntimeSnapshot(): PluginRuntimeStore {
   return usePluginRuntimeStore.getState();
 }
 
-export function getPluginStatusEntry(pluginId: string): PluginStatusEntry | null {
+export function getPluginStatusEntry(
+  pluginId: string,
+): PluginStatusEntry | null {
   const pluginStatusById = usePluginRuntimeStore.getState().pluginStatusById;
   return pluginStatusById[pluginId] ?? null;
 }
@@ -989,9 +1034,7 @@ export function getPluginRuntimeError(
   return frontendErrorsByPluginId[pluginId] ?? null;
 }
 
-export function getPluginPaneEntries(
-  pluginId: string,
-): RegisteredPluginPane[] {
+export function getPluginPaneEntries(pluginId: string): RegisteredPluginPane[] {
   return usePluginRuntimeStore.getState().panesByPluginId[pluginId] ?? [];
 }
 
@@ -1016,3 +1059,7 @@ export function getPluginSectionKindsForCreateMenu(): Array<{
   }));
   return values.sort((a, b) => a.title.localeCompare(b.title));
 }
+
+export const pluginRuntimeTestApi = {
+  loadPluginFrontendModule,
+};

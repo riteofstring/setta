@@ -1,14 +1,18 @@
 import _ from "lodash";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
   refreshPluginRuntime,
   usePluginListEntries,
   usePluginRuntimeStore,
   usePluginStatusEntries,
 } from "plugins/runtime";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
-import { getErrorDetail, res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import {
   route_plugins_disable,
   route_plugins_enable,
@@ -56,7 +60,8 @@ export function PluginsPane() {
     _.isEqual,
   );
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
-  const writeActionsLocked = runtimeSummary.serverMode !== "ide" || isDeploymentMode;
+  const writeActionsLocked =
+    runtimeSummary.serverMode !== "ide" || isDeploymentMode;
 
   useEffect(() => {
     void refreshPluginRuntime();
@@ -106,16 +111,13 @@ export function PluginsPane() {
       setActionStatus({ type: "error", message: "Source spec is required." });
       return;
     }
-    const response = await runAction(
-      "install",
-      "Install plugin",
-      async () =>
-        route_plugins_install({
-          sourceSpec: trimmedSourceSpec,
-          scope,
-          enable: enableAfterInstall,
-          force: false,
-        } as PluginInstallRequestInput),
+    const response = await runAction("install", "Install plugin", async () =>
+      route_plugins_install({
+        sourceSpec: trimmedSourceSpec,
+        scope,
+        enable: enableAfterInstall,
+        force: false,
+      } as PluginInstallRequestInput),
     );
     if (!response || !response.data) {
       return;
@@ -124,7 +126,9 @@ export function PluginsPane() {
   }
 
   async function onRescan() {
-    await runAction("rescan", "Rescan plugins", async () => route_plugins_rescan());
+    await runAction("rescan", "Rescan plugins", async () =>
+      route_plugins_rescan(),
+    );
   }
 
   async function onRestart() {
@@ -175,7 +179,8 @@ export function PluginsPane() {
           </div>
         </header>
         <p className="text-[11px] text-setta-600 dark:text-setta-300">
-          mode={runtimeSummary.serverMode ?? "unknown"} status={runtimeSummary.status} generation=
+          mode={runtimeSummary.serverMode ?? "unknown"} status=
+          {runtimeSummary.status} generation=
           {runtimeSummary.loadGeneration}
         </p>
         {runtimeSummary.restartCapability ? (
@@ -221,7 +226,9 @@ export function PluginsPane() {
               <input
                 type="checkbox"
                 checked={enableAfterInstall}
-                onChange={(event) => setEnableAfterInstall(event.target.checked)}
+                onChange={(event) =>
+                  setEnableAfterInstall(event.target.checked)
+                }
                 disabled={writeActionsLocked || busyActionKey !== null}
               />
               enable after install
@@ -374,11 +381,14 @@ function PluginListEntryCard({
   }
 
   async function onRollback() {
-    await runAction(`rollback:${plugin.pluginId}`, "Rollback plugin", async () =>
-      route_plugins_rollback({
-        pluginId: plugin.pluginId,
-        scope: plugin.sourceScope,
-      } as PluginRollbackRequestInput),
+    await runAction(
+      `rollback:${plugin.pluginId}`,
+      "Rollback plugin",
+      async () =>
+        route_plugins_rollback({
+          pluginId: plugin.pluginId,
+          scope: plugin.sourceScope,
+        } as PluginRollbackRequestInput),
     );
   }
 
@@ -454,13 +464,15 @@ function PluginListEntryCard({
                 type="button"
                 className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
                 onClick={() => {
-                  void Promise.resolve(command.run()).catch((error: unknown) => {
-                    const message =
-                      error instanceof Error
-                        ? error.message
-                        : `Command failed: ${command.id}`;
-                    addTemporaryNotification(message, "error");
-                  });
+                  void Promise.resolve(command.run()).catch(
+                    (error: unknown) => {
+                      const message =
+                        error instanceof Error
+                          ? error.message
+                          : `Command failed: ${command.id}`;
+                      addTemporaryNotification(message, "error");
+                    },
+                  );
                 }}
               >
                 {command.title}
@@ -515,7 +527,7 @@ function PluginPaneMount({
   plugin,
   pane,
 }: {
-  plugin: gt.PluginListEntry;
+  plugin: PluginListEntry;
   pane: {
     id: string;
     title: string;
