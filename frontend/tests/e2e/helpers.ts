@@ -1,4 +1,4 @@
-import type { ConsoleMessage, Page, Response } from "@playwright/test";
+import type { ConsoleMessage, Page } from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -14,22 +14,6 @@ const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
-type AllowedApiError = { path: string; statuses: readonly number[] };
-type ExpectedApiErrorOverride = {
-  path: string;
-  statuses: number[];
-  remainingCount: number;
-};
-type UnexpectedApiErrorGuard = {
-  firstError: string | null;
-  hasForcedClose: boolean;
-  seenMessages: Set<string>;
-  expectedApiErrorOverrides: ExpectedApiErrorOverride[];
-};
-const DEFAULT_ALLOWED_API_ERRORS: readonly AllowedApiError[] = [
-  { path: "/api/formatCode", statuses: [422] },
-];
-const unexpectedApiErrorGuards = new WeakMap<Page, UnexpectedApiErrorGuard>();
 
 function withBackendOriginOverride(rawUrl: string): string {
   let url: URL;
@@ -98,9 +82,6 @@ export type ProjectStateSingleConfigResponse = {
 };
 
 export async function ensureAppReady(page: Page): Promise<void> {
-  installUnexpectedApiErrorGuard(page);
-  throwIfUnexpectedApiError(page);
-
   const pageErrors: string[] = [];
   const consoleErrors: string[] = [];
   const onPageError = (err: Error) => {
@@ -173,12 +154,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
       debugLines.push("Console errors:");
       debugLines.push(...consoleErrors.slice(0, 10));
     }
-    const unexpectedApiError = unexpectedApiErrorGuards.get(page)?.firstError;
-    if (unexpectedApiError) {
-      debugLines.push("");
-      debugLines.push("Unexpected API error:");
-      debugLines.push(unexpectedApiError);
-    }
 
     throw new Error(
       `Setta UI did not become ready. Check bootstrap auth.\n${debugLines.join(
@@ -189,42 +164,6 @@ export async function ensureAppReady(page: Page): Promise<void> {
     page.off("pageerror", onPageError);
     page.off("console", onConsole);
   }
-}
-
-export function allowExpectedApiError(
-  page: Page,
-  rule: {
-    path: string;
-    statuses: readonly number[];
-    count?: number;
-  },
-): void {
-  if (!rule.path.startsWith("/api/")) {
-    throw new Error(
-      `Expected API error path must start with /api/: ${rule.path}`,
-    );
-  }
-  if (!rule.statuses.length) {
-    throw new Error("Expected API error statuses cannot be empty.");
-  }
-  const count = rule.count ?? 1;
-  if (!Number.isInteger(count) || count <= 0) {
-    throw new Error(
-      `Expected API error count must be a positive integer: ${String(count)}`,
-    );
-  }
-
-  installUnexpectedApiErrorGuard(page);
-  const guard = unexpectedApiErrorGuards.get(page);
-  if (!guard) {
-    throw new Error("Unexpected API error guard not initialized.");
-  }
-
-  guard.expectedApiErrorOverrides.push({
-    path: rule.path,
-    statuses: [...rule.statuses],
-    remainingCount: count,
-  });
 }
 
 export async function seedLocalStorage(
@@ -276,9 +215,6 @@ export async function setOverviewTab(
 export async function openIsolatedProject(
   page: Page,
 ): Promise<IsolatedProjectContext> {
-  installUnexpectedApiErrorGuard(page);
-  throwIfUnexpectedApiError(page);
-
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -680,9 +616,6 @@ export async function postBackend<T>(
   path: string,
   payload: Record<string, unknown> | null,
 ): Promise<T | null> {
-  installUnexpectedApiErrorGuard(page);
-  throwIfUnexpectedApiError(page);
-
   const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
     data: payload,
   });
@@ -700,9 +633,6 @@ export async function postBackend<T>(
 }
 
 async function getBackend<T>(page: Page, path: string): Promise<T | null> {
-  installUnexpectedApiErrorGuard(page);
-  throwIfUnexpectedApiError(page);
-
   const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`);
   const text = await response.text();
   if (!response.ok()) {
@@ -715,96 +645,6 @@ async function getBackend<T>(page: Page, path: string): Promise<T | null> {
     return null;
   }
   return JSON.parse(text) as T;
-}
-
-function installUnexpectedApiErrorGuard(page: Page): void {
-  if (unexpectedApiErrorGuards.has(page)) {
-    return;
-  }
-  const guard: UnexpectedApiErrorGuard = {
-    firstError: null,
-    hasForcedClose: false,
-    seenMessages: new Set<string>(),
-    expectedApiErrorOverrides: [],
-  };
-  const onResponse = (response: Response) => {
-    const status = response.status();
-    if (status < 400 || status >= 600) {
-      return;
-    }
-    const apiPath = extractApiPath(response.url());
-    if (!apiPath || isAllowedApiError(apiPath, status)) {
-      return;
-    }
-    if (consumeExpectedApiErrorOverride(guard, apiPath, status)) {
-      return;
-    }
-    const request = response.request();
-    const message = `[E2E unexpected API error] ${request.method()} ${apiPath} -> ${status}`;
-    if (guard.seenMessages.has(message)) {
-      return;
-    }
-    guard.seenMessages.add(message);
-    if (!guard.firstError) {
-      guard.firstError = message;
-      console.error(message);
-    }
-    if (!guard.hasForcedClose) {
-      guard.hasForcedClose = true;
-      // End the current test quickly so one poisoned state does not cascade.
-      void page.close();
-    }
-  };
-
-  page.on("response", onResponse);
-  page.once("close", () => {
-    page.off("response", onResponse);
-  });
-  unexpectedApiErrorGuards.set(page, guard);
-}
-
-function consumeExpectedApiErrorOverride(
-  guard: UnexpectedApiErrorGuard,
-  path: string,
-  status: number,
-): boolean {
-  for (let index = 0; index < guard.expectedApiErrorOverrides.length; index += 1) {
-    const override = guard.expectedApiErrorOverrides[index];
-    if (override.path !== path || !override.statuses.includes(status)) {
-      continue;
-    }
-    override.remainingCount -= 1;
-    if (override.remainingCount <= 0) {
-      guard.expectedApiErrorOverrides.splice(index, 1);
-    }
-    return true;
-  }
-  return false;
-}
-
-function throwIfUnexpectedApiError(page: Page): void {
-  const firstError = unexpectedApiErrorGuards.get(page)?.firstError;
-  if (firstError) {
-    throw new Error(firstError);
-  }
-}
-
-function extractApiPath(rawUrl: string): string | null {
-  try {
-    const parsed = new URL(rawUrl);
-    if (parsed.pathname.startsWith("/api/")) {
-      return parsed.pathname;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function isAllowedApiError(path: string, status: number): boolean {
-  return DEFAULT_ALLOWED_API_ERRORS.some(
-    (entry) => entry.path === path && entry.statuses.includes(status),
-  );
 }
 
 async function waitForLatestChatId(

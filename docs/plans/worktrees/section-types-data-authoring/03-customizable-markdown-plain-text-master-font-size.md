@@ -20,3 +20,8 @@ Provide a single master font-size control for markdown/plain text sections while
 - Add unit tests for scale mapping logic.
 - Add Playwright test for markdown section resizing behavior.
 - CDP visual check on mixed heading/body markdown content.
+
+## Delivery Notes (2026-02-14)
+- Introduced `buildTextBlockTypographyScale` and clamping helpers in `frontend/src/utils/textBlockTypography.ts`.
+- Updated markdown/plain text render paths (`frontend/src/components/Section/Layouts/TextBlock.tsx` and `frontend/src/components/App/appRegistry.tsx`) to consume the derived scale while preserving heading/body hierarchy.
+- Added/updated tests: `frontend/src/utils/textBlockTypography.test.ts`, `frontend/src/components/Section/Layouts/TextBlock.test.tsx`, and the markdown slider E2E case in `frontend/tests/e2e/editor/section-types-data-authoring.spec.ts`.
