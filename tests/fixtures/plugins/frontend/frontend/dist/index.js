@@ -125,7 +125,8 @@ function renderCard(el, props) {
   const words = normalizeWords(cardText);
   const estimatedReadingSeconds = Math.max(1, Math.round(words.length / 3));
   const sectionRenderCount = getRenderCountForSection(sectionId);
-  const themeName = CARD_THEME_NAMES[state.themeIndex % CARD_THEME_NAMES.length];
+  const themeName =
+    CARD_THEME_NAMES[state.themeIndex % CARD_THEME_NAMES.length];
 
   el.innerHTML = "";
   const card = document.createElement("section");
@@ -178,14 +179,10 @@ function renderCard(el, props) {
   const controls = document.createElement("div");
   controls.className = "fixture-plugin-card__controls";
 
-  const boostButton = createButton(
-    "Boost Signal",
-    "fixture-card-boost",
-    () => {
-      state.signalScore += 1;
-      renderCard(el, props);
-    },
-  );
+  const boostButton = createButton("Boost Signal", "fixture-card-boost", () => {
+    state.signalScore += 1;
+    renderCard(el, props);
+  });
   controls.appendChild(boostButton);
 
   const themeButton = createButton("Cycle Theme", "fixture-card-theme", () => {
@@ -261,10 +258,10 @@ function createPaneMetric(label, testId) {
   };
 }
 
-function createPaneButton(label, testId, onClick) {
+function createPaneButton(label, testId, onClick, variant = "default") {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "fixture-plugin-pane__button";
+  button.className = `fixture-plugin-pane__button fixture-plugin-pane__button--${variant}`;
   button.setAttribute("data-testid", testId);
   button.textContent = label;
   button.addEventListener("click", onClick);
@@ -281,18 +278,31 @@ function mountFixturePane(el) {
   const heading = document.createElement("h3");
   heading.className = "fixture-plugin-pane__title";
   heading.textContent = "Fixture Pane";
-  container.appendChild(heading);
 
   const intro = document.createElement("p");
   intro.className = "fixture-plugin-pane__intro";
   intro.textContent = "Fixture pane mounted.";
-  container.appendChild(intro);
 
   const subIntro = document.createElement("p");
   subIntro.className = "fixture-plugin-pane__sub-intro";
   subIntro.textContent =
     "Live plugin diagnostics for render metrics, command runs, and a persisted scratchpad.";
-  container.appendChild(subIntro);
+
+  const header = document.createElement("header");
+  header.className = "fixture-plugin-pane__header";
+  header.appendChild(heading);
+  header.appendChild(intro);
+  header.appendChild(subIntro);
+  container.appendChild(header);
+
+  const runtimePanel = document.createElement("section");
+  runtimePanel.className =
+    "fixture-plugin-pane__panel fixture-plugin-pane__panel--runtime";
+
+  const runtimeLabel = document.createElement("h4");
+  runtimeLabel.className = "fixture-plugin-pane__panel-title";
+  runtimeLabel.textContent = "Runtime Metrics";
+  runtimePanel.appendChild(runtimeLabel);
 
   const metrics = document.createElement("section");
   metrics.className = "fixture-plugin-pane__metrics";
@@ -318,7 +328,7 @@ function mountFixturePane(el) {
   metrics.appendChild(renderMetric.metric);
   metrics.appendChild(sectionMetric.metric);
   metrics.appendChild(updatedMetric.metric);
-  container.appendChild(metrics);
+  runtimePanel.appendChild(metrics);
 
   const controls = document.createElement("div");
   controls.className = "fixture-plugin-pane__controls";
@@ -336,7 +346,9 @@ function mountFixturePane(el) {
     renderMetric.metricValue.textContent = String(
       Number(window.__settaFixtureRenderCount || 0),
     );
-    sectionMetric.metricValue.textContent = String(Object.keys(bySection).length);
+    sectionMetric.metricValue.textContent = String(
+      Object.keys(bySection).length,
+    );
     updatedMetric.metricValue.textContent = new Date().toLocaleTimeString();
   };
 
@@ -356,24 +368,37 @@ function mountFixturePane(el) {
   );
 
   controls.appendChild(
-    createPaneButton("Reset Metrics", "fixture-pane-reset", () => {
-      window.__settaFixtureCommandRuns = 0;
-      window.__settaFixtureRenderCount = 0;
-      window.__settaFixtureRenderBySectionId = {};
-      refreshMetrics();
-      status.textContent = "Metrics reset.";
-    }),
+    createPaneButton(
+      "Reset Metrics",
+      "fixture-pane-reset",
+      () => {
+        window.__settaFixtureCommandRuns = 0;
+        window.__settaFixtureRenderCount = 0;
+        window.__settaFixtureRenderBySectionId = {};
+        refreshMetrics();
+        status.textContent = "Metrics reset.";
+      },
+      "danger",
+    ),
   );
 
-  container.appendChild(controls);
+  runtimePanel.appendChild(controls);
+  runtimePanel.appendChild(status);
+  container.appendChild(runtimePanel);
 
   const notePanel = document.createElement("section");
-  notePanel.className = "fixture-plugin-pane__note-panel";
+  notePanel.className =
+    "fixture-plugin-pane__panel fixture-plugin-pane__note-panel";
 
   const noteLabel = document.createElement("h4");
   noteLabel.className = "fixture-plugin-pane__note-title";
   noteLabel.textContent = "Scratchpad";
   notePanel.appendChild(noteLabel);
+
+  const noteHint = document.createElement("p");
+  noteHint.className = "fixture-plugin-pane__note-hint";
+  noteHint.textContent = "Saved to browser localStorage for this workspace.";
+  notePanel.appendChild(noteHint);
 
   const noteInput = document.createElement("textarea");
   noteInput.className = "fixture-plugin-pane__note-input";
@@ -421,19 +446,22 @@ function mountFixturePane(el) {
     }),
   );
   noteActions.appendChild(
-    createPaneButton("Clear Note", "fixture-pane-clear-note", () => {
-      noteInput.value = "";
-      clearPersistedPaneNote();
-      syncNoteMeta();
-      status.textContent = "Scratchpad note cleared.";
-    }),
+    createPaneButton(
+      "Clear Note",
+      "fixture-pane-clear-note",
+      () => {
+        noteInput.value = "";
+        clearPersistedPaneNote();
+        syncNoteMeta();
+        status.textContent = "Scratchpad note cleared.";
+      },
+      "danger",
+    ),
   );
 
   notePanel.appendChild(noteMetaRow);
   notePanel.appendChild(notePreview);
   container.appendChild(notePanel);
-
-  container.appendChild(status);
 
   syncNoteMeta();
   refreshMetrics();
@@ -447,7 +475,8 @@ export function register(host) {
     host.registerSectionKind({
       kind: "fixture-card",
       title: "Fixture Card",
-      description: "Interactive fixture section renderer with lightweight metrics.",
+      description:
+        "Interactive fixture section renderer with lightweight metrics.",
       initialData: { text: "fixture-default" },
       renderer: {
         mount(el, props) {
@@ -467,7 +496,8 @@ export function register(host) {
     host.registerPane({
       id: "fixture-overview-pane",
       title: "Fixture Pane",
-      description: "Interactive fixture pane with plugin diagnostics and scratchpad.",
+      description:
+        "Interactive fixture pane with plugin diagnostics and scratchpad.",
       icon: "dashboard",
       renderer: {
         mount(el) {
