@@ -50,15 +50,32 @@ async function setBrowserPath({
   await expect(pathInput).toBeVisible();
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await cmContent.fill(targetPath);
-  await page.keyboard.press("Enter");
   const normalizedTarget = normalizePathForComparison(targetPath);
-  await expect
-    .poll(async () =>
-      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-    )
-    .toContain(normalizedTarget);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.type(targetPath);
+    await page.keyboard.press("Enter");
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedPath = normalizePathForComparison(
+        await readCodeMirrorValue(page, pathInputId),
+      );
+      if (committedPath === normalizedTarget) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalPath = normalizePathForComparison(
+    await readCodeMirrorValue(page, pathInputId),
+  );
+  throw new Error(
+    `Browser path did not commit cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
+  );
 }
 
 async function setBrowserFilter({
@@ -81,11 +98,10 @@ async function setBrowserFilter({
   const cmContent = filterRoot.locator(".cm-content");
   await expect(cmContent).toBeVisible();
   await cmContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type(value);
+  await cmContent.fill(value);
   await expect
     .poll(async () => await readCodeMirrorValue(page, filterInputId))
-    .toContain(value);
+    .toBe(value);
 }
 
 async function setSearchScope({
@@ -101,10 +117,29 @@ async function setSearchScope({
     'button[aria-label="Search scope options"]',
   );
   await expect(trigger).toBeVisible();
+  const menu = page
+    .getByRole("dialog")
+    .filter({ hasText: /Recursive search/i })
+    .first();
   await trigger.click();
+  await expect(menu).toBeVisible();
 
   const label = scope === "recursive" ? /Recursive search/i : /Local search/i;
-  await page.getByRole("button", { name: label }).click();
+  const scopeButton = menu.getByRole("button", { name: label });
+  await expect(scopeButton).toBeVisible();
+  await scopeButton.click();
+
+  // The popover can stay open or close depending on click timing; verify state either way.
+  if (!(await menu.isVisible())) {
+    await trigger.click();
+    await expect(menu).toBeVisible();
+  }
+  await expect(menu.getByRole("button", { name: label })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 }
 
 test("browser filter dropdown toggles recursive vs local search (and shows subfolder path)", async ({
@@ -226,7 +261,6 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
       // Force explicit recursive scope here so this test does not depend on
       // persisted state from earlier Playwright cases in the same worker.
       await setSearchScope({ page, sectionNode, scope: "recursive" });
-      await page.waitForTimeout(200);
 
       // Default is recursive.
       await setBrowserFilter({ page, sectionNode, value: "*.png" });
