@@ -19,13 +19,10 @@ from setta.types.chat_messages import (
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
-    DateDisplayFormat,
     DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
-    TextParamInputUIType,
-    TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
 from setta.types.id import ID
@@ -39,7 +36,6 @@ from setta.types.section_impls import (
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     SectionSize,
-    SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -55,7 +51,6 @@ class SharedModifier(TypedDict):
     activeBranchId: NotRequired[ID | None]
     activeLayerIdx: NotRequired[int]
     agentProfileId: NotRequired[ID | None]
-    allowUnquotedStringArgs: NotRequired[bool]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
@@ -81,8 +76,6 @@ class SharedModifier(TypedDict):
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
     dataPath: NotRequired[str]
-    dateDisplayFormat: NotRequired[DateDisplayFormat]
-    defaultChildSectionType: NotRequired[SectionType]
     defaultVal: NotRequired[str]
     description: NotRequired[str]
     diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
@@ -114,7 +107,6 @@ class SharedModifier(TypedDict):
     label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
     managed: NotRequired[bool]
-    masterFontSizePx: NotRequired[float]
     max: NotRequired[float | int]
     maxAttachments: NotRequired[int | None]
     messages: NotRequired[
@@ -153,12 +145,9 @@ class SharedModifier(TypedDict):
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     thinking: NotRequired[bool]
-    timeDisplayFormat: NotRequired[TimeDisplayFormat]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
-    typeAnnotation: NotRequired[str]
     typesColumnWidth: NotRequired[float | None]
-    uiType: NotRequired[TextParamInputUIType]
     url: NotRequired[str]
     value: NotRequired[str]
     viewMode: NotRequired[BrowserAreaViewMode]

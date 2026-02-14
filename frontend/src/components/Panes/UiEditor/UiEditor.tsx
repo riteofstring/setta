@@ -82,30 +82,35 @@ export function UiEditor() {
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
+          data-testid="ui-editor-tab-section-config"
           {...getFloatingBoxHandlers({ content: "Section Config" })}
           icon={<MdOutlineSettingsApplications />}
         />
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.UIConfig}
           {...commonProps}
+          data-testid="ui-editor-tab-ui-config"
           {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
           icon={<BsCardChecklist />}
         />
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.QuickInfoConfig}
           {...commonProps}
+          data-testid="ui-editor-tab-quick-info-config"
           {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
           icon={<TbEdit />}
         />
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.InfoConfig}
           {...commonProps}
+          data-testid="ui-editor-tab-info-config"
           {...getFloatingBoxHandlers({ content: "Info Editing" })}
           icon={<PiCursorTextFill />}
         />
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionVariantsConfig}
           {...commonProps}
+          data-testid="ui-editor-tab-section-variants-config"
           {...getFloatingBoxHandlers({ content: "Section Variants" })}
           icon={<TbVersions />}
         />
@@ -150,7 +155,7 @@ function TabsVisible({
 }) {
   const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
   return (
-    <div className="flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
@@ -184,7 +189,7 @@ function TabContent({
 
 function Placeholder() {
   return (
-    <aside className="grid h-full min-h-0 w-[calc(100%_-_1rem)]">
+    <aside className="grid h-full min-h-0 w-full pr-1">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
         <h4 className="text-center text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">

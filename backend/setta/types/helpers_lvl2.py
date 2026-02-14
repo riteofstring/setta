@@ -70,7 +70,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GenPythonMetadataSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
-    ListRootSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
     PromptSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
@@ -161,15 +160,6 @@ if TYPE_CHECKING:
 
 class ProjectNotFound(Exception):
     pass
-
-
-DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES = frozenset(
-    {
-        SectionType.GlobalVariables,
-        SectionType.GenPythonCode,
-        SectionType.GenPythonMetadata,
-    }
-)
 
 
 def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: ID):
@@ -1407,11 +1397,9 @@ def create_child_sections_via_incrementer(
     numChildren: int,
 ):
     impl = get_curr_effective_section_impl(p, calledBy)
-    parentImpl: BaseParentSectionImpl | None = None
     if isinstance(impl, BaseParentSectionImpl):
         parentId = calledBy
         startIdx = 0
-        parentImpl = impl
     else:
         parentId = p.parentSectionMap[calledBy]
         if not parentId:
@@ -1420,19 +1408,7 @@ def create_child_sections_via_incrementer(
             p, parentId, BaseParentSectionImpl
         )
         startIdx = parentImpl.children.index(calledBy) + 1
-    resolved_impl_type = impl_type
-    if impl_type is SectionType.Callable:
-        if isinstance(parentImpl, ListRootSectionImpl):
-            default_child_type = parentImpl.defaultChildSectionType
-            if default_child_type not in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-                resolved_impl_type = default_child_type
-        if isinstance(parentImpl, GroupSectionImpl):
-            default_child_type = parentImpl.defaultChildSectionType
-            if default_child_type not in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-                resolved_impl_type = default_child_type
-    create_child_sections(
-        settings, p, parentId, resolved_impl_type, numChildren, startIdx
-    )
+    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
@@ -1800,7 +1776,6 @@ def change_param_impl(
                 coreNameEditable=old_effective_impl.coreNameEditable,
                 coreNameType=old_effective_impl.coreNameType,
                 passingStyle=old_effective_impl.passingStyle,
-                typeAnnotation=old_effective_impl.typeAnnotation,
             ),
         )
 
@@ -2347,68 +2322,6 @@ def set_text_block_heading_as_section_name(
                 set_section_name(p, sectionId, first_heading)
             except InvalidSectionName:
                 pass
-
-
-def set_text_block_master_font_size(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    masterFontSizePx: float,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
-    clamped_size = max(8.0, min(48.0, float(masterFontSizePx)))
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(masterFontSizePx=clamped_size),
-    )
-
-
-def set_section_allow_unquoted_string_args(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    allowUnquotedStringArgs: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(
-            allowUnquotedStringArgs=allowUnquotedStringArgs
-        ),
-    )
-
-
-def set_parent_default_child_section_type(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    defaultChildSectionType: SectionType,
-):
-    if defaultChildSectionType in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-        raise ValueError(
-            f"Section type {defaultChildSectionType} cannot be a default child type."
-        )
-    section_impl = get_curr_effective_section_impl(p, sectionId)
-    if isinstance(section_impl, ListRootSectionImpl):
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            ListRootSectionImplArgsWithCallable(
-                defaultChildSectionType=defaultChildSectionType
-            ),
-        )
-        return
-    if isinstance(section_impl, GroupSectionImpl):
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            GroupSectionImplArgsWithCallable(
-                defaultChildSectionType=defaultChildSectionType
-            ),
-        )
-        return
-    raise TypeError(f"Section {sectionId} does not support default child section type.")
 
 
 def get_first_heading_or_text(markdown: str):

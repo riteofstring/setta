@@ -42,7 +42,7 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
-const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
+const FILE_BROWSER_META_INSET_CLASS = "w-full px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {
@@ -119,9 +119,19 @@ export function Overview() {
           bottom: hasViewModeTabs ? "36px" : "0px",
         }}
       >
+        {showLLMTabs && (
+          <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.ProjectAIChat}
+            {...commonProps}
+            data-testid="overview-tab-project-ai-chat"
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+            icon={<IoChatbox size={20} />}
+          />
+        )}
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
+          data-testid="overview-tab-overview"
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
         />
@@ -129,6 +139,7 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.FileBrowser}
             {...commonProps}
+            data-testid="overview-tab-file-browser"
             {...getFloatingBoxHandlers({ content: "Explorer" })}
             icon={<TbFolder size={18} />}
           />
@@ -137,6 +148,7 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.Git}
             {...commonProps}
+            data-testid="overview-tab-git"
             {...getFloatingBoxHandlers({ content: "Git" })}
             icon={<RiGitCommitLine size={18} />}
           />
@@ -145,6 +157,7 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.WatchCode}
             {...commonProps}
+            data-testid="overview-tab-watch-code"
             {...getFloatingBoxHandlers({ content: "Watch Code" })}
             icon={<RiRadarLine size={18} />}
           />
@@ -153,6 +166,7 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.App}
             {...commonProps}
+            data-testid="overview-tab-app"
             {...getFloatingBoxHandlers({ content: "App" })}
             icon={<TbLayoutDashboard size={18} />}
           />
@@ -160,30 +174,35 @@ export function Overview() {
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ProjectConfigs}
           {...commonProps}
+          data-testid="overview-tab-project-configs"
           {...getFloatingBoxHandlers({ content: "Config Preview" })}
           icon={<i className="gg-git-branch !scale-100" />}
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
+          data-testid="overview-tab-run-instructions"
           {...getFloatingBoxHandlers({ content: "Custom Runs" })}
           icon={<RiPlayList2Fill size={20} />}
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
+          data-testid="overview-tab-view-modes"
           {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
           icon={<HiOutlineEye size={20} />}
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Notifications}
           {...commonProps}
+          data-testid="overview-tab-notifications"
           {...getFloatingBoxHandlers({ content: "Notifications" })}
           icon={<MdNotificationsNone size={20} />}
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.BackendLogs}
           {...commonProps}
+          data-testid="overview-tab-backend-logs"
           {...getFloatingBoxHandlers({ content: "Backend Logs" })}
           icon={
             <div className="relative">
@@ -196,16 +215,9 @@ export function Overview() {
         />
         {showLLMTabs && (
           <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.ProjectAIChat}
-            {...commonProps}
-            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-            icon={<IoChatbox size={20} />}
-          />
-        )}
-        {showLLMTabs && (
-          <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.ProjectAISettings}
             {...commonProps}
+            data-testid="overview-tab-project-ai-settings"
             {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
             icon={<MdOutlineSmartToy size={20} />}
           />
@@ -239,7 +251,7 @@ function TabsVisible({
       className={
         isFullWidth
           ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
+          : "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-1.5"
       }
     >
       {isFullWidth ? (

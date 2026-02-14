@@ -27,7 +27,8 @@ test("project ai combobox chevron sizing", async ({ page }) => {
     return;
   }
 
-  expect(buttonBox.height).toBeLessThan(inputBox.height * 0.9);
+  expect(buttonBox.height).toBeGreaterThanOrEqual(inputBox.height * 0.9);
+  expect(buttonBox.height).toBeLessThanOrEqual(inputBox.height + 1);
   const inputCenter = inputBox.y + inputBox.height / 2;
   const buttonCenter = buttonBox.y + buttonBox.height / 2;
   expect(Math.abs(buttonCenter - inputCenter)).toBeLessThanOrEqual(2);
