@@ -12,7 +12,6 @@ import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { MetaControlSettings } from "./MetaControlSettings";
 import { PromptSettings } from "./PromptSettings";
-import { SectionConfigAccordion } from "./SectionConfigAccordion";
 import { SectionStyleColorSettings } from "./SectionStyleColorSettings";
 import { SectionTagColorSettings } from "./SectionTagColorSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
@@ -20,30 +19,11 @@ import { TextBlockSettings } from "./TextBlockSettings";
 
 function _SectionConfig({ sectionId }: { sectionId: string }) {
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pr-1">
-      <SectionConfigAccordion
-        defaultOpenValues={["section-config-main"]}
-        items={[
-          {
-            value: "section-config-main",
-            title: "Section Settings",
-            triggerTestId: "section-config-accordion-main",
-            content: <SpecializedConfiguration sectionId={sectionId} />,
-          },
-          {
-            value: "section-config-appearance",
-            title: "Appearance",
-            triggerTestId: "section-config-accordion-appearance",
-            content: (
-              <div className="flex flex-col gap-2">
-                <SectionStyleColorSettings sectionId={sectionId} />
-                <SectionTagColorSettings sectionId={sectionId} />
-              </div>
-            ),
-          },
-        ]}
-      />
-    </section>
+    <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
+      <SectionTagColorSettings sectionId={sectionId} />
+      <SectionStyleColorSettings sectionId={sectionId} />
+      <SpecializedConfiguration sectionId={sectionId} />
+    </div>
   );
 }
 

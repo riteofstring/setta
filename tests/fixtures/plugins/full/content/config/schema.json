@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Full Fixture Plugin Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "label": {
+      "type": "string"
+    }
+  },
+  "required": ["enabled"]
+}
