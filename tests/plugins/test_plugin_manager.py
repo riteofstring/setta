@@ -200,7 +200,10 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
     return dist_dir
 
 
-@pytest.mark.parametrize("fixture_name", ["backend", "frontend", "content", "full"])
+@pytest.mark.parametrize(
+    "fixture_name",
+    ["backend", "backend-language-server", "frontend", "content", "full"],
+)
 def test_fixture_plugins_validate(fixture_name: str, tmp_path: Path) -> None:
     # Each first-party fixture should be a valid standalone plugin root.
     manager = _make_manager(tmp_path)
@@ -816,6 +819,40 @@ def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
         SETTA_MCP_TOOLS[:] = baseline_tools
 
 
+def test_load_backend_plugins_registers_fixture_language_server(
+    tmp_path: Path,
+) -> None:
+    # Backend fixture plugins should be able to register language server definitions.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.active
+
+    registrations = manager.get_backend_language_servers()
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert registration.plugin_id == "setta-fixture-backend-language-server"
+    assert registration.language.value == "typescript"
+    assert registration.command == "typescript-language-server"
+    assert registration.args == ("--stdio",)
+    assert registration.settings_key == "typescriptLanguageServer"
+
+
 def test_backend_worker_processes_stay_alive_until_shutdown(tmp_path: Path) -> None:
     # Backend workers should remain running after load and stop on explicit shutdown.
     manager = _make_manager(tmp_path)
@@ -902,6 +939,105 @@ def test_backend_plugin_capability_denied_is_reported(tmp_path: Path) -> None:
     assert backend_entries[0].state == PluginRuntimeState.invalid
     error_codes = {error.code for error in backend_entries[0].errors}
     assert "PLUGIN_CAPABILITY_DENIED" in error_codes
+
+
+def test_backend_language_server_registration_rejects_invalid_provider_payload(
+    tmp_path: Path,
+) -> None:
+    # Language-server provider payload validation should fail fast on bad field types.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_language_server(\n"
+        "        {\n"
+        "            'language': 'typescript',\n"
+        "            'command': 'typescript-language-server',\n"
+        "            'args': '--stdio',\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+        and "args must be an array of strings" in error.message
+        for error in backend_entries[0].errors
+    )
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_mode_policy_blocks_backend_language_server_registration(
+    tmp_path: Path,
+    server_mode: Literal["share", "app"],
+) -> None:
+    # Share/App should block registerLanguageServer and surface deterministic status.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    list_response = manager.get_list_response()
+    list_entries = [
+        entry
+        for entry in list_response.plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].effectiveCapabilities == []
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    status_entry = status_entries[0]
+    assert status_entry.state == PluginRuntimeState.active
+    assert status_entry.requestedCapabilities == ["registerLanguageServer"]
+    assert status_entry.effectiveCapabilities == []
+    assert len(status_entry.blockedCapabilities) == 1
+    assert status_entry.blockedCapabilities[0].capability == "registerLanguageServer"
+    assert (
+        status_entry.blockedCapabilities[0].reason
+        == BlockedCapabilityReason.mode_policy
+    )
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    loaded_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(loaded_entries) == 1
+    assert loaded_entries[0].state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_CAPABILITY_DENIED" for error in loaded_entries[0].errors
+    )
 
 
 @pytest.mark.parametrize("server_mode", ["share", "app"])

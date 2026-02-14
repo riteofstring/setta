@@ -25,6 +25,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 from pydantic import ValidationError
 
+from setta.lsp.registrations import RegisteredLanguageServer
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.models import (
     PLUGIN_CAPABILITIES_SET,
@@ -64,6 +65,7 @@ from setta.plugins.models import (
     normalize_scope,
     scope_label,
 )
+from setta.types.section_impls import CodeLanguage
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -309,7 +311,10 @@ class PluginManager:
         self._backend_worker_request_state_lock = threading.Lock()
         self._backend_registered_mcp_tools: dict[str, list[Callable[..., Any]]] = {}
         self._backend_external_agent_adapters: dict[str, list[Any]] = {}
-        self._backend_language_servers: dict[str, list[Any]] = {}
+        self._backend_language_servers: dict[str, list[RegisteredLanguageServer]] = {}
+        self._backend_language_server_by_language: dict[
+            CodeLanguage, RegisteredLanguageServer
+        ] = {}
         self._backend_codegen_targets: dict[str, list[Any]] = {}
         self._backend_startup_tasks: dict[str, list[Callable[..., Any]]] = {}
         self._backend_shutdown_tasks: dict[str, list[Callable[..., Any]]] = {}
@@ -336,6 +341,7 @@ class PluginManager:
         self._backend_registered_mcp_tools = {}
         self._backend_external_agent_adapters = {}
         self._backend_language_servers = {}
+        self._backend_language_server_by_language = {}
         self._backend_codegen_targets = {}
         self._backend_startup_tasks = {}
         self._backend_shutdown_tasks = {}
@@ -494,6 +500,16 @@ class PluginManager:
 
     def get_pending_restart_backend_plugin_ids(self) -> list[str]:
         return sorted(self._pending_restart_backend_ids)
+
+    def get_backend_language_servers(self) -> list[RegisteredLanguageServer]:
+        return sorted(
+            self._backend_language_server_by_language.values(),
+            key=lambda registration: (
+                registration.language.value,
+                registration.plugin_id or "",
+                registration.name,
+            ),
+        )
 
     def get_restart_capability(self) -> PluginRestartCapability:
         if self._restart_callback is not None:
@@ -1327,10 +1343,7 @@ class PluginManager:
         if not isinstance(raw_routes, list):
             raise PluginManagerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin worker register_router payload must provide a routes "
-                    "array."
-                ),
+                ("Plugin worker register_router payload must provide a routes array."),
             )
 
         proxy_router = APIRouter()
@@ -1424,7 +1437,9 @@ class PluginManager:
                         },
                     )
                 raw_status_code = route_response.get("statusCode", 200)
-                status_code = raw_status_code if isinstance(raw_status_code, int) else 200
+                status_code = (
+                    raw_status_code if isinstance(raw_status_code, int) else 200
+                )
                 return JSONResponse(
                     status_code=status_code,
                     content=jsonable_encoder(route_response.get("body")),
@@ -1795,9 +1810,119 @@ class PluginManager:
             "registerLanguageServer",
             api_name="register_language_server",
         )
+        registration = self._build_backend_language_server_registration(
+            entry=entry,
+            provider=provider,
+        )
+        existing_for_language = self._backend_language_server_by_language.get(
+            registration.language
+        )
+        if existing_for_language is not None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Duplicate backend language server registration for "
+                    f"{registration.language.value}. Existing plugin: "
+                    f"{existing_for_language.plugin_id}, new plugin: "
+                    f"{registration.plugin_id}."
+                ),
+            )
         if entry.plugin_id not in self._backend_language_servers:
             self._backend_language_servers[entry.plugin_id] = []
-        self._backend_language_servers[entry.plugin_id].append(provider)
+        self._backend_language_servers[entry.plugin_id].append(registration)
+        self._backend_language_server_by_language[registration.language] = registration
+
+    def _build_backend_language_server_registration(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        provider: Any,
+    ) -> RegisteredLanguageServer:
+        if not isinstance(provider, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin language server registration must be an object with "
+                    "language/command fields."
+                ),
+            )
+        allowed_keys = {"language", "command", "args", "settingsKey"}
+        unknown_keys = sorted(set(provider.keys()) - allowed_keys)
+        if unknown_keys:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin language server registration has unsupported keys: "
+                    f"{', '.join(unknown_keys)}"
+                ),
+            )
+        raw_language = provider.get("language")
+        if not isinstance(raw_language, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin language server registration missing string language.",
+            )
+        try:
+            language = CodeLanguage(raw_language.strip())
+        except ValueError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Unsupported plugin language server language: {raw_language!r}.",
+            ) from exc
+        if language is CodeLanguage.python:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin language servers cannot target python. "
+                    "Python is handled by the built-in basedpyright server."
+                ),
+            )
+        raw_command = provider.get("command")
+        if not isinstance(raw_command, str) or raw_command.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin language server registration missing command.",
+            )
+        command = raw_command.strip()
+        raw_args = provider.get("args")
+        args: tuple[str, ...] = ()
+        if raw_args is not None:
+            if not isinstance(raw_args, list):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin language server args must be an array of strings.",
+                )
+            normalized_args: list[str] = []
+            for index, raw_arg in enumerate(raw_args):
+                if not isinstance(raw_arg, str):
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_REGISTER_FAILED",
+                        (
+                            "Plugin language server args must be strings. "
+                            f"Invalid entry index={index}."
+                        ),
+                    )
+                normalized_args.append(raw_arg)
+            args = tuple(normalized_args)
+        raw_settings_key = provider.get("settingsKey")
+        settings_key: str | None
+        if raw_settings_key is None:
+            settings_key = None
+        elif isinstance(raw_settings_key, str) and raw_settings_key.strip() != "":
+            settings_key = raw_settings_key.strip()
+        else:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin language server settingsKey must be a non-empty string.",
+            )
+        return RegisteredLanguageServer(
+            plugin_id=entry.plugin_id,
+            name=f"{entry.plugin_id}:{language.value}",
+            language=language,
+            command=command,
+            args=args,
+            settings_key=settings_key,
+        )
 
     def _register_backend_codegen_target(
         self,

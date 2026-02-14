@@ -366,6 +366,10 @@ class SettaFastAPIState:
                 self.dbe,
             )
 
+            self.init_status.record("Loading backend plugins")
+            await self._maybe_delay()
+            self.plugin_manager.load_backend_plugins(app=app)
+
             self.init_status.record("Loading project state")
             await self._maybe_delay()
             lsp_writers = None
@@ -373,6 +377,9 @@ class SettaFastAPIState:
                 self.lsps = LSPServers(
                     self.settings_file.settings.languageServer,
                     workspace_root=self.paths.workspace_root,
+                    plugin_language_servers=(
+                        self.plugin_manager.get_backend_language_servers()
+                    ),
                 )
                 self.lsp_writers = LSPWriters(self.lsps)
                 lsp_writers = self.lsp_writers
@@ -427,10 +434,6 @@ class SettaFastAPIState:
                 self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
             else:
                 self.lsp_readers = None
-
-            self.init_status.record("Loading backend plugins")
-            await self._maybe_delay()
-            self.plugin_manager.load_backend_plugins(app=app)
 
             self.init_status.record("Booting MCP and chat managers")
             await self._maybe_delay()
