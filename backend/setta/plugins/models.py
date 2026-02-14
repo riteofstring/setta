@@ -135,6 +135,16 @@ class PluginBlockedCapability(BaseModel):
     reason: BlockedCapabilityReason
 
 
+class PluginRegisteredLanguageServer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    language: str
+    command: str
+    args: list[str] = Field(default_factory=list)
+    settingsKey: str | None = None
+
+
 class PluginRestartCapability(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -208,6 +218,9 @@ class PluginStatusEntry(BaseModel):
     requestedCapabilities: list[str]
     effectiveCapabilities: list[str]
     blockedCapabilities: list[PluginBlockedCapability]
+    registeredLanguageServers: list[PluginRegisteredLanguageServer] = Field(
+        default_factory=list
+    )
     enablementSource: PluginEnablementSource | None = None
     restartRequired: bool
     errors: list[PluginErrorInfo]

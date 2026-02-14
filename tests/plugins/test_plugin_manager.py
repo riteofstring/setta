@@ -842,6 +842,13 @@ def test_load_backend_plugins_registers_fixture_language_server(
     ]
     assert len(backend_entries) == 1
     assert backend_entries[0].state == PluginRuntimeState.active
+    assert len(backend_entries[0].registeredLanguageServers) == 1
+    status_registration = backend_entries[0].registeredLanguageServers[0]
+    assert status_registration.name == "setta-fixture-backend-language-server:typescript"
+    assert status_registration.language == "typescript"
+    assert status_registration.command == "typescript-language-server"
+    assert status_registration.args == ["--stdio"]
+    assert status_registration.settingsKey == "typescriptLanguageServer"
 
     registrations = manager.get_backend_language_servers()
     assert len(registrations) == 1
@@ -1017,6 +1024,7 @@ def test_mode_policy_blocks_backend_language_server_registration(
     assert status_entry.state == PluginRuntimeState.active
     assert status_entry.requestedCapabilities == ["registerLanguageServer"]
     assert status_entry.effectiveCapabilities == []
+    assert status_entry.registeredLanguageServers == []
     assert len(status_entry.blockedCapabilities) == 1
     assert status_entry.blockedCapabilities[0].capability == "registerLanguageServer"
     assert (

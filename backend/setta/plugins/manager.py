@@ -49,6 +49,7 @@ from setta.plugins.models import (
     PluginLockEntry,
     PluginLockWriteResponse,
     PluginManifest,
+    PluginRegisteredLanguageServer,
     PluginRestartCapability,
     PluginRollbackResponse,
     PluginRuntimeState,
@@ -490,6 +491,9 @@ class PluginManager:
                     requestedCapabilities=entry.requested_capabilities,
                     effectiveCapabilities=entry.effective_capabilities,
                     blockedCapabilities=entry.blocked_capabilities,
+                    registeredLanguageServers=self._serialize_registered_language_servers(
+                        entry.plugin_id
+                    ),
                     enablementSource=entry.enablement_source,
                     restartRequired=entry.restart_required,
                     errors=entry.errors,
@@ -500,6 +504,28 @@ class PluginManager:
 
     def get_pending_restart_backend_plugin_ids(self) -> list[str]:
         return sorted(self._pending_restart_backend_ids)
+
+    def _serialize_registered_language_servers(
+        self,
+        plugin_id: str,
+    ) -> list[PluginRegisteredLanguageServer]:
+        registrations = self._backend_language_servers.get(plugin_id, [])
+        return [
+            PluginRegisteredLanguageServer(
+                name=registration.name,
+                language=registration.language.value,
+                command=registration.command,
+                args=list(registration.args),
+                settingsKey=registration.settings_key,
+            )
+            for registration in sorted(
+                registrations,
+                key=lambda registration: (
+                    registration.language.value,
+                    registration.name,
+                ),
+            )
+        ]
 
     def get_backend_language_servers(self) -> list[RegisteredLanguageServer]:
         return sorted(
