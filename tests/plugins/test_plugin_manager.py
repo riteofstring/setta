@@ -524,6 +524,62 @@ def test_backend_uninstall_pending_restart_clears_after_load(tmp_path: Path) -> 
     assert status_entries == []
 
 
+def test_pending_restart_state_persists_across_manager_instances(tmp_path: Path) -> None:
+    # Pending restart ids must persist in plugins_state for fresh manager instances.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.state == PluginRuntimeState.pending_restart
+
+    manager_reloaded = PluginManager(
+        workspace_root=manager.workspace_root,
+        setta_files_root=manager.setta_files_root,
+        setta_home=manager.setta_home,
+        server_mode="ide",
+        setta_version="0.1.0",
+    )
+    status_entries = [
+        entry
+        for entry in manager_reloaded.get_status_response().plugins
+        if entry.pluginId == linked.pluginId
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.pending_restart
+
+
+def test_load_backend_plugins_clears_persisted_pending_restart_state(
+    tmp_path: Path,
+) -> None:
+    # Backend load/restart should clear persisted pending restart ids.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.state == PluginRuntimeState.pending_restart
+
+    manager_reloaded = PluginManager(
+        workspace_root=manager.workspace_root,
+        setta_files_root=manager.setta_files_root,
+        setta_home=manager.setta_home,
+        server_mode="ide",
+        setta_version="0.1.0",
+    )
+    manager_reloaded.load_backend_plugins(app=FastAPI())
+
+    plugins_state_path = manager_reloaded.setta_files_root / "plugins_state.json"
+    plugins_state_payload = json.loads(plugins_state_path.read_text(encoding="utf-8"))
+    assert plugins_state_payload["pendingRestartBackendPluginIds"] == []
+
+
 def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
     # Link/install flows should prepare plugin-scoped backend runtime metadata.
     manager = _make_manager(tmp_path)

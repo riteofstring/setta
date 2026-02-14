@@ -292,7 +292,10 @@ class PluginManager:
         self._lockfile_path = self.workspace_root / "plugins" / "plugins.lock.json"
         self._runtime_root = self.setta_files_root / "plugins_runtime"
 
-        self._pending_restart_backend_ids: set[str] = set()
+        initial_plugins_state = self._load_plugins_state()
+        self._pending_restart_backend_ids: set[str] = set(
+            initial_plugins_state.pendingRestartBackendPluginIds
+        )
         self._pending_restart_removed_backend_plugins: dict[
             str, PendingRestartRemovedBackendPlugin
         ] = {}
@@ -317,7 +320,7 @@ class PluginManager:
             return
 
     def load_backend_plugins(self, *, app: "FastAPI") -> None:
-        self._pending_restart_backend_ids = set()
+        self._clear_pending_restart_backend_ids()
         self._pending_restart_removed_backend_plugins = {}
         self.shutdown_backend_plugins()
         self._backend_runtime_errors = {}
@@ -476,6 +479,9 @@ class PluginManager:
                 for entry in ordered
             ],
         )
+
+    def get_pending_restart_backend_plugin_ids(self) -> list[str]:
+        return sorted(self._pending_restart_backend_ids)
 
     def get_restart_capability(self) -> PluginRestartCapability:
         if self._restart_callback is not None:
@@ -1527,7 +1533,7 @@ class PluginManager:
             )
             self._pending_restart_removed_backend_plugins.pop(candidate.manifest.id, None)
             if candidate.manifest.backend is not None or had_backend_before:
-                self._pending_restart_backend_ids.add(candidate.manifest.id)
+                self._add_pending_restart_backend_id(candidate.manifest.id)
 
         self.rescan()
         active_entry = self._active_plugin_by_id.get(candidate.manifest.id)
@@ -1606,7 +1612,7 @@ class PluginManager:
         )
         self._pending_restart_removed_backend_plugins.pop(manifest.id, None)
         if manifest.backend is not None:
-            self._pending_restart_backend_ids.add(manifest.id)
+            self._add_pending_restart_backend_id(manifest.id)
         self.rescan()
         entry = self._find_entry(manifest.id, resolved_scope)
         if entry is None:
@@ -1659,7 +1665,7 @@ class PluginManager:
         self._remove_install_metadata(plugin_id, resolved_scope)
         self._remove_plugin_from_enablement(plugin_id, resolved_scope)
         if restart_required:
-            self._pending_restart_backend_ids.add(plugin_id)
+            self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins[plugin_id] = (
                 PendingRestartRemovedBackendPlugin(
                     plugin_id=entry.plugin_id,
@@ -1675,7 +1681,7 @@ class PluginManager:
                 )
             )
         else:
-            self._pending_restart_backend_ids.discard(plugin_id)
+            self._discard_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         self.rescan()
         return PluginUninstallResponse(
@@ -1703,7 +1709,7 @@ class PluginManager:
         self._save_plugins_state(state_file)
         entry = self._find_highest_precedence_entry(plugin_id)
         if entry is not None and entry.has_backend:
-            self._pending_restart_backend_ids.add(plugin_id)
+            self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         self.rescan()
         latest = self._find_highest_precedence_entry(plugin_id)
@@ -1730,7 +1736,7 @@ class PluginManager:
         self._save_plugins_state(state_file)
         entry = self._find_highest_precedence_entry(plugin_id)
         if entry is not None and entry.has_backend:
-            self._pending_restart_backend_ids.add(plugin_id)
+            self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         self.rescan()
         latest = self._find_highest_precedence_entry(plugin_id)
@@ -1804,7 +1810,7 @@ class PluginManager:
         )
         restart_required = existing_entry.has_backend or install_result.restartRequired
         if restart_required:
-            self._pending_restart_backend_ids.add(plugin_id)
+            self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         return PluginUpdateResponse(
             pluginId=plugin_id,
@@ -1864,7 +1870,7 @@ class PluginManager:
             current_entry is not None and current_entry.has_backend
         )
         if restart_required:
-            self._pending_restart_backend_ids.add(plugin_id)
+            self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         self.rescan()
         return PluginRollbackResponse(
@@ -3049,6 +3055,31 @@ class PluginManager:
     def _metadata_key(self, plugin_id: str, scope: PluginScope) -> str:
         return f"{scope.value}:{plugin_id}"
 
+    def _add_pending_restart_backend_id(self, plugin_id: str) -> None:
+        if plugin_id in self._pending_restart_backend_ids:
+            return
+        self._pending_restart_backend_ids.add(plugin_id)
+        self._persist_pending_restart_backend_ids()
+
+    def _discard_pending_restart_backend_id(self, plugin_id: str) -> None:
+        if plugin_id not in self._pending_restart_backend_ids:
+            return
+        self._pending_restart_backend_ids.remove(plugin_id)
+        self._persist_pending_restart_backend_ids()
+
+    def _clear_pending_restart_backend_ids(self) -> None:
+        if len(self._pending_restart_backend_ids) == 0:
+            return
+        self._pending_restart_backend_ids = set()
+        self._persist_pending_restart_backend_ids()
+
+    def _persist_pending_restart_backend_ids(self) -> None:
+        state_file = self._load_plugins_state()
+        state_file.pendingRestartBackendPluginIds = sorted(
+            set(self._pending_restart_backend_ids)
+        )
+        self._save_plugins_state(state_file)
+
     def _load_plugins_state(self) -> PluginsStateFile:
         if not self._plugins_state_path.exists():
             return PluginsStateFile()
@@ -3066,6 +3097,9 @@ class PluginManager:
         payload = state_file.model_dump(mode="json")
         payload["enabledPluginIds"] = sorted(set(payload["enabledPluginIds"]))
         payload["disabledPluginIds"] = sorted(set(payload["disabledPluginIds"]))
+        payload["pendingRestartBackendPluginIds"] = sorted(
+            set(payload["pendingRestartBackendPluginIds"])
+        )
         self._plugins_state_path.write_text(
             json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
         )

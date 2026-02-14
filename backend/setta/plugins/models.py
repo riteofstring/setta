@@ -111,6 +111,7 @@ class PluginsStateFile(BaseModel):
 
     enabledPluginIds: list[str] = Field(default_factory=list)
     disabledPluginIds: list[str] = Field(default_factory=list)
+    pendingRestartBackendPluginIds: list[str] = Field(default_factory=list)
     pluginConfigById: dict[str, Any] = Field(default_factory=dict)
 
 
