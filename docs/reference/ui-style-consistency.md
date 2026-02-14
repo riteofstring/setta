@@ -29,7 +29,7 @@ This guide is for UI work across the app. Do not use the following panes as visu
 Use these components as the primary style anchors:
 
 - Small buttons (compact, text-xs, subtle hover):
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (top row: New/History/Thinking/Settings)
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (top row: New/History/Capabilities/Thinking/Settings)
 - File menu + dropdowns:
   - `frontend/src/components/AppHeader/FileMenu.tsx`
   - `frontend/src/components/Utils/atoms/menubar/menudropdown.tsx`
