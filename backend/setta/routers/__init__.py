@@ -15,6 +15,8 @@ from .lsp import router as lsp_router
 from .mcp_tools import router as mcp_tools_router
 from .project_manager import router as project_manager_router
 from .projects import router as projects_router
+from .plugins import assets_router as plugins_assets_router
+from .plugins import router as plugins_router
 from .runs import router as runs_router
 from .sections import router as sections_router
 from .settings import router as settings_router
