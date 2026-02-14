@@ -211,8 +211,10 @@ test.describe.serial("agentic edges", () => {
       const newChatIds = finalChatIds.filter(
         (id) => !initialChatIds.includes(id),
       );
-      if (newChatIds.length < 2) {
-        throw new Error("Expected two newly created chat sections.");
+      if (newChatIds.length !== 2) {
+        throw new Error(
+          `Expected exactly two newly created chat sections, found ${newChatIds.length}.`,
+        );
       }
       const [firstSectionId, secondSectionId] = newChatIds;
 
@@ -438,8 +440,13 @@ async function createChatSectionViaCommandPalette(
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const currChatCount = (await getChatSectionIds(page, projectConfigId))
       .length;
-    if (currChatCount >= expectedChatCount) {
+    if (currChatCount === expectedChatCount) {
       return;
+    }
+    if (currChatCount > expectedChatCount) {
+      throw new Error(
+        `Chat section count exceeded expected total before create action. Expected ${expectedChatCount}, found ${currChatCount}.`,
+      );
     }
 
     await page.keyboard.press(shortcut);
@@ -468,8 +475,13 @@ async function createChatSectionViaCommandPalette(
     while (Date.now() - startedAt < timeoutMs) {
       const nextChatCount = (await getChatSectionIds(page, projectConfigId))
         .length;
-      if (nextChatCount >= expectedChatCount) {
+      if (nextChatCount === expectedChatCount) {
         return;
+      }
+      if (nextChatCount > expectedChatCount) {
+        throw new Error(
+          `Command palette created too many chat sections. Expected ${expectedChatCount}, found ${nextChatCount}.`,
+        );
       }
       await page.waitForTimeout(100);
     }
@@ -481,7 +493,7 @@ async function createChatSectionViaCommandPalette(
   const finalChatCount = (await getChatSectionIds(page, projectConfigId))
     .length;
   throw new Error(
-    `Command palette did not create a Chat section. Expected at least ${expectedChatCount} chat sections, found ${finalChatCount}.`,
+    `Command palette did not reach expected chat section count. Expected exactly ${expectedChatCount}, found ${finalChatCount}.`,
   );
 }
 
