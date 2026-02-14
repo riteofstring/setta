@@ -19,6 +19,16 @@ export async function route_call_mcp_tool(
   return await post("/__setta__/tools/call", payload);
 }
 
+export async function route_plugin_asset(
+  pluginId: string,
+  assetPath: string,
+): Promise<ResponseDataAndStatus<null>> {
+  return await get("/plugins/{pluginId}/{assetPath:path}", {
+    pluginId,
+    assetPath,
+  });
+}
+
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {
@@ -375,72 +385,6 @@ export async function route_set_llm_config(
   config: gt.AllLLMConfigsInput,
 ): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
   return await post("/llm/config", config);
-}
-
-export async function route_get_skill_sources(): Promise<
-  ResponseDataAndStatus<Array<gt.SkillSource>>
-> {
-  return await get("/getSkillSources");
-}
-
-export async function route_set_skill_sources(
-  payload: gt.SetSkillSourcesRequestInput,
-): Promise<ResponseDataAndStatus<Array<gt.SkillSource>>> {
-  return await post("/setSkillSources", payload);
-}
-
-export async function route_get_skills_catalog(): Promise<
-  ResponseDataAndStatus<gt.SkillCatalogResponse>
-> {
-  return await get("/getSkillsCatalog");
-}
-
-export async function route_get_skill_details(
-  payload: gt.GetSkillDetailsRequestInput,
-): Promise<ResponseDataAndStatus<gt.SkillDetailsResponse>> {
-  return await post("/getSkillDetails", payload);
-}
-
-export async function route_import_skill_markdown(
-  payload: gt.ImportSkillMarkdownRequestInput,
-): Promise<ResponseDataAndStatus<gt.SkillEntry>> {
-  return await post("/importSkillMarkdown", payload);
-}
-
-export async function route_delete_skills(
-  payload: gt.DeleteSkillsRequestInput,
-): Promise<ResponseDataAndStatus<Array<string>>> {
-  return await post("/deleteSkills", payload);
-}
-
-export async function route_get_global_capability_defaults(): Promise<
-  ResponseDataAndStatus<gt.GlobalCapabilityDefaults>
-> {
-  return await get("/getGlobalCapabilityDefaults");
-}
-
-export async function route_set_global_capability_defaults(
-  payload: gt.GlobalCapabilityDefaultsInput,
-): Promise<ResponseDataAndStatus<gt.GlobalCapabilityDefaults>> {
-  return await post("/setGlobalCapabilityDefaults", payload);
-}
-
-export async function route_get_project_chat_capability_policy(
-  payload: gt.GetProjectChatCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
-  return await post("/getProjectChatCapabilityPolicy", payload);
-}
-
-export async function route_set_project_chat_capability_policy(
-  payload: gt.SetProjectChatCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
-  return await post("/setProjectChatCapabilityPolicy", payload);
-}
-
-export async function route_get_mcp_servers_runtime_state(): Promise<
-  ResponseDataAndStatus<gt.McpServersRuntimeStateResponse>
-> {
-  return await get("/getMcpServersRuntimeState");
 }
 
 export async function route_get_llm_api_keys(): Promise<
@@ -1319,18 +1263,6 @@ export async function route_set_chat_section_settings(
   return await post("/setChatSectionSettings", x);
 }
 
-export async function route_get_chat_section_capability_policy(
-  x: gt.GetChatSectionCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<gt.CapabilityPolicy>> {
-  return await post("/getChatSectionCapabilityPolicy", x);
-}
-
-export async function route_set_chat_section_capability_policy(
-  x: gt.SetChatSectionCapabilityPolicyRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setChatSectionCapabilityPolicy", x);
-}
-
 export async function route_set_chat_section_state(
   x: gt.SetChatSectionStateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1449,6 +1381,102 @@ export async function route_set_chart_settings(
   x: gt.SetChartSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChartSettings", x);
+}
+
+export async function route_plugins_list(): Promise<
+  ResponseDataAndStatus<gt.PluginListResponse>
+> {
+  return await get("/plugins/list");
+}
+
+export async function route_plugins_status(): Promise<
+  ResponseDataAndStatus<gt.PluginStatusResponse>
+> {
+  return await get("/plugins/status");
+}
+
+export async function route_plugins_rescan(): Promise<
+  ResponseDataAndStatus<gt.PluginsRescanResponse>
+> {
+  return await post("/plugins/rescan", null);
+}
+
+export async function route_plugins_restart_capability(): Promise<
+  ResponseDataAndStatus<gt.PluginRestartCapability>
+> {
+  return await get("/plugins/restart-capability");
+}
+
+export async function route_plugins_restart(): Promise<
+  ResponseDataAndStatus<gt.PluginRestartResponse>
+> {
+  return await post("/plugins/restart", null);
+}
+
+export async function route_plugins_install(
+  x: gt.PluginInstallRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+  return await post("/plugins/install", x);
+}
+
+export async function route_plugins_uninstall(
+  x: gt.PluginUninstallRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
+  return await post("/plugins/uninstall", x);
+}
+
+export async function route_plugins_link(
+  x: gt.PluginLinkRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+  return await post("/plugins/link", x);
+}
+
+export async function route_plugins_unlink(
+  x: gt.PluginUninstallRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
+  return await post("/plugins/unlink", x);
+}
+
+export async function route_plugins_enable(
+  x: gt.PluginEnableDisableRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+  return await post("/plugins/enable", x);
+}
+
+export async function route_plugins_disable(
+  x: gt.PluginEnableDisableRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+  return await post("/plugins/disable", x);
+}
+
+export async function route_plugins_config(
+  x: gt.PluginConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
+  return await post("/plugins/config", x);
+}
+
+export async function route_plugins_update(
+  x: gt.PluginUpdateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginUpdateResponse>> {
+  return await post("/plugins/update", x);
+}
+
+export async function route_plugins_rollback(
+  x: gt.PluginRollbackRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginRollbackResponse>> {
+  return await post("/plugins/rollback", x);
+}
+
+export async function route_plugins_lock_write(): Promise<
+  ResponseDataAndStatus<gt.PluginLockWriteResponse>
+> {
+  return await post("/plugins/lock/write", null);
+}
+
+export async function route_plugins_lock_apply(
+  x: gt.PluginLockApplyRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginLockApplyResponse>> {
+  return await post("/plugins/lock/apply", x);
 }
 
 export async function route_get_backend_init_status(): Promise<

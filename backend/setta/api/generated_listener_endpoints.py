@@ -21,7 +21,6 @@ from setta.types.artifact import (
     ScatterChartSettings,
 )
 from setta.types.binary_content import BinaryContentRef
-from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat import Chat, ChatMetadata
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -61,6 +60,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
@@ -231,6 +231,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
+        | PluginSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]
@@ -357,12 +358,6 @@ class ListenerGetAllChatMetadataRequestPayload(TypedDict):
 
 class ListenerGetChatRequestPayload(TypedDict):
     chatId: ID
-
-
-class ListenerGetChatSectionCapabilityPolicyRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
 
 
 class ListenerGetChatSectionChatIdRequestPayload(TypedDict):
@@ -573,13 +568,6 @@ class ListenerSetChartTypeRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chartType: ChartType
-
-
-class ListenerSetChatSectionCapabilityPolicyRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    capabilityPolicy: CapabilityPolicy
 
 
 class ListenerSetChatSectionChatIdRequestPayload(TypedDict):
@@ -1201,11 +1189,6 @@ class RouterEndpointAPI:
     async def get_chat(self, payload: ListenerGetChatRequestPayload) -> Chat:
         return await self._caller("route_get_chat", payload)
 
-    async def get_chat_section_capability_policy(
-        self, payload: ListenerGetChatSectionCapabilityPolicyRequestPayload
-    ) -> CapabilityPolicy:
-        return await self._caller("route_get_chat_section_capability_policy", payload)
-
     async def get_chat_section_chat_id(
         self, payload: ListenerGetChatSectionChatIdRequestPayload
     ) -> str | None:
@@ -1341,11 +1324,6 @@ class RouterEndpointAPI:
 
     async def set_chart_type(self, payload: ListenerSetChartTypeRequestPayload) -> None:
         return await self._caller("route_set_chart_type", payload)
-
-    async def set_chat_section_capability_policy(
-        self, payload: ListenerSetChatSectionCapabilityPolicyRequestPayload
-    ) -> None:
-        return await self._caller("route_set_chat_section_capability_policy", payload)
 
     async def set_chat_section_chat_id(
         self, payload: ListenerSetChatSectionChatIdRequestPayload

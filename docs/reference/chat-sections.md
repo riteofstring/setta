@@ -8,7 +8,6 @@ Chat sections store the following fields on the section impl:
 - `engineConfigId`: selected engine config (managed mode only).
 - `chatId`: chat store id for managed mode (null means "new chat").
 - `thinking`: toggles thinking behavior for managed mode.
-- `capabilityPolicy`: managed-mode Skills/MCP policy (`disabled`/`inherit`/`custom` + selected ids).
 - `messages`: list of chat messages (scriptable mode state; managed mode uses chat store). Messages may include `attachments`.
 - `inputText`: current input text for scriptable mode.
 - `waitingForResponse`: whether the UI shows an inflight response.
@@ -23,20 +22,6 @@ Managed mode uses the central LLM chat manager:
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
-- For managed sends, the backend resolves effective Skills + MCP servers from the section's `capabilityPolicy` before dispatching the run.
-
-## Capabilities policy (managed mode)
-- Chat section capability settings are edited in `Section Config -> AI Capabilities` (`frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`).
-- Policy model:
-  - `mode="disabled"`: no skills.
-  - `mode="inherit"`: skills come from global defaults in `setta_files/skills_config.json`.
-  - `mode="custom"`: skills come from `enabledSkillIds`.
-  - MCP servers come from `enabledMcpServerIds` regardless of the skills mode.
-- The section policy is persisted directly on the section impl (`ChatSectionImpl.capabilityPolicy`) and is separate from Project Chat policy storage.
-- Routes for section policy:
-  - `Route.GET_CHAT_SECTION_CAPABILITY_POLICY` (`/getChatSectionCapabilityPolicy`)
-  - `Route.SET_CHAT_SECTION_CAPABILITY_POLICY` (`/setChatSectionCapabilityPolicy`)
-- Project Chat has its own capability policy routes/persistence. See `docs/reference/mcp-system-overview.md`.
 
 ## Scriptable mode
 Scriptable mode keeps chat state inside the section:
