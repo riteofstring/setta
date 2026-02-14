@@ -352,6 +352,60 @@ def test_launch_workspace_session_clears_inherited_auth_cookie_name(
     assert "SETTA_AUTH_COOKIE_NAME" not in captured_env
 
 
+def test_launch_workspace_session_spawns_profile_with_profile_lookup_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    lookup_home = tmp_path / "lookup_home"
+    runtime_home = tmp_path / "runtime_home"
+    profile_path = lookup_home / "profiles" / "dev.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+                "settaHome": str(runtime_home),
+                "settaFilesLocation": "local",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    captured_cmd: list[str] = []
+
+    def capture_spawn_command(*args, **_kwargs):
+        command = args[0] if args else None
+        if isinstance(command, list):
+            captured_cmd.extend(str(part) for part in command)
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", capture_spawn_command)
+
+    with pytest.raises(LaunchError):
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_home=lookup_home,
+            profile="dev",
+            setta_files_location=None,
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert captured_cmd
+    assert "--profile" in captured_cmd
+    assert captured_cmd[captured_cmd.index("--profile") + 1] == "dev"
+    assert "--setta-home" in captured_cmd
+    assert (
+        captured_cmd[captured_cmd.index("--setta-home") + 1]
+        == str(lookup_home.resolve(strict=False))
+    )
+
+
 def test_launch_workspace_session_reports_runtime_log_init_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

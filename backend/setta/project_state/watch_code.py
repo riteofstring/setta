@@ -258,7 +258,13 @@ def _iter_python_files(root: Path, recursive: bool) -> list[Path]:
     output: list[Path] = []
     for current_root, dirs, files in os.walk(root):
         root_path = Path(current_root)
-        dirs[:] = [d for d in dirs if d and not should_ignore(root_path / d)]
+        dirs[:] = [
+            d
+            for d in dirs
+            if d
+            and d not in DEFAULT_WATCH_CODE_IGNORE_DIRS
+            and not should_ignore(root_path / d)
+        ]
         for filename in files:
             if not filename.endswith(".py"):
                 continue

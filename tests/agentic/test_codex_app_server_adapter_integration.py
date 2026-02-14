@@ -1059,6 +1059,31 @@ class TestCodexAppServerAdapterIntegration:
                     for call in tool_calls
                     if isinstance(call, dict)
                 }
+                tool_call_references_target = False
+                for call in tool_calls:
+                    if not isinstance(call, dict):
+                        continue
+                    function_payload = call.get("function")
+                    if not isinstance(function_payload, dict):
+                        continue
+                    tool_name = function_payload.get("name")
+                    arguments = function_payload.get("arguments")
+                    if not isinstance(arguments, dict):
+                        continue
+                    if tool_name == "file_change":
+                        path_arg = arguments.get("path")
+                        if isinstance(path_arg, str) and (
+                            path_arg == str(target_path) or "target.txt" in path_arg
+                        ):
+                            tool_call_references_target = True
+                            break
+                    if tool_name == "command_execution":
+                        command_arg = arguments.get("command")
+                        if isinstance(command_arg, str) and (
+                            str(target_path) in command_arg or "target.txt" in command_arg
+                        ):
+                            tool_call_references_target = True
+                            break
                 tool_messages = []
                 if isinstance(messages, list):
                     tool_messages = [
@@ -1081,6 +1106,14 @@ class TestCodexAppServerAdapterIntegration:
                     # Codex can emit a file-change result while the paired assistant
                     # tool call is surfaced as command_execution.
                     assert "file_change" in tool_names or "command_execution" in tool_names
+                    if not tool_call_references_target:
+                        pytest.fail(
+                            self._debug_dump(
+                                outputs,
+                                stderr_lines,
+                                "Tool call metadata did not reference target.txt.",
+                            )
+                        )
                 else:
                     assert "command_execution" in tool_names
                     assert command_tools

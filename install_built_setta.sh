@@ -57,11 +57,14 @@ install_root_abs="$(mkdir -p "$(dirname "$install_root")" && cd "$(dirname "$ins
 cd "$repo_root"
 ./build.sh
 
-wheel_path="$(ls -t dist/*.whl | head -n 1)"
-if [[ -z "${wheel_path:-}" ]]; then
+shopt -s nullglob
+wheels=(dist/*.whl)
+shopt -u nullglob
+if (( ${#wheels[@]} == 0 )); then
   echo "No wheel found in dist/ after build." >&2
   exit 1
 fi
+wheel_path="$(ls -t "${wheels[@]}" | head -n 1)"
 
 uv venv --clear --python 3.12 "$install_root_abs"
 uv pip install --python "$install_root_abs/bin/python" --force-reinstall "$wheel_path"

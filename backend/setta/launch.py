@@ -173,7 +173,7 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
         "--workspace",
         str(paths.workspace_root),
         "--setta-home",
-        str(paths.setta_home),
+        str(paths.profile_lookup_home),
     ]
     if paths.profile_name:
         cmd.extend(["--profile", paths.profile_name])

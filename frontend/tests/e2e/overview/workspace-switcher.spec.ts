@@ -23,6 +23,10 @@ async function pickFreeLocalPort(): Promise<number> {
   });
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 test("workspace switcher launches a session and persists history", async ({
   page,
 }) => {
@@ -310,6 +314,90 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
   >;
   expect(requestBody.workspaceRoot).toBe("/tmp/fresh");
   expect(page.url()).not.toContain("pl=");
+});
+
+test("workspace launch does not dedupe in-flight requests that only differ by profile and roots", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  const capturedLaunchBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/launch", async (route, request) => {
+    const body = request.postDataJSON();
+    if (isObjectRecord(body)) {
+      capturedLaunchBodies.push(body);
+    } else {
+      capturedLaunchBodies.push({});
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: { message: "Intentional failure for dedupe regression test." },
+        }),
+      });
+    } catch {
+      // Ignore requests that were cancelled during navigation churn.
+    }
+  });
+
+  const firstRequest = {
+    workspaceRoot: "/tmp/workspace",
+    settaFilesLocation: "auto",
+    profile: "dev-a",
+    settaHome: "/tmp/setta-home-a",
+    settaFilesRoot: "/tmp/state-a",
+    runtimeRoot: "/tmp/runtime-a",
+  };
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, firstRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+
+  const secondRequest = {
+    workspaceRoot: "/tmp/workspace",
+    settaFilesLocation: "auto",
+    profile: "dev-b",
+    settaHome: "/tmp/setta-home-b",
+    settaFilesRoot: "/tmp/state-b",
+    runtimeRoot: "/tmp/runtime-b",
+  };
+  await page.goto(new URL("/", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, secondRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect.poll(() => capturedLaunchBodies.length).toBe(2);
+  expect(capturedLaunchBodies[0]).toMatchObject(firstRequest);
+  expect(capturedLaunchBodies[1]).toMatchObject(secondRequest);
+  await expect(
+    page.getByText("Intentional failure for dedupe regression test."),
+  ).toBeVisible();
 });
 
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
