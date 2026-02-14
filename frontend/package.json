@@ -92,7 +92,7 @@
     "startr": "concurrently --kill-others \"vite\" \"bash ./backendStart.sh --reload\"",
     "ncm": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh\"",
     "ncmr": "concurrently --kill-others \"vite --mode ncm\" \"bash ./backendStart.sh --reload\"",
-    "reset": "cd .. && ROOT_DIR=$(pwd) && ./scripts/reset-setta-state.sh --workspace \"$ROOT_DIR\" --setta-files-root \"$ROOT_DIR/setta_files_dev\" && cd frontend && pnpm start",
+    "reset": "cd .. && ROOT_DIR=$(pwd) && ./scripts/reset-setta-state.sh --workspace \"$ROOT_DIR\" && cd frontend && pnpm start",
     "aireset": "cd .. && ./aireset.sh",
     "build": "vite build --base=/static/",
     "test": "vitest",

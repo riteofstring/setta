@@ -325,6 +325,33 @@ def test_launch_workspace_session_reports_spawn_failures(
     assert "failed to spawn setta process" in content
 
 
+def test_launch_workspace_session_clears_inherited_auth_cookie_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("SETTA_AUTH_COOKIE_NAME", "stale_cookie")
+    captured_env: dict[str, str] = {}
+
+    def capture_spawn_env(*_args, **kwargs):
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            captured_env.update(env)
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", capture_spawn_env)
+
+    with pytest.raises(LaunchError):
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_files_location="local",
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert "SETTA_AUTH_COOKIE_NAME" not in captured_env
+
+
 def test_launch_workspace_session_reports_runtime_log_init_failures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

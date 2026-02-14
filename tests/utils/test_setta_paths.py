@@ -18,6 +18,7 @@ from setta.utils.paths import (
 @pytest.fixture(autouse=True)
 def _setta_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SETTA_WORKSPACE_ROOT", raising=False)
+    monkeypatch.delenv("SETTA_PROFILE_LOOKUP_HOME", raising=False)
     monkeypatch.delenv("SETTA_PROFILE", raising=False)
     monkeypatch.delenv("SETTA_FILES_ROOT", raising=False)
     monkeypatch.delenv("SETTA_FILES_LOCATION", raising=False)
@@ -509,6 +510,61 @@ def test_explicit_location_overrides_profile_setta_files_root(tmp_path: Path) ->
 
     assert paths.setta_files_location == "local"
     assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
+
+
+def test_profile_lookup_home_env_keeps_profile_lookup_stable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    profile_lookup_home = tmp_path / "profile_lookup_home"
+    profile_runtime_home = tmp_path / "profile_runtime_home"
+    profile_path = profile_lookup_home / "profiles" / "dev.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+                "settaHome": str(profile_runtime_home),
+                "settaFilesLocation": "local",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SETTA_PROFILE", "dev")
+    monkeypatch.setenv("SETTA_HOME", str(profile_runtime_home))
+    monkeypatch.setenv("SETTA_PROFILE_LOOKUP_HOME", str(profile_lookup_home))
+
+    paths = resolve_setta_paths()
+
+    assert paths.profile_name == "dev"
+    assert paths.profile_lookup_home == profile_lookup_home.resolve(strict=False)
+    assert paths.setta_home == profile_runtime_home.resolve(strict=False)
+    assert paths.workspace_root == workspace.resolve(strict=False)
+
+
+def test_profile_lookup_home_uses_setta_home_when_profile_not_selected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    lookup_home = tmp_path / "stale_lookup_home"
+    setta_home = tmp_path / "setta_home_runtime"
+
+    monkeypatch.setenv("SETTA_HOME", str(setta_home))
+    monkeypatch.setenv("SETTA_PROFILE_LOOKUP_HOME", str(lookup_home))
+
+    paths = resolve_setta_paths(workspace_root=workspace)
+
+    assert paths.profile_name is None
+    assert paths.profile_lookup_home == setta_home.resolve(strict=False)
+    assert paths.setta_home == setta_home.resolve(strict=False)
 
 
 def test_unknown_profile_raises(tmp_path: Path) -> None:

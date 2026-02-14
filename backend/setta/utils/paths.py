@@ -9,6 +9,7 @@ from setta.utils.env_vars import (
     FILES_LOCATION_ENV,
     FILES_ROOT_ENV,
     PROFILE_ENV,
+    PROFILE_LOOKUP_HOME_ENV,
     RUNTIME_ROOT_ENV,
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
@@ -67,6 +68,7 @@ class InvalidExplicitSettaFilesRootError(InvalidSettaFilesRootError):
 class SettaPaths:
     workspace_root: Path
     setta_home: Path
+    profile_lookup_home: Path
     profile_name: str | None
     setta_files_root: Path
     setta_files_location: ResolvedSettaFilesLocation | None
@@ -124,10 +126,18 @@ def resolve_setta_paths(
     profile: str | None = None,
 ) -> SettaPaths:
     profile_name = _resolve_profile_name(profile)
-    profile_lookup_home = _resolve_setta_home_without_profile(setta_home)
-    profile_config = _load_profile_config(
-        profile_name=profile_name, setta_home=profile_lookup_home
-    )
+    if profile_name is None:
+        profile_lookup_home = _resolve_setta_home(
+            explicit_setta_home=setta_home,
+            profile_setta_home=None,
+        )
+        profile_config = None
+    else:
+        profile_lookup_home = _resolve_setta_home_without_profile(setta_home)
+        profile_config = _load_profile_config(
+            profile_name=profile_name,
+            setta_home=profile_lookup_home,
+        )
 
     resolved_setta_home = _resolve_setta_home(
         explicit_setta_home=setta_home,
@@ -159,6 +169,7 @@ def resolve_setta_paths(
     return SettaPaths(
         workspace_root=resolved_workspace,
         setta_home=resolved_setta_home,
+        profile_lookup_home=profile_lookup_home,
         profile_name=profile_name,
         setta_files_root=resolved_files_root,
         setta_files_location=resolved_location,
@@ -301,6 +312,11 @@ def _resolve_setta_home_without_profile(
 ) -> Path:
     if setta_home is not None:
         return resolve_path(setta_home)
+    profile_lookup_env = os.environ.get(PROFILE_LOOKUP_HOME_ENV)
+    if profile_lookup_env is not None:
+        trimmed_lookup = profile_lookup_env.strip()
+        if trimmed_lookup:
+            return resolve_path(trimmed_lookup)
     raw_env = os.environ.get(SETTA_HOME_ENV)
     if raw_env is not None:
         trimmed = raw_env.strip()

@@ -55,6 +55,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ "${setta_files_root_arg_set}" -eq 1 && "${setta_files_location_arg_set}" -eq 1 ]]; then
+  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
+  exit 1
+fi
+
 if [[ -n "${setta_home_override}" ]]; then
   export SETTA_HOME="${setta_home_override}"
 else

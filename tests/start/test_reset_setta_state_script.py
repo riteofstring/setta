@@ -195,7 +195,7 @@ def test_reset_setta_state_script_deletes_detached_runtime_root(tmp_path: Path) 
     assert not runtime_root.exists()
 
 
-def test_reset_setta_state_script_rejects_nonstandard_target_without_force(
+def test_reset_setta_state_script_deletes_custom_target_name(
     tmp_path: Path,
 ) -> None:
     _ensure_local_venv_or_skip()
@@ -221,9 +221,40 @@ def test_reset_setta_state_script_rejects_nonstandard_target_without_force(
         text=True,
     )
 
+    assert result.returncode == 0, result.stderr
+    assert not nonstandard_root.exists()
+
+
+def test_reset_setta_state_script_rejects_conflicting_root_and_location_flags(
+    tmp_path: Path,
+) -> None:
+    _ensure_local_venv_or_skip()
+    repo_root = _repo_root()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(repo_root / "scripts" / "reset-setta-state.sh"),
+            "--workspace",
+            str(workspace),
+            "--setta-files-root",
+            str(tmp_path / "state_root"),
+            "--setta-files-location",
+            "local",
+        ],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
     assert result.returncode != 0
-    assert "Refusing to delete non-standard reset target" in f"{result.stdout}{result.stderr}"
-    assert nonstandard_root.exists()
+    assert (
+        "Cannot pass both --setta-files-root and --setta-files-location."
+        in f"{result.stdout}{result.stderr}"
+    )
 
 
 def test_reset_setta_state_script_rejects_nonstandard_target_with_force_flag(

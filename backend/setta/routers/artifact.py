@@ -300,6 +300,11 @@ def _resolve_setta_internal_ignore_roots() -> tuple[Path, ...]:
 
 
 def _is_under_ignored_root(path: Path, ignored_roots: tuple[Path, ...]) -> bool:
+    for root in ignored_roots:
+        if path.is_relative_to(root):
+            return True
+    if not path.is_symlink():
+        return False
     resolved = path.resolve(strict=False)
     for root in ignored_roots:
         if resolved.is_relative_to(root):

@@ -211,6 +211,8 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
         env = os.environ.copy()
         if paths.auth_cookie_name:
             env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
+        else:
+            env.pop("SETTA_AUTH_COOKIE_NAME", None)
         popen_kwargs["env"] = env
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True

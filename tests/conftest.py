@@ -19,6 +19,7 @@ if should_force_polling_observer():
 _SETTA_PATH_ENV_VARS = (
     "SETTA_WORKSPACE_ROOT",
     "SETTA_HOME",
+    "SETTA_PROFILE_LOOKUP_HOME",
     "SETTA_PROFILE",
     "SETTA_FILES_ROOT",
     "SETTA_FILES_LOCATION",

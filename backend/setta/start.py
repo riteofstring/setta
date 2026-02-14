@@ -48,6 +48,7 @@ from setta.utils.env_vars import (
     FILES_LOCATION_ENV,
     FILES_ROOT_ENV,
     PROFILE_ENV,
+    PROFILE_LOOKUP_HOME_ENV,
     RUNTIME_ROOT_ENV,
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
@@ -122,6 +123,7 @@ def _resolve_cli_paths(
 def _apply_paths_to_env(paths) -> None:
     os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
     os.environ[SETTA_HOME_ENV] = str(paths.setta_home)
+    os.environ[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
     os.environ[RUNTIME_ROOT_ENV] = str(paths.runtime_root)
     if paths.profile_name:
         os.environ[PROFILE_ENV] = paths.profile_name

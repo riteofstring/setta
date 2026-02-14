@@ -268,6 +268,26 @@ class TestFileBrowserRoutes:
         # Hide the actual Setta state root when it lives inside the workspace.
         assert "setta_files" not in names
 
+    async def test_get_folder_contents_hides_symlink_to_setta_internal_roots(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        workspace_root = get_setta_paths().workspace_root
+        symlink_path = workspace_root / "setta-state-link"
+        try:
+            # Symlinks that point into Setta-managed roots should remain hidden.
+            symlink_path.symlink_to(get_setta_paths().setta_files_root, target_is_directory=True)
+        except (NotImplementedError, OSError):
+            pytest.skip("Symlink creation is not supported in this environment.")
+
+        with runtime_context(state) as runtime_ctx:
+            items = route_get_folder_contents(
+                GetFolderContentsRequest(folderPath=str(workspace_root)),
+                runtime_ctx,
+            )
+        names = {item["name"] for item in items}
+        assert "setta-state-link" not in names
+
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:

@@ -238,6 +238,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ] && [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
+  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
+  exit 1
+fi
+
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT

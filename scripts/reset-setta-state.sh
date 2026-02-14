@@ -13,7 +13,7 @@ deletes:
   - setta_files_root
   - runtime_root when runtime_root is outside setta_files_root
 
-Safety guardrails block dangerous targets and non-standard root names.
+Safety guardrails block dangerous targets.
 EOF
 }
 
@@ -35,20 +35,6 @@ path_depth() {
   fi
   IFS='/' read -r -a parts <<< "${trimmed}"
   echo "${#parts[@]}"
-}
-
-is_standard_target_name() {
-  local target="$1"
-  local base_name
-  base_name="$(basename "${target}")"
-  case "${base_name}" in
-    setta_files|setta_files_dev|runtime)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
 }
 
 workspace_override=""
@@ -106,6 +92,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ -n "${setta_files_root_override}" && -n "${setta_files_location_override}" ]]; then
+  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
+  exit 1
+fi
 
 if [[ -n "${workspace_override}" ]]; then
   export SETTA_WORKSPACE_ROOT="${workspace_override}"
@@ -181,21 +172,6 @@ for target in "${delete_targets[@]}"; do
     exit 1
   fi
 done
-
-nonstandard_targets=()
-for target in "${delete_targets[@]}"; do
-  if ! is_standard_target_name "${target}"; then
-    nonstandard_targets+=("${target}")
-  fi
-done
-
-if [[ "${#nonstandard_targets[@]}" -gt 0 ]]; then
-  echo "Refusing to delete non-standard reset target(s):" >&2
-  for target in "${nonstandard_targets[@]}"; do
-    echo "  - ${target}" >&2
-  done
-  exit 1
-fi
 
 for target in "${delete_targets[@]}"; do
   rm -rf "${target}"
