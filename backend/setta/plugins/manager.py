@@ -3,6 +3,7 @@ import importlib.util
 import inspect
 import json
 import os
+import select
 import shutil
 import subprocess
 import sys
@@ -498,27 +499,54 @@ class PluginManager:
             code="PLUGIN_BACKEND_IMPORT_FAILED",
             message_prefix="Invalid backend entrypoint path",
         )
-        self._run_backend_preflight_handshake(
+        worker_process = self._start_backend_worker_process(
             entry=entry,
             entrypoint_path=entrypoint_path,
         )
         self._ensure_backend_runtime_for_entry(entry)
-        self._run_backend_preflight_stage(
-            entry=entry,
-            entrypoint_path=entrypoint_path,
-            stage="import",
-            timeout_seconds=self._backend_startup_timeout_seconds,
-            timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
-            default_error_code="PLUGIN_BACKEND_IMPORT_FAILED",
-        )
-        self._run_backend_preflight_stage(
-            entry=entry,
-            entrypoint_path=entrypoint_path,
-            stage="register",
-            timeout_seconds=self._backend_register_timeout_seconds,
-            timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
-            default_error_code="PLUGIN_BACKEND_REGISTER_FAILED",
-        )
+        request_id = 1
+        try:
+            handshake_payload = self._call_backend_worker_method(
+                process=worker_process,
+                plugin_id=entry.plugin_id,
+                request_id=request_id,
+                method="plugin.initialize",
+                timeout_seconds=self._backend_startup_timeout_seconds,
+                timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
+            )
+            request_id += 1
+            if not isinstance(handshake_payload, dict):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                    (
+                        f"Backend plugin {entry.plugin_id} returned an invalid "
+                        "handshake payload."
+                    ),
+                )
+            self._validate_backend_worker_handshake(entry, handshake_payload)
+            self._call_backend_worker_method(
+                process=worker_process,
+                plugin_id=entry.plugin_id,
+                request_id=request_id,
+                method="plugin.register",
+                timeout_seconds=self._backend_register_timeout_seconds,
+                timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
+            )
+            request_id += 1
+            try:
+                self._call_backend_worker_method(
+                    process=worker_process,
+                    plugin_id=entry.plugin_id,
+                    request_id=request_id,
+                    method="plugin.shutdown",
+                    timeout_seconds=self._backend_register_timeout_seconds,
+                    timeout_code="PLUGIN_BACKEND_REGISTER_TIMEOUT",
+                )
+            except PluginManagerError:
+                # Shutdown errors are non-fatal for startup-time registration.
+                pass
+        finally:
+            self._stop_backend_worker_process(worker_process)
         module = self._import_backend_plugin_module(
             entry=entry,
             entrypoint_path=entrypoint_path,
@@ -543,111 +571,218 @@ class PluginManager:
                 ),
             )
 
-    def _run_backend_preflight_handshake(
+    def _start_backend_worker_process(
         self,
         *,
         entry: DiscoveredPlugin,
         entrypoint_path: Path,
-    ) -> None:
-        payload = self._run_backend_preflight_stage(
-            entry=entry,
+    ) -> subprocess.Popen[str]:
+        command = self._build_backend_worker_command(
+            plugin_id=entry.plugin_id,
+            plugin_version=entry.version,
+            plugin_root=entry.source_path,
             entrypoint_path=entrypoint_path,
-            stage="handshake",
-            timeout_seconds=self._backend_startup_timeout_seconds,
-            timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
-            default_error_code="PLUGIN_BACKEND_HANDSHAKE_INVALID",
-            expect_json_result=True,
         )
-        if payload is None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
-                f"Backend plugin {entry.plugin_id} did not return handshake payload.",
+        try:
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
             )
-        self._validate_backend_preflight_handshake(entry, payload)
+        except OSError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Failed to start backend worker for {entry.plugin_id}: {exc}",
+            ) from exc
+        if process.stdin is None or process.stdout is None:
+            self._stop_backend_worker_process(process)
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Backend worker stdio pipes unavailable for {entry.plugin_id}.",
+            )
+        return process
 
-    def _run_backend_preflight_stage(
+    def _build_backend_worker_command(
         self,
         *,
-        entry: DiscoveredPlugin,
+        plugin_id: str,
+        plugin_version: str,
+        plugin_root: Path,
         entrypoint_path: Path,
-        stage: Literal["handshake", "import", "register"],
-        timeout_seconds: float,
-        timeout_code: str,
-        default_error_code: str,
-        expect_json_result: bool = False,
-    ) -> dict[str, Any] | None:
-        command = [
+    ) -> list[str]:
+        return [
             sys.executable,
             "-m",
-            "setta.plugins.preflight",
+            "setta.plugins.worker",
             "--plugin-id",
-            entry.plugin_id,
+            plugin_id,
             "--plugin-version",
-            entry.version,
+            plugin_version,
             "--plugin-root",
-            str(entry.source_path),
+            str(plugin_root),
             "--entrypoint",
             str(entrypoint_path),
-            "--stage",
-            stage,
         ]
-        try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=timeout_seconds,
-            )
-        except subprocess.TimeoutExpired as exc:
+
+    def _call_backend_worker_method(
+        self,
+        *,
+        process: subprocess.Popen[str],
+        plugin_id: str,
+        request_id: int,
+        method: str,
+        timeout_seconds: float,
+        timeout_code: str,
+    ) -> Any:
+        if process.stdin is None:
             raise PluginManagerError(
-                timeout_code,
-                (
-                    f"Backend plugin {entry.plugin_id} {stage} stage timed out "
-                    f"after {timeout_seconds:.2f}s."
-                ),
-            ) from exc
-        if result.returncode == 0:
-            if not expect_json_result:
-                return None
-            parsed_payload = self._parse_preflight_json_payload(result.stdout)
-            if parsed_payload is None:
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                    (
-                        f"Backend plugin preflight transport failed for "
-                        f"{entry.plugin_id} during {stage} stage: "
-                        "missing JSON payload."
-                    ),
-                )
-            return parsed_payload
-        raw_error_output = result.stderr or result.stdout
-        if result.returncode < 0 or not raw_error_output.strip():
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Backend worker stdin unavailable for {plugin_id}.",
+            )
+        request_payload = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+            "params": {},
+        }
+        try:
+            process.stdin.write(json.dumps(request_payload) + "\n")
+            process.stdin.flush()
+        except OSError as exc:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 (
-                    f"Backend plugin preflight transport failed for "
-                    f"{entry.plugin_id} during {stage} stage."
+                    f"Backend worker transport write failed for {plugin_id} "
+                    f"during {method}: {exc}"
+                ),
+            ) from exc
+
+        response_payload = self._read_backend_worker_response(
+            process=process,
+            plugin_id=plugin_id,
+            method=method,
+            timeout_seconds=timeout_seconds,
+            timeout_code=timeout_code,
+        )
+        response_id = response_payload.get("id")
+        if response_id != request_id:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend worker response id mismatch for {plugin_id}: "
+                    f"expected {request_id}, received {response_id!r}."
                 ),
             )
-        parsed = self._parse_preflight_error(raw_error_output)
-        if parsed is not None:
-            code = parsed.get("code", default_error_code)
-            message = parsed.get(
-                "message",
-                f"Backend plugin {entry.plugin_id} {stage} preflight failed.",
+        error_payload = response_payload.get("error")
+        if isinstance(error_payload, dict):
+            raw_code = error_payload.get("code")
+            raw_message = error_payload.get("message")
+            code = (
+                raw_code
+                if isinstance(raw_code, str)
+                else "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+            )
+            message = (
+                raw_message
+                if isinstance(raw_message, str)
+                else f"Backend worker returned an invalid error payload for {plugin_id}."
             )
             raise PluginManagerError(code, message)
-        raise PluginManagerError(
-            "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-            (
-                f"Backend plugin preflight transport failed for {entry.plugin_id} "
-                f"during {stage} stage: {raw_error_output.strip()}"
-            ),
-        )
-        return None
+        if "result" not in response_payload:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Backend worker result missing for {plugin_id} during {method}.",
+            )
+        return response_payload["result"]
 
-    def _validate_backend_preflight_handshake(
+    def _read_backend_worker_response(
+        self,
+        *,
+        process: subprocess.Popen[str],
+        plugin_id: str,
+        method: str,
+        timeout_seconds: float,
+        timeout_code: str,
+    ) -> dict[str, Any]:
+        if process.stdout is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Backend worker stdout unavailable for {plugin_id}.",
+            )
+        ready_streams, _, _ = select.select([process.stdout], [], [], timeout_seconds)
+        if len(ready_streams) == 0:
+            raise PluginManagerError(
+                timeout_code,
+                (
+                    f"Backend plugin {plugin_id} {method} request timed out "
+                    f"after {timeout_seconds:.2f}s."
+                ),
+            )
+        line = process.stdout.readline()
+        if line == "":
+            stderr_output = self._read_available_pipe_text(process.stderr)
+            detail = (
+                f" Stderr: {stderr_output}" if len(stderr_output) > 0 else ""
+            )
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend worker exited before responding for {plugin_id} "
+                    f"during {method}.{detail}"
+                ),
+            )
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend worker returned invalid JSON for {plugin_id} "
+                    f"during {method}: {line.strip()}"
+                ),
+            ) from exc
+        if not isinstance(payload, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend worker response type invalid for {plugin_id} during "
+                    f"{method}."
+                ),
+            )
+        return payload
+
+    def _read_available_pipe_text(self, stream: Any) -> str:
+        if stream is None:
+            return ""
+        chunks: list[str] = []
+        while True:
+            ready_streams, _, _ = select.select([stream], [], [], 0)
+            if len(ready_streams) == 0:
+                break
+            chunk = os.read(stream.fileno(), 4096)
+            if len(chunk) == 0:
+                break
+            chunks.append(chunk.decode("utf-8", errors="ignore"))
+        return "".join(chunks).strip()
+
+    def _stop_backend_worker_process(self, process: subprocess.Popen[str]) -> None:
+        if process.stdin is not None:
+            process.stdin.close()
+        if process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=1.0)
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+
+    def _validate_backend_worker_handshake(
         self,
         entry: DiscoveredPlugin,
         payload: dict[str, Any],
@@ -701,29 +836,6 @@ class PluginManager:
                     f"{entry.plugin_id}: {', '.join(missing_methods)}"
                 ),
             )
-
-    def _parse_preflight_json_payload(self, raw_output: str) -> dict[str, Any] | None:
-        trimmed = raw_output.strip()
-        if not trimmed:
-            return None
-        candidate = trimmed.splitlines()[-1]
-        try:
-            parsed = json.loads(candidate)
-        except json.JSONDecodeError:
-            return None
-        if not isinstance(parsed, dict):
-            return None
-        return parsed
-
-    def _parse_preflight_error(self, raw_output: str) -> dict[str, str] | None:
-        parsed = self._parse_preflight_json_payload(raw_output)
-        if parsed is None:
-            return None
-        code = parsed.get("code")
-        message = parsed.get("message")
-        if not isinstance(code, str) or not isinstance(message, str):
-            return None
-        return {"code": code, "message": message}
 
     def _ensure_backend_runtime_for_entry(self, entry: DiscoveredPlugin) -> None:
         if entry.manifest is None or entry.manifest.backend is None:
