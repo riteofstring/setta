@@ -28,6 +28,7 @@ This plan is considered successful only if it satisfies all of the following:
 - DX: A developer can ask a modern LLM to generate a plugin from official Setta templates/contracts, with minimal manual fixes.
 - DX: A developer can add custom backend logic, frontend UI/styling, and content assets without editing Setta core.
 - DX: A developer can publish a plugin to PyPI/GitHub, and users can install it via one command.
+- DX: Teams using package managers (`uv`, `pip`, Poetry, etc.) can have Setta discover/manage plugins without forcing a specific installer.
 - DX: Plugin packaging, install, update, and rollback flows are deterministic and documented.
 - UX: Users can install/uninstall plugins with clear scope choices (`workspace`, `environment`, `global`).
 - UX: Users can easily see installed plugins, active plugin source/scope, and shadowing status.
@@ -462,7 +463,7 @@ Status entry fields:
 
 ### Plugin management APIs (normative MVP)
 
-Lock write contracts in MVP so frontend, CLI, and MCP integrations all call the same backend operations.
+Lock core install/update/restart contracts in MVP so frontend, CLI, and MCP integrations all call the same backend operations.
 
 `POST /api/plugins/install`:
 
@@ -520,16 +521,6 @@ Lock write contracts in MVP so frontend, CLI, and MCP integrations all call the 
 - response: `{ pluginId, restoredVersion, sourceDigestSha256, restartRequired }`
 - if no rollback history exists, return `PLUGIN_ROLLBACK_UNAVAILABLE`.
 
-`POST /api/plugins/lock/write`:
-
-- request: `{}`
-- response: `{ lockfilePath, pluginCount }`
-
-`POST /api/plugins/lock/apply`:
-
-- request: `{ check?: boolean }`
-- response: `{ lockfilePath, plannedChanges, applied }`
-
 `POST /api/plugins/rescan`:
 
 - request: `{}`
@@ -544,6 +535,11 @@ Lock write contracts in MVP so frontend, CLI, and MCP integrations all call the 
 - request: `{}`
 - response: `{ accepted: boolean, mode: "programmatic" | "manual", command?: string, reason?: string }`
 - if restart cannot be performed programmatically in the current runtime, return `accepted=false` with `mode="manual"` and an exact fallback command.
+
+Future work (not MVP):
+
+- `POST /api/plugins/lock/write`
+- `POST /api/plugins/lock/apply`
 
 ## Frontend Plugins
 
@@ -870,6 +866,22 @@ Implementation notes:
 - Workspaces can still explicitly disable a globally auto-enabled plugin via their own `plugins_state.json`.
 - Plugin status responses should include `sourceScope` and `sourcePath` so users can tell whether a plugin came from workspace/setta_files/global.
 
+### Package manager integration (normative MVP)
+
+Setta should lean on Python package managers for package resolution/download while keeping plugin runtime semantics in Setta.
+
+- Setta must not require `uv`.
+- Setta should support package-manager-managed plugin installs from active environments (`uv`, `pip`, Poetry, and similar workflows).
+- If a plugin package is managed externally, Setta treats it as environment-scoped plugin source and keeps enable/disable/status/restart semantics in Setta.
+- In UI/CLI, externally managed plugins should show clear hints for update/uninstall via the user’s package manager.
+
+Installer backend selection for source-based install commands:
+
+- Add installer backend selection: `auto | pip | uv`.
+- `auto` prefers `uv` when available, otherwise falls back to `pip`.
+- If the user explicitly requests `uv` or `pip` and that backend is unavailable, fail with deterministic installer-backend errors.
+- Backend choice affects source fetch/build steps only; plugin activation/runtime behavior stays the same.
+
 ## Installation UX (CLI + Drop-in)
 
 Minimum viable:
@@ -893,6 +905,7 @@ Behavior:
   - `github:<owner>/<repo>[#ref]`
   - `pypi:<package>[==version]`
 - The install form normalizes and previews source + scope before submit.
+- Package-manager-managed (environment) plugins appear in the same plugin rows, with Setta controls for enable/disable/config and package-manager guidance for install/update/uninstall.
 - The modal can include view toggles, for example "Backend" and "Frontend", that jump into `plugins/<selectedPluginId>/backend/` and `plugins/<selectedPluginId>/frontend/` without changing the on-disk layout.
 - The modal includes per-plugin actions: enable, disable, uninstall, update, and rollback.
 - The modal must show `sourceScopeLabel` (`workspace | environment | global`) and canonical source identity for every plugin.
@@ -922,6 +935,8 @@ setta plugins install pypi:setta-rust-tools
 setta plugins install pypi:setta-rust-tools==0.2.0
 setta plugins install --global github:acme/setta-rust-tools
 setta plugins install --global pypi:setta-rust-tools==0.2.0
+setta plugins install --installer auto pypi:setta-rust-tools==0.2.0
+setta plugins install --installer uv github:acme/setta-rust-tools#v0.2.0
 ```
 
 Recommended behavior:
@@ -939,6 +954,7 @@ Recommended behavior:
 - Source resolution is first-class in MVP:
   - `github:<owner>/<repo>[#ref]`
   - `pypi:<package>[==version]`
+- Source installer backend is selectable (`--installer auto|pip|uv`) and does not change plugin runtime semantics.
 - For source installs, include canonical source identity in output and status (for example `pypi:setta-rust-tools`, `github:acme/SettaRustTools`), alongside `pluginId`.
 - For `github:` installs, derive `pluginId` from `[project].name` in `pyproject.toml` when present; fallback to a source-derived id (`gh.<owner>.<repo>`) when metadata is missing.
 - For PyPI installs, derive `pluginId` from package metadata (`[project].name` or wheel metadata) and fallback to normalized package name.
@@ -967,6 +983,7 @@ Source package contract (normative MVP):
   - `pypi:<package>[==version]`
 - Local filesystem paths are not valid `install` source schemes in MVP. Local development paths are handled by `setta plugins link`.
 - Every source must resolve to exactly one plugin root containing `setta.plugin.json`.
+- Setta source installs delegate download/build work to the selected installer backend (`auto|pip|uv`), but Setta never requires `uv`.
 - GitHub source rule in MVP: resolved repository root must contain `setta.plugin.json`. Missing root manifest fails with `PLUGIN_SOURCE_MANIFEST_NOT_FOUND`.
 - For PyPI artifacts, installer scans wheel/sdist payload for a single `setta.plugin.json`; multiple candidates fail with `PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT`.
 - Install fails fast with explicit errors for missing manifest (`PLUGIN_SOURCE_MANIFEST_NOT_FOUND`) or ambiguous roots (`PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT`).
@@ -988,8 +1005,6 @@ Required lifecycle commands (normative MVP):
 - `setta plugins update <pluginId> [--scope workspace|setta_files|environment|global] [--to <version-or-ref>]`
 - `setta plugins pin <pluginId> <sourceSpec-or-version>`
 - `setta plugins rollback <pluginId> [--scope workspace|setta_files|environment|global]`
-- `setta plugins lock write`
-- `setta plugins lock apply [--check]`
 - `setta plugins restart`
 - `setta plugins restart-required`
 - `setta plugins link <local-plugin-root> [--scope workspace|setta_files|environment|global] [--no-enable] [--force]` (dev-only)
@@ -1024,12 +1039,15 @@ Restart semantics:
   - backend plugin install/update/remove/enable/disable/uninstall: status becomes `pending_restart` until backend restart.
 - On restart, backend plugin registry is rebuilt from scratch from the active discovered set. No incremental backend plugin unmounting is attempted in MVP.
 
-Lockfile and rollback semantics (normative MVP):
+Rollback semantics (normative MVP):
 
-- Workspace lockfile: `<workspace>/plugins/plugins.lock.json` (shareable in git).
-- Lockfile tracks `pluginId`, resolved version/ref, canonical source key, scope, and source digest.
-- `lock write` snapshots current installed state; `lock apply` reconciles workspace state to lockfile.
 - `rollback` restores the previous installed version/ref from installer history metadata when available; otherwise returns deterministic error (`PLUGIN_ROLLBACK_UNAVAILABLE`).
+
+Setta plugin lockfile (future work):
+
+- Keep `<workspace>/plugins/plugins.lock.json` as a possible future Setta-specific reproducibility layer.
+- In MVP, rely on Python package-manager lockfiles (`uv.lock`, Poetry lock, pinned requirements, etc.) for package dependency reproducibility.
+- If implemented later, Setta lockfile should focus on Setta-specific runtime state (scope/enablement/provenance) rather than replacing package-manager dependency resolution.
 
 ### AI-driven plugin install ("install this plugin source")
 
@@ -1062,8 +1080,6 @@ CLI command set (MVP):
 - `setta plugins update <id>`
 - `setta plugins pin <id> <sourceSpec-or-version>`
 - `setta plugins rollback <id>`
-- `setta plugins lock write`
-- `setta plugins lock apply`
 - `setta plugins restart`
 - `setta plugins restart-required`
 - `setta plugins link <local-plugin-root>` (dev-only)
@@ -1145,9 +1161,11 @@ Backend:
 - Tests for uninstall semantics (single-scope uninstall, multi-scope scope-required error).
 - Tests for scope alias handling (`environment` accepted as alias for `setta_files`).
 - Tests for plugin config schema validation and `PLUGIN_CONFIG_INVALID` behavior.
-- Tests for lockfile write/apply reconciliation and rollback behavior (`PLUGIN_ROLLBACK_UNAVAILABLE` path included).
+- Tests for rollback behavior (`PLUGIN_ROLLBACK_UNAVAILABLE` path included).
 - Tests for provenance digest persistence/display fields in plugin status/list responses.
 - Tests for install-time dependency resolution into plugin-scoped runtime env and deterministic worker boot failures.
+- Tests for installer backend selection (`auto|pip|uv`) and deterministic fallback/error behavior when a requested backend is unavailable.
+- Tests for package-manager-managed plugin discovery from active Python environments.
 - Tests for worker RPC handshake/version negotiation and timeout error mapping (`PLUGIN_BACKEND_STARTUP_TIMEOUT`, `PLUGIN_BACKEND_REGISTER_TIMEOUT`, `PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR`).
 - Tests for restart capability/restart endpoints (`restart-capability`, `restart`) across runtimes with and without programmatic restart support.
 - Golden-path install tests using first-party fixture plugins from `github:` and `pypi:` source specs.
@@ -1180,16 +1198,18 @@ Frontend:
 
 - Create `backend/setta/plugins/` package with manifest types, plugin directory scanning, enablement state, and status reporting.
 - Resolve `<setta_home>/plugins` using the same Setta-home logic as user config (`resolve_setta_home()`, `SETTA_HOME`) and include it in discovery.
-- Add backend routes `GET /api/plugins/list`, `GET /api/plugins/status`, and management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`, `lock/write`, `lock/apply`) matching normative schemas in this document.
+- Add backend routes `GET /api/plugins/list`, `GET /api/plugins/status`, and management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`) matching normative schemas in this document.
 - Add backend restart contract routes (`GET /api/plugins/restart-capability`, `POST /api/plugins/restart`) used by both UI and CLI.
 - Serve plugin static assets under `/plugins/<pluginId>/...` from the resolved active plugin source path (workspace/setta_files/global).
 - Built-mode note: ensure `/plugins/...` mounts are registered before the SPA catch-all route (or move the catch-all route to the end after mounting), otherwise requests for plugin JS/CSS can be swallowed by the app's `index.html` handler.
 - Implement enablement resolution (`disabledPluginIds`, `enabledPluginIds`, `autoEnabledPluginIds`, `enabledByDefault`) and `pending_restart` status semantics.
-- Implement lockfile read/write/apply support and installer history metadata for rollback.
+- Implement installer history metadata for rollback.
 - Persist `sourceDigestSha256` and include provenance metadata in list/status endpoints.
 - Implement backend worker RPC protocol (JSON-RPC over stdio) with handshake/version checks, required method set, and timeout/error mapping.
 - Ensure CLI/API scope alias mapping supports user-facing `environment` while preserving canonical `setta_files`.
 - Implement install-time backend dependency resolution into plugin-scoped runtime environments and plugin worker boot orchestration.
+- Add package-manager-managed plugin discovery from active Python environments.
+- Add installer backend selection (`auto|pip|uv`) for source-based installs without requiring `uv`.
 
 ### Phase 2: Frontend loader + minimal extension points
 
@@ -1198,6 +1218,7 @@ Frontend:
 - Add minimal extension points: panes and commands.
 - Ship frontend plugin SDK types and host-side runtime validation for all `register*` payloads.
 - Add a "Plugins" modal with source-based install controls (`github:` / `pypi:`), optional `FileBrowserPane` inspection view, scope selector, and "restart required" messaging.
+- Show package-manager guidance for environment-managed plugins (install/update/uninstall flows handled outside Setta).
 - Add `Restart Setta` UX path with fallback command display when programmatic restart is unavailable.
 - Add source/capability/provenance summary views in plugin rows and install confirmation dialogs.
 
@@ -1229,8 +1250,8 @@ integration priorities are complete.
 ## Phase completion gates
 
 - Phase 0 complete when `setta plugins init` and `setta plugins validate` exist, schema files are published, publish-ready template scaffolds are generated, first-party fixture suite is documented, and golden-path authoring docs are published.
-- Phase 1 complete when `/api/plugins/list`, `/api/plugins/status`, management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`, `lock/write`, `lock/apply`), and restart contract routes (`restart-capability`, `restart`) are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, lockfile/rollback support, backend worker/runtime dependency setup, explicit worker RPC contract/timeout handling, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
-- Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, with scope selector support (`workspace`, `environment`, `global`), frontend SDK/runtime registration validation, restart-required UX, and Share-mode capability filtering visible in UI/status.
+- Phase 1 complete when `/api/plugins/list`, `/api/plugins/status`, management routes (`install`, `uninstall`, `enable`, `disable`, `rescan`, `config`, `update`, `rollback`), and restart contract routes (`restart-capability`, `restart`) are implemented with deterministic ordering, shadowing visibility, canonical source identity, schema validation error coverage, rollback support, package-manager-managed discovery, installer backend selection (`auto|pip|uv`), backend worker/runtime dependency setup, explicit worker RPC contract/timeout handling, and explicit enablement/lifecycle status (`active`, `disabled`, `invalid`, `shadowed`, `pending_restart`).
+- Phase 2 complete when a fixture frontend plugin registers a pane and command, loaded lazily, with scope selector support (`workspace`, `environment`, `global`), frontend SDK/runtime registration validation, restart-required UX, package-manager guidance for environment-managed plugins, and Share-mode capability filtering visible in UI/status.
 - Phase 3 complete when `SectionType.Plugin` roundtrips through backend/frontend types, renders via registered plugin renderer, and missing renderer falls back without app instability.
 - Phase 4 is a future milestone (not required for core plugin runtime MVP), complete when "Export Group As Plugin..." and "Export ProjectConfig As Plugin..." create valid plugin folders/manifests and import roundtrip tests pass.
 - Phase 5 complete when at least one deeper integration (for example language-server registration) works end-to-end with mode-aware capability gating and failure reporting.
@@ -1240,6 +1261,8 @@ integration priorities are complete.
 - Plugin enablement is resolved per workspace in MVP (no per-`ProjectConfig` enablement yet).
 - Global plugins use `<setta_home>/plugins_global_state.json` for auto-enable defaults; workspace-level disable still overrides.
 - Plugin packaging/install is source-driven in MVP: `setta plugins install` supports only `github` and `pypi` source specs, and all other schemes fail with `PLUGIN_SOURCE_SCHEME_UNSUPPORTED`.
+- Setta must not require `uv`; source installs support installer backend selection (`auto|pip|uv`) with deterministic fallback/error behavior.
+- Package-manager-managed plugins from active Python environments are first-class in MVP and appear as environment-scoped plugin sources.
 - Local plugin iteration in MVP uses explicit dev-only link commands (`setta plugins link` / `setta plugins unlink`) instead of `install path:` source schemes.
 - Plugin install defaults to enabled unless `--no-enable` is explicitly provided.
 - User-facing scope language is `workspace | environment | global` (`environment` maps to canonical `setta_files` scope).
@@ -1248,7 +1271,8 @@ integration priorities are complete.
 - `setta plugins init` generates publish-ready templates by default (aligned package metadata, packaging includes, and release/publish guidance).
 - Plugin identity invariants are strict in MVP: manifest `id/version` must match package metadata when metadata is present.
 - Plugin config supports optional schema-based validation via `configSchemaPath`.
-- Installer lifecycle includes update/pin/rollback plus lockfile workflows for reproducibility.
+- Installer lifecycle includes update/pin/rollback in MVP.
+- Setta plugin lockfile workflows are deferred to future work; package-manager lockfiles handle package reproducibility in MVP.
 - Backend plugin changes remain restart-gated, but restart-required UX is first-class (button or exact fallback command).
 - Backend plugin execution uses plugin-scoped worker runtimes with install-time dependency resolution.
 - Content plugins are read-only template sources in MVP; users import/copy into mutable workspace stores explicitly.
