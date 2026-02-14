@@ -37,17 +37,20 @@ from setta.launch import (
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads
-from setta.plugins.errors import PluginManagerError
-from setta.plugins.manager import PluginManager
 from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
 from setta.types.routes import Route
 from setta.types.share_deployment import DeploymentType
-from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.constants import IS_DEV_MODE, C, normalize_cookie_name
 from setta.utils.env_vars import (
     FILES_LOCATION_ENV,
+    FILES_ROOT_ENV,
+    PROFILE_ENV,
+    PROFILE_LOOKUP_HOME_ENV,
+    RUNTIME_ROOT_ENV,
+    SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
 )
 from setta.utils.network import (
@@ -63,7 +66,6 @@ from setta.utils.paths import (
     resolve_setta_paths,
     validate_workspace_root,
 )
-from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import ensure_setta_user_config_exists
 from setta.utils.utils import normalize_path
 
@@ -74,6 +76,7 @@ _MISSING_AUTH_MESSAGE = (
     "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
     "workspace)."
 )
+_DEFAULT_AUTH_COOKIE_NAME = C.AUTH_COOKIE_NAME
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
@@ -81,13 +84,21 @@ RemoteSessionSummary = ssh_common.RemoteSessionSummary
 def _resolve_cli_paths(
     *,
     workspace: str | Path | None,
+    setta_home: str | Path | None,
+    profile: str | None,
+    setta_files_root: str | Path | None,
     setta_files_location: SettaFilesLocation | None,
+    runtime_root: str | Path | None,
     validate: bool,
 ):
     try:
         paths = resolve_setta_paths(
             workspace_root=workspace,
+            setta_home=setta_home,
+            profile=profile,
+            setta_files_root=setta_files_root,
             setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
         )
     except ValueError as exc:
         # Click should render a clean message without an exception traceback.
@@ -98,7 +109,11 @@ def _resolve_cli_paths(
         except ValueError as exc:
             # Click should render a clean message without an exception traceback.
             raise click.ClickException(str(exc)) from exc
-        for raw_path, label in ((paths.setta_files_root, "setta files root"),):
+        for raw_path, label in (
+            (paths.setta_home, "setta home"),
+            (paths.setta_files_root, "setta files root"),
+            (paths.runtime_root, "runtime root"),
+        ):
             message = get_optional_dir_validation_error(raw_path, label=label)
             if message:
                 raise click.ClickException(message)
@@ -107,8 +122,41 @@ def _resolve_cli_paths(
 
 def _apply_paths_to_env(paths) -> None:
     os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-    os.environ[FILES_LOCATION_ENV] = paths.setta_files_location
+    os.environ[SETTA_HOME_ENV] = str(paths.setta_home)
+    os.environ[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
+    os.environ[RUNTIME_ROOT_ENV] = str(paths.runtime_root)
+    if paths.profile_name:
+        os.environ[PROFILE_ENV] = paths.profile_name
+    else:
+        os.environ.pop(PROFILE_ENV, None)
+    if paths.setta_files_location is None:
+        os.environ[FILES_ROOT_ENV] = str(paths.setta_files_root)
+        os.environ.pop(FILES_LOCATION_ENV, None)
+    else:
+        os.environ[FILES_LOCATION_ENV] = paths.setta_files_location
+        os.environ.pop(FILES_ROOT_ENV, None)
+    if paths.auth_cookie_name:
+        os.environ["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
+        C.AUTH_COOKIE_NAME = normalize_cookie_name(
+            paths.auth_cookie_name, default="setta_auth"
+        )
+    else:
+        os.environ.pop("SETTA_AUTH_COOKIE_NAME", None)
+        C.AUTH_COOKIE_NAME = _DEFAULT_AUTH_COOKIE_NAME
     clear_setta_paths_cache()
+
+
+def _to_optional_string(value: object) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+        return trimmed
+    return str(value)
 
 
 def _parse_ssh_args(raw: str | None) -> list[str]:
@@ -207,9 +255,20 @@ def _run_remote_setta_command(
     )
 
 
-def _build_remote_setta_files_args(*, setta_files_location: str | None) -> str:
-    return ssh_common.build_remote_setta_files_args(
+def _build_remote_setta_path_args(
+    *,
+    profile: str | None,
+    setta_home: str | None,
+    setta_files_root: str | None,
+    setta_files_location: str | None,
+    runtime_root: str | None,
+) -> str:
+    return ssh_common.build_remote_setta_path_args(
+        profile=profile,
+        setta_home=setta_home,
+        setta_files_root=setta_files_root,
         setta_files_location=setta_files_location,
+        runtime_root=runtime_root,
     )
 
 
@@ -307,6 +366,8 @@ def _start_remote_setta(
     setta_files_args: str,
     *,
     setta_files_location: str | None,
+    setta_files_root: str | None = None,
+    runtime_root: str | None = None,
 ) -> bool:
     try:
         ssh_common.start_remote_setta(
@@ -318,6 +379,8 @@ def _start_remote_setta(
             setta_files_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
             setta_files_location=setta_files_location or "auto",
+            setta_files_root=setta_files_root,
+            runtime_root=runtime_root,
         )
     except LaunchError as exc:
         if exc.code == "SshTimeout":
@@ -376,6 +439,14 @@ def _ensure_background_process_started(
         ssh_common.ensure_background_process_started(proc, wait_seconds=wait_seconds)
     except LaunchError as exc:
         raise click.ClickException(f"{exc} Try --print-only or --verbose.") from exc
+
+
+def _run_uvicorn_server(server: Any) -> None:
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        # Treat Ctrl+C as a normal stop so interactive shells with errexit do not exit.
+        return
 
 
 def _extract_token_from_bootstrap_url(url: str) -> str:
@@ -946,44 +1017,6 @@ def _select_remote_stop_targets(
     )
 
 
-def _build_plugin_manager_for_cli() -> PluginManager:
-    paths = get_setta_paths()
-    return PluginManager(
-        workspace_root=paths.workspace_root,
-        setta_files_root=paths.setta_files_root,
-        setta_home=resolve_setta_home(),
-        server_mode="ide",
-        setta_version=__version__,
-    )
-
-
-def _plugin_scope_choice_to_value(
-    *,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-) -> str | None:
-    explicit_flags = [global_scope, setta_files_scope, environment_scope]
-    if sum(1 for flag in explicit_flags if flag) > 1:
-        raise click.ClickException(
-            "Use only one of --global, --setta-files, or --environment."
-        )
-    if scope and any(explicit_flags):
-        raise click.ClickException(
-            "Use either --scope or scope shortcut flags, not both."
-        )
-    if global_scope:
-        return "global"
-    if setta_files_scope or environment_scope:
-        return "setta_files"
-    return scope
-
-
-def _raise_click_plugin_error(exc: PluginManagerError) -> None:
-    raise click.ClickException(f"{exc.code}: {exc.message}") from exc
-
-
 @click.command()
 def version() -> None:
     click.echo(f"setta version {__version__}")
@@ -1227,15 +1260,28 @@ def share(
         timeout_graceful_shutdown=1,
     )
     server = uvicorn.Server(config)
-    server.run()
+    _run_uvicorn_server(server)
 
 
 @click.command()
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
 @click.option("-w", "--workspace", type=click.Path(path_type=Path))
+@click.option("--profile", default=None)
+@click.option(
+    "--setta-home",
+    type=click.Path(path_type=Path),
+)
+@click.option(
+    "--setta-files-root",
+    type=click.Path(path_type=Path),
+)
 @click.option(
     "--setta-files-location",
     type=click.Choice(["auto", "local", "global"], case_sensitive=False),
+)
+@click.option(
+    "--runtime-root",
+    type=click.Path(path_type=Path),
 )
 @click.option(
     "--timeout",
@@ -1248,7 +1294,11 @@ def launch(
     ctx: click.Context,
     json_output: bool,
     workspace: Path | None,
+    profile: str | None,
+    setta_home: Path | None,
+    setta_files_root: Path | None,
     setta_files_location: str | None,
+    runtime_root: Path | None,
     timeout: float | None,
 ) -> None:
     if not json_output:
@@ -1256,7 +1306,11 @@ def launch(
 
     ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
     group_workspace = ctx_obj.get("workspace")
+    group_profile = ctx_obj.get("profile")
+    group_setta_home = ctx_obj.get("setta_home")
+    group_setta_files_root = ctx_obj.get("setta_files_root")
     group_setta_files_location = ctx_obj.get("setta_files_location")
+    group_runtime_root = ctx_obj.get("runtime_root")
 
     def resolve_workspace_option(
         *, value: Path | None, group_value: Path | None
@@ -1284,9 +1338,52 @@ def launch(
             )
         return value
 
+    def resolve_path_option(
+        *, value: Path | None, group_value: Path | None, label: str
+    ) -> Path | None:
+        if value is None:
+            return group_value
+        if group_value is None:
+            return value
+        if value.resolve(strict=False) != group_value.resolve(strict=False):
+            raise click.ClickException(
+                f"Conflicting {label} provided at both the global CLI level and the launch subcommand."
+            )
+        return value
+
+    def resolve_text_option(
+        *, value: str | None, group_value: str | None, label: str
+    ) -> str | None:
+        if value is None:
+            return group_value
+        if group_value is None:
+            return value
+        if value.strip() != group_value.strip():
+            raise click.ClickException(
+                f"Conflicting {label} provided at both the global CLI level and the launch subcommand."
+            )
+        return value
+
     resolved_workspace = resolve_workspace_option(
         value=workspace,
         group_value=group_workspace if isinstance(group_workspace, Path) else None,
+    )
+    resolved_profile = resolve_text_option(
+        value=profile,
+        group_value=group_profile if isinstance(group_profile, str) else None,
+        label="--profile",
+    )
+    resolved_setta_home = resolve_path_option(
+        value=setta_home,
+        group_value=group_setta_home if isinstance(group_setta_home, Path) else None,
+        label="--setta-home",
+    )
+    resolved_setta_files_root = resolve_path_option(
+        value=setta_files_root,
+        group_value=group_setta_files_root
+        if isinstance(group_setta_files_root, Path)
+        else None,
+        label="--setta-files-root",
     )
     resolved_setta_files_location = resolve_location_option(
         value=setta_files_location,
@@ -1294,12 +1391,23 @@ def launch(
         if isinstance(group_setta_files_location, str)
         else None,
     )
+    resolved_runtime_root = resolve_path_option(
+        value=runtime_root,
+        group_value=group_runtime_root
+        if isinstance(group_runtime_root, Path)
+        else None,
+        label="--runtime-root",
+    )
 
     try:
         timeout_seconds = timeout if timeout is not None else 30.0
         result = launch_workspace_session(
             workspace_root=resolved_workspace,
+            setta_home=resolved_setta_home,
+            profile=resolved_profile,
+            setta_files_root=resolved_setta_files_root,
             setta_files_location=resolved_setta_files_location,
+            runtime_root=resolved_runtime_root,
             timeout_seconds=timeout_seconds,
         )
     except LaunchError as exc:
@@ -1318,6 +1426,10 @@ def launch(
         "bootstrapUrlFragment": bootstrap_url_fragment,
         "workspaceRoot": str(result.paths.workspace_root),
         "settaFilesLocation": result.paths.setta_files_location,
+        "settaFilesRoot": str(result.paths.setta_files_root),
+        "runtimeRoot": str(result.paths.runtime_root),
+        "settaHome": str(result.paths.setta_home),
+        "profile": result.paths.profile_name,
         "sessionId": result.session.id,
         "startedNew": result.started_new,
         "session": _format_session_payload(result.session),
@@ -1410,7 +1522,7 @@ def app(
         timeout_graceful_shutdown=1,
     )
     server = uvicorn.Server(config)
-    server.run()
+    _run_uvicorn_server(server)
 
 
 @click.command()
@@ -1445,6 +1557,11 @@ def status(
 
     ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
     group_workspace = ctx_obj.get("workspace")
+    group_profile = ctx_obj.get("profile")
+    group_setta_home = ctx_obj.get("setta_home")
+    group_setta_files_root = ctx_obj.get("setta_files_root")
+    group_setta_files_location = ctx_obj.get("setta_files_location")
+    group_runtime_root = ctx_obj.get("runtime_root")
     resolved_workspace: Path | None = workspace
     if resolved_workspace is None:
         resolved_workspace = group_workspace
@@ -1528,7 +1645,20 @@ def status(
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
-        resolved_paths = resolve_setta_paths(workspace_root=resolved_workspace)
+        resolved_paths = resolve_setta_paths(
+            workspace_root=resolved_workspace,
+            profile=group_profile if isinstance(group_profile, str) else None,
+            setta_home=group_setta_home if isinstance(group_setta_home, Path) else None,
+            setta_files_root=group_setta_files_root
+            if isinstance(group_setta_files_root, Path)
+            else None,
+            setta_files_location=group_setta_files_location
+            if isinstance(group_setta_files_location, str)
+            else None,
+            runtime_root=group_runtime_root
+            if isinstance(group_runtime_root, Path)
+            else None,
+        )
         payload = {
             "session": {
                 "id": session.id,
@@ -1543,7 +1673,10 @@ def status(
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
             "settaFilesLocation": resolved_paths.setta_files_location,
+            "settaFilesRoot": str(resolved_paths.setta_files_root),
             "runtimeRoot": str(resolved_paths.runtime_root),
+            "settaHome": str(resolved_paths.setta_home),
+            "profile": resolved_paths.profile_name,
         }
         _emit_connect_info_json(payload)
         return
@@ -1903,8 +2036,12 @@ def stop(
         return
 
     params = ctx.obj or {}
-    setta_files_args = _build_remote_setta_files_args(
-        setta_files_location=params.get("setta_files_location"),
+    setta_path_args = _build_remote_setta_path_args(
+        profile=_to_optional_string(params.get("profile")),
+        setta_home=_to_optional_string(params.get("setta_home")),
+        setta_files_root=_to_optional_string(params.get("setta_files_root")),
+        setta_files_location=_to_optional_string(params.get("setta_files_location")),
+        runtime_root=_to_optional_string(params.get("runtime_root")),
     )
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
     shell = _resolve_remote_shell(ssh_target, ssh_args_list)
@@ -1920,7 +2057,7 @@ def stop(
         shell,
         remote_workspace,
         setta_command,
-        setta_files_args,
+        setta_path_args,
     )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1932,7 +2069,7 @@ def stop(
             shell,
             remote_workspace,
             setta_command,
-            setta_files_args,
+            setta_path_args,
             session.id,
         )
         click.echo(f"Stopped session {session.id}.")
@@ -1971,8 +2108,15 @@ def connect(
         raise click.ClickException("Use either --detach or --print-only, not both.")
 
     params = ctx.obj or {}
-    setta_files_args = _build_remote_setta_files_args(
-        setta_files_location=params.get("setta_files_location"),
+    setta_files_location = _to_optional_string(params.get("setta_files_location"))
+    setta_files_root = _to_optional_string(params.get("setta_files_root"))
+    runtime_root = _to_optional_string(params.get("runtime_root"))
+    setta_path_args = _build_remote_setta_path_args(
+        profile=_to_optional_string(params.get("profile")),
+        setta_home=_to_optional_string(params.get("setta_home")),
+        setta_files_root=setta_files_root,
+        setta_files_location=setta_files_location,
+        runtime_root=runtime_root,
     )
 
     ssh_args_list = _apply_control_socket_args(_parse_ssh_args(ssh_args))
@@ -2000,7 +2144,7 @@ def connect(
         shell,
         remote_workspace,
         setta_command,
-        setta_files_args,
+        setta_path_args,
     )
     if verbose:
         click.echo(f"Remote sessions found: {len(sessions)}")
@@ -2033,7 +2177,7 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
-                        setta_files_args,
+                        setta_path_args,
                         target.id,
                     )
                     sessions = _fetch_remote_sessions(
@@ -2042,7 +2186,7 @@ def connect(
                         shell,
                         remote_workspace,
                         setta_command,
-                        setta_files_args,
+                        setta_path_args,
                     )
                     if not sessions:
                         break
@@ -2061,7 +2205,9 @@ def connect(
             )
         remote_logs_dir = ssh_common.resolve_remote_logs_dir(
             workspace=remote_workspace,
-            setta_files_location=params.get("setta_files_location") or "auto",
+            setta_files_location=setta_files_location,
+            setta_files_root=setta_files_root,
+            runtime_root=runtime_root,
         )
         if verbose:
             click.echo(f"Remote startup logs: {remote_logs_dir} (nohup-*.out)")
@@ -2071,8 +2217,10 @@ def connect(
             shell,
             remote_workspace,
             setta_command,
-            setta_files_args,
-            setta_files_location=params.get("setta_files_location"),
+            setta_path_args,
+            setta_files_location=setta_files_location,
+            setta_files_root=setta_files_root,
+            runtime_root=runtime_root,
         )
         try:
             selected_session = _wait_for_remote_session(
@@ -2081,7 +2229,7 @@ def connect(
                 shell,
                 remote_workspace,
                 setta_command,
-                setta_files_args,
+                setta_path_args,
                 verbose=verbose,
             )
         except click.ClickException as exc:
@@ -2106,7 +2254,7 @@ def connect(
         shell,
         remote_workspace,
         setta_command,
-        setta_files_args,
+        setta_path_args,
         session_id=selected_session.id,
         latest=False,
     )
@@ -2181,545 +2329,6 @@ def connect(
     proc.wait()
 
 
-@click.group()
-def plugins() -> None:
-    """Manage Setta plugins."""
-
-
-@plugins.command(name="init")
-@click.argument("plugin_id")
-@click.option(
-    "--template",
-    type=click.Choice(["backend", "frontend", "full", "content"]),
-    default="full",
-    show_default=True,
-)
-@click.option(
-    "--out",
-    type=click.Path(path_type=Path),
-    default=None,
-    help="Output directory (defaults to current workspace root).",
-)
-def plugins_init(plugin_id: str, template: str, out: Path | None) -> None:
-    manager = _build_plugin_manager_for_cli()
-    try:
-        plugin_root = manager.init_plugin_template(
-            plugin_id=plugin_id,
-            template=template,
-            out_dir=str(out) if out is not None else None,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    click.echo(f"Initialized plugin template at {plugin_root}")
-
-
-@plugins.command(name="validate")
-@click.argument("plugin_folder", type=click.Path(path_type=Path))
-def plugins_validate(plugin_folder: Path) -> None:
-    manager = _build_plugin_manager_for_cli()
-    try:
-        manager.validate_plugin_folder(plugin_folder)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    click.echo(f"Plugin manifest is valid: {plugin_folder}")
-
-
-@plugins.command(name="list")
-@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
-def plugins_list(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    status = manager.get_status_response()
-    if json_output:
-        _emit_json_output(status.model_dump(mode="json"))
-        return
-    if len(status.plugins) == 0:
-        click.echo("No plugins discovered.")
-        return
-    for plugin in status.plugins:
-        scope = plugin.sourceScopeLabel
-        restart = " (restart required)" if plugin.restartRequired else ""
-        shadowed_suffix = (
-            f" shadowed_by={plugin.shadowedBySourcePath}"
-            if plugin.shadowedBySourcePath
-            else ""
-        )
-        click.echo(
-            f"{plugin.pluginId} {plugin.version} [{plugin.state}] scope={scope}{restart}{shadowed_suffix}"
-        )
-        if plugin.errors:
-            for error in plugin.errors:
-                click.echo(f"  - {error.code}: {error.message}")
-
-
-@plugins.command(name="install")
-@click.argument("source_spec")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True, help="Install globally")
-@click.option(
-    "--setta-files",
-    "setta_files_scope",
-    is_flag=True,
-    help="Install into setta_files scope",
-)
-@click.option(
-    "--environment",
-    "environment_scope",
-    is_flag=True,
-    help="Alias for --setta-files",
-)
-@click.option(
-    "--no-enable",
-    is_flag=True,
-    help="Install without enabling by default.",
-)
-@click.option("--force", is_flag=True, help="Overwrite existing plugin folder.")
-@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
-def plugins_install(
-    source_spec: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    no_enable: bool,
-    force: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.install_plugin(
-            source_spec=source_spec,
-            scope=resolved_scope,
-            enable=not no_enable,
-            force=force,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(
-        f"Installed {result.pluginId} {result.version} "
-        f"to {result.sourceScopeLabel} ({result.sourcePath})"
-    )
-    click.echo(f"Source: {result.canonicalSourceKey}")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="uninstall")
-@click.argument("plugin_id")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_uninstall(
-    plugin_id: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.uninstall_plugin(plugin_id=plugin_id, scope=resolved_scope)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(
-        f"Uninstalled {result.pluginId} from {result.removedFromScope.value} scope"
-    )
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="enable")
-@click.argument("plugin_id")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_enable(plugin_id: str, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    try:
-        result = manager.enable_plugin(plugin_id=plugin_id)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"{result.pluginId} -> {result.state.value}")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="disable")
-@click.argument("plugin_id")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_disable(plugin_id: str, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    try:
-        result = manager.disable_plugin(plugin_id=plugin_id)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"{result.pluginId} -> {result.state.value}")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="rescan")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_rescan(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    result = manager.rescan()
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(
-        f"Rescanned plugins: installed={result.installedPlugins} active={result.activePlugins}"
-    )
-
-
-@plugins.command(name="update")
-@click.argument("plugin_id")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
-@click.option("--to", "to_target", default=None)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_update(
-    plugin_id: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    to_target: str | None,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.update_plugin(
-            plugin_id=plugin_id,
-            scope=resolved_scope,
-            to=to_target,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"Updated {result.pluginId}: {result.fromVersion} -> {result.toVersion}")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="pin")
-@click.argument("plugin_id")
-@click.argument("source_spec_or_version")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_pin(
-    plugin_id: str,
-    source_spec_or_version: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.update_plugin(
-            plugin_id=plugin_id,
-            scope=resolved_scope,
-            to=source_spec_or_version,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"Pinned {result.pluginId}: {result.fromVersion} -> {result.toVersion}")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="rollback")
-@click.argument("plugin_id")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_rollback(
-    plugin_id: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.rollback_plugin(plugin_id=plugin_id, scope=resolved_scope)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"Rolled back {result.pluginId} to version {result.restoredVersion}")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.group(name="lock")
-def plugins_lock() -> None:
-    """Manage plugins lockfile state."""
-
-
-@plugins_lock.command(name="write")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_lock_write(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    try:
-        result = manager.write_lockfile()
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(
-        f"Wrote lockfile {result.lockfilePath} with {result.pluginCount} plugin entries"
-    )
-
-
-@plugins_lock.command(name="apply")
-@click.option("--check", is_flag=True, help="Preview changes only.")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_lock_apply(check: bool, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    try:
-        result = manager.apply_lockfile(check=check)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"Lockfile: {result.lockfilePath}")
-    if len(result.plannedChanges) == 0:
-        click.echo("No plugin changes needed.")
-    else:
-        click.echo("Planned changes:")
-        for item in result.plannedChanges:
-            click.echo(f"- {item}")
-    click.echo(f"Applied: {'yes' if result.applied else 'no'}")
-
-
-@plugins.command(name="restart")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_restart(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    payload = manager.restart_backend()
-    if json_output:
-        _emit_json_output(payload)
-        return
-    if payload["accepted"]:
-        click.echo("Restart request accepted.")
-        return
-    click.echo("Programmatic restart unavailable.")
-    if payload.get("command"):
-        click.echo(f"Run: {payload['command']}")
-    if payload.get("reason"):
-        click.echo(payload["reason"])
-
-
-@plugins.command(name="restart-required")
-@click.option("--json", "json_output", is_flag=True)
-def plugins_restart_required(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    status = manager.get_status_response()
-    restart_capability = manager.get_restart_capability()
-    pending_restart_ids = manager.get_pending_restart_backend_plugin_ids()
-    pending = [
-        plugin for plugin in status.plugins if plugin.state.value == "pending_restart"
-    ]
-    pending_ids_from_status = {plugin.pluginId for plugin in pending}
-    pending_ids_without_status = [
-        plugin_id
-        for plugin_id in pending_restart_ids
-        if plugin_id not in pending_ids_from_status
-    ]
-    if json_output:
-        _emit_json_output(
-            {
-                "pendingPlugins": [plugin.model_dump(mode="json") for plugin in pending],
-                "pendingPluginIds": pending_restart_ids,
-                "pendingPluginIdsWithoutStatus": pending_ids_without_status,
-                "restartCapability": restart_capability.model_dump(mode="json"),
-            }
-        )
-        return
-    if len(pending) == 0 and len(pending_ids_without_status) == 0:
-        click.echo("No pending restart plugins.")
-    else:
-        click.echo("Pending restart plugins:")
-        for plugin in pending:
-            click.echo(f"- {plugin.pluginId} ({plugin.version})")
-        for plugin_id in pending_ids_without_status:
-            click.echo(f"- {plugin_id} (status unavailable)")
-    if restart_capability.mode == "programmatic":
-        click.echo("Programmatic restart available: setta plugins restart")
-        return
-    if restart_capability.command:
-        click.echo(f"Manual restart command: {restart_capability.command}")
-    if restart_capability.reason:
-        click.echo(restart_capability.reason)
-
-
-@plugins.command(name="link")
-@click.argument("local_plugin_root", type=click.Path(path_type=Path))
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
-@click.option("--no-enable", is_flag=True)
-@click.option("--force", is_flag=True)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_link(
-    local_plugin_root: Path,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    no_enable: bool,
-    force: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.link_plugin(
-            local_plugin_root=str(local_plugin_root),
-            scope=resolved_scope,
-            enable=not no_enable,
-            force=force,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(
-        f"Linked {result.pluginId} from {local_plugin_root} into {result.sourceScopeLabel}"
-    )
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
-@plugins.command(name="unlink")
-@click.argument("plugin_id")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_unlink(
-    plugin_id: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    environment_scope: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
-    )
-    try:
-        result = manager.unlink_plugin(plugin_id=plugin_id, scope=resolved_scope)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"Unlinked {result.pluginId} from {result.removedFromScope.value} scope")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
 @click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
@@ -2732,10 +2341,33 @@ def plugins_unlink(
     help="Workspace root for code operations (defaults to CWD).",
 )
 @click.option(
+    "--profile",
+    default=None,
+    help="Select a runtime profile from <setta_home>/profiles/<name>.json.",
+)
+@click.option(
+    "--setta-home",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override setta home (defaults to SETTA_HOME or platform default).",
+)
+@click.option(
+    "--setta-files-root",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Explicit root for Setta state. Conflicts with --setta-files-location.",
+)
+@click.option(
     "--setta-files-location",
     type=click.Choice(["auto", "local", "global"], case_sensitive=False),
     default=None,
     help="Where setta_files live for the workspace (defaults to user config).",
+)
+@click.option(
+    "--runtime-root",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Override runtime root (defaults to <setta_files_root>/runtime).",
 )
 @click.option(
     "--log-level",
@@ -2753,7 +2385,11 @@ def cli(
     host: str,
     port: int | None,
     workspace: Path | None,
+    profile: str | None,
+    setta_home: Path | None,
+    setta_files_root: Path | None,
     setta_files_location: str | None,
+    runtime_root: Path | None,
     log_level: str | None,
     no_open: bool,
 ) -> None:
@@ -2762,34 +2398,53 @@ def cli(
     ctx.obj["host"] = host
     ctx.obj["port"] = port
     ctx.obj["workspace"] = workspace
+    ctx.obj["profile"] = profile
+    ctx.obj["setta_home"] = setta_home
+    ctx.obj["setta_files_root"] = setta_files_root
     ctx.obj["setta_files_location"] = setta_files_location
+    ctx.obj["runtime_root"] = runtime_root
     ctx.obj["log_level"] = log_level
     ctx.obj["no_open"] = no_open
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
 
     paths_override = None
-    if workspace is not None or setta_files_location is not None:
+    if (
+        workspace is not None
+        or profile is not None
+        or setta_home is not None
+        or setta_files_root is not None
+        or setta_files_location is not None
+        or runtime_root is not None
+    ):
         paths_override = _resolve_cli_paths(
             workspace=workspace,
+            setta_home=setta_home,
+            profile=profile,
+            setta_files_root=setta_files_root,
             setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
             validate=True,
         )
         _apply_paths_to_env(paths_override)
     if ctx.invoked_subcommand is None:
-        config_error = ensure_setta_user_config_exists()
-        if config_error:
-            logging.getLogger(__name__).warning(config_error)
-
-        logging.getLogger(__name__).info("Starting Setta")
-
         paths = paths_override or _resolve_cli_paths(
             workspace=workspace,
+            setta_home=setta_home,
+            profile=profile,
+            setta_files_root=setta_files_root,
             setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
             validate=True,
         )
         if paths_override is None:
             _apply_paths_to_env(paths)
+
+        config_error = ensure_setta_user_config_exists(setta_home=paths.setta_home)
+        if config_error:
+            logging.getLogger(__name__).warning(config_error)
+
+        logging.getLogger(__name__).info("Starting Setta")
 
         resolved_host = host
         resolved_port = _resolve_port(resolved_host, port)
@@ -2844,8 +2499,7 @@ def cli(
             timeout_graceful_shutdown=1,
         )
         server = uvicorn.Server(config)
-
-        server.run()
+        _run_uvicorn_server(server)
 
 
 cli.add_command(version)
@@ -2858,7 +2512,6 @@ cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)
 cli.add_command(api)
-cli.add_command(plugins)
 cli.add_command(stop)
 cli.add_command(connect)
 cli.add_command(connect, name="c")

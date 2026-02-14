@@ -44,6 +44,7 @@ setta_code/
 .dmypy.json
 backend/setta/frontend
 setta_files/
+setta_files_dev/
 tests.log
 backend.log
 chrome_mcp_backend.log

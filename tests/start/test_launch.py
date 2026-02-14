@@ -61,6 +61,33 @@ def test_launch_reports_invalid_local_setta_files_root(tmp_path: Path) -> None:
     assert "Local setta_files path is not a directory" in payload["error"]["message"]
 
 
+def test_launch_reports_invalid_runtime_root(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime_root_file = tmp_path / "runtime-root-file"
+    runtime_root_file.write_text("not a directory", encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        [
+            "--json",
+            "--workspace",
+            str(workspace),
+            "--setta-files-location",
+            "local",
+            "--runtime-root",
+            str(runtime_root_file),
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidRuntimeRoot"
+    assert "runtime root is not a directory" in payload["error"]["message"]
+
+
 def test_launch_reports_invalid_user_config(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
@@ -81,6 +108,22 @@ def test_launch_reports_invalid_user_config(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert payload["error"]["code"] == "InvalidSettaUserConfig"
     assert str(config_path) in payload["error"]["message"]
+
+
+def test_launch_reports_unknown_profile(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        ["--json", "--workspace", str(workspace), "--profile", "missing"],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "UnknownSettaProfile"
 
 
 def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
@@ -145,7 +188,9 @@ def test_launch_reuses_existing_session_with_global_state(
 
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     global_base = (setta_home / "setta_files").resolve(strict=False)
-    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
+    global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
+    )
     sessions_root = global_root / "runtime" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
 
@@ -280,6 +325,64 @@ def test_launch_workspace_session_reports_spawn_failures(
     assert "failed to spawn setta process" in content
 
 
+def test_launch_workspace_session_clears_inherited_auth_cookie_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("SETTA_AUTH_COOKIE_NAME", "stale_cookie")
+    captured_env: dict[str, str] = {}
+
+    def capture_spawn_env(*_args, **kwargs):
+        env = kwargs.get("env")
+        if isinstance(env, dict):
+            captured_env.update(env)
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", capture_spawn_env)
+
+    with pytest.raises(LaunchError):
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_files_location="local",
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert "SETTA_AUTH_COOKIE_NAME" not in captured_env
+
+
+def test_launch_workspace_session_reports_runtime_log_init_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime_root = tmp_path / "runtime_root"
+    runtime_root.mkdir(parents=True, exist_ok=True)
+
+    original_mkdir = Path.mkdir
+
+    # Simulate a filesystem failure when initializing runtime logs.
+    def fail_logs_mkdir(path: Path, *args, **kwargs):
+        if path == runtime_root / "logs":
+            raise OSError("permission denied")
+        return original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", fail_logs_mkdir)
+
+    with pytest.raises(LaunchError) as excinfo:
+        launch_workspace_session(
+            workspace_root=workspace,
+            setta_files_location="local",
+            runtime_root=runtime_root,
+            timeout_seconds=1.0,
+            poll_interval_seconds=0.1,
+        )
+
+    assert excinfo.value.code == "InvalidRuntimeRoot"
+    assert str(runtime_root / "logs") in str(excinfo.value)
+
+
 def test_launch_reuses_existing_session_with_global_location_options(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -291,7 +394,9 @@ def test_launch_reuses_existing_session_with_global_location_options(
 
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     global_base = (setta_home / "setta_files").resolve(strict=False)
-    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
+    global_root = build_files_root_from_base(global_base, workspace).resolve(
+        strict=False
+    )
     sessions_root = global_root / "runtime" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
 
@@ -358,7 +463,9 @@ def test_launch_rejects_conflicting_workspace_options(tmp_path: Path) -> None:
     assert "Conflicting --workspace" in result.output
 
 
-def test_launch_rejects_conflicting_setta_files_location_options(tmp_path: Path) -> None:
+def test_launch_rejects_conflicting_setta_files_location_options(
+    tmp_path: Path,
+) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
@@ -379,3 +486,85 @@ def test_launch_rejects_conflicting_setta_files_location_options(tmp_path: Path)
 
     assert result.exit_code != 0
     assert "Conflicting --setta-files-location" in result.output
+
+
+def test_launch_rejects_conflicting_setta_files_root_and_location(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    explicit_root = tmp_path / "explicit_state"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "--workspace",
+            str(workspace),
+            "--setta-files-root",
+            str(explicit_root),
+            "launch",
+            "--json",
+            "--setta-files-location",
+            "local",
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidSettaFilesConfig"
+
+
+def test_launch_reuses_existing_session_with_explicit_setta_files_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    if not _can_bind_localhost():
+        pytest.skip("Socket binds are not permitted in this test environment.")
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
+
+    explicit_root = tmp_path / "explicit_state"
+    sessions_root = explicit_root / "runtime" / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
+    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(("127.0.0.1", 0))
+    server_socket.listen(1)
+    port = server_socket.getsockname()[1]
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    session = registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=port,
+        pid=os.getpid(),
+    )
+
+    runner = CliRunner()
+    try:
+        result = runner.invoke(
+            launch,
+            [
+                "--json",
+                "--workspace",
+                str(workspace),
+                "--setta-files-root",
+                str(explicit_root),
+            ],
+        )
+    finally:
+        server_socket.close()
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    assert payload["startedNew"] is False
+    assert payload["sessionId"] == session.id
+    assert payload["settaFilesLocation"] is None
+    assert payload["settaFilesRoot"] == str(explicit_root.resolve(strict=False))
