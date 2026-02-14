@@ -206,3 +206,25 @@ def test_plugin_config_schema_validation_and_list_descriptors(
     assert plugin_entry.content.hasPrompts is True
     assert plugin_entry.config.hasSchema is True
     assert isinstance(plugin_entry.config.schemaJson, dict)
+
+
+def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:
+    # `setta plugins init` should output validate/build/publish-ready starter files.
+    manager = _make_manager(tmp_path)
+    plugin_root = manager.init_plugin_template(
+        plugin_id="setta-init-fixture",
+        template="full",
+        out_dir=str(tmp_path),
+    )
+
+    assert (plugin_root / "setta.plugin.json").exists()
+    assert (plugin_root / "pyproject.toml").exists()
+    assert (plugin_root / "README.md").exists()
+    assert (plugin_root / ".github" / "workflows" / "release.yml").exists()
+
+    frontend_entrypoint = plugin_root / "frontend" / "dist" / "index.js"
+    assert frontend_entrypoint.exists()
+    entrypoint_text = frontend_entrypoint.read_text(encoding="utf-8")
+    assert "export const apiVersion = 1;" in entrypoint_text
+
+    manager.validate_plugin_folder(plugin_root)
