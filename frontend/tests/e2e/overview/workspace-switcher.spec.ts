@@ -27,6 +27,21 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function createRouteGate(): { wait: Promise<void>; release: () => void } {
+  let gateRelease: (() => void) | null = null;
+  const wait = new Promise<void>((resolve) => {
+    gateRelease = resolve;
+  });
+  return {
+    wait,
+    release: () => {
+      if (gateRelease) {
+        gateRelease();
+      }
+    },
+  };
+}
+
 test("workspace switcher launches a session and persists history", async ({
   page,
 }) => {
@@ -321,6 +336,7 @@ test("workspace launch does not dedupe in-flight requests that only differ by pr
 }) => {
   await ensureAppReady(page);
 
+  const responseGate = createRouteGate();
   const capturedLaunchBodies: Array<Record<string, unknown>> = [];
   await page.route("**/api/launch", async (route, request) => {
     const body = request.postDataJSON();
@@ -329,7 +345,7 @@ test("workspace launch does not dedupe in-flight requests that only differ by pr
     } else {
       capturedLaunchBodies.push({});
     }
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await responseGate.wait;
     try {
       await route.fulfill({
         status: 200,
@@ -393,6 +409,7 @@ test("workspace launch does not dedupe in-flight requests that only differ by pr
   });
 
   await expect.poll(() => capturedLaunchBodies.length).toBe(2);
+  responseGate.release();
   expect(capturedLaunchBodies[0]).toMatchObject(firstRequest);
   expect(capturedLaunchBodies[1]).toMatchObject(secondRequest);
   await expect(
@@ -405,6 +422,7 @@ test("workspace launch dedupes in-flight requests when optionals differ only by 
 }) => {
   await ensureAppReady(page);
 
+  const responseGate = createRouteGate();
   const capturedLaunchBodies: Array<Record<string, unknown>> = [];
   await page.route("**/api/launch", async (route, request) => {
     const body = request.postDataJSON();
@@ -413,7 +431,7 @@ test("workspace launch dedupes in-flight requests when optionals differ only by 
     } else {
       capturedLaunchBodies.push({});
     }
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await responseGate.wait;
     try {
       await route.fulfill({
         status: 200,
@@ -476,6 +494,7 @@ test("workspace launch dedupes in-flight requests when optionals differ only by 
   });
 
   await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+  responseGate.release();
   await expect(
     page.getByText("Intentional failure for null-vs-missing dedupe test."),
   ).toBeVisible();
@@ -486,6 +505,7 @@ test("workspace launch does not dedupe when unknown future request fields differ
 }) => {
   await ensureAppReady(page);
 
+  const responseGate = createRouteGate();
   const capturedLaunchBodies: Array<Record<string, unknown>> = [];
   await page.route("**/api/launch", async (route, request) => {
     const body = request.postDataJSON();
@@ -494,7 +514,7 @@ test("workspace launch does not dedupe when unknown future request fields differ
     } else {
       capturedLaunchBodies.push({});
     }
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await responseGate.wait;
     try {
       await route.fulfill({
         status: 200,
@@ -552,6 +572,7 @@ test("workspace launch does not dedupe when unknown future request fields differ
   });
 
   await expect.poll(() => capturedLaunchBodies.length).toBe(2);
+  responseGate.release();
   expect(capturedLaunchBodies[0]).toMatchObject(firstRequest);
   expect(capturedLaunchBodies[1]).toMatchObject(secondRequest);
   await expect(

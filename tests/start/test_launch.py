@@ -88,6 +88,30 @@ def test_launch_reports_invalid_runtime_root(tmp_path: Path) -> None:
     assert "runtime root is not a directory" in payload["error"]["message"]
 
 
+def test_launch_reports_invalid_setta_home(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    invalid_setta_home = tmp_path / "custom-home"
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        [
+            "--json",
+            "--workspace",
+            str(workspace),
+            "--setta-home",
+            str(invalid_setta_home),
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidSettaHome"
+    assert "must end with one of" in payload["error"]["message"]
+
+
 def test_launch_rejects_runtime_root_matching_workspace(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()

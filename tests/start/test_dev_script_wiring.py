@@ -163,6 +163,15 @@ def test_backend_start_uses_shared_setta_path_flag_parser() -> None:
     assert "setta_path_flags_try_parse" in backend_start
 
 
+def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
+    repo_root = _repo_root()
+    reset_script = (repo_root / "scripts" / "reset-setta-state.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "scripts/lib/setta_path_flags.sh" in reset_script
+    assert "setta_path_flags_try_parse" in reset_script
+
+
 def test_ai_sh_reports_missing_value_for_profile(tmp_path: Path) -> None:
     sandbox_root = _build_ai_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
@@ -915,6 +924,26 @@ def test_aireset_uses_existing_path_env_before_defaults(tmp_path: Path) -> None:
     assert "SETTA_FILES_LOCATION=" not in ai_env
     assert "SETTA_PROFILE=built" in ai_env
     assert f"SETTA_RUNTIME_ROOT={tmp_path / 'previous_runtime'}" in ai_env
+
+
+def test_aireset_always_passes_worktree_workspace_to_reset(tmp_path: Path) -> None:
+    sandbox_root = _build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = _script_env(tmp_path / "unused-bin", home_dir)
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "aireset.sh"), "--reload"],
+        cwd=sandbox_root,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    reset_args = (sandbox_root / "reset_args.txt").read_text(encoding="utf-8")
+    assert f"--workspace {sandbox_root}" in reset_args
 
 
 def test_aireset_setta_files_location_arg_unsets_setta_files_root(

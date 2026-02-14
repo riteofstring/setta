@@ -241,6 +241,24 @@ class TestLaunchRoutes:
             assert response.error.code == "InvalidRuntimeRoot"
             assert "runtime root is not a directory" in response.error.message
 
+    def test_launch_returns_structured_error_for_invalid_setta_home(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            invalid_setta_home = tmp_path / "custom-home"
+
+            response = route_launch(
+                LaunchRequest(
+                    workspaceRoot=str(workspace_root),
+                    settaHome=str(invalid_setta_home),
+                )
+            )
+            assert response.ok is False
+            assert response.error is not None
+            assert response.error.code == "InvalidSettaHome"
+            assert "must end with one of" in response.error.message
+
     def test_launch_returns_structured_error_for_runtime_root_matching_workspace(
         self,
     ) -> None:

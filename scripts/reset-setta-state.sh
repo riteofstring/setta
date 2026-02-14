@@ -3,6 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SETTA_PATH_FLAGS_HELPER="${ROOT_DIR}/scripts/lib/setta_path_flags.sh"
+
+if [[ ! -f "${SETTA_PATH_FLAGS_HELPER}" ]]; then
+  echo "Missing Setta path flags helper: ${SETTA_PATH_FLAGS_HELPER}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${SETTA_PATH_FLAGS_HELPER}"
 
 usage() {
   cat <<'EOF'
@@ -14,20 +22,6 @@ deletes only the canonical setta_files_root target.
 Safety guardrails block dangerous or non-canonical targets.
 Detached runtime roots are rejected (no deletion occurs).
 EOF
-}
-
-require_option_value() {
-  local flag="$1"
-  local arg_count="$2"
-  local option_value="${3-}"
-  if [[ "${arg_count}" -lt 2 ]]; then
-    echo "Missing value for ${flag}" >&2
-    exit 1
-  fi
-  if [[ "${option_value}" == "" || "${option_value}" == -* ]]; then
-    echo "Missing value for ${flag}" >&2
-    exit 1
-  fi
 }
 
 path_depth() {
@@ -42,21 +36,18 @@ path_depth() {
 }
 
 workspace_override=""
-profile_override=""
-setta_home_override=""
-setta_files_root_override=""
-setta_files_location_override=""
-runtime_root_override=""
 repo_root_resolved="$(cd "${ROOT_DIR}" && pwd -P)"
 home_resolved=""
 if [[ -n "${HOME:-}" && -d "${HOME}" ]]; then
   home_resolved="$(cd "${HOME}" && pwd -P)"
 fi
 
+setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workspace)
-      require_option_value "$1" "$#" "${2-}"
+      setta_require_option_value "$1" "$#" "${2-}"
       workspace_override="$2"
       shift 2
       ;;
@@ -68,76 +59,15 @@ while [[ $# -gt 0 ]]; do
       fi
       shift
       ;;
-    --profile)
-      require_option_value "$1" "$#" "${2-}"
-      profile_override="$2"
-      shift 2
-      ;;
-    --profile=*)
-      profile_override="${1#--profile=}"
-      if [[ -z "${profile_override}" ]]; then
-        echo "Missing value for --profile" >&2
-        exit 1
-      fi
-      shift
-      ;;
-    --setta-home)
-      require_option_value "$1" "$#" "${2-}"
-      setta_home_override="$2"
-      shift 2
-      ;;
-    --setta-home=*)
-      setta_home_override="${1#--setta-home=}"
-      if [[ -z "${setta_home_override}" ]]; then
-        echo "Missing value for --setta-home" >&2
-        exit 1
-      fi
-      shift
-      ;;
-    --setta-files-root)
-      require_option_value "$1" "$#" "${2-}"
-      setta_files_root_override="$2"
-      shift 2
-      ;;
-    --setta-files-root=*)
-      setta_files_root_override="${1#--setta-files-root=}"
-      if [[ -z "${setta_files_root_override}" ]]; then
-        echo "Missing value for --setta-files-root" >&2
-        exit 1
-      fi
-      shift
-      ;;
-    --setta-files-location)
-      require_option_value "$1" "$#" "${2-}"
-      setta_files_location_override="$2"
-      shift 2
-      ;;
-    --setta-files-location=*)
-      setta_files_location_override="${1#--setta-files-location=}"
-      if [[ -z "${setta_files_location_override}" ]]; then
-        echo "Missing value for --setta-files-location" >&2
-        exit 1
-      fi
-      shift
-      ;;
-    --runtime-root)
-      require_option_value "$1" "$#" "${2-}"
-      runtime_root_override="$2"
-      shift 2
-      ;;
-    --runtime-root=*)
-      runtime_root_override="${1#--runtime-root=}"
-      if [[ -z "${runtime_root_override}" ]]; then
-        echo "Missing value for --runtime-root" >&2
-        exit 1
-      fi
-      shift
-      ;;
     -h|--help)
       usage
       exit 0
       ;;
     *)
+      if setta_path_flags_try_parse "$@"; then
+        shift "${SETTA_PATH_FLAGS_CONSUMED}"
+        continue
+      fi
       echo "Unknown argument: $1" >&2
       usage >&2
       exit 1
@@ -145,30 +75,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "${setta_files_root_override}" && -n "${setta_files_location_override}" ]]; then
-  echo "Cannot pass both --setta-files-root and --setta-files-location." >&2
-  exit 1
-fi
+setta_path_flags_validate
 
 if [[ -n "${workspace_override}" ]]; then
   export SETTA_WORKSPACE_ROOT="${workspace_override}"
 fi
-if [[ -n "${profile_override}" ]]; then
-  export SETTA_PROFILE="${profile_override}"
+if [[ -n "${SETTA_PROFILE_OVERRIDE}" ]]; then
+  export SETTA_PROFILE="${SETTA_PROFILE_OVERRIDE}"
 fi
-if [[ -n "${setta_home_override}" ]]; then
-  export SETTA_HOME="${setta_home_override}"
+if [[ -n "${SETTA_HOME_OVERRIDE}" ]]; then
+  export SETTA_HOME="${SETTA_HOME_OVERRIDE}"
 fi
-if [[ -n "${setta_files_root_override}" ]]; then
-  export SETTA_FILES_ROOT="${setta_files_root_override}"
+if [[ -n "${SETTA_FILES_ROOT_OVERRIDE}" ]]; then
+  export SETTA_FILES_ROOT="${SETTA_FILES_ROOT_OVERRIDE}"
   unset SETTA_FILES_LOCATION
 fi
-if [[ -n "${setta_files_location_override}" ]]; then
-  export SETTA_FILES_LOCATION="${setta_files_location_override}"
+if [[ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]]; then
+  export SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION_OVERRIDE}"
   unset SETTA_FILES_ROOT
 fi
-if [[ -n "${runtime_root_override}" ]]; then
-  export SETTA_RUNTIME_ROOT="${runtime_root_override}"
+if [[ -n "${SETTA_RUNTIME_ROOT_OVERRIDE}" ]]; then
+  export SETTA_RUNTIME_ROOT="${SETTA_RUNTIME_ROOT_OVERRIDE}"
 fi
 
 resolved_paths="$(

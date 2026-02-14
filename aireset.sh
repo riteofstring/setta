@@ -51,10 +51,11 @@ if [[ -n "${SETTA_FILES_LOCATION_OVERRIDE}" && -z "${SETTA_FILES_ROOT_OVERRIDE}"
   unset SETTA_FILES_LOCATION
 fi
 
+RESET_WORKSPACE_ARGS=(--workspace "${WORKTREE_ROOT}")
 if (( ${#RESET_ARGS[@]} > 0 )); then
-  "${SCRIPT_DIR}/scripts/reset-setta-state.sh" "${RESET_ARGS[@]}"
+  "${SCRIPT_DIR}/scripts/reset-setta-state.sh" "${RESET_WORKSPACE_ARGS[@]}" "${RESET_ARGS[@]}"
 else
-  "${SCRIPT_DIR}/scripts/reset-setta-state.sh"
+  "${SCRIPT_DIR}/scripts/reset-setta-state.sh" "${RESET_WORKSPACE_ARGS[@]}"
 fi
 
 if (( ${#AI_ARGS[@]} > 0 )); then
