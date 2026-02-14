@@ -209,9 +209,7 @@ class _WorkerState:
                 continue
             raw_methods = route.methods or set()
             methods = sorted(
-                method
-                for method in raw_methods
-                if method not in {"HEAD", "OPTIONS"}
+                method for method in raw_methods if method not in {"HEAD", "OPTIONS"}
             )
             if len(methods) == 0:
                 continue

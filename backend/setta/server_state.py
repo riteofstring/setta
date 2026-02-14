@@ -501,6 +501,9 @@ class SettaFastAPIState:
                 self.dbe,
                 self.wmh_frontend_sender,
                 share_mode=self.deployment_mode,
+                plugin_external_agent_adapters=(
+                    self.plugin_manager.get_backend_external_agent_adapters()
+                ),
                 mcp_client=self.mcp_client,
             )
             self.run_chain_runner = RunChainRunner(

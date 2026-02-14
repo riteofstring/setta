@@ -428,7 +428,17 @@ async def route_get_llm_response(
             raise HTTPException(
                 status_code=500, detail="External agent config not found"
             )
-        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
+        plugin_external_agent_adapters = []
+        get_plugin_external_agent_adapters = getattr(
+            runner, "get_plugin_external_agent_adapters", None
+        )
+        if callable(get_plugin_external_agent_adapters):
+            plugin_external_agent_adapters = get_plugin_external_agent_adapters()
+        status = build_external_agent_preflight_status(
+            ctx.state.dbe,
+            external_config,
+            plugin_external_agent_adapters=plugin_external_agent_adapters,
+        )
         if not status.available:
             issues = "; ".join(status.issues) if status.issues else "preflight failed"
             raise HTTPException(

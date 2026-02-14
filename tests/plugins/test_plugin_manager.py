@@ -206,6 +206,7 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
         "backend",
         "backend-language-server",
         "backend-language-server-e2e",
+        "backend-external-agent",
         "frontend",
         "content",
         "full",
@@ -869,6 +870,114 @@ def test_load_backend_plugins_registers_fixture_language_server(
     assert registration.settings_key == "typescriptLanguageServer"
 
 
+def test_load_backend_plugins_registers_fixture_external_agent_adapter(
+    tmp_path: Path,
+) -> None:
+    # Backend fixture plugins should be able to register external agent adapters.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-external-agent",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-external-agent"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.active
+    assert len(backend_entries[0].registeredExternalAgentAdapters) == 1
+    status_registration = backend_entries[0].registeredExternalAgentAdapters[0]
+    assert (
+        status_registration.adapterId
+        == "setta-fixture-backend-external-agent:fixture-agent"
+    )
+    assert status_registration.pluginId == "setta-fixture-backend-external-agent"
+    assert status_registration.name == "Fixture External Agent"
+    assert status_registration.runModes == ["sdk"]
+    assert status_registration.command == sys.executable
+    assert status_registration.defaultModel == "fixture-model"
+    assert status_registration.envVarWhitelist == ["FIXTURE_EXTERNAL_AGENT_TOKEN"]
+
+    registrations = manager.get_backend_external_agent_adapters()
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert (
+        registration.adapterId == "setta-fixture-backend-external-agent:fixture-agent"
+    )
+    assert registration.pluginId == "setta-fixture-backend-external-agent"
+    assert registration.runModes == ["sdk"]
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_mode_policy_blocks_backend_external_agent_registration(
+    tmp_path: Path,
+    server_mode: Literal["share", "app"],
+) -> None:
+    # Share/App should block registerExternalAgentAdapter and surface deterministic status.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-external-agent",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    list_response = manager.get_list_response()
+    list_entries = [
+        entry
+        for entry in list_response.plugins
+        if entry.pluginId == "setta-fixture-backend-external-agent"
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].effectiveCapabilities == []
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-external-agent"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    status_entry = status_entries[0]
+    assert status_entry.state == PluginRuntimeState.active
+    assert status_entry.requestedCapabilities == ["registerExternalAgentAdapter"]
+    assert status_entry.effectiveCapabilities == []
+    assert status_entry.registeredExternalAgentAdapters == []
+    assert len(status_entry.blockedCapabilities) == 1
+    assert (
+        status_entry.blockedCapabilities[0].capability
+        == "registerExternalAgentAdapter"
+    )
+    assert (
+        status_entry.blockedCapabilities[0].reason
+        == BlockedCapabilityReason.mode_policy
+    )
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    loaded_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-external-agent"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(loaded_entries) == 1
+    assert loaded_entries[0].state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_CAPABILITY_DENIED" for error in loaded_entries[0].errors
+    )
+
+
 def test_backend_worker_processes_stay_alive_until_shutdown(tmp_path: Path) -> None:
     # Backend workers should remain running after load and stop on explicit shutdown.
     manager = _make_manager(tmp_path)
@@ -994,6 +1103,48 @@ def test_backend_language_server_registration_rejects_invalid_provider_payload(
     assert any(
         error.code == "PLUGIN_BACKEND_REGISTER_FAILED"
         and "args must be an array of strings" in error.message
+        for error in backend_entries[0].errors
+    )
+
+
+def test_backend_external_agent_registration_rejects_invalid_adapter_payload(
+    tmp_path: Path,
+) -> None:
+    # External-agent adapter registration should fail fast on malformed payloads.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-external-agent",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_external_agent_adapter(\n"
+        "        {\n"
+        "            'id': 'fixture-agent',\n"
+        "            'name': 'Fixture External Agent',\n"
+        "            'runModes': 'sdk',\n"
+        "            'command': 'python',\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-external-agent"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+        and "runModes array" in error.message
         for error in backend_entries[0].errors
     )
 

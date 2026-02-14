@@ -49,6 +49,7 @@ from setta.plugins.models import (
     PluginLockEntry,
     PluginLockWriteResponse,
     PluginManifest,
+    PluginRegisteredExternalAgentAdapter,
     PluginRegisteredLanguageServer,
     PluginRestartCapability,
     PluginRollbackResponse,
@@ -66,6 +67,7 @@ from setta.plugins.models import (
     normalize_scope,
     scope_label,
 )
+from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.section_impls import CodeLanguage
 
 if TYPE_CHECKING:
@@ -311,7 +313,12 @@ class PluginManager:
         self._backend_worker_next_request_ids: dict[str, int] = {}
         self._backend_worker_request_state_lock = threading.Lock()
         self._backend_registered_mcp_tools: dict[str, list[Callable[..., Any]]] = {}
-        self._backend_external_agent_adapters: dict[str, list[Any]] = {}
+        self._backend_external_agent_adapters: dict[
+            str, list[PluginRegisteredExternalAgentAdapter]
+        ] = {}
+        self._backend_external_agent_adapter_by_id: dict[
+            str, PluginRegisteredExternalAgentAdapter
+        ] = {}
         self._backend_language_servers: dict[str, list[RegisteredLanguageServer]] = {}
         self._backend_language_server_by_language: dict[
             CodeLanguage, RegisteredLanguageServer
@@ -341,6 +348,7 @@ class PluginManager:
         self._backend_worker_next_request_ids = {}
         self._backend_registered_mcp_tools = {}
         self._backend_external_agent_adapters = {}
+        self._backend_external_agent_adapter_by_id = {}
         self._backend_language_servers = {}
         self._backend_language_server_by_language = {}
         self._backend_codegen_targets = {}
@@ -494,6 +502,9 @@ class PluginManager:
                     registeredLanguageServers=self._serialize_registered_language_servers(
                         entry.plugin_id
                     ),
+                    registeredExternalAgentAdapters=self._serialize_registered_external_agent_adapters(
+                        entry.plugin_id
+                    ),
                     enablementSource=entry.enablement_source,
                     restartRequired=entry.restart_required,
                     errors=entry.errors,
@@ -535,6 +546,24 @@ class PluginManager:
                 registration.plugin_id or "",
                 registration.name,
             ),
+        )
+
+    def _serialize_registered_external_agent_adapters(
+        self,
+        plugin_id: str,
+    ) -> list[PluginRegisteredExternalAgentAdapter]:
+        registrations = self._backend_external_agent_adapters.get(plugin_id, [])
+        return sorted(
+            registrations,
+            key=lambda registration: registration.adapterId,
+        )
+
+    def get_backend_external_agent_adapters(
+        self,
+    ) -> list[PluginRegisteredExternalAgentAdapter]:
+        return sorted(
+            self._backend_external_agent_adapter_by_id.values(),
+            key=lambda registration: registration.adapterId,
         )
 
     def get_restart_capability(self) -> PluginRestartCapability:
@@ -1821,9 +1850,190 @@ class PluginManager:
             "registerExternalAgentAdapter",
             api_name="register_external_agent_adapter",
         )
+        registration = self._build_backend_external_agent_adapter_registration(
+            entry=entry,
+            adapter=adapter,
+        )
+        existing = self._backend_external_agent_adapter_by_id.get(
+            registration.adapterId
+        )
+        if existing is not None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Duplicate external agent adapter registration for "
+                    f"{registration.adapterId}. Existing plugin: "
+                    f"{existing.pluginId}, new plugin: {registration.pluginId}."
+                ),
+            )
         if entry.plugin_id not in self._backend_external_agent_adapters:
             self._backend_external_agent_adapters[entry.plugin_id] = []
-        self._backend_external_agent_adapters[entry.plugin_id].append(adapter)
+        self._backend_external_agent_adapters[entry.plugin_id].append(registration)
+        self._backend_external_agent_adapter_by_id[registration.adapterId] = (
+            registration
+        )
+
+    def _build_backend_external_agent_adapter_registration(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        adapter: Any,
+    ) -> PluginRegisteredExternalAgentAdapter:
+        if not isinstance(adapter, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin external agent adapter registration must be an object "
+                    "with id/name/runModes/command fields."
+                ),
+            )
+        allowed_keys = {
+            "id",
+            "name",
+            "runModes",
+            "command",
+            "args",
+            "envVarWhitelist",
+            "defaultModel",
+        }
+        unknown_keys = sorted(set(adapter.keys()) - allowed_keys)
+        if unknown_keys:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin external agent adapter registration has unsupported keys: "
+                    f"{', '.join(unknown_keys)}"
+                ),
+            )
+        raw_local_id = adapter.get("id")
+        if not isinstance(raw_local_id, str) or raw_local_id.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin external agent adapter registration missing id.",
+            )
+        local_id = raw_local_id.strip()
+        adapter_id = f"{entry.plugin_id}:{local_id}"
+
+        raw_name = adapter.get("name")
+        if not isinstance(raw_name, str) or raw_name.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin external agent adapter registration missing name.",
+            )
+        name = raw_name.strip()
+
+        raw_run_modes = adapter.get("runModes")
+        if not isinstance(raw_run_modes, list) or len(raw_run_modes) == 0:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin external agent adapter registration must include a non-empty "
+                    "runModes array."
+                ),
+            )
+        run_modes: list[str] = []
+        seen_run_modes: set[str] = set()
+        for raw_run_mode in raw_run_modes:
+            if not isinstance(raw_run_mode, str):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin external agent adapter runModes entries must be strings.",
+                )
+            normalized_run_mode = raw_run_mode.strip()
+            if normalized_run_mode == "":
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin external agent adapter runModes cannot contain empty values.",
+                )
+            try:
+                ExternalAgentRunMode(normalized_run_mode)
+            except ValueError as exc:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        "Plugin external agent adapter runMode is not supported: "
+                        f"{normalized_run_mode!r}."
+                    ),
+                ) from exc
+            if normalized_run_mode in seen_run_modes:
+                continue
+            seen_run_modes.add(normalized_run_mode)
+            run_modes.append(normalized_run_mode)
+
+        raw_command = adapter.get("command")
+        if not isinstance(raw_command, str) or raw_command.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin external agent adapter registration missing command.",
+            )
+        command = raw_command.strip()
+
+        raw_args = adapter.get("args")
+        args: list[str] = []
+        if raw_args is not None:
+            if not isinstance(raw_args, list):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    "Plugin external agent adapter args must be an array of strings.",
+                )
+            for index, raw_arg in enumerate(raw_args):
+                if not isinstance(raw_arg, str):
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_REGISTER_FAILED",
+                        (
+                            "Plugin external agent adapter args must be strings. "
+                            f"Invalid entry index={index}."
+                        ),
+                    )
+                args.append(raw_arg)
+
+        raw_env_whitelist = adapter.get("envVarWhitelist")
+        env_var_whitelist: list[str] = []
+        if raw_env_whitelist is not None:
+            if not isinstance(raw_env_whitelist, list):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        "Plugin external agent adapter envVarWhitelist must be an "
+                        "array of strings."
+                    ),
+                )
+            for index, raw_env_name in enumerate(raw_env_whitelist):
+                if not isinstance(raw_env_name, str):
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_REGISTER_FAILED",
+                        (
+                            "Plugin external agent adapter envVarWhitelist entries must "
+                            f"be strings (index={index})."
+                        ),
+                    )
+                normalized_env_name = raw_env_name.strip()
+                if normalized_env_name == "":
+                    continue
+                env_var_whitelist.append(normalized_env_name)
+
+        raw_default_model = adapter.get("defaultModel")
+        default_model: str | None
+        if raw_default_model is None:
+            default_model = None
+        elif isinstance(raw_default_model, str) and raw_default_model.strip() != "":
+            default_model = raw_default_model.strip()
+        else:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin external agent adapter defaultModel must be a non-empty string.",
+            )
+
+        return PluginRegisteredExternalAgentAdapter(
+            adapterId=adapter_id,
+            pluginId=entry.plugin_id,
+            name=name,
+            runModes=sorted(run_modes),
+            command=command,
+            args=args,
+            envVarWhitelist=sorted(set(env_var_whitelist)),
+            defaultModel=default_model,
+        )
 
     def _register_backend_language_server(
         self,

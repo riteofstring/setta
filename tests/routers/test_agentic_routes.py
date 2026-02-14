@@ -16,6 +16,7 @@ from setta.agentic.external_agent_defaults import (
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
+from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.routers.agentic import (
     CreateAgentProfileRequest,
     CreateExternalAgentConfigRequest,
@@ -314,6 +315,107 @@ class TestAgenticRoutes:
                         GetExternalAgentConfigRequest(configId=updated.id),
                         ctx,
                     )
+
+    async def test_external_agent_config_supports_plugin_adapter_defaults(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+            class _Runner:
+                disabled = False
+
+                def get_plugin_external_agent_adapters(
+                    self,
+                ) -> list[PluginRegisteredExternalAgentAdapter]:
+                    return [
+                        PluginRegisteredExternalAgentAdapter(
+                            adapterId="acme-plugin:openhands",
+                            pluginId="acme-plugin",
+                            name="OpenHands",
+                            runModes=["sdk"],
+                            command="openhands",
+                            args=[],
+                            envVarWhitelist=["OPENHANDS_API_KEY"],
+                            defaultModel="openhands/default",
+                        )
+                    ]
+
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+                external_agent_runner=_Runner(),
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="OpenHands",
+                        toolType=ExternalAgentToolType.plugin,
+                        pluginAdapterId="acme-plugin:openhands",
+                        runMode=ExternalAgentRunMode.sdk,
+                    ),
+                    ctx,
+                )
+
+                assert created.toolType == ExternalAgentToolType.plugin
+                assert created.pluginAdapterId == "acme-plugin:openhands"
+                assert created.defaultModel == "openhands/default"
+                assert created.envVarWhitelist == ["OPENHANDS_API_KEY"]
+
+                updated = await route_update_external_agent_config(
+                    UpdateExternalAgentConfigRequest(
+                        config=created.model_copy(
+                            update={
+                                "name": "OpenHands v2",
+                                "defaultModel": None,
+                                "envVarWhitelist": [],
+                            }
+                        )
+                    ),
+                    ctx,
+                )
+                assert updated.name == "OpenHands v2"
+                assert updated.defaultModel == "openhands/default"
+                assert updated.envVarWhitelist == ["OPENHANDS_API_KEY"]
+
+    async def test_external_agent_config_rejects_unknown_plugin_adapter(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+            class _Runner:
+                disabled = False
+
+                def get_plugin_external_agent_adapters(
+                    self,
+                ) -> list[PluginRegisteredExternalAgentAdapter]:
+                    return []
+
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+                external_agent_runner=_Runner(),
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc_info:
+                    await route_create_external_agent_config(
+                        CreateExternalAgentConfigRequest(
+                            name="Missing plugin adapter",
+                            toolType=ExternalAgentToolType.plugin,
+                            pluginAdapterId="acme-plugin:missing",
+                            runMode=ExternalAgentRunMode.sdk,
+                        ),
+                        ctx,
+                    )
+                assert exc_info.value.status_code == 400
+                assert "adapter not found" in str(exc_info.value.detail)
 
     async def test_external_agent_config_initializes_claude_settings_file(self) -> None:
         with TemporaryDirectory() as tmpdir:

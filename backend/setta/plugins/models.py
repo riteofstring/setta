@@ -145,6 +145,19 @@ class PluginRegisteredLanguageServer(BaseModel):
     settingsKey: str | None = None
 
 
+class PluginRegisteredExternalAgentAdapter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    adapterId: str
+    pluginId: str
+    name: str
+    runModes: list[str] = Field(default_factory=list)
+    command: str
+    args: list[str] = Field(default_factory=list)
+    envVarWhitelist: list[str] = Field(default_factory=list)
+    defaultModel: str | None = None
+
+
 class PluginRestartCapability(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -219,6 +232,9 @@ class PluginStatusEntry(BaseModel):
     effectiveCapabilities: list[str]
     blockedCapabilities: list[PluginBlockedCapability]
     registeredLanguageServers: list[PluginRegisteredLanguageServer] = Field(
+        default_factory=list
+    )
+    registeredExternalAgentAdapters: list[PluginRegisteredExternalAgentAdapter] = Field(
         default_factory=list
     )
     enablementSource: PluginEnablementSource | None = None
