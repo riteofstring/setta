@@ -8,10 +8,26 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 ./ai.sh
 ```
 
+Default dev paths:
+- `SETTA_HOME=~/.setta-development`
+- `SETTA_FILES_ROOT=<worktree>/dev_setta_files`
+
+Start with explicit runtime profile:
+
+```bash
+./ai.sh --profile dev
+```
+
 Resets state + starts:
 
 ```bash
 ./aireset.sh
+```
+
+Reset/start with explicit profile:
+
+```bash
+./aireset.sh --profile dev
 ```
 
 ## Tell the assistant what to use

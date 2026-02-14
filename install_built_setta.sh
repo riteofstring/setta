@@ -68,3 +68,6 @@ uv pip install --python "$install_root_abs/bin/python" --force-reinstall "$wheel
 
 echo "Installed built Setta into: $install_root_abs"
 echo "Activate with: source ./activate_built_setta.sh --install-root \"$install_root_abs\""
+echo "After activation, built Setta defaults to:"
+echo "  SETTA_HOME=~/.setta"
+echo "  SETTA_FILES_LOCATION=local (workspace ./setta_files)"

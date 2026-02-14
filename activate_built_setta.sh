@@ -68,3 +68,16 @@ fi
 
 # shellcheck disable=SC1090
 source "$install_root/bin/activate"
+
+if [[ -n "${HOME:-}" ]]; then
+  export SETTA_HOME="${HOME}/.setta"
+fi
+export SETTA_FILES_LOCATION="local"
+unset SETTA_PROFILE
+unset SETTA_FILES_ROOT
+unset SETTA_RUNTIME_ROOT
+
+echo "Built Setta environment activated."
+echo "Built defaults configured:"
+echo "  SETTA_HOME=${SETTA_HOME:-<unchanged>}"
+echo "  SETTA_FILES_LOCATION=local (workspace ./setta_files)"
