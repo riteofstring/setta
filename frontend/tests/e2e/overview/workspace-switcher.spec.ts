@@ -23,6 +23,25 @@ async function pickFreeLocalPort(): Promise<number> {
   });
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function createRouteGate(): { wait: Promise<void>; release: () => void } {
+  let gateRelease: (() => void) | null = null;
+  const wait = new Promise<void>((resolve) => {
+    gateRelease = resolve;
+  });
+  return {
+    wait,
+    release: () => {
+      if (gateRelease) {
+        gateRelease();
+      }
+    },
+  };
+}
+
 test("workspace switcher launches a session and persists history", async ({
   page,
 }) => {
@@ -310,6 +329,303 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
   >;
   expect(requestBody.workspaceRoot).toBe("/tmp/fresh");
   expect(page.url()).not.toContain("pl=");
+});
+
+test("workspace launch does not dedupe in-flight requests that only differ by profile and roots", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  const responseGate = createRouteGate();
+  const capturedLaunchBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/launch", async (route, request) => {
+    const body = request.postDataJSON();
+    if (isObjectRecord(body)) {
+      capturedLaunchBodies.push(body);
+    } else {
+      capturedLaunchBodies.push({});
+    }
+    await responseGate.wait;
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: { message: "Intentional failure for dedupe regression test." },
+        }),
+      });
+    } catch {
+      // Ignore requests that were cancelled during navigation churn.
+    }
+  });
+
+  const firstRequest = {
+    workspaceRoot: "/tmp/workspace",
+    settaFilesLocation: "auto",
+    profile: "dev-a",
+    settaHome: "/tmp/setta-home-a",
+    settaFilesRoot: "/tmp/state-a",
+    runtimeRoot: "/tmp/runtime-a",
+  };
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, firstRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+
+  const secondRequest = {
+    workspaceRoot: "/tmp/workspace",
+    settaFilesLocation: "auto",
+    profile: "dev-b",
+    settaHome: "/tmp/setta-home-b",
+    settaFilesRoot: "/tmp/state-b",
+    runtimeRoot: "/tmp/runtime-b",
+  };
+  await page.goto(new URL("/", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, secondRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect.poll(() => capturedLaunchBodies.length).toBe(2);
+  responseGate.release();
+  expect(capturedLaunchBodies[0]).toMatchObject(firstRequest);
+  expect(capturedLaunchBodies[1]).toMatchObject(secondRequest);
+  await expect(
+    page.getByText("Intentional failure for dedupe regression test."),
+  ).toBeVisible();
+});
+
+test("workspace launch dedupes in-flight requests when optionals differ only by missing vs null", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  const responseGate = createRouteGate();
+  const capturedLaunchBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/launch", async (route, request) => {
+    const body = request.postDataJSON();
+    if (isObjectRecord(body)) {
+      capturedLaunchBodies.push(body);
+    } else {
+      capturedLaunchBodies.push({});
+    }
+    await responseGate.wait;
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: { message: "Intentional failure for null-vs-missing dedupe test." },
+        }),
+      });
+    } catch {
+      // Ignore requests that were cancelled during navigation churn.
+    }
+  });
+
+  const firstRequest = {
+    workspaceRoot: "/tmp/workspace",
+  };
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, firstRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+
+  const secondRequest = {
+    workspaceRoot: "/tmp/workspace",
+    profile: null,
+    settaHome: null,
+    settaFilesRoot: null,
+    settaFilesLocation: null,
+    runtimeRoot: null,
+    sshTarget: null,
+    sshArgs: null,
+    remoteCmd: null,
+    localPort: null,
+  };
+  await page.goto(new URL("/", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, secondRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+  responseGate.release();
+  await expect(
+    page.getByText("Intentional failure for null-vs-missing dedupe test."),
+  ).toBeVisible();
+});
+
+test("workspace launch does not dedupe when unknown future request fields differ", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  const responseGate = createRouteGate();
+  const capturedLaunchBodies: Array<Record<string, unknown>> = [];
+  await page.route("**/api/launch", async (route, request) => {
+    const body = request.postDataJSON();
+    if (isObjectRecord(body)) {
+      capturedLaunchBodies.push(body);
+    } else {
+      capturedLaunchBodies.push({});
+    }
+    await responseGate.wait;
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: {
+            message: "Intentional failure for future-field dedupe test.",
+          },
+        }),
+      });
+    } catch {
+      // Ignore requests that were cancelled during navigation churn.
+    }
+  });
+
+  const firstRequest = {
+    workspaceRoot: "/tmp/workspace",
+    futureLaunchMode: "mode-a",
+  };
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, firstRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await expect.poll(() => capturedLaunchBodies.length).toBe(1);
+
+  const secondRequest = {
+    workspaceRoot: "/tmp/workspace",
+    futureLaunchMode: "mode-b",
+  };
+  await page.goto(new URL("/", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, secondRequest);
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect.poll(() => capturedLaunchBodies.length).toBe(2);
+  responseGate.release();
+  expect(capturedLaunchBodies[0]).toMatchObject(firstRequest);
+  expect(capturedLaunchBodies[1]).toMatchObject(secondRequest);
+  await expect(
+    page.getByText("Intentional failure for future-field dedupe test."),
+  ).toBeVisible();
+});
+
+test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
+  page,
+}) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error(
+      "Missing SETTA_WORKSPACE_ROOT for runtime root conflict launch test.",
+    );
+  }
+
+  await ensureAppReady(page);
+  await page.evaluate(() => {
+    sessionStorage.removeItem("setta.pendingWorkspaceLaunch");
+    sessionStorage.removeItem("setta.workspaceSwitcherDraft");
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, {
+    workspaceRoot,
+    runtimeRoot: workspaceRoot,
+    settaFilesLocation: "local",
+  });
+
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.runtimeRoot).toBe(workspaceRoot);
+  await expect(
+    page.getByText("Runtime root cannot be the workspace root"),
+  ).toBeVisible();
 });
 
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
