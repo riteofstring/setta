@@ -55,8 +55,8 @@ def _detached_roots(tmpdir: str):
     base = Path(tmpdir)
     env_root = base / "env"
     workspace_root = base / "workspace"
-    setta_home = base / ".setta"
-    global_setta_files_base = setta_home / "setta_files"
+    setta_home = base / "setta_home"
+    global_setta_files_base = base / "central_state"
 
     env_root.mkdir(parents=True, exist_ok=True)
     workspace_root.mkdir(parents=True, exist_ok=True)
