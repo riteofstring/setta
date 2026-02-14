@@ -88,6 +88,31 @@ def test_launch_reports_invalid_runtime_root(tmp_path: Path) -> None:
     assert "runtime root is not a directory" in payload["error"]["message"]
 
 
+def test_launch_rejects_runtime_root_matching_workspace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        launch,
+        [
+            "--json",
+            "--workspace",
+            str(workspace),
+            "--setta-files-location",
+            "local",
+            "--runtime-root",
+            str(workspace),
+        ],
+    )
+
+    assert result.exit_code != 0
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InvalidRuntimeRoot"
+    assert "Runtime root cannot be the workspace root" in payload["error"]["message"]
+
+
 def test_launch_reports_invalid_user_config(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()

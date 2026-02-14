@@ -88,22 +88,22 @@ setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --host)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_HOST="$2"
       shift 2
       ;;
     --backend-port)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_PORT="$2"
       shift 2
       ;;
     --frontend-port)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_DEV_FRONTEND_PORT="$2"
       shift 2
       ;;
     --mode)
-      setta_require_option_value "$1" "$#"
+      setta_require_option_value "$1" "$#" "${2-}"
       RUN_MODE="$2"
       shift 2
       ;;

@@ -19,7 +19,12 @@ EOF
 require_option_value() {
   local flag="$1"
   local arg_count="$2"
+  local option_value="${3-}"
   if [[ "${arg_count}" -lt 2 ]]; then
+    echo "Missing value for ${flag}" >&2
+    exit 1
+  fi
+  if [[ "${option_value}" == "" || "${option_value}" == -* ]]; then
     echo "Missing value for ${flag}" >&2
     exit 1
   fi
@@ -72,32 +77,32 @@ fi
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --workspace)
-      require_option_value "$1" "$#"
+      require_option_value "$1" "$#" "${2-}"
       workspace_override="$2"
       shift 2
       ;;
     --profile)
-      require_option_value "$1" "$#"
+      require_option_value "$1" "$#" "${2-}"
       profile_override="$2"
       shift 2
       ;;
     --setta-home)
-      require_option_value "$1" "$#"
+      require_option_value "$1" "$#" "${2-}"
       setta_home_override="$2"
       shift 2
       ;;
     --setta-files-root)
-      require_option_value "$1" "$#"
+      require_option_value "$1" "$#" "${2-}"
       setta_files_root_override="$2"
       shift 2
       ;;
     --setta-files-location)
-      require_option_value "$1" "$#"
+      require_option_value "$1" "$#" "${2-}"
       setta_files_location_override="$2"
       shift 2
       ;;
     --runtime-root)
-      require_option_value "$1" "$#"
+      require_option_value "$1" "$#" "${2-}"
       runtime_root_override="$2"
       shift 2
       ;;

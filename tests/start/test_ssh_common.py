@@ -115,6 +115,24 @@ def test_resolve_remote_logs_dir_uses_explicit_setta_files_root() -> None:
     assert resolved == "/tmp/custom_state/runtime/logs"
 
 
+def test_resolve_remote_logs_dir_resolves_relative_runtime_root_from_workspace() -> None:
+    resolved = ssh_common.resolve_remote_logs_dir(
+        workspace="/tmp/workspace",
+        setta_files_location=None,
+        runtime_root="setta_files_dev/runtime_custom",
+    )
+    assert resolved == "/tmp/workspace/setta_files_dev/runtime_custom/logs"
+
+
+def test_resolve_remote_logs_dir_resolves_relative_setta_files_root_from_workspace() -> None:
+    resolved = ssh_common.resolve_remote_logs_dir(
+        workspace="/tmp/workspace",
+        setta_files_location=None,
+        setta_files_root="setta_files_dev",
+    )
+    assert resolved == "/tmp/workspace/setta_files_dev/runtime/logs"
+
+
 def test_build_remote_setta_path_args_rejects_conflicting_root_and_location() -> None:
     with pytest.raises(LaunchError) as excinfo:
         ssh_common.build_remote_setta_path_args(

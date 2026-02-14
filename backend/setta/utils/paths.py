@@ -70,6 +70,10 @@ class InvalidExplicitSettaFilesRootError(InvalidSettaFilesRootError):
     pass
 
 
+class InvalidRuntimeRootError(SettaPathsError):
+    pass
+
+
 @dataclass(frozen=True)
 class SettaPaths:
     workspace_root: Path
@@ -181,6 +185,10 @@ def resolve_setta_paths(
         profile_runtime_root=profile_config.runtime_root if profile_config else None,
     )
     _validate_setta_files_root_path(resolved_files_root)
+    _validate_runtime_root_path(
+        runtime_root=resolved_runtime_root,
+        workspace_root=resolved_workspace,
+    )
     return SettaPaths(
         workspace_root=resolved_workspace,
         setta_home=resolved_setta_home,
@@ -564,3 +572,12 @@ def _validate_setta_files_root_path(path: Path) -> None:
     raise InvalidSettaFilesRootError(
         f"Setta files root must include one of these folder names: {allowed}. Received: {path}"
     )
+
+
+def _validate_runtime_root_path(*, runtime_root: Path, workspace_root: Path) -> None:
+    if runtime_root == workspace_root:
+        raise InvalidRuntimeRootError(
+            "Runtime root cannot be the workspace root. "
+            "Use a dedicated runtime directory (for example, "
+            "<workspace>/setta_files/runtime or <workspace>/setta_files_dev/runtime)."
+        )

@@ -24,6 +24,7 @@ def test_activate_built_setta_sets_built_path_defaults(tmp_path: Path) -> None:
     env["SETTA_FILES_ROOT"] = str(tmp_path / "dev_state")
     env["SETTA_FILES_LOCATION"] = "global"
     env["SETTA_RUNTIME_ROOT"] = str(tmp_path / "dev_runtime")
+    env["SETTA_PROFILE_LOOKUP_HOME"] = str(tmp_path / ".setta-development")
 
     result = subprocess.run(
         [
@@ -36,7 +37,8 @@ def test_activate_built_setta_sets_built_path_defaults(tmp_path: Path) -> None:
                 'printf "SETTA_FILES_LOCATION=%s\\n" "${SETTA_FILES_LOCATION:-}" && '
                 'printf "SETTA_PROFILE=%s\\n" "${SETTA_PROFILE-__unset__}" && '
                 'printf "SETTA_FILES_ROOT=%s\\n" "${SETTA_FILES_ROOT-__unset__}" && '
-                'printf "SETTA_RUNTIME_ROOT=%s\\n" "${SETTA_RUNTIME_ROOT-__unset__}"'
+                'printf "SETTA_RUNTIME_ROOT=%s\\n" "${SETTA_RUNTIME_ROOT-__unset__}" && '
+                'printf "SETTA_PROFILE_LOOKUP_HOME=%s\\n" "${SETTA_PROFILE_LOOKUP_HOME-__unset__}"'
             ),
         ],
         cwd=repo_root,
@@ -58,3 +60,4 @@ def test_activate_built_setta_sets_built_path_defaults(tmp_path: Path) -> None:
     assert lines["SETTA_PROFILE"] == "__unset__"
     assert lines["SETTA_FILES_ROOT"] == "__unset__"
     assert lines["SETTA_RUNTIME_ROOT"] == "__unset__"
+    assert lines["SETTA_PROFILE_LOOKUP_HOME"] == "__unset__"

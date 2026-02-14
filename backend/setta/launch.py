@@ -15,6 +15,7 @@ from setta.utils.paths import (
     InvalidSettaFilesLocationError,
     InvalidSettaFilesRootError,
     InvalidSettaProfileError,
+    InvalidRuntimeRootError,
     SettaFilesLocation,
     SettaPaths,
     SettaPathsError,
@@ -92,6 +93,8 @@ def launch_workspace_session(
         raise LaunchError("InvalidSettaFilesLocation", str(exc)) from exc
     except InvalidSettaFilesRootError as exc:
         raise LaunchError("InvalidSettaFilesRoot", str(exc)) from exc
+    except InvalidRuntimeRootError as exc:
+        raise LaunchError("InvalidRuntimeRoot", str(exc)) from exc
     except ConflictingSettaFilesRootAndLocationError as exc:
         raise LaunchError("InvalidSettaFilesConfig", str(exc)) from exc
     except UnknownSettaProfileError as exc:

@@ -253,6 +253,32 @@ def test_run_dev_instance_reports_missing_value_for_backend_port(tmp_path: Path)
     assert "Missing value for --backend-port" in f"{result.stdout}{result.stderr}"
 
 
+def test_run_dev_instance_rejects_flag_like_backend_port_value(tmp_path: Path) -> None:
+    sandbox_root = _build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--backend-port",
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=_script_env(stub_dir, home_dir),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing value for --backend-port" in f"{result.stdout}{result.stderr}"
+
+
 def test_run_dev_instance_rejects_conflicting_setta_files_root_and_location(
     tmp_path: Path,
 ) -> None:

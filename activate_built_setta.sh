@@ -78,6 +78,7 @@ export SETTA_FILES_LOCATION="local"
 unset SETTA_PROFILE
 unset SETTA_FILES_ROOT
 unset SETTA_RUNTIME_ROOT
+unset SETTA_PROFILE_LOOKUP_HOME
 
 echo "Built Setta environment activated."
 echo "Built defaults configured:"

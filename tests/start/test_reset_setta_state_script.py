@@ -348,3 +348,25 @@ def test_reset_setta_state_script_reports_missing_flag_value() -> None:
 
     assert result.returncode != 0
     assert "Missing value for --runtime-root" in f"{result.stdout}{result.stderr}"
+
+
+def test_reset_setta_state_script_rejects_flag_like_option_value() -> None:
+    _ensure_local_venv_or_skip()
+    repo_root = _repo_root()
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(repo_root / "scripts" / "reset-setta-state.sh"),
+            "--runtime-root",
+            "--profile",
+            "dev",
+        ],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "Missing value for --runtime-root" in f"{result.stdout}{result.stderr}"

@@ -481,6 +481,54 @@ test("workspace launch dedupes in-flight requests when optionals differ only by 
   ).toBeVisible();
 });
 
+test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
+  page,
+}) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error(
+      "Missing SETTA_WORKSPACE_ROOT for runtime root conflict launch test.",
+    );
+  }
+
+  await ensureAppReady(page);
+  await page.evaluate(() => {
+    sessionStorage.removeItem("setta.pendingWorkspaceLaunch");
+    sessionStorage.removeItem("setta.workspaceSwitcherDraft");
+  });
+  await page.evaluate((request) => {
+    sessionStorage.setItem(
+      "setta.pendingWorkspaceLaunch",
+      JSON.stringify({
+        request,
+        returnUrl: window.location.href,
+        requestedAt: Date.now(),
+      }),
+    );
+  }, {
+    workspaceRoot,
+    runtimeRoot: workspaceRoot,
+    settaFilesLocation: "local",
+  });
+
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.runtimeRoot).toBe(workspaceRoot);
+  await expect(
+    page.getByText("Runtime root cannot be the workspace root"),
+  ).toBeVisible();
+});
+
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {

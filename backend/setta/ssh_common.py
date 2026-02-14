@@ -3,6 +3,7 @@ import binascii
 import errno
 import json
 import os
+import posixpath
 import re
 import shlex
 import socket
@@ -592,6 +593,38 @@ def _is_safe_remote_path(value: str) -> bool:
     return True
 
 
+def _is_safe_relative_remote_path(value: str) -> bool:
+    raw = value.strip()
+    if not raw:
+        return False
+    if raw.startswith("/"):
+        return False
+    if "\x00" in raw:
+        return False
+    if "\n" in raw or "\r" in raw:
+        return False
+    return True
+
+
+def _resolve_remote_root_for_logs(*, raw_root: str | None, workspace: str) -> str | None:
+    trimmed_root = _normalize_optional_argument(raw_root)
+    if trimmed_root is None:
+        return None
+    if _is_safe_remote_path(trimmed_root):
+        return trimmed_root.rstrip("/")
+    if not _is_safe_relative_remote_path(trimmed_root):
+        return None
+    if not _is_safe_remote_path(workspace):
+        return None
+    normalized_workspace = workspace.strip().rstrip("/")
+    if not normalized_workspace:
+        return None
+    combined = posixpath.normpath(f"{normalized_workspace}/{trimmed_root}")
+    if not _is_safe_remote_path(combined):
+        return None
+    return combined.rstrip("/")
+
+
 def resolve_remote_logs_dir(
     *,
     workspace: str,
@@ -599,16 +632,20 @@ def resolve_remote_logs_dir(
     setta_files_root: str | None = None,
     runtime_root: str | None = None,
 ) -> str:
-    trimmed_runtime_root = _normalize_optional_argument(runtime_root)
-    if trimmed_runtime_root is not None and _is_safe_remote_path(trimmed_runtime_root):
-        root = trimmed_runtime_root.rstrip("/")
+    resolved_runtime_root = _resolve_remote_root_for_logs(
+        raw_root=runtime_root,
+        workspace=workspace,
+    )
+    if resolved_runtime_root is not None:
+        root = resolved_runtime_root
         return f"{root}/logs"
 
-    trimmed_setta_files_root = _normalize_optional_argument(setta_files_root)
-    if trimmed_setta_files_root is not None and _is_safe_remote_path(
-        trimmed_setta_files_root
-    ):
-        root = trimmed_setta_files_root.rstrip("/")
+    resolved_setta_files_root = _resolve_remote_root_for_logs(
+        raw_root=setta_files_root,
+        workspace=workspace,
+    )
+    if resolved_setta_files_root is not None:
+        root = resolved_setta_files_root
         return f"{root}/runtime/logs"
 
     # When remote state lives globally, we don't know the computed runtime path from

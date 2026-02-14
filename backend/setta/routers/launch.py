@@ -58,12 +58,20 @@ class LaunchResponse(BaseModel):
     error: LaunchErrorPayload | None = None
 
 
+def _normalize_optional_profile(profile: str | None) -> str | None:
+    if profile is None:
+        return None
+    trimmed = profile.strip()
+    return trimmed or None
+
+
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
+        normalized_profile = _normalize_optional_profile(x.profile)
         if x.settaFilesLocation is not None:
             setta_files_location = x.settaFilesLocation
-        elif x.settaFilesRoot is not None or x.profile is not None:
+        elif x.settaFilesRoot is not None or normalized_profile is not None:
             # Preserve omission so explicit root/profile config can drive location/root selection.
             setta_files_location = None
         else:
@@ -73,7 +81,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,
                 workspace=x.workspaceRoot or "",
-                profile=x.profile,
+                profile=normalized_profile,
                 setta_home=x.settaHome,
                 setta_files_root=x.settaFilesRoot,
                 setta_files_location=setta_files_location,
@@ -109,7 +117,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
 
         result = launch_workspace_session(
             workspace_root=workspace_root,
-            profile=x.profile,
+            profile=normalized_profile,
             setta_home=x.settaHome,
             setta_files_root=x.settaFilesRoot,
             setta_files_location=setta_files_location,

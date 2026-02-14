@@ -69,6 +69,34 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
 
+    def test_launch_local_whitespace_profile_is_treated_as_omitted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            captured["profile"] = kwargs.get("profile")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                profile="   ",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_files_location"] == "auto"
+        assert captured["profile"] is None
+
     def test_launch_local_explicit_root_preserves_omitted_location(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -138,6 +166,51 @@ class TestLaunchRoutes:
         assert response.ok is True
         assert captured["setta_files_location"] is None
 
+    def test_launch_ssh_whitespace_profile_is_treated_as_omitted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_connect_remote_workspace_session(**kwargs) -> RemoteConnectResult:
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            captured["profile"] = kwargs.get("profile")
+            return RemoteConnectResult(
+                bootstrap_url_fragment="http://127.0.0.1:61000/__setta__/bootstrap#token=x",
+                session=RemoteSessionSummary(
+                    id="remote-session-id",
+                    workspace_path="/remote/workspace",
+                    workspace_path_canonical="/remote/workspace",
+                    host="127.0.0.1",
+                    port=61234,
+                    pid=12345,
+                    started_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+                ),
+                started_new=False,
+                remote_cmd_resolved="setta",
+                setta_files_location="local",
+                setta_files_root="/remote/state",
+                runtime_root="/remote/runtime",
+                setta_home="/remote/home/.setta",
+                profile=None,
+            )
+
+        monkeypatch.setattr(
+            "setta.routers.launch.connect_remote_workspace_session",
+            fake_connect_remote_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/requested/workspace",
+                sshTarget="user@host",
+                profile="   ",
+            )
+        )
+
+        assert response.ok is True
+        assert captured["setta_files_location"] == "auto"
+        assert captured["profile"] is None
+
     def test_launch_returns_structured_error_for_value_error(self) -> None:
         response = route_launch(LaunchRequest(workspaceRoot="bad\u0000path"))
         assert response.ok is False
@@ -162,6 +235,25 @@ class TestLaunchRoutes:
             assert response.error is not None
             assert response.error.code == "InvalidRuntimeRoot"
             assert "runtime root is not a directory" in response.error.message
+
+    def test_launch_returns_structured_error_for_runtime_root_matching_workspace(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+
+            response = route_launch(
+                LaunchRequest(
+                    workspaceRoot=str(workspace_root),
+                    runtimeRoot=str(workspace_root),
+                )
+            )
+            assert response.ok is False
+            assert response.error is not None
+            assert response.error.code == "InvalidRuntimeRoot"
+            assert "Runtime root cannot be the workspace root" in response.error.message
 
     def test_launch_over_ssh_returns_bootstrap_url(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]

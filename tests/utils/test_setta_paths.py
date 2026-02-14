@@ -462,6 +462,19 @@ def test_runtime_root_env_override_strips_whitespace(
     assert paths.runtime_root == runtime_root.resolve()
 
 
+def test_resolve_setta_paths_rejects_runtime_root_matching_workspace(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    with pytest.raises(ValueError, match=r"Runtime root cannot be the workspace root"):
+        resolve_setta_paths(
+            workspace_root=workspace,
+            runtime_root=workspace,
+        )
+
+
 def test_validate_workspace_root_rejects_missing(tmp_path: Path) -> None:
     missing = tmp_path / "missing"
     with pytest.raises(ValueError):

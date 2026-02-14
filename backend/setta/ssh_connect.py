@@ -78,6 +78,13 @@ def _parse_optional_connect_info_field(
     return trimmed or None
 
 
+def _normalize_optional_profile(profile: str | None) -> str | None:
+    if profile is None:
+        return None
+    trimmed = profile.strip()
+    return trimmed or None
+
+
 def connect_remote_workspace_session(
     *,
     ssh_target: str,
@@ -101,6 +108,7 @@ def connect_remote_workspace_session(
         )
     if local_port is not None and not (1 <= local_port <= 65535):
         raise LaunchError("InvalidLocalPort", f"Invalid local port: {local_port}")
+    trimmed_profile = _normalize_optional_profile(profile)
     trimmed_location = normalize_setta_files_location(setta_files_location)
     trimmed_setta_files_root = (
         setta_files_root.strip() if setta_files_root is not None else None
@@ -110,7 +118,7 @@ def connect_remote_workspace_session(
     if (
         trimmed_setta_files_root is None
         and trimmed_location is None
-        and profile is None
+        and trimmed_profile is None
     ):
         trimmed_location = "auto"
 
@@ -133,7 +141,7 @@ def connect_remote_workspace_session(
         ssh_prefix=ssh_prefix,
     )
     setta_files_args = build_remote_setta_path_args(
-        profile=profile,
+        profile=trimmed_profile,
         setta_home=setta_home,
         setta_files_root=trimmed_setta_files_root,
         setta_files_location=trimmed_location,
