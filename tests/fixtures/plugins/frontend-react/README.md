@@ -6,10 +6,10 @@ Frontend React + TypeScript section fixture plugin.
 - Capabilities: `registerSectionKinds`.
 - Section kind: `fixture-react-card`.
 
-Rebuild frontend bundle:
+Build frontend assets:
 
 ```bash
-pnpm -C frontend exec vite build --config ../tests/fixtures/plugins/frontend-react/frontend/vite.config.mjs
+scripts/plugin-fixtures/build.sh frontend-react
 ```
 
 Manual smoke:

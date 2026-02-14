@@ -7,6 +7,7 @@ Principles:
 - Keep many fixture plugins with intentionally different capabilities and failure modes.
 - Use these fixtures for unit, integration, Playwright, and manual smoke testing.
 - Keep fixtures production-like: valid manifests, real entrypoints, and deterministic behavior.
+- Fixture frontend `dist` assets are generated on demand via `scripts/plugin-fixtures/build.sh`.
 
 Current fixtures:
 
@@ -22,7 +23,7 @@ Current fixtures:
 - `backend-worker-failure-transport/`: intentional failure fixture for worker transport/process-exit errors.
 - `backend-worker-failure-timeout-startup/`: intentional failure fixture for backend startup timeout.
 - `backend-worker-failure-timeout-register/`: intentional failure fixture for backend register timeout.
-- `frontend/`: frontend-only plugin with prebuilt ESM/CSS and section/pane/command registration.
+- `frontend/`: frontend-only plugin with generated ESM/CSS and section/pane/command registration.
 - `frontend-react/`: frontend-only plugin with a React-rendered plugin section kind.
 - `frontend-topnav/`: frontend-only plugin focused on top-nav action registration.
 - `frontend-errors/`: frontend fixture that intentionally registers invalid runtime payloads.
@@ -57,3 +58,9 @@ Each fixture should include:
 - a short `README.md` describing purpose, capabilities, and expected behavior
 
 Each fixture is intentionally minimal but valid for `setta plugins validate` unless it is an explicit failure fixture used to test deterministic error paths.
+
+Build fixture frontend assets:
+
+```bash
+scripts/plugin-fixtures/build.sh all
+```

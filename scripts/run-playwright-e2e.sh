@@ -134,6 +134,9 @@ log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
+log "Building fixture plugin frontend assets."
+"${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
+
 BACKEND_PID=""
 FRONTEND_PID=""
 

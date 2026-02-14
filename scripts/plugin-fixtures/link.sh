@@ -75,6 +75,9 @@ if [[ ! -f "${fixture_path}/setta.plugin.json" ]]; then
   exit 1
 fi
 
+echo "link: building fixture frontend assets for '${fixture_name}'..."
+"${SCRIPT_DIR}/build.sh" "${fixture_name}"
+
 source "${ROOT_DIR}/activate.sh"
 
 echo "link: linking fixture '${fixture_name}' from ${fixture_path} (scope=${scope})..."
