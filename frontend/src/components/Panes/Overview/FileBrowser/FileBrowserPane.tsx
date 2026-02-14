@@ -401,6 +401,7 @@ export function FileBrowserPane({
         ignorePatterns: activeIgnorePatterns,
         maxEntries: MAX_ENTRIES,
         includeMtime: true,
+        missingFolderBehavior: "empty",
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
         return null;

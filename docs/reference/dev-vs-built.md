@@ -16,8 +16,11 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
   `setta_files` is either local (`<workspace>/setta_files`) or global (under
   `<globalSettaFilesBase>/<workspace-name>-<hash>`, defaulting to
   `<setta_home>/setta_files/<workspace-name>-<hash>`). Local always wins when it
-  exists. Control selection via `--setta-files-location` / `SETTA_FILES_LOCATION`
-  and `<setta_home>/config.json` (see `docs/reference/setta-files.md`).
+  exists unless you use an explicit `setta_files_root`.
+  Control selection via `--setta-files-root`, `--setta-files-location`,
+  `--profile`, and matching env vars (`SETTA_FILES_ROOT`,
+  `SETTA_FILES_LOCATION`, `SETTA_PROFILE`) plus `<setta_home>/config.json`
+  (see `docs/reference/setta-files.md`).
 
 ## Built (Single Origin)
 - `./build.sh` builds the frontend and copies it to `backend/setta/static/frontend`.
@@ -30,7 +33,10 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - `verify_install.sh`: packaging smoke test (builds, installs the sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to validate the distribution packaging, not for normal dev.
   - sdist installs catch missing files/packaging errors; wheel installs match end-user installs but can skip sdist-only issues.
+- `install_built_setta.sh`: build + install the latest wheel into an isolated venv (`.venv_for_built_setta` by default).
+- `activate_built_setta.sh`: source-only helper to activate the isolated built venv and switch defaults to built runtime paths.
 
 ## Quick Checks
 - Dev: `pnpm start` (Vite on 3000, backend on 8000).
-- Built: `./build.sh`, then `source activate.sh && setta` to run the single-origin build.
+- Built (repo venv): `./build.sh`, then `source activate.sh && setta`.
+- Built (isolated venv): `./install_built_setta.sh`, then `source ./activate_built_setta.sh`, then `setta`.
