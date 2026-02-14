@@ -3083,6 +3083,7 @@ class PluginManager:
         for plugin in lockfile.plugins:
             desired_by_scope_plugin[(plugin.scope, plugin.pluginId)] = plugin
 
+        install_metadata = self._load_install_metadata()
         current_primary_entries = [
             entry
             for entry in self._discovered_plugins
@@ -3091,6 +3092,22 @@ class PluginManager:
         current_by_scope_plugin = {
             (entry.scope, entry.plugin_id): entry for entry in current_primary_entries
         }
+
+        def _source_reconcile_required(
+            *,
+            desired: PluginLockEntry,
+            current: DiscoveredPlugin,
+        ) -> bool:
+            if current.canonical_source_key != desired.canonicalSourceKey:
+                return True
+            if desired.sourceSpec is None:
+                return False
+            metadata_entry = install_metadata.entries.get(
+                self._metadata_key(current.plugin_id, current.scope)
+            )
+            if metadata_entry is None:
+                return True
+            return metadata_entry.sourceSpec != desired.sourceSpec
 
         planned_changes: list[str] = []
         for key, desired in desired_by_scope_plugin.items():
@@ -3103,6 +3120,11 @@ class PluginManager:
             if current.version != desired.version:
                 planned_changes.append(
                     f"update {desired.pluginId} in {desired.scope.value} from {current.version} to {desired.version}"
+                )
+                continue
+            if _source_reconcile_required(desired=desired, current=current):
+                planned_changes.append(
+                    f"reconcile source for {desired.pluginId} in {desired.scope.value}"
                 )
                 continue
             if desired.sourceDigestSha256 and (
@@ -3128,9 +3150,16 @@ class PluginManager:
         for key, desired in desired_by_scope_plugin.items():
             current = current_by_scope_plugin.get(key)
             if current is not None:
+                source_reconcile_required = _source_reconcile_required(
+                    desired=desired,
+                    current=current,
+                )
                 if current.version == desired.version and (
-                    desired.sourceDigestSha256 is None
-                    or current.source_digest_sha256 == desired.sourceDigestSha256
+                    not source_reconcile_required
+                    and (
+                        desired.sourceDigestSha256 is None
+                        or current.source_digest_sha256 == desired.sourceDigestSha256
+                    )
                 ):
                     continue
             if desired.sourceSpec is None:

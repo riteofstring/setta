@@ -423,6 +423,32 @@ def test_worker_register_surfaces_host_rpc_invalid_json_response(tmp_path: Path)
         _stop_worker(worker)
 
 
+def test_worker_register_surfaces_host_rpc_non_object_response(tmp_path: Path) -> None:
+    # Host RPC responses that are valid JSON but not objects should map to transport errors.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_response_factory=lambda _payload, _worker: [1, 2, 3],
+        )
+        assert register_response["id"] == 2
+        assert (
+            register_response["error"]["code"]
+            == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        )
+        assert "non-object JSON-RPC response" in register_response["error"]["message"]
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_register_surfaces_host_rpc_response_id_mismatch(tmp_path: Path) -> None:
     # Host RPC response id mismatches should map to transport errors.
     plugin_root = _copy_backend_fixture(tmp_path)

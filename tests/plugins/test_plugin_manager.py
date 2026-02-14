@@ -797,6 +797,52 @@ def test_package_manager_discovery_marks_invalid_manifest_payloads_invalid(
     assert "PLUGIN_MANIFEST_INVALID" in error_codes
 
 
+def test_same_scope_setta_plugins_shadow_package_manager_plugins(
+    tmp_path: Path,
+) -> None:
+    # Within the same scope, setta-managed plugin roots should win over package-managed roots.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+    setta_source_path = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.setta_files,
+    )
+    manager.rescan()
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name and entry.sourceScope == PluginScope.setta_files
+    ]
+    assert len(status_entries) == 2
+    setta_entry = next(entry for entry in status_entries if entry.sourceManager == "setta")
+    package_manager_entry = next(
+        entry for entry in status_entries if entry.sourceManager == "package_manager"
+    )
+    assert setta_entry.state == PluginRuntimeState.active
+    assert setta_entry.shadowedBySourcePath is None
+    assert package_manager_entry.state == PluginRuntimeState.shadowed
+    assert package_manager_entry.shadowedBySourcePath == str(setta_source_path)
+
+    list_entries = [
+        entry for entry in manager.get_list_response().plugins if entry.pluginId == package_name
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].sourceManager == "setta"
+    assert list_entries[0].sourceScope == PluginScope.setta_files
+
+
 def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
     tmp_path: Path,
 ) -> None:
@@ -1871,6 +1917,185 @@ def test_backend_external_agent_registration_rejects_invalid_adapter_payload(
     )
 
 
+@pytest.mark.parametrize(
+    ("adapter_payload", "expected_message_fragment"),
+    [
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk"],
+                "command": sys.executable,
+                "unsupported": True,
+            },
+            "unsupported keys",
+        ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk", 2],
+                "command": sys.executable,
+            },
+            "runModes entries must be strings",
+        ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk", "  "],
+                "command": sys.executable,
+            },
+            "runModes cannot contain empty values",
+        ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk", "not-a-mode"],
+                "command": sys.executable,
+            },
+            "runMode is not supported",
+        ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk"],
+                "command": sys.executable,
+                "args": ["--stdio", 5],
+            },
+            "args must be strings",
+        ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk"],
+                "command": sys.executable,
+                "envVarWhitelist": ["OPENAI_API_KEY", 5],
+            },
+            "envVarWhitelist entries must be strings",
+        ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk"],
+                "command": sys.executable,
+                "defaultModel": 5,
+            },
+            "defaultModel must be a non-empty string",
+        ),
+    ],
+)
+def test_external_agent_adapter_registration_validation_rejects_invalid_fields(
+    tmp_path: Path,
+    adapter_payload: dict[str, object],
+    expected_message_fragment: str,
+) -> None:
+    # Adapter registration helper should reject malformed payload fields deterministically.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-external-agent",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry(
+        "setta-fixture-backend-external-agent",
+        PluginScope.workspace,
+    )
+    assert entry is not None
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._build_backend_external_agent_adapter_registration(
+            entry=entry,
+            adapter=adapter_payload,
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+    assert expected_message_fragment in exc_info.value.message
+
+
+@pytest.mark.parametrize(
+    ("provider_payload", "expected_message_fragment"),
+    [
+        (
+            {
+                "language": "typescript",
+                "command": "typescript-language-server",
+                "unsupported": True,
+            },
+            "unsupported keys",
+        ),
+        (
+            {
+                "language": "python",
+                "command": "python-language-server",
+            },
+            "cannot target python",
+        ),
+        (
+            {
+                "language": "typescript",
+                "command": "typescript-language-server",
+                "args": "--stdio",
+            },
+            "args must be an array of strings",
+        ),
+        (
+            {
+                "language": "typescript",
+                "command": "typescript-language-server",
+                "args": ["--stdio", 5],
+            },
+            "args must be strings",
+        ),
+        (
+            {
+                "language": "typescript",
+                "command": "typescript-language-server",
+                "settingsKey": "",
+            },
+            "settingsKey must be a non-empty string",
+        ),
+        (
+            {
+                "language": "typescript",
+                "command": "   ",
+            },
+            "missing command",
+        ),
+    ],
+)
+def test_language_server_registration_validation_rejects_invalid_fields(
+    tmp_path: Path,
+    provider_payload: dict[str, object],
+    expected_message_fragment: str,
+) -> None:
+    # Language-server registration helper should reject malformed payload fields.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry(
+        "setta-fixture-backend-language-server",
+        PluginScope.workspace,
+    )
+    assert entry is not None
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._build_backend_language_server_registration(
+            entry=entry,
+            provider=provider_payload,
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+    assert expected_message_fragment in exc_info.value.message
+
+
 @pytest.mark.parametrize("server_mode", ["share", "app"])
 def test_mode_policy_blocks_backend_language_server_registration(
     tmp_path: Path,
@@ -2610,6 +2835,157 @@ def test_apply_lockfile_reconciles_digest_mismatches_for_existing_plugins(
             os.environ["PIP_FIND_LINKS"] = old_find_links
 
 
+def test_apply_lockfile_reconciles_source_spec_changes_for_existing_plugins(
+    tmp_path: Path,
+) -> None:
+    # Lockfile apply should reinstall when source spec/source key drift, even at same version.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    replacement_source_spec = f"pypi:setta_fixture_frontend=={version}"
+    replacement_canonical_source_key = "pypi:setta_fixture_frontend"
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+        lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+        lockfile_path.write_text(
+            json.dumps(
+                {
+                    "plugins": [
+                        {
+                            "pluginId": package_name,
+                            "version": version,
+                            "canonicalSourceKey": replacement_canonical_source_key,
+                            "scope": "workspace",
+                            "sourceDigestSha256": None,
+                            "sourceSpec": replacement_source_spec,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        check_result = manager.apply_lockfile(check=True)
+        assert check_result.applied is False
+        assert any(
+            "reconcile source for setta-fixture-frontend in workspace" in change
+            for change in check_result.plannedChanges
+        )
+
+        apply_result = manager.apply_lockfile(check=False)
+        assert apply_result.applied is True
+        assert any(
+            "reconcile source for setta-fixture-frontend in workspace" in change
+            for change in apply_result.plannedChanges
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].canonicalSourceKey == replacement_canonical_source_key
+
+    metadata_key = manager._metadata_key(package_name, PluginScope.workspace)
+    metadata = manager._load_install_metadata().entries[metadata_key]
+    assert metadata.sourceSpec == replacement_source_spec
+
+
+def test_apply_lockfile_requires_source_spec_for_source_reconcile(
+    tmp_path: Path,
+) -> None:
+    # Source reconciliation must fail fast when lockfile omits sourceSpec for existing plugin.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+        lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+        lockfile_path.write_text(
+            json.dumps(
+                {
+                    "plugins": [
+                        {
+                            "pluginId": package_name,
+                            "version": version,
+                            "canonicalSourceKey": "pypi:setta_fixture_frontend",
+                            "scope": "workspace",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        check_result = manager.apply_lockfile(check=True)
+        assert check_result.applied is False
+        assert any(
+            "reconcile source for setta-fixture-frontend in workspace" in change
+            for change in check_result.plannedChanges
+        )
+
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager.apply_lockfile(check=False)
+        assert exc_info.value.code == "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE"
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+
 def test_resolve_plugin_asset_path_rejects_traversal_and_missing_files(
     tmp_path: Path,
 ) -> None:
@@ -2635,6 +3011,104 @@ def test_resolve_plugin_asset_path_rejects_traversal_and_missing_files(
             asset_path="frontend/dist/missing.js",
         )
     assert missing_error.value.code == "PLUGIN_ASSET_NOT_FOUND"
+
+
+@pytest.mark.parametrize(
+    ("target_payload", "expected_message_fragment"),
+    [
+        (
+            {
+                "id": "typescript",
+                "name": "TypeScript",
+                "language": "typescript",
+                "handlerId": "typescript",
+                "unsupported": True,
+            },
+            "unsupported keys",
+        ),
+        (
+            {
+                "id": " ",
+                "name": "TypeScript",
+                "language": "typescript",
+                "handlerId": "typescript",
+            },
+            "id cannot be empty",
+        ),
+        (
+            {
+                "id": "typescript",
+                "name": " ",
+                "language": "typescript",
+                "handlerId": "typescript",
+            },
+            "name cannot be empty",
+        ),
+        (
+            {
+                "id": "typescript",
+                "name": "TypeScript",
+                "language": "python",
+                "handlerId": "typescript",
+            },
+            "cannot reuse python language id",
+        ),
+        (
+            {
+                "id": "typescript",
+                "name": "TypeScript",
+                "language": "typescript",
+                "handlerId": " ",
+            },
+            "handlerId cannot be empty",
+        ),
+        (
+            {
+                "id": "typescript",
+                "name": "TypeScript",
+                "language": "typescript",
+                "handlerId": "typescript",
+                "defaultFileName": 1,
+            },
+            "defaultFileName must be a string",
+        ),
+        (
+            {
+                "id": "bad:id",
+                "name": "TypeScript",
+                "language": "typescript",
+                "handlerId": "typescript",
+            },
+            "id cannot contain ':'",
+        ),
+    ],
+)
+def test_codegen_target_registration_validation_rejects_invalid_fields(
+    tmp_path: Path,
+    target_payload: dict[str, object],
+    expected_message_fragment: str,
+) -> None:
+    # Codegen target registration helper should reject malformed registration payload fields.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry(
+        "setta-fixture-backend-codegen",
+        PluginScope.workspace,
+    )
+    assert entry is not None
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._build_backend_codegen_target_registration(
+            entry=entry,
+            target=target_payload,
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+    assert expected_message_fragment in exc_info.value.message
 
 
 def test_generate_backend_codegen_target_rejects_unknown_target(tmp_path: Path) -> None:

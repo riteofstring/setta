@@ -220,6 +220,56 @@ def test_plugins_uninstall_cli_rejects_multiple_scope_shortcuts(
     assert "Use only one of --global, --setta-files, or --environment." in result.output
 
 
+def test_plugins_list_cli_text_reports_no_plugins(tmp_path: Path, monkeypatch) -> None:
+    # Text-mode plugin list should emit an explicit empty-state message.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    result = runner.invoke(plugins, ["list"])
+    assert result.exit_code == 0, result.output
+    assert "No plugins discovered." in result.output
+
+
+def test_plugins_list_cli_text_includes_restart_shadowed_and_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Text-mode list should include restart markers, shadowed suffixes, and error detail lines.
+    manager = _build_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(FIXTURE_PLUGIN_ROOT / "backend"),
+        scope="workspace",
+        enable=True,
+        force=False,
+    )
+    manager.link_plugin(
+        local_plugin_root=str(FIXTURE_PLUGIN_ROOT / "frontend"),
+        scope="global",
+        enable=True,
+        force=True,
+    )
+    manager.link_plugin(
+        local_plugin_root=str(FIXTURE_PLUGIN_ROOT / "frontend"),
+        scope="workspace",
+        enable=True,
+        force=True,
+    )
+    broken_root = manager.setta_files_root / "plugins" / "broken-plugin"
+    broken_root.mkdir(parents=True, exist_ok=True)
+    (broken_root / "setta.plugin.json").write_text("{not-json", encoding="utf-8")
+    manager.rescan()
+
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+    result = runner.invoke(plugins, ["list"])
+
+    assert result.exit_code == 0, result.output
+    assert "(restart required)" in result.output
+    assert "shadowed_by=" in result.output
+    assert "PLUGIN_MANIFEST_INVALID" in result.output
+
+
 def test_plugins_lock_write_and_apply_cli_json_roundtrip(
     tmp_path: Path,
     monkeypatch,
