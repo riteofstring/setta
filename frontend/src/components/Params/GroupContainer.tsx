@@ -21,6 +21,7 @@ import {
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import {
+  useLocalStorage,
   useMisc,
   useProjectState,
   useResizeEvent,
@@ -36,6 +37,7 @@ import {
   getEdgesStripHeightKey,
   getParamsFixedHeightKey,
   getPinnedParamsAreaHeightKey,
+  getSectionStylePreviewColorKey,
   getUnpinnedParamsAreaHeightKey,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
@@ -44,6 +46,7 @@ import {
   isBaseSectionWithParamsImpl,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import {
   buildParamAreaMeasureKey,
@@ -375,6 +378,7 @@ function EdgesStrip({
     shouldRoundBottom,
     positionAndSizeLocked,
     selectedParams,
+    styleColor,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -414,8 +418,21 @@ function EdgesStrip({
       shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       selectedParams,
+      styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
   const selectedParamIdSet = new Set(selectedParams);
@@ -427,6 +444,27 @@ function EdgesStrip({
   const handleSelectableClassName = isSelectingParams
     ? "arg-edge-handle--selecting"
     : "";
+  const stripBorderColorClassName = hasSectionStyleTheme
+    ? "border-[color:var(--setta-section-style-border)]"
+    : "border-white dark:border-setta-700/30";
+  const edgeLabelColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-300 dark:text-setta-500";
+  const edgeRowHoverClassName = hasSectionStyleTheme
+    ? "hover:bg-[color:var(--setta-section-style-border)]"
+    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+  const edgeRowSelectedClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
+    : "!bg-blue-700 !text-white active:!bg-cyan-300";
+  const edgeRowTextColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-600 dark:text-setta-200";
+  const dividerColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-border)]"
+    : "bg-setta-200/80 dark:bg-setta-700/60";
+  const edgeStripBgColorClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-panel-bg)]"
+    : bgColor;
 
   useLayoutEffect(() => {
     if (!hasEdges) {
@@ -512,23 +550,25 @@ function EdgesStrip({
 
   return (
     <section
-      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b border-white pt-5 dark:border-setta-700/30 ${bgColor} ${roundedBottomClassName}`}
+      className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${stripBorderColorClassName} ${edgeStripBgColorClassName} ${roundedBottomClassName}`}
       ref={stripRef}
       data-params-fixed="true"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-2">
-          <div className="text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
+          <div
+            className={`text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
+          >
             In
           </div>
           <div className="-ml-2 flex flex-col gap-1 pt-1">
             {inputPorts.map((port) => (
               <div
                 key={port.id}
-                className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors hover:bg-setta-100/50 hover:dark:bg-setta-800/70 ${
+                className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowHoverClassName} ${
                   selectedParamIdSet.has(port.id)
-                    ? "!bg-blue-700 !text-white active:!bg-cyan-300"
-                    : "text-setta-600 dark:text-setta-200"
+                    ? edgeRowSelectedClassName
+                    : edgeRowTextColorClassName
                 } ${isSelectingParams ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
                 onMouseDown={(e) => {
                   if (!isSelectingParams) {
@@ -574,17 +614,19 @@ function EdgesStrip({
           className="pointer-events-none flex items-stretch justify-center"
           aria-hidden="true"
         >
-          <div className="h-full w-px bg-setta-200/80 dark:bg-setta-700/60" />
+          <div className={`h-full w-px ${dividerColorClassName}`} />
         </div>
         <div className="flex flex-col pr-2">
-          <div className="text-right text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
+          <div
+            className={`text-right text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
+          >
             Out
           </div>
           <div className="-mr-2 flex flex-col gap-1 pt-1">
             {outputPorts.map((port) => (
               <div
                 key={port.id}
-                className="relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] text-setta-600 transition-colors hover:bg-setta-100/50 dark:text-setta-200 hover:dark:bg-setta-800/70"
+                className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowTextColorClassName} ${edgeRowHoverClassName}`}
               >
                 <span className="truncate">{port.label}</span>
                 <Handle
@@ -624,6 +666,7 @@ type PinnedParamsAreaProps = {
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  hasSectionStyleTheme: boolean;
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
@@ -649,6 +692,7 @@ function GetPinnedParams({
     topLevelParamIds,
     shouldRoundBottom,
     positionAndSizeLocked,
+    styleColor,
   } = useProjectState((x) => {
     const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
       x,
@@ -673,8 +717,21 @@ function GetPinnedParams({
       ...filteredPinned,
       shouldRoundBottom,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -702,6 +759,7 @@ function GetPinnedParams({
         topLevelParamIds={topLevelParamIds}
         requiredParamIdsToPaths={requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
+        hasSectionStyleTheme={hasSectionStyleTheme}
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
@@ -718,6 +776,7 @@ function PinnedParamsArea({
   topLevelParamIds,
   requiredParamIdsToPaths,
   handleColumnResizeStart,
+  hasSectionStyleTheme,
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
@@ -725,7 +784,18 @@ function PinnedParamsArea({
   headerRef,
   rowsRef,
 }: PinnedParamsAreaProps) {
-  const pinnedBgClassName = getPinnedParamsBgClassName(sectionTypeName);
+  const pinnedBgClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-panel-bg)]"
+    : getPinnedParamsBgClassName(sectionTypeName);
+  const pinnedBorderColorClassName = hasSectionStyleTheme
+    ? "border-[color:var(--setta-section-style-border)]"
+    : "border-white dark:border-setta-700/30";
+  const pinnedLabelColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-300 dark:text-setta-500";
+  const pinnedIconColorClassName = hasSectionStyleTheme
+    ? "text-[color:var(--setta-section-style-muted-text)] after:text-[color:var(--setta-section-style-muted-text)]"
+    : "text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500";
   let roundedBottomClassName = "";
   if (shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
@@ -735,7 +805,7 @@ function PinnedParamsArea({
 
   return (
     <section
-      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b border-white shadow-sm dark:border-setta-700/30 ${pinnedBgClassName} ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
     >
       <div
@@ -743,8 +813,12 @@ function PinnedParamsArea({
         ref={contentRef}
       >
         <header className="flex w-full gap-1 px-2" ref={headerRef}>
-          <i className="gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500" />
-          <p className=" text-[0.5rem] font-bold uppercase text-setta-300 dark:text-setta-500">
+          <i
+            className={`gg-pin-alt scale-25 ml-1 mr-[0.1rem] mt-[0.3rem] ${pinnedIconColorClassName}`}
+          />
+          <p
+            className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
+          >
             Pinned Params
           </p>
         </header>
@@ -760,6 +834,7 @@ function PinnedParamsArea({
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
             listKey="pinned"
+            hasSectionStyleTheme={hasSectionStyleTheme}
           />
         </div>
       </div>
@@ -778,6 +853,7 @@ function GetUnpinnedParams({
     topLevelParamIds,
     hasPinnedParams,
     positionAndSizeLocked,
+    styleColor,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -803,8 +879,21 @@ function GetUnpinnedParams({
       topLevelParamIds: filteredUnpinned.topLevelParamIds,
       hasPinnedParams,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
+  const darkMode = useLocalStorage((x) => x.darkMode);
+  const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
+  const previewStyleColor = useTemporaryMiscState(
+    (x) => x[styleColorPreviewKey] as string | null | undefined,
+  );
+  const resolvedStyleColor =
+    previewStyleColor === undefined ? styleColor : previewStyleColor;
+  const hasSectionStyleTheme = Boolean(
+    resolvedStyleColor
+      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+      : null,
+  );
 
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
@@ -870,6 +959,7 @@ function GetUnpinnedParams({
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
             listKey="unpinned"
+            hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}
       </div>

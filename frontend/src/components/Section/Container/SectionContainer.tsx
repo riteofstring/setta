@@ -4,6 +4,7 @@ import React from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
+  getEmbeddedAttachedTerminalForCodeSection,
   getSectionShouldRender,
   getSectionViewModeVisibility,
   isBaseCodeSectionType,
@@ -14,9 +15,11 @@ import {
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
+import { getOutlineColor } from "./utils";
 
 function _SectionContainer({
   sectionId,
@@ -38,6 +41,10 @@ function _SectionContainer({
     hasPythonCodegen,
     hasMetadata,
     sectionTypeName,
+    positionAndSizeLocked,
+    isInOtherProjectConfigs,
+    isJoinedAttachedTerminalGroup,
+    isJoinedGroupActive,
   } = useProjectState((x) => {
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
       sectionId,
@@ -46,6 +53,21 @@ function _SectionContainer({
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const pythonTarget = getPythonCodegenTarget(x.projectConfig);
+    const activeIds = x.projectConfig.activeIds;
+    const isActive = activeIds.includes(sectionId);
+    let isJoinedAttachedTerminalGroup = false;
+    let isJoinedGroupActive = isActive;
+
+    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+      x,
+      sectionId,
+    );
+    if (embeddedTerminal) {
+      isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
+      isJoinedGroupActive =
+        isJoinedGroupActive ||
+        activeIds.includes(embeddedTerminal.attachedTerminalId);
+    }
     return {
       visibility,
       isEditingViewMode,
@@ -57,6 +79,10 @@ function _SectionContainer({
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
       sectionTypeName: impl.type,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      isJoinedAttachedTerminalGroup,
+      isJoinedGroupActive,
     };
   }, _.isEqual);
 
@@ -83,20 +109,55 @@ function _SectionContainer({
         isUserView={isUserView}
       >
         <>
-          {!isGroup && (
-            <SectionContainerCore
-              sectionId={sectionId}
-              isUserView={isUserView}
-            />
-          )}
-          {isCode ? (
-            <MaybeManyNestedSections
-              sectionId={sectionId}
-              isGroup={isGroup}
-              layoutVariant="tight"
-            />
+          {!isGroup && isJoinedAttachedTerminalGroup ? (
+            <div
+              className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
+                {
+                  isActiveSection: isJoinedGroupActive,
+                  isGlobalVariables: false,
+                  isInOtherProjectConfigs,
+                },
+              )}`}
+              data-joined-code-terminal-group
+            >
+              <AgenticEdgeHandles isUserView={isUserView} />
+              <SectionContainerCore
+                sectionId={sectionId}
+                isUserView={isUserView}
+                forceHideOutline={true}
+                hideAgenticEdgeHandles={true}
+                omitAgenticHandleScopeClass={true}
+                joinedCorners="code-terminal-parent"
+              />
+              <div className="-mt-px">
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              </div>
+            </div>
           ) : (
-            <MaybeManyNestedSections sectionId={sectionId} isGroup={isGroup} />
+            <>
+              {!isGroup && (
+                <SectionContainerCore
+                  sectionId={sectionId}
+                  isUserView={isUserView}
+                />
+              )}
+              {isCode ? (
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              ) : (
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                />
+              )}
+            </>
           )}
         </>
       </ContainerSwitch>

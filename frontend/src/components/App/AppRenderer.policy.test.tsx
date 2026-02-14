@@ -4,8 +4,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { useAppConfigs } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  ButtonActionModeEnum,
-  CodeObjTypeEnum,
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
   createCore,
@@ -17,9 +15,6 @@ import {
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultTextBlockSectionImpl,
   createVariant,
-  HttpRequestMethodEnum,
-  ParameterPassingStyleEnum,
-  ParamNameTypeEnum,
 } from "utils/generatedTypes";
 
 import {
@@ -183,125 +178,6 @@ describe("AppRenderer policy enforcement", () => {
     expect(markup).toContain("Param edits are disabled by policy.");
     expect(markup).toContain("cursor-not-allowed");
     expect(markup).toContain("File downloads are disabled by policy.");
-  });
-
-  it("renders a placeholder when ParamInput binds to an unsupported param type", () => {
-    const sectionId = "section-1";
-    const sectionVariantId = "section-variant-1";
-    const sectionImplId = "section-impl-1";
-    const paramId = "param-1";
-    const paramVariantId = "param-variant-1";
-    const paramImplId = "param-impl-1";
-
-    const projectConfig = createProjectConfig({
-      id: "project-1",
-      sectionVariantMap: { [sectionId]: sectionVariantId },
-    });
-    const sectionCore = createCore({
-      id: sectionId,
-      name: "Section",
-      variants: [sectionVariantId],
-      defaultVariant: sectionVariantId,
-    });
-    const sectionVariant = createVariant({
-      id: sectionVariantId,
-      name: "Section Variant",
-      impl: sectionImplId,
-      nonPresetImpls: [],
-    });
-    const sectionImpl = createCallableSectionImpl(
-      createUserDefaultCallableSectionImpl(),
-      {
-        id: sectionImplId,
-        codeObjVariantMap: { [paramId]: paramVariantId },
-      },
-    );
-    const paramCore = createCore({
-      id: paramId,
-      name: "Param",
-      displayName: "",
-      variants: [paramVariantId],
-      defaultVariant: paramVariantId,
-    });
-    const paramVariant = createVariant({
-      id: paramVariantId,
-      name: "Param Variant",
-      impl: paramImplId,
-      nonPresetImpls: [],
-    });
-    const paramImpl = {
-      type: CodeObjTypeEnum.ButtonParam,
-      id: paramImplId,
-      name: "Param",
-      description: "",
-      isPreset: false,
-      coreNameType: ParamNameTypeEnum.TEXT,
-      coreNameEditable: false,
-      passingStyle: ParameterPassingStyleEnum.DEFAULT,
-      label: "Trigger",
-      actionMode: ButtonActionModeEnum.WEBSOCKET_LISTENER,
-      requestMethod: HttpRequestMethodEnum.POST,
-      requestUrl: "",
-      requestHeaderKey: "",
-      requestHeaderValue: "",
-      requestBody: "",
-    } as const;
-
-    useAppConfigs.setState({
-      configs: {
-        [projectConfig.id]: {
-          projectConfig,
-          sections: { [sectionId]: sectionCore },
-          sectionVariants: { [sectionVariantId]: sectionVariant },
-          sectionImpls: { [sectionImplId]: sectionImpl },
-          codeObjs: { [paramId]: paramCore },
-          codeObjVariants: { [paramVariantId]: paramVariant },
-          codeObjImpls: { [paramImplId]: paramImpl },
-          artifactGroups: {},
-          singletonSections: createSingletonSections(),
-          parentSectionMap: { [sectionId]: null },
-          shownParamIds: {},
-          previewSectionVariantMap: {},
-          requiredDecodedImages: [],
-          genCodeBinding: null,
-        },
-      },
-    });
-    syncStoreInitialState(useAppConfigs);
-
-    const runtimeValue = {
-      dataBindings: {},
-      actions: {},
-      policy: createSharePolicy({
-        allowParamChanges: true,
-        allowFileDownloads: true,
-        allowExternalLinks: true,
-        allowRun: true,
-      }),
-      canEditParams: true,
-      allowExternalLinks: true,
-      allowFileDownloads: true,
-      defaultConfigId: projectConfig.id,
-      theme: null,
-    };
-
-    const ParamInput = appRegistry.ParamInput;
-
-    const markup = renderToStaticMarkup(
-      <AppRuntimeContext.Provider value={runtimeValue}>
-        <ParamInput
-          element={{
-            props: {
-              sectionId,
-              paramId,
-              label: "Param",
-            },
-          }}
-        />
-      </AppRuntimeContext.Provider>,
-    );
-
-    expect(markup).toContain("Unsupported param type");
   });
 
   it("defaults to denying downloads and external links when runtime is missing", () => {

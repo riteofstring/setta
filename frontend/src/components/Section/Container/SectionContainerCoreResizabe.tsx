@@ -2,15 +2,11 @@ import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
-  isBaseCodeSectionType,
+  getEmbeddedAttachedTerminalForCodeSection,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import {
-  isBaseParentSectionImpl,
-  SectionTypeEnum,
-  type SectionType,
-} from "utils/generatedTypes";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
@@ -44,6 +40,7 @@ type SectionContainerCoreResizableProps = {
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
+  hasSectionStyleTheme: boolean;
   hideHeader?: boolean;
 };
 
@@ -54,6 +51,7 @@ export function SectionContainerCoreResizable({
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
+  hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
   const {
@@ -63,24 +61,18 @@ export function SectionContainerCoreResizable({
     hasEmbeddedTerminal,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    const children = isBaseParentSectionImpl(impl) ? impl.children : [];
-    let hasEmbeddedTerminal = false;
-    if (isBaseCodeSectionType(impl.type)) {
-      const candidateId =
-        children.length > 0 ? children[0] : impl.attachedTerminalSectionId;
-      if (candidateId) {
-        const childImpl = getCurrEffectiveSectionImpl(x, candidateId);
-        hasEmbeddedTerminal =
-          childImpl?.type === SectionTypeEnum.Terminal && children.length < 2;
-      }
-    }
+    const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
+      x,
+      sectionId,
+    );
     return {
       isMinimized: impl.isMinimized,
       isYouTube: false,
       // isYouTube: getIsYouTubeSection(sectionId, x),
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      hasEmbeddedTerminal,
+      hasEmbeddedTerminal:
+        embeddedTerminal !== null && !embeddedTerminal.isTerminalMinimized,
     };
   }, _.isEqual);
 
@@ -110,6 +102,7 @@ export function SectionContainerCoreResizable({
       isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
+      hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={hasEmbeddedTerminal}
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
@@ -152,6 +145,7 @@ export function SectionContainerCoreResizable({
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
           isRoot={isRoot}
+          hasSectionStyleTheme={hasSectionStyleTheme}
         />
       )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
