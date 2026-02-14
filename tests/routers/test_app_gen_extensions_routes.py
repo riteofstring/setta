@@ -72,3 +72,49 @@ class TestAppGenExtensionsRoutes:
                     workspace_root=workspace_root,
                     skill_id="workspace_skills::../outside",
                 )
+
+    def test_lists_skills_from_env_home_roots(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+            # Verify we pick up AGENTS_HOME/skills when it is outside Path.home().
+            agents_home = workspace_root / "agents-home"
+            agents_skill_dir = agents_home / "skills" / "release-checklist"
+            agents_skill_dir.mkdir(parents=True, exist_ok=True)
+            (agents_skill_dir / "SKILL.md").write_text(
+                "# Release Checklist\n\nShip safely.\n",
+                encoding="utf-8",
+            )
+
+            # Verify we pick up CODEX_HOME/skills as well.
+            codex_home = workspace_root / "codex-home"
+            codex_skill_dir = codex_home / "skills" / "qa-review"
+            codex_skill_dir.mkdir(parents=True, exist_ok=True)
+            (codex_skill_dir / "SKILL.md").write_text(
+                "# QA Review\n\nRun focused checks.\n",
+                encoding="utf-8",
+            )
+
+            monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+            rows = list_app_gen_skills(workspace_root)
+            row_by_id = {row.skillId: row for row in rows}
+
+            agents_row = row_by_id["agents_home_skills::release-checklist"]
+            assert agents_row.rootLabel == "AGENTS_HOME skills"
+            assert agents_row.rootPath == str(
+                (agents_home / "skills").resolve(strict=False)
+            )
+
+            codex_row = row_by_id["codex_home_skills::qa-review"]
+            assert codex_row.rootLabel == "CODEX_HOME skills"
+            assert codex_row.rootPath == str(
+                (codex_home / "skills").resolve(strict=False)
+            )

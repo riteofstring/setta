@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import Depends, HTTPException, status
@@ -44,6 +45,27 @@ def _iter_skill_roots(workspace_root: Path) -> list[tuple[str, str, Path]]:
         ("user_agents_skills", "User ~/.agents/skills", home / ".agents" / "skills"),
         ("user_codex_skills", "User ~/.codex/skills", home / ".codex" / "skills"),
     ]
+    env_candidates = [
+        (
+            "agents_home_skills",
+            "AGENTS_HOME skills",
+            os.environ.get("AGENTS_HOME"),
+        ),
+        (
+            "codex_home_skills",
+            "CODEX_HOME skills",
+            os.environ.get("CODEX_HOME"),
+        ),
+    ]
+    for root_id, label, raw_path in env_candidates:
+        if not raw_path:
+            continue
+        base_path = Path(raw_path).expanduser().resolve(strict=False)
+        root_path = (
+            base_path if base_path.name == "skills" else base_path / "skills"
+        )
+        candidates.append((root_id, label, root_path))
+
     roots: list[tuple[str, str, Path]] = []
     seen_paths: set[Path] = set()
     for root_id, label, root_path in candidates:
