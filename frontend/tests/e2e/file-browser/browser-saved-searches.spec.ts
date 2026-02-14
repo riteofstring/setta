@@ -50,15 +50,33 @@ async function setBrowserPath({
   await expect(pathInput).toBeVisible();
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await cmContent.fill(targetPath);
-  await page.keyboard.press("Enter");
   const normalizedTarget = normalizePathForComparison(targetPath);
-  await expect
-    .poll(async () =>
-      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-    )
-    .toContain(normalizedTarget);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(targetPath);
+    await page.keyboard.press("Enter");
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedPath = normalizePathForComparison(
+        await readCodeMirrorValue(page, pathInputId),
+      );
+      if (committedPath === normalizedTarget) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalPath = normalizePathForComparison(
+    await readCodeMirrorValue(page, pathInputId),
+  );
+  throw new Error(
+    `Browser path did not commit cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
+  );
 }
 
 async function setBrowserFilter({
@@ -80,12 +98,27 @@ async function setBrowserFilter({
   }
   const cmContent = filterRoot.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type(value);
-  await expect
-    .poll(async () => await readCodeMirrorValue(page, filterInputId))
-    .toContain(value);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(value);
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedValue = await readCodeMirrorValue(page, filterInputId);
+      if (committedValue === value) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalValue = await readCodeMirrorValue(page, filterInputId);
+  throw new Error(
+    `Browser filter did not commit cleanly. Expected "${value}", received "${finalValue}".`,
+  );
 }
 
 test("browser can save a search and re-apply it from the Filters column", async ({
