@@ -95,7 +95,6 @@ from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectBasicCode,
     ProjectGenPythonCode,
-    ProjectLSPCode,
     ProjectPythonCode,
     build_python_code_generator,
 )
@@ -522,12 +521,6 @@ def _apply_json_merge_patch(
     return base_obj
 
 
-def _is_lsp_code_entry(
-    code_entry: object,
-) -> bool:
-    return isinstance(code_entry, (ProjectPythonCode, ProjectLSPCode))
-
-
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -560,11 +553,7 @@ class BaseProjectManager(ABC):
         self.watch_code_manager = WatchCodeManager(self, loop=watch_loop)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
-            str,
-            dict[
-                str,
-                ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode,
-            ],
+            str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
         ] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
@@ -837,9 +826,7 @@ class BaseProjectManager(ABC):
         self, projectConfigId: ID
     ) -> tuple[
         ProjectGenPythonCode | None,
-        dict[
-            ID, ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode
-        ],
+        dict[ID, ProjectPythonCode | ProjectBashCode | ProjectBasicCode],
     ]:
         gen_code = self.gen_code.get(projectConfigId)
         code_entries = self.code_dict.get(projectConfigId, {})
@@ -1375,7 +1362,7 @@ class BaseProjectManager(ABC):
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
-                if _is_lsp_code_entry(c):
+                if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
         self.code_dict[projectConfigId] = {}
 
@@ -1391,10 +1378,7 @@ class BaseProjectManager(ABC):
 
                 if not section_code.binding.canonical_path.exists():
                     section_code.write_to_disk(section_code.code)
-                if (
-                    _is_lsp_code_entry(section_code)
-                    and section_code.lsp_writer is not None
-                ):
+                if self.lsp_writers.full is not None:
                     await section_code.sync_lsp(section_code.code)
                 self.code_dict[projectConfigId][sectionId] = section_code
 
@@ -1473,7 +1457,7 @@ class BaseProjectManager(ABC):
         if gen_code is not None:
             await gen_code.type_check()
         for code_entry in code_entries:
-            if _is_lsp_code_entry(code_entry):
+            if isinstance(code_entry, ProjectPythonCode):
                 await code_entry.type_check()
 
     async def _refetch_callable_params(
@@ -1641,7 +1625,7 @@ class BaseProjectManager(ABC):
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
         async with self._project_state_lock.read_lock():
             code = self.code_dict[x.projectConfigId][x.sectionId]
-        if _is_lsp_code_entry(code):
+        if isinstance(code, ProjectPythonCode):
             return await code.code_area_completion(x.fullText, x.position)
         return []
 
@@ -2040,7 +2024,7 @@ class BaseProjectManager(ABC):
         if section_id not in code_entries:
             return
         code_entry = code_entries[section_id]
-        if not _is_lsp_code_entry(code_entry):
+        if not isinstance(code_entry, ProjectPythonCode):
             return
         project_state = self.get_single_config_state(project_config_id)
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -2478,20 +2462,22 @@ class BaseProjectManager(ABC):
             project_config, ProjectCodegenLanguage.python
         ):
             return
+        if self.lsp_writers.full is None:
+            return
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if not isinstance(section_impl, CodeSectionImpl):
             return
-        if self.lsp_writers.get_for_language(section_impl.codeLanguage) is None:
+        if section_impl.codeLanguage is not CodeLanguage.python:
             return
         if section_impl.codeFileBinding is None:
             return
         code_entries = self.code_dict.setdefault(project_config.id, {})
         section_code = code_entries.get(section_id)
-        if not _is_lsp_code_entry(section_code):
+        if not isinstance(section_code, ProjectPythonCode):
             section_code = self.create_project_code(
                 project_state, section_id, section_impl
             )
-            if not _is_lsp_code_entry(section_code):
+            if not isinstance(section_code, ProjectPythonCode):
                 return
             code_entries[section_id] = section_code
         section_code.code = code
@@ -2940,18 +2926,6 @@ class BaseProjectManager(ABC):
                 project_state,
                 sectionId,
             )
-        lsp_writer = self.lsp_writers.get_for_language(codeLanguage)
-        if lsp_writer is not None:
-            return ProjectLSPCode(
-                self.dbe,
-                self.code_files,
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                self._get_lsp_diagnostics_state(project_state.projectConfig.id),
-                project_state,
-                sectionId,
-                code_language=codeLanguage,
-            )
         return ProjectBasicCode(
             self.dbe,
             self.code_files,
@@ -3114,7 +3088,7 @@ class BaseProjectManager(ABC):
             code_entries = self.code_dict.pop(project_config_id, None)
             if code_entries:
                 for code_entry in code_entries.values():
-                    if _is_lsp_code_entry(code_entry):
+                    if isinstance(code_entry, ProjectPythonCode):
                         code_entry.callback_cleanup()
             self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
         self.project_state_backend.validate_default_project_id()
