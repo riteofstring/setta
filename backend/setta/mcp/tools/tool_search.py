@@ -87,7 +87,7 @@ def search_mcp_tools(
     for result in index.search(normalized_query, limit):
         ranked_results.append(
             MCPToolSearchResult(
-                name=result.name,
+                name=_normalize_to_namespaced_tool_name(result.name),
                 description=result.description,
                 category=result.category,
             )

@@ -116,7 +116,9 @@ class TestSearchMCPTools:
         )
 
         assert len(results.results) == 1
-        assert results.results[0].name == "read_file_range"
+        assert results.results[0].name == build_namespaced_tool_name(
+            SETTA_MCP_SERVER_ID, "read_file_range"
+        )
 
     def test_non_positive_limit_defaults_to_cached_tool_count(self) -> None:
         results = search_mcp_tools(

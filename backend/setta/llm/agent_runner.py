@@ -1582,8 +1582,7 @@ class AgentRunner:
                     )
                 seen.add(server_id)
                 server_ids.append(server_id)
-            if server_ids:
-                return server_ids
+            return server_ids
         return self.config.resolve_mcp_server_ids(llm_config)
 
     def _build_tool_definitions(

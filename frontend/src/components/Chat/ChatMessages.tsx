@@ -1284,7 +1284,7 @@ function StreamItem({
 }) {
   switch (item.type) {
     case C.LLM_TEXT: {
-      const text = normalizeAssistantTextForRender(item.text);
+      const text = item.text;
       if (!text) {
         return null;
       }
@@ -1497,9 +1497,12 @@ function ChatMessageActions({
 function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
   const content = message.content ?? [];
   const output: string[] = [];
+  const shouldNormalizeAssistantText = message.role === ChatRoleEnum.assistant;
   for (const item of content) {
     if (item.type === C.LLM_TEXT) {
-      const text = normalizeAssistantTextForRender(item.text);
+      const text = shouldNormalizeAssistantText
+        ? normalizeAssistantTextForRender(item.text)
+        : item.text;
       if (text) {
         output.push(text);
       }
