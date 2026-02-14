@@ -1,12 +1,12 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 # Section type imports
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
+from setta.types.capabilities import CapabilityPolicy
 
 # Code object type imports
 from setta.types.code_obj_impls import (
@@ -195,6 +195,7 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
+    capabilityPolicy: CapabilityPolicy = Field(default_factory=CapabilityPolicy)
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False
@@ -213,13 +214,6 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
-
-
-class UserDefaultPluginSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pluginId: str = ""
-    kind: str = "default"
-    data: dict[str, Any] = Field(default_factory=dict)
-    schemaVersion: int | None = None
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

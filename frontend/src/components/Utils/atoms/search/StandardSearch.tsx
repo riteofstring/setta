@@ -18,7 +18,7 @@ export function StandardSearch({
     <search className={styles}>
       {!noLeftElement && (
         <div
-          className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
+          className={`absolute inset-y-0 left-0 grid select-none place-items-center ${leftElementStyles}`}
         >
           {leftElement || (
             <i className="gg-sort-az ml-[.4rem] !scale-75 text-setta-300 dark:text-setta-600" />
@@ -34,7 +34,7 @@ export function StandardSearch({
         onChange={onChange}
       />
       <div
-        className={`absolute right-0 grid select-none place-items-center ${leftElementStyles}`}
+        className={`absolute inset-y-0 right-0 grid select-none place-items-center ${leftElementStyles}`}
       >
         {rightElement}
       </div>
