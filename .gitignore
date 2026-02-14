@@ -38,6 +38,7 @@ dist/
 *.egg-info/
 site/
 venv/
+.venv_for_built_setta/
 setta_code/
 .DS_Store
 .mypy_cache/

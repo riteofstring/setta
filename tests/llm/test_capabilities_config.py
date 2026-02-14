@@ -67,7 +67,7 @@ def test_project_chat_policy_defaults_to_inherit_and_supports_crud(
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_root,
+        setta_files_location=str(setta_root),
     ):
         dbe = DBE(setta_root)
         project_config_id = ID("project-a")
@@ -207,7 +207,7 @@ def test_section_and_project_chat_policies_are_separate(tmp_path: Path) -> None:
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_root,
+        setta_files_location=str(setta_root),
     ):
         dbe = DBE(setta_root)
         single_config, project_config_id, section_id = (
@@ -263,7 +263,7 @@ def test_set_skill_sources_rejects_duplicate_ids_and_paths(tmp_path: Path) -> No
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_root,
+        setta_files_location=str(setta_root),
     ):
         dbe = DBE(setta_root)
 
@@ -313,7 +313,7 @@ def test_default_workspace_skill_source_points_to_setta_files(tmp_path: Path) ->
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_root,
+        setta_files_location=str(setta_root),
     ):
         dbe = DBE(setta_root)
         config = load_skills_config(dbe)
@@ -340,7 +340,7 @@ def test_load_skills_config_migrates_builtin_workspace_source_path(
 
     with temporary_setta_paths(
         workspace_root=workspace_root,
-        setta_files_root=setta_root,
+        setta_files_location=str(setta_root),
     ):
         dbe = DBE(setta_root)
         dbe.write_skills_config(
