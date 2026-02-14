@@ -20,7 +20,7 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 
-const PLUGIN_FRONTEND_API_VERSION = 1;
+export const PLUGIN_FRONTEND_API_VERSION = 1;
 
 export const PluginFrontendErrorCodeEnum = {
   RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",
@@ -42,9 +42,9 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-type PluginServerMode = "ide" | "share" | "app";
+export type PluginServerMode = "ide" | "share" | "app";
 
-type PluginSectionProps = {
+export type PluginSectionProps = {
   sectionId: string;
   pluginId: string;
   kind: string;
@@ -54,13 +54,13 @@ type PluginSectionProps = {
   effectiveCapabilities: string[];
 };
 
-type PluginSectionRenderer = {
+export type PluginSectionRenderer = {
   mount: (el: HTMLElement, props: PluginSectionProps) => void;
   update?: (el: HTMLElement, props: PluginSectionProps) => void;
   unmount?: (el: HTMLElement) => void;
 };
 
-type PluginSectionKindDefinition = {
+export type PluginSectionKindDefinition = {
   kind: string;
   title: string;
   description?: string;
@@ -72,7 +72,7 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-type PluginPaneProps = {
+export type PluginPaneProps = {
   pluginId: string;
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
@@ -84,7 +84,7 @@ type PluginPaneRenderer = {
   unmount?: (el: HTMLElement) => void;
 };
 
-type PluginPaneDefinition = {
+export type PluginPaneDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -95,7 +95,7 @@ type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-type PluginCommandDefinition = {
+export type PluginCommandDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -116,7 +116,7 @@ type PluginProjectContext = {
   serverMode: PluginServerMode;
 };
 
-type SettaPluginHost = {
+export type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
   serverMode: PluginServerMode;
@@ -434,6 +434,15 @@ function registerPluginModule({
         validated.pluginId,
         validated.kind,
       );
+      if (registryDelta.sectionKinds[sectionKey]) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          (
+            `Plugin ${plugin.pluginId} registered duplicate section kind ` +
+            `${validated.kind}.`
+          ),
+        );
+      }
       registryDelta.sectionKinds[sectionKey] = validated;
     },
     registerPane: (definition) => {
@@ -445,6 +454,17 @@ function registerPluginModule({
       );
       const validated = validatePaneDefinition(plugin.pluginId, definition);
       const pluginPanes = registryDelta.panes[plugin.pluginId] ?? [];
+      for (const existingPane of pluginPanes) {
+        if (existingPane.id === validated.id) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            (
+              `Plugin ${plugin.pluginId} registered duplicate pane ` +
+              `${validated.id}.`
+            ),
+          );
+        }
+      }
       pluginPanes.push(validated);
       registryDelta.panes[plugin.pluginId] = pluginPanes;
     },
@@ -457,6 +477,17 @@ function registerPluginModule({
       );
       const validated = validateCommandDefinition(plugin.pluginId, definition);
       const pluginCommands = registryDelta.commands[plugin.pluginId] ?? [];
+      for (const existingCommand of pluginCommands) {
+        if (existingCommand.id === validated.id) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            (
+              `Plugin ${plugin.pluginId} registered duplicate command ` +
+              `${validated.id}.`
+            ),
+          );
+        }
+      }
       pluginCommands.push(validated);
       registryDelta.commands[plugin.pluginId] = pluginCommands;
     },
@@ -551,7 +582,16 @@ function registerPluginModule({
     },
   };
 
-  (registerFn as (host: SettaPluginHost) => void)(host);
+  const registerResult = (registerFn as (host: SettaPluginHost) => unknown)(host);
+  if (isPromiseLike(registerResult)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      (
+        `Plugin ${plugin.pluginId} returned a Promise from register(host); ` +
+        "async register is not supported in MVP."
+      ),
+    );
+  }
 
   for (const paneEntries of Object.values(registryDelta.panes)) {
     paneEntries.sort((a, b) => a.title.localeCompare(b.title));
@@ -764,6 +804,13 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
     return false;
   }
   return Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  return typeof (value as PromiseLike<unknown>).then === "function";
 }
 
 class PluginRuntimeError extends Error {

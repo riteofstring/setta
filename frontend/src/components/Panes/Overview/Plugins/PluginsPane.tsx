@@ -26,6 +26,7 @@ import {
 import type {
   PluginInstallRequestInput,
   PluginListEntry,
+  PluginRestartCapability,
   PluginRollbackRequestInput,
   PluginUninstallRequestInput,
   PluginUpdateRequestInput,
@@ -34,9 +35,29 @@ import type {
 type InstallScope = "workspace" | "environment" | "global";
 
 type PluginActionStatus = {
-  type: "error" | "success";
+  type: "error" | "success" | "warning";
   message: string;
 };
+
+type RestartActionPlan =
+  | {
+      mode: "programmatic";
+      command: null;
+      reason: null;
+      message: null;
+    }
+  | {
+      mode: "manual";
+      command: string;
+      reason: string | null;
+      message: string;
+    }
+  | {
+      mode: "unavailable";
+      command: null;
+      reason: null;
+      message: string;
+    };
 
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
@@ -78,6 +99,14 @@ export function PluginsPane() {
       }),
     [pluginStatusEntries],
   );
+  const restartRequiredPluginIds = useMemo(
+    () => getRestartRequiredPluginIds(pluginListEntries),
+    [pluginListEntries],
+  );
+  const restartActionPlan = useMemo(
+    () => buildRestartActionPlan(runtimeSummary.restartCapability),
+    [runtimeSummary.restartCapability],
+  );
 
   async function runAction<T>(
     actionKey: string,
@@ -106,11 +135,12 @@ export function PluginsPane() {
   }
 
   async function onInstallPlugin() {
-    const trimmedSourceSpec = sourceSpec.trim();
-    if (!trimmedSourceSpec) {
-      setActionStatus({ type: "error", message: "Source spec is required." });
+    const sourceErrorMessage = validateInstallSourceSpec(sourceSpec);
+    if (sourceErrorMessage) {
+      setActionStatus({ type: "error", message: sourceErrorMessage });
       return;
     }
+    const trimmedSourceSpec = sourceSpec.trim();
     const response = await runAction("install", "Install plugin", async () =>
       route_plugins_install({
         sourceSpec: trimmedSourceSpec,
@@ -132,6 +162,24 @@ export function PluginsPane() {
   }
 
   async function onRestart() {
+    if (restartActionPlan.mode === "unavailable") {
+      setActionStatus({
+        type: "warning",
+        message: restartActionPlan.message,
+      });
+      return;
+    }
+    if (restartActionPlan.mode === "manual") {
+      setActionStatus({
+        type: "warning",
+        message: restartActionPlan.message,
+      });
+      addTemporaryNotification(
+        `Manual restart required: ${restartActionPlan.command}`,
+        "warning",
+      );
+      return;
+    }
     const response = await runAction(
       "restart",
       "Restart plugins runtime",
@@ -141,15 +189,23 @@ export function PluginsPane() {
       return;
     }
     if (response.data.accepted) {
+      setActionStatus({
+        type: "success",
+        message: "Restart request accepted.",
+      });
       addTemporaryNotification("Restart request accepted.", "info");
       return;
     }
-    if (response.data.command) {
-      addTemporaryNotification(
-        `Manual restart required: ${response.data.command}`,
-        "warning",
-      );
-    }
+    const command = response.data.command ?? "setta";
+    const reason = response.data.reason?.trim() ? response.data.reason : null;
+    const message = reason
+      ? `Manual restart required: ${command}. ${reason}`
+      : `Manual restart required: ${command}`;
+    setActionStatus({
+      type: "warning",
+      message,
+    });
+    addTemporaryNotification(`Manual restart required: ${command}`, "warning");
   }
 
   return (
@@ -172,7 +228,9 @@ export function PluginsPane() {
               type="button"
               className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onRestart}
-              disabled={busyActionKey !== null}
+              disabled={
+                busyActionKey !== null || restartActionPlan.mode === "unavailable"
+              }
             >
               Restart Setta
             </button>
@@ -197,6 +255,20 @@ export function PluginsPane() {
           </p>
         ) : null}
       </section>
+
+      {restartRequiredPluginIds.length > 0 ? (
+        <section className="rounded-md border border-yellow-300 bg-yellow-50 p-2 text-[11px] text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950/40 dark:text-yellow-200">
+          <p className="font-semibold uppercase tracking-wide">Restart required</p>
+          <p className="mt-1">
+            Backend changes are pending for: {restartRequiredPluginIds.join(", ")}
+          </p>
+          {restartActionPlan.mode === "manual" ? (
+            <p className="mt-1">
+              Manual command: <code>{restartActionPlan.command}</code>
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
@@ -246,17 +318,17 @@ export function PluginsPane() {
             <p className="text-[11px] text-setta-500 dark:text-setta-400">
               Plugin install/uninstall/update actions are IDE-mode only.
             </p>
-          ) : null}
+          ) : (
+            <p className="text-[11px] text-setta-500 dark:text-setta-400">
+              Supported sources: <code>github:</code> and <code>pypi:</code>.
+            </p>
+          )}
         </div>
       </section>
 
       {actionStatus ? (
         <section
-          className={`rounded-md border p-2 text-[11px] ${
-            actionStatus.type === "error"
-              ? "border-red-300 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
-              : "border-green-300 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-300"
-          }`}
+          className={`rounded-md border p-2 text-[11px] ${getActionStatusClassName(actionStatus.type)}`}
         >
           {actionStatus.message}
         </section>
@@ -355,6 +427,10 @@ function PluginListEntryCard({
   );
   const commands = usePluginRuntimeStore(
     (state) => state.commandsByPluginId[plugin.pluginId] ?? [],
+    _.isEqual,
+  );
+  const frontendError = usePluginRuntimeStore(
+    (state) => state.frontendErrorsByPluginId[plugin.pluginId] ?? null,
     _.isEqual,
   );
 
@@ -479,6 +555,16 @@ function PluginListEntryCard({
               </button>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {frontendError ? (
+        <section className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-[11px] text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+          <p className="font-semibold uppercase tracking-wide">
+            Frontend load failed
+          </p>
+          <p className="mt-1 font-mono">{frontendError.code}</p>
+          <p className="mt-1">{frontendError.message}</p>
         </section>
       ) : null}
 
@@ -632,4 +718,103 @@ function buildPluginActionError<T>(
     }
   }
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
+}
+
+function getRestartRequiredPluginIds(pluginListEntries: PluginListEntry[]): string[] {
+  const ids = pluginListEntries
+    .filter((plugin) => plugin.restartRequired)
+    .map((plugin) => plugin.pluginId);
+  ids.sort((a, b) => a.localeCompare(b));
+  return ids;
+}
+
+function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
+  const sourceSpec = sourceSpecRaw.trim();
+  if (!sourceSpec) {
+    return "Source spec is required.";
+  }
+
+  if (sourceSpec.startsWith("github:")) {
+    const value = sourceSpec.slice("github:".length).trim();
+    if (!value || !value.includes("/")) {
+      return (
+        "Invalid github source spec. Expected github:owner/repo[#ref] " +
+        "or github:owner/repo@ref."
+      );
+    }
+    return null;
+  }
+
+  if (sourceSpec.startsWith("pypi:")) {
+    const value = sourceSpec.slice("pypi:".length).trim();
+    if (!value) {
+      return "Invalid pypi source spec. Expected pypi:package or pypi:package==version.";
+    }
+    return null;
+  }
+
+  return "Unsupported source spec. Use github: or pypi:.";
+}
+
+function buildRestartActionPlan(
+  restartCapability: PluginRestartCapability | null,
+): RestartActionPlan {
+  if (!restartCapability) {
+    return {
+      mode: "unavailable",
+      command: null,
+      reason: null,
+      message: "Restart capability is unavailable. Run restart manually.",
+    };
+  }
+
+  const mode = String(restartCapability.mode);
+  if (mode === "programmatic") {
+    return {
+      mode: "programmatic",
+      command: null,
+      reason: null,
+      message: null,
+    };
+  }
+
+  const commandRaw = restartCapability.command?.trim();
+  const command = commandRaw && commandRaw !== "" ? commandRaw : "setta";
+  const reasonRaw = restartCapability.reason?.trim();
+  const reason = reasonRaw && reasonRaw !== "" ? reasonRaw : null;
+  const message = reason
+    ? `Manual restart required: ${command}. ${reason}`
+    : `Manual restart required: ${command}`;
+
+  return {
+    mode: "manual",
+    command,
+    reason,
+    message,
+  };
+}
+
+export const pluginsPaneTestApi = {
+  buildRestartActionPlan,
+  getRestartRequiredPluginIds,
+  validateInstallSourceSpec,
+};
+
+function getActionStatusClassName(type: PluginActionStatus["type"]): string {
+  if (type === "error") {
+    return (
+      "border-red-300 bg-red-50 text-red-700 " +
+      "dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"
+    );
+  }
+  if (type === "warning") {
+    return (
+      "border-yellow-300 bg-yellow-50 text-yellow-800 " +
+      "dark:border-yellow-900/50 dark:bg-yellow-950/40 dark:text-yellow-200"
+    );
+  }
+  return (
+    "border-green-300 bg-green-50 text-green-700 " +
+    "dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-300"
+  );
 }

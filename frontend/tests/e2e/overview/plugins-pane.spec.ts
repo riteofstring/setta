@@ -22,10 +22,15 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   const projectContext = await openIsolatedProject(page);
   await expect(page.getByText("Plugin Runtime")).toBeVisible();
   await expect(page.getByText("Install Plugin")).toBeVisible();
+  await expect(page.getByText("restart capability: manual")).toBeVisible();
   await page
     .getByRole("button", { name: "Restart Setta", exact: true })
     .click();
-  await expect(page.getByText("Manual restart required: setta")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Manual restart required: setta. Programmatic restart is not available in this runtime.",
+    ),
+  ).toBeVisible();
   await expect(
     page.getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]"),
   ).toBeVisible();
@@ -39,6 +44,13 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await expect(page.locator("select option[value='global']")).toHaveText(
     "global",
   );
+  await page
+    .getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]")
+    .fill("file:/tmp/plugin");
+  await page.getByRole("button", { name: "Install", exact: true }).click();
+  await expect(
+    page.getByText("Unsupported source spec. Use github: or pypi:."),
+  ).toBeVisible();
 
   await postBackend(page, "/plugins/link", {
     localPluginRoot: fixturePluginRoot,
