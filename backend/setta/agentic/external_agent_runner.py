@@ -34,9 +34,6 @@ from setta.agentic.external_adapters.base import (
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.codex_app_server import CodexAppServerAdapter
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
-from setta.agentic.external_adapters.plugin_process import (
-    PluginProcessExternalAgentAdapter,
-)
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_settings import (
     build_codex_settings_file,
@@ -76,7 +73,6 @@ from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
-from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -92,7 +88,6 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
-    ExternalAgentRunMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -169,9 +164,6 @@ class ExternalAgentRunner:
         share_session_id: str | None = None,
         share_mode: bool = False,
         adapter_registry: ExternalAgentAdapterRegistry | None = None,
-        plugin_external_agent_adapters: (
-            list[PluginRegisteredExternalAgentAdapter] | None
-        ) = None,
         mcp_client: MultiMCPClient | None = None,
     ) -> None:
         self.dbe = dbe
@@ -185,12 +177,6 @@ class ExternalAgentRunner:
                 CodexAppServerAdapter(),
                 OpenCodeSdkAdapter(),
             ]
-        )
-        self._plugin_external_agent_adapters_by_id: dict[
-            str, PluginRegisteredExternalAgentAdapter
-        ] = {}
-        self._register_plugin_external_agent_adapters(
-            plugin_external_agent_adapters or []
         )
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
@@ -249,7 +235,6 @@ class ExternalAgentRunner:
         adapter = self._adapter_registry.lookup(
             config.toolType,
             config.runMode,
-            config.pluginAdapterId,
         ).adapter
         context, is_new = self._build_context(
             engine_config_id,
@@ -346,7 +331,6 @@ class ExternalAgentRunner:
             adapter = self._adapter_registry.lookup(
                 context.config.toolType,
                 context.config.runMode,
-                context.config.pluginAdapterId,
             ).adapter
             if context.agentic_context_section_ids:
                 await self._broadcast_ai_follow_update(
@@ -438,50 +422,6 @@ class ExternalAgentRunner:
                 handle.run_id,
                 exc_info=exc,
             )
-
-    def _register_plugin_external_agent_adapters(
-        self,
-        registrations: list[PluginRegisteredExternalAgentAdapter],
-    ) -> None:
-        for registration in registrations:
-            run_modes: set[ExternalAgentRunMode] = {
-                ExternalAgentRunMode(raw_run_mode)
-                for raw_run_mode in registration.runModes
-            }
-            adapter = PluginProcessExternalAgentAdapter(
-                adapter_id=registration.adapterId,
-                name=registration.name,
-                supported_run_modes=run_modes,
-                command=registration.command,
-                args=tuple(registration.args),
-                default_model=registration.defaultModel,
-            )
-            self._adapter_registry.register_plugin_adapter(
-                registration.adapterId,
-                adapter,
-            )
-            self._plugin_external_agent_adapters_by_id[registration.adapterId] = (
-                registration
-            )
-
-    def get_plugin_external_agent_adapters(
-        self,
-    ) -> list[PluginRegisteredExternalAgentAdapter]:
-        return sorted(
-            self._plugin_external_agent_adapters_by_id.values(),
-            key=lambda registration: registration.adapterId,
-        )
-
-    def get_plugin_external_agent_adapter(
-        self,
-        adapter_id: str | None,
-    ) -> PluginRegisteredExternalAgentAdapter | None:
-        if adapter_id is None:
-            return None
-        normalized_adapter_id = adapter_id.strip()
-        if normalized_adapter_id == "":
-            return None
-        return self._plugin_external_agent_adapters_by_id.get(normalized_adapter_id)
 
     def _build_context(
         self,
