@@ -1,5 +1,5 @@
-import path from "path";
 import { expect, test } from "@playwright/test";
+import path from "path";
 import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
@@ -22,11 +22,23 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   const projectContext = await openIsolatedProject(page);
   await expect(page.getByText("Plugin Runtime")).toBeVisible();
   await expect(page.getByText("Install Plugin")).toBeVisible();
-  await page.getByRole("button", { name: "Restart Setta", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Restart Setta", exact: true })
+    .click();
   await expect(page.getByText("Manual restart required: setta")).toBeVisible();
   await expect(
     page.getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]"),
   ).toBeVisible();
+  await expect(page.locator("select").first()).toHaveValue("workspace");
+  await expect(page.locator("select option[value='workspace']")).toHaveText(
+    "workspace",
+  );
+  await expect(page.locator("select option[value='environment']")).toHaveText(
+    "environment",
+  );
+  await expect(page.locator("select option[value='global']")).toHaveText(
+    "global",
+  );
 
   await postBackend(page, "/plugins/link", {
     localPluginRoot: fixturePluginRoot,
@@ -38,10 +50,13 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
   await expect(page.getByText("setta-fixture-frontend@0.1.0")).toBeVisible();
+  await expect(page.getByText(/scope=workspace source=local:/)).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Fixture Pane", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Fixture pane mounted.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Fixture pane mounted.", { exact: true }),
+  ).toBeVisible();
   const fixtureCommandButton = page.getByRole("button", {
     name: "Fixture Command",
     exact: true,
@@ -51,7 +66,9 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
 
   const viewportBounds = await getViewportBoundsForPlacement(page);
   if (!viewportBounds) {
-    throw new Error("Unable to resolve viewport bounds for plugin section placement.");
+    throw new Error(
+      "Unable to resolve viewport bounds for plugin section placement.",
+    );
   }
 
   const created = await postBackend<CreateTopLevelSectionResponse>(
