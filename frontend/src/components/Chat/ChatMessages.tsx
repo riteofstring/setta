@@ -189,8 +189,6 @@ const TEXTUAL_INVOKE_BLOCK_PATTERN = /<invoke\b[\s\S]*?<\/invoke>/giu;
 const TEXTUAL_FUNCTION_CALLS_TAG_PATTERN = /<\/?\s*function_calls\s*>/giu;
 const TEXTUAL_TOOL_SYNTAX_LINE_PATTERN =
   /^[ \t]*<\s*\/?\s*(?:function_calls|invoke|parameter)\b[^>]*>.*$/gim;
-const TEXTUAL_TOOL_NAME_LINE_PATTERN =
-  /^\s*`?((?:mcp__)?setta(?:__|\.)[A-Za-z0-9_.]+)`?\s*$/gim;
 const TEXTUAL_TOOL_CALL_ERROR_MESSAGE =
   "Tool call was returned as plain text and was not executed. This usually means tool calling was unavailable for this run (for example, MCP tools were not enabled).";
 
@@ -291,46 +289,33 @@ function parseTextualToolCallsFromText(
     }
   }
 
-  const allParameters: Record<string, unknown> = {};
-  const allParameterMatches = Array.from(
-    text.matchAll(TEXTUAL_PARAMETER_PATTERN),
-  );
-  for (const parameterMatch of allParameterMatches) {
-    const key = (parameterMatch[2] ?? "").trim();
-    if (!key) {
-      continue;
+  if (toolCalls.length === 0) {
+    const allParameters: Record<string, unknown> = {};
+    const allParameterMatches = Array.from(
+      text.matchAll(TEXTUAL_PARAMETER_PATTERN),
+    );
+    for (const parameterMatch of allParameterMatches) {
+      const key = (parameterMatch[2] ?? "").trim();
+      if (!key) {
+        continue;
+      }
+      allParameters[key] = parseTextualParameterValue(parameterMatch[3] ?? "");
     }
-    allParameters[key] = parseTextualParameterValue(parameterMatch[3] ?? "");
-  }
 
-  const openInvokeMatches = Array.from(
-    text.matchAll(TEXTUAL_INVOKE_OPEN_PATTERN),
-  );
-  for (const openInvoke of openInvokeMatches) {
-    const name = (openInvoke[2] ?? "").trim();
-    if (!name) {
-      continue;
+    const openInvokeMatches = Array.from(
+      text.matchAll(TEXTUAL_INVOKE_OPEN_PATTERN),
+    );
+    for (const openInvoke of openInvokeMatches) {
+      const name = (openInvoke[2] ?? "").trim();
+      if (!name) {
+        continue;
+      }
+      const argsForOpenInvoke =
+        openInvokeMatches.length === 1 && Object.keys(allParameters).length > 0
+          ? allParameters
+          : {};
+      pushToolCall(name, argsForOpenInvoke);
     }
-    const argsForOpenInvoke =
-      openInvokeMatches.length === 1 && Object.keys(allParameters).length > 0
-        ? allParameters
-        : {};
-    pushToolCall(name, argsForOpenInvoke);
-  }
-
-  const toolNameLineMatches = Array.from(
-    text.matchAll(TEXTUAL_TOOL_NAME_LINE_PATTERN),
-  );
-  for (const lineMatch of toolNameLineMatches) {
-    const rawName = (lineMatch[1] ?? "").trim();
-    if (!rawName) {
-      continue;
-    }
-    const toolName = rawName.replace(/[.,;:]+$/u, "");
-    if (!toolName) {
-      continue;
-    }
-    pushToolCall(toolName, {});
   }
 
   if (toolCalls.length === 0) {
@@ -345,7 +330,6 @@ function stripTextualToolCallBlocks(text: string): string {
     .replace(TEXTUAL_INVOKE_BLOCK_PATTERN, " ")
     .replace(TEXTUAL_PARAMETER_PATTERN, " ")
     .replace(TEXTUAL_TOOL_SYNTAX_LINE_PATTERN, " ")
-    .replace(TEXTUAL_TOOL_NAME_LINE_PATTERN, " ")
     .replace(TEXTUAL_FUNCTION_CALLS_TAG_PATTERN, " ")
     .replace(/\n{3,}/gu, "\n\n")
     .trim();

@@ -1126,18 +1126,6 @@ export function AppConfigPane() {
       );
       return;
     }
-    const isEngineUsable = isProjectChatEngineUsable(effectiveEngineConfig, {
-      allLLMConfigs,
-      availableConfigIds,
-      externalAgentHealth,
-      externalAgentHealthInitialLoadComplete,
-    });
-    if (!isEngineUsable) {
-      addTemporaryNotification(
-        "Selected LLM engine has no usable config. Open Project AI Chat and select an LLM config.",
-      );
-      return;
-    }
     const attachments = styleImageAttachmentRef.current
       ? [styleImageAttachmentRef.current]
       : [];

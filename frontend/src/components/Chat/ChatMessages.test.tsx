@@ -221,4 +221,70 @@ describe("ChatMessages assistant error rendering", () => {
       "Tool call was returned as plain text and was not executed.",
     );
   });
+
+  it("does not duplicate fallback cards for multiple invoke blocks", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m5",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "<function_calls>",
+              '<invoke name="setta__create_top_level_section">',
+              '<parameter name="projectConfigId">13</parameter>',
+              '<parameter name="implType">TextBlock</parameter>',
+              "</invoke>",
+              '<invoke name="setta__set_section_name">',
+              '<parameter name="sectionId">abc-123</parameter>',
+              '<parameter name="name">Task Manager</parameter>',
+              "</invoke>",
+              "</function_calls>",
+            ].join("\n"),
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(
+      markup.split("setta__create_top_level_section").length - 1,
+    ).toBe(1);
+    expect(markup.split("setta__set_section_name").length - 1).toBe(1);
+  });
+
+  it("keeps plain tool-name lines as text instead of fallback tool failures", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m6",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "Recommended tools:",
+              "setta__getProjectConfigNamesAndIds",
+              "setta__get_latest_project_state_summary",
+            ].join("\n"),
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("setta__getProjectConfigNamesAndIds");
+    expect(markup).toContain("setta__get_latest_project_state_summary");
+    expect(markup).not.toContain(
+      "Tool call was returned as plain text and was not executed.",
+    );
+  });
 });

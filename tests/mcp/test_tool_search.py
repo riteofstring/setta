@@ -36,9 +36,7 @@ def _build_tool(
     *,
     tool_type: SettaToolType = SettaToolType.discoverable,
 ) -> Tool:
-    def _noop(**kwargs: Any) -> None:
-        if kwargs:
-            return None
+    def _noop() -> None:
         return None
 
     metadata = func_metadata(_noop)
