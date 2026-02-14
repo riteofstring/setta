@@ -4,6 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+if [[ -n "${HOME:-}" ]]; then
+  DEFAULT_SETTA_HOME="${HOME}/.setta-development"
+else
+  DEFAULT_SETTA_HOME=".setta-development"
+fi
+DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/dev_setta_files"
 
 instance_offset() {
   local instance_name="$1"
@@ -159,21 +165,58 @@ RUN_MODE="start"
 
 usage() {
   cat <<'EOF'
-Usage: ai.sh [--reload]
+Usage: ai.sh [--reload] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
 
 Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
-Uses per-worktree ports and profiles by default.
+Uses per-worktree ports and dev paths by default:
+  SETTA_HOME=~/.setta-development
+  SETTA_FILES_ROOT=<worktree>/dev_setta_files
 
 Flags:
   --reload   Use backend reload mode (pnpm startr)
 EOF
 }
 
+SETTA_PROFILE_OVERRIDE=""
+SETTA_HOME_OVERRIDE=""
+SETTA_FILES_ROOT_OVERRIDE=""
+SETTA_FILES_LOCATION_OVERRIDE=""
+SETTA_RUNTIME_ROOT_OVERRIDE=""
+EFFECTIVE_SETTA_HOME="${SETTA_HOME:-${DEFAULT_SETTA_HOME}}"
+EFFECTIVE_SETTA_FILES_ROOT="${SETTA_FILES_ROOT:-}"
+EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION:-}"
+if [[ -n "${EFFECTIVE_SETTA_FILES_ROOT}" && -n "${EFFECTIVE_SETTA_FILES_LOCATION}" ]]; then
+  EFFECTIVE_SETTA_FILES_LOCATION=""
+fi
+if [[ -z "${EFFECTIVE_SETTA_FILES_ROOT}" && -z "${EFFECTIVE_SETTA_FILES_LOCATION}" ]]; then
+  EFFECTIVE_SETTA_FILES_ROOT="${DEFAULT_DEV_SETTA_FILES_ROOT}"
+fi
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --reload)
       RUN_MODE="startr"
       shift
+      ;;
+    --profile)
+      SETTA_PROFILE_OVERRIDE="$2"
+      shift 2
+      ;;
+    --setta-home)
+      SETTA_HOME_OVERRIDE="$2"
+      shift 2
+      ;;
+    --setta-files-root)
+      SETTA_FILES_ROOT_OVERRIDE="$2"
+      shift 2
+      ;;
+    --setta-files-location)
+      SETTA_FILES_LOCATION_OVERRIDE="$2"
+      shift 2
+      ;;
+    --runtime-root)
+      SETTA_RUNTIME_ROOT_OVERRIDE="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -196,6 +239,37 @@ export DEBUG_PORT
 export SETTA_NO_OPEN="${SETTA_NO_OPEN:-1}"
 # Avoid clobbering repo-root backend.log, which start.sh/reset.sh use.
 export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
+if [ -n "${SETTA_HOME_OVERRIDE}" ]; then
+  EFFECTIVE_SETTA_HOME="${SETTA_HOME_OVERRIDE}"
+fi
+export SETTA_HOME="${EFFECTIVE_SETTA_HOME}"
+
+if [ -n "${SETTA_FILES_ROOT_OVERRIDE}" ]; then
+  EFFECTIVE_SETTA_FILES_ROOT="${SETTA_FILES_ROOT_OVERRIDE}"
+  EFFECTIVE_SETTA_FILES_LOCATION=""
+fi
+if [ -n "${SETTA_FILES_LOCATION_OVERRIDE}" ]; then
+  EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION_OVERRIDE}"
+  EFFECTIVE_SETTA_FILES_ROOT=""
+fi
+if [ -n "${EFFECTIVE_SETTA_FILES_ROOT}" ]; then
+  export SETTA_FILES_ROOT="${EFFECTIVE_SETTA_FILES_ROOT}"
+  unset SETTA_FILES_LOCATION
+else
+  unset SETTA_FILES_ROOT
+  if [ -n "${EFFECTIVE_SETTA_FILES_LOCATION}" ]; then
+    export SETTA_FILES_LOCATION="${EFFECTIVE_SETTA_FILES_LOCATION}"
+  else
+    unset SETTA_FILES_LOCATION
+  fi
+fi
+
+if [ -n "${SETTA_PROFILE_OVERRIDE}" ]; then
+  export SETTA_PROFILE="${SETTA_PROFILE_OVERRIDE}"
+fi
+if [ -n "${SETTA_RUNTIME_ROOT_OVERRIDE}" ]; then
+  export SETTA_RUNTIME_ROOT="${SETTA_RUNTIME_ROOT_OVERRIDE}"
+fi
 
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then

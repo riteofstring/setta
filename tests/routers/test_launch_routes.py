@@ -263,3 +263,46 @@ class TestLaunchRoutes:
             assert response.ok is True
             assert response.sessionId == session.id
             assert response.settaFilesLocation == "local"
+
+    def test_launch_local_with_explicit_setta_files_root(self, monkeypatch) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
+            explicit_root = tmp_path / "explicit_state"
+            sessions_root = explicit_root / "runtime" / "sessions"
+            sessions_root.mkdir(parents=True, exist_ok=True)
+
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                server_socket.bind(("127.0.0.1", 0))
+            except OSError:
+                pytest.skip("Socket binds are not permitted in this test environment.")
+            server_socket.listen(1)
+            port = server_socket.getsockname()[1]
+
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=port,
+                pid=os.getpid(),
+            )
+
+            try:
+                response = route_launch(
+                    LaunchRequest(
+                        workspaceRoot=str(workspace_root),
+                        settaFilesRoot=str(explicit_root),
+                    )
+                )
+            finally:
+                server_socket.close()
+
+            assert response.ok is True
+            assert response.sessionId == session.id
+            assert response.settaFilesLocation is None
+            assert response.settaFilesRoot == str(explicit_root.resolve(strict=False))
