@@ -446,6 +446,84 @@ def test_backend_plugin_disable_stays_pending_restart(tmp_path: Path) -> None:
     assert status_entries[0].restartRequired is True
 
 
+def test_backend_pending_restart_clears_after_load(tmp_path: Path) -> None:
+    # Backend pending-restart entries should clear after backend load/restart.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.state == PluginRuntimeState.pending_restart
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == linked.pluginId
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+    assert status_entries[0].restartRequired is False
+
+
+def test_backend_uninstall_surfaces_pending_restart_tombstone(tmp_path: Path) -> None:
+    # Backend uninstall should remain visible as pending_restart until backend reload.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+
+    removed = manager.uninstall_plugin(
+        plugin_id=linked.pluginId,
+        scope=PluginScope.workspace,
+    )
+    assert removed.restartRequired is True
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == linked.pluginId
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.pending_restart
+    assert status_entries[0].restartRequired is True
+    assert status_entries[0].sourceScope == PluginScope.workspace
+
+
+def test_backend_uninstall_pending_restart_clears_after_load(tmp_path: Path) -> None:
+    # Pending restart tombstones from backend uninstall clear after backend reload.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    manager.uninstall_plugin(
+        plugin_id=linked.pluginId,
+        scope=PluginScope.workspace,
+    )
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == linked.pluginId
+    ]
+    assert status_entries == []
+
+
 def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
     # Link/install flows should prepare plugin-scoped backend runtime metadata.
     manager = _make_manager(tmp_path)
