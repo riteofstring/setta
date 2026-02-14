@@ -122,7 +122,11 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         workspace_root = x.workspaceRoot
         local_setta_home = x.settaHome
         if local_setta_home is None:
-            local_setta_home = str(get_setta_paths().setta_home)
+            paths = get_setta_paths()
+            if normalized_profile is None:
+                local_setta_home = str(paths.setta_home)
+            else:
+                local_setta_home = str(paths.profile_lookup_home)
 
         result = launch_workspace_session(
             workspace_root=workspace_root,

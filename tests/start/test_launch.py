@@ -418,9 +418,13 @@ def test_launch_workspace_session_sanitizes_inherited_path_env(
     monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
     monkeypatch.setenv("SETTA_RUNTIME_ROOT", str(stale_runtime))
 
+    captured_cmd: list[str] = []
     captured_env: dict[str, str] = {}
 
-    def capture_spawn_env(*_args, **kwargs):
+    def capture_spawn_env(*args, **kwargs):
+        command = args[0] if args else None
+        if isinstance(command, list):
+            captured_cmd.extend(str(part) for part in command)
         env = kwargs.get("env")
         if isinstance(env, dict):
             captured_env.update({str(k): str(v) for k, v in env.items()})
@@ -441,14 +445,20 @@ def test_launch_workspace_session_sanitizes_inherited_path_env(
 
     expected_setta_home = str(setta_home.resolve(strict=False))
     expected_workspace = str(workspace.resolve(strict=False))
-    expected_runtime_root = str(
-        (workspace / "setta_files" / "runtime").resolve(strict=False)
-    )
-    assert captured_env.get("SETTA_WORKSPACE_ROOT") == expected_workspace
-    assert captured_env.get("SETTA_HOME") == expected_setta_home
-    assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == expected_setta_home
-    assert captured_env.get("SETTA_FILES_LOCATION") == "local"
-    assert captured_env.get("SETTA_RUNTIME_ROOT") == expected_runtime_root
+    assert "--workspace" in captured_cmd
+    assert captured_cmd[captured_cmd.index("--workspace") + 1] == expected_workspace
+    assert "--setta-home" in captured_cmd
+    assert captured_cmd[captured_cmd.index("--setta-home") + 1] == expected_setta_home
+    assert "--setta-files-location" in captured_cmd
+    assert captured_cmd[captured_cmd.index("--setta-files-location") + 1] == "local"
+    assert "--setta-files-root" not in captured_cmd
+    assert "--runtime-root" not in captured_cmd
+    assert "--profile" not in captured_cmd
+    assert "SETTA_WORKSPACE_ROOT" not in captured_env
+    assert "SETTA_HOME" not in captured_env
+    assert "SETTA_PROFILE_LOOKUP_HOME" not in captured_env
+    assert "SETTA_FILES_LOCATION" not in captured_env
+    assert "SETTA_RUNTIME_ROOT" not in captured_env
     assert "SETTA_PROFILE" not in captured_env
     assert "SETTA_FILES_ROOT" not in captured_env
 
@@ -505,10 +515,15 @@ def test_launch_workspace_session_spawns_profile_with_runtime_home_and_lookup_en
     assert "--profile" in captured_cmd
     assert captured_cmd[captured_cmd.index("--profile") + 1] == "dev"
     assert "--setta-home" not in captured_cmd
-    assert captured_env.get("SETTA_HOME") == str(runtime_home.resolve(strict=False))
     assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == str(
         lookup_home.resolve(strict=False)
     )
+    assert "SETTA_HOME" not in captured_env
+    assert "SETTA_WORKSPACE_ROOT" not in captured_env
+    assert "SETTA_FILES_ROOT" not in captured_env
+    assert "SETTA_FILES_LOCATION" not in captured_env
+    assert "SETTA_RUNTIME_ROOT" not in captured_env
+    assert "SETTA_PROFILE" not in captured_env
 
 
 def test_launch_workspace_session_non_profile_keeps_setta_home_cli_flag(
@@ -545,10 +560,13 @@ def test_launch_workspace_session_non_profile_keeps_setta_home_cli_flag(
     assert captured_cmd[captured_cmd.index("--setta-home") + 1] == str(
         setta_home.resolve(strict=False)
     )
-    assert captured_env.get("SETTA_HOME") == str(setta_home.resolve(strict=False))
-    assert captured_env.get("SETTA_PROFILE_LOOKUP_HOME") == str(
-        setta_home.resolve(strict=False)
-    )
+    assert "SETTA_HOME" not in captured_env
+    assert "SETTA_PROFILE_LOOKUP_HOME" not in captured_env
+    assert "SETTA_WORKSPACE_ROOT" not in captured_env
+    assert "SETTA_FILES_ROOT" not in captured_env
+    assert "SETTA_FILES_LOCATION" not in captured_env
+    assert "SETTA_RUNTIME_ROOT" not in captured_env
+    assert "SETTA_PROFILE" not in captured_env
 
 
 def test_launch_workspace_session_reports_runtime_log_init_failures(

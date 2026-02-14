@@ -228,20 +228,19 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             "cwd": str(paths.workspace_root),
         }
         env = os.environ.copy()
-        env[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
-        env[SETTA_HOME_ENV] = str(paths.setta_home)
-        env[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
-        env[RUNTIME_ROOT_ENV] = str(paths.runtime_root)
+        for key in (
+            WORKSPACE_ROOT_ENV,
+            SETTA_HOME_ENV,
+            PROFILE_LOOKUP_HOME_ENV,
+            RUNTIME_ROOT_ENV,
+            PROFILE_ENV,
+            FILES_ROOT_ENV,
+            FILES_LOCATION_ENV,
+        ):
+            env.pop(key, None)
         if paths.profile_name:
-            env[PROFILE_ENV] = paths.profile_name
-        else:
-            env.pop(PROFILE_ENV, None)
-        if paths.setta_files_location is None:
-            env[FILES_ROOT_ENV] = str(paths.setta_files_root)
-            env.pop(FILES_LOCATION_ENV, None)
-        else:
-            env[FILES_LOCATION_ENV] = paths.setta_files_location
-            env.pop(FILES_ROOT_ENV, None)
+            # Profile lookup home has no CLI flag, so pass it via env.
+            env[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
         if paths.auth_cookie_name:
             env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
         else:
