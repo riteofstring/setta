@@ -1,6 +1,8 @@
 import json
+import os
 from pathlib import Path
 from typing import Callable
+import zipfile
 
 from click.testing import CliRunner
 from fastapi import FastAPI
@@ -48,6 +50,51 @@ def _build_manager_from_paths(
         setta_version="0.1.0",
         restart_callback=restart_callback,
     )
+
+
+def _build_local_pypi_wheel_from_fixture(
+    *,
+    tmp_path: Path,
+    fixture_name: str,
+    package_name: str,
+    version: str,
+) -> Path:
+    source_root = FIXTURE_PLUGIN_ROOT / fixture_name
+    wheel_name = f"{package_name.replace('-', '_')}-{version}-py3-none-any.whl"
+    artifact_path = tmp_path / wheel_name
+    dist_info_name = f"{package_name.replace('-', '_')}-{version}.dist-info"
+    with zipfile.ZipFile(artifact_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        for path in sorted(source_root.rglob("*"), key=lambda item: str(item)):
+            if not path.is_file():
+                continue
+            relative_path = path.relative_to(source_root).as_posix()
+            zipf.write(path, arcname=relative_path)
+        zipf.writestr(
+            f"{dist_info_name}/METADATA",
+            "\n".join(
+                [
+                    "Metadata-Version: 2.1",
+                    f"Name: {package_name}",
+                    f"Version: {version}",
+                    "Summary: Setta fixture plugin",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(
+            f"{dist_info_name}/WHEEL",
+            "\n".join(
+                [
+                    "Wheel-Version: 1.0",
+                    "Generator: setta-tests",
+                    "Root-Is-Purelib: true",
+                    "Tag: py3-none-any",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(f"{dist_info_name}/RECORD", "")
+    return artifact_path
 
 
 def test_plugins_restart_required_text_includes_restart_capability(
@@ -124,3 +171,72 @@ def test_plugins_restart_required_reports_pending_ids_without_status(
     assert result.exit_code == 0, result.output
     assert "Pending restart plugins:" in result.output
     assert "- setta-fixture-backend (status unavailable)" in result.output
+
+
+def test_plugins_lock_write_and_apply_cli_json_roundtrip(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    manager = _build_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer="pip",
+            scope="workspace",
+            enable=True,
+            force=False,
+        )
+
+        monkeypatch.setattr(
+            start_module,
+            "_build_plugin_manager_for_cli",
+            lambda: manager,
+        )
+        runner = CliRunner()
+
+        write_result = runner.invoke(plugins, ["lock", "write", "--json"])
+        assert write_result.exit_code == 0, write_result.output
+        write_payload = json.loads(write_result.output)
+        assert write_payload["pluginCount"] == 1
+        assert Path(write_payload["lockfilePath"]).exists()
+
+        manager.uninstall_plugin(
+            plugin_id="setta-fixture-frontend",
+            scope="workspace",
+        )
+
+        check_result = runner.invoke(plugins, ["lock", "apply", "--check", "--json"])
+        assert check_result.exit_code == 0, check_result.output
+        check_payload = json.loads(check_result.output)
+        assert check_payload["applied"] is False
+        assert any(
+            "install setta-fixture-frontend in workspace" in item
+            for item in check_payload["plannedChanges"]
+        )
+
+        apply_result = runner.invoke(plugins, ["lock", "apply", "--json"])
+        assert apply_result.exit_code == 0, apply_result.output
+        apply_payload = json.loads(apply_result.output)
+        assert apply_payload["applied"] is True
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links

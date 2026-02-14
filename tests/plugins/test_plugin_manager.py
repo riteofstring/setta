@@ -252,9 +252,21 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
         "backend-language-server",
         "backend-language-server-e2e",
         "backend-external-agent",
+        "backend-mcp-tools",
+        "backend-static-router",
+        "backend-worker-failure-api-version",
+        "backend-worker-failure-missing-method",
+        "backend-worker-failure-transport",
+        "backend-worker-failure-timeout-startup",
+        "backend-worker-failure-timeout-register",
         "frontend",
+        "frontend-topnav",
+        "frontend-errors",
         "content",
         "full",
+        "metadata-mismatch-id",
+        "metadata-mismatch-version",
+        "scope-shadowing",
     ],
 )
 def test_fixture_plugins_validate(fixture_name: str, tmp_path: Path) -> None:
@@ -318,6 +330,126 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     ]
     assert len(status_entries) == 1
     assert status_entries[0].state == PluginRuntimeState.active
+
+
+def test_install_plugin_rejects_metadata_identity_mismatch_from_fixture(
+    tmp_path: Path,
+) -> None:
+    # PyPI install must fail when package metadata name does not match manifest id.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-metadata-id-package"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="metadata-mismatch-id",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager.install_plugin(
+                source_spec=f"pypi:{package_name}=={version}",
+                installer=PluginInstallerBackend.pip,
+                scope=PluginScope.workspace,
+                enable=True,
+                force=False,
+            )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert exc_info.value.code == "PLUGIN_SOURCE_IDENTITY_MISMATCH"
+
+
+def test_install_plugin_rejects_metadata_version_mismatch_from_fixture(
+    tmp_path: Path,
+) -> None:
+    # PyPI install must fail when package metadata version does not match manifest version.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-metadata-version"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="metadata-mismatch-version",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager.install_plugin(
+                source_spec=f"pypi:{package_name}=={version}",
+                installer=PluginInstallerBackend.pip,
+                scope=PluginScope.workspace,
+                enable=True,
+                force=False,
+            )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert exc_info.value.code == "PLUGIN_SOURCE_VERSION_MISMATCH"
+
+
+def test_install_plugin_rejects_ambiguous_plugin_root_layout_from_fixture(
+    tmp_path: Path,
+) -> None:
+    # PyPI install must fail when an artifact contains multiple plugin manifests.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-layout-bundle"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="metadata-mismatch-layout",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager.install_plugin(
+                source_spec=f"pypi:{package_name}=={version}",
+                installer=PluginInstallerBackend.pip,
+                scope=PluginScope.workspace,
+                enable=True,
+                force=False,
+            )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert exc_info.value.code == "PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT"
 
 
 def test_install_plugin_auto_installer_falls_back_to_pip_when_uv_unavailable(
@@ -1027,6 +1159,87 @@ def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
         SETTA_MCP_TOOLS[:] = baseline_tools
 
 
+def test_load_backend_plugins_registers_fixture_static_dir_and_router(
+    tmp_path: Path,
+) -> None:
+    # Backend static/router fixture should expose both API and static file mount points.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-static-router",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    app = FastAPI()
+    manager.load_backend_plugins(app=app)
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-static-router"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+
+    with TestClient(app) as client:
+        api_response = client.get("/api/plugins/setta-fixture-backend-static-router/info")
+        assert api_response.status_code == 200
+        assert api_response.json() == {
+            "pluginId": "setta-fixture-backend-static-router",
+            "kind": "backend-static-router",
+        }
+
+        static_response = client.get(
+            "/plugins/setta-fixture-backend-static-router/fixture/hello.txt"
+        )
+        assert static_response.status_code == 200
+        assert static_response.text == "fixture static payload\n"
+
+
+def test_load_backend_plugins_registers_multiple_fixture_mcp_tools(
+    tmp_path: Path,
+) -> None:
+    # Backend MCP fixture should register multiple named tools with callable behavior.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-mcp-tools",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    baseline_tools = list(SETTA_MCP_TOOLS)
+    try:
+        manager.load_backend_plugins(app=FastAPI())
+
+        status_entries = [
+            entry
+            for entry in manager.get_status_response().plugins
+            if entry.pluginId == "setta-fixture-backend-mcp-tools"
+            and entry.sourceScope == PluginScope.workspace
+            and entry.shadowedBySourcePath is None
+        ]
+        assert len(status_entries) == 1
+        assert status_entries[0].state == PluginRuntimeState.active
+
+        tools_by_name = {tool.__name__: tool for tool in SETTA_MCP_TOOLS}
+        assert "setta_fixture_mcp_read" in tools_by_name
+        assert "setta_fixture_mcp_write" in tools_by_name
+        assert (
+            tools_by_name["setta_fixture_mcp_read"](value="ok")
+            == "read:setta-fixture-backend-mcp-tools:ok"
+        )
+        assert (
+            tools_by_name["setta_fixture_mcp_write"](value="ok")
+            == "write:setta-fixture-backend-mcp-tools:ok"
+        )
+    finally:
+        SETTA_MCP_TOOLS[:] = baseline_tools
+
+
 def test_load_backend_plugins_registers_fixture_language_server(
     tmp_path: Path,
 ) -> None:
@@ -1618,14 +1831,10 @@ def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
         backend_startup_timeout_seconds=0.1,
         backend_register_timeout_seconds=5.0,
     )
-    backend_root = _copy_fixture_to_scope(
+    _copy_fixture_to_scope(
         manager=manager,
-        fixture_name="backend",
+        fixture_name="backend-worker-failure-timeout-startup",
         scope=PluginScope.workspace,
-    )
-    (backend_root / "backend" / "entrypoint.py").write_text(
-        "import time\n\ntime.sleep(0.5)\n\ndef register(plugin):\n    return None\n",
-        encoding="utf-8",
     )
     manager.rescan()
 
@@ -1634,7 +1843,7 @@ def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
     backend_entries = [
         entry
         for entry in manager.get_status_response().plugins
-        if entry.pluginId == "setta-fixture-backend"
+        if entry.pluginId == "setta-fixture-backend-worker-failure-timeout-startup"
         and entry.sourceScope == PluginScope.workspace
         and entry.shadowedBySourcePath is None
     ]
@@ -1651,14 +1860,10 @@ def test_backend_plugin_register_timeout_is_reported(tmp_path: Path) -> None:
         backend_startup_timeout_seconds=5.0,
         backend_register_timeout_seconds=0.1,
     )
-    backend_root = _copy_fixture_to_scope(
+    _copy_fixture_to_scope(
         manager=manager,
-        fixture_name="backend",
+        fixture_name="backend-worker-failure-timeout-register",
         scope=PluginScope.workspace,
-    )
-    (backend_root / "backend" / "entrypoint.py").write_text(
-        "import time\n\ndef register(plugin):\n    time.sleep(0.5)\n",
-        encoding="utf-8",
     )
     manager.rescan()
 
@@ -1667,7 +1872,7 @@ def test_backend_plugin_register_timeout_is_reported(tmp_path: Path) -> None:
     backend_entries = [
         entry
         for entry in manager.get_status_response().plugins
-        if entry.pluginId == "setta-fixture-backend"
+        if entry.pluginId == "setta-fixture-backend-worker-failure-timeout-register"
         and entry.sourceScope == PluginScope.workspace
         and entry.shadowedBySourcePath is None
     ]
@@ -1680,14 +1885,10 @@ def test_backend_plugin_register_timeout_is_reported(tmp_path: Path) -> None:
 def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> None:
     # Abrupt worker/preflight termination should map to transport-error status.
     manager = _make_manager(tmp_path)
-    backend_root = _copy_fixture_to_scope(
+    _copy_fixture_to_scope(
         manager=manager,
-        fixture_name="backend",
+        fixture_name="backend-worker-failure-transport",
         scope=PluginScope.workspace,
-    )
-    (backend_root / "backend" / "entrypoint.py").write_text(
-        "import os\n\nos._exit(1)\n",
-        encoding="utf-8",
     )
     manager.rescan()
 
@@ -1696,7 +1897,7 @@ def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> No
     backend_entries = [
         entry
         for entry in manager.get_status_response().plugins
-        if entry.pluginId == "setta-fixture-backend"
+        if entry.pluginId == "setta-fixture-backend-worker-failure-transport"
         and entry.sourceScope == PluginScope.workspace
         and entry.shadowedBySourcePath is None
     ]
@@ -1709,15 +1910,10 @@ def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> No
 def test_backend_plugin_handshake_api_mismatch_is_reported(tmp_path: Path) -> None:
     # Worker handshake API mismatches should invalidate the backend plugin deterministically.
     manager = _make_manager(tmp_path)
-    backend_root = _copy_fixture_to_scope(
+    _copy_fixture_to_scope(
         manager=manager,
-        fixture_name="backend",
+        fixture_name="backend-worker-failure-api-version",
         scope=PluginScope.workspace,
-    )
-    handshake_override = backend_root / "backend" / "handshake.override.json"
-    handshake_override.write_text(
-        json.dumps({"backendPluginApiVersion": 999}, indent=2),
-        encoding="utf-8",
     )
     manager.rescan()
 
@@ -1726,7 +1922,7 @@ def test_backend_plugin_handshake_api_mismatch_is_reported(tmp_path: Path) -> No
     backend_entries = [
         entry
         for entry in manager.get_status_response().plugins
-        if entry.pluginId == "setta-fixture-backend"
+        if entry.pluginId == "setta-fixture-backend-worker-failure-api-version"
         and entry.sourceScope == PluginScope.workspace
         and entry.shadowedBySourcePath is None
     ]
@@ -1739,24 +1935,10 @@ def test_backend_plugin_handshake_api_mismatch_is_reported(tmp_path: Path) -> No
 def test_backend_plugin_handshake_missing_methods_is_reported(tmp_path: Path) -> None:
     # Handshakes missing required RPC methods should invalidate backend plugins.
     manager = _make_manager(tmp_path)
-    backend_root = _copy_fixture_to_scope(
+    _copy_fixture_to_scope(
         manager=manager,
-        fixture_name="backend",
+        fixture_name="backend-worker-failure-missing-method",
         scope=PluginScope.workspace,
-    )
-    handshake_override = backend_root / "backend" / "handshake.override.json"
-    handshake_override.write_text(
-        json.dumps(
-            {
-                "supportedRpcMethods": [
-                    "plugin.initialize",
-                    "plugin.register",
-                    "plugin.shutdown",
-                ]
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
     )
     manager.rescan()
 
@@ -1765,7 +1947,7 @@ def test_backend_plugin_handshake_missing_methods_is_reported(tmp_path: Path) ->
     backend_entries = [
         entry
         for entry in manager.get_status_response().plugins
-        if entry.pluginId == "setta-fixture-backend"
+        if entry.pluginId == "setta-fixture-backend-worker-failure-missing-method"
         and entry.sourceScope == PluginScope.workspace
         and entry.shadowedBySourcePath is None
     ]

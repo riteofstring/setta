@@ -184,6 +184,42 @@ describe("plugin runtime helpers", () => {
     ]);
   });
 
+  it("returns a stable sorted create-menu projection for large section-kind catalogs", () => {
+    const sectionKinds: Record<string, RegisteredPluginSectionKind> = {};
+    for (let index = 0; index < 150; index += 1) {
+      const pluginId = index % 2 === 0 ? "acme.plugin" : "beta.plugin";
+      const kind = `kind-${String(index).padStart(3, "0")}`;
+      sectionKinds[toPluginSectionKindKey(pluginId, kind)] = {
+        pluginId,
+        kind,
+        title: `Title ${String(150 - index).padStart(3, "0")}`,
+        initialData: { index },
+        renderer: {
+          mount: () => undefined,
+        },
+      };
+    }
+
+    usePluginRuntimeStore.setState({
+      sectionKindsByKey: sectionKinds,
+    });
+
+    const projected = getPluginSectionKindsForCreateMenu();
+    expect(projected).toHaveLength(150);
+    expect(projected[0]).toEqual({
+      pluginId: "beta.plugin",
+      kind: "kind-149",
+      title: "Title 001",
+      initialData: { index: 149 },
+    });
+    expect(projected[149]).toEqual({
+      pluginId: "acme.plugin",
+      kind: "kind-000",
+      title: "Title 150",
+      initialData: { index: 0 },
+    });
+  });
+
   it("surfaces API version mismatch frontend load errors", async () => {
     const moduleUrl =
       "data:text/javascript," +

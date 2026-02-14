@@ -3,8 +3,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fastapi import FastAPI
 from mcp.server.fastmcp.server import Context
 
+from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.mcp.tool_registry import build_setta_tool_manager, ensure_setta_mcp_tools_loaded
 from setta.mcp.tools.plugins import (
     install_plugin,
@@ -76,6 +78,33 @@ def test_plugin_tools_rescan_and_uninstall_real_fixture(tmp_path: Path) -> None:
     refreshed = rescan_plugins(ctx=ctx)
     assert refreshed.installedPlugins == 0
     assert refreshed.activePlugins == 0
+
+
+def test_plugin_tools_load_backend_fixture_registers_multiple_mcp_tools(
+    tmp_path: Path,
+) -> None:
+    # Backend MCP fixture should register multiple tools when backend plugins load.
+    manager, _ = _build_ctx(
+        tmp_path,
+        deployment_mode=False,
+        server_mode="ide",
+    )
+    plugin_root = manager.workspace_root / "plugins" / "setta-fixture-backend-mcp-tools"
+    plugin_root.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        FIXTURE_PLUGIN_ROOT / "backend-mcp-tools",
+        plugin_root,
+    )
+    manager.rescan()
+
+    baseline_tools = list(SETTA_MCP_TOOLS)
+    try:
+        manager.load_backend_plugins(app=FastAPI())
+        loaded_tool_names = {tool.__name__ for tool in SETTA_MCP_TOOLS}
+        assert "setta_fixture_mcp_read" in loaded_tool_names
+        assert "setta_fixture_mcp_write" in loaded_tool_names
+    finally:
+        SETTA_MCP_TOOLS[:] = baseline_tools
 
 
 def test_install_plugin_tool_rejects_unsupported_scheme(tmp_path: Path) -> None:

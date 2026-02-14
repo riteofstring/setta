@@ -114,6 +114,59 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
             assert disable_response.json()["state"] == "disabled"
 
 
+def test_plugin_routes_backend_static_router_fixture_roundtrip() -> None:
+    # Backend static/router fixture should be linkable through routes and serve both surfaces.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            link_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LINK.value}",
+                json={
+                    "localPluginRoot": str(_fixture_plugin_root("backend-static-router")),
+                    "scope": "workspace",
+                    "enable": True,
+                    "force": True,
+                },
+            )
+            assert link_response.status_code == 200
+            assert link_response.json()["pluginId"] == "setta-fixture-backend-static-router"
+            assert link_response.json()["state"] == "pending_restart"
+
+            manager.load_backend_plugins(app=app)
+
+            status_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_STATUS.value}"
+            )
+            assert status_response.status_code == 200
+            status_payload = status_response.json()
+            assert status_payload["plugins"][0]["pluginId"] == (
+                "setta-fixture-backend-static-router"
+            )
+            assert status_payload["plugins"][0]["state"] == "active"
+
+            api_response = client.get("/api/plugins/setta-fixture-backend-static-router/info")
+            assert api_response.status_code == 200
+            assert api_response.json() == {
+                "pluginId": "setta-fixture-backend-static-router",
+                "kind": "backend-static-router",
+            }
+
+
 def test_plugin_restart_routes_support_programmatic_mode() -> None:
     # Restart contract routes should expose programmatic mode when callback support exists.
     with TemporaryDirectory() as tmpdir:

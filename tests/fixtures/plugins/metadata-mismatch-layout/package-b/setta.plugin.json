@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-fixture-layout-b",
+  "name": "Setta Fixture Layout B",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "frontend": {
+    "entrypoint": "frontend/dist/index.js",
+    "style": "frontend/dist/index.css"
+  },
+  "capabilities": ["registerPane"]
+}
