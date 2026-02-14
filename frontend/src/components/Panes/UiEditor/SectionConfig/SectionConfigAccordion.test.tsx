@@ -27,6 +27,10 @@ describe("SectionConfigAccordion", () => {
 
     expect(markup).toContain('data-testid="section-config-main-trigger"');
     expect(markup).toContain('data-testid="section-config-appearance-trigger"');
+    expect(markup).toContain("section-config-accordion-chevron");
+    expect(markup).toContain("<svg");
+    expect(markup).toContain("h-5 w-5");
+    expect(markup).toContain("box-border");
   });
 
   it("keeps only configured sections open by default", () => {

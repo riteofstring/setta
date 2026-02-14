@@ -1,5 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import React from "react";
+import { HiChevronDown } from "react-icons/hi2";
 
 export type SectionConfigAccordionItem = {
   value: string;
@@ -33,8 +34,8 @@ export function SectionConfigAccordion({
       {items.map((item) => {
         const isDisabled = item.disabled ?? false;
         const triggerClasses = isDisabled
-          ? "group flex w-full cursor-not-allowed items-center justify-between gap-2 px-3 py-2 pr-4 text-left text-xs font-bold uppercase tracking-wide text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500"
-          : "group flex w-full items-center justify-between gap-2 px-3 py-2 pr-4 text-left text-xs font-bold uppercase tracking-wide text-setta-600 transition-colors hover:bg-setta-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:text-setta-300 dark:hover:bg-setta-800/80 [&[data-state=open]_.section-config-accordion-chevron]:rotate-180";
+          ? "group box-border flex w-full cursor-not-allowed items-center justify-between gap-2 px-3 py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500"
+          : "group box-border flex w-full items-center justify-between gap-2 px-3 py-2 pr-3 text-left text-xs font-bold uppercase tracking-wide text-setta-600 transition-colors hover:bg-setta-100/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:text-setta-300 dark:hover:bg-setta-800/80 [&[data-state=open]_.section-config-accordion-chevron]:rotate-180";
         return (
           <Accordion.Item
             key={item.value}
@@ -49,8 +50,11 @@ export function SectionConfigAccordion({
                 title={isDisabled ? item.disabledReason : undefined}
               >
                 <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-visible">
-                  <i className="gg-chevron-down section-config-accordion-chevron !scale-[0.6] text-setta-400 transition-transform duration-150 dark:text-setta-500" />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                  <HiChevronDown
+                    className="section-config-accordion-chevron block text-setta-400 transition-transform duration-150 dark:text-setta-500"
+                    size={16}
+                  />
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
