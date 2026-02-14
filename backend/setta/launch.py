@@ -9,12 +9,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.utils.env_vars import (
+    FILES_LOCATION_ENV,
+    FILES_ROOT_ENV,
+    PROFILE_ENV,
+    PROFILE_LOOKUP_HOME_ENV,
+    RUNTIME_ROOT_ENV,
+    SETTA_HOME_ENV,
+    WORKSPACE_ROOT_ENV,
+)
 from setta.utils.paths import (
-    InvalidGlobalSettaFilesRootError,
-    InvalidLocalSettaFilesRootError,
+    ConflictingSettaFilesRootAndLocationError,
+    InvalidRuntimeRootError,
     InvalidSettaFilesLocationError,
+    InvalidSettaFilesRootError,
+    InvalidSettaHomeError,
+    InvalidSettaProfileError,
     SettaFilesLocation,
     SettaPaths,
+    SettaPathsError,
+    UnknownSettaProfileError,
     get_optional_dir_validation_error,
     resolve_setta_paths,
     validate_workspace_root,
@@ -67,29 +81,53 @@ def _existing_session_grace_seconds(
 def launch_workspace_session(
     *,
     workspace_root: Path | str | None,
+    setta_home: Path | str | None = None,
+    profile: str | None = None,
+    setta_files_root: Path | str | None = None,
     setta_files_location: SettaFilesLocation | None,
+    runtime_root: Path | str | None = None,
+    allow_env_files_overrides: bool = True,
+    allow_env_non_files_overrides: bool = True,
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
 ) -> LaunchResult:
     try:
         paths = resolve_setta_paths(
             workspace_root=workspace_root,
+            setta_home=setta_home,
+            profile=profile,
+            setta_files_root=setta_files_root,
             setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
+            allow_env_files_overrides=allow_env_files_overrides,
+            allow_env_non_files_overrides=allow_env_non_files_overrides,
         )
     except InvalidSettaFilesLocationError as exc:
         raise LaunchError("InvalidSettaFilesLocation", str(exc)) from exc
-    except (InvalidLocalSettaFilesRootError, InvalidGlobalSettaFilesRootError) as exc:
+    except InvalidSettaFilesRootError as exc:
         raise LaunchError("InvalidSettaFilesRoot", str(exc)) from exc
+    except InvalidRuntimeRootError as exc:
+        raise LaunchError("InvalidRuntimeRoot", str(exc)) from exc
+    except ConflictingSettaFilesRootAndLocationError as exc:
+        raise LaunchError("InvalidSettaFilesConfig", str(exc)) from exc
+    except UnknownSettaProfileError as exc:
+        raise LaunchError("UnknownSettaProfile", str(exc)) from exc
+    except InvalidSettaProfileError as exc:
+        raise LaunchError("InvalidSettaProfile", str(exc)) from exc
+    except InvalidSettaHomeError as exc:
+        raise LaunchError("InvalidSettaHome", str(exc)) from exc
     except SettaUserConfigError as exc:
         raise LaunchError("InvalidSettaUserConfig", str(exc)) from exc
-    except ValueError as exc:
+    except (SettaPathsError, ValueError) as exc:
         raise LaunchError("BadRequest", str(exc)) from exc
     try:
         validate_workspace_root(paths.workspace_root)
     except ValueError as exc:
         raise LaunchError("InvalidWorkspace", str(exc)) from exc
     for raw_path, label, code in (
+        (paths.setta_home, "setta home", "InvalidSettaHome"),
         (paths.setta_files_root, "setta files root", "InvalidSettaFilesRoot"),
+        (paths.runtime_root, "runtime root", "InvalidRuntimeRoot"),
     ):
         message = get_optional_dir_validation_error(raw_path, label=label)
         if message:
@@ -153,13 +191,33 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
         "--no-open",
         "--workspace",
         str(paths.workspace_root),
-        "--setta-files-location",
-        paths.setta_files_location,
     ]
+    if not paths.profile_name:
+        cmd.extend(["--setta-home", str(paths.setta_home)])
+    if paths.profile_name:
+        cmd.extend(["--profile", paths.profile_name])
+    if paths.setta_files_location is not None:
+        cmd.extend(["--setta-files-location", paths.setta_files_location])
+    else:
+        cmd.extend(["--setta-files-root", str(paths.setta_files_root)])
+    if paths.uses_explicit_runtime_root:
+        cmd.extend(["--runtime-root", str(paths.runtime_root)])
     log_dir = paths.runtime_logs_root
-    log_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise LaunchError(
+            "InvalidRuntimeRoot",
+            f"Failed to initialize runtime logs directory: {log_dir}\nReason: {exc}",
+        ) from exc
     log_path = log_dir / f"launch-{time.time_ns()}-{os.getpid()}.log"
-    handle = log_path.open("w", encoding="utf-8")
+    try:
+        handle = log_path.open("w", encoding="utf-8")
+    except OSError as exc:
+        raise LaunchError(
+            "InvalidRuntimeRoot",
+            f"Failed to create launch log file: {log_path}\nReason: {exc}",
+        ) from exc
     process: subprocess.Popen[str] | None = None
     try:
         popen_kwargs: dict[str, object] = {
@@ -169,6 +227,26 @@ def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
             "stdin": subprocess.DEVNULL,
             "cwd": str(paths.workspace_root),
         }
+        env = os.environ.copy()
+        env[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
+        env[SETTA_HOME_ENV] = str(paths.setta_home)
+        env[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
+        env[RUNTIME_ROOT_ENV] = str(paths.runtime_root)
+        if paths.profile_name:
+            env[PROFILE_ENV] = paths.profile_name
+        else:
+            env.pop(PROFILE_ENV, None)
+        if paths.setta_files_location is None:
+            env[FILES_ROOT_ENV] = str(paths.setta_files_root)
+            env.pop(FILES_LOCATION_ENV, None)
+        else:
+            env[FILES_LOCATION_ENV] = paths.setta_files_location
+            env.pop(FILES_ROOT_ENV, None)
+        if paths.auth_cookie_name:
+            env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
+        else:
+            env.pop("SETTA_AUTH_COOKIE_NAME", None)
+        popen_kwargs["env"] = env
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True
         elif sys.platform == "win32":
