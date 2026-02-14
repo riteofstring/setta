@@ -6,8 +6,9 @@ INSTANCE_NAME=""
 if [ "$#" -gt 0 ]; then
   case "$1" in
     -h|--help)
-      echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr|reset]" >&2
+      echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr|reset] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]" >&2
       echo "If instance-name is omitted, the worktree folder name is used." >&2
+      echo "Default dev paths: SETTA_HOME=~/.setta-development and SETTA_FILES_ROOT=<worktree>/setta_files_dev." >&2
       exit 0
       ;;
     --*)
@@ -21,11 +22,19 @@ fi
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
+WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+. "${SCRIPT_DIR}/lib/setta_path_flags.sh"
 
 if [ -z "${INSTANCE_NAME}" ]; then
-  WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
   INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
 fi
+
+if [ -n "${HOME:-}" ]; then
+  DEFAULT_SETTA_HOME="${HOME}/.setta-development"
+else
+  DEFAULT_SETTA_HOME=".setta-development"
+fi
+DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 
 INSTANCE_KEY="${INSTANCE_NAME}"
 case "${INSTANCE_KEY}" in
@@ -74,37 +83,49 @@ SETTA_HOST="${SETTA_HOST:-127.0.0.1}"
 SETTA_PORT="${SETTA_PORT:-${DEFAULT_BACKEND_PORT}}"
 SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT:-${DEFAULT_FRONTEND_PORT}}"
 RUN_MODE="start"
+setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --host)
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_HOST="$2"
       shift 2
       ;;
     --backend-port)
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_PORT="$2"
       shift 2
       ;;
     --frontend-port)
+      setta_require_option_value "$1" "$#" "${2-}"
       SETTA_DEV_FRONTEND_PORT="$2"
       shift 2
       ;;
     --mode)
+      setta_require_option_value "$1" "$#" "${2-}"
       RUN_MODE="$2"
       shift 2
       ;;
     *)
-      echo "Unknown arg: $1" >&2
-      exit 1
+      if setta_path_flags_try_parse "$@"; then
+        shift "${SETTA_PATH_FLAGS_CONSUMED}"
+      else
+        echo "Unknown arg: $1" >&2
+        exit 1
+      fi
       ;;
   esac
 done
+
+setta_path_flags_validate
 
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
 export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
+setta_path_flags_apply_env
 
 NEEDS_DEV_INSTALL=0
 if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then

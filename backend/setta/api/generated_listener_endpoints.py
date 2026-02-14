@@ -60,7 +60,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
@@ -231,7 +230,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
-        | PluginSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]

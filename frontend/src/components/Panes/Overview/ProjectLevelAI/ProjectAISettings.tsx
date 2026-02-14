@@ -1,5 +1,4 @@
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
-import { usePluginStatusEntries } from "plugins/runtime";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -27,7 +26,6 @@ import {
   ExternalAgentSettingsModeEnum,
   ExternalAgentToolTypeEnum,
   ExternalAgentWorkingDirStrategyEnum,
-  PluginStatusEntry,
   PromptFormatEnum,
   PromptTemplate,
 } from "utils/generatedTypes";
@@ -76,7 +74,6 @@ type ExternalAgentConfigDraft = {
   name: string;
   description: string;
   toolType: ExternalAgentToolTypeValue;
-  pluginAdapterId: string;
   runMode: ExternalAgentRunModeValue;
   commandPath: string;
   baseUrl: string;
@@ -109,17 +106,6 @@ type ExternalAgentWorkingDirStrategyValue =
   (typeof ExternalAgentWorkingDirStrategyEnum)[keyof typeof ExternalAgentWorkingDirStrategyEnum];
 type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
-type PluginExternalAgentAdapterRegistration =
-  PluginStatusEntry["registeredExternalAgentAdapters"][number];
-type PluginExternalAgentAdapterOption = {
-  adapterId: string;
-  pluginId: string;
-  name: string;
-  runModes: Array<ExternalAgentRunModeValue>;
-  command: string;
-  defaultModel: string | null;
-  envVarWhitelist: Array<string>;
-};
 
 const INPUT_CLASS_NAME =
   "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
@@ -177,7 +163,7 @@ export function ProjectAISettings() {
 
       <SectionCard
         title="External Agents"
-        description="Configure built-in and plugin-provided external agent adapters."
+        description="Configure Claude Code, Codex, or OpenCode adapters."
       >
         <ExternalAgentConfigsManager canEdit={canEdit} />
       </SectionCard>
@@ -939,7 +925,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     (state) => ({ externalAgentConfigs: state.externalAgentConfigs }),
     shallow,
   );
-  const pluginStatusEntries = usePluginStatusEntries();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<ExternalAgentConfigDraft | null>(null);
@@ -955,14 +940,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
   const runModeOptions = useMemo(
     () => Object.values(ExternalAgentRunModeEnum),
     [],
-  );
-  const pluginExternalAgentAdapters = useMemo(
-    () =>
-      buildPluginExternalAgentAdapterOptions(
-        pluginStatusEntries,
-        runModeOptions,
-      ),
-    [pluginStatusEntries, runModeOptions],
   );
   const workingDirOptions = useMemo(
     () => Object.values(ExternalAgentWorkingDirStrategyEnum),
@@ -1012,25 +989,11 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
 
   useEffect(() => {
     if (isCreating) {
-      const defaultPluginAdapterId =
-        defaultToolType === ExternalAgentToolTypeEnum.plugin
-          ? (pluginExternalAgentAdapters[0]?.adapterId ?? "")
-          : "";
-      const defaultRunModeOptions = getRunModeOptionsForToolType(
-        defaultToolType,
-        defaultPluginAdapterId,
-        pluginExternalAgentAdapters,
-        runModeOptions,
-      );
-      const defaultRunMode = defaultRunModeOptions.length
-        ? defaultRunModeOptions[0]
-        : ExternalAgentRunModeEnum.sdk;
       setDraft({
         name: "",
         description: "",
         toolType: defaultToolType,
-        pluginAdapterId: defaultPluginAdapterId,
-        runMode: defaultRunMode,
+        runMode: ExternalAgentRunModeEnum.sdk,
         commandPath: "",
         baseUrl: "",
         defaultModel: "",
@@ -1065,51 +1028,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     setDraft(buildExternalAgentConfigDraft(activeConfig));
     setOpencodePermissionError(null);
     setOpencodeMcpError(null);
-  }, [
-    activeConfig,
-    defaultToolType,
-    isCreating,
-    pluginExternalAgentAdapters,
-    runModeOptions,
-  ]);
-
-  useEffect(() => {
-    setDraft((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      if (prev.toolType !== ExternalAgentToolTypeEnum.plugin) {
-        return prev;
-      }
-      let nextPluginAdapterId = prev.pluginAdapterId;
-      const hasAdapter = pluginExternalAgentAdapters.some(
-        (adapter) => adapter.adapterId === nextPluginAdapterId,
-      );
-      if (!hasAdapter) {
-        nextPluginAdapterId = pluginExternalAgentAdapters[0]?.adapterId ?? "";
-      }
-      const allowedRunModes = getRunModeOptionsForToolType(
-        prev.toolType,
-        nextPluginAdapterId,
-        pluginExternalAgentAdapters,
-        runModeOptions,
-      );
-      const nextRunMode = allowedRunModes.includes(prev.runMode)
-        ? prev.runMode
-        : (allowedRunModes[0] ?? prev.runMode);
-      if (
-        nextPluginAdapterId === prev.pluginAdapterId &&
-        nextRunMode === prev.runMode
-      ) {
-        return prev;
-      }
-      return {
-        ...prev,
-        pluginAdapterId: nextPluginAdapterId,
-        runMode: nextRunMode,
-      };
-    });
-  }, [pluginExternalAgentAdapters, runModeOptions]);
+  }, [activeConfig, defaultToolType, isCreating]);
 
   const listClassName =
     "flex max-h-[360px] flex-col gap-1 overflow-y-auto rounded-md border border-setta-200/60 p-2 dark:border-setta-800";
@@ -1167,7 +1086,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       name: draft.name.trim(),
       description: draft.description.trim(),
       toolType: draft.toolType,
-      pluginAdapterId: normalizeOptionalText(draft.pluginAdapterId),
       runMode: draft.runMode,
       commandPath: normalizeOptionalText(draft.commandPath),
       baseUrl: normalizeOptionalText(draft.baseUrl),
@@ -1239,91 +1157,37 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
       }
       if (key === "toolType") {
         const toolType = value as ExternalAgentToolTypeValue;
-        let nextPluginAdapterId = "";
-        if (toolType === ExternalAgentToolTypeEnum.plugin) {
-          const hasCurrentPluginAdapter = pluginExternalAgentAdapters.some(
-            (adapter) => adapter.adapterId === prev.pluginAdapterId,
-          );
-          nextPluginAdapterId = hasCurrentPluginAdapter
-            ? prev.pluginAdapterId
-            : (pluginExternalAgentAdapters[0]?.adapterId ?? "");
+        let nextRunMode = prev.runMode;
+        if (
+          toolType === ExternalAgentToolTypeEnum.codex &&
+          prev.runMode === ExternalAgentRunModeEnum.sdk
+        ) {
+          nextRunMode = ExternalAgentRunModeEnum.app_server;
         }
-        const allowedRunModes = getRunModeOptionsForToolType(
-          toolType,
-          nextPluginAdapterId,
-          pluginExternalAgentAdapters,
-          runModeOptions,
-        );
-        const nextRunMode = allowedRunModes.includes(prev.runMode)
-          ? prev.runMode
-          : (allowedRunModes[0] ?? ExternalAgentRunModeEnum.sdk);
-        return {
-          ...prev,
-          toolType,
-          pluginAdapterId: nextPluginAdapterId,
-          runMode: nextRunMode,
-        };
-      }
-      if (key === "pluginAdapterId") {
-        const pluginAdapterId = value as string;
-        const allowedRunModes = getRunModeOptionsForToolType(
-          prev.toolType,
-          pluginAdapterId,
-          pluginExternalAgentAdapters,
-          runModeOptions,
-        );
-        const nextRunMode = allowedRunModes.includes(prev.runMode)
-          ? prev.runMode
-          : (allowedRunModes[0] ?? ExternalAgentRunModeEnum.sdk);
-        return {
-          ...prev,
-          pluginAdapterId,
-          runMode: nextRunMode,
-        };
+        if (
+          toolType !== ExternalAgentToolTypeEnum.codex &&
+          prev.runMode === ExternalAgentRunModeEnum.app_server
+        ) {
+          nextRunMode = ExternalAgentRunModeEnum.sdk;
+        }
+        return { ...prev, toolType, runMode: nextRunMode };
       }
       return { ...prev, [key]: value };
     });
   };
 
-  const selectedPluginAdapter = useMemo(() => {
-    if (!draft || draft.toolType !== ExternalAgentToolTypeEnum.plugin) {
-      return null;
-    }
-    return (
-      pluginExternalAgentAdapters.find(
-        (adapter) => adapter.adapterId === draft.pluginAdapterId,
-      ) ?? null
-    );
-  }, [draft, pluginExternalAgentAdapters]);
-  const filteredRunModeOptions = useMemo(() => {
-    if (!draft) {
-      return runModeOptions;
-    }
-    return getRunModeOptionsForToolType(
-      draft.toolType,
-      draft.pluginAdapterId,
-      pluginExternalAgentAdapters,
-      runModeOptions,
-    );
-  }, [draft, pluginExternalAgentAdapters, runModeOptions]);
-  const isPluginTool = draft?.toolType === ExternalAgentToolTypeEnum.plugin;
-  const isSaveDisabled =
-    !canEdit ||
-    !draft ||
-    (isPluginTool && !draft.pluginAdapterId) ||
-    filteredRunModeOptions.length === 0;
+  const isSaveDisabled = !canEdit || !draft;
   const isDeleteDisabled = !canEdit || !activeConfig || isCreating;
   const isCancelDisabled = !draft;
   const isClaudeTool =
     draft?.toolType === ExternalAgentToolTypeEnum.claude_code;
   const isOpenCodeTool = draft?.toolType === ExternalAgentToolTypeEnum.opencode;
-  const needsBaseUrl =
-    draft?.runMode === ExternalAgentRunModeEnum.server && !isPluginTool;
+  const needsBaseUrl = draft?.runMode === ExternalAgentRunModeEnum.server;
   const commandPathPlaceholder =
     draft?.toolType === ExternalAgentToolTypeEnum.codex &&
     draft?.runMode === ExternalAgentRunModeEnum.app_server
       ? "codex"
-      : (selectedPluginAdapter?.command ?? "node");
+      : "node";
   const isExplicitSettingsPath =
     draft?.settingsMode === ExternalAgentSettingsModeEnum.explicit_path;
 
@@ -1353,10 +1217,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
           ) : (
             externalAgentConfigs.map((config) => {
               const isActive = config.id === activeId && !isCreating;
-              const toolLabel =
-                config.toolType === ExternalAgentToolTypeEnum.plugin
-                  ? (config.pluginAdapterId ?? "plugin")
-                  : config.toolType;
               let itemClassName =
                 "rounded-md px-2 py-2 text-left text-xs transition-colors";
               if (isActive) {
@@ -1381,7 +1241,7 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                     {config.name || "Untitled"}
                   </p>
                   <p className="truncate text-[11px] opacity-80">
-                    {toolLabel} · {config.runMode}
+                    {config.toolType} · {config.runMode}
                   </p>
                 </button>
               );
@@ -1446,9 +1306,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                       )
                     }
                     className={SELECT_CLASS_NAME}
-                    disabled={!canEdit || filteredRunModeOptions.length === 0}
+                    disabled={!canEdit}
                   >
-                    {filteredRunModeOptions.map((option) => (
+                    {runModeOptions.map((option) => (
                       <option key={option} value={option}>
                         {option}
                       </option>
@@ -1456,41 +1316,6 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   </select>
                 </Field>
               </div>
-              {isPluginTool ? (
-                <Field
-                  label="Plugin Adapter"
-                  hint={
-                    selectedPluginAdapter
-                      ? `Provided by ${selectedPluginAdapter.pluginId}.`
-                      : "Choose one of the registered plugin adapters."
-                  }
-                >
-                  <select
-                    value={draft.pluginAdapterId}
-                    onChange={(event) =>
-                      handleFieldChange("pluginAdapterId", event.target.value)
-                    }
-                    className={SELECT_CLASS_NAME}
-                    disabled={!canEdit || pluginExternalAgentAdapters.length === 0}
-                  >
-                    {pluginExternalAgentAdapters.length === 0 ? (
-                      <option value="">No plugin adapters registered</option>
-                    ) : null}
-                    {pluginExternalAgentAdapters.map((adapter) => (
-                      <option key={adapter.adapterId} value={adapter.adapterId}>
-                        {adapter.name} ({adapter.adapterId})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              ) : null}
-              {isPluginTool && pluginExternalAgentAdapters.length === 0 ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-                  No plugin adapters are currently registered. Open the Plugins
-                  pane and enable a backend plugin that registers external
-                  adapters.
-                </div>
-              ) : null}
               <Field label="Command Path">
                 <input
                   value={draft.commandPath}
@@ -1551,70 +1376,62 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                   />
                 </Field>
               </div>
-              {!isPluginTool ? (
-                <>
-                  <div className="grid gap-3 @[40rem]:grid-cols-2">
-                    <Field label="Settings Mode">
-                      <select
-                        value={draft.settingsMode}
-                        onChange={(event) =>
-                          handleFieldChange(
-                            "settingsMode",
-                            event.target.value as ExternalAgentSettingsModeValue,
-                          )
-                        }
-                        className={SELECT_CLASS_NAME}
-                        disabled={!canEdit}
-                      >
-                        {settingsModeOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option.replaceAll("_", " ")}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field
-                      label="Settings File Path"
-                      hint={
-                        isExplicitSettingsPath
-                          ? "Used when settings mode is explicit_path."
-                          : "Available when settings mode is explicit_path."
-                      }
-                    >
-                      <input
-                        value={draft.settingsFilePath}
-                        onChange={(event) =>
-                          handleFieldChange("settingsFilePath", event.target.value)
-                        }
-                        className={INPUT_CLASS_NAME}
-                        disabled={!canEdit || !isExplicitSettingsPath}
-                        placeholder="/path/to/settings"
-                      />
-                    </Field>
-                  </div>
-                  <Field label="Allow Setta Edits">
-                    <label className="flex items-center gap-2 text-xs text-setta-600 dark:text-setta-300">
-                      <input
-                        type="checkbox"
-                        checked={draft.settingsAllowSettaEdits}
-                        onChange={(event) =>
-                          handleFieldChange(
-                            "settingsAllowSettaEdits",
-                            event.target.checked,
-                          )
-                        }
-                        className="h-4 w-4 accent-blue-600"
-                        disabled={!canEdit}
-                      />
-                      Allow Setta to merge managed settings into existing files.
-                    </label>
-                  </Field>
-                </>
-              ) : (
-                <div className="rounded-md border border-setta-200/70 bg-setta-50 px-3 py-2 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-300">
-                  Plugin adapters do not use Setta-managed settings files.
-                </div>
-              )}
+              <div className="grid gap-3 @[40rem]:grid-cols-2">
+                <Field label="Settings Mode">
+                  <select
+                    value={draft.settingsMode}
+                    onChange={(event) =>
+                      handleFieldChange(
+                        "settingsMode",
+                        event.target.value as ExternalAgentSettingsModeValue,
+                      )
+                    }
+                    className={SELECT_CLASS_NAME}
+                    disabled={!canEdit}
+                  >
+                    {settingsModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option.replaceAll("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label="Settings File Path"
+                  hint={
+                    isExplicitSettingsPath
+                      ? "Used when settings mode is explicit_path."
+                      : "Available when settings mode is explicit_path."
+                  }
+                >
+                  <input
+                    value={draft.settingsFilePath}
+                    onChange={(event) =>
+                      handleFieldChange("settingsFilePath", event.target.value)
+                    }
+                    className={INPUT_CLASS_NAME}
+                    disabled={!canEdit || !isExplicitSettingsPath}
+                    placeholder="/path/to/settings"
+                  />
+                </Field>
+              </div>
+              <Field label="Allow Setta Edits">
+                <label className="flex items-center gap-2 text-xs text-setta-600 dark:text-setta-300">
+                  <input
+                    type="checkbox"
+                    checked={draft.settingsAllowSettaEdits}
+                    onChange={(event) =>
+                      handleFieldChange(
+                        "settingsAllowSettaEdits",
+                        event.target.checked,
+                      )
+                    }
+                    className="h-4 w-4 accent-blue-600"
+                    disabled={!canEdit}
+                  />
+                  Allow Setta to merge managed settings into existing files.
+                </label>
+              </Field>
               {isClaudeTool ? (
                 <>
                   <Field
@@ -1846,84 +1663,6 @@ function buildPromptTemplateDraft(
   };
 }
 
-function buildPluginExternalAgentAdapterOptions(
-  pluginStatusEntries: Array<PluginStatusEntry>,
-  runModeOptions: Array<ExternalAgentRunModeValue>,
-): Array<PluginExternalAgentAdapterOption> {
-  const optionByAdapterId = new Map<string, PluginExternalAgentAdapterOption>();
-  for (const statusEntry of pluginStatusEntries) {
-    const registrations = Array.isArray(
-      statusEntry.registeredExternalAgentAdapters,
-    )
-      ? statusEntry.registeredExternalAgentAdapters
-      : [];
-    for (const registration of registrations) {
-      if (!registration || typeof registration !== "object") {
-        continue;
-      }
-      if (optionByAdapterId.has(registration.adapterId)) {
-        continue;
-      }
-      const runModes = registration.runModes.filter((runMode) =>
-        runModeOptions.includes(runMode as ExternalAgentRunModeValue),
-      ) as Array<ExternalAgentRunModeValue>;
-      if (runModes.length === 0) {
-        continue;
-      }
-      optionByAdapterId.set(registration.adapterId, {
-        adapterId: registration.adapterId,
-        pluginId: registration.pluginId,
-        name: registration.name,
-        runModes,
-        command: registration.command,
-        defaultModel: registration.defaultModel ?? null,
-        envVarWhitelist: Array.from(
-          new Set((registration.envVarWhitelist ?? []).filter(Boolean)),
-        ).sort((a, b) => a.localeCompare(b)),
-      });
-    }
-  }
-  return Array.from(optionByAdapterId.values()).sort((a, b) => {
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) {
-      return byName;
-    }
-    return a.adapterId.localeCompare(b.adapterId);
-  });
-}
-
-function getRunModeOptionsForToolType(
-  toolType: ExternalAgentToolTypeValue,
-  pluginAdapterId: string,
-  pluginExternalAgentAdapters: Array<PluginExternalAgentAdapterOption>,
-  runModeOptions: Array<ExternalAgentRunModeValue>,
-): Array<ExternalAgentRunModeValue> {
-  if (toolType === ExternalAgentToolTypeEnum.codex) {
-    return runModeOptions.includes(ExternalAgentRunModeEnum.app_server)
-      ? [ExternalAgentRunModeEnum.app_server]
-      : [];
-  }
-  if (toolType === ExternalAgentToolTypeEnum.claude_code) {
-    return runModeOptions.includes(ExternalAgentRunModeEnum.sdk)
-      ? [ExternalAgentRunModeEnum.sdk]
-      : [];
-  }
-  if (toolType === ExternalAgentToolTypeEnum.opencode) {
-    return runModeOptions.filter(
-      (runMode) =>
-        runMode === ExternalAgentRunModeEnum.sdk ||
-        runMode === ExternalAgentRunModeEnum.server,
-    );
-  }
-  if (toolType === ExternalAgentToolTypeEnum.plugin) {
-    const adapter = pluginExternalAgentAdapters.find(
-      (entry) => entry.adapterId === pluginAdapterId,
-    );
-    return adapter ? adapter.runModes : [];
-  }
-  return runModeOptions;
-}
-
 function buildExternalAgentConfigDraft(
   config: ExternalAgentConfig,
 ): ExternalAgentConfigDraft {
@@ -1931,7 +1670,6 @@ function buildExternalAgentConfigDraft(
     name: config.name ?? "",
     description: config.description ?? "",
     toolType: config.toolType,
-    pluginAdapterId: config.pluginAdapterId ?? "",
     runMode: config.runMode,
     commandPath: config.commandPath ?? "",
     baseUrl: config.baseUrl ?? "",
@@ -2002,9 +1740,6 @@ function buildSettingsManagedBlock(
     };
     baseBlock.opencode = opencodeBlock;
     return baseBlock;
-  }
-  if (draft.toolType === ExternalAgentToolTypeEnum.plugin) {
-    return null;
   }
   return existingBlock;
 }
