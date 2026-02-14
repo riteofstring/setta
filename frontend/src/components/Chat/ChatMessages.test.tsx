@@ -252,9 +252,7 @@ describe("ChatMessages assistant error rendering", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(
-      markup.split("setta__create_top_level_section").length - 1,
-    ).toBe(1);
+    expect(markup.split("setta__create_top_level_section").length - 1).toBe(1);
     expect(markup.split("setta__set_section_name").length - 1).toBe(1);
   });
 
@@ -283,6 +281,102 @@ describe("ChatMessages assistant error rendering", () => {
 
     expect(markup).toContain("setta__getProjectConfigNamesAndIds");
     expect(markup).toContain("setta__get_latest_project_state_summary");
+    expect(markup).not.toContain(
+      "Tool call was returned as plain text and was not executed.",
+    );
+  });
+
+  it("keeps invoke/parameter documentation text when no function_calls block exists", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m7",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "XML format:",
+              '<invoke name="open_modal">',
+              '<parameter name="id">dialog-1</parameter>',
+              "</invoke>",
+            ].join("\n"),
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("&lt;invoke name=");
+    expect(markup).toContain("&lt;parameter name=");
+    expect(markup).not.toContain(
+      "Tool call was returned as plain text and was not executed.",
+    );
+  });
+
+  it("keeps function_calls examples inside code fences as normal markdown", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m8",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "Use this example payload:",
+              "```xml",
+              "<function_calls>",
+              '<invoke name="setta__create_top_level_section">',
+              '<parameter name="name">Example</parameter>',
+              "</invoke>",
+              "</function_calls>",
+              "```",
+            ].join("\n"),
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("&lt;function_calls&gt;");
+    expect(markup).toContain("&lt;invoke name=");
+    expect(markup).not.toContain("text-red-500");
+    expect(markup).not.toContain(
+      "Tool call was returned as plain text and was not executed.",
+    );
+  });
+
+  it("does not strip malformed function_calls blocks when no fallback card is created", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m9",
+        role: ChatRoleEnum.assistant,
+        content: [
+          {
+            type: C.LLM_TEXT,
+            text: [
+              "<function_calls>",
+              '<parameter name="x">1</parameter>',
+            ].join("\n"),
+          },
+        ],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("&lt;function_calls&gt;");
+    expect(markup).toContain("&lt;parameter name=");
     expect(markup).not.toContain(
       "Tool call was returned as plain text and was not executed.",
     );

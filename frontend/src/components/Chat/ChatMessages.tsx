@@ -182,13 +182,13 @@ const TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN =
   /<function_calls>([\s\S]*?)<\/function_calls>/giu;
 const TEXTUAL_INVOKE_PATTERN =
   /<invoke\s+name=(["'])([^"']+)\1\s*>([\s\S]*?)<\/invoke>/giu;
-const TEXTUAL_INVOKE_OPEN_PATTERN = /<invoke\s+name=(["'])([^"']+)\1[^>]*>/giu;
 const TEXTUAL_PARAMETER_PATTERN =
   /<parameter\s+name=(["'])([^"']+)\1\s*>([\s\S]*?)<\/parameter>/giu;
 const TEXTUAL_INVOKE_BLOCK_PATTERN = /<invoke\b[\s\S]*?<\/invoke>/giu;
 const TEXTUAL_FUNCTION_CALLS_TAG_PATTERN = /<\/?\s*function_calls\s*>/giu;
 const TEXTUAL_TOOL_SYNTAX_LINE_PATTERN =
   /^[ \t]*<\s*\/?\s*(?:function_calls|invoke|parameter)\b[^>]*>.*$/gim;
+const TEXTUAL_TOOL_CODE_FENCE_MARKER = "```";
 const TEXTUAL_TOOL_CALL_ERROR_MESSAGE =
   "Tool call was returned as plain text and was not executed. This usually means tool calling was unavailable for this run (for example, MCP tools were not enabled).";
 
@@ -203,7 +203,25 @@ function isAssistantErrorText(text: string): boolean {
   return text.trimStart().startsWith(ASSISTANT_ERROR_PREFIX);
 }
 
+function hasNoThinkingTag(text: string): boolean {
+  return text.includes("no_thinking");
+}
+
+function hasTextualToolMarkup(text: string): boolean {
+  if (!text.includes("<")) {
+    return false;
+  }
+  return (
+    text.includes("<function_calls") ||
+    text.includes("<invoke") ||
+    text.includes("<parameter")
+  );
+}
+
 function stripNoThinkingTags(text: string): string {
+  if (!hasNoThinkingTag(text)) {
+    return text.trim();
+  }
   return text.replace(NO_THINKING_TAG_PATTERN, "").trim();
 }
 
@@ -237,6 +255,20 @@ function parseTextualToolCallsFromText(
   toolCalls: TextualToolCallFallback[];
   nextIndex: number;
 } {
+  if (
+    !hasTextualToolMarkup(text) ||
+    text.includes(TEXTUAL_TOOL_CODE_FENCE_MARKER)
+  ) {
+    return { toolCalls: [], nextIndex: startingIndex };
+  }
+
+  const blockMatches = Array.from(
+    text.matchAll(TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN),
+  );
+  if (blockMatches.length === 0) {
+    return { toolCalls: [], nextIndex: startingIndex };
+  }
+
   const toolCalls: TextualToolCallFallback[] = [];
   const seenCallKeys = new Set<string>();
   let callIndex = startingIndex;
@@ -259,13 +291,9 @@ function parseTextualToolCallsFromText(
     callIndex += 1;
   };
 
-  const blockMatches = Array.from(
-    text.matchAll(TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN),
-  );
   const blocks = blockMatches.map((match) => match[1] ?? "");
-  const invokeSearchTargets = blocks.length > 0 ? blocks : [text];
 
-  for (const block of invokeSearchTargets) {
+  for (const block of blocks) {
     const invokeMatches = Array.from(block.matchAll(TEXTUAL_INVOKE_PATTERN));
     for (const invokeMatch of invokeMatches) {
       const toolName = (invokeMatch[2] ?? "").trim();
@@ -290,41 +318,15 @@ function parseTextualToolCallsFromText(
   }
 
   if (toolCalls.length === 0) {
-    const allParameters: Record<string, unknown> = {};
-    const allParameterMatches = Array.from(
-      text.matchAll(TEXTUAL_PARAMETER_PATTERN),
-    );
-    for (const parameterMatch of allParameterMatches) {
-      const key = (parameterMatch[2] ?? "").trim();
-      if (!key) {
-        continue;
-      }
-      allParameters[key] = parseTextualParameterValue(parameterMatch[3] ?? "");
-    }
-
-    const openInvokeMatches = Array.from(
-      text.matchAll(TEXTUAL_INVOKE_OPEN_PATTERN),
-    );
-    for (const openInvoke of openInvokeMatches) {
-      const name = (openInvoke[2] ?? "").trim();
-      if (!name) {
-        continue;
-      }
-      const argsForOpenInvoke =
-        openInvokeMatches.length === 1 && Object.keys(allParameters).length > 0
-          ? allParameters
-          : {};
-      pushToolCall(name, argsForOpenInvoke);
-    }
-  }
-
-  if (toolCalls.length === 0) {
     return { toolCalls: [], nextIndex: startingIndex };
   }
   return { toolCalls, nextIndex: callIndex };
 }
 
 function stripTextualToolCallBlocks(text: string): string {
+  if (!hasTextualToolMarkup(text)) {
+    return text.trim();
+  }
   return text
     .replace(TEXTUAL_FUNCTION_CALLS_BLOCK_PATTERN, " ")
     .replace(TEXTUAL_INVOKE_BLOCK_PATTERN, " ")
@@ -335,8 +337,15 @@ function stripTextualToolCallBlocks(text: string): string {
     .trim();
 }
 
-function normalizeAssistantTextForRender(text: string): string {
-  return stripNoThinkingTags(stripTextualToolCallBlocks(text));
+function normalizeAssistantTextForRender(
+  text: string,
+  options: { stripToolMarkup: boolean },
+): string {
+  const withoutNoThinking = stripNoThinkingTags(text);
+  if (!options.stripToolMarkup) {
+    return withoutNoThinking;
+  }
+  return stripTextualToolCallBlocks(withoutNoThinking);
 }
 
 function normalizeAssistantContentForRender(
@@ -354,16 +363,17 @@ function normalizeAssistantContentForRender(
       normalizedContent.push(item);
       continue;
     }
-    const { toolCalls, nextIndex } = parseTextualToolCallsFromText(
-      item.text,
-      messageId,
-      nextToolCallIndex,
-    );
+    const hasToolMarkup = hasTextualToolMarkup(item.text);
+    const { toolCalls, nextIndex } = hasToolMarkup
+      ? parseTextualToolCallsFromText(item.text, messageId, nextToolCallIndex)
+      : { toolCalls: [], nextIndex: nextToolCallIndex };
     if (toolCalls.length > 0) {
       textualToolCalls.push(...toolCalls);
       nextToolCallIndex = nextIndex;
     }
-    const text = normalizeAssistantTextForRender(item.text);
+    const text = normalizeAssistantTextForRender(item.text, {
+      stripToolMarkup: toolCalls.length > 0,
+    });
     if (!text) {
       continue;
     }
@@ -1479,14 +1489,15 @@ function ChatMessageActions({
 }
 
 function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
-  const content = message.content ?? [];
+  const content =
+    message.role === ChatRoleEnum.assistant
+      ? normalizeAssistantContentForRender(message.id, message.content ?? [])
+          .content
+      : message.content ?? [];
   const output: string[] = [];
-  const shouldNormalizeAssistantText = message.role === ChatRoleEnum.assistant;
   for (const item of content) {
     if (item.type === C.LLM_TEXT) {
-      const text = shouldNormalizeAssistantText
-        ? normalizeAssistantTextForRender(item.text)
-        : item.text;
+      const text = item.text;
       if (text) {
         output.push(text);
       }

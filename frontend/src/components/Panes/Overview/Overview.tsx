@@ -42,6 +42,7 @@ import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
+import { selectHasActiveProjectAIChat } from "./overviewSelectors";
 
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
@@ -96,17 +97,7 @@ export function Overview() {
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
-  const hasActiveProjectAIChat = useAIStore((state) => {
-    if (state.pendingChatDetails?.waitingForResponse) {
-      return true;
-    }
-    for (const chatDetails of Object.values(state.chatDetails)) {
-      if (chatDetails.waitingForResponse) {
-        return true;
-      }
-    }
-    return false;
-  });
+  const hasActiveProjectAIChat = useAIStore(selectHasActiveProjectAIChat);
   const commonProps = {
     vis,
     selectedTabName: effectiveTabName,

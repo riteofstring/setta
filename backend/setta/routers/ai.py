@@ -24,6 +24,7 @@ from setta.database.utils import create_new_id
 from setta.llm.capabilities_config import (
     get_global_capability_defaults,
     get_project_chat_capability_policy,
+    get_project_chat_capability_policy_with_explicit_state,
     resolve_capability_policy,
     set_project_chat_capability_policy,
 )
@@ -41,7 +42,6 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
-from setta.types.capabilities import CapabilityMode
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -308,11 +308,14 @@ def _resolve_capabilities_for_request(
             ChatSectionImpl,
         )
         policy = section_impl.capabilityPolicy
+        has_explicit_policy = True
     else:
-        policy = get_project_chat_capability_policy(
-            dbe,
-            project_config_id=project_config_id,
-            chat_id=policy_chat_id,
+        policy, has_explicit_policy = (
+            get_project_chat_capability_policy_with_explicit_state(
+                dbe,
+                project_config_id=project_config_id,
+                chat_id=policy_chat_id,
+            )
         )
 
     enabled_skill_ids, enabled_mcp_server_ids = resolve_capability_policy(
@@ -321,13 +324,11 @@ def _resolve_capabilities_for_request(
         known_skill_ids=known_skill_ids,
         known_mcp_server_ids=known_mcp_server_ids,
     )
-    # Empty MCP selections should not disable MCP by accident when the policy is
-    # inherit/custom. Keep explicit empty override only for disabled mode.
+    # Preserve explicit policy selections (including empty lists) and only omit
+    # MCP overrides when policy is inherited implicitly from defaults.
     enabled_mcp_server_ids_override: list[str] | None
-    if enabled_mcp_server_ids:
+    if has_explicit_policy:
         enabled_mcp_server_ids_override = enabled_mcp_server_ids
-    elif policy.mode == CapabilityMode.disabled:
-        enabled_mcp_server_ids_override = []
     else:
         enabled_mcp_server_ids_override = None
     resolved_override_skill_ids = _resolve_override_skill_ids(

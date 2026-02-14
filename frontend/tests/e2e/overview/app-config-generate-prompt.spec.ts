@@ -99,3 +99,48 @@ test("app config prompt preview can be edited and sent without tab switch", asyn
   await expect(overviewPane.getByText("Build complete")).toBeVisible();
   await expect(overviewPane.getByText("no_thinking")).toHaveCount(0);
 });
+
+test("generate stays disabled when no usable setta llm engine exists", async ({
+  page,
+}) => {
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "external-only",
+          name: "External only",
+          engineType: "external_agent",
+          externalAgentConfigId: "external-config-1",
+        },
+      ]),
+    });
+  });
+
+  await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
+  await ensureAppReady(page);
+
+  await expect(page.getByText("App Config")).toBeVisible();
+  await page.getByRole("button", { name: "Build Prompt", exact: true }).click();
+  await expect(page.getByLabel("App generation prompt preview")).toBeVisible();
+
+  const generateButton = page.getByRole("button", {
+    name: "Generate",
+    exact: true,
+  });
+  await expect(generateButton).toBeDisabled();
+  await expect(generateButton).toHaveAttribute(
+    "title",
+    "No usable Setta LLM engine is configured. Open Project AI Chat and select an LLM config.",
+  );
+  await expect(
+    page.getByText(
+      "No usable Setta LLM engine is configured. Open Project AI Chat and select an LLM config.",
+    ),
+  ).toBeVisible();
+});

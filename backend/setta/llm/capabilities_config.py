@@ -133,15 +133,29 @@ def get_project_chat_capability_policy(
     project_config_id: ID,
     chat_id: ID | None,
 ) -> CapabilityPolicy:
+    policy, _ = get_project_chat_capability_policy_with_explicit_state(
+        dbe,
+        project_config_id=project_config_id,
+        chat_id=chat_id,
+    )
+    return policy
+
+
+def get_project_chat_capability_policy_with_explicit_state(
+    dbe: DBE,
+    *,
+    project_config_id: ID,
+    chat_id: ID | None,
+) -> tuple[CapabilityPolicy, bool]:
     config = load_skills_config(dbe)
     project_policies = config.projectChatPolicies.get(str(project_config_id))
     if project_policies is None:
-        return CapabilityPolicy(mode=CapabilityMode.inherit)
+        return CapabilityPolicy(mode=CapabilityMode.inherit), False
     chat_key = build_project_chat_policy_key(chat_id)
     policy = project_policies.get(chat_key)
     if policy is None:
-        return CapabilityPolicy(mode=CapabilityMode.inherit)
-    return policy
+        return CapabilityPolicy(mode=CapabilityMode.inherit), False
+    return policy, True
 
 
 def set_project_chat_capability_policy(

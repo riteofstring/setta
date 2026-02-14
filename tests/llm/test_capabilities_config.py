@@ -5,6 +5,7 @@ from setta.database.db_objs import DBE
 from setta.llm.capabilities_config import (
     WORKSPACE_SKILLS_SOURCE_ID,
     get_project_chat_capability_policy,
+    get_project_chat_capability_policy_with_explicit_state,
     load_skills_config,
     resolve_capability_policy,
     set_project_chat_capability_policy,
@@ -126,6 +127,56 @@ def test_project_chat_policy_defaults_to_inherit_and_supports_crud(
             )
             == draft_policy
         )
+
+
+def test_project_chat_policy_reports_when_policy_is_implicit_or_explicit(
+    tmp_path: Path,
+) -> None:
+    # Implicit defaults should be distinguishable from explicitly persisted policy
+    # values so request routing can preserve explicit empty MCP selections.
+    workspace_root = tmp_path / "workspace"
+    setta_root = workspace_root / "setta_files"
+    workspace_root.mkdir(parents=True)
+    setta_root.mkdir(parents=True)
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_location=str(setta_root),
+    ):
+        dbe = DBE(setta_root)
+        project_config_id = ID("project-policy-presence")
+
+        implicit_policy, has_explicit_policy = (
+            get_project_chat_capability_policy_with_explicit_state(
+                dbe,
+                project_config_id=project_config_id,
+                chat_id=ID("chat-1"),
+            )
+        )
+        assert implicit_policy.mode == CapabilityMode.inherit
+        assert implicit_policy.enabledMcpServerIds == []
+        assert has_explicit_policy is False
+
+        explicit_policy = CapabilityPolicy(
+            mode=CapabilityMode.inherit,
+            enabledMcpServerIds=[],
+        )
+        set_project_chat_capability_policy(
+            dbe,
+            project_config_id=project_config_id,
+            chat_id=ID("chat-1"),
+            policy=explicit_policy,
+        )
+
+        stored_policy, has_explicit_policy = (
+            get_project_chat_capability_policy_with_explicit_state(
+                dbe,
+                project_config_id=project_config_id,
+                chat_id=ID("chat-1"),
+            )
+        )
+        assert stored_policy == explicit_policy
+        assert has_explicit_policy is True
 
 
 def test_resolve_capability_policy_modes_and_unknown_ids() -> None:

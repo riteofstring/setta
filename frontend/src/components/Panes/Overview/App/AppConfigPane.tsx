@@ -65,6 +65,8 @@ type AppSpecPayload = Record<string, unknown>;
 const DEFAULT_CATALOG_ID = "setta.app.default";
 const DEFAULT_SPEC_VERSION = "v1";
 const DEFAULT_THEME_MODE: AppThemeMode = "auto";
+const MISSING_SETTA_ENGINE_MESSAGE =
+  "No usable Setta LLM engine is configured. Open Project AI Chat and select an LLM config.";
 
 type AppGenNavPreset = {
   id: string;
@@ -666,11 +668,31 @@ export function AppConfigPane() {
       ),
     [appGenSelectedSkillIds, knownAppGenSkillIds],
   );
-  const canSendPromptPreview =
-    !buildingPromptPreview &&
-    !sendingPromptPreview &&
-    !styleImageUploading &&
-    promptPreviewDraft.trim().length > 0;
+  const promptPreviewGenerateDisabledReason = useMemo(() => {
+    if (!effectiveEngineConfig) {
+      return MISSING_SETTA_ENGINE_MESSAGE;
+    }
+    if (buildingPromptPreview) {
+      return "Prompt preview is still building.";
+    }
+    if (sendingPromptPreview) {
+      return "Generation is already in progress.";
+    }
+    if (styleImageUploading) {
+      return "Wait for style image upload to finish.";
+    }
+    if (promptPreviewDraft.trim().length === 0) {
+      return "Prompt preview is empty.";
+    }
+    return null;
+  }, [
+    buildingPromptPreview,
+    effectiveEngineConfig,
+    promptPreviewDraft,
+    sendingPromptPreview,
+    styleImageUploading,
+  ]);
+  const canSendPromptPreview = promptPreviewGenerateDisabledReason === null;
 
   useEffect(() => {
     setAppGenSelectedSkillIds((current) =>
@@ -1121,9 +1143,7 @@ export function AppConfigPane() {
       return;
     }
     if (!effectiveEngineConfig) {
-      addTemporaryNotification(
-        "No usable Setta LLM engine is configured. Open Project AI Chat and select an LLM config.",
-      );
+      addTemporaryNotification(MISSING_SETTA_ENGINE_MESSAGE);
       return;
     }
     const attachments = styleImageAttachmentRef.current
@@ -1841,11 +1861,18 @@ export function AppConfigPane() {
               className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void handleSendPromptPreviewToChat()}
               disabled={!canSendPromptPreview}
+              title={promptPreviewGenerateDisabledReason ?? undefined}
             >
               {sendingPromptPreview ? "Generating..." : "Generate"}
             </button>
           </div>
         </div>
+
+        {!effectiveEngineConfig ? (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-700/70 dark:bg-amber-900/40 dark:text-amber-100">
+            {MISSING_SETTA_ENGINE_MESSAGE}
+          </div>
+        ) : null}
 
         {capabilitySkillsError ? (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
