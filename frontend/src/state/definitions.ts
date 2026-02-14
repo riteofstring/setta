@@ -861,8 +861,6 @@ type ZustandLocalStorage = {
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
   appGenerationReferenceImageNotes: string;
-  appGenerationFigmaSource: string;
-  appGenerationFigmaPrompt: string;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -897,8 +895,6 @@ export const useLocalStorage = createWithEqualityFn(
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
       appGenerationReferenceImageNotes: "",
-      appGenerationFigmaSource: "",
-      appGenerationFigmaPrompt: "",
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
