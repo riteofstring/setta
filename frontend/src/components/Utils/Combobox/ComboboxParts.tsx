@@ -29,7 +29,7 @@ export function ComboboxInput({
   const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
-  const chevronScale = small ? 0.5 : 0.65;
+  const chevronScale = small ? (isPaneVariant ? 0.6 : 0.5) : 0.65;
   const chevronStyle = { "--ggs": chevronScale } as React.CSSProperties;
   const resolvedInputThemeClassName = inputThemeClassName
     ? ` ${inputThemeClassName}`
@@ -83,11 +83,11 @@ export function ComboboxInput({
           size={
             isPaneVariant
               ? small
-                ? "h-5 w-5"
+                ? "h-6 w-6"
                 : "h-6 w-6"
               : small
                 ? "h-4 w-4"
-                : "h-5 w-5"
+                : "h-7 w-7"
           }
         />
       }
