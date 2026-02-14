@@ -43,6 +43,7 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
+    Plugin = "Plugin"
 
 
 class SectionSizeMode(str, Enum):
@@ -377,3 +378,11 @@ class BrowserSectionImpl(BaseSectionImpl):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
+
+
+class PluginSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Plugin] = SectionType.Plugin
+    pluginId: str = ""
+    kind: str = "default"
+    data: dict[str, Any] = Field(default_factory=dict)
+    schemaVersion: int | None = None
