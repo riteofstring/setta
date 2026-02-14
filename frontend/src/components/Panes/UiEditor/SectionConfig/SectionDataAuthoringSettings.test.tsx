@@ -6,6 +6,7 @@ import {
   SectionTypeEnum,
   createCore,
   createListRootSectionImpl,
+  ListRootViewModeEnum,
   createProjectConfig,
   createTextBlockSectionImpl,
   createUserDefaultCallableSectionImpl,
@@ -117,7 +118,7 @@ describe("Section data-authoring settings", () => {
     expect(markup).toContain("19px");
   });
 
-  it("renders child-default dropdown and filters disallowed section kinds", () => {
+  it("renders list root child defaults and view mode controls", () => {
     const sectionId = "listroot-section";
     const implId = "listroot-impl";
     seedSectionState({
@@ -128,6 +129,7 @@ describe("Section data-authoring settings", () => {
       impl: createListRootSectionImpl(createUserDefaultListRootSectionImpl(), {
         id: implId,
         defaultChildSectionType: SectionTypeEnum.Dict,
+        viewMode: ListRootViewModeEnum.task_list,
       }),
     });
 
@@ -142,6 +144,10 @@ describe("Section data-authoring settings", () => {
     expect(markup).not.toContain('option value="GlobalVariables"');
     expect(markup).not.toContain('option value="GenPythonCode"');
     expect(markup).not.toContain('option value="GenPythonMetadata"');
+    expect(markup).toContain("List Root View");
+    expect(markup).toContain("option value=\"default\"");
+    expect(markup).toContain("option value=\"task_list\" selected");
+    expect(markup).toContain("option value=\"kanban\"");
   });
 
   it("renders callable string-args toggle in section config", () => {

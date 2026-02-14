@@ -21,6 +21,7 @@ type LatestProjectStateResponse = {
         codeObjVariantMap?: Record<string, string>;
         allowUnquotedStringArgs?: boolean;
         defaultChildSectionType?: string;
+        viewMode?: string;
       }
     >;
     parentSectionMap?: Record<string, string | null>;
@@ -56,6 +57,15 @@ async function createTopLevelSection(
     throw new Error(`Failed to create ${implType} section.`);
   }
   return sectionId;
+}
+
+function getChildSectionIds(
+  latest: LatestProjectStateResponse,
+  parentSectionId: string,
+): string[] {
+  return Object.entries(latest.projectState?.parentSectionMap ?? {})
+    .filter(([, parentId]) => parentId === parentSectionId)
+    .map(([childId]) => childId);
 }
 
 test.describe.serial("section types data authoring", () => {
@@ -219,11 +229,7 @@ test.describe.serial("section types data authoring", () => {
             page,
             projectContext.projectConfigId,
           );
-          const children = Object.entries(
-            latest.projectState?.parentSectionMap ?? {},
-          )
-            .filter(([, parentId]) => parentId === sectionId)
-            .map(([childId]) => childId);
+          const children = getChildSectionIds(latest, sectionId);
           if (children.length === 0) {
             return [];
           }
@@ -240,6 +246,135 @@ test.describe.serial("section types data authoring", () => {
             .filter((type): type is string => Boolean(type));
         })
         .toContain("TextBlock");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("list root view mode toggles between kanban and task list layout", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      uiEditorTab: { ListRoot: "SectionConfig" },
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const sectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "ListRoot",
+      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      await expect(node).toBeVisible();
+      await node.click();
+
+      const uiEditorPane = page.locator("#UiEditorPane");
+      const defaultChildCard = uiEditorPane
+        .locator("div")
+        .filter({ hasText: "Default Child Section" })
+        .first();
+      await expect(defaultChildCard).toBeVisible();
+      await defaultChildCard.locator("select").first().selectOption("TextBlock");
+
+      const plusButton = node.locator("button.gg-math-plus").first();
+      await expect(plusButton).toBeVisible();
+      await plusButton.click();
+      await plusButton.click();
+
+      await expect
+        .poll(async () => {
+          const latest = await getLatestProjectState(
+            page,
+            projectContext.projectConfigId,
+          );
+          return getChildSectionIds(latest, sectionId).length;
+        })
+        .toBeGreaterThanOrEqual(2);
+      const latestWithChildren = await getLatestProjectState(
+        page,
+        projectContext.projectConfigId,
+      );
+      const childIds = getChildSectionIds(latestWithChildren, sectionId).slice(
+        0,
+        2,
+      );
+
+      await expect(defaultChildCard).toContainText("List Root View");
+      let viewModeSelect = defaultChildCard.locator("select").nth(1);
+      await expect(viewModeSelect).toBeVisible();
+
+      await viewModeSelect.selectOption("kanban");
+      await expect(viewModeSelect).toHaveValue("kanban");
+
+      const kanbanDistances = await page.evaluate((ids) => {
+        const first = document.querySelector(
+          `[data-sortable-section-id="${ids[0]}"]`,
+        ) as HTMLElement | null;
+        const second = document.querySelector(
+          `[data-sortable-section-id="${ids[1]}"]`,
+        ) as HTMLElement | null;
+        if (!first || !second) {
+          return null;
+        }
+        const firstRect = first.getBoundingClientRect();
+        const secondRect = second.getBoundingClientRect();
+        return {
+          xDelta: Math.abs(firstRect.x - secondRect.x),
+          yDelta: Math.abs(firstRect.y - secondRect.y),
+        };
+      }, childIds);
+      expect(kanbanDistances).not.toBeNull();
+      expect((kanbanDistances?.xDelta ?? 0) > (kanbanDistances?.yDelta ?? 0)).toBe(
+        true,
+      );
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".react-flow__pane");
+      const reloadedNode = page.locator(
+        `.react-flow__node[data-id="${sectionId}"]`,
+      );
+      await expect(reloadedNode).toBeVisible();
+      await reloadedNode.click();
+      viewModeSelect = page
+        .locator("#UiEditorPane")
+        .locator("div")
+        .filter({ hasText: "Default Child Section" })
+        .first()
+        .locator("select")
+        .nth(1);
+      await expect(viewModeSelect).toHaveValue("kanban");
+
+      await viewModeSelect.selectOption("task_list");
+      await expect(viewModeSelect).toHaveValue("task_list");
+
+      const taskListDistances = await page.evaluate((ids) => {
+        const first = document.querySelector(
+          `[data-sortable-section-id="${ids[0]}"]`,
+        ) as HTMLElement | null;
+        const second = document.querySelector(
+          `[data-sortable-section-id="${ids[1]}"]`,
+        ) as HTMLElement | null;
+        if (!first || !second) {
+          return null;
+        }
+        const firstRect = first.getBoundingClientRect();
+        const secondRect = second.getBoundingClientRect();
+        return {
+          xDelta: Math.abs(firstRect.x - secondRect.x),
+          yDelta: Math.abs(firstRect.y - secondRect.y),
+        };
+      }, childIds);
+      expect(taskListDistances).not.toBeNull();
+      expect((taskListDistances?.yDelta ?? 0) >= (taskListDistances?.xDelta ?? 0)).toBe(
+        true,
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
