@@ -1,0 +1,47 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+import {
+  getSpreadsheetGridTemplateColumns,
+  getSpreadsheetGridWidth,
+  SPREADSHEET_DATA_COLUMN_WIDTH,
+  SPREADSHEET_INDEX_COLUMN_WIDTH,
+  SPREADSHEET_ROW_HEIGHT,
+  SpreadsheetRow,
+} from "./FileBrowserSpreadsheetEditor";
+
+describe("FileBrowserSpreadsheetEditor layout", () => {
+  it("uses compact spreadsheet sizing defaults", () => {
+    expect(SPREADSHEET_ROW_HEIGHT).toBeLessThanOrEqual(28);
+    expect(SPREADSHEET_INDEX_COLUMN_WIDTH).toBeLessThanOrEqual(48);
+    expect(SPREADSHEET_DATA_COLUMN_WIDTH).toBeLessThanOrEqual(110);
+    expect(getSpreadsheetGridWidth(2)).toBe(
+      SPREADSHEET_INDEX_COLUMN_WIDTH + SPREADSHEET_DATA_COLUMN_WIDTH * 2,
+    );
+    expect(getSpreadsheetGridTemplateColumns(3)).toContain("repeat(3");
+  });
+
+  it("renders cells with box-border and overflow guards to prevent bleed", () => {
+    const markup = renderToStaticMarkup(
+      <SpreadsheetRow
+        index={0}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: getSpreadsheetGridWidth(2),
+          height: SPREADSHEET_ROW_HEIGHT,
+        }}
+        rows={[["task", "status"]]}
+        columnCount={2}
+        gridTemplateColumns={getSpreadsheetGridTemplateColumns(2)}
+        onChangeCell={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("overflow-hidden");
+    expect(markup).toContain("box-border");
+    expect(markup).toContain("min-w-0");
+    expect(markup).toContain("dark:bg-setta-950/70");
+    expect(markup).toContain("dark:focus:bg-blue-900/30");
+  });
+});

@@ -392,3 +392,58 @@ Trace summary (DevTools tool output):
 ### Notes
 - The Playwright spec was hardened to avoid CodeMirror keyboard flake by setting editor content through CodeMirror view state when available, with keyboard fallback retained.
 - Path comparisons in that spec now normalize `/private` path prefixes to keep macOS temp-workspace assertions stable.
+
+## 2026-02-14 Follow-up: Spreadsheet Viewer Visual Stability + Compact Grid Layout
+
+### Scope
+- Fixed spreadsheet cell bleed/overlap in CSV/XLSX editor rows.
+- Reduced spreadsheet row/column sizing toward compact (Google Sheets-like) defaults.
+- Improved dark/light theme compatibility by replacing invalid dark background class usage and tightening cell text/background classes.
+- Stabilized spreadsheet scroll container behavior by:
+  - using dedicated horizontal overflow container,
+  - forcing list vertical scrollbar lane,
+  - enabling `scrollbar-gutter: stable`.
+
+### Automated Regression + Performance Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx \
+  src/utils/spreadsheet.perf.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-carousel-spreadsheet-preview.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+```
+
+Result:
+- Vitest: `3 files passed`, `4 tests passed`.
+  - Includes new layout regression coverage (`box-border`, overflow guards, compact constants).
+  - Includes new row-render perf guardrail for wide-column sheets.
+- Playwright:
+  - `browser-carousel-spreadsheet-preview.spec.ts`: `1 passed`.
+    - Added assertions for no cell overlap, compact cell sizing, and stable scrollbar gutter.
+  - `section-types-data-authoring.spec.ts`: `5 passed`.
+
+### DevTools MCP Baseline/After Profiling
+Baseline artifacts:
+- `perf/artifacts/2026-02-14-spreadsheet-viewer-baseline.png`
+- `perf/artifacts/2026-02-14-spreadsheet-viewer-baseline-cdp-trace.json`
+  - Trace bounds: `{min: 74279793815, max: 74287727808}`
+
+After-fix artifacts:
+- `perf/artifacts/2026-02-14-spreadsheet-viewer-after-fix.png`
+- `perf/artifacts/2026-02-14-spreadsheet-viewer-after-fix-cdp-trace.json`
+  - Trace bounds: `{min: 74531013335, max: 74542267141}`
+
+In-app metric sample (post-fix, measured via CDP evaluate):
+- overlap between row `1:0` and `1:1`: `-0.816px` (no overlap)
+- row height: `22.04px`
+- cell width: `84.07px`
+- cell font size: `11px`
+- cell `box-sizing`: `border-box`
+- scroll container `scrollbar-gutter`: `stable`
+
+### Notes
+- The dark mode mismatch was traced to a one-off invalid class token (`dark:bg-setta-920`) in spreadsheet rows; it is now replaced with valid palette classes.
+- Scrollbar flashing could not be asserted directly by a deterministic test, so guardrails were added via structural invariants (stable gutter + fixed overflow lanes) and E2E visual/layout assertions.

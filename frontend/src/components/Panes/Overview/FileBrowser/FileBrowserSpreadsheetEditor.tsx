@@ -14,10 +14,10 @@ import {
   serializeSpreadsheetBytes,
 } from "utils/spreadsheet";
 
-const HEADER_HEIGHT = 34;
-const ROW_HEIGHT = 34;
-const INDEX_COLUMN_WIDTH = 64;
-const DATA_COLUMN_WIDTH = 140;
+export const SPREADSHEET_HEADER_HEIGHT = 28;
+export const SPREADSHEET_ROW_HEIGHT = 28;
+export const SPREADSHEET_INDEX_COLUMN_WIDTH = 44;
+export const SPREADSHEET_DATA_COLUMN_WIDTH = 104;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 type SpreadsheetDraft = {
@@ -46,6 +46,14 @@ export type SpreadsheetSelectedFile = {
   fullPath: string;
 };
 
+export function getSpreadsheetGridTemplateColumns(columnCount: number): string {
+  return `${SPREADSHEET_INDEX_COLUMN_WIDTH}px repeat(${columnCount}, ${SPREADSHEET_DATA_COLUMN_WIDTH}px)`;
+}
+
+export function getSpreadsheetGridWidth(columnCount: number): number {
+  return SPREADSHEET_INDEX_COLUMN_WIDTH + columnCount * SPREADSHEET_DATA_COLUMN_WIDTH;
+}
+
 function encodeBytesToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) {
@@ -63,7 +71,7 @@ function decodeBase64ToBytes(contentBase64: string): Uint8Array {
   return bytes;
 }
 
-function SpreadsheetRow({
+export function SpreadsheetRow({
   index,
   style,
   rows,
@@ -74,28 +82,32 @@ function SpreadsheetRow({
   const row = rows[index] ?? [];
   return (
     <div
-      className="grid border-b border-setta-100 bg-white text-xs dark:border-setta-800 dark:bg-setta-920"
+      className="grid overflow-hidden border-b border-setta-200 bg-white text-[11px] dark:border-setta-800 dark:bg-setta-950/70"
       style={{
         ...style,
         gridTemplateColumns,
       }}
     >
-      <div className="flex h-full items-center justify-center border-r border-setta-100 px-2 text-[11px] text-setta-500 dark:border-setta-800 dark:text-setta-400">
+      <div className="flex h-full items-center justify-center border-r border-setta-200 px-1.5 text-[10px] font-medium text-setta-500 dark:border-setta-800 dark:text-setta-400">
         {index + 1}
       </div>
       {Array.from({ length: columnCount }, (_, columnIndex) => {
         const value = row[columnIndex] ?? "";
         return (
-          <input
+          <div
             key={`cell-${index}-${columnIndex}`}
-            value={value}
-            onChange={(event) =>
-              onChangeCell(index, columnIndex, event.target.value)
-            }
-            data-spreadsheet-cell={`${index}:${columnIndex}`}
-            aria-label={`Cell ${index + 1}-${columnIndex + 1}`}
-            className="h-full w-full border-r border-setta-100 bg-transparent px-2 text-xs text-setta-700 outline-none focus:bg-blue-50 dark:border-setta-800 dark:text-setta-100 dark:focus:bg-blue-900/20"
-          />
+            className="min-w-0 overflow-hidden border-r border-setta-200 dark:border-setta-800"
+          >
+            <input
+              value={value}
+              onChange={(event) =>
+                onChangeCell(index, columnIndex, event.target.value)
+              }
+              data-spreadsheet-cell={`${index}:${columnIndex}`}
+              aria-label={`Cell ${index + 1}-${columnIndex + 1}`}
+              className="box-border h-full w-full min-w-0 bg-transparent px-2 text-[11px] leading-tight text-setta-800 outline-none placeholder:text-setta-400 focus:bg-blue-50/70 dark:text-setta-100 dark:placeholder:text-setta-500 dark:focus:bg-blue-900/30"
+            />
+          </div>
         );
       })}
     </div>
@@ -271,12 +283,18 @@ export function FileBrowserSpreadsheetEditor({
     setIsSaving(false);
   }, [sheet]);
 
-  const gridTemplateColumns = useMemo(() => {
-    if (!sheet) {
-      return `${INDEX_COLUMN_WIDTH}px`;
-    }
-    return `${INDEX_COLUMN_WIDTH}px repeat(${sheet.columnCount}, ${DATA_COLUMN_WIDTH}px)`;
-  }, [sheet]);
+  const gridTemplateColumns = useMemo(
+    () =>
+      getSpreadsheetGridTemplateColumns(
+        Math.max(0, sheet?.columnCount ?? 0),
+      ),
+    [sheet?.columnCount],
+  );
+  const sheetWidth = useMemo(
+    () => getSpreadsheetGridWidth(Math.max(0, sheet?.columnCount ?? 0)),
+    [sheet?.columnCount],
+  );
+  const listWidth = Math.max(viewportSize.width, sheetWidth);
 
   if (!selectedPath) {
     return (
@@ -347,7 +365,7 @@ export function FileBrowserSpreadsheetEditor({
           {errorText && <span className="text-red-500">{errorText}</span>}
         </div>
       )}
-      <div ref={viewportRef} className="min-h-0 flex-1 overflow-auto">
+      <div ref={viewportRef} className="min-h-0 flex-1 overflow-hidden">
         {isLoading && (
           <div className="flex h-full items-center justify-center text-xs text-setta-500 dark:text-setta-400">
             Loading spreadsheet…
@@ -359,46 +377,52 @@ export function FileBrowserSpreadsheetEditor({
           </div>
         )}
         {!isLoading && sheet && (
-          <div className="min-w-fit">
-            <div
-              className="grid border-b border-setta-200 bg-setta-50 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800 dark:bg-setta-900/50 dark:text-setta-400"
-              style={{
-                gridTemplateColumns,
-                minWidth:
-                  INDEX_COLUMN_WIDTH + sheet.columnCount * DATA_COLUMN_WIDTH,
-              }}
-            >
-              <div className="flex h-[34px] items-center justify-center border-r border-setta-200 dark:border-setta-800">
-                #
-              </div>
-              {Array.from({ length: sheet.columnCount }, (_, index) => (
-                <div
-                  key={`header-${index}`}
-                  className="flex h-[34px] items-center border-r border-setta-200 px-2 dark:border-setta-800"
-                >
-                  {getSpreadsheetColumnLabel(index)}
+          <div
+            data-testid="spreadsheet-grid-scroll"
+            className="h-full overflow-x-auto overflow-y-hidden [scrollbar-gutter:stable]"
+          >
+            <div className="min-h-full" style={{ minWidth: listWidth }}>
+              <div
+                className="grid border-b border-setta-200 bg-setta-50 text-[10px] font-semibold text-setta-500 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-400"
+                style={{
+                  gridTemplateColumns,
+                  width: listWidth,
+                }}
+              >
+                <div className="flex h-[28px] items-center justify-center border-r border-setta-200 dark:border-setta-800">
+                  #
                 </div>
-              ))}
+                {Array.from({ length: sheet.columnCount }, (_, index) => (
+                  <div
+                    key={`header-${index}`}
+                    className="flex h-[28px] items-center border-r border-setta-200 px-2 dark:border-setta-800"
+                  >
+                    {getSpreadsheetColumnLabel(index)}
+                  </div>
+                ))}
+              </div>
+              <List
+                listRef={listRef}
+                rowComponent={SpreadsheetRow}
+                rowCount={sheet.rowCount}
+                rowHeight={SPREADSHEET_ROW_HEIGHT}
+                rowProps={{
+                  rows: sheet.rows,
+                  columnCount: sheet.columnCount,
+                  gridTemplateColumns,
+                  onChangeCell,
+                }}
+                style={{
+                  width: listWidth,
+                  height: Math.max(
+                    1,
+                    viewportSize.height - SPREADSHEET_HEADER_HEIGHT,
+                  ),
+                  overflowX: "hidden",
+                  overflowY: "scroll",
+                }}
+              />
             </div>
-            <List
-              listRef={listRef}
-              rowComponent={SpreadsheetRow}
-              rowCount={sheet.rowCount}
-              rowHeight={ROW_HEIGHT}
-              rowProps={{
-                rows: sheet.rows,
-                columnCount: sheet.columnCount,
-                gridTemplateColumns,
-                onChangeCell,
-              }}
-              style={{
-                width: Math.max(
-                  viewportSize.width,
-                  INDEX_COLUMN_WIDTH + sheet.columnCount * DATA_COLUMN_WIDTH,
-                ),
-                height: Math.max(1, viewportSize.height - HEADER_HEIGHT),
-              }}
-            />
           </div>
         )}
       </div>

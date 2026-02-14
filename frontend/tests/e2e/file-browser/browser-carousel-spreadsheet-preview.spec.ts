@@ -134,8 +134,51 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       });
 
       await thumbnailRow.locator("button", { hasText: "sheet.csv" }).click();
+      const gridScroll = sectionNode.getByTestId("spreadsheet-grid-scroll");
+      await expect(gridScroll).toBeVisible();
+      const scrollbarGutter = await gridScroll.evaluate(
+        (node) => getComputedStyle(node).scrollbarGutter,
+      );
+      expect(scrollbarGutter).toContain("stable");
+
+      const csvLeftCell = sectionNode.locator('[data-spreadsheet-cell="1:0"]');
       const csvCell = sectionNode.locator('[data-spreadsheet-cell="1:1"]');
+      await expect(csvLeftCell).toBeVisible();
       await expect(csvCell).toBeVisible();
+      const leftCellClasses = await csvLeftCell.getAttribute("class");
+      expect(leftCellClasses ?? "").toContain("box-border");
+      expect(leftCellClasses ?? "").toContain("dark:focus:bg-blue-900/30");
+      const rowLayoutMetrics = await page.evaluate(() => {
+        const leftCell = document.querySelector(
+          '[data-spreadsheet-cell="1:0"]',
+        );
+        const rightCell = document.querySelector(
+          '[data-spreadsheet-cell="1:1"]',
+        );
+        if (!(leftCell instanceof HTMLInputElement)) {
+          return null;
+        }
+        if (!(rightCell instanceof HTMLInputElement)) {
+          return null;
+        }
+        const leftRect = leftCell.getBoundingClientRect();
+        const rightRect = rightCell.getBoundingClientRect();
+        return {
+          overlapPx: leftRect.right - rightRect.left,
+          rowHeightPx: leftRect.height,
+          colWidthPx: leftRect.width,
+          fontSizePx: Number.parseFloat(getComputedStyle(leftCell).fontSize),
+          boxSizing: getComputedStyle(leftCell).boxSizing,
+        };
+      });
+      if (!rowLayoutMetrics) {
+        throw new Error("Failed to read spreadsheet row metrics.");
+      }
+      expect(rowLayoutMetrics.overlapPx).toBeLessThanOrEqual(0.5);
+      expect(rowLayoutMetrics.rowHeightPx).toBeLessThanOrEqual(30);
+      expect(rowLayoutMetrics.colWidthPx).toBeLessThanOrEqual(115);
+      expect(rowLayoutMetrics.fontSizePx).toBeLessThanOrEqual(12);
+      expect(rowLayoutMetrics.boxSizing).toBe("border-box");
       await csvCell.fill("done");
       await sectionNode.getByTestId("spreadsheet-save").click();
       await expect(sectionNode.getByText("Saved.")).toBeVisible();
