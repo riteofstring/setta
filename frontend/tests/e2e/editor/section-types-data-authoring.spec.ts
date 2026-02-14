@@ -555,6 +555,21 @@ test.describe.serial("section types data authoring", () => {
         spreadsheetNode.getByText("2 rows · 2 columns"),
       ).toBeVisible();
 
+      // Validate baseline grid interactions: activate, edit, and commit a cell.
+      await spreadsheetNode
+        .getByTestId("spreadsheet-active-cell-column")
+        .fill("2");
+      await spreadsheetNode
+        .getByTestId("spreadsheet-active-cell-row")
+        .fill("2");
+      await expect(
+        spreadsheetNode.getByTestId("spreadsheet-active-cell-label"),
+      ).toHaveText("Cell B2");
+      await spreadsheetNode
+        .getByTestId("spreadsheet-active-cell-input")
+        .fill("done");
+      await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
+
       const spreadsheetAddRow = spreadsheetNode.getByTestId(
         "spreadsheet-add-row",
       );
@@ -610,7 +625,7 @@ test.describe.serial("section types data authoring", () => {
         csvRead?.contentBase64 ?? "",
         "base64",
       ).toString("utf-8");
-      expect(csvDecoded).toContain("alpha,todo");
+      expect(csvDecoded).toContain("alpha,done");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -702,6 +717,23 @@ test.describe.serial("section types data authoring", () => {
       expect(filterStyles.backgroundColor).not.toBe("rgb(255, 255, 255)");
       expect(filterStyles.color).not.toBe("rgb(0, 0, 0)");
       expect(filterStyles.borderColor).not.toBe("rgb(0, 0, 0)");
+
+      const glideBgCell = await spreadsheetNode
+        .getByTestId("spreadsheet-glide-grid")
+        .evaluate((element) => {
+          const themedElement =
+            element.querySelector<HTMLElement>('[style*="--gdg-bg-cell"]') ??
+            (element.firstElementChild as HTMLElement | null);
+          if (!themedElement) {
+            return "";
+          }
+          const computed = window.getComputedStyle(themedElement);
+          return (
+            computed.getPropertyValue("--gdg-bg-cell").trim() ||
+            computed.backgroundColor
+          );
+        });
+      expect(glideBgCell).not.toContain("255, 255, 255");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

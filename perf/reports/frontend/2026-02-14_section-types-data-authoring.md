@@ -611,3 +611,36 @@ Result:
 ### DevTools MCP Visual/Perf Profiling
 - Visual validation was run before transport loss and confirmed spreadsheet sections now render a canvas-backed grid and keep the pathless drop-first UX.
 - DevTools transport closed before a new trace artifact could be captured for this follow-up run, so no additional trace JSON was produced in this step.
+
+## 2026-02-15 Follow-up: Spreadsheet Basic Editing Reliability + Setta Theme Alignment
+
+### Scope
+- Restored React Flow zoom-aware Glide rendering density so spreadsheet canvas remains crisp while zooming on the flow canvas.
+- Hardened spreadsheet interaction containment in sections with `nodrag`/`nopan`/`nowheel` wrappers to avoid flow drag/pan conflicts.
+- Added Setta-styled active-cell controls for robust basic editing:
+  - active cell label
+  - column/row selectors
+  - active cell value input (read/write with read-only guard)
+- Added dark/light Setta-aligned Glide theme overrides and kept compact density defaults.
+
+### Automated Regression + Performance Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx \
+  src/components/Panes/Overview/FileBrowser/FileBrowserUniversalPreview.perf.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts
+```
+
+Result:
+- Vitest perf/regression: `3 files passed`.
+- Playwright:
+  - `section-types-data-authoring.spec.ts`: `6 passed`.
+  - `browser-transfer-and-drop.spec.ts`: `2 passed`.
+- Coverage includes spreadsheet section edit/save path via active-cell controls, dark-mode spreadsheet rendering checks, and drag/drop interoperability with spreadsheet sections.
+
+### DevTools MCP
+- Attempted CDP visual/perf verification for this follow-up, but `chrome-devtools-mcp` remained unavailable in-session (`Transport closed`), so no new trace artifact was captured in this run.

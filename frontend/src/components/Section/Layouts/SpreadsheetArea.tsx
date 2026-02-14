@@ -12,12 +12,13 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { route_set_spreadsheet_file_path } from "utils/generatedEndpoints";
 import {
-  SpreadsheetGridDensityEnum,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
+  SpreadsheetGridDensityEnum,
 } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { isSpreadsheetPath } from "utils/spreadsheet";
@@ -174,7 +175,7 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
 
   return (
     <div
-      className={`section-main section-main-full-w mx-1 mb-2 mt-1 flex min-h-[240px] min-w-[360px] flex-col gap-2 rounded-md transition-colors ${
+      className={`section-main section-main-full-w mx-1 mb-2 mt-1 flex min-h-[240px] min-w-[360px] flex-col gap-2 rounded-md transition-colors ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag ${
         isDropTargetActive
           ? "border border-blue-400/70 bg-blue-50/30 dark:border-blue-500/60 dark:bg-blue-950/20"
           : ""

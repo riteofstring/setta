@@ -30,6 +30,7 @@ describe("FileBrowserSpreadsheetEditor (perf)", () => {
         readOnly={false}
         gridTemplateColumns={getSpreadsheetGridTemplateColumns(columnCount)}
         onChangeCell={vi.fn()}
+        onFocusCell={vi.fn()}
       />,
     );
     const elapsedMs = performance.now() - start;
