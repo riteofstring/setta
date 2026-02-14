@@ -4625,14 +4625,31 @@ class PluginManager:
             if not rest:
                 raise PluginManagerError(
                     "PLUGIN_SOURCE_INVALID",
-                    "GitHub source must be github:<owner>/<repo>[#ref].",
+                    (
+                        "GitHub source must be github:<owner>/<repo>[#ref] "
+                        "or github:<owner>/<repo>@ref."
+                    ),
                 )
-            repo_spec, _, ref = rest.partition("#")
+            repo_spec = rest
+            ref: str | None = None
+            hash_index = rest.find("#")
+            at_index = rest.find("@")
+            if hash_index != -1 and (at_index == -1 or hash_index < at_index):
+                repo_spec = rest[:hash_index]
+                ref_fragment = rest[hash_index + 1 :].strip()
+                ref = ref_fragment or None
+            elif at_index != -1:
+                repo_spec = rest[:at_index]
+                ref_fragment = rest[at_index + 1 :].strip()
+                ref = ref_fragment or None
             owner, _, repo = repo_spec.partition("/")
             if not owner or not repo:
                 raise PluginManagerError(
                     "PLUGIN_SOURCE_INVALID",
-                    "GitHub source must be github:<owner>/<repo>[#ref].",
+                    (
+                        "GitHub source must be github:<owner>/<repo>[#ref] "
+                        "or github:<owner>/<repo>@ref."
+                    ),
                 )
             return ParsedSourceSpec(
                 scheme=PluginSourceScheme.github,
@@ -4640,7 +4657,7 @@ class PluginManager:
                 canonical_source_key=f"github:{owner}/{repo}",
                 owner=owner,
                 repo=repo,
-                ref=ref or None,
+                ref=ref,
             )
         if scheme == PluginSourceScheme.pypi.value:
             package_spec = rest.strip()

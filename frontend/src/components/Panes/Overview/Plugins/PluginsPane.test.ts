@@ -89,6 +89,9 @@ describe("plugins pane helpers", () => {
       pluginsPaneTestApi.validateInstallSourceSpec("github:acme/plugin#v1"),
     ).toBeNull();
     expect(
+      pluginsPaneTestApi.validateInstallSourceSpec("github:acme/plugin@v1"),
+    ).toBeNull();
+    expect(
       pluginsPaneTestApi.validateInstallSourceSpec("pypi:setta-fixture==0.1.0"),
     ).toBeNull();
   });

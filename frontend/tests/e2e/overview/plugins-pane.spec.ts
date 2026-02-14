@@ -1,6 +1,9 @@
+import fs from "fs";
+import os from "os";
 import { expect, test } from "@playwright/test";
 import path from "path";
 import {
+  cleanupIsolatedProject,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -10,6 +13,8 @@ import {
 type CreateTopLevelSectionResponse = {
   sectionId: string;
 };
+const BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 
 test("plugins overview tab supports fixture plugin render and disabled fallback", async ({
   page,
@@ -635,6 +640,166 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
     scope: "workspace",
   });
   await expect(page.getByText("Uninstall plugin completed.")).toBeVisible();
+});
+
+test("plugins pane lifecycle actions work against real backend endpoints", async ({
+  page,
+}) => {
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await postBackend(page, "/plugins/link", {
+    localPluginRoot: fixturePluginRoot,
+    scope: "workspace",
+    enable: true,
+    force: true,
+  });
+  await postBackend(page, "/plugins/rescan", {});
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const pluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-frontend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(pluginCard).toBeVisible();
+
+  await pluginCard.getByRole("button", { name: "Enable", exact: true }).click();
+  await expect(page.getByText("Enable plugin completed.")).toBeVisible();
+
+  await pluginCard.getByRole("button", { name: "Disable", exact: true }).click();
+  await expect(page.getByText("Disable plugin completed.")).toBeVisible();
+
+  await postBackend(page, "/plugins/enable", {
+    pluginId: "setta-fixture-frontend",
+  });
+  await postBackend(page, "/plugins/rescan", {});
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const reenabledPluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-frontend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(reenabledPluginCard).toBeVisible();
+
+  await reenabledPluginCard
+    .getByRole("button", { name: "Uninstall", exact: true })
+    .click();
+  await expect(page.getByText("Uninstall plugin completed.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "setta-fixture-frontend@0.1.0",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+});
+
+test("plugins pane updates frontend asset digest query after relink", async ({
+  page,
+}) => {
+  type PluginsListPayload = {
+    plugins: Array<{
+      pluginId: string;
+      frontend: {
+        entrypointUrl: string | null;
+      };
+    }>;
+  };
+
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
+  const tempPluginRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "setta-plugin-cache-bust-"),
+  );
+  const mutablePluginRoot = path.join(tempPluginRoot, "frontend-plugin");
+  fs.cpSync(fixturePluginRoot, mutablePluginRoot, { recursive: true });
+
+  await setOverviewTab(page, "Plugins");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: mutablePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const firstListResponse = await page.request.get(
+      `${BACKEND_ORIGIN}/api/plugins/list`,
+    );
+    expect(firstListResponse.ok()).toBeTruthy();
+    const firstListPayload = (await firstListResponse.json()) as PluginsListPayload;
+    const firstEntry = firstListPayload.plugins.find(
+      (plugin) => plugin.pluginId === "setta-fixture-frontend",
+    );
+    const firstEntrypointUrl = firstEntry?.frontend.entrypointUrl;
+    expect(firstEntrypointUrl).toBeTruthy();
+    const firstDigest = new URL(firstEntrypointUrl as string, BACKEND_ORIGIN)
+      .searchParams.get("v");
+    expect(firstDigest).toBeTruthy();
+
+    const entrypointPath = path.join(
+      mutablePluginRoot,
+      "frontend",
+      "dist",
+      "index.js",
+    );
+    fs.appendFileSync(entrypointPath, "\n// e2e digest cache bust marker\n");
+
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: mutablePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const secondListResponse = await page.request.get(
+      `${BACKEND_ORIGIN}/api/plugins/list`,
+    );
+    expect(secondListResponse.ok()).toBeTruthy();
+    const secondListPayload =
+      (await secondListResponse.json()) as PluginsListPayload;
+    const secondEntry = secondListPayload.plugins.find(
+      (plugin) => plugin.pluginId === "setta-fixture-frontend",
+    );
+    const secondEntrypointUrl = secondEntry?.frontend.entrypointUrl;
+    expect(secondEntrypointUrl).toBeTruthy();
+    const secondDigest = new URL(secondEntrypointUrl as string, BACKEND_ORIGIN)
+      .searchParams.get("v");
+    expect(secondDigest).toBeTruthy();
+    expect(secondDigest).not.toBe(firstDigest);
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+    fs.rmSync(tempPluginRoot, { recursive: true, force: true });
+  }
 });
 
 test("plugins pane supports programmatic restart action", async ({ page }) => {

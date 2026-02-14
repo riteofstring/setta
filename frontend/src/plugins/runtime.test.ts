@@ -453,6 +453,69 @@ describe("plugin runtime helpers", () => {
     );
   });
 
+  it("rejects section-kind registration when capability is not effective", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerSectionKind({ kind: 'widget', title: 'Widget', renderer: { mount() {} } });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: [],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(PluginFrontendErrorCodeEnum.CapabilityDenied);
+  });
+
+  it("rejects invalid command registrations", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerCommand({ id: 'invalid', title: 'Invalid', run: 123 });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerCommand"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(PluginFrontendErrorCodeEnum.RegistrationInvalid);
+  });
+
+  it("rejects invalid top-nav registrations", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(host) {\n  host.registerTopNavBarItem({ id: 'bad-order', label: 'Bad', order: Number.NaN, onClick() {} });\n}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerTopNavBarItem"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error?.code).toBe(PluginFrontendErrorCodeEnum.RegistrationInvalid);
+  });
+
   it("reports runtime error when plugins list request fails", async () => {
     vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
       data: undefined,
@@ -523,6 +586,51 @@ describe("plugin runtime helpers", () => {
     expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
       "/tmp/primary",
     );
+  });
+
+  it("deduplicates concurrent refreshPluginRuntime calls", async () => {
+    let releaseRequests: (() => void) | null = null;
+    const gate = new Promise<void>((resolve) => {
+      releaseRequests = resolve;
+    });
+    let listCalls = 0;
+    let statusCalls = 0;
+
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+      async () => {
+        listCalls += 1;
+        await gate;
+        return {
+          data: buildPluginListResponse([]),
+          status: 200,
+          hasResponse: true,
+        };
+      },
+    );
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
+      async () => {
+        statusCalls += 1;
+        await gate;
+        return {
+          data: buildPluginStatusResponse([]),
+          status: 200,
+          hasResponse: true,
+        };
+      },
+    );
+
+    const first = refreshPluginRuntime();
+    const second = refreshPluginRuntime();
+    const third = refreshPluginRuntime();
+    await Promise.resolve();
+    expect(listCalls).toBe(1);
+    expect(statusCalls).toBe(1);
+
+    if (releaseRequests) {
+      releaseRequests();
+    }
+    await Promise.all([first, second, third]);
+    expect(usePluginRuntimeStore.getState().status).toBe("loaded");
   });
 
   it("apiFetch normalizes plugin paths and attaches deployment share headers", async () => {
@@ -644,6 +752,77 @@ describe("plugin runtime helpers", () => {
       "ide",
     );
     expect(noStyleLoad?.error).toBeNull();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
+  });
+
+  it("removes stale plugin styles when a plugin is removed from plugin list", async () => {
+    type FakeLinkElement = {
+      rel: string;
+      href: string;
+      dataset: Record<string, string>;
+      removed: boolean;
+      remove: () => void;
+    };
+    const fakeLinks: FakeLinkElement[] = [];
+    vi.stubGlobal("document", {
+      head: {
+        append: (node: FakeLinkElement) => {
+          fakeLinks.push(node);
+        },
+      },
+      createElement: (_tag: string): FakeLinkElement => {
+        const link: FakeLinkElement = {
+          rel: "",
+          href: "",
+          dataset: {},
+          removed: false,
+          remove: () => {
+            link.removed = true;
+          },
+        };
+        return link;
+      },
+    });
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(_host) {}\n",
+      );
+    const pluginWithStyle = buildPluginListEntry({
+      pluginId: "acme.plugin",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: "/plugins/acme.plugin/frontend/dist/index.css?v=digest-a",
+      },
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: "acme.plugin",
+    });
+
+    let listPayload = buildPluginListResponse([pluginWithStyle]);
+    let statusPayload = buildPluginStatusResponse([pluginStatus]);
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+      async () => ({
+        data: listPayload,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
+      async () => ({
+        data: statusPayload,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
+
+    listPayload = buildPluginListResponse([]);
+    statusPayload = buildPluginStatusResponse([]);
+    await refreshPluginRuntime();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
 

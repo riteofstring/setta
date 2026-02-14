@@ -2409,6 +2409,128 @@ def test_parse_source_spec_rejects_invalid_formats(tmp_path: Path) -> None:
     assert pypi_error.value.code == "PLUGIN_SOURCE_INVALID"
 
 
+def test_parse_source_spec_accepts_github_hash_and_at_refs(tmp_path: Path) -> None:
+    # Source spec parsing should support both github:#ref and github:@ref forms.
+    manager = _make_manager(tmp_path)
+
+    with_hash_ref = manager._parse_source_spec("github:acme/plugin#release-1")
+    assert with_hash_ref.scheme.value == "github"
+    assert with_hash_ref.owner == "acme"
+    assert with_hash_ref.repo == "plugin"
+    assert with_hash_ref.ref == "release-1"
+
+    with_at_ref = manager._parse_source_spec("github:acme/plugin@release-2")
+    assert with_at_ref.scheme.value == "github"
+    assert with_at_ref.owner == "acme"
+    assert with_at_ref.repo == "plugin"
+    assert with_at_ref.ref == "release-2"
+
+
+def test_normalize_worker_route_query_params_handles_repeated_keys(tmp_path: Path) -> None:
+    # Query-param normalization should collapse repeated keys into ordered lists.
+    manager = _make_manager(tmp_path)
+
+    class _FakeQueryParams:
+        def multi_items(self) -> list[tuple[str, str]]:
+            return [
+                ("kind", "first"),
+                ("kind", "second"),
+                ("single", "value"),
+                ("kind", "third"),
+            ]
+
+    class _FakeRequest:
+        query_params = _FakeQueryParams()
+
+    normalized = manager._normalize_worker_route_query_params(_FakeRequest())
+    assert normalized == {
+        "kind": ["first", "second", "third"],
+        "single": "value",
+    }
+
+
+def test_normalize_worker_route_methods_validates_shape_and_values(
+    tmp_path: Path,
+) -> None:
+    # Route method normalization should uppercase, dedupe, and reject invalid inputs.
+    manager = _make_manager(tmp_path)
+    normalized = manager._normalize_worker_route_methods(
+        plugin_id="fixture.plugin",
+        route_id="route_1",
+        raw_methods=["get", "GET", "post", " patch "],
+    )
+    assert normalized == ["GET", "POST", "PATCH"]
+
+    with pytest.raises(PluginManagerError) as not_array_error:
+        manager._normalize_worker_route_methods(
+            plugin_id="fixture.plugin",
+            route_id="route_2",
+            raw_methods="GET",
+        )
+    assert not_array_error.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+
+    with pytest.raises(PluginManagerError) as unsupported_error:
+        manager._normalize_worker_route_methods(
+            plugin_id="fixture.plugin",
+            route_id="route_3",
+            raw_methods=["TRACE"],
+        )
+    assert unsupported_error.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+
+
+def test_build_uv_install_env_maps_pip_env_vars(tmp_path: Path, monkeypatch) -> None:
+    # UV install env should inherit pip index flags when uv-specific vars are absent.
+    manager = _make_manager(tmp_path)
+    monkeypatch.setenv("PIP_NO_INDEX", "1")
+    monkeypatch.setenv("PIP_FIND_LINKS", "/tmp/fixtures")
+    monkeypatch.delenv("UV_NO_INDEX", raising=False)
+    monkeypatch.delenv("UV_FIND_LINKS", raising=False)
+
+    mapped = manager._build_uv_install_env()
+    assert mapped["UV_NO_INDEX"] == "1"
+    assert mapped["UV_FIND_LINKS"] == "/tmp/fixtures"
+
+    monkeypatch.setenv("UV_NO_INDEX", "0")
+    monkeypatch.setenv("UV_FIND_LINKS", "keep-existing")
+    preserved = manager._build_uv_install_env()
+    assert preserved["UV_NO_INDEX"] == "0"
+    assert preserved["UV_FIND_LINKS"] == "keep-existing"
+
+
+def test_retarget_source_spec_rewrites_github_and_pypi_targets(tmp_path: Path) -> None:
+    # Source retargeting should preserve scheme semantics for github/pypi updates.
+    manager = _make_manager(tmp_path)
+    assert (
+        manager._retarget_source_spec("github:acme/plugin#main", "v2")
+        == "github:acme/plugin#v2"
+    )
+    assert (
+        manager._retarget_source_spec(
+            "pypi:setta-fixture-frontend==0.1.0",
+            "0.2.0",
+        )
+        == "pypi:setta-fixture-frontend==0.2.0"
+    )
+    assert (
+        manager._retarget_source_spec(
+            "pypi:setta-fixture-frontend==0.1.0",
+            "setta-fixture-frontend==0.3.0",
+        )
+        == "pypi:setta-fixture-frontend==0.3.0"
+    )
+    assert (
+        manager._retarget_source_spec(
+            "github:acme/plugin#main",
+            "github:other/repo#tag",
+        )
+        == "github:other/repo#tag"
+    )
+    assert (
+        manager._retarget_source_spec("github:acme/plugin#main", "   ")
+        == "github:acme/plugin#main"
+    )
+
+
 def test_target_plugin_path_rejects_traversal_values(tmp_path: Path) -> None:
     # Target plugin path resolution must reject path traversal ids.
     manager = _make_manager(tmp_path)

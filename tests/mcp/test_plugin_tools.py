@@ -173,9 +173,21 @@ def test_plugin_mutation_tools_blocked_in_deployment_mode(tmp_path: Path) -> Non
         deployment_mode=True,
         server_mode="share",
     )
-    with pytest.raises(PermissionError) as exc_info:
+    with pytest.raises(PermissionError) as install_exc:
+        install_plugin(sourceSpec="pypi:setta-fixture-frontend==0.1.0", ctx=ctx)
+    assert str(install_exc.value) == "Deployment mode does not allow plugin mutations."
+
+    with pytest.raises(PermissionError) as update_exc:
+        update_plugin(pluginId="setta-fixture-frontend", scope="workspace", ctx=ctx)
+    assert str(update_exc.value) == "Deployment mode does not allow plugin mutations."
+
+    with pytest.raises(PermissionError) as rollback_exc:
+        rollback_plugin(pluginId="setta-fixture-frontend", scope="workspace", ctx=ctx)
+    assert str(rollback_exc.value) == "Deployment mode does not allow plugin mutations."
+
+    with pytest.raises(PermissionError) as uninstall_exc:
         uninstall_plugin(pluginId="setta-fixture-frontend", ctx=ctx)
-    assert str(exc_info.value) == "Deployment mode does not allow plugin mutations."
+    assert str(uninstall_exc.value) == "Deployment mode does not allow plugin mutations."
 
 
 def test_plugin_tools_are_registered() -> None:
