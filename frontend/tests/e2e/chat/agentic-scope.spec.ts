@@ -321,6 +321,9 @@ test.describe.serial("agentic scope", () => {
         engineConfigId: null,
         agentProfileId: null,
         thinking: true,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        skillsEnabled: true,
       });
       const { sectionId: sourceSectionId } = await createTextBlockSection(
         page,
