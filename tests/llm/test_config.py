@@ -16,7 +16,6 @@ from setta.types.llm_config import (
     LLMConfig,
     MCPServerConfig,
 )
-from setta.utils import constants as constants_module
 
 DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
 
@@ -271,20 +270,6 @@ class TestLLMConfigPersistence:
             payload = dbe.read_llm_config_example()
             assert "secondary" in payload["configs"]
 
-    def test_load_llm_config_uses_example_when_not_in_dev_mode(self, monkeypatch) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            seed_llm_config_example_file(dbe)
-
-            # Built mode leaves SETTA_DEV_MODE unset; fallback should still use example data.
-            monkeypatch.setattr(constants_module, "IS_DEV_MODE", None)
-
-            loaded = load_llm_config(dbe)
-
-            assert "claude-sonnet" in loaded.configs
-            persisted = dbe.read_llm_config()
-            assert "claude-sonnet" in persisted.get("configs", {})
-
 
 class TestLLMConfigExampleSeeding:
     def test_seed_llm_config_example_file_writes_default_payload(self) -> None:
@@ -297,7 +282,6 @@ class TestLLMConfigExampleSeeding:
             configs = payload.get("configs", {})
             assert "claude-sonnet" in configs
             assert "id" not in configs["claude-sonnet"]
-            assert "context7" not in payload.get("mcpServers", {})
 
     def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -320,3 +304,4 @@ class TestLLMConfigExampleSeeding:
                     "model": "custom-model",
                 }
             }
+

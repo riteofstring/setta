@@ -41,7 +41,7 @@ from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.constants import C
+from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.init_status import BackendInitializationStatus
 from setta.utils.paths import (
@@ -222,7 +222,8 @@ class SettaFastAPIState:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
-            seed_agentic_config_files(self.dbe)
+            if IS_DEV_MODE:
+                seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
             # share_mode enables per-viewer session scoping in deployment mode (share or app).

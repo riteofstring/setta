@@ -11,9 +11,12 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
+    DateDisplayFormat,
     DropzoneMode,
     HttpRequestMethod,
     ParamNameType,
+    TextParamInputUIType,
+    TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
 from setta.types.generated.chat_messages import BaseChatMessageUnion
@@ -21,13 +24,20 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    CalendarWeekStart,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
+    ListRootViewMode,
     PromptFormat,
     SectionSize,
+    SectionType,
+    SpreadsheetGridDensity,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -45,6 +55,7 @@ class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
 
 class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     hideUnpinnedParams: bool = False
+    allowUnquotedStringArgs: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
@@ -85,12 +96,14 @@ class UserDefaultDictSectionImpl(UserDefaultBaseDictSectionImpl, extra="forbid")
 
 
 class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
-    pass
+    defaultChildSectionType: SectionType = SectionType.Callable
+    viewMode: ListRootViewMode = ListRootViewMode.default
 
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
     isHorizontalOrientation: bool = False
     overflowMode: bool = False
+    defaultChildSectionType: SectionType = SectionType.Callable
 
 
 class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -124,6 +137,7 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
+    masterFontSizePx: float = 14.0
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
@@ -214,6 +228,52 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
 
 
+class UserDefaultClockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=320.0, height=170.0)
+    )
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.long
+    showSeconds: bool = True
+    showDate: bool = True
+    timezone: str = "local"
+
+
+class UserDefaultCalendarSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=420.0, height=360.0)
+    )
+    selectedDateIso: str = ""
+    weekStartsOn: CalendarWeekStart = CalendarWeekStart.sunday
+
+
+class UserDefaultTaskBoardSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=720.0, height=430.0)
+    )
+    viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
+    columns: list[TaskBoardColumn] = Field(
+        default_factory=lambda: [
+            TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
+            TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
+            TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
+        ]
+    )
+    tasks: list[TaskBoardTask] = Field(default_factory=list)
+
+
+class UserDefaultSpreadsheetSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=760.0, height=500.0)
+    )
+    filePath: str = ""
+    activeSheet: str | None = None
+    readOnly: bool = False
+    showRowNumbers: bool = True
+    density: SpreadsheetGridDensity = SpreadsheetGridDensity.compact
+    autoReloadOnExternalChange: bool = False
+
+
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
     pass
 
@@ -221,6 +281,7 @@ class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
 class UserDefaultBaseParamCodeObjImpl(UserDefaultBaseCodeObjImpl, extra="forbid"):
     coreNameType: ParamNameType = ParamNameType.TEXT
     coreNameEditable: bool = False
+    typeAnnotation: str = ""
 
 
 class UserDefaultBaseChildlessCodeObjImpl(
@@ -249,7 +310,9 @@ class UserDefaultCodeParamCodeObjImpl(
 class UserDefaultTextParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    pass
+    uiType: TextParamInputUIType = TextParamInputUIType.plain
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
 
 
 class UserDefaultButtonParamCodeObjImpl(
