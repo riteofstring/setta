@@ -16,6 +16,7 @@ from setta.types.artifact import (
     DrawAreaLayer,
     DrawAreaLayerItem,
 )
+from setta.types.capabilities import CapabilityPolicy
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -3020,6 +3021,21 @@ def set_chat_section_settings(
             engineConfigId=engineConfigId,
             agentProfileId=agentProfileId,
             thinking=thinking,
+        ),
+    )
+
+
+def set_chat_section_capability_policy(
+    p: "ProjectStateSingleConfig",
+    sectionId: ID,
+    capabilityPolicy: CapabilityPolicy,
+):
+    get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChatSectionImplArgsWithCallable(
+            capabilityPolicy=capabilityPolicy,
         ),
     )
 

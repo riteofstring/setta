@@ -20,6 +20,7 @@ from setta.project_state.project_manager_types import (
     SetAppDefinitionRequest,
 )
 from setta.share.policy import deny_in_deployment_mode
+from setta.types.app_definition import AppRoute
 from setta.types.chat_messages import JSONValue
 
 
@@ -61,6 +62,7 @@ async def stream_app_definition(
     patches: str,
     appSpecPath: str | None = None,
     baseAppSpec: JSONValue | None = None,
+    routes: list[AppRoute] | None = None,
     ctx: Context,
 ) -> AppDefinitionResponse:
     """
@@ -70,6 +72,7 @@ async def stream_app_definition(
     Setta can render a live preview by applying patch lines incrementally.
 
     For updates, set `baseAppSpec` (or omit it to patch the currently stored app spec).
+    If provided, `routes` replaces the stored app route definitions.
     """
     await deny_in_deployment_mode(
         deployment_mode=ctx.fastmcp.state.deployment_mode,
@@ -101,6 +104,7 @@ async def stream_app_definition(
         SetAppDefinitionRequest(
             appSpec=app_spec,
             appSpecPath=appSpecPath,
+            routes=routes,
         )
     )
 

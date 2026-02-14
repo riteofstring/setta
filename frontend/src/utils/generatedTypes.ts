@@ -141,6 +141,12 @@ export const DrawAreaModeEnum = {
 
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
+export const CapabilityModeEnum = {
+  disabled: "disabled",
+  inherit: "inherit",
+  custom: "custom",
+} as const;
+
 export const ChatRoleEnum = {
   system: "system",
   user: "user",
@@ -441,6 +447,17 @@ export const RouteEnum = {
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
+  GET_SKILL_SOURCES: "/getSkillSources",
+  SET_SKILL_SOURCES: "/setSkillSources",
+  GET_SKILLS_CATALOG: "/getSkillsCatalog",
+  GET_SKILL_DETAILS: "/getSkillDetails",
+  IMPORT_SKILL_MARKDOWN: "/importSkillMarkdown",
+  DELETE_SKILLS: "/deleteSkills",
+  GET_GLOBAL_CAPABILITY_DEFAULTS: "/getGlobalCapabilityDefaults",
+  SET_GLOBAL_CAPABILITY_DEFAULTS: "/setGlobalCapabilityDefaults",
+  GET_PROJECT_CHAT_CAPABILITY_POLICY: "/getProjectChatCapabilityPolicy",
+  SET_PROJECT_CHAT_CAPABILITY_POLICY: "/setProjectChatCapabilityPolicy",
+  GET_MCP_SERVERS_RUNTIME_STATE: "/getMcpServersRuntimeState",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
@@ -595,6 +612,8 @@ export const RouteEnum = {
   SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
+  GET_CHAT_SECTION_CAPABILITY_POLICY: "/getChatSectionCapabilityPolicy",
+  SET_CHAT_SECTION_CAPABILITY_POLICY: "/setChatSectionCapabilityPolicy",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
   GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
   SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
@@ -1362,6 +1381,20 @@ const ChatSectionBranchSchema = z.object({
 
 export type ChatSectionBranch = z.infer<typeof ChatSectionBranchSchema>;
 
+const CapabilityPolicySchema = z.object({
+  mode: z.enum(CapabilityModeEnum).default(CapabilityModeEnum.disabled),
+  enabledSkillIds: z.array(z.string()).default([]),
+  enabledMcpServerIds: z.array(z.string()).default([]),
+});
+
+export type CapabilityPolicy = z.infer<typeof CapabilityPolicySchema>;
+
+export function createCapabilityPolicy(
+  options: Partial<CapabilityPolicy> = {},
+): CapabilityPolicy {
+  return CapabilityPolicySchema.parse(options);
+}
+
 const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
@@ -1512,6 +1545,7 @@ const SharedModifierSchema = z.object({
   brushSize: z.int().optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
   canvasMode: z.enum(DrawAreaModeEnum).optional(),
+  capabilityPolicy: CapabilityPolicySchema.optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
     .optional(),
@@ -1646,6 +1680,7 @@ const CoreSchema = z.object({
         "brushSize",
         "callable",
         "canvasMode",
+        "capabilityPolicy",
         "chartSettings",
         "chatId",
         "children",
@@ -2247,6 +2282,7 @@ const ChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
+  capabilityPolicy: CapabilityPolicySchema.default(createCapabilityPolicy),
   messages: z
     .array(
       z.union([
@@ -3485,6 +3521,7 @@ const ChatSectionImplArgsSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
+  capabilityPolicy: CapabilityPolicySchema.optional(),
   messages: z
     .array(
       z.union([
@@ -4900,6 +4937,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
+  capabilityPolicy: CapabilityPolicySchema.default(createCapabilityPolicy),
   messages: z
     .array(
       z.union([
@@ -5747,6 +5785,10 @@ const LLMConfigSchema = z.object({
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
+}
+
 const MCPServerConfigSchema = z.object({
   transport: z.literal(["sse", "streamable_http", "stdio"]),
   url: z.union([z.string(), z.null()]).default(null),
@@ -5770,6 +5812,12 @@ const AllLLMConfigsSchema = z.object({
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
 
 export type AllLLMConfigsInput = z.input<typeof AllLLMConfigsSchema>;
+
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return AllLLMConfigsSchema.parse(options);
+}
 
 const WebsocketMsgLLMConfigUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
@@ -5944,6 +5992,12 @@ const EngineConfigSchema = z.object({
 });
 
 export type EngineConfig = z.infer<typeof EngineConfigSchema>;
+
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
+  return EngineConfigSchema.parse(options);
+}
 
 const EngineConfigListSchema = z.object({
   configs: z.array(EngineConfigSchema),
@@ -6472,6 +6526,88 @@ const AppValidationIssueSchema = z.object({
   elementKey: z.union([z.string(), z.null()]).default(null),
   elementType: z.union([z.string(), z.null()]).default(null),
 });
+
+const GlobalCapabilityDefaultsSchema = z.object({
+  defaultSkillIds: z.array(z.string()).default([]),
+  defaultMcpServerIds: z.array(z.string()).default([]),
+});
+
+export type GlobalCapabilityDefaults = z.infer<
+  typeof GlobalCapabilityDefaultsSchema
+>;
+
+export type GlobalCapabilityDefaultsInput = z.input<
+  typeof GlobalCapabilityDefaultsSchema
+>;
+
+export function createGlobalCapabilityDefaults(
+  options: Partial<GlobalCapabilityDefaults> = {},
+): GlobalCapabilityDefaults {
+  return GlobalCapabilityDefaultsSchema.parse(options);
+}
+
+const McpServerRuntimeStateSchema = z.object({
+  serverId: z.string(),
+  connected: z.boolean(),
+  error: z.union([z.string(), z.null()]).default(null),
+  toolCount: z.int().default(0),
+  refreshedAtMs: z.union([z.int(), z.null()]).default(null),
+});
+
+const McpServersRuntimeStateResponseSchema = z.object({
+  servers: z.array(McpServerRuntimeStateSchema).default([]),
+  generatedAtMs: z.int(),
+});
+
+export type McpServersRuntimeStateResponse = z.infer<
+  typeof McpServersRuntimeStateResponseSchema
+>;
+
+const SkillSourceSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  label: z.string(),
+  builtin: z.boolean().default(false),
+});
+
+export type SkillSource = z.infer<typeof SkillSourceSchema>;
+
+const SkillEntrySchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  relativePath: z.string(),
+  absolutePath: z.string(),
+  name: z.string(),
+  description: z.string(),
+  version: z.union([z.string(), z.null()]).default(null),
+  parseError: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SkillEntry = z.infer<typeof SkillEntrySchema>;
+
+const SkillCatalogResponseSchema = z.object({
+  sources: z.array(SkillSourceSchema).default([]),
+  skills: z.array(SkillEntrySchema).default([]),
+});
+
+export type SkillCatalogResponse = z.infer<typeof SkillCatalogResponseSchema>;
+
+const SkillDetailsResponseSchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  relativePath: z.string(),
+  absolutePath: z.string(),
+  name: z.string(),
+  description: z.string(),
+  version: z.union([z.string(), z.null()]).default(null),
+  metadata: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  content: z.string().default("" as const),
+  parseError: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SkillDetailsResponse = z.infer<typeof SkillDetailsResponseSchema>;
 
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -7393,6 +7529,7 @@ const GetLLMResponseRequestSchema = z.object({
   allowUnscoped: z.boolean().default(false),
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
+  overrideSkillIds: z.union([z.array(IDSchema), z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
 });
 
@@ -7669,6 +7806,59 @@ const LaunchResponseSchema = z.object({
 });
 
 export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
+
+const DeleteSkillsRequestSchema = z.object({
+  skillRefs: z.array(z.string()).default([]),
+});
+
+export type DeleteSkillsRequestInput = z.input<
+  typeof DeleteSkillsRequestSchema
+>;
+
+const GetProjectChatCapabilityPolicyRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetProjectChatCapabilityPolicyRequestInput = z.input<
+  typeof GetProjectChatCapabilityPolicyRequestSchema
+>;
+
+const GetSkillDetailsRequestSchema = z.object({
+  skillRef: z.string(),
+});
+
+export type GetSkillDetailsRequestInput = z.input<
+  typeof GetSkillDetailsRequestSchema
+>;
+
+const ImportSkillMarkdownRequestSchema = z.object({
+  markdown: z.string(),
+  sourceId: z.union([z.string(), z.null()]).default(null),
+  slug: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ImportSkillMarkdownRequestInput = z.input<
+  typeof ImportSkillMarkdownRequestSchema
+>;
+
+const SetProjectChatCapabilityPolicyRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: z.union([IDSchema, z.null()]).default(null),
+  capabilityPolicy: CapabilityPolicySchema,
+});
+
+export type SetProjectChatCapabilityPolicyRequestInput = z.input<
+  typeof SetProjectChatCapabilityPolicyRequestSchema
+>;
+
+const SetSkillSourcesRequestSchema = z.object({
+  skillSources: z.array(SkillSourceSchema).default([]),
+});
+
+export type SetSkillSourcesRequestInput = z.input<
+  typeof SetSkillSourcesRequestSchema
+>;
 
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
@@ -8076,6 +8266,16 @@ export type GetAppDefinitionRequestInput = z.input<
   typeof GetAppDefinitionRequestSchema
 >;
 
+const GetChatSectionCapabilityPolicyRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type GetChatSectionCapabilityPolicyRequestInput = z.input<
+  typeof GetChatSectionCapabilityPolicyRequestSchema
+>;
+
 const GetChatSectionChatIdRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -8478,6 +8678,17 @@ const SetChartTypeRequestSchema = z.object({
 
 export type SetChartTypeRequestInput = z.input<
   typeof SetChartTypeRequestSchema
+>;
+
+const SetChatSectionCapabilityPolicyRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  capabilityPolicy: CapabilityPolicySchema,
+});
+
+export type SetChatSectionCapabilityPolicyRequestInput = z.input<
+  typeof SetChatSectionCapabilityPolicyRequestSchema
 >;
 
 const SetChatSectionChatIdRequestSchema = z.object({

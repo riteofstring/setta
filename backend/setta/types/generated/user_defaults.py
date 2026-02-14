@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 # Section type imports
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
+from setta.types.capabilities import CapabilityPolicy
 
 # Code object type imports
 from setta.types.code_obj_impls import (
@@ -194,6 +195,7 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
+    capabilityPolicy: CapabilityPolicy = Field(default_factory=CapabilityPolicy)
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

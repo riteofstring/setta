@@ -60,9 +60,15 @@ test.describe.serial("agentic context mode", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
 
-      const contextSourcesBlock = uiEditorPane
-        .getByText("Context sources")
-        .locator("..");
+      const contextSourcesHeader = uiEditorPane.getByText(/^Context sources$/);
+      if (!(await contextSourcesHeader.isVisible())) {
+        await uiEditorPane
+          .getByRole("button", { name: /^Context & Links/ })
+          .click();
+      }
+      await expect(contextSourcesHeader).toBeVisible();
+
+      const contextSourcesBlock = contextSourcesHeader.locator("..");
       const contextRow = contextSourcesBlock
         .locator("div.flex.items-center", { hasText: textSectionName })
         .first();
@@ -107,9 +113,16 @@ test.describe.serial("agentic context mode", () => {
       const uiEditorPaneAfter = page.locator("#UiEditorPane");
       await expect(uiEditorPaneAfter).toBeVisible();
 
-      const contextSourcesBlockAfter = uiEditorPaneAfter
-        .getByText("Context sources")
-        .locator("..");
+      const contextSourcesHeaderAfter =
+        uiEditorPaneAfter.getByText(/^Context sources$/);
+      if (!(await contextSourcesHeaderAfter.isVisible())) {
+        await uiEditorPaneAfter
+          .getByRole("button", { name: /^Context & Links/ })
+          .click();
+      }
+      await expect(contextSourcesHeaderAfter).toBeVisible();
+
+      const contextSourcesBlockAfter = contextSourcesHeaderAfter.locator("..");
       const contextRowAfter = contextSourcesBlockAfter
         .locator("div.flex.items-center", { hasText: textSectionName })
         .first();
