@@ -90,8 +90,7 @@ test.describe.serial("agentic edges", () => {
 
       await expect
         .poll(
-          async () =>
-            getAgenticEdgeCount(page, projectContext.projectConfigId),
+          async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
         )
         .toBeGreaterThan(initialCount);
@@ -160,8 +159,7 @@ test.describe.serial("agentic edges", () => {
 
       await expect
         .poll(
-          async () =>
-            getAgenticEdgeCount(page, projectContext.projectConfigId),
+          async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
         )
         .toBeGreaterThan(initialCount);
@@ -195,22 +193,16 @@ test.describe.serial("agentic edges", () => {
         page,
         projectContext.projectConfigId,
       );
-      await createChatSectionViaCommandPalette(page);
-      await expect
-        .poll(
-          async () =>
-            getChatSectionIds(page, projectContext.projectConfigId),
-          { timeout: 15000 },
-        )
-        .toHaveLength(initialChatIds.length + 1);
-      await createChatSectionViaCommandPalette(page);
-      await expect
-        .poll(
-          async () =>
-            getChatSectionIds(page, projectContext.projectConfigId),
-          { timeout: 15000 },
-        )
-        .toHaveLength(initialChatIds.length + 2);
+      await createChatSectionViaCommandPalette(
+        page,
+        projectContext.projectConfigId,
+        initialChatIds.length + 1,
+      );
+      await createChatSectionViaCommandPalette(
+        page,
+        projectContext.projectConfigId,
+        initialChatIds.length + 2,
+      );
 
       const finalChatIds = await getChatSectionIds(
         page,
@@ -219,8 +211,10 @@ test.describe.serial("agentic edges", () => {
       const newChatIds = finalChatIds.filter(
         (id) => !initialChatIds.includes(id),
       );
-      if (newChatIds.length < 2) {
-        throw new Error("Expected two newly created chat sections.");
+      if (newChatIds.length !== 2) {
+        throw new Error(
+          `Expected exactly two newly created chat sections, found ${newChatIds.length}.`,
+        );
       }
       const [firstSectionId, secondSectionId] = newChatIds;
 
@@ -255,8 +249,7 @@ test.describe.serial("agentic edges", () => {
 
       await expect
         .poll(
-          async () =>
-            getAgenticEdgeCount(page, projectContext.projectConfigId),
+          async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
         )
         .toBeGreaterThan(initialCount);
@@ -315,7 +308,9 @@ async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
-async function openIsolatedProject(page: Page): Promise<IsolatedProjectContext> {
+async function openIsolatedProject(
+  page: Page,
+): Promise<IsolatedProjectContext> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -432,36 +427,74 @@ async function createTextBlockSection(
   return { sectionId: created.sectionId };
 }
 
-async function createChatSectionViaCommandPalette(page: Page): Promise<void> {
+async function createChatSectionViaCommandPalette(
+  page: Page,
+  projectConfigId: string,
+  expectedChatCount: number,
+): Promise<void> {
   const isMac = process.platform === "darwin";
   const shortcut = isMac ? "Meta+Shift+P" : "Control+Shift+P";
-  await page.keyboard.press(shortcut);
   const searchInput = page.locator("#ProjectPageSearchBar");
-  await expect(searchInput).toBeVisible();
-  await searchInput.fill("Chat");
-  const chatOption = page.getByRole("option", { name: "Chat" }).first();
-  let optionVisible = await chatOption.isVisible();
-  for (let attempt = 0; attempt < 3 && !optionVisible; attempt += 1) {
-    await page.keyboard.press(shortcut);
-    await searchInput.fill("Chat");
-    await page.waitForTimeout(150);
-    optionVisible = await chatOption.isVisible();
-    if (optionVisible) {
-      break;
+  const chatOption = page.getByRole("option", { name: /Chat/i }).first();
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const currChatCount = (await getChatSectionIds(page, projectConfigId))
+      .length;
+    if (currChatCount === expectedChatCount) {
+      return;
     }
+    if (currChatCount > expectedChatCount) {
+      throw new Error(
+        `Chat section count exceeded expected total before create action. Expected ${expectedChatCount}, found ${currChatCount}.`,
+      );
+    }
+
+    await page.keyboard.press(shortcut);
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill("Chat");
+
+    let selectedChatOption = false;
+    const optionTimeoutMs = 3000;
+    const optionStartedAt = Date.now();
+    while (Date.now() - optionStartedAt < optionTimeoutMs) {
+      if (await chatOption.isVisible()) {
+        await chatOption.click();
+        selectedChatOption = true;
+        break;
+      }
+      await page.waitForTimeout(100);
+    }
+    if (!selectedChatOption) {
+      // Fallback: command palette selects the top result with Enter even when
+      // the list is not visible yet.
+      await page.keyboard.press("Enter");
+    }
+
+    const startedAt = Date.now();
+    const timeoutMs = 10000;
+    while (Date.now() - startedAt < timeoutMs) {
+      const nextChatCount = (await getChatSectionIds(page, projectConfigId))
+        .length;
+      if (nextChatCount === expectedChatCount) {
+        return;
+      }
+      if (nextChatCount > expectedChatCount) {
+        throw new Error(
+          `Command palette created too many chat sections. Expected ${expectedChatCount}, found ${nextChatCount}.`,
+        );
+      }
+      await page.waitForTimeout(100);
+    }
+
     await page.keyboard.press("Escape");
     await page.waitForTimeout(150);
   }
-  if (!optionVisible) {
-    await expect(chatOption).toBeVisible({ timeout: 2000 });
-  }
-  const responsePromise = page.waitForResponse(
-    (response) =>
-      response.url().includes("/api/createTopLevelSection") &&
-      response.request().method() === "POST",
+
+  const finalChatCount = (await getChatSectionIds(page, projectConfigId))
+    .length;
+  throw new Error(
+    `Command palette did not reach expected chat section count. Expected exactly ${expectedChatCount}, found ${finalChatCount}.`,
   );
-  await chatOption.click();
-  await responsePromise;
 }
 
 async function dragHandleToHandle(
@@ -572,11 +605,7 @@ async function ensureHandlesInViewport(
   sourceHandle: Locator,
   targetHandle: Locator,
 ): Promise<void> {
-  const isInView = await areHandlesInViewport(
-    page,
-    sourceHandle,
-    targetHandle,
-  );
+  const isInView = await areHandlesInViewport(page, sourceHandle, targetHandle);
   if (isInView) {
     return;
   }
@@ -602,7 +631,12 @@ async function areHandlesInViewport(
   if (!sourceBox || !targetBox || !viewport) {
     return false;
   }
-  const withinViewport = (box: { x: number; y: number; width: number; height: number }) => {
+  const withinViewport = (box: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => {
     const centerX = box.x + box.width / 2;
     const centerY = box.y + box.height / 2;
     return (

@@ -29,6 +29,11 @@ class SessionMetadata(BaseModel):
     pid: int
     startedAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     secretPath: str
+    settaFilesLocation: str | None = None
+    settaFilesRoot: str | None = None
+    runtimeRoot: str | None = None
+    settaHome: str | None = None
+    profile: str | None = None
 
 
 class SessionRegistry:
@@ -64,6 +69,11 @@ class SessionRegistry:
         pid: int,
         started_at: datetime | None = None,
         workspace_display_path: str | None = None,
+        setta_files_location: str | None = None,
+        setta_files_root: str | None = None,
+        runtime_root: str | None = None,
+        setta_home: str | None = None,
+        profile: str | None = None,
     ) -> SessionMetadata:
         canonical_workspace = self._canonicalize_workspace_path(workspace_path)
         display_workspace = workspace_display_path or str(workspace_path)
@@ -88,6 +98,11 @@ class SessionRegistry:
             pid=pid,
             startedAt=started_at or datetime.now(timezone.utc),
             secretPath=str(secret_path),
+            settaFilesLocation=setta_files_location,
+            settaFilesRoot=setta_files_root,
+            runtimeRoot=runtime_root,
+            settaHome=setta_home,
+            profile=profile,
         )
         self._write_metadata(metadata)
         return metadata
