@@ -13,6 +13,20 @@ def test_resolve_setta_home_honors_env_override(tmp_path: Path, monkeypatch: pyt
     assert resolve_setta_home() == override.resolve(strict=False)
 
 
+def test_resolve_setta_home_can_ignore_env_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    override = tmp_path / "custom_home"
+    fake_home_root = tmp_path / "home"
+    monkeypatch.setenv("SETTA_HOME", f"  {override}  ")
+    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    assert resolve_setta_home(allow_env_override=False) == (
+        fake_home_root / ".setta"
+    ).resolve(strict=False)
+
+
 def test_resolve_setta_home_expands_env_vars(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -395,6 +395,31 @@ def test_runtime_root_env_override(
     assert paths.runtime_root == runtime_root.resolve()
 
 
+def test_non_files_env_overrides_disable_profile_and_runtime_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
+    env_setta_home = tmp_path / "env_home" / ".setta-development"
+    env_runtime_root = tmp_path / "env_runtime_root"
+
+    monkeypatch.setenv("SETTA_HOME", str(env_setta_home))
+    monkeypatch.setenv("SETTA_PROFILE", "env-profile")
+    monkeypatch.setenv("SETTA_RUNTIME_ROOT", str(env_runtime_root))
+
+    paths = resolve_setta_paths(
+        workspace_root=workspace,
+        allow_env_non_files_overrides=False,
+    )
+
+    assert paths.profile_name is None
+    assert paths.setta_home == env_setta_home.resolve(strict=False)
+    assert paths.runtime_root == (workspace / "setta_files" / "runtime").resolve(
+        strict=False
+    )
+
+
 @pytest.mark.parametrize(
     ("raw_path", "expected_path"),
     [

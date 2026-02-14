@@ -628,6 +628,70 @@ test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
   ).toBeVisible();
 });
 
+test("workspace launch treats auto location as omitted when settaFilesRoot is provided", async ({
+  page,
+}) => {
+  const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
+  if (!workspaceRoot) {
+    throw new Error(
+      "Missing SETTA_WORKSPACE_ROOT for setta-files-root auto-location launch test.",
+    );
+  }
+  const missingWorkspace = `${workspaceRoot}/does-not-exist-${Date.now()}`;
+  const explicitSettaFilesRoot = path.join(
+    path.dirname(workspaceRoot),
+    "playwright-state",
+    "setta_files_dev",
+  );
+
+  await ensureAppReady(page);
+  await page.evaluate(() => {
+    sessionStorage.removeItem("setta.pendingWorkspaceLaunch");
+    sessionStorage.removeItem("setta.workspaceSwitcherDraft");
+  });
+  await page.evaluate(
+    ({ workspaceRootValue, settaFilesRootValue }) => {
+      sessionStorage.setItem(
+        "setta.pendingWorkspaceLaunch",
+        JSON.stringify({
+          request: {
+            workspaceRoot: workspaceRootValue,
+            settaFilesRoot: settaFilesRootValue,
+            settaFilesLocation: "auto",
+          },
+          returnUrl: window.location.href,
+          requestedAt: Date.now(),
+        }),
+      );
+    },
+    {
+      workspaceRootValue: missingWorkspace,
+      settaFilesRootValue: explicitSettaFilesRoot,
+    },
+  );
+
+  const launchRequest = page.waitForRequest((req) => {
+    const url = new URL(req.url());
+    return req.method() === "POST" && url.pathname === "/api/launch";
+  });
+  await page.goto(new URL("/launching", page.url()).toString(), {
+    waitUntil: "domcontentloaded",
+  });
+
+  const requestBody = (await launchRequest).postDataJSON() as Record<
+    string,
+    unknown
+  >;
+  expect(requestBody.settaFilesLocation).toBe("auto");
+  expect(requestBody.settaFilesRoot).toBe(explicitSettaFilesRoot);
+  await expect(page.getByText("Workspace root does not exist")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Cannot use --setta-files-root together with --setta-files-location.",
+    ),
+  ).toHaveCount(0);
+});
+
 test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {

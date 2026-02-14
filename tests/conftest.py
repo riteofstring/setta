@@ -45,8 +45,8 @@ def _guard_setta_home_resolution_to_tmp_roots(
     original_resolve_setta_home = setta_home_module.resolve_setta_home
     pytest_temp_root = tmp_path_factory.getbasetemp().resolve(strict=False)
 
-    def guarded_resolve_setta_home() -> Path:
-        resolved = original_resolve_setta_home().resolve(strict=False)
+    def guarded_resolve_setta_home(*args, **kwargs) -> Path:
+        resolved = original_resolve_setta_home(*args, **kwargs).resolve(strict=False)
         if not _is_relative_to(resolved, pytest_temp_root):
             raise AssertionError(
                 "SETTA_HOME resolved outside pytest temp roots. "

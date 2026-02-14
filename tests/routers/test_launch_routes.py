@@ -128,6 +128,91 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] is None
 
+    def test_launch_local_profile_with_auto_treated_as_omitted_location(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                profile="dev",
+                settaFilesLocation="auto",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_files_location"] is None
+
+    def test_launch_local_explicit_root_with_auto_treated_as_omitted_location(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["setta_files_location"] = kwargs.get("setta_files_location")
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+                settaFilesRoot="/tmp/workspace/setta_files_dev",
+                settaFilesLocation="auto",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["setta_files_location"] is None
+
+    def test_launch_local_disables_all_env_overrides(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured["allow_env_files_overrides"] = kwargs.get(
+                "allow_env_files_overrides"
+            )
+            captured["allow_env_non_files_overrides"] = kwargs.get(
+                "allow_env_non_files_overrides"
+            )
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        response = route_launch(
+            LaunchRequest(
+                workspaceRoot="/tmp/workspace",
+            )
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["allow_env_files_overrides"] is False
+        assert captured["allow_env_non_files_overrides"] is False
+
     def test_launch_ssh_profile_preserves_omitted_setta_files_location(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -601,6 +686,103 @@ class TestLaunchRoutes:
             assert response.settaFilesRoot == str(
                 (workspace_root / "setta_files").resolve(strict=False)
             )
+
+    def test_launch_does_not_inherit_server_runtime_root_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
+
+            local_runtime_root = workspace_root / "setta_files" / "runtime"
+            local_sessions_root = local_runtime_root / "sessions"
+            local_sessions_root.mkdir(parents=True, exist_ok=True)
+
+            env_runtime_root = tmp_path / "env_runtime_root"
+            env_sessions_root = env_runtime_root / "sessions"
+            env_sessions_root.mkdir(parents=True, exist_ok=True)
+
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+            monkeypatch.setenv("SETTA_RUNTIME_ROOT", str(env_runtime_root))
+
+            local_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            env_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                local_socket.bind(("127.0.0.1", 0))
+                local_socket.listen(1)
+                local_port = local_socket.getsockname()[1]
+                env_socket.bind(("127.0.0.1", 0))
+                env_socket.listen(1)
+                env_port = env_socket.getsockname()[1]
+            except OSError:
+                pytest.skip("Socket binds are not permitted in this test environment.")
+
+            local_registry = SessionRegistry(sessions_root=local_sessions_root)
+            local_session = local_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=local_port,
+                pid=os.getpid(),
+            )
+
+            env_registry = SessionRegistry(sessions_root=env_sessions_root)
+            env_registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=env_port,
+                pid=os.getpid(),
+            )
+
+            try:
+                response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+            finally:
+                local_socket.close()
+                env_socket.close()
+
+            assert response.ok is True
+            assert response.sessionId == local_session.id
+            assert response.runtimeRoot == str(local_runtime_root.resolve(strict=False))
+
+    def test_launch_does_not_inherit_server_profile_env(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            workspace_root = tmp_path / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            (workspace_root / "setta_files").mkdir(parents=True, exist_ok=True)
+            sessions_root = workspace_root / "setta_files" / "runtime" / "sessions"
+            sessions_root.mkdir(parents=True, exist_ok=True)
+
+            monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+            monkeypatch.setenv("SETTA_PROFILE", "missing-profile")
+
+            server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                server_socket.bind(("127.0.0.1", 0))
+            except OSError:
+                pytest.skip("Socket binds are not permitted in this test environment.")
+            server_socket.listen(1)
+            port = server_socket.getsockname()[1]
+
+            registry = SessionRegistry(sessions_root=sessions_root)
+            session = registry.create_session(
+                workspace_path=workspace_root,
+                host="127.0.0.1",
+                port=port,
+                pid=os.getpid(),
+            )
+
+            try:
+                response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+            finally:
+                server_socket.close()
+
+            assert response.ok is True
+            assert response.sessionId == session.id
+            assert response.profile is None
 
     def test_launch_local_always_wins_even_when_global_requested(self, monkeypatch) -> None:
         with TemporaryDirectory() as tmpdir:

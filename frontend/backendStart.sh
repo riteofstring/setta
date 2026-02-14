@@ -33,15 +33,7 @@ CLI_SETTA_FILES_LOCATION=0
 CLI_RUNTIME_ROOT=0
 
 setta_path_flags_init "${SETTA_HOME:-}" "${SETTA_FILES_ROOT:-}"
-if [[ -n "${SETTA_PROFILE:-}" ]]; then
-  SETTA_PROFILE_OVERRIDE="${SETTA_PROFILE}"
-fi
-if [[ -z "${SETTA_FILES_ROOT:-}" && -n "${SETTA_FILES_LOCATION:-}" ]]; then
-  EFFECTIVE_SETTA_FILES_LOCATION="${SETTA_FILES_LOCATION}"
-fi
-if [[ -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
-  SETTA_RUNTIME_ROOT_OVERRIDE="${SETTA_RUNTIME_ROOT}"
-fi
+setta_path_flags_seed_from_env
 
 remaining=("$@")
 while [[ "${#remaining[@]}" -gt 0 ]]; do

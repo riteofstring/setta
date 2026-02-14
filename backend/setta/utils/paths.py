@@ -135,16 +135,23 @@ def resolve_setta_paths(
     runtime_root: Path | str | None = None,
     profile: str | None = None,
     allow_env_files_overrides: bool = True,
+    allow_env_non_files_overrides: bool = True,
 ) -> SettaPaths:
-    profile_name = _resolve_profile_name(profile)
+    profile_name = _resolve_profile_name(
+        profile, allow_env_overrides=allow_env_non_files_overrides
+    )
     if profile_name is None:
         profile_lookup_home = _resolve_setta_home(
             explicit_setta_home=setta_home,
             profile_setta_home=None,
+            allow_env_overrides=True,
         )
         profile_config = None
     else:
-        profile_lookup_home = _resolve_setta_home_without_profile(setta_home)
+        profile_lookup_home = _resolve_setta_home_without_profile(
+            setta_home,
+            allow_env_overrides=True,
+        )
         profile_config = _load_profile_config(
             profile_name=profile_name,
             setta_home=profile_lookup_home,
@@ -153,6 +160,7 @@ def resolve_setta_paths(
     resolved_setta_home = _resolve_setta_home(
         explicit_setta_home=setta_home,
         profile_setta_home=profile_config.setta_home if profile_config else None,
+        allow_env_overrides=True,
     )
     _validate_setta_home_name(
         profile_lookup_home,
@@ -167,6 +175,7 @@ def resolve_setta_paths(
         profile_workspace_root=profile_config.workspace_root
         if profile_config
         else None,
+        allow_env_overrides=allow_env_non_files_overrides,
     )
     resolved_files_root, resolved_location = _resolve_files_root(
         workspace_root=resolved_workspace,
@@ -185,6 +194,7 @@ def resolve_setta_paths(
         setta_files_root=resolved_files_root,
         runtime_root=runtime_root,
         profile_runtime_root=profile_config.runtime_root if profile_config else None,
+        allow_env_overrides=allow_env_non_files_overrides,
     )
     _validate_setta_files_root_path(resolved_files_root)
     _validate_runtime_root_path(
@@ -309,9 +319,11 @@ def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
     return base_root / f"{sanitized_leaf}-{digest}"
 
 
-def _resolve_profile_name(profile: str | None) -> str | None:
+def _resolve_profile_name(
+    profile: str | None, *, allow_env_overrides: bool
+) -> str | None:
     raw = profile
-    if raw is None:
+    if raw is None and allow_env_overrides:
         raw = os.environ.get(PROFILE_ENV)
     if raw is None:
         return None
@@ -334,51 +346,60 @@ def _load_profile_config(
 
 def _resolve_setta_home_without_profile(
     setta_home: Path | str | None,
+    *,
+    allow_env_overrides: bool,
 ) -> Path:
     if setta_home is not None:
         return resolve_path(setta_home)
-    profile_lookup_env = os.environ.get(PROFILE_LOOKUP_HOME_ENV)
-    if profile_lookup_env is not None:
-        trimmed_lookup = profile_lookup_env.strip()
-        if trimmed_lookup:
-            return resolve_path(trimmed_lookup)
-    raw_env = os.environ.get(SETTA_HOME_ENV)
-    if raw_env is not None:
-        trimmed = raw_env.strip()
-        if trimmed:
-            return resolve_path(trimmed)
-    return resolve_setta_home().resolve(strict=False)
+    if allow_env_overrides:
+        profile_lookup_env = os.environ.get(PROFILE_LOOKUP_HOME_ENV)
+        if profile_lookup_env is not None:
+            trimmed_lookup = profile_lookup_env.strip()
+            if trimmed_lookup:
+                return resolve_path(trimmed_lookup)
+        raw_env = os.environ.get(SETTA_HOME_ENV)
+        if raw_env is not None:
+            trimmed = raw_env.strip()
+            if trimmed:
+                return resolve_path(trimmed)
+    return resolve_setta_home(allow_env_override=False).resolve(strict=False)
 
 
 def _resolve_setta_home(
-    *, explicit_setta_home: Path | str | None, profile_setta_home: Path | None
+    *,
+    explicit_setta_home: Path | str | None,
+    profile_setta_home: Path | None,
+    allow_env_overrides: bool,
 ) -> Path:
     if explicit_setta_home is not None:
         return resolve_path(explicit_setta_home)
     if profile_setta_home is not None:
         return profile_setta_home.resolve(strict=False)
-    raw_env = os.environ.get(SETTA_HOME_ENV)
-    if raw_env is not None:
-        trimmed = raw_env.strip()
-        if trimmed:
-            return resolve_path(trimmed)
-    return resolve_setta_home().resolve(strict=False)
+    if allow_env_overrides:
+        raw_env = os.environ.get(SETTA_HOME_ENV)
+        if raw_env is not None:
+            trimmed = raw_env.strip()
+            if trimmed:
+                return resolve_path(trimmed)
+    return resolve_setta_home(allow_env_override=False).resolve(strict=False)
 
 
 def _resolve_workspace_root(
     *,
     workspace_root: Path | str | None,
     profile_workspace_root: Path | None,
+    allow_env_overrides: bool,
 ) -> Path:
     if workspace_root is not None:
         return resolve_path(workspace_root)
     if profile_workspace_root is not None:
         return profile_workspace_root.resolve(strict=False)
-    raw_env = os.environ.get(WORKSPACE_ROOT_ENV)
-    if raw_env is not None:
-        trimmed = raw_env.strip()
-        if trimmed:
-            return resolve_path(trimmed)
+    if allow_env_overrides:
+        raw_env = os.environ.get(WORKSPACE_ROOT_ENV)
+        if raw_env is not None:
+            trimmed = raw_env.strip()
+            if trimmed:
+                return resolve_path(trimmed)
     return Path.cwd().resolve(strict=False)
 
 
@@ -496,15 +517,17 @@ def _resolve_runtime_root(
     *,
     runtime_root: Path | str | None,
     profile_runtime_root: Path | None,
+    allow_env_overrides: bool,
 ) -> Path:
     explicit_runtime_root = _resolve_optional_path_value(runtime_root)
     if explicit_runtime_root is not None:
         return explicit_runtime_root
     if profile_runtime_root is not None:
         return profile_runtime_root.resolve(strict=False)
-    env_runtime_root = _resolve_optional_path_value(os.environ.get(RUNTIME_ROOT_ENV))
-    if env_runtime_root is not None:
-        return env_runtime_root
+    if allow_env_overrides:
+        env_runtime_root = _resolve_optional_path_value(os.environ.get(RUNTIME_ROOT_ENV))
+        if env_runtime_root is not None:
+            return env_runtime_root
     return (setta_files_root / "runtime").resolve(strict=False)
 
 

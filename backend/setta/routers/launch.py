@@ -69,7 +69,13 @@ def _normalize_optional_profile(profile: str | None) -> str | None:
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
         normalized_profile = _normalize_optional_profile(x.profile)
-        if x.settaFilesLocation is not None:
+        if (
+            x.settaFilesLocation == "auto"
+            and (x.settaFilesRoot is not None or normalized_profile is not None)
+        ):
+            # Treat "auto" as omission when explicit routing inputs are provided.
+            setta_files_location = None
+        elif x.settaFilesLocation is not None:
             setta_files_location = x.settaFilesLocation
         elif x.settaFilesRoot is not None or normalized_profile is not None:
             # Preserve omission so explicit root/profile config can drive location/root selection.
@@ -123,6 +129,7 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             setta_files_location=setta_files_location,
             runtime_root=x.runtimeRoot,
             allow_env_files_overrides=False,
+            allow_env_non_files_overrides=False,
         )
     except LaunchError as exc:
         return LaunchResponse(
