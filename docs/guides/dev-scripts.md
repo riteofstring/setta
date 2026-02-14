@@ -8,19 +8,14 @@ Use these first for day-to-day work.
 
 - `./start.sh`
   - Starts the full dev stack (Vite + backend) using worktree-aware ports.
-  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
-  - Accepts runtime path flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
   - Wrapper over `scripts/run-dev-instance.sh`.
 - `./reset.sh`
-  - Same as `start.sh` but first resolves and wipes the active Setta state root.
+  - Same as `start.sh` but runs the frontend reset flow (wipes `setta_files`).
 - `./ai.sh`
   - Starts dev + Chrome DevTools MCP helpers (worktree-aware ports).
-  - Uses the same default dev paths as `start.sh`.
-  - Accepts the same runtime path flags as `start.sh`.
   - Wrapper over `scripts/ai.sh`.
 - `./aireset.sh`
-  - Wipes the resolved active state root, then runs `./ai.sh`.
-  - Uses the same default dev paths as `start.sh`.
+  - Wipes `setta_files` then runs `./ai.sh`.
 - `./kill.sh`
   - Stops dev processes + browser MCP helpers.
   - Wrapper over `scripts/kill-setta.sh`.
@@ -63,11 +58,6 @@ These are used by the top-level wrappers or for advanced workflows.
 - `./scripts/run-dev-instance.sh`
   - Launches dev server with worktree-based port offsets.
   - Modes: `start`, `startr`, `reset`.
-  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
-  - Supports runtime identity flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
-- `./scripts/reset-setta-state.sh`
-  - Resolves the active Setta state root and deletes it.
-  - Used by `reset`/`aireset` flows.
 - `./scripts/run_backend_tests.sh`
   - Backend pytest runner (invoked by `t.sh`).
 - `./scripts/run-playwright-e2e.sh`
@@ -79,7 +69,6 @@ These are used by the top-level wrappers or for advanced workflows.
   - Stops dev processes.
 - `./scripts/ai.sh`
   - Dev runs with browser MCP helpers (see `docs/guides/browser-mcp-quickstart.md`).
-  - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
 - `./scripts/start-browser-mcp.sh`, `./scripts/stop-browser-mcp.sh`, `./scripts/chrome-devtools-mcp.sh`
   - Browser MCP utilities.
   - `chrome-devtools-mcp.sh` pins a known-good MCP version and redirects startup stderr to `${TMPDIR:-/tmp}/setta-mcp-logs/`.
@@ -93,7 +82,7 @@ These are the underlying tasks used by the wrappers above.
 - `pnpm start` / `pnpm startr`
   - Vite + backend (reload for backend on `startr`).
 - `pnpm reset`
-  - Resolves + wipes the active Setta state root, then starts dev server.
+  - Wipes `setta_files` then starts dev server.
 - `pnpm test`
   - Vitest (watchable).
 - `pnpm generate`
@@ -124,4 +113,4 @@ Useful when you need to debug a specific subsystem.
 - **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
-- **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).
+- **Reset**: `reset.sh` and `pnpm reset` wipe `setta_files` (including local backups under `setta_files/backups/`).
