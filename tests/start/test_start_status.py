@@ -52,8 +52,6 @@ def status_env(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    # Let the process fully initialize its argv/cmdline before stale checks.
-    time.sleep(0.05)
     registry = SessionRegistry()
 
     def _create_session(
@@ -90,6 +88,7 @@ def status_workspace_env(tmp_path):
     workspace.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
+    setta_root = workspace / "setta_files"
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
@@ -111,8 +110,6 @@ def status_workspace_env(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    # Let the process fully initialize its argv/cmdline before stale checks.
-    time.sleep(0.05)
 
     def _create_session(port: int) -> SessionMetadata:
         registry = SessionRegistry()
@@ -326,7 +323,7 @@ def test_status_delete_session_does_not_kill_non_setta_process(status_env) -> No
         other_process.wait()
 
 
-def test_status_delete_session_missing_reports_error() -> None:
+def test_status_delete_session_missing_reports_error(status_env) -> None:
     runner = CliRunner()
 
     result = runner.invoke(status, ["--delete-session", "missing"])

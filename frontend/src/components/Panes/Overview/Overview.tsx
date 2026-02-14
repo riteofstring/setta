@@ -1,11 +1,12 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useRef } from "react";
+import { useRef, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import {
   MdBugReport,
+  MdExtension,
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
@@ -34,6 +35,7 @@ import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
+import { PluginsPane } from "./Plugins/PluginsPane";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
@@ -50,7 +52,7 @@ export function Overview() {
   useTabScope({
     scopeId: "overview",
     order: 10,
-    rootRef: overviewRef,
+    rootRef: overviewRef as RefObject<HTMLElement>,
   });
   const hasViewModeTabs = useHasViewModeTabs();
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
@@ -124,6 +126,12 @@ export function Overview() {
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.Plugins}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Plugins" })}
+          icon={<MdExtension size={18} />}
         />
         {showFileBrowserTab && (
           <TabButton<OverviewTabName>
@@ -219,7 +227,7 @@ export function Overview() {
         vis={vis}
         width={width}
         minimumWidth={250}
-        paddingClassName={isFileBrowserTab ? "pt-2.5 pb-0" : undefined}
+        {...(isFileBrowserTab ? { paddingClassName: "pt-2.5 pb-0" } : {})}
       >
         {vis && <TabsVisible selectedTabName={effectiveTabName} />}
       </PaneContainer>
@@ -262,6 +270,8 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
+    case OverviewTabNameEnum.Plugins:
+      return <PluginsPane />;
     case OverviewTabNameEnum.FileBrowser:
       return (
         <FileBrowserPane
