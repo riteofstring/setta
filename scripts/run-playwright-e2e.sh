@@ -122,8 +122,7 @@ SETTA_HOME="${SETTA_HOME:-}"
 TEMP_SETTA_HOME=""
 if [[ -z "${SETTA_HOME}" ]]; then
   TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-  SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
-  mkdir -p "${SETTA_HOME}"
+  SETTA_HOME="${TEMP_SETTA_HOME}"
 fi
 export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
@@ -225,6 +224,17 @@ setta_root = workspace / "setta_files"
 _seed_minimal_setta_files(setta_root)
 PY
   ) >"${LOG_DIR}/seed.log" 2>&1
+  if [[ "${SETTA_E2E_SEED_PLUGIN_FIXTURES:-1}" != "0" ]]; then
+    local fixture_root="${ROOT_DIR}/tests/fixtures/plugins/backend-language-server-e2e"
+    if [[ -d "${fixture_root}" ]]; then
+      local plugins_root="${SETTA_WORKSPACE_ROOT}/plugins"
+      local seeded_fixture_root="${plugins_root}/backend-language-server-e2e"
+      mkdir -p "${plugins_root}"
+      rm -rf "${seeded_fixture_root}"
+      cp -R "${fixture_root}" "${seeded_fixture_root}"
+      log "Seeded plugin fixture: ${seeded_fixture_root}"
+    fi
+  fi
   log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
 }
 
@@ -390,28 +400,6 @@ PY
 )"
 
 declare -a PLAYWRIGHT_EXTRA_ARGS=()
-
-user_supplied_max_failures=0
-for arg in "$@"; do
-  case "${arg}" in
-    --max-failures|--max-failures=*)
-      user_supplied_max_failures=1
-      break
-      ;;
-  esac
-done
-
-if [[ "${user_supplied_max_failures}" -eq 0 ]]; then
-  max_failures_raw="${SETTA_E2E_MAX_FAILURES:-1}"
-  if ! [[ "${max_failures_raw}" =~ ^[0-9]+$ ]]; then
-    echo "Invalid SETTA_E2E_MAX_FAILURES: ${max_failures_raw}. Expected a non-negative integer." >&2
-    exit 1
-  fi
-  if [[ "${max_failures_raw}" != "0" ]]; then
-    PLAYWRIGHT_EXTRA_ARGS+=(--max-failures "${max_failures_raw}")
-  fi
-fi
-
 if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
   timeout_ms="$(
     "${PYTHON_BIN}" - <<'PY'

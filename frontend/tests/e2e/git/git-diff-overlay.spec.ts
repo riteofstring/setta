@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { allowExpectedApiError } from "../helpers";
 import {
   cleanupGitOverlayFixture,
   getWorkspaceRootOrThrow,
@@ -141,11 +140,6 @@ test("git pane clears stale status entries when refresh fails", async ({
       });
     });
 
-    allowExpectedApiError(page, {
-      path: "/api/git/status",
-      statuses: [500],
-      count: 1,
-    });
     shouldFailRefresh = true;
     await page.getByRole("button", { name: "Refresh" }).click();
 
