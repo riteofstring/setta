@@ -1082,6 +1082,88 @@ describe("plugin runtime helpers", () => {
     );
   });
 
+  it("rejects updateSection calls when section variant cannot be resolved", async () => {
+    const sectionId = "section-runtime-missing-variant";
+    const variantId = "variant-runtime-missing";
+    useProjectState.setState((state) => {
+      state.projectConfig.sectionVariantMap[sectionId] = variantId;
+      delete state.sectionVariants[variantId];
+    });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () =>
+        host.updateSection(sectionId, {
+          kind: "updated",
+        }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
+  it("rejects updateSection calls when section implementation cannot be resolved", async () => {
+    const sectionId = "section-runtime-missing-impl";
+    const variantId = "variant-runtime-missing-impl";
+    const missingImplId = "impl-runtime-missing";
+    useProjectState.setState((state) => {
+      state.projectConfig.sectionVariantMap[sectionId] = variantId;
+      state.sectionVariants[variantId] = createVariant({
+        id: variantId,
+        impl: missingImplId,
+        nonPresetImpls: [missingImplId],
+      });
+      delete state.sectionImpls[missingImplId];
+    });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () =>
+        host.updateSection(sectionId, {
+          kind: "updated",
+        }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
   it("supports updateSection for plugin sections and clones patch payloads", async () => {
     const sectionId = "section-runtime-plugin-update";
     seedRuntimePluginSectionState(sectionId);

@@ -1,21 +1,12 @@
 # Plugin Test Expansion Plan
 
-Coverage is already strong (the earlier plugin-gap plan is mostly implemented), but there are still good additions.
+Coverage is already strong, but these additions are still worth adding.
 
-1. High: add unit tests for backend worker transport edge paths in `backend/setta/plugins/manager.py:1106` and `backend/setta/plugins/manager.py:1141`. `stdin`/`stdout` missing, non-JSON payload, non-object payload, invalid `error` payload, missing `result`, and write `OSError` are important untested failure branches.
-
-2. High: add unit tests for malformed worker host registration payloads in `backend/setta/plugins/manager.py:1515`, `backend/setta/plugins/manager.py:1711`, and `backend/setta/plugins/manager.py:1738`. Current tests cover happy-path backend registration well, but not bad `routes`/`urlPrefix`/`toolName` payloads from workers.
-
-3. High: add direct unit tests for `ExternalAgentAdapterRegistry` invariants in `backend/setta/agentic/external_adapters/registry.py:21`. Missing plugin adapter id, duplicate plugin adapter id, wrong tool type, lookup without plugin id, unsupported run mode.
-
-4. Medium: add unit tests for plugin process `start_run` contract in `backend/setta/agentic/external_adapters/plugin_process.py:51` and `backend/setta/agentic/external_adapters/plugin_process.py:243`. Validate emitted start envelope fields and command override precedence (`context.config.commandPath` vs adapter command).
-
-5. Medium: expand deployment-mode route gating coverage. `tests/routers/test_plugin_routes.py:304` checks one mutation route; all mutation routes are gated in `backend/setta/routers/plugins.py:122` through `backend/setta/routers/plugins.py:253`. A parameterized 403 test for all mutation endpoints would prevent accidental dependency removal.
-
-6. Medium: add integration test for restart callback exceptions. `backend/setta/routers/plugins.py:116` + `backend/setta/plugins/manager.py:716` has no explicit mapping if callback raises. A test would lock desired behavior (500 vs mapped error).
-
-7. Medium: add frontend unit coverage for untested runtime exports in `frontend/src/plugins/runtime.ts:244`, `frontend/src/plugins/runtime.ts:1095`, and `frontend/src/plugins/runtime.ts:1206`. `usePluginRuntimeBootstrap`, `usePluginSectionKind`/`usePluginSectionKinds`, and `usePluginStatusEntries` don’t appear directly asserted today.
-
-8. Medium: add Playwright cleanup/regression tests for plugin UI teardown. Current top-nav test is positive-only in `frontend/tests/e2e/overview/plugin-topnav.spec.ts:1`; add disable/unlink + rescan assertions that top-nav items and pane buttons disappear and don’t leave stale UI.
-
-9. Medium: add a Playwright large-list plugins-pane performance guardrail for `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx:71`. Mock 200–500 plugin entries and assert render/interactions remain responsive (structural metric or stable timing bound).
+1. `[Unit]` Add `response id mismatch` coverage for worker RPC replies in `backend/setta/plugins/manager.py:993`. You already test nearby contracts in `tests/plugins/test_plugin_manager.py:3979`, but not this mismatch branch.
+2. `[Unit]` Expand transport-read failure coverage in `backend/setta/plugins/manager.py:1150` and `backend/setta/plugins/manager.py:1165` for `stdout=None`, timeout, and EOF with stderr detail. Current tests around `tests/plugins/test_plugin_manager.py:3917` only cover invalid JSON/non-object payloads.
+3. `[Unit]` Add normalization cases for route prefixes in `backend/setta/plugins/manager.py:1874` (`None`, `""`, `"/"`, `"foo"`, `"/foo"`). I don’t see direct tests for this helper.
+4. `[Unit]` Add frontend runtime error-path tests for missing section variant/impl in `frontend/src/plugins/runtime.ts:585` and `frontend/src/plugins/runtime.ts:599`. Existing update tests in `frontend/src/plugins/runtime.test.ts:1051` and `frontend/src/plugins/runtime.test.ts:1085` cover non-plugin + happy path, but not missing-state branches.
+5. `[Integration]` Add backend route-proxy error mapping tests for `backend/setta/plugins/manager.py:1572` branches: worker unavailable `503`, worker exception `502`, non-object response `502`, and non-int `statusCode` fallback to `200`.
+6. `[Integration]` Add MCP lifecycle scope-alias coverage for `scope="environment"` in `backend/setta/mcp/tools/plugins.py:24` (install/update/rollback/uninstall). Current MCP tests in `tests/mcp/test_plugin_tools.py:221` are workspace-only.
+7. `[Playwright]` Add a real plugin-host `apiFetch` roundtrip test for `frontend/src/plugins/runtime.ts:635` (path normalization + request headers). Today this behavior is unit-tested with mocked `fetch` in `frontend/src/plugins/runtime.test.ts:841`, but not verified in-browser end-to-end.
+8. `[Playwright]` Add a plugin backend route payload test (query params + JSON body passthrough) to validate manager proxy serialization in `backend/setta/plugins/manager.py:1589` and `backend/setta/plugins/manager.py:1607` through the actual UI/runtime path.

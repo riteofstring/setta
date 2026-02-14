@@ -281,3 +281,69 @@ def test_plugin_tools_install_update_rollback_and_uninstall_lifecycle(
             os.environ.pop("PIP_FIND_LINKS", None)
         else:
             os.environ["PIP_FIND_LINKS"] = old_find_links
+
+
+def test_plugin_tools_environment_scope_alias_lifecycle(
+    tmp_path: Path,
+) -> None:
+    # Environment scope alias should map to setta_files across plugin lifecycle tools.
+    _, ctx = _build_ctx(
+        tmp_path,
+        deployment_mode=False,
+        server_mode="ide",
+    )
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        installed = install_plugin(
+            sourceSpec=f"pypi:{package_name}=={version}",
+            scope="environment",
+            ctx=ctx,
+        )
+        assert installed.pluginId == package_name
+        assert installed.sourceScope == "setta_files"
+
+        updated = update_plugin(
+            pluginId=package_name,
+            scope="environment",
+            ctx=ctx,
+        )
+        assert updated.pluginId == package_name
+        assert updated.fromVersion == version
+        assert updated.toVersion == version
+
+        rolled_back = rollback_plugin(
+            pluginId=package_name,
+            scope="environment",
+            ctx=ctx,
+        )
+        assert rolled_back.pluginId == package_name
+        assert rolled_back.restoredVersion == version
+
+        removed = uninstall_plugin(
+            pluginId=package_name,
+            scope="environment",
+            ctx=ctx,
+        )
+        assert removed.pluginId == package_name
+        assert removed.removedFromScope == "setta_files"
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links

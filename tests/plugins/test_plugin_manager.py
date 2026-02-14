@@ -3957,6 +3957,105 @@ def test_read_backend_worker_message_rejects_invalid_payload_shapes(
     assert expected_message_fragment in exc_info.value.message
 
 
+def test_read_backend_worker_message_handles_transport_edge_cases(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Worker message reads should handle missing stdout, read timeouts, and EOF stderr details.
+    manager = _make_manager(tmp_path)
+
+    no_stdout_process = subprocess.Popen(
+        [sys.executable, "-u", "-c", "import time; time.sleep(30)"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with pytest.raises(PluginManagerError) as no_stdout_error:
+            manager._read_backend_worker_message(
+                process=no_stdout_process,
+                plugin_id="fixture-plugin",
+                method="plugin.initialize",
+                timeout_seconds=1.0,
+                timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            )
+    finally:
+        no_stdout_process.terminate()
+        no_stdout_process.wait(timeout=2.0)
+        for stream in (no_stdout_process.stdin, no_stdout_process.stderr):
+            if stream is not None:
+                stream.close()
+    assert no_stdout_error.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "stdout unavailable" in no_stdout_error.value.message
+
+    timeout_process = subprocess.Popen(
+        [sys.executable, "-u", "-c", "import time; time.sleep(30)"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with monkeypatch.context() as scope:
+            scope.setattr(
+                "setta.plugins.manager.select.select",
+                lambda _r, _w, _x, _t: ([], [], []),
+            )
+            with pytest.raises(PluginManagerError) as timeout_error:
+                manager._read_backend_worker_message(
+                    process=timeout_process,
+                    plugin_id="fixture-plugin",
+                    method="plugin.initialize",
+                    timeout_seconds=1.0,
+                    timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
+                )
+    finally:
+        timeout_process.terminate()
+        timeout_process.wait(timeout=2.0)
+        for stream in (
+            timeout_process.stdin,
+            timeout_process.stdout,
+            timeout_process.stderr,
+        ):
+            if stream is not None:
+                stream.close()
+    assert timeout_error.value.code == "PLUGIN_BACKEND_STARTUP_TIMEOUT"
+    assert "timed out" in timeout_error.value.message
+
+    eof_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "-c",
+            "import sys\nsys.stderr.write('worker-boom\\n')\nsys.stderr.flush()\n",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with monkeypatch.context() as scope:
+            scope.setattr(manager, "_read_available_pipe_text", lambda _stream: "worker-boom")
+            with pytest.raises(PluginManagerError) as eof_error:
+                manager._read_backend_worker_message(
+                    process=eof_process,
+                    plugin_id="fixture-plugin",
+                    method="plugin.register",
+                    timeout_seconds=2.0,
+                    timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                )
+    finally:
+        eof_process.wait(timeout=2.0)
+        for stream in (eof_process.stdin, eof_process.stdout, eof_process.stderr):
+            if stream is not None:
+                stream.close()
+    assert eof_error.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "exited before responding" in eof_error.value.message
+    assert "Stderr: worker-boom" in eof_error.value.message
+
+
 @pytest.mark.parametrize(
     ("response_payload", "expected_code", "expected_message_fragment"),
     [
@@ -4018,6 +4117,69 @@ def test_call_backend_worker_method_rejects_invalid_response_contracts(
                 stream.close()
     assert exc_info.value.code == expected_code
     assert expected_message_fragment in exc_info.value.message
+
+
+def test_call_backend_worker_method_rejects_response_id_mismatch(
+    tmp_path: Path,
+) -> None:
+    # Worker call responses should reject mismatched response ids.
+    manager = _make_manager(tmp_path)
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "-c",
+            (
+                "import json, sys\n"
+                "_ = sys.stdin.readline()\n"
+                "sys.stdout.write(json.dumps({'jsonrpc': '2.0', 'id': 999, 'result': {'ok': True}}) + '\\n')\n"
+                "sys.stdout.flush()\n"
+            ),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager._call_backend_worker_method(
+                process=process,
+                plugin_id="fixture-plugin",
+                request_id=1000,
+                method="plugin.initialize",
+                timeout_seconds=2.0,
+                timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            )
+    finally:
+        process.wait(timeout=2.0)
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+    assert exc_info.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "response id mismatch" in exc_info.value.message
+
+
+@pytest.mark.parametrize(
+    ("prefix", "expected"),
+    [
+        (None, "/api/plugins/setta-fixture-backend"),
+        ("", "/api/plugins/setta-fixture-backend"),
+        ("/", "/api/plugins/setta-fixture-backend"),
+        ("foo", "/api/plugins/setta-fixture-backend/foo"),
+        ("/foo", "/api/plugins/setta-fixture-backend/foo"),
+    ],
+)
+def test_build_plugin_route_prefix_normalizes_common_prefix_shapes(
+    tmp_path: Path,
+    prefix: str | None,
+    expected: str,
+) -> None:
+    # Route prefix helper should normalize empty/root/non-root prefix variants.
+    manager = _make_manager(tmp_path)
+    assert (
+        manager._build_plugin_route_prefix("setta-fixture-backend", prefix) == expected
+    )
 
 
 def test_dispatch_backend_worker_host_request_rejects_unsupported_host_method(
@@ -4093,3 +4255,117 @@ def test_dispatch_backend_worker_host_request_rejects_malformed_payloads(
         )
     assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
     assert expected_message_fragment in exc_info.value.message
+
+
+def test_worker_route_proxy_returns_503_when_worker_process_unavailable(
+    tmp_path: Path,
+) -> None:
+    # Proxy routes should return 503 when no live worker process exists.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/plugins/setta-fixture-backend/proxy/echo")
+    assert response.status_code == 503
+    assert response.json()["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "Backend worker unavailable" in response.json()["message"]
+
+
+def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy routes should map worker errors and normalize malformed status codes.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    with TestClient(app) as client:
+        with monkeypatch.context() as scope:
+            def _raise_worker_error(**_kwargs):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    "worker invoke failed",
+                )
+
+            scope.setattr(manager, "_call_backend_worker_method", _raise_worker_error)
+            error_response = client.get(route_path)
+        assert error_response.status_code == 502
+        assert error_response.json() == {
+            "code": "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            "message": "worker invoke failed",
+        }
+
+        with monkeypatch.context() as scope:
+            scope.setattr(manager, "_call_backend_worker_method", lambda **_kwargs: [])
+            non_object_response = client.get(route_path)
+        assert non_object_response.status_code == 502
+        assert non_object_response.json() == {
+            "code": "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            "message": "Plugin worker route response must be an object.",
+        }
+
+        with monkeypatch.context() as scope:
+            scope.setattr(
+                manager,
+                "_call_backend_worker_method",
+                lambda **_kwargs: {
+                    "statusCode": "not-an-int",
+                    "body": {"ok": True, "source": "worker"},
+                },
+            )
+            status_fallback_response = client.get(route_path)
+        assert status_fallback_response.status_code == 200
+        assert status_fallback_response.json() == {"ok": True, "source": "worker"}
