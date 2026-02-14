@@ -46,6 +46,7 @@ def _rpc_call(
     method: str,
     params: dict[str, Any] | None = None,
     host_method_calls: list[str] | None = None,
+    host_requests: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     assert worker.stdin is not None
     assert worker.stdout is not None
@@ -70,6 +71,8 @@ def _rpc_call(
         if isinstance(nested_method, str):
             if host_method_calls is not None:
                 host_method_calls.append(nested_method)
+            if host_requests is not None:
+                host_requests.append(payload)
             nested_request_id = payload.get("id")
             worker.stdin.write(
                 json.dumps(
@@ -225,5 +228,206 @@ def test_worker_register_codegen_target_and_invoke_codegen_target(
                 }
             ]
         }
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_success_and_validation_errors(tmp_path: Path) -> None:
+    # Route invocation should roundtrip registered handlers and reject bad payloads.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        route_id = routes[0]["routeId"]
+
+        invoke_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert invoke_response["result"]["statusCode"] == 200
+        assert invoke_response["result"]["body"] == {
+            "pluginId": "setta-fixture-backend",
+            "status": "ok",
+        }
+
+        missing_route = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_route",
+            params={"routeId": "route_missing", "pathParams": {}, "queryParams": {}},
+        )
+        assert missing_route["error"]["code"] == "PLUGIN_BACKEND_ROUTE_NOT_FOUND"
+
+        missing_route_id = _rpc_call(
+            worker,
+            request_id=5,
+            method="plugin.invoke_route",
+            params={"pathParams": {}, "queryParams": {}},
+        )
+        assert (
+            missing_route_id["error"]["code"] == "PLUGIN_BACKEND_ROUTE_CALL_INVALID"
+        )
+
+        invalid_query_params = _rpc_call(
+            worker,
+            request_id=6,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": [],
+            },
+        )
+        assert (
+            invalid_query_params["error"]["code"] == "PLUGIN_BACKEND_ROUTE_CALL_INVALID"
+        )
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_surfaces_handler_exceptions(tmp_path: Path) -> None:
+    # Route handler exceptions should map to deterministic route-call-failed errors.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.get('/boom')\n"
+        "    def boom() -> dict[str, str]:\n"
+        "        raise RuntimeError('fixture boom')\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        route_id = router_registration["params"]["routes"][0]["routeId"]
+        invoke_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={"routeId": route_id, "pathParams": {}, "queryParams": {}},
+        )
+        assert invoke_response["error"]["code"] == "PLUGIN_BACKEND_ROUTE_CALL_FAILED"
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_mcp_tool_surfaces_execution_failure(tmp_path: Path) -> None:
+    # MCP tool runtime exceptions should map to deterministic MCP tool failure errors.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    def explode(*, value: str) -> str:\n"
+        "        raise RuntimeError(f'boom:{value}')\n\n"
+        "    plugin.register_mcp_tool(explode, name='explode_tool')\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        invoke_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_mcp_tool",
+            params={"toolName": "explode_tool", "args": [], "kwargs": {"value": "x"}},
+        )
+        assert invoke_response["error"]["code"] == "PLUGIN_BACKEND_MCP_TOOL_FAILED"
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_codegen_target_validates_handler_and_payload(
+    tmp_path: Path,
+) -> None:
+    # Codegen invocation should reject unknown handlers and malformed payloads.
+    plugin_root = _copy_backend_fixture(tmp_path, fixture_name="backend-codegen")
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+
+        missing_handler_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_codegen_target",
+            params={
+                "handlerId": "missing",
+                "projectState": {"projectConfig": {"name": "WorkerFixture"}},
+                "targetOptions": {},
+            },
+        )
+        assert missing_handler_response["error"]["code"] == "PLUGIN_BACKEND_CODEGEN_FAILED"
+
+        invalid_project_state_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_codegen_target",
+            params={
+                "handlerId": "typescript",
+                "projectState": "invalid",
+                "targetOptions": {},
+            },
+        )
+        assert (
+            invalid_project_state_response["error"]["code"]
+            == "PLUGIN_BACKEND_CODEGEN_FAILED"
+        )
     finally:
         _stop_worker(worker)

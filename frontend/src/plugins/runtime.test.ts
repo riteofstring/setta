@@ -4,19 +4,26 @@ import {
   PluginFrontendErrorCodeEnum,
   pluginRuntimeTestApi,
   PluginSectionFallbackReasonEnum,
+  refreshPluginRuntime,
   resetPluginRuntimeStoreForTests,
   toPluginSectionKindKey,
   usePluginRuntimeStore,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
+import { useShareSession } from "state/definitions";
+import * as generatedEndpoints from "utils/generatedEndpoints";
+import { C_ADDRESSES } from "utils/c_addresses";
 import {
   createPluginListEntry,
   createPluginStatusEntry,
   PluginRuntimeStateEnum,
+  type PluginListResponse,
+  type PluginRestartCapability,
   type PluginListEntry,
+  type PluginStatusResponse,
   type PluginStatusEntry,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function buildPluginStatusEntry(
   overrides: Partial<PluginStatusEntry>,
@@ -71,13 +78,53 @@ function buildPluginListEntry(
   });
 }
 
+function buildPluginListResponse(
+  plugins: PluginListEntry[],
+  overrides: Partial<PluginListResponse> = {},
+): PluginListResponse {
+  return {
+    schemaVersion: 1,
+    serverMode: "ide",
+    restartCapability: {
+      mode: "manual",
+      command: "setta",
+      reason: "Programmatic restart is not available in this runtime.",
+    } as PluginRestartCapability,
+    plugins,
+    ...overrides,
+  };
+}
+
+function buildPluginStatusResponse(
+  plugins: PluginStatusEntry[],
+  overrides: Partial<PluginStatusResponse> = {},
+): PluginStatusResponse {
+  return {
+    schemaVersion: 1,
+    serverMode: "ide",
+    plugins,
+    ...overrides,
+  };
+}
+
 describe("plugin runtime helpers", () => {
   beforeEach(() => {
     resetPluginRuntimeStoreForTests();
+    vi.restoreAllMocks();
+    useShareSession.setState({
+      isDeploymentMode: false,
+      shareSessionId: null,
+    });
   });
 
   afterEach(() => {
     resetPluginRuntimeStoreForTests();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    useShareSession.setState({
+      isDeploymentMode: false,
+      shareSessionId: null,
+    });
   });
 
   it("builds deterministic section-kind keys", () => {
@@ -403,6 +450,218 @@ describe("plugin runtime helpers", () => {
     expect(result?.error).toBeNull();
     expect(result?.registryDelta?.topNavBarItems["acme.plugin"]?.[0]?.id).toBe(
       "quick-action",
+    );
+  });
+
+  it("reports runtime error when plugins list request fails", async () => {
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+      data: undefined,
+      status: 500,
+      hasResponse: true,
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
+      data: buildPluginStatusResponse([]),
+      status: 200,
+      hasResponse: true,
+    });
+
+    await refreshPluginRuntime();
+
+    const state = usePluginRuntimeStore.getState();
+    expect(state.status).toBe("error");
+    expect(state.statusMessage).toBe("Failed to fetch plugins list: status 500.");
+  });
+
+  it("reports runtime error when plugins status request fails without response", async () => {
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+      data: buildPluginListResponse([]),
+      status: 200,
+      hasResponse: true,
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
+      data: undefined,
+      status: undefined,
+      hasResponse: false,
+    });
+
+    await refreshPluginRuntime();
+
+    const state = usePluginRuntimeStore.getState();
+    expect(state.status).toBe("error");
+    expect(state.statusMessage).toBe(
+      "Failed to fetch plugins status: network error.",
+    );
+  });
+
+  it("prefers non-shadowed status entries as the primary plugin status", async () => {
+    const plugin = buildPluginListEntry({});
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+      data: buildPluginListResponse([plugin]),
+      status: 200,
+      hasResponse: true,
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
+      data: buildPluginStatusResponse([
+        buildPluginStatusEntry({
+          pluginId: "acme.plugin",
+          sourcePath: "/tmp/shadowed",
+          shadowedBySourcePath: "/tmp/primary",
+        }),
+        buildPluginStatusEntry({
+          pluginId: "acme.plugin",
+          sourcePath: "/tmp/primary",
+          shadowedBySourcePath: null,
+        }),
+      ]),
+      status: 200,
+      hasResponse: true,
+    });
+
+    await refreshPluginRuntime();
+
+    const state = usePluginRuntimeStore.getState();
+    expect(state.pluginStatusById["acme.plugin"]?.sourcePath).toBe(
+      "/tmp/primary",
+    );
+  });
+
+  it("apiFetch normalizes plugin paths and attaches deployment share headers", async () => {
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-123",
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  void host.apiFetch('health');\n" +
+          "  void host.apiFetch('/status', { headers: { 'X-Custom': 'yes' } });\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "share",
+    );
+
+    expect(result?.error).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/acme.plugin/health`,
+    );
+    expect(fetchSpy.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/acme.plugin/status`,
+    );
+    const firstHeaders = new Headers(
+      (fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined)?.headers,
+    );
+    const secondHeaders = new Headers(
+      (fetchSpy.mock.calls[1]?.[1] as RequestInit | undefined)?.headers,
+    );
+    expect(firstHeaders.get("X-Share-Session-Id")).toBe("share-session-123");
+    expect(secondHeaders.get("X-Share-Session-Id")).toBe("share-session-123");
+    expect(secondHeaders.get("X-Custom")).toBe("yes");
+  });
+
+  it("manages plugin style links across repeated and null-style loads", async () => {
+    type FakeLinkElement = {
+      rel: string;
+      href: string;
+      dataset: Record<string, string>;
+      removed: boolean;
+      remove: () => void;
+    };
+    const fakeLinks: FakeLinkElement[] = [];
+    vi.stubGlobal("document", {
+      head: {
+        append: (node: FakeLinkElement) => {
+          fakeLinks.push(node);
+        },
+      },
+      createElement: (_tag: string): FakeLinkElement => {
+        const link: FakeLinkElement = {
+          rel: "",
+          href: "",
+          dataset: {},
+          removed: false,
+          remove: () => {
+            link.removed = true;
+          },
+        };
+        return link;
+      },
+    });
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(_host) {}\n",
+      );
+    const pluginWithStyle = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: "/plugins/acme.plugin/frontend/dist/index.css?v=1",
+      },
+    });
+
+    const firstLoad = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      pluginWithStyle,
+      "ide",
+    );
+    expect(firstLoad?.error).toBeNull();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
+
+    const secondLoad = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      pluginWithStyle,
+      "ide",
+    );
+    expect(secondLoad?.error).toBeNull();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
+
+    const pluginWithoutStyle = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+    const noStyleLoad = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      pluginWithoutStyle,
+      "ide",
+    );
+    expect(noStyleLoad?.error).toBeNull();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
+  });
+
+  it("returns frontend_load_failed fallback when plugin is active without frontend errors", () => {
+    usePluginRuntimeStore.setState({
+      pluginStatusById: {
+        "acme.plugin": buildPluginStatusEntry({
+          state: PluginRuntimeStateEnum.active,
+          requestedCapabilities: ["registerSectionKinds"],
+          effectiveCapabilities: ["registerSectionKinds"],
+          blockedCapabilities: [],
+        }),
+      },
+      frontendErrorsByPluginId: {},
+    });
+
+    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
+      PluginSectionFallbackReasonEnum.frontend_load_failed,
     );
   });
 });

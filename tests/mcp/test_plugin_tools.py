@@ -1,4 +1,6 @@
 import shutil
+import os
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -46,6 +48,51 @@ def _build_ctx(
         deployment_mode=deployment_mode,
     )
     return manager, Context(fastmcp=SimpleNamespace(state=state))
+
+
+def _build_local_pypi_wheel_from_fixture(
+    *,
+    tmp_path: Path,
+    fixture_name: str,
+    package_name: str,
+    version: str,
+) -> Path:
+    source_root = FIXTURE_PLUGIN_ROOT / fixture_name
+    wheel_name = f"{package_name.replace('-', '_')}-{version}-py3-none-any.whl"
+    artifact_path = tmp_path / wheel_name
+    dist_info_name = f"{package_name.replace('-', '_')}-{version}.dist-info"
+    with zipfile.ZipFile(artifact_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        for path in sorted(source_root.rglob("*"), key=lambda item: str(item)):
+            if not path.is_file():
+                continue
+            relative_path = path.relative_to(source_root).as_posix()
+            zipf.write(path, arcname=relative_path)
+        zipf.writestr(
+            f"{dist_info_name}/METADATA",
+            "\n".join(
+                [
+                    "Metadata-Version: 2.1",
+                    f"Name: {package_name}",
+                    f"Version: {version}",
+                    "Summary: Setta fixture plugin",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(
+            f"{dist_info_name}/WHEEL",
+            "\n".join(
+                [
+                    "Wheel-Version: 1.0",
+                    "Generator: setta-tests",
+                    "Root-Is-Purelib: true",
+                    "Tag: py3-none-any",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(f"{dist_info_name}/RECORD", "")
+    return artifact_path
 
 
 def test_plugin_tools_rescan_and_uninstall_real_fixture(tmp_path: Path) -> None:
@@ -157,3 +204,68 @@ def test_plugin_update_and_rollback_tools_expose_manager_errors(tmp_path: Path) 
     with pytest.raises(PluginManagerError) as rollback_exc:
         rollback_plugin(pluginId="missing-plugin", scope="workspace", ctx=ctx)
     assert rollback_exc.value.code in {"PLUGIN_NOT_FOUND", "PLUGIN_ROLLBACK_UNAVAILABLE"}
+
+
+def test_plugin_tools_install_update_rollback_and_uninstall_lifecycle(
+    tmp_path: Path,
+) -> None:
+    # MCP lifecycle tools should support real install/update/rollback/uninstall roundtrip.
+    _, ctx = _build_ctx(
+        tmp_path,
+        deployment_mode=False,
+        server_mode="ide",
+    )
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        installed = install_plugin(
+            sourceSpec=f"pypi:{package_name}=={version}",
+            scope="workspace",
+            ctx=ctx,
+        )
+        assert installed.pluginId == package_name
+
+        updated = update_plugin(
+            pluginId=package_name,
+            scope="workspace",
+            ctx=ctx,
+        )
+        assert updated.pluginId == package_name
+        assert updated.fromVersion == version
+        assert updated.toVersion == version
+
+        rolled_back = rollback_plugin(
+            pluginId=package_name,
+            scope="workspace",
+            ctx=ctx,
+        )
+        assert rolled_back.pluginId == package_name
+        assert rolled_back.restoredVersion == version
+
+        removed = uninstall_plugin(
+            pluginId=package_name,
+            scope="workspace",
+            ctx=ctx,
+        )
+        assert removed.pluginId == package_name
+        assert removed.removedFromScope == "workspace"
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links

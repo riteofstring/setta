@@ -2259,3 +2259,394 @@ def test_validate_rejects_unsupported_manifest_schema_version(tmp_path: Path) ->
     with pytest.raises(PluginManagerError) as exc_info:
         manager.validate_plugin_folder(plugin_root)
     assert exc_info.value.code == "PLUGIN_MANIFEST_UNSUPPORTED_SCHEMA"
+
+
+def test_apply_lockfile_fails_when_lockfile_missing(tmp_path: Path) -> None:
+    # Lockfile apply must fail deterministically when the lockfile does not exist.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.apply_lockfile(check=False)
+    assert exc_info.value.code == "PLUGIN_LOCKFILE_NOT_FOUND"
+
+
+def test_apply_lockfile_fails_on_invalid_json(tmp_path: Path) -> None:
+    # Lockfile apply must fail deterministically on malformed lockfile JSON payloads.
+    manager = _make_manager(tmp_path)
+    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text("{not-valid-json", encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.apply_lockfile(check=False)
+    assert exc_info.value.code == "PLUGIN_LOCKFILE_INVALID"
+
+
+def test_apply_lockfile_requires_source_spec_for_missing_plugin(tmp_path: Path) -> None:
+    # Lockfile apply must reject entries that require install but omit sourceSpec.
+    manager = _make_manager(tmp_path)
+    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {
+                        "pluginId": "setta-fixture-frontend",
+                        "version": "0.1.0",
+                        "canonicalSourceKey": "pypi:setta-fixture-frontend",
+                        "scope": "workspace",
+                        "sourceDigestSha256": "fixture-digest",
+                        "sourceSpec": None,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.apply_lockfile(check=False)
+    assert exc_info.value.code == "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE"
+
+
+def test_resolve_plugin_asset_path_rejects_traversal_and_missing_files(
+    tmp_path: Path,
+) -> None:
+    # Asset resolution should reject path traversal and missing files deterministically.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    with pytest.raises(PluginManagerError) as traversal_error:
+        manager.resolve_plugin_asset_path(
+            plugin_id="setta-fixture-frontend",
+            asset_path="../setta.plugin.json",
+        )
+    assert traversal_error.value.code == "PLUGIN_ASSET_INVALID_PATH"
+
+    with pytest.raises(PluginManagerError) as missing_error:
+        manager.resolve_plugin_asset_path(
+            plugin_id="setta-fixture-frontend",
+            asset_path="frontend/dist/missing.js",
+        )
+    assert missing_error.value.code == "PLUGIN_ASSET_NOT_FOUND"
+
+
+def test_generate_backend_codegen_target_rejects_unknown_target(tmp_path: Path) -> None:
+    # Codegen target generation should fail when the target id is missing or unknown.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as missing_error:
+        manager.generate_backend_codegen_target(
+            target_id=" ",
+            project_state={},
+            target_options={},
+        )
+    assert missing_error.value.code == "PLUGIN_CODEGEN_TARGET_NOT_FOUND"
+
+    with pytest.raises(PluginManagerError) as unknown_error:
+        manager.generate_backend_codegen_target(
+            target_id="setta-fixture-backend-codegen:missing",
+            project_state={},
+            target_options={},
+        )
+    assert unknown_error.value.code == "PLUGIN_CODEGEN_TARGET_NOT_FOUND"
+
+
+def test_plugins_state_file_invalid_payload_raises(tmp_path: Path) -> None:
+    # Invalid plugins_state payloads should raise deterministic state-file errors.
+    manager = _make_manager(tmp_path)
+    plugins_state_path = manager.setta_files_root / "plugins_state.json"
+    plugins_state_path.write_text("{invalid-json", encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.enable_plugin(plugin_id="missing-plugin")
+    assert exc_info.value.code == "PLUGIN_STATE_INVALID"
+
+
+def test_plugins_global_state_file_invalid_payload_raises(tmp_path: Path) -> None:
+    # Invalid plugins_global_state payloads should fail global enablement mutations.
+    manager = _make_manager(tmp_path)
+    global_state_path = manager.setta_home / "plugins_global_state.json"
+    global_state_path.write_text("{invalid-json", encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(_fixture_path("frontend")),
+            scope=PluginScope.global_scope,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_GLOBAL_STATE_INVALID"
+
+
+def test_plugins_install_metadata_invalid_payload_raises(tmp_path: Path) -> None:
+    # Invalid install metadata payloads should raise deterministic metadata errors.
+    manager = _make_manager(tmp_path)
+    metadata_path = manager.setta_files_root / "plugins_install_metadata.json"
+    metadata_path.write_text("{invalid-json", encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._load_install_metadata()
+    assert exc_info.value.code == "PLUGIN_INSTALL_METADATA_INVALID"
+
+
+def test_parse_source_spec_rejects_invalid_formats(tmp_path: Path) -> None:
+    # Source spec parsing should reject malformed github/pypi references.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as github_error:
+        manager._parse_source_spec("github:acme")
+    assert github_error.value.code == "PLUGIN_SOURCE_INVALID"
+
+    with pytest.raises(PluginManagerError) as pypi_error:
+        manager._parse_source_spec("pypi:bad@@name")
+    assert pypi_error.value.code == "PLUGIN_SOURCE_INVALID"
+
+
+def test_target_plugin_path_rejects_traversal_values(tmp_path: Path) -> None:
+    # Target plugin path resolution must reject path traversal ids.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._target_plugin_path(PluginScope.workspace, "../escape")
+    assert exc_info.value.code == "PLUGIN_TARGET_PATH_TRAVERSAL"
+
+
+def test_link_plugin_rejects_missing_source_root(tmp_path: Path) -> None:
+    # Linking should fail with deterministic source-not-found errors for missing roots.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(tmp_path / "missing-plugin-root"),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_SOURCE_NOT_FOUND"
+
+
+def test_link_plugin_rejects_existing_target_without_force(tmp_path: Path) -> None:
+    # Linking should fail when a target path already exists unless force is set.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(_fixture_path("frontend")),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_TARGET_EXISTS"
+
+
+def test_validate_plugin_folder_rejects_missing_manifest(tmp_path: Path) -> None:
+    # Plugin folder validation must reject roots without setta.plugin.json.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "missing-manifest"
+    plugin_root.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_SOURCE_MANIFEST_NOT_FOUND"
+
+
+def test_validate_plugin_folder_rejects_invalid_manifest_json(tmp_path: Path) -> None:
+    # Plugin folder validation must reject invalid manifest JSON payloads.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "invalid-manifest"
+    plugin_root.mkdir(parents=True, exist_ok=True)
+    (plugin_root / "setta.plugin.json").write_text("{bad-json", encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_MANIFEST_INVALID"
+
+
+def test_validate_plugin_folder_rejects_missing_manifest_paths(tmp_path: Path) -> None:
+    # Plugin validation must fail when manifest-declared frontend assets are missing.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "missing-path-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    (plugin_root / "frontend" / "dist" / "index.js").unlink()
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_MANIFEST_PATH_NOT_FOUND"
+
+
+def test_validate_plugin_folder_rejects_invalid_config_schema_json(
+    tmp_path: Path,
+) -> None:
+    # Plugin validation must reject malformed config schema JSON documents.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "invalid-config-schema-plugin"
+    shutil.copytree(_fixture_path("full"), plugin_root)
+    (plugin_root / "content" / "config" / "schema.json").write_text(
+        "{not-json",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_CONFIG_SCHEMA_INVALID"
+
+
+def test_validate_plugin_folder_rejects_incompatible_setta_version(
+    tmp_path: Path,
+) -> None:
+    # Plugin validation must reject plugins that require newer host versions.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "incompatible-version-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    manifest_path = plugin_root / "setta.plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["settaVersionRange"] = ">=999.0.0"
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(plugin_root)
+    assert exc_info.value.code == "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE"
+
+
+def test_validate_plugin_folder_rejects_invalid_host_version(tmp_path: Path) -> None:
+    # Plugin validation must reject invalid host Setta version payloads.
+    manager = _make_manager(tmp_path)
+    manager.setta_version = "not-a-version"
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.validate_plugin_folder(_fixture_path("frontend"))
+    assert exc_info.value.code == "PLUGIN_HOST_VERSION_INVALID"
+
+
+def test_init_template_rejects_empty_plugin_id(tmp_path: Path) -> None:
+    # Init template should reject empty plugin ids.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.init_plugin_template(
+            plugin_id="   ",
+            template="frontend",
+            out_dir=str(tmp_path),
+        )
+    assert exc_info.value.code == "PLUGIN_INIT_INVALID_ID"
+
+
+def test_init_template_rejects_existing_target(tmp_path: Path) -> None:
+    # Init template should reject destinations that already exist.
+    manager = _make_manager(tmp_path)
+    existing_plugin_root = tmp_path / "setta-existing-plugin"
+    existing_plugin_root.mkdir(parents=True, exist_ok=True)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.init_plugin_template(
+            plugin_id="setta-existing-plugin",
+            template="frontend",
+            out_dir=str(tmp_path),
+        )
+    assert exc_info.value.code == "PLUGIN_INIT_TARGET_EXISTS"
+
+
+def test_manifest_schema_loader_rejects_missing_schema_file(tmp_path: Path) -> None:
+    # Manifest schema loading should fail when the schema file is missing.
+    manager = _make_manager(tmp_path)
+    manager._manifest_schema_path = tmp_path / "missing-schema.json"
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._load_manifest_schema()
+    assert exc_info.value.code == "PLUGIN_MANIFEST_SCHEMA_NOT_FOUND"
+
+
+def test_manifest_schema_loader_rejects_invalid_schema_json(tmp_path: Path) -> None:
+    # Manifest schema loading should fail when the schema payload is malformed.
+    manager = _make_manager(tmp_path)
+    schema_path = tmp_path / "invalid-schema.json"
+    schema_path.write_text("{bad-json", encoding="utf-8")
+    manager._manifest_schema_path = schema_path
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._load_manifest_schema()
+    assert exc_info.value.code == "PLUGIN_MANIFEST_SCHEMA_INVALID"
+
+
+def test_install_plugin_reports_install_failed_if_rescan_drops_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Install should fail with PLUGIN_INSTALL_FAILED when post-install discovery fails.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    monkeypatch.setattr(manager, "rescan", lambda: None)
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager.install_plugin(
+                source_spec=f"pypi:{package_name}=={version}",
+                installer=PluginInstallerBackend.pip,
+                scope=PluginScope.workspace,
+                enable=True,
+                force=False,
+            )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+    assert exc_info.value.code == "PLUGIN_INSTALL_FAILED"
+
+
+def test_link_plugin_reports_link_failed_if_rescan_drops_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    # Link should fail with PLUGIN_LINK_FAILED when post-link discovery fails.
+    manager = _make_manager(tmp_path)
+    monkeypatch.setattr(manager, "rescan", lambda: None)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(_fixture_path("frontend")),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_LINK_FAILED"
+
+
+def test_extract_artifact_rejects_unsupported_artifact_type(tmp_path: Path) -> None:
+    # Artifact extraction should fail for unsupported file types.
+    manager = _make_manager(tmp_path)
+    artifact_path = tmp_path / "plugin-artifact.txt"
+    artifact_path.write_text("fixture", encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._extract_artifact(
+            artifact_path=artifact_path,
+            extract_root=tmp_path / "extract",
+        )
+    assert exc_info.value.code == "PLUGIN_SOURCE_FETCH_FAILED"

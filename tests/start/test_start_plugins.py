@@ -240,3 +240,188 @@ def test_plugins_lock_write_and_apply_cli_json_roundtrip(
             os.environ.pop("PIP_FIND_LINKS", None)
         else:
             os.environ["PIP_FIND_LINKS"] = old_find_links
+
+
+def test_plugins_link_enable_disable_rescan_unlink_and_restart_cli_json(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # CLI should support link/unlink, state toggles, rescan, list, and restart JSON flows.
+    manager = _build_manager(tmp_path, restart_callback=lambda: True)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+    fixture_root = FIXTURE_PLUGIN_ROOT / "frontend"
+
+    link_result = runner.invoke(
+        plugins,
+        [
+            "link",
+            str(fixture_root),
+            "--scope",
+            "workspace",
+            "--json",
+        ],
+    )
+    assert link_result.exit_code == 0, link_result.output
+    link_payload = json.loads(link_result.output)
+    assert link_payload["pluginId"] == "setta-fixture-frontend"
+
+    list_result = runner.invoke(plugins, ["list", "--json"])
+    assert list_result.exit_code == 0, list_result.output
+    list_payload = json.loads(list_result.output)
+    assert any(
+        entry["pluginId"] == "setta-fixture-frontend"
+        for entry in list_payload["plugins"]
+    )
+
+    disable_result = runner.invoke(
+        plugins,
+        ["disable", "setta-fixture-frontend", "--json"],
+    )
+    assert disable_result.exit_code == 0, disable_result.output
+    assert json.loads(disable_result.output)["state"] == "disabled"
+
+    enable_result = runner.invoke(
+        plugins,
+        ["enable", "setta-fixture-frontend", "--json"],
+    )
+    assert enable_result.exit_code == 0, enable_result.output
+    assert json.loads(enable_result.output)["state"] == "active"
+
+    rescan_result = runner.invoke(plugins, ["rescan", "--json"])
+    assert rescan_result.exit_code == 0, rescan_result.output
+    rescan_payload = json.loads(rescan_result.output)
+    assert rescan_payload["installedPlugins"] == 1
+    assert rescan_payload["activePlugins"] == 1
+
+    restart_result = runner.invoke(plugins, ["restart", "--json"])
+    assert restart_result.exit_code == 0, restart_result.output
+    assert json.loads(restart_result.output) == {
+        "accepted": True,
+        "mode": "programmatic",
+        "command": None,
+        "reason": None,
+    }
+
+    unlink_result = runner.invoke(
+        plugins,
+        ["unlink", "setta-fixture-frontend", "--scope", "workspace", "--json"],
+    )
+    assert unlink_result.exit_code == 0, unlink_result.output
+    unlink_payload = json.loads(unlink_result.output)
+    assert unlink_payload["pluginId"] == "setta-fixture-frontend"
+
+
+def test_plugins_init_and_validate_cli_flow(tmp_path: Path, monkeypatch) -> None:
+    # CLI init/validate should scaffold and validate a plugin template end-to-end.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    init_result = runner.invoke(
+        plugins,
+        [
+            "init",
+            "setta-cli-init-fixture",
+            "--template",
+            "frontend",
+            "--out",
+            str(tmp_path),
+        ],
+    )
+    assert init_result.exit_code == 0, init_result.output
+    plugin_root = tmp_path / "setta-cli-init-fixture"
+    assert plugin_root.exists()
+    assert (plugin_root / "setta.plugin.json").exists()
+
+    validate_result = runner.invoke(
+        plugins,
+        ["validate", str(plugin_root)],
+    )
+    assert validate_result.exit_code == 0, validate_result.output
+    assert "Plugin manifest is valid" in validate_result.output
+
+
+def test_plugins_install_update_pin_rollback_and_uninstall_cli_json(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # CLI lifecycle commands should roundtrip install/update/pin/rollback/uninstall JSON payloads.
+    manager = _build_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        install_result = runner.invoke(
+            plugins,
+            [
+                "install",
+                f"pypi:{package_name}=={version}",
+                "--scope",
+                "workspace",
+                "--installer",
+                "pip",
+                "--json",
+            ],
+        )
+        assert install_result.exit_code == 0, install_result.output
+        install_payload = json.loads(install_result.output)
+        assert install_payload["pluginId"] == package_name
+
+        update_result = runner.invoke(
+            plugins,
+            ["update", package_name, "--scope", "workspace", "--json"],
+        )
+        assert update_result.exit_code == 0, update_result.output
+        update_payload = json.loads(update_result.output)
+        assert update_payload["pluginId"] == package_name
+        assert update_payload["fromVersion"] == version
+        assert update_payload["toVersion"] == version
+
+        pin_result = runner.invoke(
+            plugins,
+            ["pin", package_name, version, "--scope", "workspace", "--json"],
+        )
+        assert pin_result.exit_code == 0, pin_result.output
+        pin_payload = json.loads(pin_result.output)
+        assert pin_payload["pluginId"] == package_name
+        assert pin_payload["toVersion"] == version
+
+        rollback_result = runner.invoke(
+            plugins,
+            ["rollback", package_name, "--scope", "workspace", "--json"],
+        )
+        assert rollback_result.exit_code == 0, rollback_result.output
+        rollback_payload = json.loads(rollback_result.output)
+        assert rollback_payload["pluginId"] == package_name
+        assert rollback_payload["restoredVersion"] == version
+
+        uninstall_result = runner.invoke(
+            plugins,
+            ["uninstall", package_name, "--scope", "workspace", "--json"],
+        )
+        assert uninstall_result.exit_code == 0, uninstall_result.output
+        uninstall_payload = json.loads(uninstall_result.output)
+        assert uninstall_payload["pluginId"] == package_name
+        assert uninstall_payload["removedFromScope"] == "workspace"
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links

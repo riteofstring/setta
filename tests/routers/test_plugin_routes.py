@@ -255,3 +255,145 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
             list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
             assert list_response.status_code == 200
             assert list_response.json()["plugins"] == []
+
+
+def test_plugin_routes_config_and_lock_roundtrip() -> None:
+    # Config write + lockfile endpoints should roundtrip deterministic JSON payloads.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            link_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LINK.value}",
+                json={
+                    "localPluginRoot": str(_fixture_plugin_root("full")),
+                    "scope": "workspace",
+                    "enable": True,
+                    "force": True,
+                },
+            )
+            assert link_response.status_code == 200
+            assert link_response.json()["pluginId"] == "setta-fixture-full"
+
+            config_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_CONFIG.value}",
+                json={
+                    "pluginId": "setta-fixture-full",
+                    "config": {"enabled": True, "label": "fixture"},
+                },
+            )
+            assert config_response.status_code == 200
+            assert config_response.json()["pluginId"] == "setta-fixture-full"
+            assert config_response.json()["validation"] == {"ok": True}
+
+            lock_write_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LOCK_WRITE.value}"
+            )
+            assert lock_write_response.status_code == 200
+            assert lock_write_response.json()["pluginCount"] == 1
+
+            lock_apply_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LOCK_APPLY.value}",
+                json={"check": True},
+            )
+            assert lock_apply_response.status_code == 200
+            assert lock_apply_response.json()["applied"] is False
+
+
+def test_plugin_routes_update_and_rollback_missing_plugin_errors() -> None:
+    # Update/rollback routes should preserve PluginManagerError HTTP code mappings.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            update_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_UPDATE.value}",
+                json={"pluginId": "missing-plugin", "scope": "workspace", "to": None},
+            )
+            assert update_response.status_code == 404
+            assert update_response.json()["detail"]["code"] == "PLUGIN_NOT_FOUND"
+
+            rollback_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_ROLLBACK.value}",
+                json={"pluginId": "missing-plugin", "scope": "workspace"},
+            )
+            assert rollback_response.status_code in {400, 404}
+            assert rollback_response.json()["detail"]["code"] in {
+                "PLUGIN_NOT_FOUND",
+                "PLUGIN_ROLLBACK_UNAVAILABLE",
+            }
+
+
+def test_plugin_asset_route_maps_invalid_and_missing_paths() -> None:
+    # Asset route should map traversal and missing-file failures to deterministic errors.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            link_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LINK.value}",
+                json={
+                    "localPluginRoot": str(_fixture_plugin_root("frontend")),
+                    "scope": "workspace",
+                    "enable": True,
+                    "force": True,
+                },
+            )
+            assert link_response.status_code == 200
+
+            traversal_response = client.get(
+                "/plugins/setta-fixture-frontend/%2E%2E/setta.plugin.json"
+            )
+            assert traversal_response.status_code == 400
+            assert (
+                traversal_response.json()["detail"]["code"]
+                == "PLUGIN_ASSET_INVALID_PATH"
+            )
+
+            missing_response = client.get(
+                "/plugins/setta-fixture-frontend/frontend/dist/missing.js"
+            )
+            assert missing_response.status_code == 404
+            assert missing_response.json()["detail"]["code"] == "PLUGIN_ASSET_NOT_FOUND"
