@@ -223,6 +223,66 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     assert status_entries[0].state == PluginRuntimeState.active
 
 
+def test_lockfile_apply_reinstalls_from_pypi_source(tmp_path: Path) -> None:
+    # Lockfile apply should reinstall plugins from stored pypi source specs.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        lock_write = manager.write_lockfile()
+        assert lock_write.pluginCount == 1
+
+        manager.uninstall_plugin(
+            plugin_id="setta-fixture-frontend",
+            scope=PluginScope.workspace,
+        )
+        check_result = manager.apply_lockfile(check=True)
+        assert check_result.applied is False
+        assert any(
+            "install setta-fixture-frontend in workspace" in change
+            for change in check_result.plannedChanges
+        )
+
+        apply_result = manager.apply_lockfile(check=False)
+        assert apply_result.applied is True
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+
+
 def test_install_plugin_from_local_github_artifact(tmp_path: Path) -> None:
     # Install flow should support github: source specs through real git clone paths.
     github_base_url, ref = _build_local_github_bare_repo_from_fixture(
