@@ -26,7 +26,7 @@ Examples: `setta.feature-auth-1` -> backend `8001`, frontend `3001`; `setta.fix-
 Use a trailing number if you want predictable port offsets.
 Default dev paths are also isolated per worktree:
 - `SETTA_HOME=~/.setta-development`
-- `SETTA_FILES_ROOT=<worktree>/dev_setta_files`
+- `SETTA_FILES_ROOT=<worktree>/setta_files_dev`
 
 Optional overrides:
 ```sh

@@ -9,7 +9,7 @@ if [[ -n "${HOME:-}" ]]; then
 else
   DEFAULT_SETTA_HOME=".setta-development"
 fi
-DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/dev_setta_files"
+DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 
 instance_offset() {
   local instance_name="$1"
@@ -170,7 +170,7 @@ Usage: ai.sh [--reload] [--profile name] [--setta-home path] [--setta-files-root
 Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
 Uses per-worktree ports and dev paths by default:
   SETTA_HOME=~/.setta-development
-  SETTA_FILES_ROOT=<worktree>/dev_setta_files
+  SETTA_FILES_ROOT=<worktree>/setta_files_dev
 
 Flags:
   --reload   Use backend reload mode (pnpm startr)

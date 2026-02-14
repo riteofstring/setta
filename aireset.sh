@@ -8,7 +8,7 @@ if [[ -n "${HOME:-}" ]]; then
 else
   DEFAULT_SETTA_HOME=".setta-development"
 fi
-DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/dev_setta_files"
+DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 
 RESET_ARGS=()
 AI_ARGS=("$@")

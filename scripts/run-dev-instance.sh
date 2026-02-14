@@ -8,7 +8,7 @@ if [ "$#" -gt 0 ]; then
     -h|--help)
       echo "Usage: $0 [instance-name] [--host host] [--backend-port port] [--frontend-port port] [--mode start|startr|reset] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]" >&2
       echo "If instance-name is omitted, the worktree folder name is used." >&2
-      echo "Default dev paths: SETTA_HOME=~/.setta-development and SETTA_FILES_ROOT=<worktree>/dev_setta_files." >&2
+      echo "Default dev paths: SETTA_HOME=~/.setta-development and SETTA_FILES_ROOT=<worktree>/setta_files_dev." >&2
       exit 0
       ;;
     --*)
@@ -33,7 +33,7 @@ if [ -n "${HOME:-}" ]; then
 else
   DEFAULT_SETTA_HOME=".setta-development"
 fi
-DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/dev_setta_files"
+DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
 
 INSTANCE_KEY="${INSTANCE_NAME}"
 case "${INSTANCE_KEY}" in
