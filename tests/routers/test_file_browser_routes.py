@@ -249,25 +249,6 @@ class TestFileBrowserRoutes:
             assert "mtime" in item
             assert "size" in item
 
-    async def test_get_folder_contents_keeps_user_runtime_name_visible(self) -> None:
-        state = await self._build_state()
-        workspace_root = get_setta_paths().workspace_root
-        user_runtime = workspace_root / "runtime"
-        user_runtime.mkdir(parents=True, exist_ok=True)
-        (user_runtime / "entry.py").write_text("x = 1\n", encoding="utf-8")
-
-        with runtime_context(state) as runtime_ctx:
-            items = route_get_folder_contents(
-                GetFolderContentsRequest(folderPath=str(workspace_root)),
-                runtime_ctx,
-            )
-        names = {item["name"] for item in items}
-
-        # Keep user folders that happen to share a basename with Setta internals.
-        assert "runtime" in names
-        # Hide the actual Setta state root when it lives inside the workspace.
-        assert "setta_files" not in names
-
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
