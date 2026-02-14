@@ -336,3 +336,59 @@ Top insights:
 
 ### Notes
 - A 2.5s in-page MutationObserver sample on the selected text preview recorded no `Loading preview…` and no `Preview unavailable.` transitions while idle.
+
+## 2026-02-14 Follow-up: Browser Double-Click Spreadsheet Open + Multi-View Drag Payloads
+
+### Scope
+- Browser section file-open behavior:
+  - Double-clicking spreadsheet files now opens a dedicated `Spreadsheet` section instead of switching browser view mode.
+- Drag source parity across browser view modes:
+  - File list view (existing path, revalidated).
+  - Icon/thumbnail view (`data-browser-thumbnail-path` drag payload support).
+  - Carousel view (`data-media-carousel-item-id` drag payload support).
+- Drop targets covered:
+  - Canvas drop creates section by file kind.
+  - Spreadsheet section drop updates spreadsheet file path.
+
+### Automated Regression + Performance Tests
+Commands:
+```bash
+pnpm -C frontend exec vitest run \
+  src/components/Utils/MediaCarousel.test.tsx \
+  src/components/Utils/MediaCarousel.perf.test.tsx \
+  src/components/Utils/MediaCarouselScrollbar.test.ts \
+  src/components/Section/Layouts/BrowserArea.test.tsx
+
+pnpm -C frontend exec vitest run \
+  src/components/Utils/MediaCarousel.perf.test.tsx \
+  src/utils/fileDropSectionKind.perf.test.ts \
+  src/utils/fileBrowserPathRelation.perf.test.ts
+
+./scripts/run-playwright-e2e.sh frontend/tests/e2e/file-browser/browser-transfer-and-drop.spec.ts
+```
+
+Result:
+- Vitest (regression): `4 files passed`, `12 tests passed`.
+- Vitest (perf guardrails): `3 files passed`, `3 tests passed`.
+  - Includes large-carousel render budget and drag/drop path-classification throughput checks.
+- Playwright: `2 passed`.
+  - Confirms double-click spreadsheet open flow and drag/drop interoperability from list/icon/carousel into canvas/spreadsheet targets.
+
+### DevTools MCP Visual + Perf Check
+Artifacts:
+- `perf/artifacts/2026-02-14-browser-doubleclick-and-multiview-draggable-check.png`
+- `perf/artifacts/2026-02-14-browser-doubleclick-and-multiview-drag-cdp-trace.json`
+
+Captured checks:
+- Double-clicking `ab-preview.xlsx` in Browser list view created/opened a Spreadsheet section with file path bound to that workbook.
+- Icon and carousel views expose draggable file entries (`[data-browser-thumbnail-path]` and `[data-media-carousel-item-id]`) for file items.
+
+Trace summary (DevTools tool output):
+- URL: `http://127.0.0.1:3097/thick_spare`
+- Trace bounds: `{min: 72060457241, max: 72065380053}`
+- CPU throttling: none
+- Network throttling: none
+
+### Notes
+- The Playwright spec was hardened to avoid CodeMirror keyboard flake by setting editor content through CodeMirror view state when available, with keyboard fallback retained.
+- Path comparisons in that spec now normalize `/private` path prefixes to keep macOS temp-workspace assertions stable.

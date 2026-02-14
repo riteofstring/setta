@@ -36,13 +36,102 @@ type LatestProjectStateResponse = {
   };
 };
 
+function normalizePathForComparison(value: string): string {
+  const withoutPrivate = value.startsWith("/private")
+    ? value.slice("/private".length)
+    : value;
+  return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
+
+async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+  const value = await page.evaluate((targetId) => {
+    const root = document.getElementById(targetId);
+    if (!root) {
+      return null;
+    }
+    const candidates = [
+      root,
+      root.matches(".cm-editor") ? root : root.querySelector(".cm-editor"),
+      root.querySelector(".cm-content"),
+      root.querySelector("[contenteditable='true']"),
+    ].filter(Boolean) as HTMLElement[];
+
+    for (const candidate of candidates) {
+      const view = (
+        candidate as HTMLElement & {
+          cmView?: { state?: { doc?: { toString: () => string } } };
+        }
+      ).cmView;
+      const doc = view?.state?.doc;
+      if (doc && typeof doc.toString === "function") {
+        return doc.toString();
+      }
+    }
+    const content =
+      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
+    return content?.textContent ?? root.textContent ?? "";
+  }, id);
+  return value ?? "";
+}
+
 async function fillCodeMirror(editorRoot: Locator, page: Page, value: string) {
+  await expect(editorRoot).toBeVisible();
+  const editorId = await editorRoot.getAttribute("id");
+  if (!editorId) {
+    throw new Error("CodeMirror root is missing id.");
+  }
+  const updatedWithEditorState = await page.evaluate(
+    ({ targetId, nextValue }) => {
+      const root = document.getElementById(targetId);
+      if (!root) {
+        return false;
+      }
+      const candidates = [
+        root,
+        root.matches(".cm-editor") ? root : root.querySelector(".cm-editor"),
+        root.querySelector(".cm-content"),
+        root.querySelector("[contenteditable='true']"),
+      ].filter(Boolean) as HTMLElement[];
+      for (const candidate of candidates) {
+        const view = (
+          candidate as HTMLElement & {
+            cmView?: {
+              state?: { doc?: { length: number } };
+              dispatch?: (tx: {
+                changes: { from: number; to: number; insert: string };
+              }) => void;
+              focus?: () => void;
+            };
+          }
+        ).cmView;
+        if (!view?.state?.doc || typeof view.dispatch !== "function") {
+          continue;
+        }
+        view.dispatch({
+          changes: {
+            from: 0,
+            to: view.state.doc.length,
+            insert: nextValue,
+          },
+        });
+        view.focus?.();
+        return true;
+      }
+      return false;
+    },
+    { targetId: editorId, nextValue: value },
+  );
+  if (updatedWithEditorState) {
+    await expect.poll(() => readCodeMirrorValue(page, editorId)).toContain(value);
+    return;
+  }
   const content = editorRoot.locator(".cm-content").first();
   await expect(content).toBeVisible();
   await content.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.press("Backspace");
-  await page.keyboard.type(value);
+  await page.keyboard.insertText(value);
+  await expect.poll(() => readCodeMirrorValue(page, editorId)).toContain(value);
 }
 
 async function pathExists(targetPath: string): Promise<boolean> {
@@ -86,6 +175,7 @@ function findSpreadsheetSectionIdForPath(
   latest: LatestProjectStateResponse,
   filePath: string,
 ): string | null {
+  const normalizedFilePath = normalizePathForComparison(filePath);
   const sectionVariantMap =
     latest.projectState?.projectConfig?.sectionVariantMap ?? {};
   const sectionVariants = latest.projectState?.sectionVariants ?? {};
@@ -99,7 +189,10 @@ function findSpreadsheetSectionIdForPath(
     if (!impl || impl.type !== "Spreadsheet") {
       continue;
     }
-    if ((impl.filePath ?? "").trim() === filePath) {
+    if (
+      normalizePathForComparison((impl.filePath ?? "").trim()) ===
+      normalizedFilePath
+    ) {
       return sectionId;
     }
   }
@@ -110,6 +203,7 @@ function hasCodeSectionForPath(
   latest: LatestProjectStateResponse,
   filePath: string,
 ): boolean {
+  const normalizedFilePath = normalizePathForComparison(filePath);
   const sectionVariantMap =
     latest.projectState?.projectConfig?.sectionVariantMap ?? {};
   const sectionVariants = latest.projectState?.sectionVariants ?? {};
@@ -123,7 +217,10 @@ function hasCodeSectionForPath(
     if (!impl || impl.type !== "Code") {
       continue;
     }
-    if (impl.codeFileBinding?.canonical_path === filePath) {
+    if (
+      normalizePathForComparison(impl.codeFileBinding?.canonical_path ?? "") ===
+      normalizedFilePath
+    ) {
       return true;
     }
   }
@@ -157,11 +254,14 @@ test.describe.serial("file browser transfer and drag/drop", () => {
 
       const csvName = "pw-drop-source.csv";
       const csvPath = path.join(rootPath, csvName);
+      const viewsCsvName = "pw-drop-views.csv";
+      const viewsCsvPath = path.join(rootPath, viewsCsvName);
       const codeName = "pw-drop-source.py";
       const codePath = path.join(rootPath, codeName);
       const binaryName = "pw-drop-source.bin";
       const binaryPath = path.join(rootPath, binaryName);
       await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
+      await fs.writeFile(viewsCsvPath, "task,status\nbeta,doing\n", "utf-8");
       await fs.writeFile(codePath, "print('drop source')\n", "utf-8");
       await fs.writeFile(binaryPath, Buffer.from([0, 255, 1, 2]));
 
@@ -223,6 +323,16 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         .filter({ hasText: csvName })
         .first();
       await expect(csvRow).toBeVisible({ timeout: 15000 });
+      await csvRow.dblclick();
+      await expect
+        .poll(async () => {
+          const latest = await loadLatestProjectState(
+            page,
+            projectContext.projectConfigId,
+          );
+          return findSpreadsheetSectionIdForPath(latest, csvPath);
+        })
+        .not.toBeNull();
 
       const canvasPane = page.locator(".react-flow__pane").first();
       await dragBrowserRowToTarget(csvRow, canvasPane);
@@ -285,6 +395,40 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       await expect(
         spreadsheetNode.locator('[data-spreadsheet-cell="1:1"]').first(),
       ).toHaveValue("todo");
+
+      await fillCodeMirror(filterEditor, page, viewsCsvName);
+      await browserNode
+        .getByRole("button", { name: "Icon view", exact: true })
+        .click();
+      const thumbnailItem = browserNode
+        .locator("[data-browser-thumbnail-path]")
+        .filter({ hasText: viewsCsvName })
+        .first();
+      await expect(thumbnailItem).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(thumbnailItem, canvasPane);
+      await expect
+        .poll(async () => {
+          const latest = await loadLatestProjectState(
+            page,
+            projectContext.projectConfigId,
+          );
+          return findSpreadsheetSectionIdForPath(latest, viewsCsvPath);
+        })
+        .not.toBeNull();
+
+      await browserNode
+        .getByRole("button", { name: "Carousel view", exact: true })
+        .click();
+      const carouselItem = browserNode
+        .locator("button[data-media-carousel-item-id]")
+        .filter({ hasText: viewsCsvName })
+        .first();
+      await expect(carouselItem).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(
+        carouselItem,
+        spreadsheetNode.locator(".section-main").first(),
+      );
+      await expect(spreadsheetPathInput).toHaveValue(viewsCsvPath);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
