@@ -21,3 +21,19 @@ Improve visual hierarchy by reducing border noise and collapsing secondary optio
 - Update/add component tests for accordion open/close and focus behavior.
 - Add Playwright assertion for collapsed defaults and expand interactions.
 - CDP visual check comparing before/after pane density and hierarchy.
+
+## Status
+- Completed on 2026-02-14.
+
+## Implementation Notes
+- Replaced flat Section Config blocks with a two-tier accordion hierarchy (`Section Settings`, `Appearance`) and predictable trigger test IDs.
+- Reduced appearance-panel chrome so color/tag controls remain readable with less repeated border noise.
+- Kept behavior parity by preserving all prior controls under the new accordion grouping.
+
+## Verification Summary
+- Vitest:
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionConfigAccordion.test.tsx`
+- Playwright:
+  - `frontend/tests/e2e/editor/section-config-accordion-hierarchy.spec.ts`
+- CDP visual check:
+  - Confirmed `SECTION SETTINGS` renders expanded by default and `APPEARANCE` collapsed.
