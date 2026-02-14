@@ -785,7 +785,7 @@ class WatchCodeManager:
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if not isinstance(section_impl, CodeSectionImpl):
             return False
-        if section_impl.codeLanguage is not CodeLanguage.python:
+        if section_impl.codeLanguage != CodeLanguage.python:
             return False
         binding = section_impl.codeFileBinding
         if binding is None:
@@ -1144,7 +1144,7 @@ class WatchCodeManager:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, CodeSectionImpl):
                 continue
-            if section_impl.codeLanguage is not CodeLanguage.python:
+            if section_impl.codeLanguage != CodeLanguage.python:
                 continue
             binding = section_impl.codeFileBinding
             if binding is None:
