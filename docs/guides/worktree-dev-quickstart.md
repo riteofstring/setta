@@ -11,6 +11,12 @@ If you create a single worktree, `./worktree.sh` will enter it by starting a new
 If you create multiple worktrees, `./worktree.sh` will stay in the current folder (equivalent to `--stay`).
 Use `--stay` to skip entering even for single-worktree runs.
 
+Create worktrees from existing local branches:
+```sh
+./worktree.sh --existing app-gen-styles
+```
+In `--existing` mode, each branch must already exist locally in the main repo.
+
 Run a dev instance (from each worktree root):
 ```sh
 ./scripts/run-dev-instance.sh
