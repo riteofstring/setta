@@ -207,6 +207,7 @@ from setta.project_state.project_manager_types import (
     SetTypeErrorIgnoreRequest,
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
+    SetViewModeSortOrderRequest,
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -3416,6 +3417,33 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def set_view_mode_sort_order(self, x: SetViewModeSortOrderRequest) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        view_modes = project_state.projectConfig.viewModes
+        existing_ids = set(view_modes.keys())
+        ordered_ids = x.orderedViewModeIds
+        if len(ordered_ids) != len(existing_ids):
+            raise ValueError(
+                "orderedViewModeIds must contain every view mode exactly once."
+            )
+        seen: set[str] = set()
+        for view_mode_id in ordered_ids:
+            if view_mode_id not in view_modes:
+                raise KeyError(f"View mode {view_mode_id} not found")
+            if view_mode_id in seen:
+                raise ValueError(
+                    "orderedViewModeIds must not contain duplicate view mode IDs."
+                )
+            seen.add(view_mode_id)
+        if seen != existing_ids:
+            raise ValueError(
+                "orderedViewModeIds must contain every view mode exactly once."
+            )
+        for index, view_mode_id in enumerate(ordered_ids):
+            view_modes[view_mode_id].sortIndex = index
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     async def delete_view_mode(self, x: DeleteViewModeRequest) -> None:
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -3440,6 +3468,16 @@ class BaseProjectManager(ABC):
             project_state.projectConfig.viewportInitialized = (
                 next_view_mode.viewportInitialized
             )
+        sorted_view_modes = sorted(
+            view_modes.values(),
+            key=lambda view_mode: (
+                view_mode.sortIndex,
+                view_mode.name.lower(),
+                view_mode.id,
+            ),
+        )
+        for index, view_mode in enumerate(sorted_view_modes):
+            view_mode.sortIndex = index
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
