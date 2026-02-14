@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import replace
 import json
 import sys
 from pathlib import Path
@@ -235,3 +236,94 @@ async def test_plugin_process_send_response_requires_process_stdin() -> None:
     with pytest.raises(RuntimeError) as tool_exc:
         await adapter.send_tool_response(handle, "tool-call-1", {"ok": True})
     assert "stdin not available" in str(tool_exc.value)
+
+
+@pytest.mark.asyncio
+async def test_plugin_process_start_run_writes_expected_start_payload(
+    tmp_path: Path,
+) -> None:
+    # start_run should emit the canonical bootstrap envelope with adapter defaults.
+    adapter = PluginProcessExternalAgentAdapter(
+        adapter_id="fixture-plugin:adapter",
+        name="Fixture Plugin Adapter",
+        supported_run_modes={ExternalAgentRunMode.sdk},
+        command=sys.executable,
+        args=(
+            "-u",
+            "-c",
+            (
+                "import json,sys\n"
+                "line = sys.stdin.readline()\n"
+                "sys.stdout.write(line)\n"
+                "sys.stdout.flush()\n"
+                "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+                "sys.stdout.flush()\n"
+            ),
+        ),
+        default_model="adapter-default-model",
+    )
+    context = _build_context(tmp_path)
+
+    handle = await adapter.start_run(context)
+    assert handle.process is not None
+    assert handle.process.stdout is not None
+    first_line = await handle.process.stdout.readline()
+    payload = json.loads(first_line.decode("utf-8"))
+    await handle.process.wait()
+
+    assert payload["type"] == "setta_external_agent_start"
+    assert payload["adapterId"] == "fixture-plugin:adapter"
+    assert payload["runId"] == str(context.run.id)
+    assert payload["runMode"] == context.config.runMode.value
+    assert payload["model"] == "adapter-default-model"
+    assert payload["workingDir"] == str(context.working_dir)
+    assert payload["projectConfigId"] == str(context.project_config_id)
+    assert payload["chatId"] == str(context.chat_id)
+    assert payload["sectionId"] == str(context.section_id)
+    assert payload["inputs"] == {"prompt": "hello"}
+    assert payload["systemPrompt"] == "system prompt"
+
+
+@pytest.mark.asyncio
+async def test_plugin_process_start_run_prefers_command_override_and_model_override(
+    tmp_path: Path,
+) -> None:
+    # Config commandPath/defaultModel should override adapter command/default model.
+    adapter = PluginProcessExternalAgentAdapter(
+        adapter_id="fixture-plugin:adapter",
+        name="Fixture Plugin Adapter",
+        supported_run_modes={ExternalAgentRunMode.sdk},
+        command="/path/that/does/not/exist",
+        args=(
+            "-u",
+            "-c",
+            (
+                "import json,sys\n"
+                "line = sys.stdin.readline()\n"
+                "sys.stdout.write(line)\n"
+                "sys.stdout.flush()\n"
+                "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+                "sys.stdout.flush()\n"
+            ),
+        ),
+        default_model="adapter-default-model",
+    )
+    context = _build_context(tmp_path)
+    context_with_overrides = replace(
+        context,
+        config=context.config.model_copy(
+            update={
+                "commandPath": sys.executable,
+                "defaultModel": "context-model",
+            }
+        ),
+    )
+
+    handle = await adapter.start_run(context_with_overrides)
+    assert handle.process is not None
+    assert handle.process.stdout is not None
+    first_line = await handle.process.stdout.readline()
+    payload = json.loads(first_line.decode("utf-8"))
+    await handle.process.wait()
+
+    assert payload["model"] == "context-model"

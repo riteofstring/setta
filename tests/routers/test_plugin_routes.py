@@ -301,6 +301,38 @@ def test_plugin_restart_route_handles_programmatic_rejection() -> None:
             }
 
 
+def test_plugin_restart_route_surfaces_callback_exceptions_as_server_errors() -> None:
+    # Unhandled restart callback exceptions should currently surface as HTTP 500 responses.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+
+        def restart_callback() -> bool:
+            raise RuntimeError("restart callback failure")
+
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+            restart_callback=restart_callback,
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app, raise_server_exceptions=False) as client:
+            restart_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}"
+            )
+            assert restart_response.status_code == 500
+            assert "Internal Server Error" in restart_response.text
+
+
 def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
     # Deployment mode should block plugin mutation routes but still allow read routes.
     with TemporaryDirectory() as tmpdir:
@@ -339,6 +371,94 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
             list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
             assert list_response.status_code == 200
             assert list_response.json()["plugins"] == []
+
+
+@pytest.mark.parametrize(
+    ("route_path", "payload"),
+    [
+        (
+            Route.PLUGINS_INSTALL.value,
+            {"sourceSpec": "pypi:setta-fixture-frontend==0.1.0"},
+        ),
+        (
+            Route.PLUGINS_UNINSTALL.value,
+            {"pluginId": "setta-fixture-frontend"},
+        ),
+        (
+            Route.PLUGINS_LINK.value,
+            {
+                "localPluginRoot": "/tmp/plugin",
+                "scope": "workspace",
+                "enable": True,
+                "force": False,
+            },
+        ),
+        (
+            Route.PLUGINS_UNLINK.value,
+            {"pluginId": "setta-fixture-frontend", "scope": "workspace"},
+        ),
+        (
+            Route.PLUGINS_ENABLE.value,
+            {"pluginId": "setta-fixture-frontend"},
+        ),
+        (
+            Route.PLUGINS_DISABLE.value,
+            {"pluginId": "setta-fixture-frontend"},
+        ),
+        (
+            Route.PLUGINS_CONFIG.value,
+            {"pluginId": "setta-fixture-frontend", "config": {"enabled": True}},
+        ),
+        (
+            Route.PLUGINS_UPDATE.value,
+            {"pluginId": "setta-fixture-frontend", "scope": "workspace", "to": None},
+        ),
+        (
+            Route.PLUGINS_ROLLBACK.value,
+            {"pluginId": "setta-fixture-frontend", "scope": "workspace"},
+        ),
+        (
+            Route.PLUGINS_LOCK_WRITE.value,
+            None,
+        ),
+        (
+            Route.PLUGINS_LOCK_APPLY.value,
+            {"check": False},
+        ),
+    ],
+)
+def test_all_plugin_mutation_routes_are_blocked_in_deployment_mode(
+    route_path: str,
+    payload: dict | None,
+) -> None:
+    # Every mutation endpoint should enforce deployment-mode write blocking.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="share",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=True)
+
+        with TestClient(app) as client:
+            if payload is None:
+                response = client.post(f"{Route.PREFIX.value}{route_path}")
+            else:
+                response = client.post(f"{Route.PREFIX.value}{route_path}", json=payload)
+            assert response.status_code == 403
+            assert (
+                response.json()["detail"]
+                == "Deployment mode does not allow this endpoint."
+            )
 
 
 def test_plugin_routes_config_and_lock_roundtrip() -> None:

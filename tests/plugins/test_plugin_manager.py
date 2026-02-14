@@ -3844,3 +3844,252 @@ def test_extract_artifact_rejects_unsupported_artifact_type(tmp_path: Path) -> N
             extract_root=tmp_path / "extract",
         )
     assert exc_info.value.code == "PLUGIN_SOURCE_FETCH_FAILED"
+
+
+def test_write_backend_worker_payload_reports_missing_stdin_and_write_errors(
+    tmp_path: Path,
+) -> None:
+    # Worker payload writes should fail deterministically when stdin is missing or broken.
+    manager = _make_manager(tmp_path)
+
+    no_stdin_process = subprocess.Popen(
+        [sys.executable, "-u", "-c", "import time; time.sleep(30)"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with pytest.raises(PluginManagerError) as missing_stdin_error:
+            manager._write_backend_worker_payload(
+                process=no_stdin_process,
+                plugin_id="fixture-plugin",
+                payload={"jsonrpc": "2.0", "id": 1, "method": "plugin.initialize"},
+                phase="plugin.initialize",
+            )
+    finally:
+        no_stdin_process.terminate()
+        no_stdin_process.wait(timeout=2.0)
+        for stream in (no_stdin_process.stdout, no_stdin_process.stderr):
+            if stream is not None:
+                stream.close()
+    assert missing_stdin_error.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "stdin unavailable" in missing_stdin_error.value.message
+
+    broken_pipe_process = subprocess.Popen(
+        [sys.executable, "-u", "-c", "pass"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        broken_pipe_process.wait(timeout=2.0)
+        with pytest.raises(PluginManagerError) as broken_pipe_error:
+            manager._write_backend_worker_payload(
+                process=broken_pipe_process,
+                plugin_id="fixture-plugin",
+                payload={"jsonrpc": "2.0", "id": 2, "method": "plugin.register"},
+                phase="plugin.register",
+            )
+    finally:
+        for stream in (
+            broken_pipe_process.stdin,
+            broken_pipe_process.stdout,
+            broken_pipe_process.stderr,
+        ):
+            if stream is not None:
+                try:
+                    stream.close()
+                except OSError:
+                    pass
+    assert broken_pipe_error.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "transport write failed" in broken_pipe_error.value.message
+
+
+@pytest.mark.parametrize(
+    ("stdout_line", "expected_message_fragment"),
+    [
+        ("{not-json", "returned invalid JSON"),
+        ("[]", "response type invalid"),
+    ],
+)
+def test_read_backend_worker_message_rejects_invalid_payload_shapes(
+    tmp_path: Path,
+    stdout_line: str,
+    expected_message_fragment: str,
+) -> None:
+    # Worker message reads should reject invalid JSON and non-object JSON-RPC payloads.
+    manager = _make_manager(tmp_path)
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "-c",
+            (
+                "import sys, time\n"
+                f"sys.stdout.write({stdout_line!r} + '\\n')\n"
+                "sys.stdout.flush()\n"
+                "time.sleep(30)\n"
+            ),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager._read_backend_worker_message(
+                process=process,
+                plugin_id="fixture-plugin",
+                method="plugin.initialize",
+                timeout_seconds=2.0,
+                timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            )
+    finally:
+        process.terminate()
+        process.wait(timeout=2.0)
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+    assert exc_info.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert expected_message_fragment in exc_info.value.message
+
+
+@pytest.mark.parametrize(
+    ("response_payload", "expected_code", "expected_message_fragment"),
+    [
+        (
+            {"jsonrpc": "2.0", "id": 1000},
+            "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            "result missing",
+        ),
+        (
+            {
+                "jsonrpc": "2.0",
+                "id": 1000,
+                "error": {"code": 123, "message": None},
+            },
+            "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            "invalid error payload",
+        ),
+    ],
+)
+def test_call_backend_worker_method_rejects_invalid_response_contracts(
+    tmp_path: Path,
+    response_payload: dict[str, object],
+    expected_code: str,
+    expected_message_fragment: str,
+) -> None:
+    # Worker call responses should enforce JSON-RPC result/error contract validation.
+    manager = _make_manager(tmp_path)
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "-c",
+            (
+                "import json, sys\n"
+                "_ = sys.stdin.readline()\n"
+                f"sys.stdout.write({json.dumps(response_payload)!r} + '\\n')\n"
+                "sys.stdout.flush()\n"
+            ),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager._call_backend_worker_method(
+                process=process,
+                plugin_id="fixture-plugin",
+                request_id=1000,
+                method="plugin.initialize",
+                timeout_seconds=2.0,
+                timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            )
+    finally:
+        process.wait(timeout=2.0)
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream is not None:
+                stream.close()
+    assert exc_info.value.code == expected_code
+    assert expected_message_fragment in exc_info.value.message
+
+
+def test_dispatch_backend_worker_host_request_rejects_unsupported_host_method(
+    tmp_path: Path,
+) -> None:
+    # Host request dispatch should reject unknown worker host methods explicitly.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._dispatch_backend_worker_host_request(
+            plugin_id=entry.plugin_id,
+            method="host.unsupported",
+            params={},
+            entry=entry,
+            app=FastAPI(),
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "Unsupported worker host method" in exc_info.value.message
+
+
+@pytest.mark.parametrize(
+    ("method", "params", "expected_message_fragment"),
+    [
+        (
+            "host.register_router",
+            {"prefix": "/x", "routes": "invalid"},
+            "routes array",
+        ),
+        (
+            "host.register_static_dir",
+            {"path": "backend/static"},
+            "missing urlPrefix",
+        ),
+        (
+            "host.register_mcp_tool",
+            {"toolName": "fixture_tool", "annotations": ["invalid"]},
+            "annotations must be an object",
+        ),
+    ],
+)
+def test_dispatch_backend_worker_host_request_rejects_malformed_payloads(
+    tmp_path: Path,
+    method: str,
+    params: dict[str, object],
+    expected_message_fragment: str,
+) -> None:
+    # Worker host registration payloads should fail fast on malformed router/static/tool fields.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._dispatch_backend_worker_host_request(
+            plugin_id=entry.plugin_id,
+            method=method,
+            params=params,
+            entry=entry,
+            app=FastAPI(),
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+    assert expected_message_fragment in exc_info.value.message

@@ -7,10 +7,13 @@ import {
   refreshPluginRuntime,
   resetPluginRuntimeStoreForTests,
   toPluginSectionKindKey,
+  usePluginSectionKind,
+  usePluginSectionKinds,
   usePluginCommands,
   usePluginListEntries,
   usePluginPaneTabs,
   usePluginRuntimeStore,
+  usePluginStatusEntries,
   usePluginTopNavBarItems,
   type RegisteredPluginSectionKind,
 } from "plugins/runtime";
@@ -142,16 +145,18 @@ type CapturedPluginHost = {
 
 function readPluginRuntimeHookValue<T>(read: () => T): T {
   syncStoreInitialState(usePluginRuntimeStore);
-  let captured: T | null = null;
+  let captured: T | undefined;
+  let hasCaptured = false;
   function Capture(): null {
     captured = read();
+    hasCaptured = true;
     return null;
   }
   renderToString(React.createElement(Capture));
-  if (captured === null) {
+  if (!hasCaptured) {
     throw new Error("Expected plugin runtime hook to produce a value.");
   }
-  return captured;
+  return captured as T;
 }
 
 function getCapturedPluginHost(): CapturedPluginHost {
@@ -426,6 +431,45 @@ describe("plugin runtime helpers", () => {
       title: "Title 150",
       initialData: { index: 0 },
     });
+  });
+
+  it("returns plugin section-kind lookup and sorted section-kind lists", () => {
+    usePluginRuntimeStore.setState({
+      sectionKindsByKey: {
+        [toPluginSectionKindKey("acme.plugin", "widget-b")]: {
+          pluginId: "acme.plugin",
+          kind: "widget-b",
+          title: "Zeta Widget",
+          renderer: {
+            mount: () => undefined,
+          },
+        } as RegisteredPluginSectionKind,
+        [toPluginSectionKindKey("acme.plugin", "widget-a")]: {
+          pluginId: "acme.plugin",
+          kind: "widget-a",
+          title: "Alpha Widget",
+          renderer: {
+            mount: () => undefined,
+          },
+        } as RegisteredPluginSectionKind,
+      },
+    });
+
+    const selected = readPluginRuntimeHookValue(() =>
+      usePluginSectionKind("acme.plugin", "widget-a"),
+    );
+    expect(selected?.title).toBe("Alpha Widget");
+
+    const missing = readPluginRuntimeHookValue(() =>
+      usePluginSectionKind("acme.plugin", "missing"),
+    );
+    expect(missing).toBeNull();
+
+    const sectionKinds = readPluginRuntimeHookValue(() => usePluginSectionKinds());
+    expect(sectionKinds.map((entry) => entry.title)).toEqual([
+      "Alpha Widget",
+      "Zeta Widget",
+    ]);
   });
 
   it("surfaces API version mismatch frontend load errors", async () => {
@@ -1220,6 +1264,26 @@ describe("plugin runtime helpers", () => {
     expect(entries.map((entry) => entry.pluginId)).toEqual([
       "alpha.plugin",
       "zeta.plugin",
+    ]);
+  });
+
+  it("returns status entries from the runtime store", () => {
+    const first = buildPluginStatusEntry({
+      pluginId: "alpha.plugin",
+      sourcePath: "/tmp/alpha",
+    });
+    const second = buildPluginStatusEntry({
+      pluginId: "beta.plugin",
+      sourcePath: "/tmp/beta",
+    });
+    usePluginRuntimeStore.setState({
+      statusEntries: [first, second],
+    });
+
+    const entries = readPluginRuntimeHookValue(() => usePluginStatusEntries());
+    expect(entries.map((entry) => entry.pluginId)).toEqual([
+      "alpha.plugin",
+      "beta.plugin",
     ]);
   });
 

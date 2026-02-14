@@ -55,3 +55,108 @@ test("plugin top-nav fixture button click updates frontend side effect", async (
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("plugin disable and unlink clear top-nav and pane actions after rescan", async ({
+  page,
+}) => {
+  const topNavFixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend-topnav",
+  );
+  const paneFixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await setOverviewTab(page, "Plugins");
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: topNavFixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: paneFixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByRole("button", {
+        name: "Fixture Nav",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Open Fixture Pane",
+        exact: true,
+      }),
+    ).toBeVisible();
+
+    await postBackend(page, "/plugins/disable", {
+      pluginId: "setta-fixture-frontend-topnav",
+    });
+    await postBackend(page, "/plugins/disable", {
+      pluginId: "setta-fixture-frontend",
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByRole("button", {
+        name: "Fixture Nav",
+        exact: true,
+      }),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Open Fixture Pane",
+        exact: true,
+      }),
+    ).not.toBeVisible();
+
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend-topnav",
+      scope: "workspace",
+    });
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend",
+      scope: "workspace",
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByRole("button", {
+        name: "Fixture Nav",
+        exact: true,
+      }),
+    ).not.toBeVisible();
+    await expect(
+      page.getByRole("button", {
+        name: "Open Fixture Pane",
+        exact: true,
+      }),
+    ).not.toBeVisible();
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend-topnav",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

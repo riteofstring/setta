@@ -1227,3 +1227,132 @@ test("plugins pane lifecycle action failures surface structured endpoint errors"
       .first(),
   ).toBeVisible();
 });
+
+test("plugins pane remains interactive with a large plugin catalog", async ({
+  page,
+}) => {
+  const pluginCount = 300;
+  const listPlugins = Array.from({ length: pluginCount }, (_unused, index) => ({
+    pluginId: `setta-large-plugin-${String(index).padStart(3, "0")}`,
+    name: `Setta Large Plugin ${index}`,
+    version: "0.1.0",
+    sourceScope: "workspace",
+    sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
+    canonicalSourceKey: `pypi:setta-large-plugin-${index}`,
+    sourceDigestSha256: `digest-${index}`,
+    frontend: {
+      entrypointUrl: null,
+      styleUrl: null,
+    },
+    content: {
+      hasBlueprints: false,
+      hasProjectTemplates: false,
+      hasPrompts: false,
+    },
+    config: {
+      hasSchema: false,
+      schemaJson: null,
+      currentConfig: {},
+    },
+    effectiveCapabilities: [],
+    restartRequired: false,
+  }));
+  const statusPlugins = Array.from({ length: pluginCount }, (_unused, index) => ({
+    pluginId: `setta-large-plugin-${String(index).padStart(3, "0")}`,
+    name: `Setta Large Plugin ${index}`,
+    version: "0.1.0",
+    state: "active",
+    sourceScope: "workspace",
+    sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
+    sourcePath: `/tmp/setta-large-plugin-${index}`,
+    canonicalSourceKey: `pypi:setta-large-plugin-${index}`,
+    sourceDigestSha256: `digest-${index}`,
+    shadowedBySourcePath: null,
+    requestedCapabilities: [],
+    effectiveCapabilities: [],
+    blockedCapabilities: [],
+    registeredLanguageServers: [],
+    registeredExternalAgentAdapters: [],
+    registeredCodegenTargets: [],
+    restartRequired: false,
+    errors: [],
+  }));
+
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await page.route("**/api/plugins/list", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "manual",
+          command: "setta",
+          reason: "Programmatic restart is not available in this runtime.",
+        },
+        plugins: listPlugins,
+      }),
+    });
+  });
+
+  await page.route("**/api/plugins/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        plugins: statusPlugins,
+      }),
+    });
+  });
+
+  let rescanRequestCount = 0;
+  await page.route("**/api/plugins/rescan", async (route) => {
+    rescanRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        installedPlugins: pluginCount,
+        activePlugins: pluginCount,
+      }),
+    });
+  });
+
+  const startMs = Date.now();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+  await expect(
+    page.getByRole("heading", {
+      name: `Active Plugins (${pluginCount})`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: `Discovery Status (${pluginCount})`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  const statusRows = page.locator(
+    "tbody tr[class*='border-t border-setta-200']",
+  );
+  await expect(statusRows).toHaveCount(pluginCount);
+
+  const initialRenderMs = Date.now() - startMs;
+  expect(initialRenderMs).toBeLessThan(10000);
+
+  await page.getByRole("button", { name: "Rescan", exact: true }).click();
+  await expect.poll(() => rescanRequestCount).toBe(1);
+  await expect(
+    page.getByText("Rescan plugins completed.", { exact: true }),
+  ).toBeVisible();
+});
