@@ -45,15 +45,9 @@ test.describe.serial("agentic scope", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
       await expect(uiEditorPane.getByText("Agentic Scope")).toBeVisible();
-      const scopeHelpText = uiEditorPane.getByText(
-        "Use Project Chat for full access.",
-      );
-      if (!(await scopeHelpText.isVisible())) {
-        await uiEditorPane
-          .getByRole("button", { name: /^Agentic Scope \(Read-only\)/ })
-          .click();
-      }
-      await expect(scopeHelpText).toBeVisible();
+      await expect(
+        uiEditorPane.getByText("Use Project Chat for full access."),
+      ).toBeVisible();
 
       const now = new Date().toISOString();
       const toolResultMessage = {

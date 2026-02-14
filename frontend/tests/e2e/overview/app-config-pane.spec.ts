@@ -20,7 +20,7 @@ test("app config pane can save a default spec and show preview", async ({
   await expect(page.getByText("App Config")).toBeVisible();
 
   await page.getByRole("button", { name: "Create Default" }).click();
-  const saveButton = page.getByRole("button", { name: "Save", exact: true });
+  const saveButton = page.getByRole("button", { name: "Save" });
   await expect(saveButton).toBeEnabled();
   await saveButton.click();
 
@@ -37,7 +37,5 @@ test("app config pane can save a default spec and show preview", async ({
   }
 
   await expect(page.getByText("App Preview")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: /^(App )?Inputs$/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "App Inputs" })).toBeVisible();
 });

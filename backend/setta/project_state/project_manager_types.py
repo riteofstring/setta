@@ -14,7 +14,6 @@ from setta.types.app_definition import AppDefinition, AppRoute
 from setta.types.app_validation import AppCapabilities, AppValidationIssue
 from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.binary_content import BinaryContentRef
-from setta.types.capabilities import CapabilityPolicy
 from setta.types.chat_messages import JSONValue
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import CodeObjType
@@ -969,24 +968,6 @@ class SetSectionNameRequest(ProjectManagerRequestWithSection):
     )
 
 
-class SetSectionTagColorRequest(ProjectManagerRequestWithSection):
-    """Request payload for setting or clearing the per-section color tag."""
-
-    tagColor: str | None = Field(
-        default=None,
-        description="Optional hex color string (for example, #3b82f6). Set null to clear.",
-    )
-
-
-class SetSectionStyleColorRequest(ProjectManagerRequestWithSection):
-    """Request payload for setting or clearing per-section style chrome color."""
-
-    styleColor: str | None = Field(
-        default=None,
-        description="Optional hex color string (for example, #3b82f6). Set null to clear.",
-    )
-
-
 class SetMetaControlShowSectionTitleRequest(ProjectManagerRequestWithSection):
     """Request payload for toggling a meta control section title."""
 
@@ -1068,14 +1049,6 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
-
-
-class GetChatSectionCapabilityPolicyRequest(ProjectManagerRequestWithSection):
-    pass
-
-
-class SetChatSectionCapabilityPolicyRequest(ProjectManagerRequestWithSection):
-    capabilityPolicy: CapabilityPolicy
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

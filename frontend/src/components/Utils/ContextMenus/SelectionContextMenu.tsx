@@ -151,7 +151,7 @@ export function SelectionContextMenu() {
       closeContextMenu={closeContextMenu}
     >
       <Item onClick={onClickCreate} disabled={!canEditStructure}>
-        Create Dict
+        Create Group
       </Item>
       <Item onClick={onClickDelete} disabled={!canEditStructure}>
         Delete

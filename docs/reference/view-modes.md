@@ -8,23 +8,6 @@
 - `isTab` view modes render as tabs. `isUserFacing` gates whether a mode is
   intended for share/user-facing surfaces.
 
-## IDE tab bar + pane rails
-- In IDE mode, `isTab` view modes render in `ViewModeTabs` as a dedicated bottom
-  row in the main grid (`frontend/src/components/Pages/MainContainerCore.tsx`),
-  not inside the React Flow page container.
-- The tab bar is only rendered when at least one view mode has `isTab=true`.
-- Overview and UI Editor icon rails are fixed (`position: fixed`) and reserve
-  the same bottom space used by the tab bar:
-  - No tabbed modes: rail bottom offset is `0px`.
-  - One or more tabbed modes: rail bottom offset is `36px`.
-- This behavior is driven by `useHasViewModeTabs`
-  (`frontend/src/state/hooks/viewModes.ts`) so both side rails stay clear of the
-  bottom tab bar.
-- Stable test hooks for this layout:
-  - Tab bar: `data-testid="view-mode-tabs-bar"`
-  - Overview rail: `data-testid="overview-icon-rail"`
-  - UI Editor rail: `data-testid="ui-editor-icon-rail"`
-
 ## Ordering
 - `ViewModeConfig.sortIndex` is the primary ordering key for tabs and view mode
   lists.

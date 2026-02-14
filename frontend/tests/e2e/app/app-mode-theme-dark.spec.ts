@@ -115,6 +115,6 @@ test("app mode applies the dark class when the app theme is forced to dark", asy
     useServerMode.setState({ mode: "app", modeResolved: true });
   });
 
-  await expect(page.getByRole("heading", { name: "Config A" })).toBeVisible();
+  await expect(page.getByText("App Mode")).toBeVisible();
   await expect(page.locator("div.dark").first()).toBeVisible();
 });

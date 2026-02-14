@@ -52,7 +52,6 @@ class DBE:
         self.settings_project = self.path / "setta-settings-project.json"
         self.llm_config = self.path / "llm_config.json"
         self.llm_config_example = self.path / "llm_config.example.json"
-        self.skills_config = self.path / "skills_config.json"
         self.external_agents = self.path / "external_agents.json"
         self.engine_configs = self.path / "engine_configs.json"
         self.agent_profiles = self.path / "agent_profiles.json"
@@ -297,12 +296,6 @@ class DBE:
 
     def write_llm_config_example(self, payload: Any) -> None:
         self.write_json(self.llm_config_example, payload)
-
-    def read_skills_config(self) -> dict[str, Any]:
-        return self.read_json(self.skills_config)
-
-    def write_skills_config(self, payload: Any) -> None:
-        self.write_json(self.skills_config, payload)
 
     def read_external_agents(self) -> list[dict]:
         payload = self.read_json(self.external_agents)

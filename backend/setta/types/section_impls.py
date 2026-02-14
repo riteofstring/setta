@@ -12,7 +12,6 @@ from setta.types.artifact import (
     DrawAreaMode,
     LineChartSettings,
 )
-from setta.types.capabilities import CapabilityPolicy
 from setta.types.code_obj_impls import ColorPickerChoice
 from setta.types.edges import EdgePort
 from setta.types.generated.chart_settings_unions import (
@@ -151,8 +150,6 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     name: str = Field(default_factory=generate_memorable_string)
     isFrozen: bool = False
     isInOtherProjectConfigs: bool = False
-    tagColor: str | None = None
-    styleColor: str | None = None
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool | float = False
     aspectRatioExtraHeight: int = 0
@@ -359,7 +356,6 @@ class ChatSectionImpl(BaseSectionImpl):
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
-    capabilityPolicy: CapabilityPolicy = Field(default_factory=CapabilityPolicy)
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

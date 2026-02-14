@@ -55,6 +55,7 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "dist",
     "build",
     "__pycache__",
+    "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
 _FILE_BROWSER_TOKEN_MANAGER = AttachmentTokenManager(
@@ -282,19 +283,6 @@ def _build_file_browser_download_url(token: str) -> str:
     return f"{C.BACKEND}{Route.PREFIX.value}{path}"
 
 
-def _default_file_browser_ignore_patterns() -> list[str]:
-    patterns = list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS)
-    paths = get_setta_paths()
-    workspace_root = paths.workspace_root.resolve(strict=False)
-    state_root = paths.setta_files_root.resolve(strict=False)
-    runtime_root = paths.runtime_root.resolve(strict=False)
-
-    for root in (state_root, runtime_root):
-        if root.is_relative_to(workspace_root) and root.name not in patterns:
-            patterns.append(root.name)
-    return patterns
-
-
 @router.post(Route.CHECK_IF_FILE_EXISTS)
 def route_check_if_file_exists(
     x: CheckIfFileExistsRequests, ctx: RuntimeContextFromRequest
@@ -331,7 +319,7 @@ def route_get_file_browser_root(
     return GetFileBrowserRootResponse(
         rootPath=str(get_setta_paths().workspace_root),
         pathSeparator=os.sep,
-        ignorePatterns=_default_file_browser_ignore_patterns(),
+        ignorePatterns=list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS),
     )
 
 
@@ -366,7 +354,7 @@ def route_get_folder_contents(
     ignore_patterns = (
         x.ignorePatterns
         if x.ignorePatterns is not None
-        else _default_file_browser_ignore_patterns()
+        else DEFAULT_FILE_BROWSER_IGNORE_PATTERNS
     )
     max_entries = (
         x.maxEntries if x.maxEntries is not None else DEFAULT_FILE_BROWSER_MAX_ENTRIES

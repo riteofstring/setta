@@ -18,8 +18,6 @@ from setta.utils.paths import (
 @pytest.fixture(autouse=True)
 def _setta_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SETTA_WORKSPACE_ROOT", raising=False)
-    monkeypatch.delenv("SETTA_PROFILE", raising=False)
-    monkeypatch.delenv("SETTA_FILES_ROOT", raising=False)
     monkeypatch.delenv("SETTA_FILES_LOCATION", raising=False)
     monkeypatch.delenv("SETTA_RUNTIME_ROOT", raising=False)
     monkeypatch.setenv("SETTA_HOME", str(tmp_path / "setta_home"))
@@ -63,9 +61,7 @@ def test_resolve_setta_paths_honors_files_location_env_global(
 
     assert paths.setta_files_location == "global"
     base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
-    expected_root = build_files_root_from_base(
-        base_root, workspace.resolve(strict=False)
-    )
+    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
     assert paths.setta_files_root == expected_root.resolve(strict=False)
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
@@ -82,9 +78,7 @@ def test_resolve_setta_paths_strips_files_location_env_whitespace(
 
     assert paths.setta_files_location == "global"
     base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
-    expected_root = build_files_root_from_base(
-        base_root, workspace.resolve(strict=False)
-    )
+    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
     assert paths.setta_files_root == expected_root.resolve(strict=False)
 
 
@@ -123,9 +117,7 @@ def test_resolve_setta_paths_normalizes_files_location_override_case_and_whitesp
 
     assert paths.setta_files_location == "global"
     base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
-    expected_root = build_files_root_from_base(
-        base_root, workspace.resolve(strict=False)
-    )
+    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
     assert paths.setta_files_root == expected_root.resolve(strict=False)
 
 
@@ -145,9 +137,7 @@ def test_resolve_setta_paths_rejects_global_root_that_is_file(tmp_path: Path) ->
 
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     global_base = (setta_home / "setta_files").resolve(strict=False)
-    global_root = build_files_root_from_base(global_base, workspace).resolve(
-        strict=False
-    )
+    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
     global_root.parent.mkdir(parents=True, exist_ok=True)
     global_root.write_text("nope", encoding="utf-8")
 
@@ -178,9 +168,7 @@ def test_resolve_setta_paths_auto_uses_global_if_present(
     )
 
     global_base = (setta_home / "setta_files").resolve()
-    global_root = build_files_root_from_base(global_base, workspace).resolve(
-        strict=False
-    )
+    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
     global_root.mkdir(parents=True, exist_ok=True)
 
     paths = resolve_setta_paths(workspace_root=workspace)
@@ -189,9 +177,7 @@ def test_resolve_setta_paths_auto_uses_global_if_present(
     assert paths.setta_files_root == global_root
 
 
-def test_resolve_setta_paths_auto_uses_local_when_global_missing(
-    tmp_path: Path,
-) -> None:
+def test_resolve_setta_paths_auto_uses_local_when_global_missing(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
@@ -212,9 +198,7 @@ def test_resolve_setta_paths_auto_uses_local_when_global_missing(
     )
 
     global_base = (setta_home / "setta_files").resolve()
-    global_root = build_files_root_from_base(global_base, workspace).resolve(
-        strict=False
-    )
+    global_root = build_files_root_from_base(global_base, workspace).resolve(strict=False)
     assert not global_root.exists()
 
     paths = resolve_setta_paths(workspace_root=workspace)
@@ -260,9 +244,7 @@ def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(
-    tmp_path: Path,
-) -> None:
+def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
@@ -324,9 +306,7 @@ def test_build_files_root_from_base_sanitizes_leaf(tmp_path: Path) -> None:
     assert result.name.startswith("workspace-")
 
 
-def test_build_files_root_from_base_truncates_long_workspace_names(
-    tmp_path: Path,
-) -> None:
+def test_build_files_root_from_base_truncates_long_workspace_names(tmp_path: Path) -> None:
     base_root = tmp_path / "state"
     workspace = tmp_path / ("a" * 200)
 
@@ -381,139 +361,5 @@ def test_resolve_sessions_root_uses_setta_files_root_env(
     sessions_root = resolve_sessions_root(workspace)
 
     base_root = (tmp_path / "setta_home" / "setta_files").resolve(strict=False)
-    expected_root = build_files_root_from_base(
-        base_root, workspace.resolve(strict=False)
-    )
+    expected_root = build_files_root_from_base(base_root, workspace.resolve(strict=False))
     assert sessions_root == expected_root.resolve(strict=False) / "runtime" / "sessions"
-
-
-def test_explicit_setta_files_root_overrides_local_root(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
-    explicit_root = tmp_path / "explicit_state_root"
-
-    paths = resolve_setta_paths(
-        workspace_root=workspace,
-        setta_files_root=explicit_root,
-    )
-
-    assert paths.setta_files_root == explicit_root.resolve(strict=False)
-    assert paths.setta_files_location is None
-
-
-def test_env_setta_files_root_overrides_local_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    (workspace / "setta_files").mkdir(parents=True, exist_ok=True)
-    explicit_root = tmp_path / "explicit_state_root"
-    monkeypatch.setenv("SETTA_FILES_ROOT", str(explicit_root))
-
-    paths = resolve_setta_paths(workspace_root=workspace)
-
-    assert paths.setta_files_root == explicit_root.resolve(strict=False)
-    assert paths.setta_files_location is None
-
-
-def test_rejects_conflicting_explicit_setta_files_root_and_location(
-    tmp_path: Path,
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    explicit_root = tmp_path / "explicit_state_root"
-
-    with pytest.raises(ValueError, match="--setta-files-root"):
-        resolve_setta_paths(
-            workspace_root=workspace,
-            setta_files_root=explicit_root,
-            setta_files_location="local",
-        )
-
-
-def test_rejects_conflicting_env_setta_files_root_and_location(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    monkeypatch.setenv("SETTA_FILES_ROOT", str(tmp_path / "explicit_state_root"))
-    monkeypatch.setenv("SETTA_FILES_LOCATION", "global")
-
-    with pytest.raises(ValueError, match="SETTA_FILES_ROOT"):
-        resolve_setta_paths(workspace_root=workspace)
-
-
-def test_profile_overrides_env_for_files_root(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    profiles_dir = setta_home / "profiles"
-    profiles_dir.mkdir(parents=True, exist_ok=True)
-    profile_root = tmp_path / "profile_state_root"
-    env_root = tmp_path / "env_state_root"
-    monkeypatch.setenv("SETTA_FILES_ROOT", str(env_root))
-
-    (profiles_dir / "dev.json").write_text(
-        json.dumps(
-            {
-                "name": "dev",
-                "settaFilesRoot": str(profile_root),
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    clear_setta_paths_cache()
-
-    paths = resolve_setta_paths(workspace_root=workspace, profile="dev")
-
-    assert paths.profile_name == "dev"
-    assert paths.setta_files_root == profile_root.resolve(strict=False)
-    assert paths.setta_files_location is None
-
-
-def test_explicit_location_overrides_profile_setta_files_root(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    profiles_dir = setta_home / "profiles"
-    profiles_dir.mkdir(parents=True, exist_ok=True)
-    profile_root = tmp_path / "profile_state_root"
-
-    (profiles_dir / "dev.json").write_text(
-        json.dumps(
-            {
-                "name": "dev",
-                "settaFilesRoot": str(profile_root),
-            },
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    clear_setta_paths_cache()
-
-    paths = resolve_setta_paths(
-        workspace_root=workspace,
-        profile="dev",
-        setta_files_location="local",
-    )
-
-    assert paths.setta_files_location == "local"
-    assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
-
-
-def test_unknown_profile_raises(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-
-    with pytest.raises(ValueError, match="Unknown Setta profile"):
-        resolve_setta_paths(workspace_root=workspace, profile="missing")

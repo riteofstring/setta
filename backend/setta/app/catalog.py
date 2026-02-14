@@ -219,25 +219,6 @@ APP_CATALOG: JSONValue = {
             "children": True,
         },
         {
-            "type": "NavBar",
-            "description": "Responsive navigation bar for app pages or sections.",
-            "props": {
-                "title": {"type": "string"},
-                "className": {"type": "string"},
-            },
-            "children": True,
-        },
-        {
-            "type": "NavLink",
-            "description": "Navigation link for use inside a NavBar.",
-            "props": {
-                "to": {"type": "string", "required": True},
-                "label": {"type": "string", "required": True},
-                "className": {"type": "string"},
-            },
-            "children": False,
-        },
-        {
             "type": "Heading",
             "description": "Section heading text.",
             "props": {

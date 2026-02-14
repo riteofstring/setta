@@ -282,7 +282,6 @@ class TestLLMConfigExampleSeeding:
             configs = payload.get("configs", {})
             assert "claude-sonnet" in configs
             assert "id" not in configs["claude-sonnet"]
-            assert "context7" not in payload.get("mcpServers", {})
 
     def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -305,3 +304,4 @@ class TestLLMConfigExampleSeeding:
                     "model": "custom-model",
                 }
             }
+

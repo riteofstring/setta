@@ -98,33 +98,29 @@ test("app deployment loads with run gating", async ({ page }) => {
     }),
   );
   await page.route("**/app/deployments/current/session", (route) =>
-    route
-      .fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(appSessionResponse),
-      })
-      .finally(() => {
-        sessionCalls += 1;
-      }),
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(appSessionResponse),
+    }).finally(() => {
+      sessionCalls += 1;
+    }),
   );
   await page.route("**/app/deployments/*/*/state", (route) =>
-    route
-      .fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(appDeploymentStateResponse),
-      })
-      .finally(() => {
-        stateCalls += 1;
-      }),
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(appDeploymentStateResponse),
+    }).finally(() => {
+      stateCalls += 1;
+    }),
   );
   await page.evaluate(async () => {
     const { useServerMode } = await import("/src/state/definitions.ts");
     useServerMode.setState({ mode: "app", modeResolved: true });
   });
 
-  await expect(page.getByRole("heading", { name: "Config A" })).toBeVisible();
+  await expect(page.getByText("App Mode")).toBeVisible();
   await expect.poll(() => sessionCalls).toBeGreaterThan(0);
   await expect.poll(() => stateCalls).toBeGreaterThan(0);
   await expect
@@ -139,9 +135,7 @@ test("app deployment loads with run gating", async ({ page }) => {
     .poll(() =>
       page.evaluate(async () => {
         const { useShareSession } = await import("/src/state/definitions.ts");
-        return (
-          useShareSession.getState().sharePolicy?.allowMultipleRuns ?? null
-        );
+        return useShareSession.getState().sharePolicy?.allowMultipleRuns ?? null;
       }),
     )
     .toBe(false);

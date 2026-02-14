@@ -6,7 +6,7 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 function _GlobalVariablesArea({ sectionId, bgColor }) {
   return (
     <>
-      <KwargsControls sectionId={sectionId} />
+      <KwargsControls sectionId={sectionId} bgColor={bgColor} />
       <ParamGroupContainer
         sectionId={sectionId}
         bgColor={bgColor}

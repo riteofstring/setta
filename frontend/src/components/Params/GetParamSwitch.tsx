@@ -16,7 +16,6 @@ export function GetParamSwitch({
   onResizeStart,
   isTopLevel = false,
   listKey,
-  hasSectionStyleTheme,
 }: {
   sectionId: string;
   paramIds: Array<string>;
@@ -24,7 +23,6 @@ export function GetParamSwitch({
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
   listKey: ParamListKey;
-  hasSectionStyleTheme: boolean;
 }) {
   // TODO: make this more efficient
   const filteredIds = useProjectState((x) => {
@@ -71,7 +69,6 @@ export function GetParamSwitch({
       onResizeStart={onResizeStart}
       isTopLevelWithPad={isTopLevel && idx > 0}
       listKey={listKey}
-      hasSectionStyleTheme={hasSectionStyleTheme}
     />
   ));
 }

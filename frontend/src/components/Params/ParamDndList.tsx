@@ -24,7 +24,6 @@ type ParamDndListProps = {
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
   listKey: ParamListKey;
-  hasSectionStyleTheme: boolean;
 };
 
 export function ParamDndList({
@@ -34,7 +33,6 @@ export function ParamDndList({
   onResizeStart,
   isTopLevel,
   listKey,
-  hasSectionStyleTheme,
 }: ParamDndListProps) {
   const duplicateIndex = useProjectState(
     (state) => buildParamDuplicateIndex(state, sectionId),
@@ -92,7 +90,6 @@ export function ParamDndList({
           onResizeStart={onResizeStart}
           isTopLevel={isTopLevel}
           listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
         />
       </ParamDuplicateIndexProvider>
     );
@@ -114,7 +111,6 @@ export function ParamDndList({
           onResizeStart={onResizeStart}
           isTopLevel={isTopLevel}
           listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>
@@ -129,7 +125,6 @@ function ParamDndListBody({
   onResizeStart,
   isTopLevel,
   listKey,
-  hasSectionStyleTheme,
 }: {
   sectionId: string;
   rootId: string;
@@ -138,7 +133,6 @@ function ParamDndListBody({
   onResizeStart: React.MouseEventHandler;
   isTopLevel: boolean;
   listKey: ParamListKey;
-  hasSectionStyleTheme: boolean;
 }) {
   const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
 
@@ -150,7 +144,6 @@ function ParamDndListBody({
       onResizeStart={onResizeStart}
       isTopLevel={isTopLevel}
       listKey={listKey}
-      hasSectionStyleTheme={hasSectionStyleTheme}
     />
   );
 }
