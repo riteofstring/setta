@@ -4,7 +4,7 @@ import {
   createSingletonSections,
 } from "utils/generatedTypes";
 
-import { allowExpectedApiError, ensureAppReady } from "../helpers";
+import { ensureAppReady } from "../helpers";
 
 test("app mode ActionButton triggers json-render actions", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 720 });
@@ -278,11 +278,6 @@ test("app mode Run button recovers after a run failure", async ({ page }) => {
       contentType: "application/json",
       body: "null",
     });
-  });
-  allowExpectedApiError(page, {
-    path: "/api/runCode",
-    statuses: [500],
-    count: 1,
   });
 
   const button = page.getByRole("button", { name: "Run It" });

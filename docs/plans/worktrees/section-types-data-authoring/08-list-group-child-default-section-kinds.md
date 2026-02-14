@@ -21,3 +21,8 @@ Allow list and group sections to configure default child section types.
 - Add unit tests for default resolution logic.
 - Add Playwright flow for configure default and add children.
 - CDP visual check for config controls in pane.
+
+## Delivery Notes (2026-02-14)
+- Added `ChildDefaultsSettings` UI with default child type dropdown for `ListRoot` and `Group`.
+- Wired incrementer child creation to `defaultChildSectionType` in `frontend/src/components/Section/SectionParts/Incrementer.tsx`.
+- Added/updated tests: `frontend/src/components/Panes/UiEditor/SectionConfig/SectionDataAuthoringSettings.test.tsx`, `frontend/tests/e2e/editor/section-types-data-authoring.spec.ts`, and backend behavior coverage in `tests/types/test_helpers_lvl2.py`.

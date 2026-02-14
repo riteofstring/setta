@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { allowExpectedApiError } from "../helpers";
 import {
   cleanupGitOverlayFixture,
   getWorkspaceRootOrThrow,
@@ -57,11 +56,6 @@ test("git graph clears stale rows when refresh fails", async ({ page }) => {
       });
     });
 
-    allowExpectedApiError(page, {
-      path: "/api/git/log",
-      statuses: [500],
-      count: 1,
-    });
     shouldFailRefresh = true;
     await graphOverlay.getByRole("button", { name: "Refresh" }).click();
 

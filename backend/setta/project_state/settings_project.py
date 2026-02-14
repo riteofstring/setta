@@ -599,6 +599,94 @@ def _ensure_settings_model_code_objs(
     return changed
 
 
+def _resolve_settings_json_source_path(project_state: ProjectStateSingleConfig) -> str:
+    for section_id in project_state.sections.keys():
+        if section_id not in project_state.projectConfig.sectionVariantMap:
+            continue
+        section_variant_id = project_state.projectConfig.sectionVariantMap[section_id]
+        if section_variant_id not in project_state.sectionVariants:
+            continue
+        section_variant = project_state.sectionVariants[section_variant_id]
+        if section_variant.impl not in project_state.sectionImpls:
+            continue
+        section_impl = project_state.sectionImpls[section_variant.impl]
+        if not isinstance(section_impl, DictSectionImpl):
+            continue
+        if not section_impl.isJsonSource:
+            continue
+        return section_variant.name
+
+    return str(normalize_workspace_path(Path("settings.json")))
+
+
+def _ensure_settings_sections_exist(
+    project_state: ProjectStateSingleConfig,
+    *,
+    section_name_to_id: dict[str, ID],
+    preset_code_obj_impls: dict[str, BaseCodeObjImplUnion],
+) -> bool:
+    changed = False
+    settings_source_path = _resolve_settings_json_source_path(project_state)
+
+    for section_name, field in SettingsState.model_fields.items():
+        if section_name in section_name_to_id:
+            continue
+
+        default_factory = field.default_factory
+        child_ids: list[ID]
+        code_obj_variant_map: dict[ID, ID]
+        if isclass(default_factory) and issubclass(default_factory, BaseModel):
+            child_ids, code_obj_variant_map = process_model_fields(
+                default_factory,
+                project_state.codeObjs,
+                project_state.codeObjImpls,
+                project_state.codeObjVariants,
+                preset_code_obj_impls,
+            )
+        else:
+            child_ids = []
+            code_obj_variant_map = {}
+
+        top_level_param_impl = NestedParamCodeObjImpl(children=child_ids)
+        top_level_param_id, top_level_variant_id = add_code_obj_details(
+            section_name,
+            top_level_param_impl,
+            project_state.codeObjs,
+            project_state.codeObjImpls,
+            project_state.codeObjVariants,
+            display_name=humanize_settings_identifier(section_name),
+        )
+        code_obj_variant_map[top_level_param_id] = top_level_variant_id
+
+        section_impl = DictSectionImpl(
+            size=SectionSize(width=550),
+            isJsonSource=True,
+            jsonSourceKeys=[section_name],
+            configLanguage=ConfigLanguage.json,
+            codeObjVariantMap=code_obj_variant_map,
+            topLevelParamId=top_level_param_id,
+        )
+        section_variant = Variant(
+            name=settings_source_path,
+            impl=section_impl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(section_impl),
+        )
+        section_core = Core(
+            name=section_name,
+            variants=[section_variant.id],
+            defaultVariant=section_variant.id,
+        )
+
+        project_state.sectionImpls[section_impl.id] = section_impl
+        project_state.sectionVariants[section_variant.id] = section_variant
+        project_state.sections[section_core.id] = section_core
+        project_state.projectConfig.sectionVariantMap[section_core.id] = section_variant.id
+        section_name_to_id[section_name] = section_core.id
+        changed = True
+
+    return changed
+
+
 def ensure_settings_code_objs(project_state: ProjectStateSingleConfig) -> bool:
     """Ensure the settings project includes code objs for new SettingsState fields.
 
@@ -619,7 +707,11 @@ def ensure_settings_code_objs(project_state: ProjectStateSingleConfig) -> bool:
         if isinstance(impl, DropdownParamCodeObjImpl) and impl.isPreset and impl.name:
             preset_code_obj_impls[impl.name] = impl
 
-    changed = False
+    changed = _ensure_settings_sections_exist(
+        project_state,
+        section_name_to_id=section_name_to_id,
+        preset_code_obj_impls=preset_code_obj_impls,
+    )
     for section_name in SettingsState.model_fields.keys():
         if section_name not in section_name_to_id:
             raise KeyError(f"Missing settings section {section_name}.")
