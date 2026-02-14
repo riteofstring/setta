@@ -1,12 +1,16 @@
 import _ from "lodash";
 import {
+  type CSSProperties,
   type MouseEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { IoCopyOutline, IoTrashOutline } from "react-icons/io5";
+import { IoCheckmark, IoCopyOutline, IoTrashOutline } from "react-icons/io5";
+import { List } from "react-window";
 import {
   clearBackendLogEvents,
   markBackendLogEventsHighSeverityAsRead,
@@ -36,6 +40,8 @@ const SEVERITY_ORDER: Record<BackendLogSeverity, number> = {
 const BACKEND_LOG_COPY_COLUMN_WIDTH_PX = 56;
 const BACKEND_LOG_MESSAGE_COLUMN_MIN_WIDTH_PX = 220;
 const BACKEND_LOG_COPY_FEEDBACK_MS = 1300;
+const BACKEND_LOG_ROW_HEIGHT_PX = 26;
+const BACKEND_LOG_MIN_GRID_WIDTH_PX = 640;
 
 export const BACKEND_LOG_DEFAULT_COLUMN_WIDTHS: BackendLogColumnWidths = {
   timestamp: 72,
@@ -108,6 +114,12 @@ export function BackendLogEventsArea() {
     BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   );
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null);
+  const columnWidthRef = useRef(columnWidths);
+  const resizeAnimationFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    columnWidthRef.current = columnWidths;
+  }, [columnWidths]);
 
   useEffect(() => {
     markBackendLogEventsHighSeverityAsRead();
@@ -129,6 +141,14 @@ export function BackendLogEventsArea() {
     return () => window.clearTimeout(timeoutId);
   }, [copyFeedback]);
 
+  useEffect(() => {
+    return () => {
+      if (resizeAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(resizeAnimationFrameRef.current);
+      }
+    };
+  }, []);
+
   const projectMetadata = useAllProjectMetadata(
     (state) => state.projectMetadata,
     _.isEqual,
@@ -148,39 +168,56 @@ export function BackendLogEventsArea() {
     [columnWidths],
   );
 
-  function beginColumnResizeDrag(
-    column: BackendLogColumnWidthName,
-    event: MouseEvent<HTMLDivElement>,
-  ) {
-    event.preventDefault();
-    event.stopPropagation();
-    const startX = event.clientX;
-    const initialWidths = columnWidths;
+  const beginColumnResizeDrag = useCallback(
+    (column: BackendLogColumnWidthName, event: MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const startX = event.clientX;
+      const initialWidths = columnWidthRef.current;
+      let latestClientX = startX;
 
-    const handleMove = (moveEvent: globalThis.MouseEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const nextWidth = applyBackendLogColumnResize(
-        initialWidths,
-        column,
-        deltaX,
-      )[column];
-      setColumnWidths((current) =>
-        current[column] === nextWidth
-          ? current
-          : { ...current, [column]: nextWidth },
-      );
-    };
+      const applyResizeForClientX = (clientX: number) => {
+        const deltaX = clientX - startX;
+        const nextWidth = applyBackendLogColumnResize(
+          initialWidths,
+          column,
+          deltaX,
+        )[column];
+        setColumnWidths((current) =>
+          current[column] === nextWidth
+            ? current
+            : { ...current, [column]: nextWidth },
+        );
+      };
 
-    const handleUp = () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
-    };
+      const handleMove = (moveEvent: globalThis.MouseEvent) => {
+        latestClientX = moveEvent.clientX;
+        if (resizeAnimationFrameRef.current !== null) {
+          return;
+        }
+        resizeAnimationFrameRef.current = requestAnimationFrame(() => {
+          applyResizeForClientX(latestClientX);
+          resizeAnimationFrameRef.current = null;
+        });
+      };
 
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-  }
+      const handleUp = (upEvent: globalThis.MouseEvent) => {
+        window.removeEventListener("mousemove", handleMove);
+        window.removeEventListener("mouseup", handleUp);
+        if (resizeAnimationFrameRef.current !== null) {
+          cancelAnimationFrame(resizeAnimationFrameRef.current);
+          resizeAnimationFrameRef.current = null;
+        }
+        applyResizeForClientX(upEvent.clientX);
+      };
 
-  function handleCopyMessage(eventId: string, message: string) {
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("mouseup", handleUp);
+    },
+    [],
+  );
+
+  const handleCopyMessage = useCallback((eventId: string, message: string) => {
     void copyBackendLogMessage(
       (value) => navigator.clipboard.writeText(value),
       message,
@@ -190,7 +227,7 @@ export function BackendLogEventsArea() {
         status: didCopy ? "copied" : "failed",
       });
     });
-  }
+  }, []);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-1">
@@ -223,7 +260,7 @@ export function BackendLogEventsArea() {
         onUpdate={(patch) => setBackendLogEventsFilter(patch)}
       />
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border border-setta-200 bg-white font-mono text-[11px] leading-4 text-setta-900 dark:border-setta-850 dark:bg-setta-900 dark:text-setta-100">
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-md border border-setta-200 bg-white font-mono text-[11px] leading-4 text-setta-900 dark:border-setta-850 dark:bg-setta-900 dark:text-setta-100">
         {filteredEvents.length === 0 ? (
           <div className="flex h-full items-center justify-center text-xs text-setta-400 dark:text-setta-500">
             No matching backend log events
@@ -358,24 +395,68 @@ function LogLines({
   ) => void;
   onCopyMessage: (eventId: string, message: string) => void;
 }) {
+  const listWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [listSize, setListSize] = useState({
+    height: BACKEND_LOG_ROW_HEIGHT_PX * 10,
+    width: BACKEND_LOG_MIN_GRID_WIDTH_PX,
+  });
+
+  useEffect(() => {
+    const wrapper = listWrapperRef.current;
+    if (!wrapper) {
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) {
+        return;
+      }
+      const nextHeight = Math.max(1, Math.floor(entry.contentRect.height));
+      const nextWidth = Math.max(
+        BACKEND_LOG_MIN_GRID_WIDTH_PX,
+        Math.floor(entry.contentRect.width),
+      );
+      setListSize((current) =>
+        current.height === nextHeight && current.width === nextWidth
+          ? current
+          : {
+              height: nextHeight,
+              width: nextWidth,
+            },
+      );
+    });
+    observer.observe(wrapper);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const listHeight = Math.max(1, listSize.height);
+  const listWidth = Math.max(BACKEND_LOG_MIN_GRID_WIDTH_PX, listSize.width);
+
   return (
-    <div className="flex min-w-[640px] flex-col">
+    <div className="flex min-h-0 min-w-[640px] flex-1 flex-col">
       <LogColumnHeader
         gridTemplateColumns={gridTemplateColumns}
         onResizeColumn={onResizeColumn}
       />
-      {events.map((event) => (
-        <LogLine
-          key={event.id}
-          event={event}
-          projectNameById={projectNameById}
-          gridTemplateColumns={gridTemplateColumns}
-          copyStatus={
-            copyFeedback?.eventId === event.id ? copyFeedback.status : null
-          }
-          onCopyMessage={onCopyMessage}
+      <div ref={listWrapperRef} className="min-h-0 flex-1">
+        <List
+          data-testid="backend-log-virtual-list"
+          rowComponent={BackendLogRow}
+          rowCount={events.length}
+          rowHeight={BACKEND_LOG_ROW_HEIGHT_PX}
+          overscanCount={8}
+          className="nodrag"
+          rowProps={{
+            events,
+            projectNameById,
+            gridTemplateColumns,
+            copyFeedback,
+            onCopyMessage,
+          }}
+          style={{ height: listHeight, width: listWidth }}
         />
-      ))}
+      </div>
     </div>
   );
 }
@@ -478,20 +559,29 @@ function LogColumnResizeHandle({
   );
 }
 
-function LogLine({
-  event,
+function BackendLogRow({
+  index,
+  style,
+  events,
   projectNameById,
   gridTemplateColumns,
-  copyStatus,
+  copyFeedback,
   onCopyMessage,
 }: {
-  event: SettaBackendLogEvent;
+  index: number;
+  style: CSSProperties;
+  events: Array<SettaBackendLogEvent>;
   projectNameById: Record<string, string>;
   gridTemplateColumns: string;
-  copyStatus: "copied" | "failed" | null;
+  copyFeedback: CopyFeedback | null;
   onCopyMessage: (eventId: string, message: string) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const event = events[index];
+  if (!event) {
+    return null;
+  }
+  const copyStatus =
+    copyFeedback?.eventId === event.id ? copyFeedback.status : null;
   const time = formatLogTimestamp(event.timestamp);
   const severityClassName = getSeverityTextClassName(event.severity);
   const severityBorderClassName = getSeverityBorderClassName(event.severity);
@@ -500,23 +590,22 @@ function LogLine({
     projectNameById,
   );
   const singleLineMessage = formatSingleLineMessage(event.message);
-  const copyLabel =
-    copyStatus === "copied"
-      ? "Copied"
-      : copyStatus === "failed"
-        ? "Copy failed"
-        : "Copy";
-  const copyTextClassName =
-    copyStatus === "failed"
-      ? "text-red-600 dark:text-red-400"
-      : "text-setta-500 dark:text-setta-400";
+  let copyStatusTitle = "Copy message";
+  let copyButtonClassName = "text-setta-500 dark:text-setta-400";
+  if (copyStatus === "failed") {
+    copyStatusTitle = "Copy failed";
+    copyButtonClassName = "text-red-600 dark:text-red-400";
+  } else if (copyStatus === "copied") {
+    copyStatusTitle = "Copied";
+    copyButtonClassName = "text-blue-600 dark:text-blue-400";
+  }
 
   return (
     <div
       data-testid="backend-log-row"
-      className={`grid items-start gap-2 border-l-2 px-2 py-0.5 hover:bg-setta-50 dark:hover:bg-setta-800 ${severityBorderClassName}`}
-      style={{ gridTemplateColumns }}
-      title={isExpanded ? undefined : event.message}
+      className={`group/backend-log-row grid items-center gap-2 border-l-2 px-2 py-0.5 hover:bg-setta-50 dark:hover:bg-setta-800 ${severityBorderClassName}`}
+      style={{ ...style, gridTemplateColumns }}
+      title={event.message}
     >
       <span className="truncate text-setta-400 dark:text-setta-500">{time}</span>
       <span className={`truncate ${severityClassName}`}>{event.severity}</span>
@@ -526,32 +615,21 @@ function LogLine({
       >
         {projectConfigName}
       </span>
-      <div className="min-w-0">
-        <div className="flex min-w-0 items-start gap-2">
-          <span
-            className={`min-w-0 flex-1 ${
-              isExpanded ? "whitespace-pre-wrap break-words" : "truncate"
-            }`}
-          >
-            {isExpanded ? event.message : singleLineMessage}
-          </span>
-          <button
-            type="button"
-            className="shrink-0 text-[10px] font-medium text-setta-400 hover:text-setta-900 dark:text-setta-500 dark:hover:text-setta-100"
-            onClick={() => setIsExpanded((x) => !x)}
-          >
-            {isExpanded ? "Less" : "More"}
-          </button>
-        </div>
-      </div>
+      <div className="min-w-0 truncate">{singleLineMessage}</div>
       <button
         type="button"
         data-testid="backend-log-copy-message"
-        className={`inline-flex items-center justify-end gap-1 rounded px-1 text-[10px] font-medium hover:bg-setta-100 hover:text-setta-900 dark:hover:bg-setta-700 dark:hover:text-setta-100 ${copyTextClassName}`}
+        data-copy-status={copyStatus ?? "idle"}
+        className={`inline-flex items-center justify-end rounded p-1 opacity-0 pointer-events-none transition-opacity duration-100 group-hover/backend-log-row:opacity-100 group-hover/backend-log-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:bg-setta-100 hover:text-setta-900 dark:hover:bg-setta-700 dark:hover:text-setta-100 ${copyButtonClassName}`}
         onClick={() => onCopyMessage(event.id, event.message)}
+        title={copyStatusTitle}
+        aria-label={copyStatusTitle}
       >
-        <IoCopyOutline size={11} />
-        <span>{copyLabel}</span>
+        {copyStatus === "copied" ? (
+          <IoCheckmark size={12} />
+        ) : (
+          <IoCopyOutline size={11} />
+        )}
       </button>
     </div>
   );

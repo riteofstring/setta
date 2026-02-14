@@ -65,7 +65,21 @@ test("backend logs pane supports column resize handles and copy feedback", async
   );
   expect(projectWidthAfter).toBeGreaterThan(projectWidthBefore + 30);
 
-  const copyButton = page.getByTestId("backend-log-copy-message").first();
-  await copyButton.click();
-  await expect(copyButton).toContainText(/Copied|Copy failed/);
+  const firstRow = rows.first();
+  const copyButton = firstRow.getByTestId("backend-log-copy-message");
+  const copyButtonClassName = await copyButton.getAttribute("class");
+  expect(copyButtonClassName).toContain("opacity-0");
+  expect(copyButtonClassName).toContain(
+    "group-hover/backend-log-row:opacity-100",
+  );
+  await expect(copyButton).toHaveAttribute("data-copy-status", "idle");
+  await expect(copyButton).toHaveText("");
+
+  await copyButton.evaluate((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("Missing backend logs copy button.");
+    }
+    button.click();
+  });
+  await expect(copyButton).toHaveAttribute("data-copy-status", /copied|failed/);
 });

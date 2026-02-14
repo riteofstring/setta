@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { SettaBackendLogEvent } from "utils/generatedTypes";
-import { filterEvents } from "./BackendLogEventsArea";
+import {
+  applyBackendLogColumnResize,
+  BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
+  filterEvents,
+} from "./BackendLogEventsArea";
 
 describe("BackendLogEventsArea filtering (perf)", () => {
   it("filters a large backend log list fast enough for interactive search", () => {
@@ -30,5 +34,27 @@ describe("BackendLogEventsArea filtering (perf)", () => {
 
     // Generous threshold; this guard catches algorithmic regressions.
     expect(elapsedMs).toBeLessThan(1400);
+  });
+
+  it("applies many resize-drag calculations without falling behind pointer input", () => {
+    // This approximates repeated mousemove events while dragging column handles.
+    let widths = BACKEND_LOG_DEFAULT_COLUMN_WIDTHS;
+    const start = performance.now();
+    for (let i = 0; i < 80_000; i += 1) {
+      const delta = (i % 11) - 5;
+      let column: "timestamp" | "severity" | "project" = "project";
+      if (i % 3 === 0) {
+        column = "timestamp";
+      } else if (i % 3 === 1) {
+        column = "severity";
+      }
+      widths = applyBackendLogColumnResize(widths, column, delta);
+    }
+    const elapsedMs = performance.now() - start;
+
+    expect(widths.timestamp).toBeGreaterThanOrEqual(64);
+    expect(widths.severity).toBeGreaterThanOrEqual(64);
+    expect(widths.project).toBeGreaterThanOrEqual(120);
+    expect(elapsedMs).toBeLessThan(900);
   });
 });
