@@ -14990,6 +14990,11 @@ export const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
+  permissionMode: z
+    .enum(ChatPermissionModeEnum)
+    .default(ChatPermissionModeEnum.minimal),
+  searchEnabled: z.boolean().default(true),
+  skillsEnabled: z.boolean().default(true),
 });
 
 export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;

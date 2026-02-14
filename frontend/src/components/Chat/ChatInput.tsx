@@ -25,6 +25,7 @@ import { ChatFileAttachment } from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
+  type ChatSlashCommandAction,
   type ChatSlashCommandDefinition,
   type ChatStarterPrompt,
   getSlashCommandSuggestions,
@@ -53,9 +54,17 @@ type ChatExecutionControls = {
 
 export type ChatSlashCommand = {
   command: string;
-  action: string;
+  action: ChatSlashCommandAction;
   args: string[];
 };
+
+export type ChatSlashCommandResult =
+  | boolean
+  | {
+      handled?: boolean;
+      feedback?: string;
+      keepInput?: boolean;
+    };
 
 type ChatInputProps = {
   placeholderText: string | undefined;
@@ -73,7 +82,10 @@ type ChatInputProps = {
   slashCommands?: ChatSlashCommandDefinition[];
   onSlashCommand?: (
     command: ChatSlashCommand,
-  ) => Promise<boolean | void> | boolean | void;
+  ) =>
+    | Promise<ChatSlashCommandResult | void>
+    | ChatSlashCommandResult
+    | void;
   starterPrompts?: ChatStarterPrompt[];
   showPythonStarterPrompts?: boolean;
   dictationEnabledByProvider?: boolean;
@@ -165,13 +177,20 @@ export const ChatInput = memo(function ChatInput({
       if (!parsed || !onSlashCommand) {
         return false;
       }
-      const handled = await onSlashCommand(parsed);
-      if (handled === false) {
+      const result = await onSlashCommand(parsed);
+      if (result === false) {
         return false;
       }
-      setSlashFeedback(`Ran ${parsed.command}`);
-      clearInput();
-      clearAttachments();
+      const slashResult =
+        result && typeof result === "object" ? result : undefined;
+      if (slashResult?.handled === false) {
+        return false;
+      }
+      setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
+      if (!slashResult?.keepInput) {
+        clearInput();
+        clearAttachments();
+      }
       return true;
     },
     [clearAttachments, clearInput, onSlashCommand, slashCommands],
@@ -799,4 +818,3 @@ export const ChatInput = memo(function ChatInput({
     </form>
   );
 });
-
