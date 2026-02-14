@@ -9,7 +9,7 @@ def resolve_setta_home() -> Path:
     """Return the per-user Setta directory (<setta_home>).
 
     - Unix/macOS: ~/.setta
-    - Windows: %APPDATA%\\.setta
+    - Windows: %APPDATA%\\Setta
 
     Tests can override via SETTA_HOME.
     """
@@ -25,8 +25,8 @@ def resolve_setta_home() -> Path:
     if sys.platform == "win32":
         raw_appdata = os.environ.get("APPDATA", "").strip()
         if raw_appdata:
-            return (Path(raw_appdata) / ".setta").resolve(strict=False)
-        return (Path.home() / "AppData" / "Roaming" / ".setta").resolve(strict=False)
+            return (Path(raw_appdata) / "Setta").resolve(strict=False)
+        return (Path.home() / "AppData" / "Roaming" / "Setta").resolve(strict=False)
 
     return (Path.home() / ".setta").resolve(strict=False)
 

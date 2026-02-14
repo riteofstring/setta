@@ -134,6 +134,7 @@ class Route(str, Enum):
     TOGGLE_VIEW_MODE_USER_FACING = "/toggleViewModeUserFacing"
     TOGGLE_VIEW_MODE_TAB = "/toggleViewModeTab"
     SET_VIEW_MODE_NAME = "/setViewModeName"
+    SET_VIEW_MODE_SORT_ORDER = "/setViewModeSortOrder"
     DELETE_VIEW_MODE = "/deleteViewMode"
     UNDO = "/undo"
     REDO = "/redo"

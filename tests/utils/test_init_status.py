@@ -4,6 +4,7 @@ from setta.utils.init_status import (
     get_auth_refresh_status,
 )
 
+
 def test_snapshot_includes_auth_refresh_window() -> None:
     status = BackendInitializationStatus()
     snapshot = status.snapshot()
@@ -12,6 +13,8 @@ def test_snapshot_includes_auth_refresh_window() -> None:
         snapshot.authCookieRefreshWindowSeconds
         == C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS
     )
+    assert isinstance(snapshot.worktreeOptions, list)
+    assert isinstance(snapshot.worktreeOptionDetails, list)
 
 
 def test_auth_refresh_status_includes_refresh_window() -> None:
