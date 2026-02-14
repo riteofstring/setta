@@ -39,6 +39,7 @@ import {
   type PluginStatusResponse,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type StateCreator, type StoreApi } from "zustand/vanilla";
 
 function buildPluginStatusEntry(
   overrides: Partial<PluginStatusEntry>,
@@ -123,6 +124,9 @@ function buildPluginStatusResponse(
 }
 
 type CapturedPluginHost = {
+  createStore: <TState extends object>(
+    initializer: StateCreator<TState, [], []>,
+  ) => StoreApi<TState>;
   registerContextMenu: (definition: Record<string, unknown>) => void;
   getProjectContext: () => { projectConfigId: string; serverMode: string };
   subscribeProjectContext: (
@@ -1008,6 +1012,48 @@ describe("plugin runtime helpers", () => {
       host.createArtifact({ kind: "artifact" }),
     ).rejects.toMatchObject({
       code: PluginFrontendErrorCodeEnum.CapabilityDenied,
+    });
+  });
+
+  it("exposes createStore on the plugin host", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const store = host.createStore(() => ({
+      count: 1,
+      label: "fixture",
+    }));
+
+    expect(store.getState()).toEqual({
+      count: 1,
+      label: "fixture",
+    });
+
+    store.setState((state) => ({
+      count: state.count + 2,
+    }));
+    expect(store.getState()).toEqual({
+      count: 3,
+      label: "fixture",
     });
   });
 

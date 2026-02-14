@@ -25,6 +25,7 @@ import {
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
+import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
@@ -151,6 +152,9 @@ type SettaPluginHost = {
   pluginId: string;
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
+  createStore: <TState extends object>(
+    initializer: StateCreator<TState, [], []>,
+  ) => StoreApi<TState>;
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
@@ -464,6 +468,7 @@ function registerPluginModule({
     pluginId: plugin.pluginId,
     serverMode,
     effectiveCapabilities: plugin.effectiveCapabilities,
+    createStore: (initializer) => createStore(initializer),
     registerSectionKind: (definition) => {
       ensureCapability(
         plugin.pluginId,

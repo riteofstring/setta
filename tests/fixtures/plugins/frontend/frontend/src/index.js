@@ -3,6 +3,73 @@ export const apiVersion = 1;
 const CARD_THEME_NAMES = ["sunrise", "ocean", "forest"];
 const PANE_NOTE_STORAGE_KEY = "setta-fixture-frontend:pane-note";
 const cardStateBySectionId = new Map();
+const mountedCardContextBySectionId = new Map();
+let fixtureRuntimeStore = null;
+
+function createInitialFixtureRuntimeState() {
+  return {
+    commandRunCount: 0,
+    renderCount: 0,
+    renderCountBySectionId: {},
+    lastCommandSummary: "No command run yet.",
+    lastBackendCommandResult: null,
+  };
+}
+
+function syncWindowMetricsFromStore() {
+  const state = getFixtureRuntimeStore().getState();
+  window.__settaFixtureCommandRuns = state.commandRunCount;
+  window.__settaFixtureRenderCount = state.renderCount;
+  window.__settaFixtureRenderBySectionId = { ...state.renderCountBySectionId };
+  window.__settaFixtureLastCommandSummary = state.lastCommandSummary;
+  window.__settaFixtureBackendCommandLastResult = state.lastBackendCommandResult;
+}
+
+function initFixtureRuntimeStore(host) {
+  if (fixtureRuntimeStore) {
+    return fixtureRuntimeStore;
+  }
+  if (host && typeof host.createStore === "function") {
+    fixtureRuntimeStore = host.createStore(() => createInitialFixtureRuntimeState());
+  } else {
+    let fallbackState = createInitialFixtureRuntimeState();
+    fixtureRuntimeStore = {
+      getState() {
+        return fallbackState;
+      },
+      setState(partialOrUpdater) {
+        const nextPartial =
+          typeof partialOrUpdater === "function"
+            ? partialOrUpdater(fallbackState)
+            : partialOrUpdater;
+        if (!nextPartial || typeof nextPartial !== "object") {
+          return;
+        }
+        fallbackState = { ...fallbackState, ...nextPartial };
+      },
+    };
+  }
+  syncWindowMetricsFromStore();
+  return fixtureRuntimeStore;
+}
+
+function getFixtureRuntimeStore() {
+  return initFixtureRuntimeStore(null);
+}
+
+function setFixtureRuntimeState(partialOrUpdater) {
+  const store = getFixtureRuntimeStore();
+  if (typeof partialOrUpdater === "function") {
+    store.setState((state) => partialOrUpdater(state));
+  } else {
+    store.setState(partialOrUpdater);
+  }
+  syncWindowMetricsFromStore();
+}
+
+function readFixtureRuntimeState() {
+  return getFixtureRuntimeStore().getState();
+}
 
 function getCardText(data) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
@@ -39,22 +106,22 @@ function getCardTags(data) {
 }
 
 function incrementRenderMetrics(sectionId) {
-  const scope = window;
-  const total = Number(scope.__settaFixtureRenderCount || 0);
-  scope.__settaFixtureRenderCount = total + 1;
-
-  const bySection = scope.__settaFixtureRenderBySectionId || {};
-  const current = Number(bySection[sectionId] || 0);
-  bySection[sectionId] = current + 1;
-  scope.__settaFixtureRenderBySectionId = bySection;
+  setFixtureRuntimeState((state) => {
+    const nextBySection = {
+      ...state.renderCountBySectionId,
+    };
+    const current = Number(nextBySection[sectionId] || 0);
+    nextBySection[sectionId] = current + 1;
+    return {
+      renderCount: Number(state.renderCount || 0) + 1,
+      renderCountBySectionId: nextBySection,
+    };
+  });
 }
 
 function getRenderCountForSection(sectionId) {
-  const scope = window;
-  if (!scope.__settaFixtureRenderBySectionId) {
-    return 0;
-  }
-  return Number(scope.__settaFixtureRenderBySectionId[sectionId] || 0);
+  const state = readFixtureRuntimeState();
+  return Number(state.renderCountBySectionId[sectionId] || 0);
 }
 
 function getCardState(sectionId) {
@@ -68,6 +135,51 @@ function getCardState(sectionId) {
     cardStateBySectionId.set(sectionId, state);
   }
   return state;
+}
+
+function getLastCommandSummary() {
+  const state = readFixtureRuntimeState();
+  if (typeof state.lastCommandSummary === "string") {
+    return state.lastCommandSummary;
+  }
+  return "No command run yet.";
+}
+
+function appendCommandSummaryToNote(summary) {
+  const normalizedSummary = typeof summary === "string" ? summary.trim() : "";
+  if (normalizedSummary === "") {
+    return;
+  }
+  const existing = readPersistedPaneNote();
+  const lines = existing
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+  lines.push(normalizedSummary);
+  const nextValue = lines.slice(-6).join("\n").slice(0, 240);
+  writePersistedPaneNote(nextValue);
+}
+
+function pulseMountedFixtureCards() {
+  let boostedCardCount = 0;
+  for (const [sectionId, context] of mountedCardContextBySectionId.entries()) {
+    if (
+      !context ||
+      !context.el ||
+      !(context.el instanceof HTMLElement) ||
+      !context.el.isConnected
+    ) {
+      mountedCardContextBySectionId.delete(sectionId);
+      continue;
+    }
+    const state = getCardState(sectionId);
+    state.signalScore += 1;
+    state.themeIndex = (state.themeIndex + 1) % CARD_THEME_NAMES.length;
+    state.showDetails = true;
+    boostedCardCount += 1;
+    renderCard(context.el, context.props);
+  }
+  return boostedCardCount;
 }
 
 function createStatItem(label, value, testId) {
@@ -118,6 +230,8 @@ function createButton(label, testId, onClick) {
 function renderCard(el, props) {
   const sectionId =
     props && typeof props.sectionId === "string" ? props.sectionId : "unknown";
+  mountedCardContextBySectionId.set(sectionId, { el, props });
+  el.setAttribute("data-fixture-section-id", sectionId);
   incrementRenderMetrics(sectionId);
   const state = getCardState(sectionId);
   const cardText = getCardText(props.data);
@@ -206,8 +320,127 @@ function renderCard(el, props) {
 }
 
 function recordFixtureCommandRun() {
-  const current = Number(window.__settaFixtureCommandRuns || 0);
-  window.__settaFixtureCommandRuns = current + 1;
+  const current = Number(readFixtureRuntimeState().commandRunCount || 0);
+  const next = current + 1;
+  setFixtureRuntimeState({ commandRunCount: next });
+  return next;
+}
+
+async function runBackendRoundtripForFixtureCommand(host) {
+  if (!host || typeof host.apiFetch !== "function") {
+    return "backend roundtrip skipped";
+  }
+  const [listResponse, statusResponse] = await Promise.all([
+    host.apiFetch("../list", {
+      headers: {
+        "X-Fixture-Command": "list",
+      },
+    }),
+    host.apiFetch("../status", {
+      headers: {
+        "X-Fixture-Command": "status",
+      },
+    }),
+  ]);
+
+  let listedPluginCount = 0;
+  if (listResponse.ok) {
+    const listPayload = await listResponse.json();
+    if (
+      listPayload &&
+      typeof listPayload === "object" &&
+      Array.isArray(listPayload.plugins)
+    ) {
+      listedPluginCount = listPayload.plugins.length;
+    }
+  }
+
+  let activePluginCount = 0;
+  let backendFixtureState = "missing";
+  let shouldCheckBackendFixtureHealth = false;
+  if (statusResponse.ok) {
+    const statusPayload = await statusResponse.json();
+    if (
+      statusPayload &&
+      typeof statusPayload === "object" &&
+      Array.isArray(statusPayload.plugins)
+    ) {
+      for (const pluginEntry of statusPayload.plugins) {
+        if (!pluginEntry || typeof pluginEntry !== "object") {
+          continue;
+        }
+        const pluginState = pluginEntry.state;
+        if (pluginState === "active") {
+          activePluginCount += 1;
+        }
+        if (
+          pluginEntry.pluginId === "setta-fixture-backend" &&
+          typeof pluginState === "string"
+        ) {
+          backendFixtureState = pluginState;
+          shouldCheckBackendFixtureHealth = pluginState === "active";
+        }
+      }
+    }
+  }
+
+  let backendFixtureHealthStatus = "skipped";
+  if (shouldCheckBackendFixtureHealth) {
+    const backendHealthResponse = await host.apiFetch(
+      "../setta-fixture-backend/health",
+      {
+        headers: {
+          "X-Fixture-Command": "fixture-backend-health",
+        },
+      },
+    );
+    backendFixtureHealthStatus = String(backendHealthResponse.status);
+  }
+
+  const backendSummary =
+    "backend " +
+    `list:${listResponse.status} ` +
+    `status:${statusResponse.status} ` +
+    `plugins:${listedPluginCount}/${activePluginCount} ` +
+    `fixture-backend:${backendFixtureState} ` +
+    `health:${backendFixtureHealthStatus}`;
+  setFixtureRuntimeState({
+    lastBackendCommandResult: {
+      listStatus: listResponse.status,
+      statusStatus: statusResponse.status,
+      listedPluginCount,
+      activePluginCount,
+      backendFixtureState,
+      backendFixtureHealthStatus,
+    },
+  });
+  return backendSummary;
+}
+
+async function executeFixtureCommand(host) {
+  const runCount = recordFixtureCommandRun();
+  const boostedCardCount = pulseMountedFixtureCards();
+  let summary = `run ${runCount}: pulsed ${boostedCardCount} card(s)`;
+  if (host && typeof host.getProjectContext === "function") {
+    const context = host.getProjectContext();
+    if (context && typeof context.serverMode === "string") {
+      summary = `${summary} in ${context.serverMode} mode`;
+    }
+  }
+  const backendSummary = await runBackendRoundtripForFixtureCommand(host);
+  summary = `${summary}; ${backendSummary}`;
+  setFixtureRuntimeState({ lastCommandSummary: summary });
+  appendCommandSummaryToNote(summary);
+  return summary;
+}
+
+function unmountCard(el) {
+  const sectionId = el.getAttribute("data-fixture-section-id");
+  if (typeof sectionId === "string" && sectionId !== "") {
+    mountedCardContextBySectionId.delete(sectionId);
+  }
+  el.removeAttribute("data-fixture-section-id");
+  el.innerHTML = "";
 }
 
 function readPersistedPaneNote() {
@@ -268,7 +501,7 @@ function createPaneButton(label, testId, onClick, variant = "default") {
   return button;
 }
 
-function mountFixturePane(el) {
+function mountFixturePane(el, host) {
   el.innerHTML = "";
 
   const container = document.createElement("section");
@@ -323,11 +556,16 @@ function mountFixturePane(el) {
     "last refresh",
     "fixture-pane-updated-at",
   );
+  const commandSummaryMetric = createPaneMetric(
+    "last command",
+    "fixture-pane-last-command",
+  );
 
   metrics.appendChild(commandMetric.metric);
   metrics.appendChild(renderMetric.metric);
   metrics.appendChild(sectionMetric.metric);
   metrics.appendChild(updatedMetric.metric);
+  metrics.appendChild(commandSummaryMetric.metric);
   runtimePanel.appendChild(metrics);
 
   const controls = document.createElement("div");
@@ -339,17 +577,19 @@ function mountFixturePane(el) {
   status.textContent = "Ready.";
 
   const refreshMetrics = () => {
-    const bySection = window.__settaFixtureRenderBySectionId || {};
+    const state = readFixtureRuntimeState();
+    const bySection = state.renderCountBySectionId || {};
     commandMetric.metricValue.textContent = String(
-      Number(window.__settaFixtureCommandRuns || 0),
+      Number(state.commandRunCount || 0),
     );
     renderMetric.metricValue.textContent = String(
-      Number(window.__settaFixtureRenderCount || 0),
+      Number(state.renderCount || 0),
     );
     sectionMetric.metricValue.textContent = String(
       Object.keys(bySection).length,
     );
     updatedMetric.metricValue.textContent = new Date().toLocaleTimeString();
+    commandSummaryMetric.metricValue.textContent = getLastCommandSummary();
   };
 
   controls.appendChild(
@@ -360,10 +600,10 @@ function mountFixturePane(el) {
   );
 
   controls.appendChild(
-    createPaneButton("Run Demo Command", "fixture-pane-run-command", () => {
-      recordFixtureCommandRun();
+    createPaneButton("Run Demo Command", "fixture-pane-run-command", async () => {
+      const summary = await executeFixtureCommand(host);
       refreshMetrics();
-      status.textContent = "Fixture command executed from pane.";
+      status.textContent = summary;
     }),
   );
 
@@ -372,9 +612,13 @@ function mountFixturePane(el) {
       "Reset Metrics",
       "fixture-pane-reset",
       () => {
-        window.__settaFixtureCommandRuns = 0;
-        window.__settaFixtureRenderCount = 0;
-        window.__settaFixtureRenderBySectionId = {};
+        setFixtureRuntimeState({
+          commandRunCount: 0,
+          renderCount: 0,
+          renderCountBySectionId: {},
+          lastCommandSummary: "No command run yet.",
+          lastBackendCommandResult: null,
+        });
         refreshMetrics();
         status.textContent = "Metrics reset.";
       },
@@ -469,6 +713,7 @@ function mountFixturePane(el) {
 }
 
 export function register(host) {
+  initFixtureRuntimeStore(host);
   const effectiveCapabilities = new Set(host.effectiveCapabilities || []);
 
   if (effectiveCapabilities.has("registerSectionKinds")) {
@@ -486,7 +731,7 @@ export function register(host) {
           renderCard(el, props);
         },
         unmount(el) {
-          el.innerHTML = "";
+          unmountCard(el);
         },
       },
     });
@@ -501,7 +746,7 @@ export function register(host) {
       icon: "dashboard",
       renderer: {
         mount(el) {
-          mountFixturePane(el);
+          mountFixturePane(el, host);
         },
         unmount(el) {
           el.textContent = "";
@@ -514,9 +759,9 @@ export function register(host) {
     host.registerCommand({
       id: "fixture-command",
       title: "Fixture Command",
-      description: "Increment fixture command-run diagnostics.",
+      description: "Pulse fixture cards and run a multi-call backend roundtrip.",
       run() {
-        recordFixtureCommandRun();
+        return executeFixtureCommand(host);
       },
     });
   }
