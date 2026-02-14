@@ -2276,6 +2276,13 @@ def plugins_list(json_output: bool) -> None:
     is_flag=True,
     help="Install without enabling by default.",
 )
+@click.option(
+    "--installer",
+    type=click.Choice(["auto", "pip", "uv"]),
+    default="auto",
+    show_default=True,
+    help="Installer backend for source fetch/install.",
+)
 @click.option("--force", is_flag=True, help="Overwrite existing plugin folder.")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
 def plugins_install(
@@ -2285,6 +2292,7 @@ def plugins_install(
     setta_files_scope: bool,
     environment_scope: bool,
     no_enable: bool,
+    installer: str,
     force: bool,
     json_output: bool,
 ) -> None:
@@ -2299,6 +2307,7 @@ def plugins_install(
         result = manager.install_plugin(
             source_spec=source_spec,
             scope=resolved_scope,
+            installer=installer,
             enable=not no_enable,
             force=force,
         )

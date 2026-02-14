@@ -18,6 +18,7 @@ from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
 from setta.plugins.models import (
     BlockedCapabilityReason,
+    PluginInstallerBackend,
     PluginRuntimeState,
     PluginScope,
     normalize_scope,
@@ -33,6 +34,7 @@ def _make_manager(
     restart_callback: Callable[[], bool] | None = None,
     backend_startup_timeout_seconds: float = 10.0,
     backend_register_timeout_seconds: float = 10.0,
+    package_manager_search_paths: list[Path] | None = None,
 ) -> PluginManager:
     workspace_root = tmp_path / "workspace"
     setta_files_root = tmp_path / "setta_files"
@@ -50,6 +52,7 @@ def _make_manager(
         restart_callback=restart_callback,
         backend_startup_timeout_seconds=backend_startup_timeout_seconds,
         backend_register_timeout_seconds=backend_register_timeout_seconds,
+        package_manager_search_paths=package_manager_search_paths,
     )
 
 
@@ -133,6 +136,49 @@ def _build_local_pypi_wheel_from_fixture(
         )
         zipf.writestr(f"{dist_info_name}/RECORD", "")
     return artifact_path
+
+
+def _install_fixture_distribution_in_site_packages(
+    *,
+    tmp_path: Path,
+    fixture_name: str,
+    package_name: str,
+    version: str,
+) -> Path:
+    site_packages = tmp_path / "site-packages"
+    site_packages.mkdir(parents=True, exist_ok=True)
+    plugin_root = site_packages / package_name
+    shutil.copytree(_fixture_path(fixture_name), plugin_root)
+
+    dist_info_name = f"{package_name.replace('-', '_')}-{version}.dist-info"
+    dist_info = site_packages / dist_info_name
+    dist_info.mkdir(parents=True, exist_ok=True)
+    (dist_info / "METADATA").write_text(
+        "\n".join(
+            [
+                "Metadata-Version: 2.1",
+                f"Name: {package_name}",
+                f"Version: {version}",
+                "Summary: Setta fixture plugin",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    record_lines: list[str] = []
+    for path in sorted(site_packages.rglob("*"), key=lambda item: str(item)):
+        if not path.is_file():
+            continue
+        relative_path = path.relative_to(site_packages).as_posix()
+        if relative_path.endswith("RECORD"):
+            continue
+        record_lines.append(f"{relative_path},,")
+    record_lines.append(f"{dist_info_name}/RECORD,,")
+    (dist_info / "RECORD").write_text(
+        "\n".join(record_lines) + "\n", encoding="utf-8"
+    )
+    return site_packages
 
 
 def _build_local_github_bare_repo_from_fixture(
@@ -238,6 +284,7 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     try:
         installed = manager.install_plugin(
             source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
             scope=PluginScope.workspace,
             enable=True,
             force=False,
@@ -273,6 +320,75 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
     ]
     assert len(status_entries) == 1
     assert status_entries[0].state == PluginRuntimeState.active
+
+
+def test_install_plugin_auto_installer_falls_back_to_pip_when_uv_unavailable(
+    tmp_path: Path,
+) -> None:
+    # Auto installer should fall back to pip when uv is not available on PATH.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    old_path = os.environ.get("PATH")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    os.environ["PATH"] = ""
+    try:
+        installed = manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.auto,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+        if old_path is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = old_path
+
+    assert installed.pluginId == "setta-fixture-frontend"
+    assert installed.state == PluginRuntimeState.active
+
+
+def test_install_plugin_explicit_uv_backend_requires_uv_binary(tmp_path: Path) -> None:
+    # Explicit uv backend should fail with a deterministic error when uv is unavailable.
+    manager = _make_manager(tmp_path)
+    old_path = os.environ.get("PATH")
+    os.environ["PATH"] = ""
+    try:
+        with pytest.raises(PluginManagerError) as exc_info:
+            manager.install_plugin(
+                source_spec="pypi:setta-fixture-frontend==0.1.0",
+                installer=PluginInstallerBackend.uv,
+                scope=PluginScope.workspace,
+                enable=True,
+                force=False,
+            )
+    finally:
+        if old_path is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = old_path
+
+    assert exc_info.value.code == "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE"
 
 
 def test_extract_artifact_rejects_zip_path_traversal(tmp_path: Path) -> None:
@@ -327,6 +443,7 @@ def test_lockfile_apply_reinstalls_from_pypi_source(tmp_path: Path) -> None:
     try:
         manager.install_plugin(
             source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
             scope=PluginScope.workspace,
             enable=True,
             force=False,
@@ -439,6 +556,80 @@ def test_discovery_respects_scope_precedence_and_shadowing(tmp_path: Path) -> No
     assert setta_files_entry.shadowedBySourcePath == str(workspace_path)
     assert global_entry.state == PluginRuntimeState.shadowed
     assert global_entry.shadowedBySourcePath == str(workspace_path)
+
+
+def test_package_manager_plugins_are_discovered_from_environment_search_paths(
+    tmp_path: Path,
+) -> None:
+    # Plugins shipped inside active environment distributions should be discovered as environment-scoped.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+
+    entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.setta_files
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.sourceScopeLabel == "environment"
+    assert entry.sourceManager == "package_manager"
+    assert entry.canonicalSourceKey == "pypi:setta-fixture-frontend"
+    assert entry.sourceManagerHint is not None
+    assert "Use uv/pip/Poetry" in entry.sourceManagerHint
+
+    list_entries = [
+        plugin
+        for plugin in manager.get_list_response().plugins
+        if plugin.pluginId == package_name
+    ]
+    assert len(list_entries) == 1
+    assert list_entries[0].sourceManager == "package_manager"
+    assert list_entries[0].sourceScopeLabel == "environment"
+
+
+def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
+    tmp_path: Path,
+) -> None:
+    # Environment-managed plugins should use package-manager workflows for update/uninstall.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+
+    with pytest.raises(PluginManagerError) as uninstall_error:
+        manager.uninstall_plugin(
+            plugin_id=package_name,
+            scope=PluginScope.setta_files,
+        )
+    assert uninstall_error.value.code == "PLUGIN_MANAGED_EXTERNALLY"
+
+    with pytest.raises(PluginManagerError) as update_error:
+        manager.update_plugin(
+            plugin_id=package_name,
+            scope=PluginScope.setta_files,
+        )
+    assert update_error.value.code == "PLUGIN_MANAGED_EXTERNALLY"
 
 
 def test_scope_alias_environment_maps_to_setta_files() -> None:
@@ -1731,6 +1922,7 @@ def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None
     try:
         installed = manager.install_plugin(
             source_spec=f"pypi:{plugin_id}==0.1.0",
+            installer=PluginInstallerBackend.pip,
             scope=PluginScope.workspace,
             enable=True,
             force=False,

@@ -38,14 +38,22 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await expect(
     page.getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]"),
   ).toBeVisible();
-  await expect(page.locator("select").first()).toHaveValue("workspace");
-  await expect(page.locator("select option[value='workspace']")).toHaveText(
+  await expect(page.getByTestId("plugin-install-scope")).toHaveValue(
     "workspace",
   );
-  await expect(page.locator("select option[value='environment']")).toHaveText(
+  await expect(
+    page.getByTestId("plugin-install-scope").locator("option[value='workspace']"),
+  ).toHaveText(
+    "workspace",
+  );
+  await expect(
+    page.getByTestId("plugin-install-scope").locator("option[value='environment']"),
+  ).toHaveText(
     "environment",
   );
-  await expect(page.locator("select option[value='global']")).toHaveText(
+  await expect(
+    page.getByTestId("plugin-install-scope").locator("option[value='global']"),
+  ).toHaveText(
     "global",
   );
   await page
@@ -228,7 +236,8 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
     });
   });
 
-  await page.locator("select").first().selectOption("global");
+  await page.getByTestId("plugin-install-scope").selectOption("global");
+  await page.getByTestId("plugin-install-installer").selectOption("uv");
   await page
     .getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]")
     .fill("pypi:setta-fixture-install==0.1.0");
@@ -236,6 +245,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
 
   await expect.poll(() => installRequests.length).toBe(1);
   expect(installRequests[0].scope).toBe("global");
+  expect(installRequests[0].installer).toBe("uv");
 
   const confirmation = page.getByTestId("plugin-install-confirmation");
   await expect(confirmation).toBeVisible();
@@ -257,6 +267,107 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
       "Trust (unverified): Source is unverified. Install only from trusted owners.",
     ),
   ).toBeVisible();
+});
+
+test("plugins pane shows package-manager guidance and disables managed write actions", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await page.route("**/api/plugins/list", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.plugins = [
+      {
+        pluginId: "setta-package-managed",
+        name: "Setta Package Managed",
+        version: "0.1.0",
+        sourceScope: "setta_files",
+        sourceScopeLabel: "environment",
+        sourceManager: "package_manager",
+        sourceManagerHint:
+          "Managed by Python package manager in active environment. Use uv/pip/Poetry to install, update, or remove.",
+        canonicalSourceKey: "pypi:setta-package-managed",
+        sourceDigestSha256: "digest",
+        frontend: {
+          entrypointUrl: null,
+          styleUrl: null,
+        },
+        content: {
+          hasBlueprints: false,
+          hasProjectTemplates: false,
+          hasPrompts: false,
+        },
+        config: {
+          hasSchema: false,
+          schemaJson: null,
+        },
+        effectiveCapabilities: [],
+        restartRequired: false,
+      },
+    ];
+    await route.fulfill({ response, json: payload });
+  });
+  await page.route("**/api/plugins/status", async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.plugins = [
+      {
+        pluginId: "setta-package-managed",
+        name: "Setta Package Managed",
+        version: "0.1.0",
+        state: "active",
+        sourceScope: "setta_files",
+        sourceScopeLabel: "environment",
+        sourceManager: "package_manager",
+        sourceManagerHint:
+          "Managed by Python package manager in active environment. Use uv/pip/Poetry to install, update, or remove.",
+        sourcePath: "/tmp/site-packages/setta-package-managed",
+        canonicalSourceKey: "pypi:setta-package-managed",
+        sourceDigestSha256: "digest",
+        shadowedBySourcePath: null,
+        requestedCapabilities: [],
+        effectiveCapabilities: [],
+        blockedCapabilities: [],
+        registeredLanguageServers: [],
+        registeredExternalAgentAdapters: [],
+        registeredCodegenTargets: [],
+        restartRequired: false,
+        errors: [],
+      },
+    ];
+    await route.fulfill({ response, json: payload });
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const pluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-package-managed@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(pluginCard).toBeVisible();
+  await expect(
+    page.getByTestId("plugin-package-manager-guidance-setta-package-managed"),
+  ).toContainText("Managed by package manager");
+  await expect(
+    page.getByTestId("plugin-package-manager-guidance-setta-package-managed"),
+  ).toContainText("Use uv/pip/Poetry to install, update, or remove");
+  await expect(
+    pluginCard.getByRole("button", { name: "Update", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    pluginCard.getByRole("button", { name: "Rollback", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    pluginCard.getByRole("button", { name: "Uninstall", exact: true }),
+  ).toBeDisabled();
 });
 
 test("plugins pane shows mode-policy blocked capability reasons", async ({

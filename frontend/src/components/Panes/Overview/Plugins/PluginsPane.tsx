@@ -43,6 +43,7 @@ import type {
 import { onOverviewTabClick } from "../../paneFns";
 
 type InstallScope = "workspace" | "environment" | "global";
+type InstallBackend = "auto" | "pip" | "uv";
 
 type PluginActionStatus = {
   type: "error" | "success" | "warning";
@@ -61,6 +62,7 @@ type PluginRegisteredCodegenTarget =
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
   const [scope, setScope] = useState<InstallScope>("workspace");
+  const [installer, setInstaller] = useState<InstallBackend>("auto");
   const [enableAfterInstall, setEnableAfterInstall] = useState(true);
   const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<PluginActionStatus | null>(
@@ -147,6 +149,7 @@ export function PluginsPane() {
       route_plugins_install({
         sourceSpec: trimmedSourceSpec,
         scope,
+        installer,
         enable: enableAfterInstall,
         force: false,
       } as PluginInstallRequestInput),
@@ -294,12 +297,26 @@ export function PluginsPane() {
             <select
               value={scope}
               onChange={(event) => setScope(event.target.value as InstallScope)}
+              data-testid="plugin-install-scope"
               className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
               disabled={writeActionsLocked || busyActionKey !== null}
             >
               <option value="workspace">workspace</option>
               <option value="environment">environment</option>
               <option value="global">global</option>
+            </select>
+            <select
+              value={installer}
+              onChange={(event) =>
+                setInstaller(event.target.value as InstallBackend)
+              }
+              data-testid="plugin-install-installer"
+              className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+              disabled={writeActionsLocked || busyActionKey !== null}
+            >
+              <option value="auto">auto</option>
+              <option value="pip">pip</option>
+              <option value="uv">uv</option>
             </select>
             <label className="flex items-center gap-1 text-[11px] text-setta-600 dark:text-setta-300">
               <input
@@ -328,6 +345,8 @@ export function PluginsPane() {
           ) : (
             <p className="text-[11px] text-setta-500 dark:text-setta-400">
               Supported sources: <code>github:</code> and <code>pypi:</code>.
+              Installer <code>auto</code> prefers <code>uv</code> when
+              available, otherwise <code>pip</code>.
             </p>
           )}
         </div>
@@ -530,7 +549,10 @@ function PluginListEntryCard({
     );
   }
 
+  const packageManagerManaged = plugin.sourceManager === "package_manager";
+  const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
   const pluginActionDisabled = writeActionsLocked || busyActionKey !== null;
+  const packageManagerWriteDisabled = pluginActionDisabled || packageManagerManaged;
   const paneButtonsDisabled = pluginActionDisabled;
   const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
   const effectiveCapabilities =
@@ -622,19 +644,31 @@ function PluginListEntryCard({
         <ActionButton
           label="Update"
           onClick={onUpdate}
-          disabled={pluginActionDisabled}
+          disabled={packageManagerWriteDisabled}
         />
         <ActionButton
           label="Rollback"
           onClick={onRollback}
-          disabled={pluginActionDisabled}
+          disabled={packageManagerWriteDisabled}
         />
         <ActionButton
           label="Uninstall"
           onClick={onUninstall}
-          disabled={pluginActionDisabled}
+          disabled={packageManagerWriteDisabled}
         />
       </div>
+
+      {packageManagerManaged ? (
+        <section
+          data-testid={`plugin-package-manager-guidance-${plugin.pluginId}`}
+          className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200"
+        >
+          <p className="font-semibold uppercase tracking-wide">
+            Managed by package manager
+          </p>
+          <p className="mt-1">{packageManagerGuidance}</p>
+        </section>
+      ) : null}
 
       {(requestedCapabilities.length > 0 ||
         effectiveCapabilities.length > 0 ||
@@ -1457,8 +1491,21 @@ function buildInstallTrustSummaryMessage(
   return `Trust (${installSummary.trustStatus}): ${installSummary.trustWarning}`;
 }
 
+function buildSourceManagerGuidanceMessage(
+  plugin: Pick<PluginListEntry, "sourceManager" | "sourceManagerHint">,
+): string {
+  if (plugin.sourceManager === "package_manager") {
+    if (plugin.sourceManagerHint && plugin.sourceManagerHint.trim() !== "") {
+      return plugin.sourceManagerHint;
+    }
+    return "Use uv/pip/Poetry to install, update, or remove this plugin.";
+  }
+  return "Managed by Setta installer.";
+}
+
 export const pluginsPaneTestApi = {
   buildInstallTrustSummaryMessage,
+  buildSourceManagerGuidanceMessage,
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityUnavailableMessage,
   formatLanguageServerSettingsDraft,

@@ -19,6 +19,8 @@ function buildPluginListEntry(
     version: "1.0.0",
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
     frontend: {
@@ -50,6 +52,8 @@ function buildPluginStatusEntry(
     state: PluginRuntimeStateEnum.active,
     sourceScope: "workspace",
     sourceScopeLabel: "workspace",
+    sourceManager: "setta",
+    sourceManagerHint: null,
     sourcePath: "/tmp/acme.plugin",
     canonicalSourceKey: "github:acme/plugin",
     sourceDigestSha256: null,
@@ -428,5 +432,21 @@ describe("plugins pane helpers", () => {
     ).toBe(
       "Trust (unverified): Source is unverified. Install only from trusted owners.",
     );
+  });
+
+  it("builds package-manager guidance messaging", () => {
+    expect(
+      pluginsPaneTestApi.buildSourceManagerGuidanceMessage({
+        sourceManager: "package_manager",
+        sourceManagerHint:
+          "Managed by Python package manager in active environment.",
+      }),
+    ).toBe("Managed by Python package manager in active environment.");
+    expect(
+      pluginsPaneTestApi.buildSourceManagerGuidanceMessage({
+        sourceManager: "setta",
+        sourceManagerHint: null,
+      }),
+    ).toBe("Managed by Setta installer.");
   });
 });

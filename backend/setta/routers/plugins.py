@@ -29,11 +29,13 @@ router = SettaAPIRouter()
 assets_router = APIRouter()
 
 ScopeValue = Literal["workspace", "setta_files", "environment", "global"]
+InstallerValue = Literal["auto", "pip", "uv"]
 
 
 class PluginInstallRequest(BaseModel):
     sourceSpec: str
     scope: ScopeValue | None = None
+    installer: InstallerValue = "auto"
     enable: bool = True
     force: bool = False
 
@@ -126,6 +128,7 @@ def route_plugins_install(
         return _manager(state).install_plugin(
             source_spec=x.sourceSpec,
             scope=x.scope,
+            installer=x.installer,
             enable=x.enable,
             force=x.force,
         )

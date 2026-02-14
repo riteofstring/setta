@@ -7896,6 +7896,7 @@ const PluginInstallRequestSchema = z.object({
       z.null(),
     ])
     .default(null),
+  installer: z.literal(["auto", "pip", "uv"]).default("auto" as const),
   enable: z.boolean().default(true),
   force: z.boolean().default(false),
 });
@@ -7956,6 +7957,11 @@ export type PluginRestartCapability = z.infer<
   typeof PluginRestartCapabilitySchema
 >;
 
+const PluginSourceManagerEnum = {
+  setta: "setta",
+  package_manager: "package_manager",
+} as const;
+
 const PluginFrontendDescriptorSchema = z.object({
   entrypointUrl: z.union([z.string(), z.null()]).default(null),
   styleUrl: z.union([z.string(), z.null()]).default(null),
@@ -7985,6 +7991,10 @@ const PluginListEntrySchema = z.object({
   version: z.string(),
   sourceScope: z.enum(PluginScopeEnum),
   sourceScopeLabel: z.literal(["workspace", "environment", "global"]),
+  sourceManager: z
+    .enum(PluginSourceManagerEnum)
+    .default(PluginSourceManagerEnum.setta),
+  sourceManagerHint: z.union([z.string(), z.null()]).default(null),
   canonicalSourceKey: z.string(),
   sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
   frontend: PluginFrontendDescriptorSchema,
@@ -8118,6 +8128,10 @@ const PluginStatusEntrySchema = z.object({
   state: z.enum(PluginRuntimeStateEnum),
   sourceScope: z.enum(PluginScopeEnum),
   sourceScopeLabel: z.literal(["workspace", "environment", "global"]),
+  sourceManager: z
+    .enum(PluginSourceManagerEnum)
+    .default(PluginSourceManagerEnum.setta),
+  sourceManagerHint: z.union([z.string(), z.null()]).default(null),
   sourcePath: z.string(),
   canonicalSourceKey: z.string(),
   sourceDigestSha256: z.union([z.string(), z.null()]).default(null),

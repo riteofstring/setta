@@ -1,4 +1,5 @@
 import hashlib
+import importlib.metadata
 import json
 import os
 import select
@@ -39,6 +40,7 @@ from setta.plugins.models import (
     PluginEnablementSource,
     PluginErrorInfo,
     PluginFrontendDescriptor,
+    PluginInstallerBackend,
     PluginInstallHistoryEntry,
     PluginInstallMetadataEntry,
     PluginInstallMetadataFile,
@@ -58,6 +60,7 @@ from setta.plugins.models import (
     PluginScope,
     PluginsGlobalStateFile,
     PluginsLockFile,
+    PluginSourceManager,
     PluginSourceScheme,
     PluginSourceTrustStatus,
     PluginsRescanResponse,
@@ -66,6 +69,7 @@ from setta.plugins.models import (
     PluginStatusResponse,
     PluginUninstallResponse,
     PluginUpdateResponse,
+    normalize_installer_backend,
     normalize_scope,
     scope_label,
 )
@@ -80,6 +84,11 @@ _SCOPE_ORDER = {
     PluginScope.workspace: 0,
     PluginScope.setta_files: 1,
     PluginScope.global_scope: 2,
+}
+
+_SOURCE_MANAGER_ORDER = {
+    PluginSourceManager.setta: 0,
+    PluginSourceManager.package_manager: 1,
 }
 
 _MODE_ALLOWED_CAPABILITIES = {
@@ -108,6 +117,10 @@ _MODE_ALLOWED_CAPABILITIES = {
 
 _BACKEND_PLUGIN_API_VERSION = 1
 _UNVERIFIED_SOURCE_WARNING = "Source is unverified. Install only from trusted owners."
+_PACKAGE_MANAGER_SOURCE_HINT = (
+    "Managed by Python package manager in active environment. "
+    "Use uv/pip/Poetry to install, update, or remove."
+)
 _REQUIRED_BACKEND_RPC_METHODS = frozenset(
     {
         "plugin.initialize",
@@ -166,6 +179,8 @@ class DiscoveredPlugin:
     manifest: PluginManifest | None
     canonical_source_key: str
     source_digest_sha256: str | None
+    source_manager: PluginSourceManager = PluginSourceManager.setta
+    source_manager_hint: str | None = None
     errors: list[PluginErrorInfo] = field(default_factory=list)
     state: PluginRuntimeState = PluginRuntimeState.invalid
     shadowed_by_source_path: Path | None = None
@@ -284,6 +299,7 @@ class PluginManager:
         restart_callback: Callable[[], bool] | None = None,
         backend_startup_timeout_seconds: float = 10.0,
         backend_register_timeout_seconds: float = 10.0,
+        package_manager_search_paths: list[Path] | None = None,
     ) -> None:
         self.workspace_root = workspace_root
         self.setta_files_root = setta_files_root
@@ -299,6 +315,7 @@ class PluginManager:
         self._restart_callback = restart_callback
         self._backend_startup_timeout_seconds = backend_startup_timeout_seconds
         self._backend_register_timeout_seconds = backend_register_timeout_seconds
+        self._package_manager_search_paths = package_manager_search_paths
 
         self._manifest_schema_path = (
             Path(__file__).resolve().parent / "schemas" / "setta.plugin.schema.json"
@@ -473,6 +490,8 @@ class PluginManager:
                     version=entry.version,
                     sourceScope=entry.scope,
                     sourceScopeLabel=scope_label(entry.scope),
+                    sourceManager=entry.source_manager,
+                    sourceManagerHint=entry.source_manager_hint,
                     canonicalSourceKey=entry.canonical_source_key,
                     sourceDigestSha256=entry.source_digest_sha256,
                     frontend=frontend,
@@ -495,6 +514,7 @@ class PluginManager:
             key=lambda entry: (
                 entry.plugin_id,
                 _SCOPE_ORDER[entry.scope],
+                _SOURCE_MANAGER_ORDER[entry.source_manager],
                 str(entry.source_path),
             ),
         )
@@ -509,6 +529,8 @@ class PluginManager:
                     state=entry.state,
                     sourceScope=entry.scope,
                     sourceScopeLabel=scope_label(entry.scope),
+                    sourceManager=entry.source_manager,
+                    sourceManagerHint=entry.source_manager_hint,
                     sourcePath=str(entry.source_path),
                     canonicalSourceKey=entry.canonical_source_key,
                     sourceDigestSha256=entry.source_digest_sha256,
@@ -2570,10 +2592,12 @@ class PluginManager:
         *,
         source_spec: str,
         scope: str | PluginScope | None = None,
+        installer: str | PluginInstallerBackend | None = None,
         enable: bool = True,
         force: bool = False,
     ) -> PluginInstallResponse:
         resolved_scope = normalize_scope(scope)
+        resolved_installer = normalize_installer_backend(installer)
         parsed_spec = self._parse_source_spec(source_spec)
         with tempfile.TemporaryDirectory(
             prefix="setta-plugin-install-"
@@ -2582,7 +2606,11 @@ class PluginManager:
             if parsed_spec.scheme == PluginSourceScheme.github:
                 candidate = self._candidate_from_github(parsed_spec, tmp_dir)
             elif parsed_spec.scheme == PluginSourceScheme.pypi:
-                candidate = self._candidate_from_pypi(parsed_spec, tmp_dir)
+                candidate = self._candidate_from_pypi(
+                    parsed_spec,
+                    tmp_dir,
+                    installer_backend=resolved_installer,
+                )
             else:
                 raise PluginManagerError(
                     "PLUGIN_SOURCE_SCHEME_UNSUPPORTED",
@@ -2610,6 +2638,7 @@ class PluginManager:
                 scope=resolved_scope,
                 force=force,
                 source_spec=source_spec,
+                installer_backend=resolved_installer,
             )
             self._apply_enablement_after_install(
                 plugin_id=candidate.manifest.id,
@@ -2691,6 +2720,7 @@ class PluginManager:
             plugin_id=manifest.id,
             scope=resolved_scope,
             source_spec=f"local:{source_root}",
+            installer_backend=None,
             canonical_source_key=f"local:{source_root}",
             version=manifest.version,
             source_digest_sha256=source_digest,
@@ -2748,6 +2778,10 @@ class PluginManager:
                 f"Plugin not found for uninstall: {plugin_id}",
                 status_code=404,
             )
+        self._ensure_setta_managed_for_write(
+            entry=entry,
+            operation="uninstall",
+        )
         target = self._target_plugin_path(resolved_scope, plugin_id)
         restart_required = entry.has_backend
         if target.exists() and target.is_dir() and not target.is_symlink():
@@ -2879,6 +2913,17 @@ class PluginManager:
         to: str | None = None,
     ) -> PluginUpdateResponse:
         resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
+        existing_entry = self._find_entry(plugin_id, resolved_scope)
+        if existing_entry is None:
+            raise PluginManagerError(
+                "PLUGIN_NOT_FOUND",
+                f"Plugin not found: {plugin_id}",
+                status_code=404,
+            )
+        self._ensure_setta_managed_for_write(
+            entry=existing_entry,
+            operation="update",
+        )
         metadata_entry = self._get_install_metadata(plugin_id, resolved_scope)
         if metadata_entry is None:
             raise PluginManagerError(
@@ -2888,16 +2933,10 @@ class PluginManager:
         source_spec = metadata_entry.sourceSpec
         if to is not None:
             source_spec = self._retarget_source_spec(source_spec, to)
-        existing_entry = self._find_entry(plugin_id, resolved_scope)
-        if existing_entry is None:
-            raise PluginManagerError(
-                "PLUGIN_NOT_FOUND",
-                f"Plugin not found: {plugin_id}",
-                status_code=404,
-            )
         install_result = self.install_plugin(
             source_spec=source_spec,
             scope=resolved_scope,
+            installer=metadata_entry.installerBackend,
             enable=True,
             force=True,
         )
@@ -2928,6 +2967,11 @@ class PluginManager:
             raise PluginManagerError(
                 "PLUGIN_ROLLBACK_UNAVAILABLE",
                 f"No rollback history exists for plugin: {plugin_id}",
+            )
+        if current_entry is not None:
+            self._ensure_setta_managed_for_write(
+                entry=current_entry,
+                operation="rollback",
             )
         previous = entry.history.pop()
         snapshot_path = Path(previous.snapshotPath)
@@ -3280,8 +3324,84 @@ class PluginManager:
         return root
 
     def _discover_plugins(self) -> list[DiscoveredPlugin]:
-        entries: list[DiscoveredPlugin] = []
         install_metadata = self._load_install_metadata()
+        entries: list[DiscoveredPlugin] = self._discover_filesystem_plugins(
+            install_metadata
+        )
+        entries.extend(self._discover_package_manager_plugins())
+
+        grouped: dict[str, list[DiscoveredPlugin]] = {}
+        for entry in entries:
+            grouped.setdefault(entry.plugin_id, []).append(entry)
+
+        resolved_entries: list[DiscoveredPlugin] = []
+        plugins_state = self._load_plugins_state()
+        plugins_global_state = self._load_plugins_global_state()
+
+        for plugin_id, grouped_entries in grouped.items():
+            ordered_group = sorted(
+                grouped_entries,
+                key=lambda entry: (
+                    _SCOPE_ORDER[entry.scope],
+                    _SOURCE_MANAGER_ORDER[entry.source_manager],
+                    str(entry.source_path),
+                ),
+            )
+            primary = ordered_group[0]
+            for shadowed in ordered_group[1:]:
+                shadowed.state = PluginRuntimeState.shadowed
+                shadowed.shadowed_by_source_path = primary.source_path
+                shadowed.restart_required = False
+
+            self._resolve_primary_entry_state(
+                primary,
+                plugins_state=plugins_state,
+                plugins_global_state=plugins_global_state,
+            )
+            resolved_entries.extend(ordered_group)
+
+        discovered_plugin_ids = {entry.plugin_id for entry in entries}
+        stale_pending_removed_ids = [
+            plugin_id
+            for plugin_id in self._pending_restart_removed_backend_plugins
+            if plugin_id in discovered_plugin_ids
+        ]
+        for plugin_id in stale_pending_removed_ids:
+            self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
+
+        for (
+            plugin_id,
+            pending_removed,
+        ) in self._pending_restart_removed_backend_plugins.items():
+            if plugin_id in discovered_plugin_ids:
+                continue
+            resolved_entries.append(
+                DiscoveredPlugin(
+                    plugin_id=pending_removed.plugin_id,
+                    name=pending_removed.name,
+                    version=pending_removed.version,
+                    scope=pending_removed.scope,
+                    source_path=pending_removed.source_path,
+                    manifest=None,
+                    canonical_source_key=pending_removed.canonical_source_key,
+                    source_digest_sha256=pending_removed.source_digest_sha256,
+                    errors=[],
+                    state=PluginRuntimeState.pending_restart,
+                    shadowed_by_source_path=None,
+                    requested_capabilities=list(pending_removed.requested_capabilities),
+                    effective_capabilities=list(pending_removed.effective_capabilities),
+                    blocked_capabilities=list(pending_removed.blocked_capabilities),
+                    restart_required=True,
+                )
+            )
+
+        return resolved_entries
+
+    def _discover_filesystem_plugins(
+        self,
+        install_metadata: PluginInstallMetadataFile,
+    ) -> list[DiscoveredPlugin]:
+        entries: list[DiscoveredPlugin] = []
         for scope in (
             PluginScope.workspace,
             PluginScope.setta_files,
@@ -3373,69 +3493,148 @@ class PluginManager:
                         source_digest_sha256=digest,
                     )
                 )
+        return entries
 
-        grouped: dict[str, list[DiscoveredPlugin]] = {}
-        for entry in entries:
-            grouped.setdefault(entry.plugin_id, []).append(entry)
-
-        resolved_entries: list[DiscoveredPlugin] = []
-        plugins_state = self._load_plugins_state()
-        plugins_global_state = self._load_plugins_global_state()
-
-        for plugin_id, grouped_entries in grouped.items():
-            ordered_group = sorted(
-                grouped_entries,
-                key=lambda entry: (_SCOPE_ORDER[entry.scope], str(entry.source_path)),
-            )
-            primary = ordered_group[0]
-            for shadowed in ordered_group[1:]:
-                shadowed.state = PluginRuntimeState.shadowed
-                shadowed.shadowed_by_source_path = primary.source_path
-                shadowed.restart_required = False
-
-            self._resolve_primary_entry_state(
-                primary,
-                plugins_state=plugins_state,
-                plugins_global_state=plugins_global_state,
-            )
-            resolved_entries.extend(ordered_group)
-
-        discovered_plugin_ids = {entry.plugin_id for entry in entries}
-        stale_pending_removed_ids = [
-            plugin_id
-            for plugin_id in self._pending_restart_removed_backend_plugins
-            if plugin_id in discovered_plugin_ids
-        ]
-        for plugin_id in stale_pending_removed_ids:
-            self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
-
-        for (
-            plugin_id,
-            pending_removed,
-        ) in self._pending_restart_removed_backend_plugins.items():
-            if plugin_id in discovered_plugin_ids:
+    def _discover_package_manager_plugins(self) -> list[DiscoveredPlugin]:
+        entries: list[DiscoveredPlugin] = []
+        seen_roots: set[str] = set()
+        search_paths = (
+            None
+            if self._package_manager_search_paths is None
+            else [str(path) for path in self._package_manager_search_paths]
+        )
+        distributions = (
+            importlib.metadata.distributions()
+            if search_paths is None
+            else importlib.metadata.distributions(path=search_paths)
+        )
+        for distribution in distributions:
+            manifest_paths = self._distribution_manifest_paths(distribution)
+            if len(manifest_paths) == 0:
                 continue
-            resolved_entries.append(
+            distribution_name = self._distribution_name(distribution)
+            normalized_name = self._normalize_distribution_name(distribution_name)
+            canonical_source_key = (
+                f"pypi:{normalized_name}"
+                if normalized_name is not None
+                else f"python-env:{distribution_name or 'unknown'}"
+            )
+            if len(manifest_paths) > 1:
+                plugin_id = normalized_name or "unknown"
+                plugin_name = distribution_name or plugin_id
+                entries.append(
+                    DiscoveredPlugin(
+                        plugin_id=plugin_id,
+                        name=plugin_name,
+                        version=self._distribution_version(distribution),
+                        scope=PluginScope.setta_files,
+                        source_path=manifest_paths[0].parent,
+                        manifest=None,
+                        canonical_source_key=canonical_source_key,
+                        source_digest_sha256=None,
+                        source_manager=PluginSourceManager.package_manager,
+                        source_manager_hint=_PACKAGE_MANAGER_SOURCE_HINT,
+                        errors=[
+                            PluginErrorInfo(
+                                code="PLUGIN_SOURCE_AMBIGUOUS_PLUGIN_ROOT",
+                                message=(
+                                    "Environment distribution contained multiple "
+                                    f"setta.plugin.json files: {distribution_name}"
+                                ),
+                            )
+                        ],
+                        state=PluginRuntimeState.invalid,
+                    )
+                )
+                continue
+            manifest_path = manifest_paths[0]
+            plugin_root = manifest_path.parent
+            source_key = str(plugin_root.resolve(strict=False))
+            if source_key in seen_roots:
+                continue
+            seen_roots.add(source_key)
+            try:
+                manifest = self._load_and_validate_manifest(manifest_path)
+                self._validate_manifest_paths(plugin_root, manifest)
+                self._validate_setta_version_range(manifest)
+                self._validate_plugin_config_schema_file(plugin_root, manifest)
+            except PluginManagerError as exc:
+                plugin_id = normalized_name or (distribution_name or "unknown")
+                plugin_name = distribution_name or plugin_id
+                entries.append(
+                    DiscoveredPlugin(
+                        plugin_id=plugin_id,
+                        name=plugin_name,
+                        version=self._distribution_version(distribution),
+                        scope=PluginScope.setta_files,
+                        source_path=plugin_root,
+                        manifest=None,
+                        canonical_source_key=canonical_source_key,
+                        source_digest_sha256=None,
+                        source_manager=PluginSourceManager.package_manager,
+                        source_manager_hint=_PACKAGE_MANAGER_SOURCE_HINT,
+                        errors=[PluginErrorInfo(code=exc.code, message=exc.message)],
+                        state=PluginRuntimeState.invalid,
+                    )
+                )
+                continue
+            digest = self._compute_directory_digest(plugin_root)
+            entries.append(
                 DiscoveredPlugin(
-                    plugin_id=pending_removed.plugin_id,
-                    name=pending_removed.name,
-                    version=pending_removed.version,
-                    scope=pending_removed.scope,
-                    source_path=pending_removed.source_path,
-                    manifest=None,
-                    canonical_source_key=pending_removed.canonical_source_key,
-                    source_digest_sha256=pending_removed.source_digest_sha256,
-                    errors=[],
-                    state=PluginRuntimeState.pending_restart,
-                    shadowed_by_source_path=None,
-                    requested_capabilities=list(pending_removed.requested_capabilities),
-                    effective_capabilities=list(pending_removed.effective_capabilities),
-                    blocked_capabilities=list(pending_removed.blocked_capabilities),
-                    restart_required=True,
+                    plugin_id=manifest.id,
+                    name=manifest.name,
+                    version=manifest.version,
+                    scope=PluginScope.setta_files,
+                    source_path=plugin_root,
+                    manifest=manifest,
+                    canonical_source_key=canonical_source_key,
+                    source_digest_sha256=digest,
+                    source_manager=PluginSourceManager.package_manager,
+                    source_manager_hint=_PACKAGE_MANAGER_SOURCE_HINT,
                 )
             )
+        return entries
 
-        return resolved_entries
+    def _distribution_manifest_paths(
+        self,
+        distribution: importlib.metadata.Distribution,
+    ) -> list[Path]:
+        files = distribution.files
+        if files is None:
+            return []
+        manifests: list[Path] = []
+        for file in files:
+            if Path(str(file)).name != "setta.plugin.json":
+                continue
+            manifests.append(Path(distribution.locate_file(file)).resolve(strict=False))
+        return sorted(manifests, key=lambda path: str(path))
+
+    def _distribution_name(
+        self,
+        distribution: importlib.metadata.Distribution,
+    ) -> str | None:
+        raw_name = distribution.metadata.get("Name")
+        if not isinstance(raw_name, str):
+            return None
+        name = raw_name.strip()
+        return name or None
+
+    def _distribution_version(
+        self,
+        distribution: importlib.metadata.Distribution,
+    ) -> str:
+        raw_version = distribution.version
+        if isinstance(raw_version, str) and raw_version.strip():
+            return raw_version.strip()
+        return "unknown"
+
+    def _normalize_distribution_name(self, raw_name: str | None) -> str | None:
+        if raw_name is None:
+            return None
+        try:
+            return self._normalize_package_name(raw_name)
+        except PluginManagerError:
+            return None
 
     def _resolve_primary_entry_state(
         self,
@@ -3905,49 +4104,40 @@ class PluginManager:
         )
 
     def _candidate_from_pypi(
-        self, source_spec: ParsedSourceSpec, tmp_dir: Path
+        self,
+        source_spec: ParsedSourceSpec,
+        tmp_dir: Path,
+        *,
+        installer_backend: PluginInstallerBackend,
     ) -> CandidatePlugin:
         assert source_spec.package is not None
         package_spec = source_spec.package
         if source_spec.version:
             package_spec = f"{package_spec}=={source_spec.version}"
 
-        download_cmd = [
-            sys.executable,
-            "-m",
-            "pip",
-            "download",
-            "--no-deps",
-            "--dest",
-            str(tmp_dir),
-            package_spec,
-        ]
-        result = subprocess.run(
-            download_cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            raise PluginManagerError(
-                "PLUGIN_SOURCE_FETCH_FAILED",
-                (
-                    "Failed to download PyPI plugin source: "
-                    f"{source_spec.raw}\n{result.stderr.strip() or result.stdout.strip()}"
-                ),
-            )
-
-        artifacts = sorted(tmp_dir.iterdir(), key=lambda path: path.name)
-        if len(artifacts) == 0:
-            raise PluginManagerError(
-                "PLUGIN_SOURCE_FETCH_FAILED",
-                f"No artifacts were downloaded for source: {source_spec.raw}",
-            )
-
-        artifact_path = artifacts[0]
+        resolved_backend = self._resolve_installer_backend(installer_backend)
         extract_root = tmp_dir / "extract"
-        extract_root.mkdir(parents=True, exist_ok=True)
-        self._extract_artifact(artifact_path, extract_root)
+        if resolved_backend == PluginInstallerBackend.pip:
+            self._download_pypi_with_pip(
+                package_spec=package_spec,
+                tmp_dir=tmp_dir,
+                source_spec=source_spec.raw,
+            )
+            artifacts = sorted(tmp_dir.iterdir(), key=lambda path: path.name)
+            if len(artifacts) == 0:
+                raise PluginManagerError(
+                    "PLUGIN_SOURCE_FETCH_FAILED",
+                    f"No artifacts were downloaded for source: {source_spec.raw}",
+                )
+            artifact_path = artifacts[0]
+            extract_root.mkdir(parents=True, exist_ok=True)
+            self._extract_artifact(artifact_path, extract_root)
+        else:
+            self._install_pypi_with_uv(
+                package_spec=package_spec,
+                extract_root=extract_root,
+                source_spec=source_spec.raw,
+            )
 
         manifest_candidates = sorted(
             extract_root.rglob("setta.plugin.json"), key=lambda path: str(path)
@@ -3993,6 +4183,108 @@ class PluginManager:
             source_digest_sha256=self._compute_directory_digest(plugin_root),
         )
 
+    def _resolve_installer_backend(
+        self,
+        installer_backend: PluginInstallerBackend,
+    ) -> PluginInstallerBackend:
+        if installer_backend == PluginInstallerBackend.pip:
+            return PluginInstallerBackend.pip
+        if installer_backend == PluginInstallerBackend.uv:
+            uv_binary = shutil.which("uv")
+            if uv_binary is None:
+                raise PluginManagerError(
+                    "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE",
+                    "Requested installer backend is unavailable: uv",
+                )
+            return PluginInstallerBackend.uv
+        uv_binary = shutil.which("uv")
+        if uv_binary is not None:
+            return PluginInstallerBackend.uv
+        return PluginInstallerBackend.pip
+
+    def _download_pypi_with_pip(
+        self,
+        *,
+        package_spec: str,
+        tmp_dir: Path,
+        source_spec: str,
+    ) -> None:
+        download_cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--no-deps",
+            "--dest",
+            str(tmp_dir),
+            package_spec,
+        ]
+        result = subprocess.run(
+            download_cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return
+        raise PluginManagerError(
+            "PLUGIN_SOURCE_FETCH_FAILED",
+            (
+                "Failed to download PyPI plugin source: "
+                f"{source_spec}\n{result.stderr.strip() or result.stdout.strip()}"
+            ),
+        )
+
+    def _install_pypi_with_uv(
+        self,
+        *,
+        package_spec: str,
+        extract_root: Path,
+        source_spec: str,
+    ) -> None:
+        uv_binary = shutil.which("uv")
+        if uv_binary is None:
+            raise PluginManagerError(
+                "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE",
+                "Requested installer backend is unavailable: uv",
+            )
+        extract_root.mkdir(parents=True, exist_ok=True)
+        install_cmd = [
+            uv_binary,
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(extract_root),
+            package_spec,
+        ]
+        result = subprocess.run(
+            install_cmd,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=self._build_uv_install_env(),
+        )
+        if result.returncode == 0:
+            return
+        raise PluginManagerError(
+            "PLUGIN_SOURCE_FETCH_FAILED",
+            (
+                "Failed to install PyPI plugin source with uv: "
+                f"{source_spec}\n{result.stderr.strip() or result.stdout.strip()}"
+            ),
+        )
+
+    def _build_uv_install_env(self) -> dict[str, str]:
+        env = dict(os.environ)
+        pip_no_index = env.get("PIP_NO_INDEX")
+        if pip_no_index is not None and "UV_NO_INDEX" not in env:
+            env["UV_NO_INDEX"] = pip_no_index
+        pip_find_links = env.get("PIP_FIND_LINKS")
+        if pip_find_links is not None and "UV_FIND_LINKS" not in env:
+            env["UV_FIND_LINKS"] = pip_find_links
+        return env
+
     def _install_candidate(
         self,
         candidate: CandidatePlugin,
@@ -4001,6 +4293,7 @@ class PluginManager:
         scope: PluginScope,
         force: bool,
         source_spec: str,
+        installer_backend: PluginInstallerBackend,
     ) -> None:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         if target_path.exists() or target_path.is_symlink():
@@ -4026,6 +4319,7 @@ class PluginManager:
             plugin_id=candidate.manifest.id,
             scope=scope,
             source_spec=source_spec,
+            installer_backend=installer_backend,
             canonical_source_key=candidate.canonical_source_key,
             version=candidate.manifest.version,
             source_digest_sha256=candidate.source_digest_sha256,
@@ -4142,6 +4436,7 @@ class PluginManager:
         plugin_id: str,
         scope: PluginScope,
         source_spec: str,
+        installer_backend: PluginInstallerBackend | None,
         canonical_source_key: str,
         version: str,
         source_digest_sha256: str,
@@ -4154,6 +4449,7 @@ class PluginManager:
             pluginId=plugin_id,
             scope=scope,
             sourceSpec=source_spec,
+            installerBackend=installer_backend,
             canonicalSourceKey=canonical_source_key,
             sourceDigestSha256=source_digest_sha256,
             version=version,
@@ -4627,10 +4923,27 @@ class PluginManager:
             entries,
             key=lambda entry: (
                 _SCOPE_ORDER[entry.scope],
+                _SOURCE_MANAGER_ORDER[entry.source_manager],
                 str(entry.source_path),
             ),
         )
         return ordered[0]
+
+    def _ensure_setta_managed_for_write(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        operation: str,
+    ) -> None:
+        if entry.source_manager != PluginSourceManager.package_manager:
+            return
+        raise PluginManagerError(
+            "PLUGIN_MANAGED_EXTERNALLY",
+            (
+                f"Plugin {entry.plugin_id} is managed by a Python package manager. "
+                f"Use uv/pip/Poetry to {operation} it."
+            ),
+        )
 
     def _resolve_uninstall_scope(
         self, plugin_id: str, scope: str | PluginScope | None

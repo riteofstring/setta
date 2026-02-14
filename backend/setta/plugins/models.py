@@ -51,6 +51,17 @@ class PluginSourceTrustStatus(str, Enum):
     unverified = "unverified"
 
 
+class PluginInstallerBackend(str, Enum):
+    auto = "auto"
+    pip = "pip"
+    uv = "uv"
+
+
+class PluginSourceManager(str, Enum):
+    setta = "setta"
+    package_manager = "package_manager"
+
+
 class BlockedCapabilityReason(str, Enum):
     mode_policy = "mode_policy"
     host_policy = "host_policy"
@@ -210,6 +221,8 @@ class PluginListEntry(BaseModel):
     version: str
     sourceScope: PluginScope
     sourceScopeLabel: Literal["workspace", "environment", "global"]
+    sourceManager: PluginSourceManager = PluginSourceManager.setta
+    sourceManagerHint: str | None = None
     canonicalSourceKey: str
     sourceDigestSha256: str | None = None
     frontend: PluginFrontendDescriptor
@@ -238,6 +251,8 @@ class PluginStatusEntry(BaseModel):
     state: PluginRuntimeState
     sourceScope: PluginScope
     sourceScopeLabel: Literal["workspace", "environment", "global"]
+    sourceManager: PluginSourceManager = PluginSourceManager.setta
+    sourceManagerHint: str | None = None
     sourcePath: str
     canonicalSourceKey: str
     sourceDigestSha256: str | None = None
@@ -386,6 +401,7 @@ class PluginInstallMetadataEntry(BaseModel):
     pluginId: str
     scope: PluginScope
     sourceSpec: str
+    installerBackend: PluginInstallerBackend | None = None
     canonicalSourceKey: str
     sourceDigestSha256: str | None = None
     version: str
@@ -401,6 +417,27 @@ class PluginInstallMetadataFile(BaseModel):
 class PluginSourceScheme(str, Enum):
     github = "github"
     pypi = "pypi"
+
+
+def normalize_installer_backend(
+    raw_installer: str | PluginInstallerBackend | None,
+    *,
+    default_installer: PluginInstallerBackend = PluginInstallerBackend.auto,
+) -> PluginInstallerBackend:
+    if raw_installer is None:
+        return default_installer
+    if isinstance(raw_installer, PluginInstallerBackend):
+        return raw_installer
+    normalized = raw_installer.strip().lower()
+    if normalized == "":
+        return default_installer
+    if normalized == PluginInstallerBackend.auto.value:
+        return PluginInstallerBackend.auto
+    if normalized == PluginInstallerBackend.pip.value:
+        return PluginInstallerBackend.pip
+    if normalized == PluginInstallerBackend.uv.value:
+        return PluginInstallerBackend.uv
+    raise ValueError(f"Invalid plugin installer backend: {raw_installer!r}")
 
 
 def normalize_scope(
