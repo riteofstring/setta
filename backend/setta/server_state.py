@@ -332,7 +332,7 @@ class SettaFastAPIState:
     async def _initialize_async(self, app):
         try:
             if self.deployment_mode:
-                await self._initialize_deployment_async()
+                await self._initialize_deployment_async(app)
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -427,6 +427,10 @@ class SettaFastAPIState:
                 self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
             else:
                 self.lsp_readers = None
+
+            self.init_status.record("Loading backend plugins")
+            await self._maybe_delay()
+            self.plugin_manager.load_backend_plugins(app=app)
 
             self.init_status.record("Booting MCP and chat managers")
             await self._maybe_delay()
@@ -531,7 +535,7 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_deployment_async(self) -> None:
+    async def _initialize_deployment_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -631,6 +635,9 @@ class SettaFastAPIState:
                 "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
+        self.init_status.record("Loading backend plugins")
+        await self._maybe_delay()
+        self.plugin_manager.load_backend_plugins(app=app)
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._ready_event.set()

@@ -4,7 +4,10 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
+from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
 from setta.plugins.models import PluginRuntimeState, PluginScope, normalize_scope
@@ -169,6 +172,101 @@ def test_backend_plugin_disable_stays_pending_restart(tmp_path: Path) -> None:
     assert len(status_entries) == 1
     assert status_entries[0].state == PluginRuntimeState.pending_restart
     assert status_entries[0].restartRequired is True
+
+
+def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
+    tmp_path: Path,
+) -> None:
+    # Backend fixture plugins should load real entrypoints and register router/tool hooks.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    app = FastAPI()
+    baseline_tools = list(SETTA_MCP_TOOLS)
+    try:
+        manager.load_backend_plugins(app=app)
+
+        backend_entries = [
+            entry
+            for entry in manager.get_status_response().plugins
+            if entry.pluginId == "setta-fixture-backend"
+            and entry.sourceScope == PluginScope.workspace
+            and entry.shadowedBySourcePath is None
+        ]
+        assert len(backend_entries) == 1
+        assert backend_entries[0].state == PluginRuntimeState.active
+
+        loaded_tool_names = {tool.__name__ for tool in SETTA_MCP_TOOLS}
+        assert "setta_fixture_backend_echo" in loaded_tool_names
+
+        with TestClient(app) as client:
+            response = client.get("/api/plugins/setta-fixture-backend/health")
+            assert response.status_code == 200
+            assert response.json() == {
+                "pluginId": "setta-fixture-backend",
+                "status": "ok",
+            }
+    finally:
+        SETTA_MCP_TOOLS[:] = baseline_tools
+
+
+def test_load_backend_plugins_marks_import_failures_invalid(tmp_path: Path) -> None:
+    # Backend import failures should map to deterministic invalid-plugin status codes.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n    if True\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_IMPORT_FAILED" in error_codes
+
+
+def test_backend_plugin_capability_denied_is_reported(tmp_path: Path) -> None:
+    # Calling blocked backend APIs in non-IDE modes should fail with capability-denied.
+    manager = _make_manager(tmp_path, server_mode="share")
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_CAPABILITY_DENIED" in error_codes
 
 
 def test_plugin_config_schema_validation_and_list_descriptors(

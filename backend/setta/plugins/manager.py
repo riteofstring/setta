@@ -1,4 +1,6 @@
 import hashlib
+import importlib.util
+import inspect
 import json
 import os
 import shutil
@@ -7,10 +9,12 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import wraps
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from jsonschema import ValidationError as JSONSchemaValidationError
 from jsonschema import validate as jsonschema_validate
@@ -56,6 +60,9 @@ from setta.plugins.models import (
     normalize_scope,
     scope_label,
 )
+
+if TYPE_CHECKING:
+    from fastapi import APIRouter, FastAPI
 
 _SCOPE_ORDER = {
     PluginScope.workspace: 0,
@@ -151,6 +158,64 @@ class DiscoveredPlugin:
         return self.manifest is not None and self.manifest.content is not None
 
 
+@dataclass(slots=True)
+class BackendPluginContext:
+    plugin_id: str
+    plugin_root: Path
+    server_mode: Literal["ide", "share", "app"]
+    requested_capabilities: list[str]
+    effective_capabilities: list[str]
+    _register_router_fn: Callable[["APIRouter", str | None], None]
+    _register_static_dir_fn: Callable[[str, str | Path], None]
+    _register_mcp_tool_fn: Callable[
+        [Callable[..., Any], str | None, dict[str, Any] | None], None
+    ]
+    _register_external_agent_adapter_fn: Callable[[Any], None]
+    _register_language_server_fn: Callable[[Any], None]
+    _register_codegen_target_fn: Callable[[Any], None]
+    _register_startup_task_fn: Callable[[Callable[..., Any]], None]
+    _register_shutdown_task_fn: Callable[[Callable[..., Any]], None]
+
+    @property
+    def deployment_mode(self) -> bool:
+        return self.server_mode in {"share", "app"}
+
+    def register_router(
+        self,
+        router: "APIRouter",
+        *,
+        prefix: str | None = None,
+    ) -> None:
+        self._register_router_fn(router, prefix)
+
+    def register_static_dir(self, url_prefix: str, path: str | Path) -> None:
+        self._register_static_dir_fn(url_prefix, path)
+
+    def register_mcp_tool(
+        self,
+        func: Callable[..., Any],
+        *,
+        name: str | None = None,
+        annotations: dict[str, Any] | None = None,
+    ) -> None:
+        self._register_mcp_tool_fn(func, name, annotations)
+
+    def register_external_agent_adapter(self, adapter: Any) -> None:
+        self._register_external_agent_adapter_fn(adapter)
+
+    def register_language_server(self, provider: Any) -> None:
+        self._register_language_server_fn(provider)
+
+    def register_codegen_target(self, target: Any) -> None:
+        self._register_codegen_target_fn(target)
+
+    def register_startup_task(self, coro_fn: Callable[..., Any]) -> None:
+        self._register_startup_task_fn(coro_fn)
+
+    def register_shutdown_task(self, coro_fn: Callable[..., Any]) -> None:
+        self._register_shutdown_task_fn(coro_fn)
+
+
 class PluginManager:
     def __init__(
         self,
@@ -183,9 +248,44 @@ class PluginManager:
         self._lockfile_path = self.workspace_root / "plugins" / "plugins.lock.json"
 
         self._pending_restart_backend_ids: set[str] = set()
+        self._backend_runtime_errors: dict[str, PluginErrorInfo] = {}
+        self._backend_loaded_plugin_ids: set[str] = set()
+        self._backend_external_agent_adapters: dict[str, list[Any]] = {}
+        self._backend_language_servers: dict[str, list[Any]] = {}
+        self._backend_codegen_targets: dict[str, list[Any]] = {}
+        self._backend_startup_tasks: dict[str, list[Callable[..., Any]]] = {}
+        self._backend_shutdown_tasks: dict[str, list[Callable[..., Any]]] = {}
         self._discovered_plugins: list[DiscoveredPlugin] = []
         self._active_plugin_by_id: dict[str, DiscoveredPlugin] = {}
 
+        self.rescan()
+
+    def load_backend_plugins(self, *, app: "FastAPI") -> None:
+        self._backend_runtime_errors = {}
+        self._backend_loaded_plugin_ids = set()
+        self._backend_external_agent_adapters = {}
+        self._backend_language_servers = {}
+        self._backend_codegen_targets = {}
+        self._backend_startup_tasks = {}
+        self._backend_shutdown_tasks = {}
+
+        backend_entries = self._backend_entries_for_load()
+        for entry in backend_entries:
+            try:
+                self._load_backend_plugin_entry(app=app, entry=entry)
+            except PluginManagerError as exc:
+                self._backend_runtime_errors[entry.plugin_id] = PluginErrorInfo(
+                    code=exc.code,
+                    message=exc.message,
+                )
+                continue
+            except Exception as exc:
+                self._backend_runtime_errors[entry.plugin_id] = PluginErrorInfo(
+                    code="PLUGIN_BACKEND_IMPORT_FAILED",
+                    message=f"Backend plugin load failed for {entry.plugin_id}: {exc}",
+                )
+                continue
+            self._backend_loaded_plugin_ids.add(entry.plugin_id)
         self.rescan()
 
     def rescan(self) -> PluginsRescanResponse:
@@ -325,6 +425,356 @@ class PluginManager:
             "command": capability.command,
             "reason": capability.reason,
         }
+
+    def _backend_entries_for_load(self) -> list[DiscoveredPlugin]:
+        candidates = [
+            entry
+            for entry in self._discovered_plugins
+            if entry.shadowed_by_source_path is None
+            and entry.has_backend
+            and entry.state == PluginRuntimeState.active
+        ]
+        return sorted(
+            candidates,
+            key=lambda entry: (
+                entry.plugin_id,
+                _SCOPE_ORDER[entry.scope],
+                str(entry.source_path),
+            ),
+        )
+
+    def _load_backend_plugin_entry(
+        self,
+        *,
+        app: "FastAPI",
+        entry: DiscoveredPlugin,
+    ) -> None:
+        if entry.manifest is None or entry.manifest.backend is None:
+            return
+        entrypoint_path = self._resolve_relative_path(
+            entry.source_path,
+            entry.manifest.backend.entrypoint,
+            code="PLUGIN_BACKEND_IMPORT_FAILED",
+            message_prefix="Invalid backend entrypoint path",
+        )
+        module = self._import_backend_plugin_module(
+            entry=entry,
+            entrypoint_path=entrypoint_path,
+        )
+        register_fn = getattr(module, "register", None)
+        if register_fn is None or not callable(register_fn):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_IMPORT_FAILED",
+                (
+                    f"Backend plugin {entry.plugin_id} does not expose "
+                    "a callable register(plugin) entrypoint."
+                ),
+            )
+        context = self._build_backend_plugin_context(app=app, entry=entry)
+        result = register_fn(context)
+        if inspect.isawaitable(result):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_IMPORT_FAILED",
+                (
+                    f"Backend plugin {entry.plugin_id} returned an awaitable from "
+                    "register(plugin); async register is not supported in MVP."
+                ),
+            )
+
+    def _import_backend_plugin_module(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        entrypoint_path: Path,
+    ) -> Any:
+        module_name = self._build_backend_module_name(entry)
+        spec = importlib.util.spec_from_file_location(module_name, entrypoint_path)
+        if spec is None or spec.loader is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_IMPORT_FAILED",
+                f"Unable to load backend entrypoint for plugin {entry.plugin_id}.",
+            )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as exc:
+            sys.modules.pop(module_name, None)
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_IMPORT_FAILED",
+                f"Failed to import backend plugin {entry.plugin_id}: {exc}",
+            ) from exc
+        return module
+
+    def _build_backend_module_name(self, entry: DiscoveredPlugin) -> str:
+        plugin_token = "".join(
+            char if char.isalnum() else "_" for char in entry.plugin_id
+        )
+        digest_token = (entry.source_digest_sha256 or "runtime")[:12]
+        return f"setta_plugin_backend_{plugin_token}_{digest_token}"
+
+    def _build_backend_plugin_context(
+        self,
+        *,
+        app: "FastAPI",
+        entry: DiscoveredPlugin,
+    ) -> BackendPluginContext:
+        return BackendPluginContext(
+            plugin_id=entry.plugin_id,
+            plugin_root=entry.source_path,
+            server_mode=self.server_mode,
+            requested_capabilities=list(entry.requested_capabilities),
+            effective_capabilities=list(entry.effective_capabilities),
+            _register_router_fn=lambda router, prefix: self._register_backend_router(
+                app=app,
+                entry=entry,
+                router=router,
+                prefix=prefix,
+            ),
+            _register_static_dir_fn=lambda url_prefix, path: self._register_backend_static_dir(
+                app=app,
+                entry=entry,
+                url_prefix=url_prefix,
+                path=path,
+            ),
+            _register_mcp_tool_fn=lambda func, name, annotations: self._register_backend_mcp_tool(
+                entry=entry,
+                func=func,
+                name=name,
+                annotations=annotations,
+            ),
+            _register_external_agent_adapter_fn=lambda adapter: self._register_backend_external_agent_adapter(
+                entry=entry,
+                adapter=adapter,
+            ),
+            _register_language_server_fn=lambda provider: self._register_backend_language_server(
+                entry=entry,
+                provider=provider,
+            ),
+            _register_codegen_target_fn=lambda target: self._register_backend_codegen_target(
+                entry=entry,
+                target=target,
+            ),
+            _register_startup_task_fn=lambda coro_fn: self._register_backend_startup_task(
+                entry=entry,
+                coro_fn=coro_fn,
+            ),
+            _register_shutdown_task_fn=lambda coro_fn: self._register_backend_shutdown_task(
+                entry=entry,
+                coro_fn=coro_fn,
+            ),
+        )
+
+    def _require_effective_capability(
+        self,
+        entry: DiscoveredPlugin,
+        capability: str,
+        *,
+        api_name: str,
+    ) -> None:
+        if capability in entry.effective_capabilities:
+            return
+        raise PluginManagerError(
+            "PLUGIN_CAPABILITY_DENIED",
+            (
+                f"Plugin {entry.plugin_id} cannot call {api_name}; "
+                f"capability {capability} is not effective in mode {self.server_mode}."
+            ),
+        )
+
+    def _register_backend_router(
+        self,
+        *,
+        app: "FastAPI",
+        entry: DiscoveredPlugin,
+        router: "APIRouter",
+        prefix: str | None,
+    ) -> None:
+        from fastapi import APIRouter
+
+        self._require_effective_capability(
+            entry,
+            "registerRouter",
+            api_name="register_router",
+        )
+        if not isinstance(router, APIRouter):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {entry.plugin_id} passed an invalid router to "
+                    "register_router (expected fastapi.APIRouter)."
+                ),
+            )
+        route_prefix = self._build_plugin_route_prefix(entry.plugin_id, prefix)
+        app.include_router(router, prefix=route_prefix)
+
+    def _build_plugin_route_prefix(self, plugin_id: str, prefix: str | None) -> str:
+        base = f"/api/plugins/{plugin_id}"
+        if prefix is None:
+            return base
+        trimmed = prefix.strip()
+        if not trimmed:
+            return base
+        if not trimmed.startswith("/"):
+            trimmed = f"/{trimmed}"
+        if trimmed == "/":
+            return base
+        return f"{base}{trimmed}"
+
+    def _register_backend_static_dir(
+        self,
+        *,
+        app: "FastAPI",
+        entry: DiscoveredPlugin,
+        url_prefix: str,
+        path: str | Path,
+    ) -> None:
+        from fastapi.staticfiles import StaticFiles
+
+        self._require_effective_capability(
+            entry,
+            "registerStaticDir",
+            api_name="register_static_dir",
+        )
+        if isinstance(path, Path):
+            source_path = path
+        else:
+            source_path = self._resolve_relative_path(
+                entry.source_path,
+                path,
+                code="PLUGIN_BACKEND_REGISTER_FAILED",
+                message_prefix="Invalid static directory path",
+            )
+        if not source_path.exists() or not source_path.is_dir():
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {entry.plugin_id} static directory does not exist: "
+                    f"{source_path}"
+                ),
+            )
+        normalized_prefix = url_prefix.strip().strip("/")
+        mount_path = f"/plugins/{entry.plugin_id}"
+        if normalized_prefix:
+            mount_path = f"{mount_path}/{normalized_prefix}"
+        mount_name = f"plugin-static-{entry.plugin_id}-{normalized_prefix or 'root'}"
+        app.mount(
+            mount_path,
+            StaticFiles(directory=str(source_path), html=False),
+            name=mount_name,
+        )
+
+    def _register_backend_mcp_tool(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        func: Callable[..., Any],
+        name: str | None,
+        annotations: dict[str, Any] | None,
+    ) -> None:
+        from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
+        from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+
+        self._require_effective_capability(
+            entry,
+            "registerMcpTools",
+            api_name="register_mcp_tool",
+        )
+        if not callable(func):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                f"Plugin {entry.plugin_id} passed a non-callable MCP tool.",
+            )
+        tool_fn = self._wrap_mcp_tool_with_name(func, name)
+        if annotations is not None:
+            access_type = annotations.get("accessType")
+            if access_type in {"read", "write", "structural"}:
+                attach_tool_access(
+                    tool_fn,
+                    ToolAccessMetadata(accessType=access_type),
+                )
+        SETTA_MCP_TOOLS.append(tool_fn)
+
+    def _wrap_mcp_tool_with_name(
+        self,
+        func: Callable[..., Any],
+        name: str | None,
+    ) -> Callable[..., Any]:
+        if name is None or name == func.__name__:
+            return func
+
+        @wraps(func)
+        def wrapped(*args: Any, **kwargs: Any) -> Any:
+            return func(*args, **kwargs)
+
+        wrapped.__name__ = name
+        wrapped.__qualname__ = name
+        return wrapped
+
+    def _register_backend_external_agent_adapter(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        adapter: Any,
+    ) -> None:
+        self._require_effective_capability(
+            entry,
+            "registerExternalAgentAdapter",
+            api_name="register_external_agent_adapter",
+        )
+        if entry.plugin_id not in self._backend_external_agent_adapters:
+            self._backend_external_agent_adapters[entry.plugin_id] = []
+        self._backend_external_agent_adapters[entry.plugin_id].append(adapter)
+
+    def _register_backend_language_server(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        provider: Any,
+    ) -> None:
+        self._require_effective_capability(
+            entry,
+            "registerLanguageServer",
+            api_name="register_language_server",
+        )
+        if entry.plugin_id not in self._backend_language_servers:
+            self._backend_language_servers[entry.plugin_id] = []
+        self._backend_language_servers[entry.plugin_id].append(provider)
+
+    def _register_backend_codegen_target(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        target: Any,
+    ) -> None:
+        self._require_effective_capability(
+            entry,
+            "registerCodegenTarget",
+            api_name="register_codegen_target",
+        )
+        if entry.plugin_id not in self._backend_codegen_targets:
+            self._backend_codegen_targets[entry.plugin_id] = []
+        self._backend_codegen_targets[entry.plugin_id].append(target)
+
+    def _register_backend_startup_task(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        coro_fn: Callable[..., Any],
+    ) -> None:
+        if entry.plugin_id not in self._backend_startup_tasks:
+            self._backend_startup_tasks[entry.plugin_id] = []
+        self._backend_startup_tasks[entry.plugin_id].append(coro_fn)
+
+    def _register_backend_shutdown_task(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        coro_fn: Callable[..., Any],
+    ) -> None:
+        if entry.plugin_id not in self._backend_shutdown_tasks:
+            self._backend_shutdown_tasks[entry.plugin_id] = []
+        self._backend_shutdown_tasks[entry.plugin_id].append(coro_fn)
 
     def resolve_plugin_asset_path(self, plugin_id: str, asset_path: str) -> Path:
         entry = self._active_plugin_by_id.get(plugin_id)
@@ -1158,6 +1608,18 @@ class PluginManager:
                 for capability in requested
             ]
             entry.effective_capabilities = []
+            entry.restart_required = False
+            return
+
+        runtime_error = self._backend_runtime_errors.get(entry.plugin_id)
+        if entry.has_backend and runtime_error is not None:
+            entry.state = PluginRuntimeState.invalid
+            entry.errors.append(
+                PluginErrorInfo(
+                    code=runtime_error.code,
+                    message=runtime_error.message,
+                )
+            )
             entry.restart_required = False
             return
 
