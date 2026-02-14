@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import net from "node:net";
+import * as path from "node:path";
 import { ensureAppReady } from "../helpers";
 
 async function pickFreeLocalPort(): Promise<number> {
@@ -61,9 +61,7 @@ test("workspace switcher launches a session and persists history", async ({
 
   await ensureAppReady(page);
   await page.setViewportSize({ width: 1000, height: 560 });
-  await page.evaluate(() =>
-    localStorage.removeItem("setta.workspaceHistory"),
-  );
+  await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
   await page.evaluate(() =>
     localStorage.removeItem("setta.workspaceHistoryHandoff"),
   );
@@ -140,12 +138,15 @@ test("workspace switcher launches a session and persists history", async ({
   });
   await modalAfterError.getByRole("button", { name: "Launch" }).click();
 
-  await page.waitForURL("**/launching");
-  const requestBody = (await launchRequest).postDataJSON() as Record<
+  const capturedLaunchRequest = await launchRequest;
+  const launchResponse = await capturedLaunchRequest.response();
+  expect(launchResponse?.ok()).toBe(true);
+  const requestBody = capturedLaunchRequest.postDataJSON() as Record<
     string,
     unknown
   >;
   expect(requestBody.settaFilesLocation).toBe("auto");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.waitForSelector(".react-flow__pane");
   await page.waitForFunction(
     (origin) =>
@@ -212,7 +213,9 @@ test("workspace switcher shows launcher global path when backend origin is overr
 }) => {
   const settaHome = process.env.SETTA_HOME;
   if (!settaHome) {
-    throw new Error("Missing SETTA_HOME for workspace switcher global path test.");
+    throw new Error(
+      "Missing SETTA_HOME for workspace switcher global path test.",
+    );
   }
   const expectedGlobalBase = path.join(settaHome, "setta_files");
 
@@ -221,7 +224,10 @@ test("workspace switcher shows launcher global path when backend origin is overr
   // Simulate being "inside" a tunneled/remote session where the backend origin is
   // not the same as the launcher origin.
   await page.evaluate(() => {
-    sessionStorage.setItem("setta.backendOriginOverride", "http://127.0.0.1:65534");
+    sessionStorage.setItem(
+      "setta.backendOriginOverride",
+      "http://127.0.0.1:65534",
+    );
   });
 
   await page.getByRole("menuitem", { name: "Project" }).click();
@@ -438,7 +444,9 @@ test("workspace launch dedupes in-flight requests when optionals differ only by 
         contentType: "application/json",
         body: JSON.stringify({
           ok: false,
-          error: { message: "Intentional failure for null-vs-missing dedupe test." },
+          error: {
+            message: "Intentional failure for null-vs-missing dedupe test.",
+          },
         }),
       });
     } catch {
@@ -685,20 +693,23 @@ test("workspace launch surfaces runtime-root/workspace-root conflict", async ({
     sessionStorage.removeItem("setta.pendingWorkspaceLaunch");
     sessionStorage.removeItem("setta.workspaceSwitcherDraft");
   });
-  await page.evaluate((request) => {
-    sessionStorage.setItem(
-      "setta.pendingWorkspaceLaunch",
-      JSON.stringify({
-        request,
-        returnUrl: window.location.href,
-        requestedAt: Date.now(),
-      }),
-    );
-  }, {
-    workspaceRoot,
-    runtimeRoot: workspaceRoot,
-    settaFilesLocation: "local",
-  });
+  await page.evaluate(
+    (request) => {
+      sessionStorage.setItem(
+        "setta.pendingWorkspaceLaunch",
+        JSON.stringify({
+          request,
+          returnUrl: window.location.href,
+          requestedAt: Date.now(),
+        }),
+      );
+    },
+    {
+      workspaceRoot,
+      runtimeRoot: workspaceRoot,
+      settaFilesLocation: "local",
+    },
+  );
 
   const launchRequest = page.waitForRequest((req) => {
     const url = new URL(req.url());
@@ -799,9 +810,7 @@ test("workspace switcher can connect via ssh and reload", async ({ page }) => {
   const requestedLocalPort = await pickFreeLocalPort();
 
   await ensureAppReady(page);
-  await page.evaluate(() =>
-    localStorage.removeItem("setta.workspaceHistory"),
-  );
+  await page.evaluate(() => localStorage.removeItem("setta.workspaceHistory"));
   await page.evaluate(() =>
     localStorage.removeItem("setta.workspaceHistoryHandoff"),
   );
