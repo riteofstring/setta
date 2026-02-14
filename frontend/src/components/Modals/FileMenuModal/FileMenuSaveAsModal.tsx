@@ -20,27 +20,20 @@ export function FileMenuSaveProjectConfigAsModal({ open }) {
   const { saveWithRefs } = useModalData(
     ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
   );
-  const currentProjectConfigName = useProjectState((x) => x.projectConfig.name);
 
   async function onClickSaveAsProject({
-    selectedName,
+    selected,
     filename,
   }: {
-    selectedName: string | null;
+    selected: string | null;
     filename: string;
   }) {
-    const normalizedFilename = filename.trim();
-    if (!normalizedFilename) {
-      return;
-    }
-
-    if (selectedName === currentProjectConfigName) {
+    if (selected === useProjectState.getState().projectConfig.id) {
       saveProject();
       return;
     }
 
-    const existingTarget = projectMetadata.find((x) => x.name === selectedName);
-    if (existingTarget) {
+    if (selected) {
       addTemporaryNotification(
         "Overwriting an existing project config directly is disabled. Use Save As New, then rename or delete configs as needed.",
         SettaNotificationTypeEnum.error,
@@ -48,13 +41,12 @@ export function FileMenuSaveProjectConfigAsModal({ open }) {
       return;
     }
 
-    await saveAsNewProjectConfig(normalizedFilename, saveWithRefs);
-    navigateToAnotherConfig(normalizedFilename);
+    await saveAsNewProjectConfig(filename, saveWithRefs);
+    navigateToAnotherConfig(filename);
   }
 
   return (
     <SaveLoadModal
-      open={open}
       modalMode={SaveLoadModalModeEnum.save}
       files={projectMetadata}
       onClickActionButton={onClickSaveAsProject}

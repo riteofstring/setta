@@ -249,6 +249,45 @@ class TestFileBrowserRoutes:
             assert "mtime" in item
             assert "size" in item
 
+    async def test_get_folder_contents_keeps_user_runtime_name_visible(self) -> None:
+        state = await self._build_state()
+        workspace_root = get_setta_paths().workspace_root
+        user_runtime = workspace_root / "runtime"
+        user_runtime.mkdir(parents=True, exist_ok=True)
+        (user_runtime / "entry.py").write_text("x = 1\n", encoding="utf-8")
+
+        with runtime_context(state) as runtime_ctx:
+            items = route_get_folder_contents(
+                GetFolderContentsRequest(folderPath=str(workspace_root)),
+                runtime_ctx,
+            )
+        names = {item["name"] for item in items}
+
+        # Keep user folders that happen to share a basename with Setta internals.
+        assert "runtime" in names
+        # Hide the actual Setta state root when it lives inside the workspace.
+        assert "setta_files" not in names
+
+    async def test_get_folder_contents_hides_symlink_to_setta_internal_roots(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        workspace_root = get_setta_paths().workspace_root
+        symlink_path = workspace_root / "setta-state-link"
+        try:
+            # Symlinks that point into Setta-managed roots should remain hidden.
+            symlink_path.symlink_to(get_setta_paths().setta_files_root, target_is_directory=True)
+        except (NotImplementedError, OSError):
+            pytest.skip("Symlink creation is not supported in this environment.")
+
+        with runtime_context(state) as runtime_ctx:
+            items = route_get_folder_contents(
+                GetFolderContentsRequest(folderPath=str(workspace_root)),
+                runtime_ctx,
+            )
+        names = {item["name"] for item in items}
+        assert "setta-state-link" not in names
+
     async def test_get_folder_contents_full_path_and_max_entries(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
@@ -267,32 +306,6 @@ class TestFileBrowserRoutes:
         assert len(items) == 1
         expected_path = (root_path / items[0]["name"]).resolve()
         assert expected_path == Path(items[0]["fullPath"]).resolve()
-
-    async def test_get_folder_contents_include_setta_initialized_flag(self) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            initialized = root_path / "initialized-folder"
-            initialized.mkdir()
-            (initialized / "setta_files").mkdir()
-            plain = root_path / "plain-folder"
-            plain.mkdir()
-            with runtime_context(state) as runtime_ctx:
-                items = route_get_folder_contents(
-                    GetFolderContentsRequest(
-                        folderPath=str(root_path),
-                        includeSettaInitialized=True,
-                    ),
-                    runtime_ctx,
-                )
-
-        flags_by_name = {
-            item["name"]: item.get("isSettaInitialized", False)
-            for item in items
-            if item["type"] == "folder"
-        }
-        assert flags_by_name["initialized-folder"] is True
-        assert flags_by_name["plain-folder"] is False
 
     async def test_get_folder_contents_blocks_outside_cwd(self) -> None:
         state = await self._build_state()

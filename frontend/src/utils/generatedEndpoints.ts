@@ -759,12 +759,6 @@ export async function route_set_view_mode_name(
   return await post("/setViewModeName", x);
 }
 
-export async function route_set_view_mode_sort_order(
-  x: gt.SetViewModeSortOrderRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setViewModeSortOrder", x);
-}
-
 export async function route_delete_view_mode(
   x: gt.DeleteViewModeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

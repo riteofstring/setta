@@ -34,6 +34,7 @@ import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
+import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -67,13 +68,6 @@ export function Overview() {
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
-  const viewModesInitialPane =
-    selectedTabName === OverviewTabNameEnum.ProjectConfigs
-      ? "projectConfigs"
-      : "viewModes";
-  if (selectedTabName === OverviewTabNameEnum.ProjectConfigs) {
-    effectiveTabName = OverviewTabNameEnum.ViewModes;
-  }
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -164,6 +158,12 @@ export function Overview() {
           />
         )}
         <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectConfigs}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Config Preview" })}
+          icon={<i className="gg-git-branch !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Custom Runs" })}
@@ -172,7 +172,6 @@ export function Overview() {
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
-          data-testid="overview-tab-view-modes"
           {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
           icon={<HiOutlineEye size={20} />}
         />
@@ -222,12 +221,7 @@ export function Overview() {
         minimumWidth={250}
         paddingClassName={isFileBrowserTab ? "pt-2.5 pb-0" : undefined}
       >
-        {vis && (
-          <TabsVisible
-            selectedTabName={effectiveTabName}
-            viewModesInitialPane={viewModesInitialPane}
-          />
-        )}
+        {vis && <TabsVisible selectedTabName={effectiveTabName} />}
       </PaneContainer>
     </div>
   );
@@ -235,10 +229,8 @@ export function Overview() {
 
 function TabsVisible({
   selectedTabName,
-  viewModesInitialPane,
 }: {
   selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes" | "projectConfigs";
 }) {
   const title = OverviewTabNamePrettified[selectedTabName];
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
@@ -261,21 +253,12 @@ function TabsVisible({
           {title}
         </h2>
       )}
-      <TabContent
-        selectedTabName={selectedTabName}
-        viewModesInitialPane={viewModesInitialPane}
-      />
+      <TabContent selectedTabName={selectedTabName} />
     </div>
   );
 }
 
-function TabContent({
-  selectedTabName,
-  viewModesInitialPane,
-}: {
-  selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes" | "projectConfigs";
-}) {
+function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
@@ -289,7 +272,7 @@ function TabContent({
     case OverviewTabNameEnum.Git:
       return <GitPane />;
     case OverviewTabNameEnum.ProjectConfigs:
-      return <ViewingEditingMode initialPane="projectConfigs" />;
+      return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
     case OverviewTabNameEnum.App:
@@ -297,7 +280,7 @@ function TabContent({
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:
-      return <ViewingEditingMode initialPane={viewModesInitialPane} />;
+      return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:
