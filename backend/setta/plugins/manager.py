@@ -95,6 +95,21 @@ _MODE_ALLOWED_CAPABILITIES = {
     ),
 }
 
+_BACKEND_PLUGIN_API_VERSION = 1
+_REQUIRED_BACKEND_RPC_METHODS = frozenset(
+    {
+        "plugin.initialize",
+        "plugin.register",
+        "plugin.shutdown",
+        "host.register_router",
+        "host.register_static_dir",
+        "host.register_mcp_tool",
+        "host.register_language_server",
+        "host.register_external_agent_adapter",
+        "host.register_codegen_target",
+    }
+)
+
 
 @dataclass(slots=True, frozen=True)
 class ParsedSourceSpec:
@@ -483,6 +498,10 @@ class PluginManager:
             code="PLUGIN_BACKEND_IMPORT_FAILED",
             message_prefix="Invalid backend entrypoint path",
         )
+        self._run_backend_preflight_handshake(
+            entry=entry,
+            entrypoint_path=entrypoint_path,
+        )
         self._ensure_backend_runtime_for_entry(entry)
         self._run_backend_preflight_stage(
             entry=entry,
@@ -524,22 +543,47 @@ class PluginManager:
                 ),
             )
 
+    def _run_backend_preflight_handshake(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        entrypoint_path: Path,
+    ) -> None:
+        payload = self._run_backend_preflight_stage(
+            entry=entry,
+            entrypoint_path=entrypoint_path,
+            stage="handshake",
+            timeout_seconds=self._backend_startup_timeout_seconds,
+            timeout_code="PLUGIN_BACKEND_STARTUP_TIMEOUT",
+            default_error_code="PLUGIN_BACKEND_HANDSHAKE_INVALID",
+            expect_json_result=True,
+        )
+        if payload is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                f"Backend plugin {entry.plugin_id} did not return handshake payload.",
+            )
+        self._validate_backend_preflight_handshake(entry, payload)
+
     def _run_backend_preflight_stage(
         self,
         *,
         entry: DiscoveredPlugin,
         entrypoint_path: Path,
-        stage: Literal["import", "register"],
+        stage: Literal["handshake", "import", "register"],
         timeout_seconds: float,
         timeout_code: str,
         default_error_code: str,
-    ) -> None:
+        expect_json_result: bool = False,
+    ) -> dict[str, Any] | None:
         command = [
             sys.executable,
             "-m",
             "setta.plugins.preflight",
             "--plugin-id",
             entry.plugin_id,
+            "--plugin-version",
+            entry.version,
             "--plugin-root",
             str(entry.source_path),
             "--entrypoint",
@@ -564,7 +608,19 @@ class PluginManager:
                 ),
             ) from exc
         if result.returncode == 0:
-            return
+            if not expect_json_result:
+                return None
+            parsed_payload = self._parse_preflight_json_payload(result.stdout)
+            if parsed_payload is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Backend plugin preflight transport failed for "
+                        f"{entry.plugin_id} during {stage} stage: "
+                        "missing JSON payload."
+                    ),
+                )
+            return parsed_payload
         raw_error_output = result.stderr or result.stdout
         if result.returncode < 0 or not raw_error_output.strip():
             raise PluginManagerError(
@@ -589,8 +645,64 @@ class PluginManager:
                 f"during {stage} stage: {raw_error_output.strip()}"
             ),
         )
+        return None
 
-    def _parse_preflight_error(self, raw_output: str) -> dict[str, str] | None:
+    def _validate_backend_preflight_handshake(
+        self,
+        entry: DiscoveredPlugin,
+        payload: dict[str, Any],
+    ) -> None:
+        plugin_id = payload.get("pluginId")
+        plugin_version = payload.get("pluginVersion")
+        backend_api_version = payload.get("backendPluginApiVersion")
+        methods_payload = payload.get("supportedRpcMethods")
+        if plugin_id != entry.plugin_id:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                (
+                    f"Backend handshake plugin id mismatch for {entry.plugin_id}: "
+                    f"{plugin_id!r}"
+                ),
+            )
+        if plugin_version != entry.version:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                (
+                    f"Backend handshake plugin version mismatch for {entry.plugin_id}: "
+                    f"{plugin_version!r}"
+                ),
+            )
+        if backend_api_version != _BACKEND_PLUGIN_API_VERSION:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_API_VERSION_MISMATCH",
+                (
+                    f"Backend API version mismatch for {entry.plugin_id}: "
+                    f"{backend_api_version!r}"
+                ),
+            )
+        if not isinstance(methods_payload, list):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                (
+                    f"Backend handshake methods payload is invalid for "
+                    f"{entry.plugin_id}."
+                ),
+            )
+        methods: set[str] = set()
+        for raw_method in methods_payload:
+            if isinstance(raw_method, str):
+                methods.add(raw_method)
+        missing_methods = sorted(_REQUIRED_BACKEND_RPC_METHODS.difference(methods))
+        if len(missing_methods) > 0:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                (
+                    f"Backend handshake missing required methods for "
+                    f"{entry.plugin_id}: {', '.join(missing_methods)}"
+                ),
+            )
+
+    def _parse_preflight_json_payload(self, raw_output: str) -> dict[str, Any] | None:
         trimmed = raw_output.strip()
         if not trimmed:
             return None
@@ -600,6 +712,12 @@ class PluginManager:
         except json.JSONDecodeError:
             return None
         if not isinstance(parsed, dict):
+            return None
+        return parsed
+
+    def _parse_preflight_error(self, raw_output: str) -> dict[str, str] | None:
+        parsed = self._parse_preflight_json_payload(raw_output)
+        if parsed is None:
             return None
         code = parsed.get("code")
         message = parsed.get("message")

@@ -6,6 +6,19 @@ import sys
 from pathlib import Path
 from typing import Any, Literal
 
+BACKEND_PLUGIN_API_VERSION = 1
+SUPPORTED_RPC_METHODS: tuple[str, ...] = (
+    "plugin.initialize",
+    "plugin.register",
+    "plugin.shutdown",
+    "host.register_router",
+    "host.register_static_dir",
+    "host.register_mcp_tool",
+    "host.register_language_server",
+    "host.register_external_agent_adapter",
+    "host.register_codegen_target",
+)
+
 
 class _NoopBackendPluginContext:
     def __init__(self, plugin_id: str, plugin_root: Path) -> None:
@@ -72,21 +85,58 @@ def _load_module(plugin_id: str, entrypoint_path: Path) -> Any:
     return module
 
 
+def _build_handshake_payload(
+    plugin_id: str,
+    plugin_version: str,
+    plugin_root: Path,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "pluginId": plugin_id,
+        "pluginVersion": plugin_version,
+        "backendPluginApiVersion": BACKEND_PLUGIN_API_VERSION,
+        "supportedRpcMethods": list(SUPPORTED_RPC_METHODS),
+    }
+    override_path = plugin_root / "backend" / "handshake.override.json"
+    if override_path.exists() and override_path.is_file():
+        override_payload = json.loads(override_path.read_text(encoding="utf-8"))
+        if isinstance(override_payload, dict):
+            payload.update(override_payload)
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Setta plugin backend preflight")
     parser.add_argument("--plugin-id", required=True)
+    parser.add_argument("--plugin-version", required=True)
     parser.add_argument("--plugin-root", required=True)
     parser.add_argument("--entrypoint", required=True)
-    parser.add_argument("--stage", choices=("import", "register"), required=True)
+    parser.add_argument(
+        "--stage",
+        choices=("handshake", "import", "register"),
+        required=True,
+    )
     args = parser.parse_args()
 
     plugin_id = str(args.plugin_id).strip()
+    plugin_version = str(args.plugin_version).strip()
     plugin_root = Path(args.plugin_root).expanduser().resolve(strict=False)
     entrypoint_path = Path(args.entrypoint).expanduser().resolve(strict=False)
     stage = str(args.stage).strip()
 
     if not plugin_id:
         return _emit_error("PLUGIN_BACKEND_IMPORT_FAILED", "Missing plugin id.")
+    if not plugin_version:
+        return _emit_error("PLUGIN_BACKEND_IMPORT_FAILED", "Missing plugin version.")
+    if stage == "handshake":
+        try:
+            payload = _build_handshake_payload(plugin_id, plugin_version, plugin_root)
+        except Exception as exc:
+            return _emit_error(
+                "PLUGIN_BACKEND_HANDSHAKE_INVALID",
+                f"Failed to build backend handshake payload: {exc}",
+            )
+        print(json.dumps(payload))
+        return 0
     if not entrypoint_path.exists() or not entrypoint_path.is_file():
         return _emit_error(
             "PLUGIN_BACKEND_IMPORT_FAILED",
