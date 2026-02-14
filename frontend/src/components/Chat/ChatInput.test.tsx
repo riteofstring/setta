@@ -151,6 +151,7 @@ describe("ChatInput composer controls", () => {
     const markup = renderChatInput({
       starterPrompts: CHAT_STARTER_PROMPTS,
       showPythonStarterPrompts: true,
+      showQuickSlashButtons: true,
     });
 
     expect(markup).toContain("Create Project");
@@ -185,5 +186,16 @@ describe("ChatInput composer controls", () => {
     expect(markup).toContain("minimal");
     expect(markup).toContain("Search");
     expect(markup).toContain("Skills");
+  });
+
+  it("hides quick slash buttons unless explicitly enabled", () => {
+    const markup = renderChatInput({
+      starterPrompts: CHAT_STARTER_PROMPTS,
+      showPythonStarterPrompts: true,
+    });
+
+    expect(markup).not.toContain("/new");
+    expect(markup).not.toContain("/resume");
+    expect(markup).not.toContain("/model");
   });
 });

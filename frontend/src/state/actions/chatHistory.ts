@@ -23,6 +23,7 @@ type ChatRunSummary = {
 
 type BuildChatHistoryEntriesOptions = {
   sectionId?: string | null;
+  unscopedOnly?: boolean;
 };
 
 export function buildChatHistoryEntries(
@@ -30,9 +31,13 @@ export function buildChatHistoryEntries(
   options: BuildChatHistoryEntriesOptions = {},
 ): Array<ChatHistoryEntry> {
   const sectionId = normalizeRunSectionId(options.sectionId ?? null);
+  const unscopedOnly = options.unscopedOnly === true;
   const branchChatIds = new Set<string>();
   for (const run of runs) {
     if (!isChatRun(run)) {
+      continue;
+    }
+    if (unscopedOnly && getRunSectionId(run) !== null) {
       continue;
     }
     if (sectionId && getRunSectionId(run) !== sectionId) {
@@ -50,6 +55,9 @@ export function buildChatHistoryEntries(
   const grouped = new Map<string, ChatRunSummary>();
   for (const run of runs) {
     if (!isChatRun(run)) {
+      continue;
+    }
+    if (unscopedOnly && getRunSectionId(run) !== null) {
       continue;
     }
     if (sectionId && getRunSectionId(run) !== sectionId) {

@@ -76,3 +76,49 @@ Branch/Commit: chat-agent-coordination @ 8b98af7e (plus uncommitted overview/doc
 - Budgets/assertions added:
   - slash suggestions under `350ms` for 6,000-command dataset
   - active section extraction under `500ms` for 12,000-run dataset
+
+## Update (Composer Compaction + Slash Menu Placement)
+
+- Change set:
+  - compacted chat bubble spacing/line density and composer control sizing
+  - moved slash suggestions above the input by default with bounded height
+  - enabled single-Enter slash execution for exact command matches
+  - moved starter/quick slash controls to Project Chat pane and hid them in section chat
+- Measurement method:
+  - automated perf tests:
+    - `frontend/src/components/Chat/chatComposerControls.perf.test.ts`
+    - `frontend/src/components/Panes/Overview/ProjectOverview/aiActivity.perf.test.ts`
+  - DevTools MCP trace:
+    - `performance_start_trace` / `performance_stop_trace`
+    - insight set: `NO_NAVIGATION`
+- Trace metrics (compaction run):
+  - INP: `56ms`
+  - Longest interaction (`pointerdown`) breakdown:
+    - Input delay: `0.9ms`
+    - Processing: `13ms`
+    - Presentation delay: `43ms`
+  - CLS: `0.00`
+- Observations:
+  - Project-pane slash suggestion menu remained visible above the input near viewport bottom.
+  - Section chat composer rendered permission-only footer controls with reduced vertical footprint.
+
+## Additional Raw Artifacts (local-only)
+
+- `perf/artifacts/2026-02-14-chat-composer-compact-pane-section.png`
+- `perf/artifacts/2026-02-14-chat-composer-compactness-trace.json`
+
+## Verification Rerun (CDP)
+
+- Date: 2026-02-14
+- Scenario:
+  - Opened project chat and section chat on `http://127.0.0.1:3059/sending_keeping`
+  - Triggered slash suggestions in both composers (`/res`, `/resume`)
+  - Captured short no-navigation trace while interacting with both inputs
+- Trace artifact:
+  - `perf/artifacts/2026-02-14-chat-pane-controls-refresh-trace.json`
+- Metrics:
+  - INP: `303ms`
+  - CLS: `0.00`
+- Notes:
+  - This run intentionally included active typing and suggestion rendering in two chat composers, so it is not directly comparable to the earlier compactness run.
+  - Visual verification confirmed project pane keeps starter/quick controls and section chat keeps permission-only footer controls.

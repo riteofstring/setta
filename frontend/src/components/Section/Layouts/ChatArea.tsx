@@ -6,7 +6,6 @@ import {
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
-  CHAT_STARTER_PROMPTS,
   type ChatPermissionModeValue,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
@@ -54,8 +53,6 @@ import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
   route_set_chat_section_state,
@@ -77,18 +74,6 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
-
-const PYTHON_ROOT_MARKER_FILES = new Set<string>([
-  "pyproject.toml",
-  "requirements.txt",
-  "requirements-dev.txt",
-  "setup.py",
-  "setup.cfg",
-  "Pipfile",
-  "tox.ini",
-  "poetry.lock",
-  "uv.lock",
-]);
 
 type ChatSendActionPayload = {
   action: "send";
@@ -255,65 +240,6 @@ function toSortedHistoryEntries(
   return buildChatHistoryEntries(runs, { sectionId }).sort(
     (left, right) => right.lastUpdatedMs - left.lastUpdatedMs,
   );
-}
-
-function hasPythonSignalsInRoot(
-  entries: Array<{ name: string; type: string }>,
-): boolean {
-  for (const entry of entries) {
-    if (entry.type !== "file") {
-      continue;
-    }
-    const lowerName = entry.name.toLowerCase();
-    if (lowerName.endsWith(".py")) {
-      return true;
-    }
-    if (PYTHON_ROOT_MARKER_FILES.has(lowerName)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function useHasPythonInWorkspaceRoot(): boolean {
-  const [hasPython, setHasPython] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      const rootResponse = await route_get_file_browser_root();
-      if (!rootResponse || rootResponse.status !== 200 || !rootResponse.data) {
-        return;
-      }
-      const contentsResponse = await route_get_folder_contents({
-        folderPath: rootResponse.data.rootPath,
-        includeHidden: false,
-        includeMtime: false,
-        includeSize: false,
-        maxEntries: 5000,
-      });
-      if (
-        !contentsResponse ||
-        contentsResponse.status !== 200 ||
-        !Array.isArray(contentsResponse.data)
-      ) {
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      const nextHasPython = hasPythonSignalsInRoot(contentsResponse.data);
-      setHasPython(nextHasPython);
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return hasPython;
 }
 
 export function ChatArea({ sectionId }: { sectionId: string }) {
@@ -651,8 +577,6 @@ function ScriptableChatArea({
     sectionId,
     toolCallArguments,
   ]);
-
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot();
 
   const updateExecutionSettings = useCallback(
     (
@@ -1011,8 +935,12 @@ function ScriptableChatArea({
         onStop={handleStop}
         onSlashCommand={handleSlashCommand}
         executionControls={executionControls}
-        starterPrompts={CHAT_STARTER_PROMPTS}
-        showPythonStarterPrompts={hasPythonInWorkspaceRoot}
+        executionControlVisibility={{
+          permissionMode: true,
+          search: false,
+          skills: false,
+        }}
+        showQuickSlashButtons={false}
       />
     </div>
   );
@@ -1144,7 +1072,6 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot();
   const [showHistory, setShowHistory] = useState(false);
   const lastChatIdRef = useRef<string | null>(null);
   useEffect(() => {
@@ -1848,8 +1775,12 @@ function ManagedChatArea({
         onStop={handleStop}
         onSlashCommand={handleSlashCommand}
         executionControls={executionControls}
-        starterPrompts={CHAT_STARTER_PROMPTS}
-        showPythonStarterPrompts={hasPythonInWorkspaceRoot}
+        executionControlVisibility={{
+          permissionMode: true,
+          search: false,
+          skills: false,
+        }}
+        showQuickSlashButtons={false}
         dictationEnabledByProvider={hasEngineConfig}
       />
     </div>

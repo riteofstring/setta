@@ -129,4 +129,25 @@ describe("chatHistory", () => {
     expect(sectionEntries).toHaveLength(1);
     expect(sectionEntries[0]?.chatId).toBe("chat-a");
   });
+
+  it("filters history entries to unscoped runs when requested", () => {
+    const runs = [
+      buildRun({
+        chatId: "project-chat",
+        messageText: "Project prompt",
+      }),
+      buildRun({
+        chatId: "section-chat",
+        messageText: "Section prompt",
+        sectionId: "section-a",
+      }),
+    ];
+
+    const unscopedEntries = buildChatHistoryEntries(runs, {
+      unscopedOnly: true,
+    });
+
+    expect(unscopedEntries).toHaveLength(1);
+    expect(unscopedEntries[0]?.chatId).toBe("project-chat");
+  });
 });

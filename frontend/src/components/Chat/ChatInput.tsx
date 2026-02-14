@@ -52,6 +52,12 @@ type ChatExecutionControls = {
   onSkillsEnabledChange: (next: boolean) => void;
 };
 
+type ChatExecutionControlVisibility = {
+  permissionMode?: boolean;
+  search?: boolean;
+  skills?: boolean;
+};
+
 export type ChatSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
@@ -79,6 +85,7 @@ type ChatInputProps = {
   ) => Promise<boolean | void> | boolean | void;
   onStop?: () => Promise<void> | void;
   executionControls?: ChatExecutionControls;
+  executionControlVisibility?: ChatExecutionControlVisibility;
   slashCommands?: ChatSlashCommandDefinition[];
   onSlashCommand?: (
     command: ChatSlashCommand,
@@ -88,6 +95,8 @@ type ChatInputProps = {
     | void;
   starterPrompts?: ChatStarterPrompt[];
   showPythonStarterPrompts?: boolean;
+  showQuickSlashButtons?: boolean;
+  slashSuggestionsPlacement?: "above" | "below";
   dictationEnabledByProvider?: boolean;
 };
 
@@ -101,10 +110,17 @@ export const ChatInput = memo(function ChatInput({
   onSubmit,
   onStop,
   executionControls,
+  executionControlVisibility = {
+    permissionMode: true,
+    search: true,
+    skills: true,
+  },
   slashCommands = CHAT_SLASH_COMMANDS,
   onSlashCommand,
   starterPrompts = [],
   showPythonStarterPrompts = false,
+  showQuickSlashButtons = false,
+  slashSuggestionsPlacement = "above",
   dictationEnabledByProvider = true,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
@@ -307,6 +323,19 @@ export const ChatInput = memo(function ChatInput({
         }
         if (event.key === "Enter" && !event.shiftKey) {
           event.preventDefault();
+          const suggestion = slashSuggestions[activeSlashIndex];
+          const normalizedInput = inputValue.trim().toLowerCase();
+          if (
+            suggestion &&
+            normalizedInput === suggestion.command.toLowerCase()
+          ) {
+            const formEvent = new Event("submit", {
+              bubbles: true,
+              cancelable: true,
+            });
+            event.currentTarget.form?.dispatchEvent(formEvent);
+            return;
+          }
           applySlashSuggestion(activeSlashIndex);
           return;
         }
@@ -330,8 +359,10 @@ export const ChatInput = memo(function ChatInput({
     [
       activeSlashIndex,
       applySlashSuggestion,
+      inputValue,
       isSubmitDisabled,
       shouldShowSlashSuggestions,
+      slashSuggestions,
       slashSuggestions.length,
       waitingForResponse,
     ],
@@ -356,7 +387,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag text-sm leading-5 max-h-48 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-lg border border-setta-200 bg-transparent py-2 pl-10 pr-10 text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
+      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-9 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -368,10 +399,12 @@ export const ChatInput = memo(function ChatInput({
 
   const quickSlashCommands = useMemo(
     () =>
-      slashCommands.filter((command) =>
-        ["/new", "/resume", "/model"].includes(command.command),
-      ),
-    [slashCommands],
+      !showQuickSlashButtons
+        ? []
+        : slashCommands.filter((command) =>
+            ["/new", "/resume", "/model"].includes(command.command),
+          ),
+    [showQuickSlashButtons, slashCommands],
   );
 
   const executeQuickCommand = useCallback(
@@ -409,6 +442,21 @@ export const ChatInput = memo(function ChatInput({
     dictationEnabledByProvider,
     dictationSupported,
   );
+  const showPermissionControl = Boolean(
+    executionControls && executionControlVisibility.permissionMode !== false,
+  );
+  const showSearchControl = Boolean(
+    executionControls && executionControlVisibility.search !== false,
+  );
+  const showSkillsControl = Boolean(
+    executionControls && executionControlVisibility.skills !== false,
+  );
+  const showExecutionControls =
+    showPermissionControl || showSearchControl || showSkillsControl;
+  const slashSuggestionsPositionClass =
+    slashSuggestionsPlacement === "below"
+      ? "top-[calc(100%+4px)]"
+      : "bottom-[calc(100%+4px)]";
 
   const stopDictation = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -504,7 +552,7 @@ export const ChatInput = memo(function ChatInput({
 
   return (
     <form onSubmit={handleSubmit} className="flex justify-center">
-      <div className="flex w-full gap-2">
+      <div className="flex w-full gap-1">
         <div
           className="flex min-w-0 flex-1 flex-col"
           onDragEnter={handleDragEnter}
@@ -513,12 +561,12 @@ export const ChatInput = memo(function ChatInput({
           onDrop={handleDrop}
         >
           {visibleStarterPrompts.length > 0 ? (
-            <div className="mb-1 flex flex-wrap items-center gap-1.5">
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
               {visibleStarterPrompts.map((starterPrompt) => (
                 <button
                   key={starterPrompt.id}
                   type="button"
-                  className="rounded border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                  className="rounded border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
                   onClick={() => void handleStarterPrompt(starterPrompt.prompt)}
                   disabled={isSubmitDisabled}
                 >
@@ -528,12 +576,12 @@ export const ChatInput = memo(function ChatInput({
             </div>
           ) : null}
           {quickSlashCommands.length > 0 ? (
-            <div className="mb-1 flex flex-wrap items-center gap-1.5">
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
               {quickSlashCommands.map((command) => (
                 <button
                   key={command.command}
                   type="button"
-                  className="rounded border border-transparent px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-500 transition-colors hover:border-setta-200 hover:text-setta-800 dark:text-setta-400 dark:hover:border-setta-700 dark:hover:text-setta-100"
+                  className="rounded border border-transparent px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-500 transition-colors hover:border-setta-200 hover:text-setta-800 dark:text-setta-400 dark:hover:border-setta-700 dark:hover:text-setta-100"
                   onClick={() => void executeQuickCommand(command.command)}
                   disabled={isSubmitDisabled}
                 >
@@ -556,7 +604,7 @@ export const ChatInput = memo(function ChatInput({
                 <button
                   type="button"
                   aria-label="Attachment options"
-                  className={`absolute left-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200 ${
+                  className={`absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200 ${
                     attachmentInputDisabled
                       ? "cursor-not-allowed opacity-40 hover:bg-transparent"
                       : "cursor-pointer"
@@ -609,17 +657,19 @@ export const ChatInput = memo(function ChatInput({
             <button
               type="submit"
               disabled={isSubmitDisabled}
-              className={`absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md text-base transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${buttonClassName} disabled:opacity-40`}
+              className={`absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${buttonClassName} disabled:opacity-40`}
             >
               {buttonIcon}
             </button>
             {shouldShowSlashSuggestions ? (
-              <div className="absolute left-1 right-1 top-[calc(100%+4px)] z-20 rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900">
+              <div
+                className={`absolute left-1 right-1 z-20 max-h-52 overflow-y-auto rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900 ${slashSuggestionsPositionClass}`}
+              >
                 {slashSuggestions.map((suggestion, index) => (
                   <button
                     key={suggestion.command}
                     type="button"
-                    className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors ${
+                    className={`flex w-full min-w-0 flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs transition-colors ${
                       index === activeSlashIndex
                         ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-100"
                         : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
@@ -628,7 +678,7 @@ export const ChatInput = memo(function ChatInput({
                     onClick={() => applySlashSuggestion(index)}
                   >
                     <span className="font-semibold">{suggestion.command}</span>
-                    <span className="truncate pl-2 text-[10px] text-setta-400 dark:text-setta-500">
+                    <span className="w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
                       {suggestion.summary}
                     </span>
                   </button>
@@ -636,7 +686,7 @@ export const ChatInput = memo(function ChatInput({
               </div>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2 pb-1">
+          <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
             {showSharePolicyMessage ? (
               <span className="text-[10px] uppercase tracking-[0.2em] text-setta-300">
                 Attachments blocked by share policy
@@ -669,14 +719,15 @@ export const ChatInput = memo(function ChatInput({
               </span>
             ) : null}
           </div>
-          {executionControls || canDictate ? (
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              {executionControls ? (
+          {showExecutionControls || canDictate ? (
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
+              {executionControls &&
+              executionControlVisibility.permissionMode !== false ? (
                 <DropdownMenu.Root modal={false}>
                   <DropdownMenu.Trigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                      className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
                     >
                       {executionControls.permissionMode.replaceAll("_", " ")}
                       <IoChevronDown />
@@ -716,11 +767,11 @@ export const ChatInput = memo(function ChatInput({
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               ) : null}
-              {executionControls ? (
+              {executionControls && executionControlVisibility.search !== false ? (
                 <button
                   type="button"
                   aria-pressed={executionControls.searchEnabled}
-                  className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                  className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     executionControls.searchEnabled
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
@@ -734,11 +785,11 @@ export const ChatInput = memo(function ChatInput({
                   Search
                 </button>
               ) : null}
-              {executionControls ? (
+              {executionControls && executionControlVisibility.skills !== false ? (
                 <button
                   type="button"
                   aria-pressed={executionControls.skillsEnabled}
-                  className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                  className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     executionControls.skillsEnabled
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
@@ -755,7 +806,7 @@ export const ChatInput = memo(function ChatInput({
               {canDictate ? (
                 <button
                   type="button"
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                  className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     dictationState === "listening"
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
@@ -769,11 +820,11 @@ export const ChatInput = memo(function ChatInput({
             </div>
           ) : null}
           {attachments.length > 0 ? (
-            <div className="mb-1 flex flex-wrap gap-2">
+            <div className="mb-0.5 flex flex-wrap gap-1.5">
               {attachments.map((attachment) => (
                 <div
                   key={attachment.id}
-                  className="flex items-center gap-2 rounded-md border border-setta-200 bg-white/80 px-2 py-1 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
+                  className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
                 >
                   <span className="max-w-[200px] truncate">
                     {attachment.name}
@@ -807,7 +858,7 @@ export const ChatInput = memo(function ChatInput({
           ) : null}
           {attachmentWarning ? (
             <div
-              className="mb-1 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200"
+              className="mb-0.5 rounded-md border border-amber-200 bg-amber-50/80 px-2 py-1 text-xs text-amber-700 dark:border-amber-900/60 dark:bg-amber-900/20 dark:text-amber-200"
               role="alert"
             >
               {attachmentWarning}
