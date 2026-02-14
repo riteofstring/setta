@@ -4,9 +4,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
 from setta.routers.plugins import assets_router as plugins_assets_router
 from setta.routers.plugins import router as plugins_router
@@ -431,6 +433,98 @@ def test_plugin_routes_update_and_rollback_missing_plugin_errors() -> None:
             assert rollback_response.json()["detail"]["code"] in {
                 "PLUGIN_NOT_FOUND",
                 "PLUGIN_ROLLBACK_UNAVAILABLE",
+            }
+
+
+@pytest.mark.parametrize(
+    ("route_path", "payload", "manager_method_name"),
+    [
+        (
+            Route.PLUGINS_LINK.value,
+            {
+                "localPluginRoot": "/tmp/plugin",
+                "scope": "workspace",
+                "enable": True,
+                "force": False,
+            },
+            "link_plugin",
+        ),
+        (
+            Route.PLUGINS_UNLINK.value,
+            {
+                "pluginId": "setta-fixture-frontend",
+                "scope": "workspace",
+            },
+            "unlink_plugin",
+        ),
+        (
+            Route.PLUGINS_ENABLE.value,
+            {"pluginId": "setta-fixture-frontend"},
+            "enable_plugin",
+        ),
+        (
+            Route.PLUGINS_DISABLE.value,
+            {"pluginId": "setta-fixture-frontend"},
+            "disable_plugin",
+        ),
+        (
+            Route.PLUGINS_CONFIG.value,
+            {"pluginId": "setta-fixture-frontend", "config": {"enabled": True}},
+            "write_plugin_config",
+        ),
+        (
+            Route.PLUGINS_LOCK_WRITE.value,
+            None,
+            "write_lockfile",
+        ),
+        (
+            Route.PLUGINS_LOCK_APPLY.value,
+            {"check": False},
+            "apply_lockfile",
+        ),
+    ],
+)
+def test_plugin_mutation_route_error_mappings_for_remaining_endpoints(
+    route_path: str,
+    payload: dict | None,
+    manager_method_name: str,
+) -> None:
+    # Mutation endpoints should consistently map PluginManagerError payloads to HTTP errors.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+
+        def _raise_manager_error(*_args, **_kwargs):
+            raise PluginManagerError(
+                "PLUGIN_TEST_ERROR",
+                "Injected route failure for mapping test.",
+                status_code=418,
+            )
+
+        setattr(manager, manager_method_name, _raise_manager_error)
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            if payload is None:
+                response = client.post(f"{Route.PREFIX.value}{route_path}")
+            else:
+                response = client.post(f"{Route.PREFIX.value}{route_path}", json=payload)
+            assert response.status_code == 418
+            assert response.json()["detail"] == {
+                "code": "PLUGIN_TEST_ERROR",
+                "message": "Injected route failure for mapping test.",
             }
 
 

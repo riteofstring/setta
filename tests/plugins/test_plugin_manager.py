@@ -3272,6 +3272,76 @@ def test_rollback_plugin_requires_history(tmp_path: Path) -> None:
     assert exc_info.value.code == "PLUGIN_ROLLBACK_UNAVAILABLE"
 
 
+def test_force_install_backs_up_previous_snapshot_and_supports_rollback(
+    tmp_path: Path,
+) -> None:
+    # Force install should snapshot the previous plugin tree and allow rollback.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=True,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    metadata = manager._load_install_metadata()
+    metadata_key = manager._metadata_key(package_name, PluginScope.workspace)
+    entry = metadata.entries[metadata_key]
+    assert entry.version == version
+    assert len(entry.history) == 1
+    snapshot_path = Path(entry.history[0].snapshotPath)
+    assert snapshot_path.exists()
+    snapshot_manifest = json.loads(
+        (snapshot_path / "setta.plugin.json").read_text(encoding="utf-8")
+    )
+    assert snapshot_manifest["version"] == version
+
+    rollback_result = manager.rollback_plugin(
+        plugin_id=package_name,
+        scope=PluginScope.workspace,
+    )
+    assert rollback_result.restoredVersion == version
+
+    active_entry = next(
+        plugin
+        for plugin in manager.get_status_response().plugins
+        if plugin.pluginId == package_name
+        and plugin.sourceScope == PluginScope.workspace
+        and plugin.shadowedBySourcePath is None
+    )
+    assert active_entry.version == version
+
+
 def test_rollback_plugin_requires_existing_snapshot_path(tmp_path: Path) -> None:
     # Rollback should fail deterministically when history references a missing snapshot.
     manager = _make_manager(tmp_path)

@@ -439,6 +439,25 @@ def test_plugins_init_and_validate_cli_flow(tmp_path: Path, monkeypatch) -> None
     assert "Plugin manifest is valid" in validate_result.output
 
 
+def test_plugins_validate_cli_reports_plugin_manager_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Validate should surface PluginManagerError payloads through Click exceptions.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+    invalid_plugin_root = tmp_path / "invalid-plugin-root"
+    invalid_plugin_root.mkdir(parents=True, exist_ok=True)
+
+    validate_result = runner.invoke(
+        plugins,
+        ["validate", str(invalid_plugin_root)],
+    )
+    assert validate_result.exit_code != 0
+    assert "PLUGIN_SOURCE_MANIFEST_NOT_FOUND" in validate_result.output
+
+
 def test_plugins_install_update_pin_rollback_and_uninstall_cli_json(
     tmp_path: Path,
     monkeypatch,

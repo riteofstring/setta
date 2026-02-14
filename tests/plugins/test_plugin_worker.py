@@ -822,6 +822,61 @@ def test_worker_invoke_route_surfaces_handler_exceptions(tmp_path: Path) -> None
         _stop_worker(worker)
 
 
+def test_worker_emits_transport_error_for_non_json_serializable_route_result(
+    tmp_path: Path,
+) -> None:
+    # Non-serializable route return values should map to worker transport errors.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.get('/non-serializable')\n"
+        "    def non_serializable() -> set[int]:\n"
+        "        return {1, 2, 3}\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        route_id = router_registration["params"]["routes"][0]["routeId"]
+
+        response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert response["error"]["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        assert (
+            response["error"]["message"]
+            == "Worker failed to serialize JSON-RPC payload."
+        )
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_invoke_mcp_tool_surfaces_execution_failure(tmp_path: Path) -> None:
     # MCP tool runtime exceptions should map to deterministic MCP tool failure errors.
     plugin_root = _copy_backend_fixture(tmp_path)

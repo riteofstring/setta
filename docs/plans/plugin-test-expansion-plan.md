@@ -1,33 +1,21 @@
 # Plugin Test Expansion Plan
 
-Coverage is already strong, but there are still good additions:
+## Findings
 
-1. High: Add lockfile drift tests for source changes, not just version/digest changes.
-`backend/setta/plugins/manager.py:3103` and `backend/setta/plugins/manager.py:3131` only compare version/digest; add unit/integration tests where `canonicalSourceKey`/`sourceSpec` changes with same version and assert reinstall/reconcile behavior.
+1. High: `backend/setta/agentic/external_adapters/plugin_process.py:153`, `backend/setta/agentic/external_adapters/plugin_process.py:193`, `backend/setta/agentic/external_adapters/plugin_process.py:204`, `backend/setta/agentic/external_adapters/plugin_process.py:214`, and `backend/setta/agentic/external_adapters/plugin_process.py:228` have important untested paths (plain-text stream fallback, stderr cap, cancel timeout/kill, approval/tool response writes, missing-stdin errors). Add unit tests plus one runner integration test for approval/tool-response flow.
 
-2. High: Add same-scope precedence tests between Setta-managed and package-manager plugins.
-`backend/setta/plugins/manager.py:3353` uses `_SOURCE_MANAGER_ORDER`, but current tests mostly cover scope precedence; add a test where both managers provide the same `pluginId` in `setta_files` and assert deterministic primary/shadowed selection.
+2. High: force-overwrite backup history is effectively untested at `backend/setta/plugins/manager.py:4360` and `backend/setta/plugins/manager.py:4383`. Add an integration test that installs/links a plugin twice with `force=True`, asserts snapshot history is created, then rollback restores the prior snapshot.
 
-3. High: Expand parametrized validation tests for backend registration payloads.
-Branches in `backend/setta/plugins/manager.py:2028`, `backend/setta/plugins/manager.py:2223`, and `backend/setta/plugins/manager.py:2356` are mostly untested (unknown keys, python language rejection, invalid `settingsKey`, invalid `defaultModel`, malformed args/env lists, etc.).
+3. High: worker JSON-RPC serialization fallback isn’t covered at `backend/setta/plugins/worker.py:777`. Add a worker test that forces a non-JSON-serializable response payload and asserts the deterministic `PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR` response body.
 
-4. High: Add component tests for restart banner behavior (no direct tests yet).
-`frontend/src/components/AppHeader/PluginRestartBanner.tsx:39` should have Vitest coverage for programmatic accepted/rejected/error flows and that `refreshPluginRuntime()` is called after restart attempts.
+4. Medium: route exception mapping coverage is incomplete for several mutation endpoints at `backend/setta/routers/plugins.py:162`, `backend/setta/routers/plugins.py:173`, `backend/setta/routers/plugins.py:184`, `backend/setta/routers/plugins.py:195`, `backend/setta/routers/plugins.py:208`, `backend/setta/routers/plugins.py:242`, and `backend/setta/routers/plugins.py:253`. Add table-driven route tests that inject `PluginManagerError` for link/unlink/enable/disable/config/lock-write/lock-apply.
 
-5. Medium: Add component/integration tests for plugin section fallback actions.
-`frontend/src/components/Section/Layouts/PluginArea.tsx:175`, `frontend/src/components/Section/Layouts/PluginArea.tsx:194`, and `frontend/src/components/Section/Layouts/PluginArea.tsx:216` need tests for delete/copy/open-plugins actions and notifications.
+5. Medium: CLI plugin-validate error path is missing around `backend/setta/start.py:2220` and `backend/setta/start.py:2223`. Add a test that validates an invalid plugin folder and asserts click error mapping/output.
 
-6. Medium: Add Playwright scenario for frontend-load-failure plugin fixture.
-Use `tests/fixtures/plugins/frontend-errors/setta.plugin.json` to verify runtime/frontend error surfacing and fallback card behavior end-to-end.
+6. Medium (Playwright): header restart banner only has the accepted-programmatic path; add rejected/error/manual-mode coverage for `frontend/src/components/AppHeader/PluginRestartBanner.tsx:45` and `frontend/src/components/AppHeader/PluginRestartBanner.tsx:54`.
 
-7. Medium: Add Playwright test for header restart banner (not only Plugins pane restart controls).
-You currently mock restart in `frontend/tests/e2e/overview/plugins-pane.spec.ts:951`; add a header-level regression test so restart-required UX doesn’t drift across panes.
+7. Medium (Playwright): fallback card actions are unit-tested but not E2E; add browser tests for `frontend/src/components/Section/Layouts/PluginArea.tsx:175`, `frontend/src/components/Section/Layouts/PluginArea.tsx:194`, and `frontend/src/components/Section/Layouts/PluginArea.tsx:216`.
 
-8. Medium: Reduce E2E mocking in codegen-target test.
-`frontend/tests/e2e/overview/plugin-codegen-target.spec.ts:14` intercepts `/api/setProjectConfigCodegenTargets`; add a real-endpoint variant that verifies persistence across reload.
+8. Medium (Playwright): lifecycle failure UX in plugins pane isn’t covered; add failing-endpoint scenarios for `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx:135` and restart rejection messaging at `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx:217`.
 
-9. Medium: Add CLI text-output tests for plugin list formatting branches.
-`backend/setta/start.py:2235`, `backend/setta/start.py:2241`, and `backend/setta/start.py:2249` have formatting/error/shadowed branches that are not covered by current mostly-JSON CLI tests.
-
-10. Low: Add worker host-RPC non-object response test branch.
-`backend/setta/plugins/worker.py:63` handles non-object host responses; existing worker tests cover many RPC failures but not this exact path.
+I validated this by running the plugin-focused backend suite under trace (`216 passed`), then checking unexecuted paths in plugin modules.

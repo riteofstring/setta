@@ -1,6 +1,6 @@
+import { expect, test } from "@playwright/test";
 import fs from "fs";
 import os from "os";
-import { expect, test } from "@playwright/test";
 import path from "path";
 import {
   cleanupIsolatedProject,
@@ -47,20 +47,18 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     "workspace",
   );
   await expect(
-    page.getByTestId("plugin-install-scope").locator("option[value='workspace']"),
-  ).toHaveText(
-    "workspace",
-  );
+    page
+      .getByTestId("plugin-install-scope")
+      .locator("option[value='workspace']"),
+  ).toHaveText("workspace");
   await expect(
-    page.getByTestId("plugin-install-scope").locator("option[value='environment']"),
-  ).toHaveText(
-    "environment",
-  );
+    page
+      .getByTestId("plugin-install-scope")
+      .locator("option[value='environment']"),
+  ).toHaveText("environment");
   await expect(
     page.getByTestId("plugin-install-scope").locator("option[value='global']"),
-  ).toHaveText(
-    "global",
-  );
+  ).toHaveText("global");
   await page
     .getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]")
     .fill("file:/tmp/plugin");
@@ -625,7 +623,9 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
   });
   await expect(page.getByText("Update plugin completed.")).toBeVisible();
 
-  await pluginCard.getByRole("button", { name: "Rollback", exact: true }).click();
+  await pluginCard
+    .getByRole("button", { name: "Rollback", exact: true })
+    .click();
   await expect.poll(() => rollbackRequests.length).toBe(1);
   expect(rollbackRequests[0]).toMatchObject({
     pluginId: "setta-lifecycle-plugin",
@@ -633,7 +633,9 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
   });
   await expect(page.getByText("Rollback plugin completed.")).toBeVisible();
 
-  await pluginCard.getByRole("button", { name: "Uninstall", exact: true }).click();
+  await pluginCard
+    .getByRole("button", { name: "Uninstall", exact: true })
+    .click();
   await expect.poll(() => uninstallRequests.length).toBe(1);
   expect(uninstallRequests[0]).toMatchObject({
     pluginId: "setta-lifecycle-plugin",
@@ -673,7 +675,9 @@ test("plugins pane update and rollback actions work against real backend endpoin
       .first();
     await expect(pluginCard).toBeVisible();
 
-    await pluginCard.getByRole("button", { name: "Update", exact: true }).click();
+    await pluginCard
+      .getByRole("button", { name: "Update", exact: true })
+      .click();
     await expect(page.getByText("Update plugin completed.")).toBeVisible();
 
     const refreshedPluginCard = page
@@ -733,7 +737,9 @@ test("plugins pane lifecycle actions work against real backend endpoints", async
   await pluginCard.getByRole("button", { name: "Enable", exact: true }).click();
   await expect(page.getByText("Enable plugin completed.")).toBeVisible();
 
-  await pluginCard.getByRole("button", { name: "Disable", exact: true }).click();
+  await pluginCard
+    .getByRole("button", { name: "Disable", exact: true })
+    .click();
   await expect(page.getByText("Disable plugin completed.")).toBeVisible();
 
   await postBackend(page, "/plugins/enable", {
@@ -889,14 +895,17 @@ test("plugins pane updates frontend asset digest query after relink", async ({
       `${BACKEND_ORIGIN}/api/plugins/list`,
     );
     expect(firstListResponse.ok()).toBeTruthy();
-    const firstListPayload = (await firstListResponse.json()) as PluginsListPayload;
+    const firstListPayload =
+      (await firstListResponse.json()) as PluginsListPayload;
     const firstEntry = firstListPayload.plugins.find(
       (plugin) => plugin.pluginId === "setta-fixture-frontend",
     );
     const firstEntrypointUrl = firstEntry?.frontend.entrypointUrl;
     expect(firstEntrypointUrl).toBeTruthy();
-    const firstDigest = new URL(firstEntrypointUrl as string, BACKEND_ORIGIN)
-      .searchParams.get("v");
+    const firstDigest = new URL(
+      firstEntrypointUrl as string,
+      BACKEND_ORIGIN,
+    ).searchParams.get("v");
     expect(firstDigest).toBeTruthy();
 
     const entrypointPath = path.join(
@@ -928,8 +937,10 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     );
     const secondEntrypointUrl = secondEntry?.frontend.entrypointUrl;
     expect(secondEntrypointUrl).toBeTruthy();
-    const secondDigest = new URL(secondEntrypointUrl as string, BACKEND_ORIGIN)
-      .searchParams.get("v");
+    const secondDigest = new URL(
+      secondEntrypointUrl as string,
+      BACKEND_ORIGIN,
+    ).searchParams.get("v");
     expect(secondDigest).toBeTruthy();
     expect(secondDigest).not.toBe(firstDigest);
   } finally {
@@ -994,12 +1005,225 @@ test("plugins pane supports programmatic restart action", async ({ page }) => {
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
 
-  await page.getByRole("button", { name: "Restart Setta", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Restart Setta", exact: true })
+    .click();
   await expect.poll(() => restartRequests.length).toBe(1);
   await expect(
     page
       .locator("section")
       .filter({ hasText: "Restart request accepted." })
+      .first(),
+  ).toBeVisible();
+});
+
+test("plugins pane shows restart rejection and request-failure messaging", async ({
+  page,
+}) => {
+  let restartRequestCount = 0;
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await page.route("**/api/plugins/list", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "programmatic",
+          command: null,
+          reason: null,
+        },
+        plugins: [],
+      }),
+    });
+  });
+
+  await page.route("**/api/plugins/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        plugins: [],
+      }),
+    });
+  });
+
+  await page.route("**/api/plugins/restart", async (route) => {
+    restartRequestCount += 1;
+    if (restartRequestCount === 1) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          accepted: false,
+          mode: "programmatic",
+          command: "setta restart",
+          reason: "Programmatic restart request was rejected.",
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "restart endpoint failed",
+      }),
+    });
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const restartButton = page.getByRole("button", {
+    name: "Restart Setta",
+    exact: true,
+  });
+  await restartButton.click();
+  await expect.poll(() => restartRequestCount).toBe(1);
+  await expect(
+    page.getByText(
+      "Manual restart required: setta restart. Programmatic restart request was rejected.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  await restartButton.click();
+  await expect.poll(() => restartRequestCount).toBe(2);
+  await expect(
+    page
+      .getByText(/Restart plugins runtime failed/, {
+        exact: false,
+      })
+      .first(),
+  ).toBeVisible();
+});
+
+test("plugins pane lifecycle action failures surface structured endpoint errors", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+
+  await page.route("**/api/plugins/list", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "manual",
+          command: "setta",
+          reason: "Programmatic restart is not available in this runtime.",
+        },
+        plugins: [
+          {
+            pluginId: "setta-lifecycle-plugin",
+            name: "Setta Lifecycle Plugin",
+            version: "0.1.0",
+            sourceScope: "workspace",
+            sourceScopeLabel: "workspace",
+            sourceManager: "setta",
+            sourceManagerHint: null,
+            canonicalSourceKey: "pypi:setta-lifecycle-plugin",
+            sourceDigestSha256: "digest-v1",
+            frontend: {
+              entrypointUrl: null,
+              styleUrl: null,
+            },
+            content: {
+              hasBlueprints: false,
+              hasProjectTemplates: false,
+              hasPrompts: false,
+            },
+            config: {
+              hasSchema: false,
+              schemaJson: null,
+              currentConfig: {},
+            },
+            effectiveCapabilities: [],
+            restartRequired: false,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/plugins/status", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        plugins: [
+          {
+            pluginId: "setta-lifecycle-plugin",
+            name: "Setta Lifecycle Plugin",
+            version: "0.1.0",
+            state: "active",
+            sourceScope: "workspace",
+            sourceScopeLabel: "workspace",
+            sourceManager: "setta",
+            sourceManagerHint: null,
+            sourcePath: "/tmp/setta-lifecycle-plugin",
+            canonicalSourceKey: "pypi:setta-lifecycle-plugin",
+            sourceDigestSha256: "digest-v1",
+            shadowedBySourcePath: null,
+            requestedCapabilities: [],
+            effectiveCapabilities: [],
+            blockedCapabilities: [],
+            registeredLanguageServers: [],
+            registeredExternalAgentAdapters: [],
+            registeredCodegenTargets: [],
+            restartRequired: false,
+            errors: [],
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.route("**/api/plugins/update", async (route) => {
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: {
+          code: "PLUGIN_UPDATE_UNAVAILABLE",
+          message: "No update target available.",
+        },
+      }),
+    });
+  });
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+
+  const pluginCard = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-lifecycle-plugin@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(pluginCard).toBeVisible();
+
+  await pluginCard.getByRole("button", { name: "Update", exact: true }).click();
+  await expect(
+    page
+      .getByText(
+        "Update plugin failed: PLUGIN_UPDATE_UNAVAILABLE - No update target available.",
+        { exact: true },
+      )
       .first(),
   ).toBeVisible();
 });
