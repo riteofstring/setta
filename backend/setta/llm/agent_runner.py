@@ -1485,7 +1485,7 @@ class AgentRunner:
         system_prompt: str,
         allowlist: ToolAllowlist | None,
         agentic_scope: AgenticScope,
-        run_inputs: dict[str, Any] | None,
+        run_inputs: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
