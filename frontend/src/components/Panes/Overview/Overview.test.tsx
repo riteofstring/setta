@@ -9,9 +9,24 @@ import {
 import { resetProjectStores } from "state/utils";
 import { OverviewTabNameEnum } from "utils/constants";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
 import { Overview } from "./Overview";
+
+vi.mock("components/Pages/Project/ViewModeDnd", () => ({
+  ViewModeSortableProvider: ({
+    children,
+  }: {
+    children: unknown;
+  }) => children,
+  useViewModeSortableItem: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => {},
+    style: {},
+    isDragging: false,
+  }),
+}));
 
 function extractRailStyle(markup: string): string {
   const match = markup.match(
@@ -137,7 +152,7 @@ describe("Overview rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 
-  it("maps legacy ProjectConfigs tab selection into the View Modes internal pane", () => {
+  it("maps legacy ProjectConfigs tab selection into the View Modes pane with project configs section", () => {
     const viewId = "view-1";
     const projectConfig = createProjectConfig({
       id: "project-1",
@@ -171,8 +186,9 @@ describe("Overview rail offsets", () => {
     );
 
     expect(markup).toContain("View Modes");
-    expect(markup).toContain("data-pane=\"projectConfigs\"");
-    expect(markup).toContain("aria-pressed=\"true\"");
+    expect(markup).toContain("Project Configs");
+    expect(markup).toContain("view-modes-project-configs-toggle");
+    expect(markup).toContain("view-modes-project-configs-section");
     expect(markup).toContain("Toggle config previews.");
   });
 });

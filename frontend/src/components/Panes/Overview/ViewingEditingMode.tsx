@@ -3,6 +3,7 @@ import {
   ViewModeSortableProvider,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
+import { Resizable } from "re-resizable";
 import { useEffect, useState } from "react";
 import { HiCode } from "react-icons/hi";
 import { HiOutlineBars3 } from "react-icons/hi2";
@@ -49,12 +50,14 @@ export function ViewingEditingMode({
       };
     }, _.isEqual);
   const { canEditVariants, canEditStructure } = useShareCapabilities();
-  const [internalPane, setInternalPane] = useState<
-    "viewModes" | "projectConfigs"
-  >(initialPane);
+  const [isProjectConfigsMinimized, setIsProjectConfigsMinimized] =
+    useState(false);
+  const [projectConfigsHeight, setProjectConfigsHeight] = useState(220);
 
   useEffect(() => {
-    setInternalPane(initialPane);
+    if (initialPane === "projectConfigs") {
+      setIsProjectConfigsMinimized(false);
+    }
   }, [initialPane]);
 
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
@@ -129,57 +132,45 @@ export function ViewingEditingMode({
   };
 
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex h-full min-h-0 w-full flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <PaneButton
-          isSelected={internalPane === "viewModes"}
-          onClick={() => setInternalPane("viewModes")}
-          label="View Modes"
-        />
-        <PaneButton
-          isSelected={internalPane === "projectConfigs"}
-          onClick={() => setInternalPane("projectConfigs")}
-          label="Project Configs"
-        />
-
-        {internalPane === "viewModes" && (
-          <button
-            className={`ml-auto flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
-              canEditStructure
-                ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
-                : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-            }`}
-            onClick={handleToggleEdit}
-            title={editTitle}
-            disabled={!canEditStructure}
-          >
-            <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
-            {editLabel}
-          </button>
-        )}
-
-        {internalPane === "viewModes" && (
-          <button
-            className={`rounded border px-2 py-1 text-xs transition-all ${
-              canEditStructure
-                ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
-                : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-            }`}
-            onClick={handleCreateMode}
-            title="Create a new view mode"
-            disabled={!canEditStructure}
-          >
-            New View Mode
-          </button>
-        )}
+        <button
+          className={`ml-auto flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
+            canEditStructure
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
+          onClick={handleToggleEdit}
+          title={editTitle}
+          disabled={!canEditStructure}
+        >
+          <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
+          {editLabel}
+        </button>
+        <button
+          className={`rounded border px-2 py-1 text-xs transition-all ${
+            canEditStructure
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
+          onClick={handleCreateMode}
+          title="Create a new view mode"
+          disabled={!canEditStructure}
+        >
+          New View Mode
+        </button>
       </div>
 
-      {internalPane === "projectConfigs" ? (
-        <div className="min-h-0 flex-1 rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
-          <ProjectConfigs />
+      <section className="min-h-[8rem] flex-1 overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
+            View Modes
+          </h3>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-setta-400">
+            {viewModeList.length}
+          </span>
         </div>
-      ) : (
-        <>
+        <div className="h-[calc(100%_-_1.5rem)] overflow-y-auto pr-1">
           {!hasViewModes && (
             <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
               No view modes yet. Create one to start customizing visibility.
@@ -228,35 +219,57 @@ export function ViewingEditingMode({
               })}
             </div>
           </ViewModeSortableProvider>
-        </>
-      )}
-    </div>
-  );
-}
+        </div>
+      </section>
 
-function PaneButton({
-  isSelected,
-  onClick,
-  label,
-}: {
-  isSelected: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  const classes = isSelected
-    ? "cursor-default border-blue-500/70 bg-blue-500/10 text-blue-600 dark:text-blue-300"
-    : "cursor-pointer border-setta-200 text-setta-600 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50";
-  return (
-    <button
-      type="button"
-      data-testid="view-modes-internal-pane-button"
-      data-pane={label === "Project Configs" ? "projectConfigs" : "viewModes"}
-      className={`rounded border px-2 py-1 text-xs transition-colors ${classes}`}
-      onClick={onClick}
-      aria-pressed={isSelected}
-    >
-      {label}
-    </button>
+      <section className="rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
+            Project Configs
+          </h3>
+          <button
+            type="button"
+            data-testid="view-modes-project-configs-toggle"
+            className="rounded border border-setta-200 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+            onClick={() => setIsProjectConfigsMinimized((prev) => !prev)}
+          >
+            {isProjectConfigsMinimized ? "Show" : "Hide"}
+          </button>
+        </div>
+
+        {!isProjectConfigsMinimized && (
+          <Resizable
+            size={{ width: "100%", height: projectConfigsHeight }}
+            minHeight={120}
+            maxHeight={460}
+            enable={{
+              top: true,
+              right: false,
+              bottom: false,
+              left: false,
+              topRight: false,
+              bottomRight: false,
+              bottomLeft: false,
+              topLeft: false,
+            }}
+            handleStyles={{ top: { top: "-4px" } }}
+            handleClasses={{
+              top: "h-2 cursor-row-resize bg-transparent hover:bg-blue-500/20",
+            }}
+            onResizeStop={(_event, _direction, elementRef) => {
+              setProjectConfigsHeight(elementRef.offsetHeight);
+            }}
+          >
+            <div
+              className="h-full min-h-0 overflow-y-auto rounded border border-setta-200/70 p-2 dark:border-setta-800/80"
+              data-testid="view-modes-project-configs-section"
+            >
+              <ProjectConfigs />
+            </div>
+          </Resizable>
+        )}
+      </section>
+    </div>
   );
 }
 

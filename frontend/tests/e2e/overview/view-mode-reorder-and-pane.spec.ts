@@ -228,25 +228,13 @@ test("view mode pane drag reorder persists across reload", async ({ page }) => {
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
-  const heading = page.getByRole("heading", { name: "View Modes" });
-  const headingVisible = await heading.isVisible().catch(() => false);
-  if (!headingVisible) {
+  const viewModeRows = page.locator(OVERVIEW_VIEW_MODE_ROW_SELECTOR);
+  const hasRowsVisible = await viewModeRows.first().isVisible().catch(() => false);
+  if (!hasRowsVisible) {
     await page.getByTestId("overview-tab-view-modes").click();
-    await expect(heading).toBeVisible();
   }
 
-  const projectConfigsButton = page.locator(
-    '[data-testid="view-modes-internal-pane-button"][data-pane="projectConfigs"]',
-  );
-  if ((await projectConfigsButton.getAttribute("aria-pressed")) === "true") {
-    await page
-      .locator(
-        '[data-testid="view-modes-internal-pane-button"][data-pane="viewModes"]',
-      )
-      .click();
-  }
-
-  await expect(page.locator(OVERVIEW_VIEW_MODE_ROW_SELECTOR).first()).toBeVisible();
+  await expect(viewModeRows.first()).toBeVisible();
   const modeARow = page.locator(`[data-view-mode-id="${modeAId}"]`).first();
   const modeCRow = page.locator(`[data-view-mode-id="${modeCId}"]`).first();
   await expect(modeARow).toBeVisible();
@@ -284,7 +272,7 @@ test("view mode pane drag reorder persists across reload", async ({ page }) => {
     .toBeTruthy();
 });
 
-test("legacy ProjectConfigs overview tab opens inside the View Modes pane", async ({
+test("legacy ProjectConfigs overview tab opens the View Modes pane with project configs section visible", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
@@ -294,9 +282,10 @@ test("legacy ProjectConfigs overview tab opens inside the View Modes pane", asyn
   await openIsolatedProject(page);
   await page.waitForSelector(READY_SELECTOR);
 
-  await expect(page.getByRole("heading", { name: "View Modes" })).toBeVisible();
+  await expect(page.getByTestId("overview-tab-view-modes")).toBeVisible();
+  await expect(page.getByTestId("view-modes-project-configs-toggle")).toBeVisible();
   await expect(
-    page.locator('[data-testid="view-modes-internal-pane-button"][data-pane="projectConfigs"]'),
-  ).toHaveAttribute("aria-pressed", "true");
+    page.getByTestId("view-modes-project-configs-section"),
+  ).toBeVisible();
   await expect(page.getByText("Toggle config previews.")).toBeVisible();
 });
