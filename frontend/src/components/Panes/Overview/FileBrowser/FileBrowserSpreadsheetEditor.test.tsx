@@ -39,7 +39,7 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     expect(getSpreadsheetGlideDensityMultiplier(1)).toBe(1);
     expect(getSpreadsheetGlideDensityMultiplier(0.5)).toBeGreaterThan(1);
     expect(getSpreadsheetGlideDensityMultiplier(2)).toBeGreaterThan(1);
-    expect(getSpreadsheetGlideDensityMultiplier(20)).toBeLessThanOrEqual(3);
+    expect(getSpreadsheetGlideDensityMultiplier(20)).toBeLessThanOrEqual(6);
     expect(getSpreadsheetGlideDensityMultiplier(0)).toBe(1);
   });
 

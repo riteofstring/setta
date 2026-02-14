@@ -686,3 +686,25 @@ Result:
 
 ### Notes
 - Chrome DevTools MCP (CDP) remained unavailable in-session (`Transport closed`), so a manual CDP visual/perf profile was not captured in this run.
+
+## 2026-02-15 (Spreadsheet five-level zoom regression checks)
+
+### Scope
+- Increased high-zoom Glide oversampling cap from `3` to `6` in spreadsheet sections to reduce pixelation near max canvas zoom.
+- Added explicit five-level zoom regression coverage for spreadsheet rendering quality and scale behavior.
+
+### Automated performance + behavior checks
+- `cd frontend && pnpm exec vitest run src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx src/utils/spreadsheet.perf.test.ts`
+  - `3 passed` test files, `6 passed` tests.
+  - Includes updated unit coverage for zoom-density multiplier ceiling behavior.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "clock, calendar, task board, and spreadsheet sections are visible and interactive|spreadsheet filter and sort controls render correctly in dark mode|spreadsheet zoom rendering stays stable across five zoom levels"`
+  - `3 passed`.
+  - New zoom test captures and compares five zoom presets with attached per-level screenshots and canvas-density metrics.
+
+### Notes
+- Zoom regression test validates:
+  - five distinct viewport zoom levels,
+  - strict monotonic zoom ordering based on measured viewport scale,
+  - non-regressive high-zoom canvas density floor,
+  - non-degraded zoom-out density.
+- Chrome DevTools MCP (CDP) remained unavailable in-session (`Transport closed`), so no manual CDP trace was captured in this run.

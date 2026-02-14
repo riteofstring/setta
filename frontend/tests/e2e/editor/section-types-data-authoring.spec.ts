@@ -90,6 +90,99 @@ async function dragBrowserRowToTarget(
   await source.dispatchEvent("dragend", { dataTransfer });
 }
 
+async function getViewportScale(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const viewport = document.querySelector(".react-flow__viewport");
+    if (!viewport) {
+      return 1;
+    }
+    const transform = window.getComputedStyle(viewport).transform;
+    if (!transform || transform === "none") {
+      return 1;
+    }
+    const matrix = new DOMMatrixReadOnly(transform);
+    if (!Number.isFinite(matrix.a) || matrix.a <= 0) {
+      return 1;
+    }
+    return matrix.a;
+  });
+}
+
+async function applyZoomPreset(
+  page: Page,
+  zoomOutClicks: number,
+  zoomInClicks: number,
+): Promise<number> {
+  const resetZoomButton = page.getByRole("button", { name: "reset zoom" });
+  const zoomOutButton = page.getByRole("button", { name: "zoom out" });
+  const zoomInButton = page.getByRole("button", { name: "zoom in" });
+
+  await resetZoomButton.click();
+  await expect
+    .poll(async () => await getViewportScale(page))
+    .toBeGreaterThan(0);
+
+  for (let i = 0; i < zoomOutClicks; i += 1) {
+    await zoomOutButton.click();
+  }
+  for (let i = 0; i < zoomInClicks; i += 1) {
+    await zoomInButton.click();
+  }
+  await expect
+    .poll(async () => await getViewportScale(page))
+    .toBeGreaterThan(0);
+  return getViewportScale(page);
+}
+
+type SpreadsheetCanvasDensityMetrics = {
+  densityX: number;
+  densityY: number;
+  cssWidth: number;
+  cssHeight: number;
+  pixelWidth: number;
+  pixelHeight: number;
+};
+
+async function getSpreadsheetCanvasDensityMetrics(
+  spreadsheetNode: Locator,
+): Promise<SpreadsheetCanvasDensityMetrics> {
+  const metrics = await spreadsheetNode.evaluate((node) => {
+    const grid = node.querySelector('[data-testid="spreadsheet-glide-grid"]');
+    if (!(grid instanceof HTMLElement)) {
+      return null;
+    }
+    const canvases = Array.from(grid.querySelectorAll("canvas"));
+    if (canvases.length === 0) {
+      return null;
+    }
+    const largest = canvases.reduce((best, current) => {
+      const currentRect = current.getBoundingClientRect();
+      const bestRect = best.getBoundingClientRect();
+      if (
+        currentRect.width * currentRect.height >
+        bestRect.width * bestRect.height
+      ) {
+        return current;
+      }
+      return best;
+    });
+    const rect = largest.getBoundingClientRect();
+    return {
+      densityX: largest.width / Math.max(1, rect.width),
+      densityY: largest.height / Math.max(1, rect.height),
+      cssWidth: rect.width,
+      cssHeight: rect.height,
+      pixelWidth: largest.width,
+      pixelHeight: largest.height,
+    };
+  });
+
+  if (!metrics) {
+    throw new Error("Spreadsheet canvas metrics unavailable.");
+  }
+  return metrics;
+}
+
 function getChildSectionIds(
   latest: LatestProjectStateResponse,
   parentSectionId: string,
@@ -748,6 +841,162 @@ test.describe.serial("section types data authoring", () => {
           );
         });
       expect(glideBgCell).not.toContain("255, 255, 255");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("spreadsheet zoom rendering stays stable across five zoom levels", async ({
+    page,
+  }, testInfo) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const root = await postBackend<FileBrowserRootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+      const csvPath = `${rootPath}/pw-zoom-sheet.csv`;
+      await fs.writeFile(
+        csvPath,
+        "task,status\nalpha,done\nbeta,todo\ngamma,todo\n",
+        "utf-8",
+      );
+
+      const spreadsheetSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Spreadsheet",
+      );
+      const browserSectionId = await createTopLevelSection(
+        page,
+        projectContext.projectConfigId,
+        "Browser",
+      );
+
+      const spreadsheetNode = page.locator(
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+      );
+      const browserNode = page.locator(
+        `.react-flow__node[data-id="${browserSectionId}"]`,
+      );
+      await expect(spreadsheetNode).toBeVisible();
+      await expect(browserNode).toBeVisible();
+
+      const browserExplorer = browserNode
+        .locator('[role="region"][aria-label="File explorer"]')
+        .first();
+      await expect(browserExplorer).toBeVisible();
+      const csvRow = browserExplorer
+        .locator("button")
+        .filter({ hasText: "pw-zoom-sheet.csv" })
+        .first();
+      await expect(csvRow).toBeVisible({ timeout: 15000 });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
+
+      const spreadsheetGrid = spreadsheetNode.getByTestId(
+        "spreadsheet-glide-grid",
+      );
+      await expect(spreadsheetGrid).toBeVisible();
+      await expect(
+        spreadsheetNode.getByText("4 rows · 2 columns"),
+      ).toBeVisible();
+
+      const zoomPresets = [
+        { label: "zoom-out-6", zoomOutClicks: 6, zoomInClicks: 0 },
+        { label: "zoom-out-3", zoomOutClicks: 3, zoomInClicks: 0 },
+        { label: "zoom-reset", zoomOutClicks: 0, zoomInClicks: 0 },
+        { label: "zoom-in-4", zoomOutClicks: 0, zoomInClicks: 4 },
+        { label: "zoom-in-8", zoomOutClicks: 0, zoomInClicks: 8 },
+      ] as const;
+
+      const samples: Array<{
+        label: string;
+        zoom: number;
+        densityX: number;
+        densityY: number;
+      }> = [];
+
+      for (const preset of zoomPresets) {
+        const zoom = await applyZoomPreset(
+          page,
+          preset.zoomOutClicks,
+          preset.zoomInClicks,
+        );
+        const metrics =
+          await getSpreadsheetCanvasDensityMetrics(spreadsheetNode);
+        samples.push({
+          label: preset.label,
+          zoom,
+          densityX: metrics.densityX,
+          densityY: metrics.densityY,
+        });
+
+        await testInfo.attach(`spreadsheet-${preset.label}.png`, {
+          body: await spreadsheetNode.screenshot(),
+          contentType: "image/png",
+        });
+      }
+
+      const zoomValues = samples.map((sample) => sample.zoom);
+      expect(new Set(zoomValues.map((zoom) => zoom.toFixed(3))).size).toBe(5);
+
+      const sortedByZoom = [...samples].sort(
+        (left, right) => left.zoom - right.zoom,
+      );
+      expect(sortedByZoom[0]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[1]?.zoom ?? 0,
+      );
+      expect(sortedByZoom[1]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[2]?.zoom ?? 0,
+      );
+      expect(sortedByZoom[2]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[3]?.zoom ?? 0,
+      );
+      expect(sortedByZoom[3]?.zoom ?? 0).toBeLessThan(
+        sortedByZoom[4]?.zoom ?? 0,
+      );
+      expect(
+        (sortedByZoom[4]?.zoom ?? 0) - (sortedByZoom[0]?.zoom ?? 0),
+      ).toBeGreaterThan(0.5);
+
+      const maxSample = sortedByZoom[4];
+      const midInSample = sortedByZoom[3];
+      const farOutSample = sortedByZoom[0];
+      if (!maxSample || !midInSample || !farOutSample) {
+        throw new Error(
+          "Missing zoom sample set for spreadsheet density checks.",
+        );
+      }
+
+      expect(maxSample.densityX).toBeGreaterThanOrEqual(0.95);
+      expect(maxSample.densityX).toBeGreaterThanOrEqual(
+        midInSample.densityX * 0.9,
+      );
+      expect(maxSample.densityY).toBeGreaterThanOrEqual(0.95);
+      expect(farOutSample.densityX).toBeGreaterThanOrEqual(1);
+      expect(farOutSample.densityY).toBeGreaterThanOrEqual(1);
+
+      await testInfo.attach("spreadsheet-zoom-density-metrics.json", {
+        body: Buffer.from(JSON.stringify(samples, null, 2), "utf-8"),
+        contentType: "application/json",
+      });
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
