@@ -38,9 +38,11 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionWithParamsImplArgsWithCallable,
     BrowserSectionImplArgsWithCallable,
     ButtonParamCodeObjImplArgsWithCallable,
+    CalendarSectionImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
     ChartSectionImplArgsWithCallable,
     ChatSectionImplArgsWithCallable,
+    ClockSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgsWithCallable,
     CodeSectionImplArgsWithCallable,
@@ -63,7 +65,9 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     RotaryParamCodeObjImplArgsWithCallable,
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
+    SpreadsheetSectionImplArgsWithCallable,
     SwitchParamCodeObjImplArgsWithCallable,
+    TaskBoardSectionImplArgsWithCallable,
     TerminalSectionImplArgsWithCallable,
     TextAreaParamCodeObjImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
@@ -89,9 +93,11 @@ from setta.types.section_impls import (
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
     BrowserSectionImpl,
+    CalendarSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
     ChatSectionImpl,
+    ClockSectionImpl,
     CodeSectionImpl,
     DictSectionImpl,
     DrawSectionImpl,
@@ -105,6 +111,8 @@ from setta.types.section_impls import (
     MetaControlSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
+    SpreadsheetSectionImpl,
+    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -255,6 +263,34 @@ def set_effective_impl_value(
     variant: Variant,
     args: BrowserSectionImplArgsWithCallable,
 ) -> BrowserSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: ClockSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: ClockSectionImplArgsWithCallable,
+) -> ClockSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: CalendarSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: CalendarSectionImplArgsWithCallable,
+) -> CalendarSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: TaskBoardSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: TaskBoardSectionImplArgsWithCallable,
+) -> TaskBoardSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: SpreadsheetSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: SpreadsheetSectionImplArgsWithCallable,
+) -> SpreadsheetSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: CodeCallableCodeObjImpl,

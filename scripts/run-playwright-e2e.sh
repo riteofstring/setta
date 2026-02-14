@@ -122,8 +122,7 @@ SETTA_HOME="${SETTA_HOME:-}"
 TEMP_SETTA_HOME=""
 if [[ -z "${SETTA_HOME}" ]]; then
   TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-  SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
-  mkdir -p "${SETTA_HOME}"
+  SETTA_HOME="${TEMP_SETTA_HOME}"
 fi
 export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"

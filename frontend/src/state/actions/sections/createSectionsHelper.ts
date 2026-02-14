@@ -43,6 +43,9 @@ export function useCreateSectionsList() {
     { name: "Dict", implSpecs: { type: SectionTypeEnum.Group } },
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
     { name: "Prompt", implSpecs: { type: SectionTypeEnum.Prompt } },
+    { name: "Clock", implSpecs: { type: SectionTypeEnum.Clock } },
+    { name: "Calendar", implSpecs: { type: SectionTypeEnum.Calendar } },
+    { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
 
   if (!singletonSections.GlobalVariables) {
@@ -112,6 +115,10 @@ export function useCreateSectionsList() {
     {
       name: "Browser",
       implSpecs: { type: SectionTypeEnum.Browser },
+    },
+    {
+      name: "Spreadsheet",
+      implSpecs: { type: SectionTypeEnum.Spreadsheet },
     },
   ];
 
