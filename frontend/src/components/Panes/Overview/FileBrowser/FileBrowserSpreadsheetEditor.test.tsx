@@ -51,7 +51,6 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
         readOnly={false}
         gridTemplateColumns={getSpreadsheetGridTemplateColumns(2)}
         onChangeCell={vi.fn()}
-        onFocusCell={vi.fn()}
       />,
     );
 

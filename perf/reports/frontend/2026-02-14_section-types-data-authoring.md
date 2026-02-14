@@ -644,3 +644,25 @@ Result:
 
 ### DevTools MCP
 - Attempted CDP visual/perf verification for this follow-up, but `chrome-devtools-mcp` remained unavailable in-session (`Transport closed`), so no new trace artifact was captured in this run.
+
+## 2026-02-15 (Spreadsheet selection/editability hardening)
+
+### Scope
+- Removed spreadsheet helper editing chrome (active-cell col/row/value controls and instructional bar).
+- Restored in-grid selection control in Glide by wiring controlled `gridSelection` state.
+- Added explicit selection summary text and stronger selection contrast.
+- Kept direct in-grid editing through Glide overlay editor and validated with Playwright.
+
+### Automated performance + behavior checks
+- `cd frontend && pnpm exec vitest run src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx src/utils/spreadsheet.perf.test.ts`
+  - `3 passed` test files.
+  - Includes spreadsheet render budget guard (`SpreadsheetRow` wide-row SSR) and XLSX parse/serialize perf budget test.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "clock, calendar, task board, and spreadsheet sections are visible and interactive"`
+  - `1 passed`.
+  - Validates click-select, drag-range multi-select summary, and in-grid edit/commit via Glide overlay.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "spreadsheet filter and sort controls render correctly in dark mode"`
+  - `1 passed`.
+  - Confirms dark-mode spreadsheet controls and themed Glide rendering.
+
+### Notes
+- Chrome DevTools MCP (CDP) session was unavailable in this run (`Transport closed`), so no new manual DevTools trace artifact was captured in this iteration.

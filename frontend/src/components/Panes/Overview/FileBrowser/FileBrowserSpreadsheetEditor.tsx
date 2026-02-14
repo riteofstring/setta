@@ -61,7 +61,6 @@ type SpreadsheetRowData = {
   readOnly: boolean;
   gridTemplateColumns: string;
   onChangeCell: (rowIndex: number, columnIndex: number, value: string) => void;
-  onFocusCell: (rowIndex: number, columnIndex: number) => void;
 };
 
 type SpreadsheetRowProps = SpreadsheetRowData & {
@@ -87,11 +86,6 @@ type SpreadsheetDensityMetrics = {
 type SpreadsheetSortState = {
   columnIndex: number;
   direction: "asc" | "desc";
-};
-
-type SpreadsheetActiveCell = {
-  columnIndex: number;
-  visibleRowIndex: number;
 };
 
 function getPathFolderAndName(
@@ -202,11 +196,39 @@ function compareSpreadsheetCellValues(a: string, b: string): number {
   });
 }
 
-function clampNumber(value: number, min: number, max: number): number {
-  if (max < min) {
-    return min;
+function getSpreadsheetCellAddress(
+  columnIndex: number,
+  rowIndex: number,
+): string {
+  return `${getSpreadsheetColumnLabel(Math.max(0, columnIndex))}${Math.max(1, rowIndex + 1)}`;
+}
+
+function formatSpreadsheetSelectionSummary(
+  selection: GridSelection | undefined,
+): string {
+  const currentRange = selection?.current?.range;
+  if (!currentRange) {
+    return "No selection";
   }
-  return Math.min(max, Math.max(min, value));
+  const startColumn = Math.max(0, currentRange.x);
+  const startRow = Math.max(0, currentRange.y);
+  const endColumn = Math.max(
+    startColumn,
+    currentRange.x + Math.max(1, currentRange.width) - 1,
+  );
+  const endRow = Math.max(
+    startRow,
+    currentRange.y + Math.max(1, currentRange.height) - 1,
+  );
+  const baseSummary =
+    startColumn === endColumn && startRow === endRow
+      ? `Selected ${getSpreadsheetCellAddress(startColumn, startRow)}`
+      : `Selected ${getSpreadsheetCellAddress(startColumn, startRow)}:${getSpreadsheetCellAddress(endColumn, endRow)}`;
+  const extraRanges = selection?.current?.rangeStack?.length ?? 0;
+  if (extraRanges <= 0) {
+    return baseSummary;
+  }
+  return `${baseSummary} (+${extraRanges} range${extraRanges === 1 ? "" : "s"})`;
 }
 
 export function SpreadsheetRow({
@@ -218,7 +240,6 @@ export function SpreadsheetRow({
   readOnly,
   gridTemplateColumns,
   onChangeCell,
-  onFocusCell,
 }: SpreadsheetRowProps) {
   const row = rows[index] ?? [];
   return (
@@ -246,7 +267,6 @@ export function SpreadsheetRow({
               onChange={(event) =>
                 onChangeCell(index, columnIndex, event.target.value)
               }
-              onFocus={() => onFocusCell(index, columnIndex)}
               readOnly={readOnly}
               disabled={readOnly}
               data-spreadsheet-cell={`${index}:${columnIndex}`}
@@ -285,9 +305,11 @@ export function FileBrowserSpreadsheetEditor({
   const [hasExternalDiskChange, setHasExternalDiskChange] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [sortState, setSortState] = useState<SpreadsheetSortState | null>(null);
-  const [activeCell, setActiveCell] = useState<SpreadsheetActiveCell | null>(
-    null,
+  const [gridSelection, setGridSelection] = useState<GridSelection | undefined>(
+    undefined,
   );
+  const [selectionSummary, setSelectionSummary] =
+    useState<string>("No selection");
   const [statusText, setStatusText] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [columnWidths, setColumnWidths] = useState<Record<number, number>>({});
@@ -306,7 +328,7 @@ export function FileBrowserSpreadsheetEditor({
         ? {
             accentColor: "hsl(220, 25%, 57%)",
             accentFg: "hsl(222, 28%, 95%)",
-            accentLight: "rgba(59, 130, 246, 0.22)",
+            accentLight: "rgba(59, 130, 246, 0.32)",
             textDark: "hsl(219, 24%, 89%)",
             textMedium: "hsl(220, 25%, 67%)",
             textLight: "hsl(220, 25%, 57%)",
@@ -338,7 +360,7 @@ export function FileBrowserSpreadsheetEditor({
         : {
             accentColor: "hsl(220, 25%, 45%)",
             accentFg: "hsl(222, 28%, 95%)",
-            accentLight: "rgba(59, 130, 246, 0.14)",
+            accentLight: "rgba(59, 130, 246, 0.24)",
             textDark: "hsl(220, 27%, 6%)",
             textMedium: "hsl(220, 25%, 45%)",
             textLight: "hsl(220, 25%, 57%)",
@@ -421,7 +443,8 @@ export function FileBrowserSpreadsheetEditor({
     setFilterQuery("");
     setSortState(null);
     setColumnWidths({});
-    setActiveCell(null);
+    setGridSelection(undefined);
+    setSelectionSummary("No selection");
     setIsLoading(false);
     listRef.current?.scrollToRow({ index: 0, align: "start" });
   }, []);
@@ -433,7 +456,8 @@ export function FileBrowserSpreadsheetEditor({
       setHasExternalDiskChange(false);
       setStatusText(null);
       setErrorText(null);
-      setActiveCell(null);
+      setGridSelection(undefined);
+      setSelectionSummary("No selection");
       return;
     }
     if (!isSpreadsheetPath(selectedPath)) {
@@ -442,7 +466,8 @@ export function FileBrowserSpreadsheetEditor({
       setHasExternalDiskChange(false);
       setStatusText(null);
       setErrorText(null);
-      setActiveCell(null);
+      setGridSelection(undefined);
+      setSelectionSummary("No selection");
       return;
     }
     void loadFile(selectedPath);
@@ -566,28 +591,6 @@ export function FileBrowserSpreadsheetEditor({
 
   const displayedRowCount = displayedRowIndexes.length;
 
-  useEffect(() => {
-    if (!sheet || sheet.columnCount <= 0 || displayedRowCount <= 0) {
-      setActiveCell(null);
-      return;
-    }
-    setActiveCell((prev) => {
-      if (
-        prev &&
-        prev.columnIndex >= 0 &&
-        prev.columnIndex < sheet.columnCount &&
-        prev.visibleRowIndex >= 0 &&
-        prev.visibleRowIndex < displayedRowCount
-      ) {
-        return prev;
-      }
-      return {
-        columnIndex: 0,
-        visibleRowIndex: 0,
-      };
-    });
-  }, [displayedRowCount, sheet]);
-
   const onChangeCell = useCallback(
     (rowIndex: number, columnIndex: number, value: string) => {
       if (readOnly) {
@@ -619,86 +622,9 @@ export function FileBrowserSpreadsheetEditor({
     [displayedRowIndexes, readOnly],
   );
 
-  const activeCellLabel = useMemo(() => {
-    if (!activeCell) {
-      return "No cell selected";
-    }
-    return `${getSpreadsheetColumnLabel(activeCell.columnIndex)}${
-      activeCell.visibleRowIndex + 1
-    }`;
-  }, [activeCell]);
-
-  const activeCellValue = useMemo(() => {
-    if (!sheet || !activeCell) {
-      return "";
-    }
-    const sourceRowIndex = displayedRowIndexes[activeCell.visibleRowIndex];
-    if (sourceRowIndex === undefined) {
-      return "";
-    }
-    const row = sheet.rows[sourceRowIndex] ?? [];
-    return row[activeCell.columnIndex] ?? "";
-  }, [activeCell, displayedRowIndexes, sheet]);
-
-  const onChangeActiveCellValue = useCallback(
-    (value: string) => {
-      if (!activeCell) {
-        return;
-      }
-      onChangeCell(activeCell.visibleRowIndex, activeCell.columnIndex, value);
-    },
-    [activeCell, onChangeCell],
-  );
-
-  const onChangeActiveCellColumn = useCallback(
-    (nextOneBasedColumn: number) => {
-      if (!sheet || sheet.columnCount <= 0 || displayedRowCount <= 0) {
-        return;
-      }
-      setActiveCell((prev) => {
-        const fallbackRow = prev?.visibleRowIndex ?? 0;
-        return {
-          columnIndex: clampNumber(
-            nextOneBasedColumn - 1,
-            0,
-            sheet.columnCount - 1,
-          ),
-          visibleRowIndex: clampNumber(fallbackRow, 0, displayedRowCount - 1),
-        };
-      });
-    },
-    [displayedRowCount, sheet],
-  );
-
-  const onChangeActiveCellRow = useCallback(
-    (nextOneBasedRow: number) => {
-      if (!sheet || sheet.columnCount <= 0 || displayedRowCount <= 0) {
-        return;
-      }
-      setActiveCell((prev) => {
-        const fallbackColumn = prev?.columnIndex ?? 0;
-        return {
-          columnIndex: clampNumber(fallbackColumn, 0, sheet.columnCount - 1),
-          visibleRowIndex: clampNumber(
-            nextOneBasedRow - 1,
-            0,
-            displayedRowCount - 1,
-          ),
-        };
-      });
-    },
-    [displayedRowCount, sheet],
-  );
-
-  const setActiveCellFromItem = useCallback((cell: Item | undefined) => {
-    if (!cell) {
-      return;
-    }
-    const [columnIndex, visibleRowIndex] = cell;
-    setActiveCell({
-      columnIndex,
-      visibleRowIndex,
-    });
+  const onGridSelectionChange = useCallback((selection: GridSelection) => {
+    setGridSelection(selection);
+    setSelectionSummary(formatSpreadsheetSelectionSummary(selection));
   }, []);
 
   const onCellsEdited = useCallback(
@@ -1146,6 +1072,13 @@ export function FileBrowserSpreadsheetEditor({
               Clear
             </button>
           )}
+          <span
+            data-testid="spreadsheet-selection-summary"
+            className="ml-auto min-w-0 max-w-[220px] truncate text-right text-[11px] text-setta-500 dark:text-setta-400"
+            title={selectionSummary}
+          >
+            {selectionSummary}
+          </span>
         </div>
       ) : null}
       {(statusText ||
@@ -1173,70 +1106,6 @@ export function FileBrowserSpreadsheetEditor({
           {errorText && <span className="text-red-500">{errorText}</span>}
         </div>
       )}
-      {sheet && (
-        <div className="border-b border-setta-200 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800 dark:text-setta-400">
-          {!isGridEditable
-            ? "Read-only mode: sorting/filtering and reload remain available."
-            : "Click to select cells. Double-click or press Enter to edit. Use Cmd/Ctrl+C/V for copy/paste, arrow keys to move, and Delete/Backspace to clear selection."}
-        </div>
-      )}
-      {sheet && (
-        <div className="flex items-center gap-2 border-b border-setta-200 px-3 py-1.5 dark:border-setta-800">
-          <span
-            data-testid="spreadsheet-active-cell-label"
-            className="whitespace-nowrap text-[11px] font-medium text-setta-600 dark:text-setta-300"
-          >
-            Cell {activeCellLabel}
-          </span>
-          <label className="inline-flex items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Col
-            <input
-              data-testid="spreadsheet-active-cell-column"
-              type="number"
-              min={1}
-              max={Math.max(1, sheet.columnCount)}
-              value={activeCell ? activeCell.columnIndex + 1 : ""}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (!Number.isFinite(next)) {
-                  return;
-                }
-                onChangeActiveCellColumn(next);
-              }}
-              disabled={!activeCell}
-              className="w-14 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-            />
-          </label>
-          <label className="inline-flex items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-            Row
-            <input
-              data-testid="spreadsheet-active-cell-row"
-              type="number"
-              min={1}
-              max={Math.max(1, displayedRowCount)}
-              value={activeCell ? activeCell.visibleRowIndex + 1 : ""}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (!Number.isFinite(next)) {
-                  return;
-                }
-                onChangeActiveCellRow(next);
-              }}
-              disabled={!activeCell}
-              className="w-14 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-            />
-          </label>
-          <input
-            data-testid="spreadsheet-active-cell-input"
-            value={activeCellValue}
-            onChange={(event) => onChangeActiveCellValue(event.target.value)}
-            disabled={!activeCell || !isGridEditable}
-            readOnly={!isGridEditable}
-            placeholder="Select a cell to edit"
-            className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus-visible:border-blue-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-          />
-        </div>
-      )}
       <div
         ref={viewportRef}
         className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag min-h-0 flex-1 overflow-hidden`}
@@ -1258,72 +1127,63 @@ export function FileBrowserSpreadsheetEditor({
                 data-testid="spreadsheet-glide-grid"
                 className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag h-full overflow-hidden bg-setta-50/80 [scrollbar-gutter:stable] dark:bg-setta-950/80`}
               >
-                <div
-                  style={{
-                    width: glideRenderWidth,
-                    height: glideRenderHeight,
-                    transform: `scale(${1 / densityMultiplier})`,
-                    transformOrigin: "top left",
+                <DataEditor
+                  width={glideRenderWidth}
+                  height={glideRenderHeight}
+                  rows={displayedRowCount}
+                  columns={glideColumns}
+                  rowMarkers={
+                    showRowNumbers
+                      ? {
+                          kind: "number",
+                          width:
+                            densityMetrics.indexColumnWidth * densityMultiplier,
+                        }
+                      : undefined
+                  }
+                  getCellContent={getGlideCellContent}
+                  getCellsForSelection
+                  rowHeight={Math.round(
+                    densityMetrics.rowHeight * densityMultiplier,
+                  )}
+                  headerHeight={Math.round(
+                    densityMetrics.headerHeight * densityMultiplier,
+                  )}
+                  smoothScrollX
+                  smoothScrollY
+                  fillHandle={isGridEditable}
+                  onDelete={isGridEditable ? onDeleteSelection : undefined}
+                  onCellEdited={
+                    isGridEditable
+                      ? (cell, newValue) =>
+                          onCellsEdited([{ location: cell, value: newValue }])
+                      : undefined
+                  }
+                  onCellsEdited={isGridEditable ? onCellsEdited : undefined}
+                  onColumnResize={(_column, newSize, colIndex) => {
+                    setColumnWidths((prev) => ({
+                      ...prev,
+                      [colIndex]: Math.max(
+                        48,
+                        Math.round(newSize / densityMultiplier),
+                      ),
+                    }));
                   }}
-                >
-                  <DataEditor
-                    width={glideRenderWidth}
-                    height={glideRenderHeight}
-                    rows={displayedRowCount}
-                    columns={glideColumns}
-                    rowMarkers={
-                      showRowNumbers
-                        ? {
-                            kind: "number",
-                            width:
-                              densityMetrics.indexColumnWidth *
-                              densityMultiplier,
-                          }
-                        : undefined
-                    }
-                    getCellContent={getGlideCellContent}
-                    getCellsForSelection
-                    rowHeight={Math.round(
-                      densityMetrics.rowHeight * densityMultiplier,
-                    )}
-                    headerHeight={Math.round(
-                      densityMetrics.headerHeight * densityMultiplier,
-                    )}
-                    smoothScrollX
-                    smoothScrollY
-                    fillHandle={isGridEditable}
-                    onDelete={isGridEditable ? onDeleteSelection : undefined}
-                    onCellEdited={
-                      isGridEditable
-                        ? (cell, newValue) =>
-                            onCellsEdited([{ location: cell, value: newValue }])
-                        : undefined
-                    }
-                    onCellsEdited={isGridEditable ? onCellsEdited : undefined}
-                    onColumnResize={(_column, newSize, colIndex) => {
-                      setColumnWidths((prev) => ({
-                        ...prev,
-                        [colIndex]: Math.max(
-                          48,
-                          Math.round(newSize / densityMultiplier),
-                        ),
-                      }));
-                    }}
-                    onPaste={isGridEditable ? true : undefined}
-                    onCellClicked={setActiveCellFromItem}
-                    onCellActivated={setActiveCellFromItem}
-                    onGridSelectionChange={(newSelection) => {
-                      setActiveCellFromItem(newSelection?.current?.cell);
-                    }}
-                    onHeaderClicked={onToggleSort}
-                    drawFocusRing={false}
-                    theme={glideTheme}
-                    experimental={{
-                      renderStrategy: "single-buffer",
-                      enableFirefoxRescaling: true,
-                    }}
-                  />
-                </div>
+                  onPaste={isGridEditable ? true : undefined}
+                  gridSelection={gridSelection}
+                  onGridSelectionChange={onGridSelectionChange}
+                  onHeaderClicked={onToggleSort}
+                  drawFocusRing={true}
+                  rangeSelect="multi-rect"
+                  rangeSelectionBlending="mixed"
+                  editOnType
+                  cellActivationBehavior="single-click"
+                  theme={glideTheme}
+                  experimental={{
+                    renderStrategy: "single-buffer",
+                    enableFirefoxRescaling: true,
+                  }}
+                />
               </div>
             ) : (
               <div
@@ -1379,11 +1239,6 @@ export function FileBrowserSpreadsheetEditor({
                       readOnly,
                       gridTemplateColumns,
                       onChangeCell,
-                      onFocusCell: (rowIndex, columnIndex) =>
-                        setActiveCell({
-                          columnIndex,
-                          visibleRowIndex: rowIndex,
-                        }),
                     }}
                     style={{
                       width: listWidth,

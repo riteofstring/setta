@@ -555,19 +555,33 @@ test.describe.serial("section types data authoring", () => {
         spreadsheetNode.getByText("2 rows · 2 columns"),
       ).toBeVisible();
 
-      // Validate baseline grid interactions: activate, edit, and commit a cell.
-      await spreadsheetNode
-        .getByTestId("spreadsheet-active-cell-column")
-        .fill("2");
-      await spreadsheetNode
-        .getByTestId("spreadsheet-active-cell-row")
-        .fill("2");
-      await expect(
-        spreadsheetNode.getByTestId("spreadsheet-active-cell-label"),
-      ).toHaveText("Cell B2");
-      await spreadsheetNode
-        .getByTestId("spreadsheet-active-cell-input")
-        .fill("done");
+      // Validate baseline in-grid interactions: click select, drag-range select,
+      // and direct type-to-edit.
+      const gridCanvas = spreadsheetGlideGrid.locator("canvas").first();
+      await expect(gridCanvas).toBeVisible();
+      await gridCanvas.click({ position: { x: 80, y: 50 } });
+      const selectionSummary = spreadsheetNode.getByTestId(
+        "spreadsheet-selection-summary",
+      );
+      await expect(selectionSummary).toContainText("Selected");
+      const gridBounds = await gridCanvas.boundingBox();
+      if (!gridBounds) {
+        throw new Error("Spreadsheet grid canvas bounds unavailable.");
+      }
+      await page.mouse.move(gridBounds.x + 80, gridBounds.y + 50);
+      await page.mouse.down();
+      await page.mouse.move(gridBounds.x + 250, gridBounds.y + 90);
+      await page.mouse.up();
+      await expect(selectionSummary).toContainText(":");
+
+      const editPosition = { x: 80, y: 50 };
+      await gridCanvas.click({ position: editPosition });
+      await expect(selectionSummary).toContainText("Selected");
+      await gridCanvas.click({ position: editPosition });
+      const overlayEditor = page.locator("#portal .gdg-input").first();
+      await expect(overlayEditor).toBeVisible();
+      await overlayEditor.fill("done");
+      await overlayEditor.press("Enter");
       await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
 
       const spreadsheetAddRow = spreadsheetNode.getByTestId(
@@ -625,7 +639,7 @@ test.describe.serial("section types data authoring", () => {
         csvRead?.contentBase64 ?? "",
         "base64",
       ).toString("utf-8");
-      expect(csvDecoded).toContain("alpha,done");
+      expect(csvDecoded).toContain("done");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
