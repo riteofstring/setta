@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "setta-fixture-backend",
+  "name": "Setta Fixture Backend",
+  "version": "0.1.0",
+  "settaVersionRange": ">=0.0.0",
+  "enabledByDefault": true,
+  "backend": {
+    "entrypoint": "backend/entrypoint.py"
+  },
+  "capabilities": ["registerRouter", "registerMcpTools"]
+}

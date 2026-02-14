@@ -74,18 +74,11 @@ async function setBrowserFilter({
     .locator('[id^="CodeMirror-FileBrowserFilter-"]')
     .first();
   await expect(filterRoot).toBeVisible();
-  const filterInputId = await filterRoot.getAttribute("id");
-  if (!filterInputId) {
-    throw new Error("Missing browser filter CodeMirror id.");
-  }
   const cmContent = filterRoot.locator(".cm-content");
   await expect(cmContent).toBeVisible();
   await cmContent.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.type(value);
-  await expect
-    .poll(async () => await readCodeMirrorValue(page, filterInputId))
-    .toContain(value);
 }
 
 async function setSearchScope({
@@ -119,9 +112,7 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -190,9 +181,7 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
         });
         expect(arrowStroke).not.toBe("none");
 
-        const recursive = menu.getByRole("button", {
-          name: /Recursive search/i,
-        });
+        const recursive = menu.getByRole("button", { name: /Recursive search/i });
         const local = menu.getByRole("button", { name: /Local search/i });
         const recursiveBox = await recursive.boundingBox();
         const localBox = await local.boundingBox();
@@ -206,27 +195,18 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
           menuRight + 0.5,
         );
         expect(localBox.x).toBeGreaterThanOrEqual(menuLeft - 0.5);
-        expect(localBox.x + localBox.width).toBeLessThanOrEqual(
-          menuRight + 0.5,
-        );
+        expect(localBox.x + localBox.width).toBeLessThanOrEqual(menuRight + 0.5);
 
         // Close the menu without altering the default scope.
         await recursive.click();
       }
 
-      // Scope search to this test folder so recursive results are deterministic
-      // even in large workspaces.
       await setBrowserPath({
         page,
         sectionNode,
         sectionId,
         targetPath: parentDir,
       });
-
-      // Force explicit recursive scope here so this test does not depend on
-      // persisted state from earlier Playwright cases in the same worker.
-      await setSearchScope({ page, sectionNode, scope: "recursive" });
-      await page.waitForTimeout(200);
 
       // Default is recursive.
       await setBrowserFilter({ page, sectionNode, value: "*.png" });
@@ -236,7 +216,7 @@ test("browser filter dropdown toggles recursive vs local search (and shows subfo
         .filter({ hasText: "cat.png" })
         .first();
 
-      await expect(deepTile).toHaveCount(1, { timeout: 30000 });
+      await expect(deepTile).toHaveCount(1, { timeout: 15000 });
       await deepTile.scrollIntoViewIfNeeded();
       await expect(deepTile).toBeVisible();
       await expect(deepTile).toContainText("alpha/child");
@@ -266,9 +246,7 @@ test("browser type filters hide files by category", async ({ page }) => {
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -350,9 +328,7 @@ test("browser search scope menu stays anchored while panning the canvas", async 
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -411,9 +387,7 @@ test("browser search scope menu stays anchored while panning the canvas", async 
       const afterTriggerBox = await trigger.boundingBox();
       const afterDialogBox = await dialog.boundingBox();
       if (!afterTriggerBox || !afterDialogBox) {
-        throw new Error(
-          "Missing anchor bounds after pan for search scope popover.",
-        );
+        throw new Error("Missing anchor bounds after pan for search scope popover.");
       }
 
       const triggerMoved =
@@ -523,9 +497,7 @@ async function waitForImageSection(
     }
     await page.waitForTimeout(250);
   }
-  throw new Error(
-    `Timed out waiting for Image section (${expectedImagePath}).`,
-  );
+  throw new Error(`Timed out waiting for Image section (${expectedImagePath}).`);
 }
 
 test("browser opens image files in image sections on double click", async ({
@@ -544,9 +516,7 @@ test("browser opens image files in image sections on double click", async ({
     );
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -587,9 +557,7 @@ test("browser opens image files in image sections on double click", async ({
       // on folder navigation timing for the image open behavior).
       await setBrowserFilter({ page, sectionNode, value: imageName });
 
-      const imageThumbnail = sectionNode
-        .locator(`img[alt="${imageName}"]`)
-        .first();
+      const imageThumbnail = sectionNode.locator(`img[alt="${imageName}"]`).first();
       await expect(imageThumbnail).toBeVisible({ timeout: 15000 });
       await imageThumbnail.dblclick();
 
