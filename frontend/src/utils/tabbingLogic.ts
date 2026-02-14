@@ -1,7 +1,7 @@
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
-import { HOME_ROUTER_PATH } from "./constants";
+import { HOME_ROUTER_PATH, OverviewTabNameEnum } from "./constants";
 import { SectionTypeEnum } from "./generatedTypes";
 
 function overviewPaneOnKeyDown(e) {
@@ -137,7 +137,7 @@ function focusOnProjectOverviewButton(e) {
 function shiftTabBackToOverviewListItem(e, sectionId) {
   const overviewVis = useLocalStorage.getState().overviewVis;
   const overviewTab = useLocalStorage.getState().overviewTab;
-  if (overviewVis && overviewTab === "tab1") {
+  if (overviewVis && overviewTab === OverviewTabNameEnum.Overview) {
     e.preventDefault();
     const element = document.getElementById(`${sectionId}-OverviewListItem`);
     element.focus();
