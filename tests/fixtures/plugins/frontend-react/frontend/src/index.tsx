@@ -5,36 +5,83 @@ import "./index.css";
 export const apiVersion = 1;
 
 const SECTION_KIND = "fixture-react-card";
-const rootsByMountEl = new WeakMap();
+const rootsByMountEl = new WeakMap<
+  HTMLElement,
+  ReturnType<typeof createRoot>
+>();
 
-function normalizeSectionData(raw) {
+type SectionData = {
+  title: string;
+  details: string;
+  tags: string[];
+  pinned: boolean;
+  pulses: number;
+};
+
+type RuntimeSectionProps = {
+  sectionId: string;
+  serverMode: string;
+  data: unknown;
+};
+
+type SectionUpdatePatch = {
+  data: SectionData;
+};
+
+type PluginSectionRenderer = {
+  mount: (mountEl: HTMLElement, props: RuntimeSectionProps) => void;
+  update?: (mountEl: HTMLElement, props: RuntimeSectionProps) => void;
+  unmount?: (mountEl: HTMLElement) => void;
+};
+
+type PluginSectionKindDefinition = {
+  kind: string;
+  title: string;
+  description?: string;
+  initialData?: Record<string, unknown>;
+  renderer: PluginSectionRenderer;
+};
+
+type FixtureHost = {
+  effectiveCapabilities?: string[];
+  registerSectionKind: (definition: PluginSectionKindDefinition) => void;
+  updateSection: (sectionId: string, patch: SectionUpdatePatch) => void;
+};
+
+const DEFAULT_SECTION_DATA: SectionData = {
+  title: "React Fixture",
+  details: "React renderer is active.",
+  tags: ["react", "fixture"],
+  pinned: false,
+  pulses: 0,
+};
+
+function normalizeSectionData(raw: unknown): SectionData {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return {
-      title: "React Fixture",
-      details: "React renderer is active.",
-      tags: ["react", "fixture"],
-      pinned: false,
-      pulses: 0,
-    };
+    return DEFAULT_SECTION_DATA;
   }
 
-  const candidate = raw;
+  const candidate = raw as Record<string, unknown>;
   const title =
     typeof candidate.title === "string" && candidate.title.trim() !== ""
       ? candidate.title.trim()
-      : "React Fixture";
+      : DEFAULT_SECTION_DATA.title;
   const details =
     typeof candidate.details === "string" && candidate.details.trim() !== ""
       ? candidate.details.trim()
-      : "React renderer is active.";
+      : DEFAULT_SECTION_DATA.details;
   const pinned = Boolean(candidate.pinned);
-  const pulses = Number.isFinite(candidate.pulses)
-    ? Math.max(0, Math.floor(candidate.pulses))
-    : 0;
 
-  const tags = [];
-  if (Array.isArray(candidate.tags)) {
-    for (const tag of candidate.tags) {
+  const pulsesCandidate = candidate.pulses;
+  const pulses =
+    typeof pulsesCandidate === "number" && Number.isFinite(pulsesCandidate)
+      ? Math.max(0, Math.floor(pulsesCandidate))
+      : 0;
+
+  const tags: string[] = [];
+  const tagsCandidate = candidate.tags;
+  if (Array.isArray(tagsCandidate)) {
+    for (const tag of tagsCandidate) {
       if (typeof tag !== "string") {
         continue;
       }
@@ -62,7 +109,15 @@ function normalizeSectionData(raw) {
   };
 }
 
-function StatItem({ label, value, testId }) {
+function StatItem({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string | number;
+  testId?: string;
+}) {
   return (
     <li className="fixture-react-card__stat">
       <span className="fixture-react-card__stat-key">{label}</span>
@@ -79,7 +134,13 @@ function StatItem({ label, value, testId }) {
   );
 }
 
-function ReactFixtureCard({ props, host }) {
+function ReactFixtureCard({
+  props,
+  host,
+}: {
+  props: RuntimeSectionProps;
+  host: FixtureHost;
+}) {
   const sectionData = normalizeSectionData(props.data);
   const [localClicks, setLocalClicks] = useState(0);
 
@@ -187,13 +248,21 @@ function ReactFixtureCard({ props, host }) {
   );
 }
 
-function mountReactCard(mountEl, props, host) {
+function mountReactCard(
+  mountEl: HTMLElement,
+  props: RuntimeSectionProps,
+  host: FixtureHost,
+) {
   const root = createRoot(mountEl);
   rootsByMountEl.set(mountEl, root);
   root.render(<ReactFixtureCard props={props} host={host} />);
 }
 
-function updateReactCard(mountEl, props, host) {
+function updateReactCard(
+  mountEl: HTMLElement,
+  props: RuntimeSectionProps,
+  host: FixtureHost,
+) {
   const existingRoot = rootsByMountEl.get(mountEl);
   if (!existingRoot) {
     mountReactCard(mountEl, props, host);
@@ -202,7 +271,7 @@ function updateReactCard(mountEl, props, host) {
   existingRoot.render(<ReactFixtureCard props={props} host={host} />);
 }
 
-function unmountReactCard(mountEl) {
+function unmountReactCard(mountEl: HTMLElement) {
   const existingRoot = rootsByMountEl.get(mountEl);
   if (!existingRoot) {
     mountEl.innerHTML = "";
@@ -212,7 +281,7 @@ function unmountReactCard(mountEl) {
   rootsByMountEl.delete(mountEl);
 }
 
-export function register(host) {
+export function register(host: FixtureHost): void {
   const capabilities = new Set(host.effectiveCapabilities || []);
   if (!capabilities.has("registerSectionKinds")) {
     return;
@@ -223,11 +292,7 @@ export function register(host) {
     title: "React Fixture Card",
     description: "Section kind rendered with React component tree.",
     initialData: {
-      title: "React Fixture",
-      details: "React renderer is active.",
-      tags: ["react", "fixture"],
-      pinned: false,
-      pulses: 0,
+      ...DEFAULT_SECTION_DATA,
     },
     renderer: {
       mount(mountEl, props) {
