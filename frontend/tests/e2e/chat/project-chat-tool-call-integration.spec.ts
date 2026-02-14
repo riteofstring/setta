@@ -14,12 +14,8 @@ import {
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const AGENT_INTEGRATION_ENVS = [
-  "SETTA_RUN_AGENT_INTEGRATION_TESTS",
-  "SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS",
-] as const;
 const AGENT_INTEGRATION_SKIP_REASON =
-  "Agent integration tests are opt-in; set SETTA_RUN_AGENT_INTEGRATION_TESTS=1 (legacy: SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1) to run.";
+  "Agent integration tests are opt-in; set SETTA_RUN_AGENT_INTEGRATION_TESTS=1 to run.";
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
 
 type EngineConfig = {
@@ -156,17 +152,12 @@ test.describe.serial("project chat tool call integration", () => {
 });
 
 function agentIntegrationTestsEnabled(): boolean {
-  for (const envName of AGENT_INTEGRATION_ENVS) {
-    const value = process.env[envName];
-    if (!value) {
-      continue;
-    }
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "1" || normalized === "true" || normalized === "yes") {
-      return true;
-    }
+  const value = process.env.SETTA_RUN_AGENT_INTEGRATION_TESTS;
+  if (!value) {
+    return false;
   }
-  return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 function parsePayloadObject(
