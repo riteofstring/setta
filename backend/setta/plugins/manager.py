@@ -542,20 +542,30 @@ class PluginManager:
             ) from exc
         if result.returncode == 0:
             return
-        parsed = self._parse_preflight_error(result.stderr or result.stdout)
+        raw_error_output = result.stderr or result.stdout
+        if result.returncode < 0 or not raw_error_output.strip():
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Backend plugin preflight transport failed for "
+                    f"{entry.plugin_id} during {stage} stage."
+                ),
+            )
+        parsed = self._parse_preflight_error(raw_error_output)
         if parsed is not None:
             code = parsed.get("code", default_error_code)
             message = parsed.get(
                 "message",
                 f"Backend plugin {entry.plugin_id} {stage} preflight failed.",
             )
-        else:
-            code = default_error_code
-            message = (
-                f"Backend plugin {entry.plugin_id} {stage} preflight failed: "
-                f"{result.stderr.strip() or result.stdout.strip() or 'unknown error'}"
-            )
-        raise PluginManagerError(code, message)
+            raise PluginManagerError(code, message)
+        raise PluginManagerError(
+            "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            (
+                f"Backend plugin preflight transport failed for {entry.plugin_id} "
+                f"during {stage} stage: {raw_error_output.strip()}"
+            ),
+        )
 
     def _parse_preflight_error(self, raw_output: str) -> dict[str, str] | None:
         trimmed = raw_output.strip()

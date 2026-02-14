@@ -345,6 +345,36 @@ def test_backend_plugin_register_timeout_is_reported(tmp_path: Path) -> None:
     assert "PLUGIN_BACKEND_REGISTER_TIMEOUT" in error_codes
 
 
+def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> None:
+    # Abrupt worker/preflight termination should map to transport-error status.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "import os\n\n"
+        "os._exit(1)\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR" in error_codes
+
+
 def test_plugin_config_schema_validation_and_list_descriptors(
     tmp_path: Path,
 ) -> None:
