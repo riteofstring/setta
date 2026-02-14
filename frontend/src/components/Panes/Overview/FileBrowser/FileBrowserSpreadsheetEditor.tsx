@@ -43,7 +43,7 @@ export const SPREADSHEET_COMFORTABLE_INDEX_COLUMN_WIDTH = 44;
 export const SPREADSHEET_COMFORTABLE_DATA_COLUMN_WIDTH = 108;
 const SPREADSHEET_AUTO_RELOAD_INTERVAL_MS = 2000;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
-const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 2.5;
+const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 3;
 
 type SpreadsheetDraft = {
   path: string;
@@ -229,6 +229,16 @@ function formatSpreadsheetSelectionSummary(
     return baseSummary;
   }
   return `${baseSummary} (+${extraRanges} range${extraRanges === 1 ? "" : "s"})`;
+}
+
+export function getSpreadsheetGlideDensityMultiplier(flowZoom: number): number {
+  const safeZoom = flowZoom > 0 ? flowZoom : 1;
+  const desiredMultiplier =
+    safeZoom >= 1 ? safeZoom : 1 / Math.max(0.01, safeZoom);
+  return Math.min(
+    SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER,
+    Math.max(1, desiredMultiplier),
+  );
 }
 
 export function SpreadsheetRow({
@@ -844,14 +854,10 @@ export function FileBrowserSpreadsheetEditor({
     [density, sheet?.columnCount, showRowNumbers],
   );
   const listWidth = Math.max(viewportSize.width, sheetWidth);
-  const densityMultiplier = useMemo(() => {
-    const safeZoom = flowZoom > 0 ? flowZoom : 1;
-    const desiredMultiplier = 1 / safeZoom;
-    return Math.min(
-      SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER,
-      Math.max(1, desiredMultiplier),
-    );
-  }, [flowZoom]);
+  const densityMultiplier = useMemo(
+    () => getSpreadsheetGlideDensityMultiplier(flowZoom),
+    [flowZoom],
+  );
   const glideViewportWidth = Math.max(1, viewportSize.width);
   const glideViewportHeight = Math.max(
     1,
@@ -944,10 +950,98 @@ export function FileBrowserSpreadsheetEditor({
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50">
       <div className="flex items-center justify-between border-b border-setta-200 px-3 py-2 dark:border-setta-800">
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
-            {selectedName}
-          </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
+              {selectedName}
+            </p>
+            {sheet ? (
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="inline-flex shrink-0 items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
+                  <FiFilter size={12} />
+                  Filter
+                </div>
+                <input
+                  data-testid="spreadsheet-filter-input"
+                  value={filterQuery}
+                  onChange={(event) => setFilterQuery(event.target.value)}
+                  className="min-w-0 max-w-[220px] flex-1 rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  placeholder="Filter rows"
+                />
+                <label className="shrink-0 text-[11px] text-setta-500 dark:text-setta-400">
+                  Sort
+                  <select
+                    data-testid="spreadsheet-sort-column"
+                    value={sortState ? String(sortState.columnIndex) : ""}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "") {
+                        setSortState(null);
+                        return;
+                      }
+                      const columnIndex = Number(value);
+                      if (!Number.isFinite(columnIndex)) {
+                        setSortState(null);
+                        return;
+                      }
+                      setSortState({ columnIndex, direction: "asc" });
+                    }}
+                    className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                  >
+                    <option value="">None</option>
+                    {Array.from(
+                      { length: sheet.columnCount },
+                      (_value, index) => (
+                        <option key={`sort-${index}`} value={index}>
+                          {getSpreadsheetColumnLabel(index)}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  data-testid="spreadsheet-sort-direction"
+                  className="shrink-0 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                  onClick={() =>
+                    setSortState((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            direction:
+                              prev.direction === "asc" ? "desc" : "asc",
+                          }
+                        : prev,
+                    )
+                  }
+                  disabled={!sortState}
+                >
+                  {sortState?.direction === "desc" ? "Desc" : "Asc"}
+                </button>
+                {(filterQuery.length > 0 || sortState) && (
+                  <button
+                    type="button"
+                    data-testid="spreadsheet-clear-view"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                    onClick={() => {
+                      setFilterQuery("");
+                      setSortState(null);
+                    }}
+                  >
+                    <FiX size={12} />
+                    Clear
+                  </button>
+                )}
+                <span
+                  data-testid="spreadsheet-selection-summary"
+                  className="ml-auto min-w-0 max-w-[220px] truncate text-right text-[11px] text-setta-500 dark:text-setta-400"
+                  title={selectionSummary}
+                >
+                  {selectionSummary}
+                </span>
+              </div>
+            ) : null}
+          </div>
           {sheet && (
             <p className="text-[11px] text-setta-500 dark:text-setta-400">
               {displayedRowCount === sheet.rowCount
@@ -999,88 +1093,6 @@ export function FileBrowserSpreadsheetEditor({
           </button>
         </div>
       </div>
-      {sheet ? (
-        <div className="flex items-center gap-2 border-b border-setta-200 px-3 py-1.5 dark:border-setta-800">
-          <div className="inline-flex items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-            <FiFilter size={12} />
-            Filter
-          </div>
-          <input
-            data-testid="spreadsheet-filter-input"
-            value={filterQuery}
-            onChange={(event) => setFilterQuery(event.target.value)}
-            className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-            placeholder="Filter rows"
-          />
-          <label className="text-[11px] text-setta-500 dark:text-setta-400">
-            Sort
-            <select
-              data-testid="spreadsheet-sort-column"
-              value={sortState ? String(sortState.columnIndex) : ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value === "") {
-                  setSortState(null);
-                  return;
-                }
-                const columnIndex = Number(value);
-                if (!Number.isFinite(columnIndex)) {
-                  setSortState(null);
-                  return;
-                }
-                setSortState({ columnIndex, direction: "asc" });
-              }}
-              className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-            >
-              <option value="">None</option>
-              {Array.from({ length: sheet.columnCount }, (_value, index) => (
-                <option key={`sort-${index}`} value={index}>
-                  {getSpreadsheetColumnLabel(index)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            data-testid="spreadsheet-sort-direction"
-            className="rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={() =>
-              setSortState((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      direction: prev.direction === "asc" ? "desc" : "asc",
-                    }
-                  : prev,
-              )
-            }
-            disabled={!sortState}
-          >
-            {sortState?.direction === "desc" ? "Desc" : "Asc"}
-          </button>
-          {(filterQuery.length > 0 || sortState) && (
-            <button
-              type="button"
-              data-testid="spreadsheet-clear-view"
-              className="inline-flex items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-              onClick={() => {
-                setFilterQuery("");
-                setSortState(null);
-              }}
-            >
-              <FiX size={12} />
-              Clear
-            </button>
-          )}
-          <span
-            data-testid="spreadsheet-selection-summary"
-            className="ml-auto min-w-0 max-w-[220px] truncate text-right text-[11px] text-setta-500 dark:text-setta-400"
-            title={selectionSummary}
-          >
-            {selectionSummary}
-          </span>
-        </div>
-      ) : null}
       {(statusText ||
         errorText ||
         isDirty ||
@@ -1127,63 +1139,73 @@ export function FileBrowserSpreadsheetEditor({
                 data-testid="spreadsheet-glide-grid"
                 className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag h-full overflow-hidden bg-setta-50/80 [scrollbar-gutter:stable] dark:bg-setta-950/80`}
               >
-                <DataEditor
-                  width={glideRenderWidth}
-                  height={glideRenderHeight}
-                  rows={displayedRowCount}
-                  columns={glideColumns}
-                  rowMarkers={
-                    showRowNumbers
-                      ? {
-                          kind: "number",
-                          width:
-                            densityMetrics.indexColumnWidth * densityMultiplier,
-                        }
-                      : undefined
-                  }
-                  getCellContent={getGlideCellContent}
-                  getCellsForSelection
-                  rowHeight={Math.round(
-                    densityMetrics.rowHeight * densityMultiplier,
-                  )}
-                  headerHeight={Math.round(
-                    densityMetrics.headerHeight * densityMultiplier,
-                  )}
-                  smoothScrollX
-                  smoothScrollY
-                  fillHandle={isGridEditable}
-                  onDelete={isGridEditable ? onDeleteSelection : undefined}
-                  onCellEdited={
-                    isGridEditable
-                      ? (cell, newValue) =>
-                          onCellsEdited([{ location: cell, value: newValue }])
-                      : undefined
-                  }
-                  onCellsEdited={isGridEditable ? onCellsEdited : undefined}
-                  onColumnResize={(_column, newSize, colIndex) => {
-                    setColumnWidths((prev) => ({
-                      ...prev,
-                      [colIndex]: Math.max(
-                        48,
-                        Math.round(newSize / densityMultiplier),
-                      ),
-                    }));
+                <div
+                  style={{
+                    width: glideRenderWidth,
+                    height: glideRenderHeight,
+                    zoom: 1 / densityMultiplier,
+                    transformOrigin: "top left",
                   }}
-                  onPaste={isGridEditable ? true : undefined}
-                  gridSelection={gridSelection}
-                  onGridSelectionChange={onGridSelectionChange}
-                  onHeaderClicked={onToggleSort}
-                  drawFocusRing={true}
-                  rangeSelect="multi-rect"
-                  rangeSelectionBlending="mixed"
-                  editOnType
-                  cellActivationBehavior="single-click"
-                  theme={glideTheme}
-                  experimental={{
-                    renderStrategy: "single-buffer",
-                    enableFirefoxRescaling: true,
-                  }}
-                />
+                >
+                  <DataEditor
+                    width={glideRenderWidth}
+                    height={glideRenderHeight}
+                    rows={displayedRowCount}
+                    columns={glideColumns}
+                    rowMarkers={
+                      showRowNumbers
+                        ? {
+                            kind: "number",
+                            width:
+                              densityMetrics.indexColumnWidth *
+                              densityMultiplier,
+                          }
+                        : undefined
+                    }
+                    getCellContent={getGlideCellContent}
+                    getCellsForSelection
+                    rowHeight={Math.round(
+                      densityMetrics.rowHeight * densityMultiplier,
+                    )}
+                    headerHeight={Math.round(
+                      densityMetrics.headerHeight * densityMultiplier,
+                    )}
+                    smoothScrollX
+                    smoothScrollY
+                    fillHandle={isGridEditable}
+                    onDelete={isGridEditable ? onDeleteSelection : undefined}
+                    onCellEdited={
+                      isGridEditable
+                        ? (cell, newValue) =>
+                            onCellsEdited([{ location: cell, value: newValue }])
+                        : undefined
+                    }
+                    onCellsEdited={isGridEditable ? onCellsEdited : undefined}
+                    onColumnResize={(_column, newSize, colIndex) => {
+                      setColumnWidths((prev) => ({
+                        ...prev,
+                        [colIndex]: Math.max(
+                          48,
+                          Math.round(newSize / densityMultiplier),
+                        ),
+                      }));
+                    }}
+                    onPaste={isGridEditable ? true : undefined}
+                    gridSelection={gridSelection}
+                    onGridSelectionChange={onGridSelectionChange}
+                    onHeaderClicked={onToggleSort}
+                    drawFocusRing={true}
+                    rangeSelect="multi-rect"
+                    rangeSelectionBlending="mixed"
+                    editOnType
+                    cellActivationBehavior="single-click"
+                    theme={glideTheme}
+                    experimental={{
+                      renderStrategy: "single-buffer",
+                      enableFirefoxRescaling: true,
+                    }}
+                  />
+                </div>
               </div>
             ) : (
               <div

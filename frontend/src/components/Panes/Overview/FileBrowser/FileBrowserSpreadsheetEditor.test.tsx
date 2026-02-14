@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   getSpreadsheetDensityMetrics,
+  getSpreadsheetGlideDensityMultiplier,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   SPREADSHEET_DATA_COLUMN_WIDTH,
@@ -32,6 +33,14 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     expect(getSpreadsheetGridTemplateColumns(2, false, "comfortable")).toBe(
       `repeat(2, ${comfortable.dataColumnWidth}px)`,
     );
+  });
+
+  it("oversamples glide rendering for zoom-out and zoom-in to keep grid crisp", () => {
+    expect(getSpreadsheetGlideDensityMultiplier(1)).toBe(1);
+    expect(getSpreadsheetGlideDensityMultiplier(0.5)).toBeGreaterThan(1);
+    expect(getSpreadsheetGlideDensityMultiplier(2)).toBeGreaterThan(1);
+    expect(getSpreadsheetGlideDensityMultiplier(20)).toBeLessThanOrEqual(3);
+    expect(getSpreadsheetGlideDensityMultiplier(0)).toBe(1);
   });
 
   it("renders cells with box-border and overflow guards to prevent bleed", () => {

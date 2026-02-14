@@ -666,3 +666,23 @@ Result:
 
 ### Notes
 - Chrome DevTools MCP (CDP) session was unavailable in this run (`Transport closed`), so no new manual DevTools trace artifact was captured in this iteration.
+
+## 2026-02-15 (Spreadsheet header controls + zoom crispness follow-up)
+
+### Scope
+- Moved spreadsheet filter/sort controls into the top header row next to the active file name, keeping action controls (`Column`, `Row`, `Reload`, `Save`) on the right.
+- Kept selection summary visible in the same top control row.
+- Added zoom-aware Glide density scaling that oversamples both zoom-out and zoom-in states to reduce visible canvas pixelation at extreme flow zoom values.
+- Applied zoom scaling via an inner wrapper so the rendered grid remains aligned with section viewport dimensions.
+
+### Automated performance + behavior checks
+- `cd frontend && pnpm exec vitest run src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx src/utils/spreadsheet.perf.test.ts`
+  - `3 passed` test files, `6 passed` tests.
+  - Includes spreadsheet row render budget + XLSX parse/serialize budget.
+  - Added unit coverage for zoom-density multiplier behavior.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "clock, calendar, task board, and spreadsheet sections are visible and interactive|spreadsheet filter and sort controls render correctly in dark mode"`
+  - `2 passed`.
+  - Confirms spreadsheet selection/edit path still works after layout and zoom scaling changes, and dark-mode styling remains correct.
+
+### Notes
+- Chrome DevTools MCP (CDP) remained unavailable in-session (`Transport closed`), so a manual CDP visual/perf profile was not captured in this run.
