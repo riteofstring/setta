@@ -1,6 +1,7 @@
 import fnmatch
 import mimetypes
 import os
+import shutil
 import stat
 from base64 import b64decode, b64encode
 from binascii import Error as BinasciiError
@@ -119,6 +120,18 @@ class WriteFileBrowserFileContentResponse(BaseModel):
     mimeType: str
     mtime: float
     size: int
+
+
+class TransferFileBrowserEntryRequest(BaseModel):
+    sourcePath: str
+    destinationFolderPath: str
+    operation: Literal["copy", "move"]
+
+
+class TransferFileBrowserEntryResponse(BaseModel):
+    sourcePath: str
+    destinationPath: str
+    operation: Literal["copy", "move"]
 
 
 class FolderContentItem(TypedDict):
@@ -299,10 +312,47 @@ def _resolve_file_path_for_edit(path_str: str) -> Path:
     return resolved
 
 
+def _resolve_workspace_entry_path(path_str: str) -> Path:
+    resolved = _resolve_file_path(path_str)
+    if not resolved.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Path does not exist: {path_str}",
+        )
+    return resolved
+
+
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
     return str(normalize_workspace_path(path))
+
+
+def _build_copy_candidate_name(source_name: str, attempt: int) -> str:
+    source_path = Path(source_name)
+    suffix = "".join(source_path.suffixes)
+    base_name = source_name[: -len(suffix)] if suffix else source_name
+    if not base_name:
+        base_name = source_name
+    if attempt == 1:
+        return f"{base_name} copy{suffix}"
+    return f"{base_name} copy {attempt}{suffix}"
+
+
+def _resolve_copy_destination_path(source: Path, destination_folder: Path) -> Path:
+    direct = destination_folder / source.name
+    if not direct.exists():
+        return direct
+    for attempt in range(1, 10_000):
+        candidate = destination_folder / _build_copy_candidate_name(
+            source.name, attempt
+        )
+        if not candidate.exists():
+            return candidate
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=f"Unable to resolve copy destination for {source.name}.",
+    )
 
 
 def _should_ignore(name: str, ignore_patterns: list[str]) -> bool:
@@ -578,6 +628,97 @@ def route_write_file_browser_file_content(
         mimeType=mime_type or "application/octet-stream",
         mtime=updated_stat.st_mtime,
         size=updated_stat.st_size,
+    )
+
+
+@router.post(Route.TRANSFER_FILE_BROWSER_ENTRY)
+def route_transfer_file_browser_entry(
+    x: TransferFileBrowserEntryRequest,
+    ctx: RuntimeContextFromRequest,
+) -> TransferFileBrowserEntryResponse:
+    if ctx.deployment_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in deployment mode.",
+        )
+
+    workspace_root = get_setta_paths().workspace_root
+    source = _resolve_workspace_entry_path(x.sourcePath)
+    destination_folder = _resolve_folder_path(
+        x.destinationFolderPath,
+        share_mode=ctx.deployment_mode,
+        deployment_root=ctx.deployment_root,
+    )
+    if not destination_folder.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Destination folder does not exist: {x.destinationFolderPath}",
+        )
+    if not destination_folder.is_dir():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Destination is not a folder: {x.destinationFolderPath}",
+        )
+    if source.resolve(strict=False) == workspace_root.resolve(strict=False):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot move or copy the workspace root.",
+        )
+    if source.is_dir() and destination_folder.resolve(strict=False).is_relative_to(
+        source.resolve(strict=False)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot move or copy a folder into itself.",
+        )
+
+    if x.operation == "copy":
+        destination = _resolve_copy_destination_path(source, destination_folder)
+        try:
+            if source.is_dir():
+                shutil.copytree(source, destination)
+            else:
+                shutil.copy2(source, destination)
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to copy path: {x.sourcePath}",
+            ) from exc
+        return TransferFileBrowserEntryResponse(
+            sourcePath=_format_browser_path(source, share_mode=ctx.deployment_mode),
+            destinationPath=_format_browser_path(
+                destination, share_mode=ctx.deployment_mode
+            ),
+            operation=x.operation,
+        )
+
+    destination = destination_folder / source.name
+    if destination.resolve(strict=False) == source.resolve(strict=False):
+        return TransferFileBrowserEntryResponse(
+            sourcePath=_format_browser_path(source, share_mode=ctx.deployment_mode),
+            destinationPath=_format_browser_path(
+                destination, share_mode=ctx.deployment_mode
+            ),
+            operation=x.operation,
+        )
+    if destination.exists():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Destination already exists: {destination.as_posix()}",
+        )
+    try:
+        shutil.move(str(source), str(destination))
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to move path: {x.sourcePath}",
+        ) from exc
+    return TransferFileBrowserEntryResponse(
+        sourcePath=_format_browser_path(source, share_mode=ctx.deployment_mode),
+        destinationPath=_format_browser_path(
+            destination, share_mode=ctx.deployment_mode
+        ),
+        operation=x.operation,
     )
 
 

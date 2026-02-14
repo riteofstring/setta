@@ -248,6 +248,7 @@ class Route(str, Enum):
     GET_FILE_BROWSER_DOWNLOAD_URLS = "/getFileBrowserDownloadUrls"
     GET_FILE_BROWSER_FILE_CONTENT = "/getFileBrowserFileContent"
     WRITE_FILE_BROWSER_FILE_CONTENT = "/writeFileBrowserFileContent"
+    TRANSFER_FILE_BROWSER_ENTRY = "/transferFileBrowserEntry"
     FILE_BROWSER_DOWNLOAD = "/fileBrowser/{token}"
     GET_GIT_STATUS = "/git/status"
     GET_GIT_DIFF = "/git/diff"
