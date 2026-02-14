@@ -49,7 +49,6 @@ import {
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
-  ListRootViewModeEnum,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
@@ -834,9 +833,6 @@ export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
   const state = useProjectState.getState();
   const variant = getCurrSectionVariant(state, sectionId);
   const impl = getSectionImpl(state, variant.impl);
-  if (impl.type === SectionTypeEnum.ListRoot) {
-    return impl.viewMode === ListRootViewModeEnum.kanban;
-  }
   if (impl.type !== SectionTypeEnum.Group) {
     return false;
   }
