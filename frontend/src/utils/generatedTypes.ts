@@ -8042,6 +8042,14 @@ export type PluginBlockedCapability = z.infer<
   typeof PluginBlockedCapabilitySchema
 >;
 
+const PluginRegisteredLanguageServerSchema = z.object({
+  name: z.string(),
+  language: z.string(),
+  command: z.string(),
+  args: z.array(z.string()).default([]),
+  settingsKey: z.union([z.string(), z.null()]).default(null),
+});
+
 const PluginErrorInfoSchema = z.object({
   code: z.string(),
   message: z.string(),
@@ -8061,6 +8069,9 @@ const PluginStatusEntrySchema = z.object({
   requestedCapabilities: z.array(z.string()),
   effectiveCapabilities: z.array(z.string()),
   blockedCapabilities: z.array(PluginBlockedCapabilitySchema),
+  registeredLanguageServers: z
+    .array(PluginRegisteredLanguageServerSchema)
+    .default([]),
   enablementSource: z
     .union([z.enum(PluginEnablementSourceEnum), z.null()])
     .default(null),

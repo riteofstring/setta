@@ -189,4 +189,123 @@ describe("plugins pane helpers", () => {
       }),
     ).toBe("registerPane was requested but is not effective in this runtime.");
   });
+
+  it("extracts and sorts registered language servers from plugin status", () => {
+    const statusEntry = {
+      ...buildPluginStatusEntry({}),
+      registeredLanguageServers: [
+        {
+          name: "plugin:typescript",
+          language: "typescript",
+          command: "ts-lsp",
+          args: ["--stdio"],
+          settingsKey: "typescriptLanguageServer",
+        },
+        {
+          name: "plugin:javascript",
+          language: "javascript",
+          command: "js-lsp",
+          args: [],
+          settingsKey: null,
+        },
+      ],
+    } as PluginStatusEntry;
+
+    const registrations =
+      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry);
+
+    expect(registrations.map((entry) => entry.language)).toEqual([
+      "javascript",
+      "typescript",
+    ]);
+    expect(registrations[1].settingsKey).toBe("typescriptLanguageServer");
+  });
+
+  it("returns no language servers when status payload omits registrations", () => {
+    const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
+    delete (
+      statusEntry as PluginStatusEntry & {
+        registeredLanguageServers?: unknown;
+      }
+    ).registeredLanguageServers;
+
+    expect(pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry)).toEqual(
+      [],
+    );
+  });
+
+  it("parses language server settings drafts as JSON objects", () => {
+    expect(pluginsPaneTestApi.parseLanguageServerSettingsDraft("")).toEqual({
+      value: {},
+      error: null,
+    });
+    expect(
+      pluginsPaneTestApi.parseLanguageServerSettingsDraft('{"a": 1}'),
+    ).toEqual({
+      value: { a: 1 },
+      error: null,
+    });
+    expect(
+      pluginsPaneTestApi.parseLanguageServerSettingsDraft("[1, 2, 3]"),
+    ).toEqual({
+      value: {},
+      error: "Language server settings must be a JSON object.",
+    });
+    expect(pluginsPaneTestApi.parseLanguageServerSettingsDraft("{")).toEqual({
+      value: {},
+      error: "Language server settings JSON is invalid.",
+    });
+  });
+
+  it("gets and sets nested language server settings values by key path", () => {
+    const initial = {
+      basedpyright: {
+        analysis: {
+          typeCheckingMode: "basic",
+        },
+      },
+    };
+
+    const next = pluginsPaneTestApi.setLanguageServerSettingsValue(
+      initial,
+      "fixtureTypescriptLanguageServer",
+      {
+        analysis: {
+          strictNullChecks: true,
+        },
+      },
+    );
+    expect(initial).toEqual({
+      basedpyright: {
+        analysis: {
+          typeCheckingMode: "basic",
+        },
+      },
+    });
+    expect(
+      pluginsPaneTestApi.getLanguageServerSettingsValue(next, "basedpyright"),
+    ).toEqual({
+      analysis: {
+        typeCheckingMode: "basic",
+      },
+    });
+    expect(
+      pluginsPaneTestApi.getLanguageServerSettingsValue(
+        next,
+        "fixtureTypescriptLanguageServer",
+      ),
+    ).toEqual({
+      analysis: {
+        strictNullChecks: true,
+      },
+    });
+    expect(
+      pluginsPaneTestApi.formatLanguageServerSettingsDraft(
+        pluginsPaneTestApi.getLanguageServerSettingsValue(
+          next,
+          "fixtureTypescriptLanguageServer",
+        ),
+      ),
+    ).toContain("strictNullChecks");
+  });
 });

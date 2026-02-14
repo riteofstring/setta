@@ -11,7 +11,7 @@ import {
 } from "plugins/runtime";
 import { useEffect, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useShareSession } from "state/definitions";
+import { useSettings, useShareSession } from "state/definitions";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import {
   getErrorDetail,
@@ -27,6 +27,7 @@ import {
   route_plugins_rollback,
   route_plugins_uninstall,
   route_plugins_update,
+  route_save_settings,
 } from "utils/generatedEndpoints";
 import type {
   PluginBlockedCapability,
@@ -36,6 +37,7 @@ import type {
   PluginStatusEntry,
   PluginUninstallRequestInput,
   PluginUpdateRequestInput,
+  SettingsState,
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 
@@ -45,6 +47,9 @@ type PluginActionStatus = {
   type: "error" | "success" | "warning";
   message: string;
 };
+
+type PluginRegisteredLanguageServer =
+  PluginStatusEntry["registeredLanguageServers"][number];
 
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
@@ -516,6 +521,7 @@ function PluginListEntryCard({
   const effectiveCapabilities =
     pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
   const blockedCapabilities = pluginStatus?.blockedCapabilities ?? [];
+  const registeredLanguageServers = getRegisteredLanguageServers(pluginStatus);
   const commandCapabilityStatus = getPluginCapabilityStatus(
     pluginStatus,
     plugin,
@@ -533,6 +539,15 @@ function PluginListEntryCard({
   const paneCapabilityReason = getBlockedCapabilityReason(
     blockedCapabilities,
     "registerPane",
+  );
+  const languageServerCapabilityStatus = getPluginCapabilityStatus(
+    pluginStatus,
+    plugin,
+    "registerLanguageServer",
+  );
+  const languageServerCapabilityReason = getBlockedCapabilityReason(
+    blockedCapabilities,
+    "registerLanguageServer",
   );
 
   function onOpenPane(paneId: string) {
@@ -615,6 +630,68 @@ function PluginListEntryCard({
           />
         </section>
       )}
+
+      {registeredLanguageServers.length > 0 ? (
+        <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+          <h5 className="text-[11px] font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
+            Registered Language Servers
+          </h5>
+          <div className="mt-2 flex flex-col gap-2">
+            {registeredLanguageServers.map((registration) => (
+              <article
+                key={`${plugin.pluginId}:${registration.name}`}
+                className="rounded border border-setta-200 bg-setta-50/70 p-2 dark:border-setta-850 dark:bg-setta-900/40"
+              >
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-setta-700 dark:text-setta-200">
+                  <span className="font-semibold">{registration.language}</span>
+                  <span className="font-mono">{registration.command}</span>
+                  {registration.args.length > 0 ? (
+                    <span className="font-mono">
+                      {registration.args.join(" ")}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-[10px] text-setta-500 dark:text-setta-400">
+                  name={registration.name}
+                  {registration.settingsKey
+                    ? ` settingsKey=${registration.settingsKey}`
+                    : ""}
+                </p>
+                {registration.settingsKey ? (
+                  <LanguageServerSettingsEditor
+                    settingsKey={registration.settingsKey}
+                    disabled={writeActionsLocked || busyActionKey !== null}
+                  />
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : languageServerCapabilityStatus === "effective" ? (
+        <section className="mt-2 rounded border border-blue-200 bg-blue-50 p-2 text-[11px] text-blue-800 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-200">
+          <p className="font-semibold uppercase tracking-wide">
+            Language servers pending runtime load
+          </p>
+          <p className="mt-1">
+            No language server registrations are active yet. Restart Setta if
+            this plugin was just installed or updated.
+          </p>
+        </section>
+      ) : languageServerCapabilityStatus !== "not_requested" ? (
+        <section className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+          <p className="font-semibold uppercase tracking-wide">
+            Language servers unavailable
+          </p>
+          <p className="mt-1">
+            {buildCapabilityUnavailableMessage({
+              capability: "registerLanguageServer",
+              status: languageServerCapabilityStatus,
+              reason: languageServerCapabilityReason,
+              serverMode,
+            })}
+          </p>
+        </section>
+      ) : null}
 
       {commands.length > 0 ? (
         <section className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
@@ -746,6 +823,222 @@ function CapabilityRow({
       )}
     </div>
   );
+}
+
+type SettingsEditorStatus = {
+  type: "error" | "success";
+  message: string;
+};
+
+function LanguageServerSettingsEditor({
+  settingsKey,
+  disabled,
+}: {
+  settingsKey: string;
+  disabled: boolean;
+}) {
+  const languageServerSettings = useSettings(
+    (state) => state.languageServer as Record<string, unknown>,
+    _.isEqual,
+  );
+  const [draft, setDraft] = useState("");
+  const [status, setStatus] = useState<SettingsEditorStatus | null>(null);
+
+  useEffect(() => {
+    const settingsValue = getLanguageServerSettingsValue(
+      languageServerSettings,
+      settingsKey,
+    );
+    setDraft(formatLanguageServerSettingsDraft(settingsValue));
+    setStatus(null);
+  }, [languageServerSettings, settingsKey]);
+
+  async function onSaveSettings() {
+    const parsedSettings = parseLanguageServerSettingsDraft(draft);
+    if (parsedSettings.error) {
+      setStatus({ type: "error", message: parsedSettings.error });
+      return;
+    }
+    const nextLanguageServerSettings = setLanguageServerSettingsValue(
+      languageServerSettings,
+      settingsKey,
+      parsedSettings.value,
+    );
+    const currentSettings = useSettings.getState();
+    const nextSettings: SettingsState = {
+      ...currentSettings,
+      languageServer: nextLanguageServerSettings,
+    };
+    const response = await route_save_settings({ settings: nextSettings });
+    if (!res200(response)) {
+      const errorMessage = buildPluginActionError(
+        "Save language server settings",
+        response,
+      );
+      setStatus({ type: "error", message: errorMessage });
+      addTemporaryNotification(errorMessage, "error");
+      return;
+    }
+    useSettings.setState(nextSettings);
+    setStatus({
+      type: "success",
+      message: "Language server settings saved.",
+    });
+  }
+
+  return (
+    <div className="mt-2 rounded border border-setta-200 bg-white p-2 dark:border-setta-800 dark:bg-setta-950">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+        settings.{settingsKey}
+      </p>
+      <textarea
+        className="mt-1 h-24 w-full rounded border border-setta-300 bg-white p-2 font-mono text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
+        aria-label={`settings.${settingsKey}`}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        spellCheck={false}
+        disabled={disabled}
+      />
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="text-[10px] text-setta-500 dark:text-setta-400">
+          Enter a JSON object for this language server settings key.
+        </p>
+        <button
+          type="button"
+          className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+          onClick={() => {
+            void onSaveSettings();
+          }}
+          disabled={disabled}
+        >
+          Save Settings
+        </button>
+      </div>
+      {status ? (
+        <p
+          className={`mt-2 text-[11px] ${
+            status.type === "error"
+              ? "text-red-700 dark:text-red-300"
+              : "text-green-700 dark:text-green-300"
+          }`}
+        >
+          {status.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function getRegisteredLanguageServers(
+  pluginStatus: PluginStatusEntry | null,
+): PluginRegisteredLanguageServer[] {
+  if (pluginStatus === null) {
+    return [];
+  }
+  const registrations = Array.isArray(pluginStatus.registeredLanguageServers)
+    ? [...pluginStatus.registeredLanguageServers]
+    : [];
+  registrations.sort((a, b) => {
+    const byLanguage = a.language.localeCompare(b.language);
+    if (byLanguage !== 0) {
+      return byLanguage;
+    }
+    return a.name.localeCompare(b.name);
+  });
+  return registrations;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return false;
+  }
+  return true;
+}
+
+function parseLanguageServerSettingsDraft(rawValue: string): {
+  value: Record<string, unknown>;
+  error: string | null;
+} {
+  const trimmed = rawValue.trim();
+  if (trimmed === "") {
+    return { value: {}, error: null };
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!isPlainObject(parsed)) {
+      return {
+        value: {},
+        error: "Language server settings must be a JSON object.",
+      };
+    }
+    return { value: parsed, error: null };
+  } catch {
+    return {
+      value: {},
+      error: "Language server settings JSON is invalid.",
+    };
+  }
+}
+
+function formatLanguageServerSettingsDraft(value: unknown): string {
+  if (!isPlainObject(value)) {
+    return "{}";
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function getLanguageServerSettingsValue(
+  settings: Record<string, unknown>,
+  settingsKey: string,
+): unknown {
+  const path = settingsKey
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (path.length === 0) {
+    return {};
+  }
+  let current: unknown = settings;
+  for (const segment of path) {
+    if (!isPlainObject(current)) {
+      return {};
+    }
+    current = current[segment];
+  }
+  return current ?? {};
+}
+
+function setLanguageServerSettingsValue(
+  settings: Record<string, unknown>,
+  settingsKey: string,
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  const path = settingsKey
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  if (path.length === 0) {
+    return _.cloneDeep(settings);
+  }
+  const nextSettings = _.cloneDeep(settings);
+  let current: Record<string, unknown> = nextSettings;
+  for (let index = 0; index < path.length; index += 1) {
+    const segment = path[index];
+    const isLeaf = index === path.length - 1;
+    if (isLeaf) {
+      current[segment] = _.cloneDeep(value);
+      break;
+    }
+    const existing = current[segment];
+    if (!isPlainObject(existing)) {
+      current[segment] = {};
+    }
+    current = current[segment] as Record<string, unknown>;
+  }
+  return nextSettings;
 }
 
 function ActionButton({
@@ -928,9 +1221,14 @@ function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
 export const pluginsPaneTestApi = {
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityUnavailableMessage,
+  formatLanguageServerSettingsDraft,
   getBlockedCapabilityReason,
+  getLanguageServerSettingsValue,
   getPluginCapabilityStatus,
+  getRegisteredLanguageServers,
   getRestartRequiredPluginIds,
+  parseLanguageServerSettingsDraft,
+  setLanguageServerSettingsValue,
   validateInstallSourceSpec,
 };
 
