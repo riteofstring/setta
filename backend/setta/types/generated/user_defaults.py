@@ -1,6 +1,7 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -212,6 +213,13 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
+
+
+class UserDefaultPluginSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    pluginId: str = ""
+    kind: str = "default"
+    data: dict[str, Any] = Field(default_factory=dict)
+    schemaVersion: int | None = None
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

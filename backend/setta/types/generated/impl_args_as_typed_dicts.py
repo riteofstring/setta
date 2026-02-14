@@ -27,6 +27,7 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
+    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
@@ -89,6 +90,7 @@ class CoreArgs(TypedDict):
                 "configLanguage",
                 "coreNameEditable",
                 "coreNameType",
+                "data",
                 "dataPath",
                 "defaultVal",
                 "description",
@@ -118,6 +120,7 @@ class CoreArgs(TypedDict):
                 "isPreset",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
+                "kind",
                 "label",
                 "layers",
                 "managed",
@@ -135,6 +138,7 @@ class CoreArgs(TypedDict):
                 "passingStyle",
                 "pinnedParams",
                 "placeholder",
+                "pluginId",
                 "positionAndSizeLocked",
                 "renderError",
                 "renderedImagePath",
@@ -145,6 +149,7 @@ class CoreArgs(TypedDict):
                 "requestMethod",
                 "requestUrl",
                 "savedSearches",
+                "schemaVersion",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
@@ -179,7 +184,9 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
+    codegenTargets: NotRequired[
+        list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
+    ]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -690,6 +697,25 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         list[BrowserSavedSearch]
         | Callable[[list[BrowserSavedSearch]], list[BrowserSavedSearch]]
     ]
+
+
+class PluginSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.Plugin]]
+    pluginId: NotRequired[str]
+    kind: NotRequired[str]
+    data: NotRequired[dict[str, Any]]
+    schemaVersion: NotRequired[int | None]
+
+
+class PluginSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.Plugin]
+        | Callable[[Literal[SectionType.Plugin]], Literal[SectionType.Plugin]]
+    ]
+    pluginId: NotRequired[str | Callable[[str], str]]
+    kind: NotRequired[str | Callable[[str], str]]
+    data: NotRequired[dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]]]
+    schemaVersion: NotRequired[int | None | Callable[[int | None], int | None]]
 
 
 class BaseCodeObjImplArgs(TypedDict):
