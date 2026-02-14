@@ -38,6 +38,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
@@ -1067,6 +1068,9 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    skillsEnabled: bool
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
