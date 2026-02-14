@@ -543,7 +543,7 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       const uiEditorPane = document.getElementById("UiEditorPane");
 
       // These panes use `display: contents`, so the actual hit-testing overlays are the
-      // sidebars (`aside.single-cell-container`) and the icon rails (`div.absolute`).
+      // sidebars (`aside.single-cell-container`) and the fixed icon rails.
       const leftOverlays: HTMLElement[] = [];
       const rightOverlays: HTMLElement[] = [];
 
@@ -553,7 +553,9 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (overviewAside instanceof HTMLElement) {
         leftOverlays.push(overviewAside);
       }
-      const overviewRail = overviewPane?.querySelector("div.absolute.left-0");
+      const overviewRail = overviewPane?.querySelector(
+        '[data-testid="overview-icon-rail"]',
+      );
       if (overviewRail instanceof HTMLElement) {
         leftOverlays.push(overviewRail);
       }
@@ -564,7 +566,9 @@ export async function getViewportBoundsForPlacement(page: Page): Promise<{
       if (uiEditorAside instanceof HTMLElement) {
         rightOverlays.push(uiEditorAside);
       }
-      const uiEditorRail = uiEditorPane?.querySelector("div.absolute.right-0");
+      const uiEditorRail = uiEditorPane?.querySelector(
+        '[data-testid="ui-editor-icon-rail"]',
+      );
       if (uiEditorRail instanceof HTMLElement) {
         rightOverlays.push(uiEditorRail);
       }

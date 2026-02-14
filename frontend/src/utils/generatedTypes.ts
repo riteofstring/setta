@@ -141,6 +141,12 @@ export const DrawAreaModeEnum = {
 
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
+export const CapabilityModeEnum = {
+  disabled: "disabled",
+  inherit: "inherit",
+  custom: "custom",
+} as const;
+
 export const ChatRoleEnum = {
   system: "system",
   user: "user",
@@ -441,6 +447,17 @@ export const RouteEnum = {
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
+  GET_SKILL_SOURCES: "/getSkillSources",
+  SET_SKILL_SOURCES: "/setSkillSources",
+  GET_SKILLS_CATALOG: "/getSkillsCatalog",
+  GET_SKILL_DETAILS: "/getSkillDetails",
+  IMPORT_SKILL_MARKDOWN: "/importSkillMarkdown",
+  DELETE_SKILLS: "/deleteSkills",
+  GET_GLOBAL_CAPABILITY_DEFAULTS: "/getGlobalCapabilityDefaults",
+  SET_GLOBAL_CAPABILITY_DEFAULTS: "/setGlobalCapabilityDefaults",
+  GET_PROJECT_CHAT_CAPABILITY_POLICY: "/getProjectChatCapabilityPolicy",
+  SET_PROJECT_CHAT_CAPABILITY_POLICY: "/setProjectChatCapabilityPolicy",
+  GET_MCP_SERVERS_RUNTIME_STATE: "/getMcpServersRuntimeState",
   GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
   DELETE_LLM_CHAT: "/deleteLLMChat",
   STOP_LLM_CHAT: "/stopLLMChat",
@@ -579,6 +596,8 @@ export const RouteEnum = {
   SET_ACTIVE_IDS: "/setActiveIds",
   SET_VIEWPORT: "/setViewport",
   SET_SECTION_NAME: "/setSectionName",
+  SET_SECTION_TAG_COLOR: "/setSectionTagColor",
+  SET_SECTION_STYLE_COLOR: "/setSectionStyleColor",
   SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
@@ -593,6 +612,8 @@ export const RouteEnum = {
   SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
+  GET_CHAT_SECTION_CAPABILITY_POLICY: "/getChatSectionCapabilityPolicy",
+  SET_CHAT_SECTION_CAPABILITY_POLICY: "/setChatSectionCapabilityPolicy",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
   GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
   SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
@@ -615,6 +636,11 @@ export const RouteEnum = {
   GET_FOLDER_CONTENTS: "/getFolderContents",
   GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
   FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
+  GET_GIT_STATUS: "/git/status",
+  GET_GIT_DIFF: "/git/diff",
+  GET_GIT_LOG: "/git/log",
+  GET_GIT_COMMIT_DETAILS: "/git/commitDetails",
+  GET_GIT_COMMIT_FILE_DIFF: "/git/commitFileDiff",
   IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
   DELETE_ARTIFACTS: "/deleteArtifacts",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
@@ -1355,6 +1381,20 @@ const ChatSectionBranchSchema = z.object({
 
 export type ChatSectionBranch = z.infer<typeof ChatSectionBranchSchema>;
 
+const CapabilityPolicySchema = z.object({
+  mode: z.enum(CapabilityModeEnum).default(CapabilityModeEnum.disabled),
+  enabledSkillIds: z.array(z.string()).default([]),
+  enabledMcpServerIds: z.array(z.string()).default([]),
+});
+
+export type CapabilityPolicy = z.infer<typeof CapabilityPolicySchema>;
+
+export function createCapabilityPolicy(
+  options: Partial<CapabilityPolicy> = {},
+): CapabilityPolicy {
+  return CapabilityPolicySchema.parse(options);
+}
+
 const CodeFileBindingSchema = z.object({
   canonical_path: z.string(),
   access_mode: z.enum(CodeFileAccessModeEnum),
@@ -1365,6 +1405,14 @@ const ColorPickerChoiceSchema = z.object({
   color: z.string(),
   description: z.string(),
 });
+
+export type ColorPickerChoice = z.infer<typeof ColorPickerChoiceSchema>;
+
+function createColorPickerChoice(
+  options: Partial<ColorPickerChoice> = {},
+): ColorPickerChoice {
+  return ColorPickerChoiceSchema.parse(options);
+}
 
 const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
   muted: z.boolean().default(false),
@@ -1497,6 +1545,7 @@ const SharedModifierSchema = z.object({
   brushSize: z.int().optional(),
   callable: z.union([IDSchema, z.null()]).optional(),
   canvasMode: z.enum(DrawAreaModeEnum).optional(),
+  capabilityPolicy: CapabilityPolicySchema.optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
     .optional(),
@@ -1583,6 +1632,8 @@ const SharedModifierSchema = z.object({
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
   template: z.string().optional(),
   text: z.string().optional(),
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
@@ -1629,6 +1680,7 @@ const CoreSchema = z.object({
         "brushSize",
         "callable",
         "canvasMode",
+        "capabilityPolicy",
         "chartSettings",
         "chatId",
         "children",
@@ -1702,6 +1754,8 @@ const CoreSchema = z.object({
         "showSectionTitle",
         "size",
         "step",
+        "styleColor",
+        "tagColor",
         "template",
         "text",
         "textDisplayMode",
@@ -1739,6 +1793,8 @@ const CallableSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1777,6 +1833,8 @@ const DictSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1817,6 +1875,8 @@ const ListRootSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1835,6 +1895,8 @@ const GroupSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1855,6 +1917,8 @@ const ImageSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1873,6 +1937,8 @@ const ChartSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 300.0, height: 300.0 }),
   ),
@@ -1896,6 +1962,8 @@ const DrawSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 402.0, height: 100.0 }),
   ),
@@ -1928,6 +1996,8 @@ const TextBlockSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -1959,6 +2029,8 @@ const PromptSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 300.0, height: 150.0 }),
   ),
@@ -1984,6 +2056,8 @@ const MetaControlSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2004,6 +2078,8 @@ const SocialSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2022,6 +2098,8 @@ const GlobalVariablesSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2057,6 +2135,8 @@ const CodeSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2089,6 +2169,8 @@ const GenPythonCodeSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2112,6 +2194,8 @@ const GenPythonMetadataSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2135,6 +2219,8 @@ const TerminalSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 250.0, height: 150.0 }),
   ),
@@ -2161,6 +2247,8 @@ const IFrameSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -2178,6 +2266,8 @@ const ChatSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 400.0, height: 200.0 }),
   ),
@@ -2192,6 +2282,7 @@ const ChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
+  capabilityPolicy: CapabilityPolicySchema.default(createCapabilityPolicy),
   messages: z
     .array(
       z.union([
@@ -2224,6 +2315,8 @@ const BrowserSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 720.0, height: 460.0 }),
   ),
@@ -2765,6 +2858,8 @@ const ChartSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -2786,6 +2881,8 @@ const DrawSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3043,6 +3140,8 @@ const CodeSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3066,6 +3165,8 @@ const GenPythonCodeSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3089,6 +3190,8 @@ const GenPythonMetadataSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3112,6 +3215,8 @@ const DictSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3143,6 +3248,8 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3176,6 +3283,8 @@ const ListRootSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3194,6 +3303,8 @@ const GroupSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3214,6 +3325,8 @@ const CallableSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3243,6 +3356,8 @@ const ImageSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3261,6 +3376,8 @@ const TextBlockSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3283,6 +3400,8 @@ const PromptSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3306,6 +3425,8 @@ const MetaControlSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3328,6 +3449,8 @@ const SocialSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3346,6 +3469,8 @@ const TerminalSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3363,6 +3488,8 @@ const IFrameSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3380,6 +3507,8 @@ const ChatSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -3392,6 +3521,7 @@ const ChatSectionImplArgsSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
+  capabilityPolicy: CapabilityPolicySchema.optional(),
   messages: z
     .array(
       z.union([
@@ -3417,6 +3547,8 @@ const BrowserSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -4283,6 +4415,40 @@ const SettingsGUISchema = z.object({
   selectionMode: z.enum(SelectionModeEnum).default(SelectionModeEnum.partial),
   leftSidePaneShiftsMap: z.boolean().default(true),
   transitionDuration: z.int().default(50),
+  sectionTagColorChoices: z.array(ColorPickerChoiceSchema).default(() => [
+    createColorPickerChoice({
+      color: "#ef4444" as const,
+      description: "Red" as const,
+    }),
+    createColorPickerChoice({
+      color: "#f97316" as const,
+      description: "Orange" as const,
+    }),
+    createColorPickerChoice({
+      color: "#eab308" as const,
+      description: "Yellow" as const,
+    }),
+    createColorPickerChoice({
+      color: "#22c55e" as const,
+      description: "Green" as const,
+    }),
+    createColorPickerChoice({
+      color: "#06b6d4" as const,
+      description: "Cyan" as const,
+    }),
+    createColorPickerChoice({
+      color: "#3b82f6" as const,
+      description: "Blue" as const,
+    }),
+    createColorPickerChoice({
+      color: "#a855f7" as const,
+      description: "Purple" as const,
+    }),
+    createColorPickerChoice({
+      color: "#64748b" as const,
+      description: "Slate" as const,
+    }),
+  ]),
 });
 
 type SettingsGUI = z.infer<typeof SettingsGUISchema>;
@@ -4678,6 +4844,8 @@ function createSectionSizingPolicy(
 
 const UserDefaultBrowserSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 720.0, height: 460.0 }),
   ),
@@ -4706,6 +4874,8 @@ function createUserDefaultBrowserSectionImpl(
 
 const UserDefaultCallableSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4731,6 +4901,8 @@ export function createUserDefaultCallableSectionImpl(
 
 const UserDefaultChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 300.0, height: 300.0 }),
   ),
@@ -4752,6 +4924,8 @@ function createUserDefaultChartSectionImpl(
 
 const UserDefaultChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 400.0, height: 200.0 }),
   ),
@@ -4763,6 +4937,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
+  capabilityPolicy: CapabilityPolicySchema.default(createCapabilityPolicy),
   messages: z
     .array(
       z.union([
@@ -4792,6 +4967,8 @@ export function createUserDefaultChatSectionImpl(
 
 const UserDefaultCodeSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4817,6 +4994,8 @@ function createUserDefaultCodeSectionImpl(
 
 const UserDefaultDictSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4843,6 +5022,8 @@ export function createUserDefaultDictSectionImpl(
 
 const UserDefaultDrawSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 402.0, height: 100.0 }),
   ),
@@ -4876,6 +5057,8 @@ function createUserDefaultDrawSectionImpl(
 
 const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4897,6 +5080,8 @@ function createUserDefaultGenPythonCodeSectionImpl(
 
 const UserDefaultGenPythonMetadataSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4918,6 +5103,8 @@ function createUserDefaultGenPythonMetadataSectionImpl(
 
 const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4944,6 +5131,8 @@ function createUserDefaultGlobalVariablesSectionImpl(
 
 const UserDefaultGroupSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4964,6 +5153,8 @@ function createUserDefaultGroupSectionImpl(
 
 const UserDefaultIFrameSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -4982,6 +5173,8 @@ function createUserDefaultIFrameSectionImpl(
 
 const UserDefaultImageSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -5001,6 +5194,8 @@ function createUserDefaultImageSectionImpl(
 
 const UserDefaultListRootSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -5019,6 +5214,8 @@ function createUserDefaultListRootSectionImpl(
 
 const UserDefaultMetaControlSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -5038,6 +5235,8 @@ function createUserDefaultMetaControlSectionImpl(
 
 const UserDefaultPromptSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 300.0, height: 150.0 }),
   ),
@@ -5064,6 +5263,8 @@ function createUserDefaultPromptSectionImpl(
 
 const UserDefaultSocialSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -5083,6 +5284,8 @@ function createUserDefaultSocialSectionImpl(
 
 const UserDefaultTerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 250.0, height: 150.0 }),
   ),
@@ -5103,6 +5306,8 @@ function createUserDefaultTerminalSectionImpl(
 
 const UserDefaultTextBlockSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
@@ -5580,6 +5785,10 @@ const LLMConfigSchema = z.object({
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
+}
+
 const MCPServerConfigSchema = z.object({
   transport: z.literal(["sse", "streamable_http", "stdio"]),
   url: z.union([z.string(), z.null()]).default(null),
@@ -5603,6 +5812,12 @@ const AllLLMConfigsSchema = z.object({
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
 
 export type AllLLMConfigsInput = z.input<typeof AllLLMConfigsSchema>;
+
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return AllLLMConfigsSchema.parse(options);
+}
 
 const WebsocketMsgLLMConfigUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
@@ -5778,6 +5993,12 @@ const EngineConfigSchema = z.object({
 
 export type EngineConfig = z.infer<typeof EngineConfigSchema>;
 
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
+  return EngineConfigSchema.parse(options);
+}
+
 const EngineConfigListSchema = z.object({
   configs: z.array(EngineConfigSchema),
 });
@@ -5854,12 +6075,18 @@ export type FrontendWebsocketMsgUnion = z.infer<
   typeof FrontendWebsocketMsgUnionSchema
 >;
 
+const GitDiffModeSchema = z.literal(["unstaged", "staged"]);
+
+export type GitDiffMode = z.infer<typeof GitDiffModeSchema>;
+
 const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: IDSchema.optional(),
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -5906,6 +6133,8 @@ const BaseCodeSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -5927,6 +6156,8 @@ const BaseDictSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -5984,6 +6215,8 @@ const BaseParentSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -6004,6 +6237,8 @@ const BaseSectionImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -6021,6 +6256,8 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   name: z.string().optional(),
   isFrozen: z.boolean().optional(),
   isInOtherProjectConfigs: z.boolean().optional(),
+  tagColor: z.union([z.string(), z.null()]).optional(),
+  styleColor: z.union([z.string(), z.null()]).optional(),
   size: SectionSizeSchema.optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
@@ -6290,6 +6527,88 @@ const AppValidationIssueSchema = z.object({
   elementType: z.union([z.string(), z.null()]).default(null),
 });
 
+const GlobalCapabilityDefaultsSchema = z.object({
+  defaultSkillIds: z.array(z.string()).default([]),
+  defaultMcpServerIds: z.array(z.string()).default([]),
+});
+
+export type GlobalCapabilityDefaults = z.infer<
+  typeof GlobalCapabilityDefaultsSchema
+>;
+
+export type GlobalCapabilityDefaultsInput = z.input<
+  typeof GlobalCapabilityDefaultsSchema
+>;
+
+export function createGlobalCapabilityDefaults(
+  options: Partial<GlobalCapabilityDefaults> = {},
+): GlobalCapabilityDefaults {
+  return GlobalCapabilityDefaultsSchema.parse(options);
+}
+
+const McpServerRuntimeStateSchema = z.object({
+  serverId: z.string(),
+  connected: z.boolean(),
+  error: z.union([z.string(), z.null()]).default(null),
+  toolCount: z.int().default(0),
+  refreshedAtMs: z.union([z.int(), z.null()]).default(null),
+});
+
+const McpServersRuntimeStateResponseSchema = z.object({
+  servers: z.array(McpServerRuntimeStateSchema).default([]),
+  generatedAtMs: z.int(),
+});
+
+export type McpServersRuntimeStateResponse = z.infer<
+  typeof McpServersRuntimeStateResponseSchema
+>;
+
+const SkillSourceSchema = z.object({
+  id: z.string(),
+  path: z.string(),
+  label: z.string(),
+  builtin: z.boolean().default(false),
+});
+
+export type SkillSource = z.infer<typeof SkillSourceSchema>;
+
+const SkillEntrySchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  relativePath: z.string(),
+  absolutePath: z.string(),
+  name: z.string(),
+  description: z.string(),
+  version: z.union([z.string(), z.null()]).default(null),
+  parseError: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SkillEntry = z.infer<typeof SkillEntrySchema>;
+
+const SkillCatalogResponseSchema = z.object({
+  sources: z.array(SkillSourceSchema).default([]),
+  skills: z.array(SkillEntrySchema).default([]),
+});
+
+export type SkillCatalogResponse = z.infer<typeof SkillCatalogResponseSchema>;
+
+const SkillDetailsResponseSchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  relativePath: z.string(),
+  absolutePath: z.string(),
+  name: z.string(),
+  description: z.string(),
+  version: z.union([z.string(), z.null()]).default(null),
+  metadata: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
+  content: z.string().default("" as const),
+  parseError: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SkillDetailsResponse = z.infer<typeof SkillDetailsResponseSchema>;
+
 const ChatSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
@@ -6460,6 +6779,8 @@ const BaseSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6515,6 +6836,8 @@ const BaseCanvasSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6532,6 +6855,8 @@ const BaseCodeSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6553,6 +6878,8 @@ const BaseDictSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6586,6 +6913,8 @@ const BaseParentSectionImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6604,6 +6933,8 @@ const BaseSectionWithParamsImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   isFrozen: z.boolean().default(false),
   isInOtherProjectConfigs: z.boolean().default(false),
+  tagColor: z.union([z.string(), z.null()]).default(null),
+  styleColor: z.union([z.string(), z.null()]).default(null),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   aspectRatioExtraHeight: z.int().default(0),
@@ -6628,6 +6959,171 @@ const BaseSectionWithParamsImplSchema = z.object({
 export type BaseSectionWithParamsImpl = z.infer<
   typeof BaseSectionWithParamsImplSchema
 >;
+
+const GetGitCommitDetailsRequestSchema = z.object({
+  commitHash: z.string(),
+});
+
+export type GetGitCommitDetailsRequestInput = z.input<
+  typeof GetGitCommitDetailsRequestSchema
+>;
+
+const GitCommitChangedFileSchema = z.object({
+  path: z.string(),
+  oldPath: z.union([z.string(), z.null()]).default(null),
+  status: z.string(),
+  additions: z.union([z.int(), z.null()]).default(null),
+  deletions: z.union([z.int(), z.null()]).default(null),
+});
+
+export type GitCommitChangedFile = z.infer<typeof GitCommitChangedFileSchema>;
+
+export function createGitCommitChangedFile(
+  options: Partial<GitCommitChangedFile> = {},
+): GitCommitChangedFile {
+  return GitCommitChangedFileSchema.parse(options);
+}
+
+const GetGitCommitDetailsResponseSchema = z.object({
+  repoRoot: z.string(),
+  commitHash: z.string(),
+  parents: z.array(z.string()),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authorTimeMs: z.int(),
+  committerName: z.string(),
+  committerEmail: z.string(),
+  committerTimeMs: z.int(),
+  subject: z.string(),
+  body: z.string(),
+  files: z.array(GitCommitChangedFileSchema),
+  isTruncated: z.boolean(),
+});
+
+export type GetGitCommitDetailsResponse = z.infer<
+  typeof GetGitCommitDetailsResponseSchema
+>;
+
+export function createGetGitCommitDetailsResponse(
+  options: Partial<GetGitCommitDetailsResponse> = {},
+): GetGitCommitDetailsResponse {
+  return GetGitCommitDetailsResponseSchema.parse(options);
+}
+
+const GetGitCommitFileDiffRequestSchema = z.object({
+  commitHash: z.string(),
+  path: z.string(),
+  oldPath: z.union([z.string(), z.null()]).default(null),
+});
+
+export type GetGitCommitFileDiffRequestInput = z.input<
+  typeof GetGitCommitFileDiffRequestSchema
+>;
+
+const GetGitCommitFileDiffResponseSchema = z.object({
+  repoRoot: z.string(),
+  commitHash: z.string(),
+  path: z.string(),
+  diff: z.string(),
+  isTruncated: z.boolean(),
+});
+
+export type GetGitCommitFileDiffResponse = z.infer<
+  typeof GetGitCommitFileDiffResponseSchema
+>;
+
+const GetGitDiffRequestSchema = z.object({
+  path: z.string(),
+  mode: z.literal(["unstaged", "staged"]),
+  oldPath: z.union([z.string(), z.null()]).default(null),
+});
+
+export type GetGitDiffRequestInput = z.input<typeof GetGitDiffRequestSchema>;
+
+const GetGitDiffResponseSchema = z.object({
+  repoRoot: z.string(),
+  path: z.string(),
+  mode: z.literal(["unstaged", "staged"]),
+  diff: z.string(),
+  isTruncated: z.boolean(),
+});
+
+export type GetGitDiffResponse = z.infer<typeof GetGitDiffResponseSchema>;
+
+const GetGitLogRequestSchema = z.object({
+  rev: z.string().default("HEAD" as const),
+  allRefs: z.boolean().default(false),
+  offset: z.int().default(0),
+  pageSize: z.int().default(250),
+});
+
+export type GetGitLogRequestInput = z.input<typeof GetGitLogRequestSchema>;
+
+const GitCommitSchema = z.object({
+  hash: z.string(),
+  parents: z.array(z.string()),
+  authorName: z.string(),
+  authorEmail: z.string(),
+  authorTimeMs: z.int(),
+  subject: z.string(),
+  decorations: z.array(z.string()).default([]),
+});
+
+export type GitCommit = z.infer<typeof GitCommitSchema>;
+
+export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
+  return GitCommitSchema.parse(options);
+}
+
+const GetGitLogResponseSchema = z.object({
+  repoRoot: z.string(),
+  headBranch: z.union([z.string(), z.null()]),
+  commits: z.array(GitCommitSchema),
+  offset: z.int(),
+  pageSize: z.int(),
+  nextOffset: z.union([z.int(), z.null()]),
+  hasMore: z.boolean(),
+  isCapped: z.boolean(),
+});
+
+export type GetGitLogResponse = z.infer<typeof GetGitLogResponseSchema>;
+
+export function createGetGitLogResponse(
+  options: Partial<GetGitLogResponse> = {},
+): GetGitLogResponse {
+  return GetGitLogResponseSchema.parse(options);
+}
+
+const GitRepoInfoResponseSchema = z.object({
+  isGitRepo: z.boolean(),
+  repoRoot: z.union([z.string(), z.null()]).default(null),
+  headBranch: z.union([z.string(), z.null()]).default(null),
+  headCommit: z.union([z.string(), z.null()]).default(null),
+});
+
+const GitStatusEntrySchema = z.object({
+  path: z.string(),
+  oldPath: z.union([z.string(), z.null()]).default(null),
+  indexStatus: z.string(),
+  worktreeStatus: z.string(),
+  kind: z.literal(["conflict", "staged", "unstaged", "untracked"]),
+});
+
+export type GitStatusEntry = z.infer<typeof GitStatusEntrySchema>;
+
+export function createGitStatusEntry(
+  options: Partial<GitStatusEntry> = {},
+): GitStatusEntry {
+  return GitStatusEntrySchema.parse(options);
+}
+
+const GetGitStatusResponseSchema = z.object({
+  repo: GitRepoInfoResponseSchema,
+  entries: z.array(GitStatusEntrySchema),
+  isTruncated: z.boolean().default(false),
+});
+
+export type GetGitStatusResponse = z.infer<typeof GetGitStatusResponseSchema>;
 
 const ChatSectionStateSchema = z.object({
   messages: z
@@ -7033,6 +7529,7 @@ const GetLLMResponseRequestSchema = z.object({
   allowUnscoped: z.boolean().default(false),
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
+  overrideSkillIds: z.union([z.array(IDSchema), z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
 });
 
@@ -7309,6 +7806,59 @@ const LaunchResponseSchema = z.object({
 });
 
 export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
+
+const DeleteSkillsRequestSchema = z.object({
+  skillRefs: z.array(z.string()).default([]),
+});
+
+export type DeleteSkillsRequestInput = z.input<
+  typeof DeleteSkillsRequestSchema
+>;
+
+const GetProjectChatCapabilityPolicyRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetProjectChatCapabilityPolicyRequestInput = z.input<
+  typeof GetProjectChatCapabilityPolicyRequestSchema
+>;
+
+const GetSkillDetailsRequestSchema = z.object({
+  skillRef: z.string(),
+});
+
+export type GetSkillDetailsRequestInput = z.input<
+  typeof GetSkillDetailsRequestSchema
+>;
+
+const ImportSkillMarkdownRequestSchema = z.object({
+  markdown: z.string(),
+  sourceId: z.union([z.string(), z.null()]).default(null),
+  slug: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ImportSkillMarkdownRequestInput = z.input<
+  typeof ImportSkillMarkdownRequestSchema
+>;
+
+const SetProjectChatCapabilityPolicyRequestSchema = z.object({
+  projectConfigId: IDSchema,
+  chatId: z.union([IDSchema, z.null()]).default(null),
+  capabilityPolicy: CapabilityPolicySchema,
+});
+
+export type SetProjectChatCapabilityPolicyRequestInput = z.input<
+  typeof SetProjectChatCapabilityPolicyRequestSchema
+>;
+
+const SetSkillSourcesRequestSchema = z.object({
+  skillSources: z.array(SkillSourceSchema).default([]),
+});
+
+export type SetSkillSourcesRequestInput = z.input<
+  typeof SetSkillSourcesRequestSchema
+>;
 
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
@@ -7716,6 +8266,16 @@ export type GetAppDefinitionRequestInput = z.input<
   typeof GetAppDefinitionRequestSchema
 >;
 
+const GetChatSectionCapabilityPolicyRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+});
+
+export type GetChatSectionCapabilityPolicyRequestInput = z.input<
+  typeof GetChatSectionCapabilityPolicyRequestSchema
+>;
+
 const GetChatSectionChatIdRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -8120,6 +8680,17 @@ export type SetChartTypeRequestInput = z.input<
   typeof SetChartTypeRequestSchema
 >;
 
+const SetChatSectionCapabilityPolicyRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  capabilityPolicy: CapabilityPolicySchema,
+});
+
+export type SetChatSectionCapabilityPolicyRequestInput = z.input<
+  typeof SetChatSectionCapabilityPolicyRequestSchema
+>;
+
 const SetChatSectionChatIdRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -8449,6 +9020,28 @@ const SetSectionSizesRequestSchema = z.object({
 
 export type SetSectionSizesRequestInput = z.input<
   typeof SetSectionSizesRequestSchema
+>;
+
+const SetSectionStyleColorRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  styleColor: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SetSectionStyleColorRequestInput = z.input<
+  typeof SetSectionStyleColorRequestSchema
+>;
+
+const SetSectionTagColorRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  tagColor: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SetSectionTagColorRequestInput = z.input<
+  typeof SetSectionTagColorRequestSchema
 >;
 
 const SetSectionVariantNameRequestSchema = z.object({

@@ -29,7 +29,7 @@ This guide is for UI work across the app. Do not use the following panes as visu
 Use these components as the primary style anchors:
 
 - Small buttons (compact, text-xs, subtle hover):
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (top row: New/History/Thinking/Settings)
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx` (top row: New/History/Capabilities/Thinking/Settings)
 - File menu + dropdowns:
   - `frontend/src/components/AppHeader/FileMenu.tsx`
   - `frontend/src/components/Utils/atoms/menubar/menudropdown.tsx`
@@ -48,5 +48,10 @@ Use these components as the primary style anchors:
   - `frontend/src/components/Panes/Overview/Overview.tsx` (h2)
   - `frontend/src/components/Panes/UiEditor/UiEditor.tsx` (h2)
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx` (h3/h4)
+- View mode tab chrome (bottom bar + tab states):
+  - `frontend/src/components/Pages/Project/ViewModeTabs.tsx`
+- Section Config color controls (compact panel cards, reset/category controls):
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionTagColorSettings.tsx`
+  - `frontend/src/components/Panes/UiEditor/SectionConfig/SectionStyleColorSettings.tsx`
 - List hover states:
   - `frontend/src/components/Panes/UiEditor/SectionVariants/VariantList.tsx` (version list item hover)

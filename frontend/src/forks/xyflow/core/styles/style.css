@@ -115,6 +115,11 @@
     box-shadow 80ms ease-out;
 }
 
+.agentic-handle-scope--themed .react-flow__handle.arg-edge-handle {
+  background-color: var(--setta-section-style-arg-handle);
+  border-color: var(--setta-section-style-arg-handle);
+}
+
 .react-flow__handle.arg-edge-handle.arg-edge-handle--selecting {
   pointer-events: all;
   cursor: pointer;
@@ -167,16 +172,34 @@ html.dark .agentic-handle-metrics {
   --agentic-handle-accent: #3b82f6;
 }
 
+.agentic-handle-scope--themed .agentic-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
 .react-flow__handle.arg-edge-handle:hover {
   /* blue-500 */
   background-color: #3b82f6;
   border-color: #3b82f6;
 }
 
+.agentic-handle-scope--themed .react-flow__handle.arg-edge-handle:hover {
+  background-color: var(--setta-section-style-arg-handle-hover);
+  border-color: var(--setta-section-style-arg-handle-hover);
+}
+
 .react-flow__handle.arg-edge-handle:active {
   /* cyan-300 */
   background-color: #67e8f9;
   border-color: #67e8f9;
+}
+
+.agentic-handle-scope--themed .react-flow__handle.arg-edge-handle:active {
+  background-color: var(--setta-section-style-arg-handle-active);
+  border-color: var(--setta-section-style-arg-handle-active);
 }
 
 .react-flow__handle.agentic-handle {

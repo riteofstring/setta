@@ -16,6 +16,10 @@ from setta.agentic.store import (
 )
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
+from setta.llm.capabilities_config import (
+    set_project_chat_capability_policy,
+    set_skill_sources,
+)
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
     GetExternalAgentChatRequest,
@@ -32,12 +36,14 @@ from setta.routers.ai import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.agentic import (
+    AgentProfile,
     AgentRun,
     AgentRunStatus,
     EngineConfig,
     EngineType,
     RunEvent,
 )
+from setta.types.capabilities import CapabilityMode, CapabilityPolicy, SkillSource
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
@@ -62,6 +68,22 @@ def _build_dbe(tmpdir: str) -> DBE:
     root = Path(tmpdir) / "setta_files"
     root.mkdir(parents=True, exist_ok=True)
     return DBE(root)
+
+
+def _write_skill_doc(skill_dir: Path, *, name: str, body: str) -> None:
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            f"name: {name}\n"
+            "description: Test skill\n"
+            "metadata:\n"
+            "  version: 1.0.0\n"
+            "---\n"
+            f"{body}\n"
+        ),
+        encoding="utf-8",
+    )
 
 
 def _build_runner(dbe: DBE) -> AgentRunner:
@@ -536,6 +558,131 @@ class TestAgentRunChatRoutes:
                 exc.value.detail
                 == "sectionId is required unless allowUnscoped is true."
             )
+
+    async def test_get_llm_response_override_skill_ids_replaces_policy_skills(
+        self,
+    ) -> None:
+        # Request-level overrideSkillIds must replace persisted policy skills for
+        # this run without mutating stored policy state.
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-override-skills")
+
+            skills_root = Path(tmpdir) / "skills"
+            _write_skill_doc(
+                skills_root / "base-skill",
+                name="Base Skill",
+                body="Base skill from policy.",
+            )
+            _write_skill_doc(
+                skills_root / "appgen-skill",
+                name="AppGen Skill",
+                body="App-generated override skill.",
+            )
+            set_skill_sources(
+                dbe,
+                [
+                    SkillSource(
+                        id="test_source",
+                        path=str(skills_root),
+                        label="Test Source",
+                        builtin=False,
+                    )
+                ],
+            )
+            set_project_chat_capability_policy(
+                dbe,
+                project_config_id=project_config_id,
+                chat_id=None,
+                policy=CapabilityPolicy(
+                    mode=CapabilityMode.custom,
+                    enabledSkillIds=["test_source::base-skill"],
+                ),
+            )
+
+            captured_inputs: dict[str, object] = {}
+
+            def capture_start_run(profile: AgentProfile, inputs: dict[str, object]) -> None:
+                captured_inputs["profileSystemPrompt"] = profile.systemPrompt or ""
+                captured_inputs["inputs"] = inputs
+
+            state.agent_runner.start_run = capture_start_run  # type: ignore[method-assign]
+
+            with runtime_context(state) as ctx:
+                response_chat_id = await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Generate app spec")],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config_id,
+                        allowUnscoped=True,
+                        overrideSkillIds=[
+                            ID("test_source::appgen-skill"),
+                            ID("test_source::appgen-skill"),
+                        ],
+                    ),
+                    ctx,
+                )
+
+            assert response_chat_id is not None
+            inputs = captured_inputs.get("inputs")
+            assert isinstance(inputs, dict)
+            assert inputs["enabledSkillIds"] == ["test_source::appgen-skill"]
+            assert inputs["enabledMcpServerIds"] == []
+            prompt = captured_inputs.get("profileSystemPrompt")
+            assert isinstance(prompt, str)
+            assert "test_source::appgen-skill" in prompt
+            assert "test_source::base-skill" not in prompt
+
+    async def test_get_llm_response_override_skill_ids_rejects_unknown_skill(
+        self,
+    ) -> None:
+        # Unknown override ids should fail loudly so App Gen cannot silently send
+        # with stale or invalid skill references.
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-override-skills-error")
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Generate app spec")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            overrideSkillIds=[ID("missing::skill")],
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert "Skill 'missing::skill' not found" in exc.value.detail
 
     async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:

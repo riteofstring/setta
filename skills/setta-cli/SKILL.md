@@ -4,6 +4,7 @@ description: Use the Setta CLI to authenticate and call Setta MCP tools without 
 compatibility: Requires the Setta CLI on PATH and access to a running Setta backend session.
 metadata:
   version: "0.2.0"
+  settaInAppVisible: false
 ---
 
 # Setta CLI (no MCP)

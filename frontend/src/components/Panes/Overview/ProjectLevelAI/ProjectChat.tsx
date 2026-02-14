@@ -25,16 +25,16 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
 import { MdAdd } from "react-icons/md";
-import { RiChatHistoryLine } from "react-icons/ri";
+import { RiChatHistoryLine, RiToolsLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import {
-  AllLLMConfigs,
-  EngineConfig,
-  EngineTypeEnum,
-  ExternalAgentPreflightStatus,
-} from "utils/generatedTypes";
+import { EngineTypeEnum } from "utils/generatedTypes";
+import { ProjectChatCapabilities } from "./ProjectChatCapabilities";
 import { ProjectChatCore } from "./ProjectChatCore";
+import {
+  findPreferredProjectChatEngineId,
+  isProjectChatEngineUsable,
+} from "./projectChatEngineSelection";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
@@ -70,6 +70,7 @@ export function ProjectChat() {
     apiKeys,
     apiKeysInitialLoadComplete,
     viewHistory,
+    viewCapabilities,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -82,6 +83,7 @@ export function ProjectChat() {
       apiKeys: x.apiKeys,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
       viewHistory: x.viewHistory,
+      viewCapabilities: x.viewCapabilities,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -115,8 +117,7 @@ export function ProjectChat() {
   );
   const preferredEngineId = useMemo(
     () =>
-      findPreferredEngineId({
-        engineConfigs,
+      findPreferredProjectChatEngineId(engineConfigs, {
         allLLMConfigs,
         availableConfigIds,
         externalAgentHealth,
@@ -243,7 +244,7 @@ export function ProjectChat() {
       }
       setSelectedEngineId(nextEngineId);
       setChatId(undefined);
-      useAIStore.setState({ viewHistory: false });
+      useAIStore.setState({ viewHistory: false, viewCapabilities: false });
     },
     [selectedEngineId, setChatId],
   );
@@ -286,8 +287,7 @@ export function ProjectChat() {
     if (
       preferredEngineId &&
       preferredEngineId !== selectedEngineId &&
-      !isEngineUsable({
-        config: selectedConfig,
+      !isProjectChatEngineUsable(selectedConfig, {
         allLLMConfigs,
         availableConfigIds,
         externalAgentHealth,
@@ -321,38 +321,73 @@ export function ProjectChat() {
                 setChatId(undefined);
                 useAIStore.setState({
                   viewHistory: false,
+                  viewCapabilities: false,
                 });
               }}
             >
               <MdAdd size={15} />
-              <span className="hidden @[17.5rem]:block">New</span>
+              <span className="hidden @[19.375rem]:block">New</span>
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               onClick={() => {
-                useAIStore.setState({ viewHistory: !viewHistory });
+                useAIStore.setState({
+                  viewHistory: !viewHistory,
+                  viewCapabilities: false,
+                });
               }}
               aria-label="View History"
             >
               {viewHistory ? (
                 <>
                   <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
+                  <span className="hidden @[19.375rem]:block">
+                    Return to chat
+                  </span>
                 </>
               ) : (
                 <>
                   <RiChatHistoryLine size={15} />
-                  <span className="hidden @[17.5rem]:block">History</span>
+                  <span className="hidden @[19.375rem]:block">History</span>
                 </>
               )}
             </button>
-            {!viewHistory ? (
+            <button
+              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+              onClick={() => {
+                useAIStore.setState({
+                  viewCapabilities: !viewCapabilities,
+                  viewHistory: false,
+                });
+              }}
+              aria-label="View Capabilities"
+            >
+              {viewCapabilities ? (
+                <>
+                  <IoMdArrowRoundBack />
+                  <span className="hidden @[19.375rem]:block">
+                    Return to chat
+                  </span>
+                </>
+              ) : (
+                <>
+                  <RiToolsLine size={15} />
+                  <span className="hidden @[19.375rem]:block">
+                    Capabilities
+                  </span>
+                </>
+              )}
+            </button>
+            {!viewHistory && !viewCapabilities ? (
               <Menubar.Root className="contents">
                 <FollowAIToggleButton />
               </Menubar.Root>
             ) : null}
-            {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
+            {!viewHistory && !viewCapabilities && showPlanModeBadge ? (
+              <PlanModeBadge />
+            ) : null}
             {!viewHistory &&
+            !viewCapabilities &&
             (engineType === EngineTypeEnum.setta_llm ||
               engineType === EngineTypeEnum.external_agent) ? (
               <button
@@ -366,7 +401,7 @@ export function ProjectChat() {
                 <span className="hidden @[33.5rem]:block">Thinking</span>
               </button>
             ) : null}
-            {!viewHistory ? (
+            {!viewHistory && !viewCapabilities ? (
               <div className="ml-auto flex items-center">
                 <ProjectAISettingsPopover
                   engineGroups={engineGroups}
@@ -385,6 +420,8 @@ export function ProjectChat() {
 
         {viewHistory ? (
           <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
+        ) : viewCapabilities ? (
+          <ProjectChatCapabilities chatId={chatId} />
         ) : (
           <>
             {externalStatusMessage ? (
@@ -410,85 +447,6 @@ export function ProjectChat() {
       </div>
     )
   );
-}
-
-function findPreferredEngineId({
-  engineConfigs,
-  allLLMConfigs,
-  availableConfigIds,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
-  availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): string | null {
-  for (const config of engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.setta_llm) {
-      continue;
-    }
-    if (
-      isEngineUsable({
-        config,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      return config.id;
-    }
-  }
-  for (const config of engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.external_agent) {
-      continue;
-    }
-    if (
-      isEngineUsable({
-        config,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      return config.id;
-    }
-  }
-  return engineConfigs[0]?.id ?? null;
-}
-
-function isEngineUsable({
-  config,
-  allLLMConfigs,
-  availableConfigIds,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  config: EngineConfig;
-  allLLMConfigs: AllLLMConfigs | null;
-  availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): boolean {
-  if (config.engineType === EngineTypeEnum.setta_llm) {
-    const fallbackConfigId = pickDefaultConfigId(allLLMConfigs);
-    const configId = config.settaLlmConfigId ?? fallbackConfigId;
-    return Boolean(configId && availableConfigIds.has(configId));
-  }
-  if (config.engineType === EngineTypeEnum.external_agent) {
-    if (!externalAgentHealthInitialLoadComplete) {
-      return true;
-    }
-    const configId = config.externalAgentConfigId;
-    const status = externalAgentHealth.find(
-      (entry) => entry.configId === configId,
-    );
-    return Boolean(status?.available && status.supported);
-  }
-  return false;
 }
 
 function ProjectAISettingsPopover({

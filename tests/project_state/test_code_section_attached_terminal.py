@@ -14,6 +14,7 @@ from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.project_state.project_manager_types import (
+    CreateChildSectionsRequest,
     MoveSectionsRequest,
     SetCodeSectionAttachedTerminalRequest,
 )
@@ -362,6 +363,57 @@ class TestCodeSectionAttachedTerminal:
             expected_min_height = expected_max_height
         assert isinstance(impl.size.height, float)
         assert impl.size.height >= expected_min_height
+
+    async def test_create_child_terminal_sets_concrete_height(self):
+        # Regresses attached-first terminals that previously stored
+        # `size.height="auto"` and failed to reflow correctly on resize.
+        await self.manager.create_child_sections(
+            CreateChildSectionsRequest(
+                projectConfigId=self.project_config_id,
+                parentId=self.code_section_id,
+                implType="Terminal",
+                numChildren=1,
+                startIdx=0,
+            )
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        code_impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        assert code_impl.attachedTerminalSectionId is not None
+
+        terminal_impl = get_curr_effective_section_impl_with_type_guard(
+            state,
+            code_impl.attachedTerminalSectionId,
+            TerminalSectionImpl,
+        )
+        assert terminal_impl.size.width == code_impl.size.width
+        assert terminal_impl.size.height != SectionSizeMode.auto
+        assert isinstance(terminal_impl.size.height, float)
+
+    async def test_ensure_attached_terminal_for_run_sets_concrete_height(self):
+        # Regresses run-created attached terminals that were initialized with
+        # `size.height="auto"` and then stayed broken after detaching.
+        attached_terminal_id = await self.manager.ensure_code_section_attached_terminal_for_run(
+            self.project_config_id,
+            self.code_section_id,
+        )
+
+        state = self.manager.get_single_config_state(self.project_config_id)
+        code_impl = get_curr_effective_section_impl_with_type_guard(
+            state, self.code_section_id, BaseCodeSectionImpl
+        )
+        terminal_impl = get_curr_effective_section_impl_with_type_guard(
+            state,
+            attached_terminal_id,
+            TerminalSectionImpl,
+        )
+
+        assert code_impl.attachedTerminalSectionId == attached_terminal_id
+        assert terminal_impl.size.width == code_impl.size.width
+        assert terminal_impl.size.height != SectionSizeMode.auto
+        assert isinstance(terminal_impl.size.height, float)
 
     async def test_attach_invalid_terminal_raises(self):
         with pytest.raises(KeyError):

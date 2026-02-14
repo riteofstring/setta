@@ -46,11 +46,13 @@
 - `reference/draw-image-representation.md` – how Draw and Image sections are represented in realtime and packaged runtime.
 - `reference/external-agents.md` – how external agent adapters work and how Codex uses app-server.
 - `reference/file-browser-pane.md` – how the Overview Explorer tab browses files, filters, and opens Code sections.
+- `reference/git-pane.md` – Git Overview tab behavior, graph/diff overlays, and backend git route contracts.
 - `reference/json_source_formats.md` – JSON source schema formats and validation.
 - `reference/json_source_sections.md` – how JSON source sections load from disk, merge values, and save back to JSON.
 - `reference/keyboard-shortcuts.md` – keyboard navigation, selection, and manipulation shortcuts in the UI.
 - `reference/name-validation.md` – name validation rules and error messaging.
 - `reference/param-sweeps.md` – how to run parameter sweeps via the Python runner API.
+- `reference/section-colors.md` – section `tagColor`/`styleColor` model, routes, UI behavior, and guardrails.
 - `reference/section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
 - `reference/watch-code.md` – watch-mode notes for code sections.
 
