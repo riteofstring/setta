@@ -68,7 +68,9 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -167,6 +169,9 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
           overlapPx: leftRect.right - rightRect.left,
           rowHeightPx: leftRect.height,
           colWidthPx: leftRect.width,
+          paddingLeftPx: Number.parseFloat(
+            getComputedStyle(leftCell).paddingLeft,
+          ),
           fontSizePx: Number.parseFloat(getComputedStyle(leftCell).fontSize),
           boxSizing: getComputedStyle(leftCell).boxSizing,
         };
@@ -175,16 +180,17 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
         throw new Error("Failed to read spreadsheet row metrics.");
       }
       expect(rowLayoutMetrics.overlapPx).toBeLessThanOrEqual(0.5);
-      expect(rowLayoutMetrics.rowHeightPx).toBeLessThanOrEqual(30);
-      expect(rowLayoutMetrics.colWidthPx).toBeLessThanOrEqual(115);
-      expect(rowLayoutMetrics.fontSizePx).toBeLessThanOrEqual(12);
+      expect(rowLayoutMetrics.rowHeightPx).toBeLessThanOrEqual(24);
+      expect(rowLayoutMetrics.colWidthPx).toBeLessThanOrEqual(95);
+      expect(rowLayoutMetrics.paddingLeftPx).toBeLessThanOrEqual(8);
+      expect(rowLayoutMetrics.fontSizePx).toBeLessThanOrEqual(11);
       expect(rowLayoutMetrics.boxSizing).toBe("border-box");
       await csvCell.fill("done");
       await sectionNode.getByTestId("spreadsheet-save").click();
       await expect(sectionNode.getByText("Saved.")).toBeVisible();
-      await expect.poll(() => fs.readFile(csvPath, "utf-8")).toContain(
-        "alpha,done",
-      );
+      await expect
+        .poll(() => fs.readFile(csvPath, "utf-8"))
+        .toContain("alpha,done");
 
       await thumbnailRow.locator("button", { hasText: "sheet.xlsx" }).click();
       const xlsxCell = sectionNode.locator('[data-spreadsheet-cell="1:0"]');

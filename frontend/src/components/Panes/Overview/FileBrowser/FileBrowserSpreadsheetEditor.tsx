@@ -14,10 +14,10 @@ import {
   serializeSpreadsheetBytes,
 } from "utils/spreadsheet";
 
-export const SPREADSHEET_HEADER_HEIGHT = 28;
-export const SPREADSHEET_ROW_HEIGHT = 28;
-export const SPREADSHEET_INDEX_COLUMN_WIDTH = 44;
-export const SPREADSHEET_DATA_COLUMN_WIDTH = 104;
+export const SPREADSHEET_HEADER_HEIGHT = 24;
+export const SPREADSHEET_ROW_HEIGHT = 22;
+export const SPREADSHEET_INDEX_COLUMN_WIDTH = 36;
+export const SPREADSHEET_DATA_COLUMN_WIDTH = 88;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 
 type SpreadsheetDraft = {
@@ -84,13 +84,13 @@ export function SpreadsheetRow({
   const row = rows[index] ?? [];
   return (
     <div
-      className="grid overflow-hidden border-b border-setta-200 bg-white text-[11px] dark:border-setta-800 dark:bg-setta-950/70"
+      className="grid overflow-hidden border-b border-setta-200 bg-white text-[10px] dark:border-setta-800 dark:bg-setta-950/70"
       style={{
         ...style,
         gridTemplateColumns,
       }}
     >
-      <div className="flex h-full items-center justify-center border-r border-setta-200 px-1.5 text-[10px] font-medium text-setta-500 dark:border-setta-800 dark:text-setta-400">
+      <div className="flex h-full items-center justify-center border-r border-setta-200 px-1 text-[9px] font-medium text-setta-500 dark:border-setta-800 dark:text-setta-400">
         {index + 1}
       </div>
       {Array.from({ length: columnCount }, (_, columnIndex) => {
@@ -107,7 +107,7 @@ export function SpreadsheetRow({
               }
               data-spreadsheet-cell={`${index}:${columnIndex}`}
               aria-label={`Cell ${index + 1}-${columnIndex + 1}`}
-              className="box-border h-full w-full min-w-0 bg-transparent px-2 text-[11px] leading-tight text-setta-800 outline-none placeholder:text-setta-400 focus:bg-blue-50/70 dark:text-setta-100 dark:placeholder:text-setta-500 dark:focus:bg-blue-900/30"
+              className="box-border h-full w-full min-w-0 bg-transparent px-1.5 text-[10px] leading-tight text-setta-800 outline-none placeholder:text-setta-400 focus:bg-blue-50/70 dark:text-setta-100 dark:placeholder:text-setta-500 dark:focus:bg-blue-900/30"
             />
           </div>
         );
@@ -396,13 +396,13 @@ export function FileBrowserSpreadsheetEditor({
                   width: listWidth,
                 }}
               >
-                <div className="flex h-[28px] items-center justify-center border-r border-setta-200 dark:border-setta-800">
+                <div className="flex h-[24px] items-center justify-center border-r border-setta-200 dark:border-setta-800">
                   #
                 </div>
                 {Array.from({ length: sheet.columnCount }, (_, index) => (
                   <div
                     key={`header-${index}`}
-                    className="flex h-[28px] items-center border-r border-setta-200 px-2 dark:border-setta-800"
+                    className="flex h-[24px] items-center border-r border-setta-200 px-1.5 dark:border-setta-800"
                   >
                     {getSpreadsheetColumnLabel(index)}
                   </div>

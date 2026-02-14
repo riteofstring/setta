@@ -4,6 +4,7 @@ import {
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   SPREADSHEET_DATA_COLUMN_WIDTH,
+  SPREADSHEET_HEADER_HEIGHT,
   SPREADSHEET_INDEX_COLUMN_WIDTH,
   SPREADSHEET_ROW_HEIGHT,
   SpreadsheetRow,
@@ -11,9 +12,10 @@ import {
 
 describe("FileBrowserSpreadsheetEditor layout", () => {
   it("uses compact spreadsheet sizing defaults", () => {
-    expect(SPREADSHEET_ROW_HEIGHT).toBeLessThanOrEqual(28);
-    expect(SPREADSHEET_INDEX_COLUMN_WIDTH).toBeLessThanOrEqual(48);
-    expect(SPREADSHEET_DATA_COLUMN_WIDTH).toBeLessThanOrEqual(110);
+    expect(SPREADSHEET_HEADER_HEIGHT).toBeLessThanOrEqual(24);
+    expect(SPREADSHEET_ROW_HEIGHT).toBeLessThanOrEqual(24);
+    expect(SPREADSHEET_INDEX_COLUMN_WIDTH).toBeLessThanOrEqual(40);
+    expect(SPREADSHEET_DATA_COLUMN_WIDTH).toBeLessThanOrEqual(92);
     expect(getSpreadsheetGridWidth(2)).toBe(
       SPREADSHEET_INDEX_COLUMN_WIDTH + SPREADSHEET_DATA_COLUMN_WIDTH * 2,
     );
