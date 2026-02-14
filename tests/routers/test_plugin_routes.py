@@ -79,6 +79,27 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
             assert status_payload["plugins"][0]["state"] == "active"
             assert status_payload["plugins"][0]["sourceScopeLabel"] == "workspace"
 
+            restart_capability_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART_CAPABILITY.value}"
+            )
+            assert restart_capability_response.status_code == 200
+            assert restart_capability_response.json() == {
+                "mode": "manual",
+                "command": "setta",
+                "reason": "Programmatic restart is not available in this runtime.",
+            }
+
+            restart_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}",
+            )
+            assert restart_response.status_code == 200
+            assert restart_response.json() == {
+                "accepted": False,
+                "mode": "manual",
+                "command": "setta",
+                "reason": "Programmatic restart is not available in this runtime.",
+            }
+
             asset_response = client.get(
                 "/plugins/setta-fixture-frontend/frontend/dist/index.js"
             )
