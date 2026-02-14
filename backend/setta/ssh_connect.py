@@ -22,8 +22,8 @@ from setta.ssh_common import (
     ensure_background_process_started,
     fetch_remote_connect_info,
     fetch_remote_sessions,
-    normalize_setta_files_location,
     normalize_optional_argument,
+    normalize_setta_files_location,
     parse_ssh_args,
     resolve_remote_setta_command,
     resolve_remote_shell,
@@ -77,6 +77,7 @@ def _parse_optional_connect_info_field(
         )
     trimmed = raw_value.strip()
     return trimmed or None
+
 
 def connect_remote_workspace_session(
     *,

@@ -59,6 +59,7 @@ class LaunchResponse(BaseModel):
     remoteCmdResolved: str | None = None
     error: LaunchErrorPayload | None = None
 
+
 @router.post(Route.LAUNCH)
 def route_launch(x: LaunchRequest) -> LaunchResponse:
     try:
