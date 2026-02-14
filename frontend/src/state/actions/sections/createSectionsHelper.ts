@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { usePluginSectionKinds } from "plugins/runtime";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
@@ -8,7 +7,6 @@ import {
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
-  CodeObjType,
   CodeObjTypeEnum,
   createSectionSize,
   Position,
@@ -21,11 +19,10 @@ export type CreateSectionsContextMenuInfo = {
   name: string;
   implSpecs: Partial<BaseSectionImplUnion> &
     Required<Pick<BaseSectionImplUnion, "type">>;
-  controlCodeObjType?: CodeObjType;
+  controlCodeObjType?: CodeObjTypeEnum;
 };
 
 export function useCreateSectionsList() {
-  const pluginSectionKinds = usePluginSectionKinds();
   const singletonSections = useProjectState(
     (x) => x.singletonSections,
     _.isEqual,
@@ -199,21 +196,7 @@ export function useCreateSectionsList() {
     },
   ];
 
-  const pluginSectionItems: Array<CreateSectionsContextMenuInfo> =
-    pluginSectionKinds.map((sectionKind) => ({
-      name: sectionKind.title,
-      implSpecs: {
-        type: SectionTypeEnum.Plugin,
-        pluginId: sectionKind.pluginId,
-        kind: sectionKind.kind,
-        data: sectionKind.initialData ?? {},
-      },
-    }));
-
-  const groups: Array<{
-    group: string;
-    items: Array<CreateSectionsContextMenuInfo>;
-  }> = [
+  return [
     {
       group: "Section",
       items: sectionGroupItems,
@@ -235,13 +218,6 @@ export function useCreateSectionsList() {
       items: embedGroupItems,
     },
   ];
-  if (pluginSectionItems.length > 0) {
-    groups.push({
-      group: "Plugins",
-      items: pluginSectionItems,
-    });
-  }
-  return groups;
 }
 
 export function createTopLevelSectionFromImplSpecs(
