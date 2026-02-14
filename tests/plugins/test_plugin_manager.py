@@ -700,6 +700,45 @@ def test_backend_plugin_handshake_api_mismatch_is_reported(tmp_path: Path) -> No
     assert "PLUGIN_BACKEND_API_VERSION_MISMATCH" in error_codes
 
 
+def test_backend_plugin_handshake_missing_methods_is_reported(tmp_path: Path) -> None:
+    # Handshakes missing required RPC methods should invalidate backend plugins.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    handshake_override = backend_root / "backend" / "handshake.override.json"
+    handshake_override.write_text(
+        json.dumps(
+            {
+                "supportedRpcMethods": [
+                    "plugin.initialize",
+                    "plugin.register",
+                    "plugin.shutdown",
+                ]
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.invalid
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_HANDSHAKE_INVALID" in error_codes
+
+
 def test_backend_plugin_missing_dependency_runtime_is_invalid(tmp_path: Path) -> None:
     # Backend plugins with declared dependencies should fail activation if runtime install is missing.
     manager = _make_manager(tmp_path)
