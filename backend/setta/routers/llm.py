@@ -160,6 +160,8 @@ async def route_delete_skills(
     ctx.require_ide_mode("Share mode does not allow deleting skills.")
     try:
         return delete_skills(ctx.state.dbe, payload.skillRefs)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

@@ -3,14 +3,19 @@ import { fileURLToPath } from "url";
 
 import { expect, test } from "@playwright/test";
 
-import { ensureAppReady, seedLocalStorage } from "../helpers";
+import {
+  ensureAppReady,
+  ensureManagedChatEngine,
+  seedLocalStorage,
+} from "../helpers";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-test("app config can attach a style image and seed it into project chat", async ({
+test("app config includes style image in prompt preview and sends it to chat", async ({
   page,
 }) => {
+  await ensureManagedChatEngine(page);
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
 
@@ -26,25 +31,26 @@ test("app config can attach a style image and seed it into project chat", async 
 
   await expect(page.getByText("setta-github-dark.png")).toBeVisible();
 
-  await page.getByRole("button", { name: "Generate App" }).click();
-
-  await page.waitForFunction(() => {
-    return Array.from(document.querySelectorAll("textarea")).some((node) =>
-      node.value.includes("Style reference:"),
-    );
-  });
-
-  const seededPrompt = await page.evaluate(() => {
-    const match = Array.from(document.querySelectorAll("textarea")).find((node) =>
-      node.value.includes("Style reference:"),
-    );
-    return match?.value ?? "";
-  });
-
-  expect(seededPrompt).toContain("Style reference:");
-  expect(seededPrompt).toContain(
+  await page.getByRole("button", { name: "Build Prompt", exact: true }).click();
+  const promptPreview = page.getByLabel("App generation prompt preview");
+  await expect(promptPreview).toContainText("Style reference:");
+  await expect(promptPreview).toContainText(
     "Treat it as the style reference for the app's look and feel.",
   );
 
-  await expect(page.getByText("setta-github-dark.png")).toBeVisible();
+  const requestPromise = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && request.url().endsWith("/getLLMResponse"),
+  );
+  await page.getByRole("button", { name: "Send to Project AI Chat" }).click();
+  const request = await requestPromise;
+  const payload = request.postDataJSON() as {
+    message?: {
+      attachments?: Array<{ id?: string; name?: string }>;
+    };
+  };
+  expect(payload.message?.attachments?.length ?? 0).toBeGreaterThan(0);
+  expect(payload.message?.attachments?.[0]?.name).toBe("setta-github-dark.png");
+
+  await expect(page.getByText("setta-github-dark.png")).not.toBeVisible();
 });

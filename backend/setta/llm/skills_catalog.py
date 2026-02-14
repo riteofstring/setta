@@ -7,6 +7,7 @@ import yaml
 
 from setta.database.db_objs import DBE
 from setta.llm.capabilities_config import (
+    WORKSPACE_SKILLS_SOURCE_ID,
     ensure_workspace_skill_source,
     get_skill_source_by_id,
     get_skill_sources,
@@ -58,10 +59,17 @@ def get_skill_details(dbe: DBE, skill_ref: str) -> SkillDetailsResponse:
 
 
 def load_skill_prompt_blocks(dbe: DBE, skill_ids: list[str]) -> list[str]:
+    return load_skill_prompt_blocks_from_catalog(get_skills_catalog(dbe), skill_ids)
+
+
+def load_skill_prompt_blocks_from_catalog(
+    catalog: SkillCatalogResponse,
+    skill_ids: list[str],
+) -> list[str]:
     if not skill_ids:
         return []
     by_id: dict[str, SkillEntry] = {}
-    for entry in get_skills_catalog(dbe).skills:
+    for entry in catalog.skills:
         by_id[entry.id] = entry
     blocks: list[str] = []
     for skill_id in skill_ids:
@@ -122,6 +130,7 @@ def delete_skills(dbe: DBE, skill_refs: list[str]) -> list[str]:
     deleted_refs: list[str] = []
     catalog = get_skills_catalog(dbe)
     by_ref = {entry.id: entry for entry in catalog.skills}
+    sources_by_id = {source.id: source for source in catalog.sources}
 
     for skill_ref in skill_refs:
         if skill_ref in seen_refs:
@@ -130,9 +139,39 @@ def delete_skills(dbe: DBE, skill_refs: list[str]) -> list[str]:
         entry = by_ref.get(skill_ref)
         if entry is None:
             raise KeyError(f"Skill '{skill_ref}' not found")
-        skill_dir = Path(entry.absolutePath).resolve(strict=False)
+        source = sources_by_id.get(entry.sourceId)
+        if source is None:
+            raise KeyError(f"Skill source '{entry.sourceId}' not found")
+        if source.builtin and source.id != WORKSPACE_SKILLS_SOURCE_ID:
+            raise PermissionError(
+                f"Skill '{skill_ref}' comes from built-in source '{source.label}' "
+                "and cannot be deleted."
+            )
+        source_root = Path(source.path).expanduser().resolve(strict=False)
+        skill_dir = Path(entry.absolutePath).expanduser().resolve(strict=False)
+        try:
+            relative_dir = skill_dir.relative_to(source_root)
+        except ValueError as exc:
+            raise ValueError(
+                f"Skill '{skill_ref}' resolves outside source root '{source_root}'."
+            ) from exc
+        if relative_dir == Path("."):
+            skill_doc = skill_dir / SKILL_DOC_NAME
+            if not skill_doc.exists():
+                continue
+            if not skill_doc.is_file():
+                raise ValueError(
+                    f"Skill '{skill_ref}' expected file '{skill_doc}' but found non-file."
+                )
+            skill_doc.unlink()
+            deleted_refs.append(skill_ref)
+            continue
         if not skill_dir.exists():
             continue
+        if not skill_dir.is_dir():
+            raise ValueError(
+                f"Skill '{skill_ref}' expected directory '{skill_dir}' but found non-directory."
+            )
         shutil.rmtree(skill_dir)
         deleted_refs.append(skill_ref)
     return deleted_refs

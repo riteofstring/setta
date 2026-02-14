@@ -189,3 +189,96 @@ def test_import_and_delete_skills_from_markdown(tmp_path: Path) -> None:
         assert deleted_refs == [imported.id]
         with pytest.raises(KeyError):
             get_skill_details(dbe, imported.id)
+
+
+def test_delete_skills_rejects_builtin_sources(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    setta_root = workspace_root / "setta_files"
+    builtin_source = tmp_path / "builtin_skills"
+    workspace_root.mkdir(parents=True)
+    setta_root.mkdir(parents=True)
+    builtin_source.mkdir(parents=True)
+
+    _write_skill_doc(
+        builtin_source / "safe-skill",
+        """---
+name: Safe Skill
+description: Protected from deletion
+metadata:
+  version: 1.0.0
+---
+Builtin skills should not be removable from the in-app catalog.
+""",
+    )
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_root=setta_root,
+    ):
+        dbe = DBE(setta_root)
+        set_skill_sources(
+            dbe,
+            [
+                SkillSource(
+                    id="builtin_source",
+                    path=str(builtin_source),
+                    label="Builtin Source",
+                    builtin=True,
+                )
+            ],
+        )
+
+        with pytest.raises(PermissionError):
+            delete_skills(dbe, ["builtin_source::safe-skill"])
+
+
+def test_delete_root_level_skill_only_removes_skill_doc(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    setta_root = workspace_root / "setta_files"
+    source_root = tmp_path / "skills_source"
+    workspace_root.mkdir(parents=True)
+    setta_root.mkdir(parents=True)
+    source_root.mkdir(parents=True)
+
+    (source_root / "SKILL.md").write_text(
+        """---
+name: Root Skill
+description: Defined at source root
+metadata:
+  version: 1.0.0
+---
+Root-level skill document.
+""",
+        encoding="utf-8",
+    )
+    _write_skill_doc(
+        source_root / "nested",
+        """---
+name: Nested Skill
+description: Should remain after root delete
+metadata:
+  version: 1.0.0
+---
+Nested skill document.
+""",
+    )
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_root=setta_root,
+    ):
+        dbe = DBE(setta_root)
+        set_skill_sources(
+            dbe,
+            [SkillSource(id="source", path=str(source_root), label="Source")],
+        )
+
+        deleted_refs = delete_skills(dbe, ["source::."])
+        assert deleted_refs == ["source::."]
+        assert source_root.exists()
+        assert not (source_root / "SKILL.md").exists()
+        assert (source_root / "nested" / "SKILL.md").exists()
+
+        remaining_ids = {entry.id for entry in get_skills_catalog(dbe).skills}
+        assert "source::." not in remaining_ids
+        assert "source::nested" in remaining_ids

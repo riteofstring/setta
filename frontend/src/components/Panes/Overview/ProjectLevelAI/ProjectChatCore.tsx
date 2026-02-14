@@ -93,9 +93,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (state) => state.pendingProjectChatAttachments,
   );
   const [draftMessage, setDraftMessage] = useState("");
-  const [draftAttachments, setDraftAttachments] = useState<ChatFileAttachment[]>(
-    [],
-  );
+  const [draftAttachments, setDraftAttachments] = useState<
+    ChatFileAttachment[]
+  >([]);
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
@@ -118,9 +118,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (!pendingAttachments || pendingAttachments.length === 0) {
       return;
     }
-    setDraftAttachments((current) =>
-      current.length > 0 ? current : pendingAttachments,
-    );
+    setDraftAttachments(pendingAttachments);
     useAIStore.setState({ pendingProjectChatAttachments: null });
   }, [pendingAttachments]);
 
@@ -205,6 +203,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         if (isFirstMessage) {
           handleNewChatSettled(submittedChatId, succeeded);
         }
+      }
+      if (succeeded) {
+        setDraftAttachments([]);
       }
       return succeeded;
     },

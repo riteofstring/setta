@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { type ChatFileAttachment, type SharePolicy } from "utils/generatedTypes";
+import {
+  type ChatFileAttachment,
+  type SharePolicy,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatInput } from "./ChatInput";
 

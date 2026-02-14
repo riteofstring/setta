@@ -217,7 +217,7 @@ function TabsVisible({
       className={
         isFullWidth
           ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          : "mx-[1px] box-border flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-6"
+          : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
       }
     >
       {isFullWidth ? (

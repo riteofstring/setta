@@ -15,9 +15,9 @@ import {
   toggleCapabilitySkillId,
 } from "components/Panes/Overview/ProjectLevelAI/capabilitiesPolicyUtils";
 import {
-  CapabilityMcpServerList,
   CapabilitiesTab,
   CapabilitiesTabToggle,
+  CapabilityMcpServerList,
   CapabilitySkillsList,
   CapabilityStateToggle,
 } from "components/Panes/Overview/ProjectLevelAI/CapabilitiesSharedControls";
@@ -788,9 +788,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     () => getCapabilityModeLabel(capabilityPolicy),
     [capabilityPolicy],
   );
-  const capabilitiesEndpointsMissing =
-    capabilityCatalogError ===
-    "Capabilities endpoints returned 404. Restart backend and reload.";
 
   return (
     <div className="flex h-full w-full flex-col gap-2 overflow-y-auto pr-1">
@@ -895,7 +892,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         </>
       ) : null}
 
-      <div className="@container mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
+      <div className="mt-3 rounded-md border border-setta-200/70 bg-white/70 p-3 shadow-sm @container dark:border-setta-800 dark:bg-setta-900/40">
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
@@ -952,19 +949,12 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
               />
               {capabilityPolicy.mode === CapabilityModeEnum.inherit ? (
                 <div className="flex flex-col gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-                  {capabilitiesEndpointsMissing ? (
-                    <p>
-                      Global defaults unavailable while capability endpoints are
-                      missing.
-                    </p>
-                  ) : (
-                    <p>
-                      Global skills:{" "}
-                      {globalCapabilityDefaults.defaultSkillIds.length > 0
-                        ? globalCapabilityDefaults.defaultSkillIds.join(", ")
-                        : "none"}
-                    </p>
-                  )}
+                  <p>
+                    Global skills:{" "}
+                    {globalCapabilityDefaults.defaultSkillIds.length > 0
+                      ? globalCapabilityDefaults.defaultSkillIds.join(", ")
+                      : "none"}
+                  </p>
                 </div>
               ) : null}
               {capabilityPolicy.mode === CapabilityModeEnum.disabled ? (
@@ -975,7 +965,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                   <button
                     type="button"
                     className="h-7 w-fit rounded-md border border-setta-300 px-2 text-[11px] font-semibold text-setta-700 hover:border-setta-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200"
-                    onClick={() => handleCapabilityModeChange(CapabilityModeEnum.custom)}
+                    onClick={() =>
+                      handleCapabilityModeChange(CapabilityModeEnum.custom)
+                    }
                     disabled={isDisabled}
                   >
                     Enable Custom Skills

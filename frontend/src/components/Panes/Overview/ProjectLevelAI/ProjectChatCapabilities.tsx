@@ -18,6 +18,7 @@ import {
 import {
   CapabilityModeEnum,
   CapabilityPolicy,
+  SkillEntry,
   createCapabilityPolicy,
 } from "utils/generatedTypes";
 import {
@@ -29,9 +30,9 @@ import {
   toggleCapabilitySkillId,
 } from "./capabilitiesPolicyUtils";
 import {
-  CapabilityMcpServerList,
   CapabilitiesTab,
   CapabilitiesTabToggle,
+  CapabilityMcpServerList,
   CapabilitySkillsList,
   CapabilityStateToggle,
 } from "./CapabilitiesSharedControls";
@@ -71,27 +72,8 @@ type DataTransferItemWithEntry = DataTransferItem & {
   webkitGetAsEntry?: () => FileSystemEntryLike | null;
 };
 
-function normalizeCapabilityErrorMessage(rawMessage: string): string {
-  const trimmed = rawMessage.trim();
-  const unquoted = trimmed.replace(/^["']+|["']+$/g, "");
-  if (
-    unquoted.toLowerCase() === "not found" ||
-    /\b404\b/.test(unquoted.toLowerCase())
-  ) {
-    return "Capabilities endpoints returned 404. Restart backend and reload.";
-  }
-  return unquoted;
-}
-
-function isCapabilitiesEndpointMissing(rawMessage: string | null): boolean {
-  if (!rawMessage) {
-    return false;
-  }
-  return (
-    normalizeCapabilityErrorMessage(rawMessage) ===
-    "Capabilities endpoints returned 404. Restart backend and reload."
-  );
-}
+const SKILL_DOC_NAME_LOWER = "skill.md";
+const WORKSPACE_SKILLS_SOURCE_ID = "workspace_skills";
 
 function toSlugCandidate(rawPath: string): string | null {
   const normalized = rawPath
@@ -142,7 +124,7 @@ async function collectMarkdownFilesFromEntries(
   for (const entry of entries) {
     if (entry.isFile) {
       const file = await readFileFromEntry(entry as FileSystemFileEntryLike);
-      if (!file.name.toLowerCase().endsWith(".md")) {
+      if (file.name.toLowerCase() !== SKILL_DOC_NAME_LOWER) {
         continue;
       }
       const relativePath = [...parentSegments, file.name].join("/");
@@ -180,8 +162,8 @@ async function readDroppedMarkdownFiles(
   if (entries.length > 0) {
     return collectMarkdownFilesFromEntries(entries, []);
   }
-  const markdownFiles = Array.from(dataTransfer.files).filter((file) =>
-    file.name.toLowerCase().endsWith(".md"),
+  const markdownFiles = Array.from(dataTransfer.files).filter(
+    (file) => file.name.toLowerCase() === SKILL_DOC_NAME_LOWER,
   );
   return Promise.all(
     markdownFiles.map(async (file) => ({
@@ -317,6 +299,20 @@ export function ProjectChatCapabilities({
       ),
     [availableMcpServerIdSet, selectedMcpServerIds],
   );
+  const sourceById = useMemo(
+    () => new Map(sources.map((source) => [source.id, source])),
+    [sources],
+  );
+  const isSkillDeletable = useCallback(
+    (skill: SkillEntry): boolean => {
+      const source = sourceById.get(skill.sourceId);
+      if (!source) {
+        return false;
+      }
+      return !source.builtin || source.id === WORKSPACE_SKILLS_SOURCE_ID;
+    },
+    [sourceById],
+  );
   const modeLabel = useMemo(() => getCapabilityModeLabel(policy), [policy]);
   const capabilityErrors = useMemo(() => {
     const uniqueByKey: Record<string, string> = {};
@@ -324,7 +320,7 @@ export function ProjectChatCapabilities({
       if (!error || error.trim().length === 0) {
         continue;
       }
-      const normalized = normalizeCapabilityErrorMessage(error);
+      const normalized = error.trim();
       const dedupeKey = normalized.toLowerCase();
       if (!uniqueByKey[dedupeKey]) {
         uniqueByKey[dedupeKey] = normalized;
@@ -332,12 +328,6 @@ export function ProjectChatCapabilities({
     }
     return Object.values(uniqueByKey);
   }, [catalogError, policyError, skillMutationError]);
-  const capabilitiesEndpointsMissing = useMemo(
-    () =>
-      isCapabilitiesEndpointMissing(catalogError) ||
-      isCapabilitiesEndpointMissing(policyError),
-    [catalogError, policyError],
-  );
   const editablePolicyBaseline = useMemo<CapabilityPolicy>(() => {
     if (policy.mode === CapabilityModeEnum.inherit) {
       return {
@@ -440,7 +430,7 @@ export function ProjectChatCapabilities({
         event.dataTransfer,
       );
       if (droppedMarkdownFiles.length === 0) {
-        setSkillMutationError("Drop at least one .md file or folder.");
+        setSkillMutationError("Drop at least one SKILL.md file or folder.");
         return;
       }
       setIsImportingSkill(true);
@@ -471,53 +461,66 @@ export function ProjectChatCapabilities({
     [canEditSettings, refreshCatalog],
   );
 
-  const handleDeleteSkill = useCallback(async (skillId: string) => {
-    if (!canEditSettings) {
-      return;
-    }
-    setIsDeletingSkills(true);
-    try {
-      const response = await route_delete_skills({
-        skillRefs: [skillId],
-      });
-      if (!res200(response)) {
+  const handleDeleteSkill = useCallback(
+    async (skillId: string) => {
+      if (!canEditSettings) {
+        return;
+      }
+      const skill = skills.find((entry) => entry.id === skillId);
+      if (!skill || !isSkillDeletable(skill)) {
         setSkillMutationError(
-          getErrorDetail(response.data as unknown) ?? "Failed to delete skill.",
+          "Only workspace or custom-source skills can be deleted.",
         );
         return;
       }
-      const deletedSkillIds = new Set(response.data);
-      setSkillMutationError(null);
-      await refreshCatalog();
-      if (policy.mode === CapabilityModeEnum.custom) {
-        const nextEnabledSkills = policy.enabledSkillIds.filter(
-          (skillId) => !deletedSkillIds.has(skillId),
-        );
-        if (nextEnabledSkills.length !== policy.enabledSkillIds.length) {
-          void persistPolicy({
-            mode: policy.mode,
-            enabledSkillIds: nextEnabledSkills,
-            enabledMcpServerIds: [...policy.enabledMcpServerIds],
-          });
+      setIsDeletingSkills(true);
+      try {
+        const response = await route_delete_skills({
+          skillRefs: [skillId],
+        });
+        if (!res200(response)) {
+          setSkillMutationError(
+            getErrorDetail(response.data as unknown) ??
+              "Failed to delete skill.",
+          );
+          return;
         }
+        const deletedSkillIds = new Set(response.data);
+        setSkillMutationError(null);
+        await refreshCatalog();
+        if (policy.mode === CapabilityModeEnum.custom) {
+          const nextEnabledSkills = policy.enabledSkillIds.filter(
+            (skillId) => !deletedSkillIds.has(skillId),
+          );
+          if (nextEnabledSkills.length !== policy.enabledSkillIds.length) {
+            void persistPolicy({
+              mode: policy.mode,
+              enabledSkillIds: nextEnabledSkills,
+              enabledMcpServerIds: [...policy.enabledMcpServerIds],
+            });
+          }
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setSkillMutationError(message);
+      } finally {
+        setIsDeletingSkills(false);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSkillMutationError(message);
-    } finally {
-      setIsDeletingSkills(false);
-    }
-  }, [
-    canEditSettings,
-    persistPolicy,
-    policy.enabledMcpServerIds,
-    policy.enabledSkillIds,
-    policy.mode,
-    refreshCatalog,
-  ]);
+    },
+    [
+      canEditSettings,
+      isSkillDeletable,
+      persistPolicy,
+      policy.enabledMcpServerIds,
+      policy.enabledSkillIds,
+      policy.mode,
+      refreshCatalog,
+      skills,
+    ],
+  );
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4 @container">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-setta-600 dark:text-setta-300">
@@ -565,19 +568,12 @@ export function ProjectChatCapabilities({
               />
               {policy.mode === CapabilityModeEnum.inherit ? (
                 <div className="rounded-md border border-setta-200/80 bg-white/80 p-3 text-[11px] text-setta-500 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-400">
-                  {capabilitiesEndpointsMissing ? (
-                    <p>
-                      Global defaults unavailable while capability endpoints are
-                      missing.
-                    </p>
-                  ) : (
-                    <p>
-                      Global skills:{" "}
-                      {defaultValues.defaultSkillIds.length > 0
-                        ? defaultValues.defaultSkillIds.join(", ")
-                        : "none"}
-                    </p>
-                  )}
+                  <p>
+                    Global skills:{" "}
+                    {defaultValues.defaultSkillIds.length > 0
+                      ? defaultValues.defaultSkillIds.join(", ")
+                      : "none"}
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -638,7 +634,9 @@ export function ProjectChatCapabilities({
                       className="h-7 min-w-0 flex-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] text-setta-700 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
                       placeholder="Optional folder slug (e.g. repo-skill)"
                       value={skillSlugDraft}
-                      onChange={(event) => setSkillSlugDraft(event.target.value)}
+                      onChange={(event) =>
+                        setSkillSlugDraft(event.target.value)
+                      }
                       disabled={disableControls || isImportingSkill}
                     />
                     <button
@@ -674,19 +672,21 @@ export function ProjectChatCapabilities({
                   isDisabled={disableControls}
                   emptyMessage="No skills found."
                   maxHeightClassName="max-h-64"
-                  renderRowAction={(skill) => (
-                    <button
-                      type="button"
-                      className="ml-auto inline-flex h-6 w-6 flex-none items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
-                      title="Delete skill"
-                      onClick={() => {
-                        void handleDeleteSkill(skill.id);
-                      }}
-                      disabled={disableControls || isDeletingSkills}
-                    >
-                      <i className="gg-trash" />
-                    </button>
-                  )}
+                  renderRowAction={(skill) =>
+                    isSkillDeletable(skill) ? (
+                      <button
+                        type="button"
+                        className="ml-auto inline-flex h-6 w-6 flex-none items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-setta-500 dark:hover:text-red-400"
+                        title="Delete skill"
+                        onClick={() => {
+                          void handleDeleteSkill(skill.id);
+                        }}
+                        disabled={disableControls || isDeletingSkills}
+                      >
+                        <i className="gg-trash" />
+                      </button>
+                    ) : null
+                  }
                 />
               </>
             )}

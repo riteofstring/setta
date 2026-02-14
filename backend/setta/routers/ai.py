@@ -27,7 +27,10 @@ from setta.llm.capabilities_config import (
     resolve_capability_policy,
     set_project_chat_capability_policy,
 )
-from setta.llm.skills_catalog import get_skills_catalog, load_skill_prompt_blocks
+from setta.llm.skills_catalog import (
+    get_skills_catalog,
+    load_skill_prompt_blocks_from_catalog,
+)
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -259,6 +262,25 @@ def _build_enabled_skills_prompt(skill_blocks: list[str]) -> str | None:
     return "## Enabled Skills\nApply the following skills for this chat.\n\n" + content
 
 
+def _resolve_override_skill_ids(
+    override_skill_ids: list[ID] | None,
+    known_skill_ids: set[str],
+) -> list[str] | None:
+    if override_skill_ids is None:
+        return None
+    deduped_skill_ids: list[str] = []
+    seen_skill_ids: set[str] = set()
+    for skill_id in override_skill_ids:
+        skill_id_str = str(skill_id)
+        if skill_id_str not in known_skill_ids:
+            raise KeyError(f"Skill '{skill_id_str}' not found")
+        if skill_id_str in seen_skill_ids:
+            continue
+        seen_skill_ids.add(skill_id_str)
+        deduped_skill_ids.append(skill_id_str)
+    return deduped_skill_ids
+
+
 def _resolve_capabilities_for_request(
     *,
     dbe,
@@ -266,6 +288,7 @@ def _resolve_capabilities_for_request(
     project_config_id: ID,
     section_id: ID | None,
     policy_chat_id: ID | None,
+    override_skill_ids: list[ID] | None,
 ) -> tuple[list[str], list[str], str | None]:
     catalog = get_skills_catalog(dbe)
     known_skill_ids = {entry.id for entry in catalog.skills}
@@ -297,7 +320,13 @@ def _resolve_capabilities_for_request(
         known_skill_ids=known_skill_ids,
         known_mcp_server_ids=known_mcp_server_ids,
     )
-    skill_blocks = load_skill_prompt_blocks(dbe, enabled_skill_ids)
+    resolved_override_skill_ids = _resolve_override_skill_ids(
+        override_skill_ids,
+        known_skill_ids,
+    )
+    if resolved_override_skill_ids is not None:
+        enabled_skill_ids = resolved_override_skill_ids
+    skill_blocks = load_skill_prompt_blocks_from_catalog(catalog, enabled_skill_ids)
     skills_prompt = _build_enabled_skills_prompt(skill_blocks)
     return enabled_skill_ids, enabled_mcp_server_ids, skills_prompt
 
@@ -313,6 +342,13 @@ class GetLLMResponseRequest(BaseModel):
     allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
+    overrideSkillIds: list[ID] | None = Field(
+        default=None,
+        description=(
+            "Optional one-shot skill override for this request. "
+            "When provided, project/section skill policy is ignored for skills."
+        ),
+    )
     appSpecStreamingEnabled: bool = Field(
         default=False,
         description=(
@@ -435,6 +471,7 @@ async def route_get_llm_response(
                 project_config_id=x.projectConfigId,
                 section_id=x.sectionId,
                 policy_chat_id=capability_policy_chat_id,
+                override_skill_ids=x.overrideSkillIds,
             )
         )
     except (KeyError, ValueError) as exc:

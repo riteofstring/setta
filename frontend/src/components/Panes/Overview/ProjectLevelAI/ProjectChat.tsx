@@ -28,14 +28,13 @@ import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine, RiToolsLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
-import {
-  AllLLMConfigs,
-  EngineConfig,
-  EngineTypeEnum,
-  ExternalAgentPreflightStatus,
-} from "utils/generatedTypes";
+import { EngineTypeEnum } from "utils/generatedTypes";
 import { ProjectChatCapabilities } from "./ProjectChatCapabilities";
 import { ProjectChatCore } from "./ProjectChatCore";
+import {
+  findPreferredProjectChatEngineId,
+  isProjectChatEngineUsable,
+} from "./projectChatEngineSelection";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
@@ -118,8 +117,7 @@ export function ProjectChat() {
   );
   const preferredEngineId = useMemo(
     () =>
-      findPreferredEngineId({
-        engineConfigs,
+      findPreferredProjectChatEngineId(engineConfigs, {
         allLLMConfigs,
         availableConfigIds,
         externalAgentHealth,
@@ -289,8 +287,7 @@ export function ProjectChat() {
     if (
       preferredEngineId &&
       preferredEngineId !== selectedEngineId &&
-      !isEngineUsable({
-        config: selectedConfig,
+      !isProjectChatEngineUsable(selectedConfig, {
         allLLMConfigs,
         availableConfigIds,
         externalAgentHealth,
@@ -450,85 +447,6 @@ export function ProjectChat() {
       </div>
     )
   );
-}
-
-function findPreferredEngineId({
-  engineConfigs,
-  allLLMConfigs,
-  availableConfigIds,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  engineConfigs: EngineConfig[];
-  allLLMConfigs: AllLLMConfigs | null;
-  availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): string | null {
-  for (const config of engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.setta_llm) {
-      continue;
-    }
-    if (
-      isEngineUsable({
-        config,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      return config.id;
-    }
-  }
-  for (const config of engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.external_agent) {
-      continue;
-    }
-    if (
-      isEngineUsable({
-        config,
-        allLLMConfigs,
-        availableConfigIds,
-        externalAgentHealth,
-        externalAgentHealthInitialLoadComplete,
-      })
-    ) {
-      return config.id;
-    }
-  }
-  return engineConfigs[0]?.id ?? null;
-}
-
-function isEngineUsable({
-  config,
-  allLLMConfigs,
-  availableConfigIds,
-  externalAgentHealth,
-  externalAgentHealthInitialLoadComplete,
-}: {
-  config: EngineConfig;
-  allLLMConfigs: AllLLMConfigs | null;
-  availableConfigIds: Set<string>;
-  externalAgentHealth: ExternalAgentPreflightStatus[];
-  externalAgentHealthInitialLoadComplete: boolean;
-}): boolean {
-  if (config.engineType === EngineTypeEnum.setta_llm) {
-    const fallbackConfigId = pickDefaultConfigId(allLLMConfigs);
-    const configId = config.settaLlmConfigId ?? fallbackConfigId;
-    return Boolean(configId && availableConfigIds.has(configId));
-  }
-  if (config.engineType === EngineTypeEnum.external_agent) {
-    if (!externalAgentHealthInitialLoadComplete) {
-      return true;
-    }
-    const configId = config.externalAgentConfigId;
-    const status = externalAgentHealth.find(
-      (entry) => entry.configId === configId,
-    );
-    return Boolean(status?.available && status.supported);
-  }
-  return false;
 }
 
 function ProjectAISettingsPopover({

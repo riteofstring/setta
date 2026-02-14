@@ -23,18 +23,6 @@ type CapabilitiesCatalogState = {
   refresh: () => Promise<void>;
 };
 
-function normalizeCatalogErrorMessage(message: string): string {
-  const trimmed = message.trim();
-  const unquoted = trimmed.replace(/^["']+|["']+$/g, "");
-  if (
-    unquoted.toLowerCase() === "not found" ||
-    /\b404\b/.test(unquoted.toLowerCase())
-  ) {
-    return "Capabilities endpoints returned 404. Restart backend and reload.";
-  }
-  return unquoted;
-}
-
 export function useCapabilitiesCatalog(): CapabilitiesCatalogState {
   const allLLMConfigs = useAIStore((state) => state.allLLMConfigs, _.isEqual);
   const [skills, setSkills] = useState<SkillEntry[]>([]);
@@ -63,14 +51,14 @@ export function useCapabilitiesCatalog(): CapabilitiesCatalogState {
         const detail =
           getErrorDetail(catalogRes.data as unknown) ??
           "Failed to load skills.";
-        setError(normalizeCatalogErrorMessage(detail));
+        setError(detail);
         return;
       }
       if (!res200(defaultsRes)) {
         const detail =
           getErrorDetail(defaultsRes.data as unknown) ??
           "Failed to load global capability defaults.";
-        setError(normalizeCatalogErrorMessage(detail));
+        setError(detail);
         return;
       }
       setSkills(catalogRes.data.skills ?? []);
@@ -79,7 +67,7 @@ export function useCapabilitiesCatalog(): CapabilitiesCatalogState {
       setError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setError(normalizeCatalogErrorMessage(message));
+      setError(message);
     } finally {
       setLoading(false);
     }

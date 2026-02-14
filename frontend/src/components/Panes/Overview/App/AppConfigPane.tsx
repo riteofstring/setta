@@ -1,6 +1,12 @@
 import * as Switch from "@radix-ui/react-switch";
+import { buildLLMConfigGroups } from "components/Chat/llmConfigUtils";
+import { CapabilitySkillsList } from "components/Panes/Overview/ProjectLevelAI/CapabilitiesSharedControls";
+import { useCapabilitiesCatalog } from "components/Panes/Overview/ProjectLevelAI/useCapabilitiesCatalog";
+import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
+import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { submitMessage } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
@@ -11,13 +17,15 @@ import {
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
+import {
+  getAttachmentPolicy,
+  isAttachmentMimeAllowed,
+} from "utils/attachmentPolicy";
 import { formatBytes } from "utils/attachments";
-import { getAttachmentPolicy, isAttachmentMimeAllowed } from "utils/attachmentPolicy";
 import {
   CHAT_SUPPORTED_IMAGE_LABEL,
   isChatImageFileSupported,
 } from "utils/chatAttachmentSupport";
-import { OverviewTabNameEnum } from "utils/constants";
 import { createDropzoneFileArtifactId } from "utils/dropzone";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -33,6 +41,7 @@ import {
   ArtifactTypeEnum,
   ChatFileAttachment,
   CodeObjTypeEnum,
+  EngineTypeEnum,
   FileArtifact,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
@@ -41,6 +50,10 @@ import {
   type ViewModeConfig,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import {
+  findPreferredProjectChatEngineId,
+  isProjectChatEngineUsable,
+} from "../ProjectLevelAI/projectChatEngineSelection";
 import {
   parseDraftAppAssets,
   parseDraftAppRoutes,
@@ -522,6 +535,8 @@ function formatViewModesForAppPrompt(state: ZustandProjectState): string {
 }
 
 export function AppConfigPane() {
+  useHydrateLLMState();
+  useHydrateAgenticState();
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const appSpec = useAppDefinition((x) => x.appSpec);
   const isPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
@@ -572,6 +587,117 @@ export function AppConfigPane() {
   } | null>(null);
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
   const chatAttachmentPolicy = useMemo(() => getAttachmentPolicy("chat"), []);
+  const {
+    activeChatId,
+    allLLMConfigs,
+    apiKeys,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
+  } = useAIStore((state) => ({
+    activeChatId: state.activeChatId,
+    allLLMConfigs: state.allLLMConfigs,
+    apiKeys: state.apiKeys,
+    engineConfigs: state.engineConfigs,
+    externalAgentHealth: state.externalAgentHealth,
+    externalAgentHealthInitialLoadComplete:
+      state.externalAgentHealthInitialLoadComplete,
+  }));
+  const {
+    skills: capabilitySkills,
+    defaultValues: globalCapabilityDefaults,
+    loading: capabilitySkillsLoading,
+    error: capabilitySkillsError,
+    refresh: refreshCapabilitySkills,
+  } = useCapabilitiesCatalog();
+  const [promptPreviewDraft, setPromptPreviewDraft] = useState("");
+  const [buildingPromptPreview, setBuildingPromptPreview] = useState(false);
+  const [sendingPromptPreview, setSendingPromptPreview] = useState(false);
+  const [appGenSelectedSkillIds, setAppGenSelectedSkillIds] = useState<
+    string[]
+  >([]);
+  const [appGenSkillSelectionDirty, setAppGenSkillSelectionDirty] =
+    useState(false);
+  const availableConfigIds = useMemo(() => {
+    const ids = new Set<string>();
+    const groups = buildLLMConfigGroups(allLLMConfigs, apiKeys);
+    for (const group of groups) {
+      for (const item of group.items) {
+        ids.add(item.id);
+      }
+    }
+    return ids;
+  }, [allLLMConfigs, apiKeys]);
+  const preferredEngineId = useMemo(
+    () =>
+      findPreferredProjectChatEngineId(engineConfigs, {
+        allLLMConfigs,
+        availableConfigIds,
+        externalAgentHealth,
+        externalAgentHealthInitialLoadComplete,
+      }),
+    [
+      allLLMConfigs,
+      availableConfigIds,
+      engineConfigs,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
+    ],
+  );
+  const effectiveEngineConfig = useMemo(() => {
+    if (!preferredEngineId) {
+      return null;
+    }
+    return (
+      engineConfigs.find((config) => config.id === preferredEngineId) ?? null
+    );
+  }, [engineConfigs, preferredEngineId]);
+  const knownAppGenSkillIds = useMemo(() => {
+    const skillIds = new Set<string>();
+    for (const skill of capabilitySkills) {
+      if (skill.parseError) {
+        continue;
+      }
+      skillIds.add(skill.id);
+    }
+    return skillIds;
+  }, [capabilitySkills]);
+  const effectiveAppGenSkillIds = useMemo(
+    () =>
+      appGenSelectedSkillIds.filter((skillId) =>
+        knownAppGenSkillIds.has(skillId),
+      ),
+    [appGenSelectedSkillIds, knownAppGenSkillIds],
+  );
+  const canSendPromptPreview =
+    !buildingPromptPreview &&
+    !sendingPromptPreview &&
+    !styleImageUploading &&
+    promptPreviewDraft.trim().length > 0;
+
+  useEffect(() => {
+    setAppGenSelectedSkillIds((current) =>
+      current.filter((skillId) => knownAppGenSkillIds.has(skillId)),
+    );
+  }, [knownAppGenSkillIds]);
+
+  useEffect(() => {
+    if (appGenSkillSelectionDirty) {
+      return;
+    }
+    const defaults = globalCapabilityDefaults.defaultSkillIds.filter(
+      (skillId) => knownAppGenSkillIds.has(skillId),
+    );
+    if (defaults.length > 0) {
+      setAppGenSelectedSkillIds(defaults);
+      return;
+    }
+    setAppGenSelectedSkillIds(Array.from(knownAppGenSkillIds));
+  }, [
+    appGenSkillSelectionDirty,
+    globalCapabilityDefaults.defaultSkillIds,
+    knownAppGenSkillIds,
+  ]);
 
   const navPresetAllItems = useMemo(() => {
     const builtInItems = BUILTIN_NAV_PRESETS.map((preset) => ({
@@ -844,13 +970,15 @@ export function AppConfigPane() {
     }
     const mimeType = file.type || "application/octet-stream";
     if (!isAttachmentMimeAllowed(mimeType, chatAttachmentPolicy)) {
-      const message = `Unsupported file type. ${chatAttachmentPolicy.allowedMimeLabel}`.trim();
+      const message =
+        `Unsupported file type. ${chatAttachmentPolicy.allowedMimeLabel}`.trim();
       setStyleImageError(message);
       addTemporaryNotification(message);
       return;
     }
     if (!isChatImageFileSupported(file)) {
-      const message = `Unsupported image type. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim();
+      const message =
+        `Unsupported image type. ${CHAT_SUPPORTED_IMAGE_LABEL}`.trim();
       setStyleImageError(message);
       addTemporaryNotification(message);
       return;
@@ -934,7 +1062,20 @@ export function AppConfigPane() {
     }
   }
 
-  async function handleGeneratePrompt() {
+  function handleToggleAppGenSkill(skillId: string, selected: boolean) {
+    setAppGenSkillSelectionDirty(true);
+    setAppGenSelectedSkillIds((current) => {
+      if (selected) {
+        if (current.includes(skillId)) {
+          return current;
+        }
+        return [...current, skillId];
+      }
+      return current.filter((entry) => entry !== skillId);
+    });
+  }
+
+  async function buildPromptPreview(): Promise<string> {
     let catalogSummary = `Catalog: ${catalogId}`;
     const catalogRes = await route_get_app_catalog();
     if (res200(catalogRes)) {
@@ -963,21 +1104,80 @@ export function AppConfigPane() {
           "- An image is attached to this message. Treat it as the style reference for the app's look and feel.",
         ].join("\n")
       : "";
-    const styleAttachments = styleImageAttachmentRef.current
-      ? [styleImageAttachmentRef.current]
-      : null;
-    useAIStore.setState({
-      pendingProjectChatPrompt: `${prompt}${styleNote}`,
-      pendingProjectChatAttachments: styleAttachments,
-    });
-    if (styleAttachments) {
-      // Transfer ownership to chat: do not delete the artifact here.
-      clearStyleImageState({ revokePreview: true });
+    return `${prompt}${styleNote}`;
+  }
+
+  async function handleBuildPromptPreview() {
+    setBuildingPromptPreview(true);
+    try {
+      const nextPrompt = await buildPromptPreview();
+      setPromptPreviewDraft(nextPrompt);
+    } finally {
+      setBuildingPromptPreview(false);
     }
-    useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectAIChat,
-      overviewVis: true,
+  }
+
+  async function handleSendPromptPreviewToChat() {
+    const prompt = promptPreviewDraft.trim();
+    if (prompt.length === 0) {
+      addTemporaryNotification("Prompt preview is empty.");
+      return;
+    }
+    if (!effectiveEngineConfig) {
+      addTemporaryNotification("No project chat engine is configured.");
+      return;
+    }
+    const isEngineUsable = isProjectChatEngineUsable(effectiveEngineConfig, {
+      allLLMConfigs,
+      availableConfigIds,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
     });
+    if (!isEngineUsable) {
+      if (effectiveEngineConfig.engineType === EngineTypeEnum.external_agent) {
+        addTemporaryNotification(
+          "Selected external engine is unavailable. Open Project AI Chat and choose a different engine.",
+        );
+      } else {
+        addTemporaryNotification(
+          "Selected LLM engine has no usable config. Open Project AI Chat and select an LLM config.",
+        );
+      }
+      return;
+    }
+    const attachments = styleImageAttachmentRef.current
+      ? [styleImageAttachmentRef.current]
+      : [];
+    setSendingPromptPreview(true);
+    try {
+      const chatId = await submitMessage(
+        activeChatId ?? null,
+        promptPreviewDraft,
+        attachments,
+        true,
+        effectiveEngineConfig.id,
+        effectiveEngineConfig.engineType === EngineTypeEnum.external_agent,
+        undefined,
+        null,
+        null,
+        { overrideSkillIds: effectiveAppGenSkillIds },
+      );
+      if (!chatId) {
+        addTemporaryNotification("Failed to send prompt to Project AI Chat.");
+        return;
+      }
+      useAIStore.setState({ activeChatId: chatId });
+      if (attachments.length > 0) {
+        // Transfer attachment ownership to chat after successful submit.
+        clearStyleImageState({ revokePreview: true });
+      }
+      addTemporaryNotification("Sent to Project AI Chat.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addTemporaryNotification(message || "Failed to send prompt.");
+    } finally {
+      setSendingPromptPreview(false);
+    }
   }
 
   function handleCreateDefault() {
@@ -1187,10 +1387,10 @@ export function AppConfigPane() {
           </button>
           <button
             className="rounded-full border border-setta-200 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={handleGeneratePrompt}
-            disabled={styleImageUploading}
+            onClick={() => void handleBuildPromptPreview()}
+            disabled={styleImageUploading || buildingPromptPreview}
           >
-            Generate App
+            {buildingPromptPreview ? "Building..." : "Build Prompt"}
           </button>
           <div className="flex select-none items-center gap-2 rounded-full border border-setta-200 bg-white/60 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-300 dark:hover:bg-setta-800">
             <span>Streaming mode</span>
@@ -1217,7 +1417,7 @@ export function AppConfigPane() {
               Prompt Builder
             </span>
             <span className="text-[11px] text-setta-500 dark:text-setta-400">
-              Customize navigation instructions used by Generate App.
+              Customize navigation instructions used by App Gen.
             </span>
           </div>
         </div>
@@ -1257,7 +1457,8 @@ export function AppConfigPane() {
               <span className="text-[11px] text-setta-500 dark:text-setta-400">
                 If provided, this image is attached to the generated chat
                 message and used as a style reference.{" "}
-                {CHAT_SUPPORTED_IMAGE_LABEL} Max {chatAttachmentPolicy.maxFileLabel}.
+                {CHAT_SUPPORTED_IMAGE_LABEL} Max{" "}
+                {chatAttachmentPolicy.maxFileLabel}.
               </span>
             </div>
 
@@ -1624,6 +1825,79 @@ export function AppConfigPane() {
             {draftAssetsError}
           </div>
         )}
+      </div>
+
+      <div className="grid gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Prompt Preview
+            </span>
+            <span className="text-[11px] text-setta-500 dark:text-setta-400">
+              App Gen always sends with this custom skill selection and ignores
+              Project AI Chat skill mode for this request.
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              onClick={() => void refreshCapabilitySkills()}
+              disabled={capabilitySkillsLoading}
+            >
+              {capabilitySkillsLoading ? "Refreshing..." : "Refresh Skills"}
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              onClick={() => void handleBuildPromptPreview()}
+              disabled={styleImageUploading || buildingPromptPreview}
+            >
+              {buildingPromptPreview ? "Building..." : "Rebuild Prompt"}
+            </button>
+            <button
+              type="button"
+              className="rounded-full bg-blue-600 px-3 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void handleSendPromptPreviewToChat()}
+              disabled={!canSendPromptPreview}
+            >
+              {sendingPromptPreview ? "Sending..." : "Send to Project AI Chat"}
+            </button>
+          </div>
+        </div>
+
+        {capabilitySkillsError ? (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700 dark:border-red-700/70 dark:bg-red-900/40 dark:text-red-200">
+            {capabilitySkillsError}
+          </div>
+        ) : null}
+
+        <div className="grid gap-2 rounded-md border border-setta-200/70 bg-white/70 p-3 dark:border-setta-800 dark:bg-setta-950/40">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-setta-600 dark:text-setta-300">
+              App Gen Skill Browser
+            </span>
+            <span className="text-[11px] text-setta-500 dark:text-setta-400">
+              {effectiveAppGenSkillIds.length} selected
+            </span>
+          </div>
+          <CapabilitySkillsList
+            skills={capabilitySkills}
+            selectedSkillIds={effectiveAppGenSkillIds}
+            onToggleSkill={handleToggleAppGenSkill}
+            isDisabled={buildingPromptPreview || sendingPromptPreview}
+            emptyMessage="No skills available."
+            maxHeightClassName="max-h-52"
+          />
+        </div>
+
+        <textarea
+          aria-label="App generation prompt preview"
+          className="min-h-[260px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-xs text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
+          placeholder="Click Build Prompt to construct the App Gen request."
+          value={promptPreviewDraft}
+          onChange={(event) => setPromptPreviewDraft(event.target.value)}
+        />
       </div>
     </section>
   );
