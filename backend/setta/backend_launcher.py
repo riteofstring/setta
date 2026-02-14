@@ -171,20 +171,11 @@ def start_backend(
     C.HOST = resolved_host
     C.PORT = resolved_port
 
-    paths = get_setta_paths()
-    workspace_root = paths.workspace_root
+    workspace_root = get_setta_paths().workspace_root
     sessions_root = resolve_sessions_root(workspace_root)
     session_registry = SessionRegistry(sessions_root=sessions_root)
     session = session_registry.create_session(
-        workspace_root,
-        resolved_host,
-        resolved_port,
-        os.getpid(),
-        setta_files_location=paths.setta_files_location,
-        setta_files_root=str(paths.setta_files_root),
-        runtime_root=str(paths.runtime_root),
-        setta_home=str(paths.setta_home),
-        profile=paths.profile_name,
+        workspace_root, resolved_host, resolved_port, os.getpid()
     )
     previous_session_id = os.environ.get(SESSION_ID_ENV_VAR)
     os.environ[SESSION_ID_ENV_VAR] = session.id

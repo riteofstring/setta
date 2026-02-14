@@ -1,8 +1,7 @@
-import { expect, test } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { expect, test } from "@playwright/test";
 import {
-  allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
   getViewportBoundsForPlacement,
@@ -37,32 +36,30 @@ test("browser path input autocompletes folders", async ({ page }) => {
     );
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.55,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
-      },
-    );
-    const sectionId = browserSection?.sectionId;
-    if (!sectionId) {
-      throw new Error("Missing sectionId when creating browser section.");
-    }
+	    const browserSection = await postBackend<{ sectionId?: string }>(
+	      page,
+	      "/createTopLevelSection",
+	      {
+	        projectConfigId,
+	        implType: "Browser",
+	        position: {
+	          x: viewportBounds.x + viewportBounds.w * 0.55,
+	          y: viewportBounds.y + viewportBounds.h * 0.25,
+	        },
+	        viewportBounds,
+	      },
+	    );
+	    const sectionId = browserSection?.sectionId;
+	    if (!sectionId) {
+	      throw new Error("Missing sectionId when creating browser section.");
+	    }
 
-    const parentDir = await fs.mkdtemp(
-      path.join(workspaceRoot, "setta-autocomplete-"),
-    );
+	    const parentDir = await fs.mkdtemp(
+	      path.join(workspaceRoot, "setta-autocomplete-"),
+	    );
     const alphaDir = path.join(parentDir, "alpha");
     const betaDir = path.join(parentDir, "beta");
     const nestedDir = path.join(alphaDir, "child");
@@ -75,14 +72,14 @@ test("browser path input autocompletes folders", async ({ page }) => {
       const sectionNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,
       );
-      await expect(sectionNode).toBeVisible();
-      await rootResponsePromise;
+	      await expect(sectionNode).toBeVisible();
+	      await rootResponsePromise;
 
-      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+	      await sectionNode.locator('button[aria-label="Carousel view"]').click();
 
-      const pathInput = sectionNode.locator(
-        `[id="CodeMirror-${sectionId}-browser-path"]`,
-      );
+	      const pathInput = sectionNode.locator(
+	        `[id="CodeMirror-${sectionId}-browser-path"]`,
+	      );
       await expect(pathInput).toBeVisible();
       await expect
         .poll(() =>
@@ -92,8 +89,7 @@ test("browser path input autocompletes folders", async ({ page }) => {
               return null;
             }
             const content =
-              root.querySelector(".cm-content") ??
-              root.querySelector(".cm-line");
+              root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
             return content?.textContent ?? root.textContent ?? "";
           }, `CodeMirror-${sectionId}-browser-path`),
         )
@@ -103,13 +99,6 @@ test("browser path input autocompletes folders", async ({ page }) => {
       await expect(cmContent).toBeVisible();
       await cmContent.click();
       await page.keyboard.press(SELECT_ALL_SHORTCUT);
-      // While typing an unfinished path segment, completion requests can include
-      // not-yet-existing paths that legitimately return 404.
-      allowExpectedApiError(page, {
-        path: "/api/getFolderContents",
-        statuses: [404],
-        count: 10,
-      });
       await page.keyboard.type(`${parentDir}${path.sep}a`);
 
       await expect(tooltip).toBeVisible({ timeout: 15000 });
@@ -140,8 +129,7 @@ test("browser path input autocompletes folders", async ({ page }) => {
               return null;
             }
             const content =
-              root.querySelector(".cm-content") ??
-              root.querySelector(".cm-line");
+              root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
             return content?.textContent ?? root.textContent ?? "";
           }, `CodeMirror-${sectionId}-browser-path`),
         )
