@@ -175,9 +175,7 @@ def _install_fixture_distribution_in_site_packages(
             continue
         record_lines.append(f"{relative_path},,")
     record_lines.append(f"{dist_info_name}/RECORD,,")
-    (dist_info / "RECORD").write_text(
-        "\n".join(record_lines) + "\n", encoding="utf-8"
-    )
+    (dist_info / "RECORD").write_text("\n".join(record_lines) + "\n", encoding="utf-8")
     return site_packages
 
 
@@ -1314,8 +1312,7 @@ def test_mode_policy_blocks_backend_external_agent_registration(
     assert status_entry.registeredExternalAgentAdapters == []
     assert len(status_entry.blockedCapabilities) == 1
     assert (
-        status_entry.blockedCapabilities[0].capability
-        == "registerExternalAgentAdapter"
+        status_entry.blockedCapabilities[0].capability == "registerExternalAgentAdapter"
     )
     assert (
         status_entry.blockedCapabilities[0].reason
@@ -1878,6 +1875,10 @@ def test_plugin_config_schema_validation_and_list_descriptors(
     assert plugin_entry.content.hasPrompts is True
     assert plugin_entry.config.hasSchema is True
     assert isinstance(plugin_entry.config.schemaJson, dict)
+    assert plugin_entry.config.currentConfig == {
+        "enabled": True,
+        "label": "fixture",
+    }
 
 
 def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:

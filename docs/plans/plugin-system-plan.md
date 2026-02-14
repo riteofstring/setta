@@ -218,9 +218,8 @@ To keep mode-gating and plugin host behavior deterministic, `capabilities` is a 
 - `registerSectionKinds`
 - `registerPane`
 - `registerCommand`
-- `registerToolbarItem`
+- `registerTopNavBarItem`
 - `registerContextMenu`
-- `registerSettingsPanel`
 - `registerMcpTools`
 - `registerLanguageServer`
 - `registerExternalAgentAdapter`
@@ -389,7 +388,7 @@ Default policy:
 Recommended mode policy (initial):
 
 - `ide`: allow all declared capabilities that pass normal compatibility checks.
-- `share`: allow UI/content-focused capabilities (`registerSectionKinds`, `registerPane`, `registerCommand`, `registerToolbarItem`, `registerContextMenu`, `registerSettingsPanel`, content template/blueprint access).
+- `share`: allow UI/content-focused capabilities (`registerSectionKinds`, `registerPane`, `registerCommand`, `registerTopNavBarItem`, `registerContextMenu`, content template/blueprint access).
 - `share`: block infrastructure/power capabilities (`registerMcpTools`, `registerLanguageServer`, `registerExternalAgentAdapter`, `registerCodegenTarget`, `registerRouter`, `registerStaticDir`, `writeWorkspacePlugins`).
 - `app`: same as `share` for MVP, with room to tighten later if needed.
 
@@ -400,9 +399,8 @@ Mode matrix (normative MVP):
 | `registerSectionKinds` | allow | allow | allow |
 | `registerPane` | allow | allow | allow |
 | `registerCommand` | allow | allow | allow |
-| `registerToolbarItem` | allow | allow | allow |
+| `registerTopNavBarItem` | allow | allow | allow |
 | `registerContextMenu` | allow | allow | allow |
-| `registerSettingsPanel` | allow | allow | allow |
 | `registerMcpTools` | allow | block (`mode_policy`) | block (`mode_policy`) |
 | `registerLanguageServer` | allow | block (`mode_policy`) | block (`mode_policy`) |
 | `registerExternalAgentAdapter` | allow | block (`mode_policy`) | block (`mode_policy`) |
@@ -579,9 +577,8 @@ The host should provide a registry-based API, with high-level primitives only:
 - `registerSectionKind(def)`.
 - `registerPane(def)` (initially: panes rendered inside a single core "Plugins" hub tab/modal, not arbitrary new top-level Overview tabs).
 - `registerCommand(def)`.
-- `registerToolbarItem(def)`.
+- `registerTopNavBarItem(def)`.
 - `registerContextMenu(def)`.
-- `registerSettingsPanel(def)`.
 - `getProjectContext()` and `subscribeProjectContext(...)`.
 - `readSection(sectionId)` and `updateSection(sectionId, patch)`.
 - `openArtifact(artifactId)` and `createArtifact(...)`.
@@ -698,7 +695,7 @@ Initial extension points that are high leverage and low risk:
 
 Later extension points:
 
-- Canvas node overlays, edge layers, toolbar buttons, context menus, settings pages.
+- Canvas node overlays, edge layers, richer context-menu surfaces beyond plugin-owned sections.
 
 ### CSS and theming
 
@@ -858,7 +855,8 @@ Plugin config contract (normative MVP):
 
 - If `configSchemaPath` exists in a plugin manifest, Setta validates `pluginConfigById[pluginId]` against that schema at config-write time and plugin activation time.
 - Invalid config blocks plugin activation with `PLUGIN_CONFIG_INVALID` (plugin remains discoverable in status).
-- Frontend plugin UI should be able to render schema-driven basic settings forms from `/api/plugins/list` without plugin-specific hardcoding.
+- Frontend plugin UI should render schema-driven plugin config forms in the Settings Project UX from `/api/plugins/list` without plugin-specific hardcoding.
+- Do not add a plugin-frontend `registerSettingsPanel` host API in MVP; plugin settings remain schema/data-driven via `pluginConfigById`.
 
 Implementation notes:
 

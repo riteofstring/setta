@@ -359,6 +359,27 @@ describe("plugins pane helpers", () => {
     });
   });
 
+  it("parses plugin config drafts as JSON objects", () => {
+    expect(pluginsPaneTestApi.parsePluginConfigDraft("")).toEqual({
+      value: {},
+      error: null,
+    });
+    expect(pluginsPaneTestApi.parsePluginConfigDraft('{"enabled": true}')).toEqual(
+      {
+        value: { enabled: true },
+        error: null,
+      },
+    );
+    expect(pluginsPaneTestApi.parsePluginConfigDraft("[1,2]")).toEqual({
+      value: {},
+      error: "Plugin config must be a JSON object.",
+    });
+    expect(pluginsPaneTestApi.parsePluginConfigDraft("{")).toEqual({
+      value: {},
+      error: "Plugin config JSON is invalid.",
+    });
+  });
+
   it("gets and sets nested language server settings values by key path", () => {
     const initial = {
       basedpyright: {

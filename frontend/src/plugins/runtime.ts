@@ -115,6 +115,18 @@ export type RegisteredPluginCommand = PluginCommandDefinition & {
   pluginId: string;
 };
 
+type PluginTopNavBarItemDefinition = {
+  id: string;
+  label: string;
+  description?: string;
+  order?: number;
+  onClick: () => void | Promise<void>;
+};
+
+export type RegisteredPluginTopNavBarItem = PluginTopNavBarItemDefinition & {
+  pluginId: string;
+};
+
 export type PluginPaneTabEntry = {
   tabKey: string;
   pluginId: string;
@@ -142,9 +154,8 @@ type SettaPluginHost = {
   registerSectionKind: (definition: PluginSectionKindDefinition) => void;
   registerPane: (definition: PluginPaneDefinition) => void;
   registerCommand: (definition: PluginCommandDefinition) => void;
-  registerToolbarItem: (_definition: Record<string, unknown>) => void;
+  registerTopNavBarItem: (definition: PluginTopNavBarItemDefinition) => void;
   registerContextMenu: (_definition: Record<string, unknown>) => void;
-  registerSettingsPanel: (_definition: Record<string, unknown>) => void;
   getProjectContext: () => PluginProjectContext;
   subscribeProjectContext: (
     listener: (context: PluginProjectContext) => void,
@@ -174,6 +185,7 @@ type PluginRegistryAccumulator = {
   sectionKinds: Record<string, RegisteredPluginSectionKind>;
   panes: Record<string, RegisteredPluginPane[]>;
   commands: Record<string, RegisteredPluginCommand[]>;
+  topNavBarItems: Record<string, RegisteredPluginTopNavBarItem[]>;
 };
 
 type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
@@ -190,6 +202,7 @@ type PluginRuntimeStore = {
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
   commandsByPluginId: Record<string, RegisteredPluginCommand[]>;
+  topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>;
   frontendErrorsByPluginId: Record<string, PluginFrontendError>;
   loadGeneration: number;
 };
@@ -208,6 +221,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   sectionKindsByKey: {},
   panesByPluginId: {},
   commandsByPluginId: {},
+  topNavBarItemsByPluginId: {},
   frontendErrorsByPluginId: {},
   loadGeneration: 0,
 };
@@ -215,6 +229,7 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
 const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
 const commandCapability = "registerCommand";
+const topNavBarCapability = "registerTopNavBarItem";
 
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
@@ -290,6 +305,7 @@ async function loadPluginRuntime(): Promise<void> {
     sectionKinds: {},
     panes: {},
     commands: {},
+    topNavBarItems: {},
   };
   const frontendErrorsByPluginId: Record<string, PluginFrontendError> = {};
 
@@ -326,6 +342,14 @@ async function loadPluginRuntime(): Promise<void> {
           existingCommands.push(...commands);
           registryAccumulator.commands[pluginId] = existingCommands;
         }
+        for (const [pluginId, topNavBarItems] of Object.entries(
+          result.registryDelta.topNavBarItems,
+        )) {
+          const existingTopNavBarItems =
+            registryAccumulator.topNavBarItems[pluginId] ?? [];
+          existingTopNavBarItems.push(...topNavBarItems);
+          registryAccumulator.topNavBarItems[pluginId] = existingTopNavBarItems;
+        }
       }
     }),
   );
@@ -345,6 +369,7 @@ async function loadPluginRuntime(): Promise<void> {
     sectionKindsByKey: registryAccumulator.sectionKinds,
     panesByPluginId: registryAccumulator.panes,
     commandsByPluginId: registryAccumulator.commands,
+    topNavBarItemsByPluginId: registryAccumulator.topNavBarItems,
     frontendErrorsByPluginId,
     loadGeneration: state.loadGeneration + 1,
   }));
@@ -367,6 +392,7 @@ async function loadPluginFrontendModule(
         sectionKinds: {},
         panes: {},
         commands: {},
+        topNavBarItems: {},
       },
     };
   }
@@ -428,6 +454,7 @@ function registerPluginModule({
     sectionKinds: {},
     panes: {},
     commands: {},
+    topNavBarItems: {},
   };
 
   const effectiveCapabilitySet = new Set(plugin.effectiveCapabilities);
@@ -503,22 +530,35 @@ function registerPluginModule({
       pluginCommands.push(validated);
       registryDelta.commands[plugin.pluginId] = pluginCommands;
     },
-    registerToolbarItem: (_definition) => {
-      throw new PluginRuntimeError(
-        PluginFrontendErrorCodeEnum.CapabilityDenied,
-        "registerToolbarItem is not implemented in this host yet.",
+    registerTopNavBarItem: (definition) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        topNavBarCapability,
+        "registerTopNavBarItem",
       );
+      const validated = validateTopNavBarItemDefinition(
+        plugin.pluginId,
+        definition,
+      );
+      const pluginTopNavBarItems =
+        registryDelta.topNavBarItems[plugin.pluginId] ?? [];
+      for (const existingItem of pluginTopNavBarItems) {
+        if (existingItem.id === validated.id) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.RegistrationInvalid,
+            `Plugin ${plugin.pluginId} registered duplicate top nav item ` +
+              `${validated.id}.`,
+          );
+        }
+      }
+      pluginTopNavBarItems.push(validated);
+      registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
     },
     registerContextMenu: (_definition) => {
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "registerContextMenu is not implemented in this host yet.",
-      );
-    },
-    registerSettingsPanel: (_definition) => {
-      throw new PluginRuntimeError(
-        PluginFrontendErrorCodeEnum.CapabilityDenied,
-        "registerSettingsPanel is not implemented in this host yet.",
       );
     },
     getProjectContext: () => {
@@ -610,6 +650,19 @@ function registerPluginModule({
   }
   for (const commandEntries of Object.values(registryDelta.commands)) {
     commandEntries.sort((a, b) => a.title.localeCompare(b.title));
+  }
+  for (const topNavBarItems of Object.values(registryDelta.topNavBarItems)) {
+    topNavBarItems.sort((a, b) => {
+      const orderDelta = (a.order ?? 0) - (b.order ?? 0);
+      if (orderDelta !== 0) {
+        return orderDelta;
+      }
+      const byLabel = a.label.localeCompare(b.label);
+      if (byLabel !== 0) {
+        return byLabel;
+      }
+      return a.id.localeCompare(b.id);
+    });
   }
 
   return registryDelta;
@@ -813,6 +866,48 @@ function validateCommandDefinition(
     commandDefinition.description = definition.description;
   }
   return commandDefinition;
+}
+
+function validateTopNavBarItemDefinition(
+  pluginId: string,
+  definition: PluginTopNavBarItemDefinition,
+): RegisteredPluginTopNavBarItem {
+  const id = requireNonEmptyString(
+    definition.id,
+    `Plugin ${pluginId} top nav item definition missing id.`,
+  );
+  const label = requireNonEmptyString(
+    definition.label,
+    `Plugin ${pluginId} top nav item ${id} missing label.`,
+  );
+  if (typeof definition.onClick !== "function") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} top nav item ${id} onClick must be a function.`,
+    );
+  }
+  if (
+    definition.order !== undefined &&
+    (!Number.isFinite(definition.order) || Number.isNaN(definition.order))
+  ) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} top nav item ${id} order must be a finite number.`,
+    );
+  }
+  const topNavBarItem: RegisteredPluginTopNavBarItem = {
+    pluginId,
+    id,
+    label,
+    onClick: definition.onClick,
+  };
+  if (definition.description !== undefined) {
+    topNavBarItem.description = definition.description;
+  }
+  if (definition.order !== undefined) {
+    topNavBarItem.order = definition.order;
+  }
+  return topNavBarItem;
 }
 
 function requireNonEmptyString(value: unknown, errorMessage: string): string {
@@ -1051,6 +1146,33 @@ export function usePluginCommands(): RegisteredPluginCommand[] {
   }, _.isEqual);
 }
 
+export function usePluginTopNavBarItems(): RegisteredPluginTopNavBarItem[] {
+  return usePluginRuntimeStore((state) => {
+    const values: RegisteredPluginTopNavBarItem[] = [];
+    for (const topNavBarItemEntries of Object.values(
+      state.topNavBarItemsByPluginId,
+    )) {
+      values.push(...topNavBarItemEntries);
+    }
+    values.sort((a, b) => {
+      const orderDelta = (a.order ?? 0) - (b.order ?? 0);
+      if (orderDelta !== 0) {
+        return orderDelta;
+      }
+      const byLabel = a.label.localeCompare(b.label);
+      if (byLabel !== 0) {
+        return byLabel;
+      }
+      const byPlugin = a.pluginId.localeCompare(b.pluginId);
+      if (byPlugin !== 0) {
+        return byPlugin;
+      }
+      return a.id.localeCompare(b.id);
+    });
+    return values;
+  }, _.isEqual);
+}
+
 export function usePluginListEntries(): PluginListEntry[] {
   return usePluginRuntimeStore(
     (state) =>
@@ -1121,6 +1243,7 @@ export function resetPluginRuntimeStoreForTests(): void {
     sectionKindsByKey: {},
     panesByPluginId: {},
     commandsByPluginId: {},
+    topNavBarItemsByPluginId: {},
     frontendErrorsByPluginId: {},
     statusMessage: null,
     schemaVersion: null,

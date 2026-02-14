@@ -103,9 +103,8 @@ _MODE_ALLOWED_CAPABILITIES = {
             "registerSectionKinds",
             "registerPane",
             "registerCommand",
-            "registerToolbarItem",
+            "registerTopNavBarItem",
             "registerContextMenu",
-            "registerSettingsPanel",
         }
     ),
     "app": frozenset(
@@ -113,9 +112,8 @@ _MODE_ALLOWED_CAPABILITIES = {
             "registerSectionKinds",
             "registerPane",
             "registerCommand",
-            "registerToolbarItem",
+            "registerTopNavBarItem",
             "registerContextMenu",
-            "registerSettingsPanel",
         }
     ),
 }
@@ -465,6 +463,7 @@ class PluginManager:
 
     def get_list_response(self) -> PluginListResponse:
         plugins: list[PluginListEntry] = []
+        plugins_state = self._load_plugins_state()
         for entry in sorted(
             self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
         ):
@@ -487,7 +486,7 @@ class PluginManager:
                 else None,
             )
             content = self._build_content_descriptor(entry)
-            config = self._build_config_descriptor(entry)
+            config = self._build_config_descriptor(entry, plugins_state=plugins_state)
             plugins.append(
                 PluginListEntry(
                     pluginId=entry.plugin_id,
@@ -3785,11 +3784,20 @@ class PluginManager:
         )
 
     def _build_config_descriptor(
-        self, entry: DiscoveredPlugin
+        self,
+        entry: DiscoveredPlugin,
+        *,
+        plugins_state: PluginsStateFile,
     ) -> PluginConfigDescriptor:
+        current_config = plugins_state.pluginConfigById.get(entry.plugin_id, {})
+        if not isinstance(current_config, dict):
+            current_config = {}
         manifest = entry.manifest
         if manifest is None or manifest.configSchemaPath is None:
-            return PluginConfigDescriptor(hasSchema=False)
+            return PluginConfigDescriptor(
+                hasSchema=False,
+                currentConfig=current_config,
+            )
         schema_path = self._resolve_relative_path(
             entry.source_path,
             manifest.configSchemaPath,
@@ -3797,14 +3805,24 @@ class PluginManager:
             message_prefix="Invalid configSchemaPath",
         )
         if not schema_path.exists() or not schema_path.is_file():
-            return PluginConfigDescriptor(hasSchema=False)
+            return PluginConfigDescriptor(
+                hasSchema=False,
+                currentConfig=current_config,
+            )
         try:
             schema_json = json.loads(schema_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             schema_json = None
         if isinstance(schema_json, dict):
-            return PluginConfigDescriptor(hasSchema=True, schemaJson=schema_json)
-        return PluginConfigDescriptor(hasSchema=True)
+            return PluginConfigDescriptor(
+                hasSchema=True,
+                schemaJson=schema_json,
+                currentConfig=current_config,
+            )
+        return PluginConfigDescriptor(
+            hasSchema=True,
+            currentConfig=current_config,
+        )
 
     def _validate_plugin_config(
         self, entry: DiscoveredPlugin, config: dict[str, Any]

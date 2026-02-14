@@ -12,9 +12,8 @@ PLUGIN_CAPABILITIES: tuple[str, ...] = (
     "registerSectionKinds",
     "registerPane",
     "registerCommand",
-    "registerToolbarItem",
+    "registerTopNavBarItem",
     "registerContextMenu",
-    "registerSettingsPanel",
     "registerMcpTools",
     "registerLanguageServer",
     "registerExternalAgentAdapter",
@@ -211,6 +210,7 @@ class PluginConfigDescriptor(BaseModel):
 
     hasSchema: bool
     schemaJson: dict[str, Any] | None = None
+    currentConfig: dict[str, Any] = Field(default_factory=dict)
 
 
 class PluginListEntry(BaseModel):
