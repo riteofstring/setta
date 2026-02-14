@@ -1,5 +1,10 @@
 import _ from "lodash";
 import {
+  getPluginSectionFallbackReason,
+  usePluginRuntimeStore,
+  usePluginSectionKind,
+} from "plugins/runtime";
+import {
   useEffect,
   useMemo,
   useRef,
@@ -12,17 +17,12 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useLocalStorage, useProjectState } from "state/definitions";
-import {
-  getPluginSectionFallbackReason,
-  usePluginRuntimeStore,
-  usePluginSectionKind,
-} from "plugins/runtime";
+import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
   route_plugins_status,
 } from "utils/generatedEndpoints";
-import { OverviewTabNameEnum } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type PluginAreaProps = {
@@ -86,16 +86,13 @@ function PluginSectionRendererHost({
   const mountRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
-  const runtimeContext = usePluginRuntimeStore(
-    (state) => {
-      const pluginEntry = state.pluginListById[pluginId];
-      return {
-        serverMode: state.serverMode ?? "ide",
-        effectiveCapabilities: pluginEntry?.effectiveCapabilities ?? [],
-      };
-    },
-    _.isEqual,
-  );
+  const runtimeContext = usePluginRuntimeStore((state) => {
+    const pluginEntry = state.pluginListById[pluginId];
+    return {
+      serverMode: state.serverMode ?? "ide",
+      effectiveCapabilities: pluginEntry?.effectiveCapabilities ?? [],
+    };
+  }, _.isEqual);
   const sectionProps = useMemo(
     () => ({
       sectionId,
@@ -173,10 +170,7 @@ function PluginSectionFallbackCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const reason = getPluginSectionFallbackReason(pluginId, kind);
   const reasonLabel = fallbackReasonLabel(reason);
-  const dataPreview = useMemo(
-    () => buildPluginDataPreview(data),
-    [data],
-  );
+  const dataPreview = useMemo(() => buildPluginDataPreview(data), [data]);
 
   async function onDeleteSection(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
@@ -292,7 +286,7 @@ function buildPluginDataPreview(data: Record<string, unknown>): string {
   try {
     return JSON.stringify(data, null, 2);
   } catch {
-    return "{\"error\":\"Failed to stringify data\"}";
+    return '{"error":"Failed to stringify data"}';
   }
 }
 

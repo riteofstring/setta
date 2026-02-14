@@ -209,7 +209,7 @@ export function getSectionStylePreviewColorKey(sectionId: string) {
   return `${SECTION_STYLE_PREVIEW_COLOR_KEY_PREFIX}-${sectionId}`;
 }
 
-export const MODEL_GROUPS = [
+const MODEL_GROUPS = [
   {
     group: "Anthropic",
     items: [

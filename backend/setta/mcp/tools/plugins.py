@@ -6,8 +6,8 @@ from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_tool
 from setta.plugins.models import (
     PluginInstallResponse,
-    PluginsRescanResponse,
     PluginRollbackResponse,
+    PluginsRescanResponse,
     PluginUninstallResponse,
     PluginUpdateResponse,
 )

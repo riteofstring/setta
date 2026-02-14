@@ -2609,7 +2609,9 @@ def plugins_restart_required(json_output: bool) -> None:
     if json_output:
         _emit_json_output(
             {
-                "pendingPlugins": [plugin.model_dump(mode="json") for plugin in pending],
+                "pendingPlugins": [
+                    plugin.model_dump(mode="json") for plugin in pending
+                ],
                 "pendingPluginIds": pending_restart_ids,
                 "pendingPluginIdsWithoutStatus": pending_ids_without_status,
                 "restartCapability": restart_capability.model_dump(mode="json"),

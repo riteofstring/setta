@@ -34,8 +34,8 @@ from setta.plugins.models import (
     PluginConfigDescriptor,
     PluginConfigWriteResponse,
     PluginContentDescriptor,
-    PluginEnablementSource,
     PluginEnableDisableResponse,
+    PluginEnablementSource,
     PluginErrorInfo,
     PluginFrontendDescriptor,
     PluginInstallHistoryEntry,
@@ -717,7 +717,9 @@ class PluginManager:
         if existing_pythonpath is None or existing_pythonpath.strip() == "":
             env["PYTHONPATH"] = backend_source_root
         else:
-            env["PYTHONPATH"] = f"{backend_source_root}{os.pathsep}{existing_pythonpath}"
+            env["PYTHONPATH"] = (
+                f"{backend_source_root}{os.pathsep}{existing_pythonpath}"
+            )
         return env
 
     def _call_backend_worker_method(
@@ -817,9 +819,7 @@ class PluginManager:
         line = process.stdout.readline()
         if line == "":
             stderr_output = self._read_available_pipe_text(process.stderr)
-            detail = (
-                f" Stderr: {stderr_output}" if len(stderr_output) > 0 else ""
-            )
+            detail = f" Stderr: {stderr_output}" if len(stderr_output) > 0 else ""
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 (
@@ -972,10 +972,7 @@ class PluginManager:
         if entry.source_digest_sha256 is None:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
-                (
-                    f"Backend runtime identity is missing for plugin "
-                    f"{entry.plugin_id}."
-                ),
+                (f"Backend runtime identity is missing for plugin {entry.plugin_id}."),
             )
         runtime_marker = self._runtime_marker_path(
             plugin_id=entry.plugin_id,
@@ -1217,13 +1214,16 @@ class PluginManager:
                 router=router,
                 prefix=prefix,
             ),
-            _register_static_dir_fn=lambda url_prefix, path: self._register_backend_static_dir(
+            _register_static_dir_fn=lambda url_prefix,
+            path: self._register_backend_static_dir(
                 app=app,
                 entry=entry,
                 url_prefix=url_prefix,
                 path=path,
             ),
-            _register_mcp_tool_fn=lambda func, name, annotations: self._register_backend_mcp_tool(
+            _register_mcp_tool_fn=lambda func,
+            name,
+            annotations: self._register_backend_mcp_tool(
                 entry=entry,
                 func=func,
                 name=name,
@@ -1538,7 +1538,9 @@ class PluginManager:
                 scope=resolved_scope,
                 enable=enable,
             )
-            self._pending_restart_removed_backend_plugins.pop(candidate.manifest.id, None)
+            self._pending_restart_removed_backend_plugins.pop(
+                candidate.manifest.id, None
+            )
             if candidate.manifest.backend is not None or had_backend_before:
                 self._add_pending_restart_backend_id(candidate.manifest.id)
 
@@ -2104,11 +2106,11 @@ class PluginManager:
             templates_dir.mkdir(parents=True, exist_ok=True)
             prompts_dir.mkdir(parents=True, exist_ok=True)
             (blueprints_dir / "starter-blueprint.json").write_text(
-                "{\n  \"schemaVersion\": 1,\n  \"name\": \"Starter Blueprint\",\n  \"description\": \"Replace with your blueprint payload.\",\n  \"data\": {\n    \"project\": {},\n    \"sectionVariantMap\": {}\n  }\n}\n",
+                '{\n  "schemaVersion": 1,\n  "name": "Starter Blueprint",\n  "description": "Replace with your blueprint payload.",\n  "data": {\n    "project": {},\n    "sectionVariantMap": {}\n  }\n}\n',
                 encoding="utf-8",
             )
             (templates_dir / "starter-template.json").write_text(
-                "{\n  \"schemaVersion\": 1,\n  \"name\": \"Starter Template\",\n  \"description\": \"Replace with your project template payload.\",\n  \"project\": {}\n}\n",
+                '{\n  "schemaVersion": 1,\n  "name": "Starter Template",\n  "description": "Replace with your project template payload.",\n  "project": {}\n}\n',
                 encoding="utf-8",
             )
             (prompts_dir / "starter-prompt.md").write_text(
@@ -2139,7 +2141,7 @@ class PluginManager:
             "[tool.setuptools]\n"
             "py-modules = []\n\n"
             "[tool.setuptools.data-files]\n"
-            '".\" = ["setta.plugin.json", "README.md"]\n'
+            '"." = ["setta.plugin.json", "README.md"]\n'
             '"backend" = ["backend/*.py"]\n'
             '"frontend/dist" = ["frontend/dist/*"]\n'
             '"content/blueprints" = ["content/blueprints/*"]\n'
@@ -2155,7 +2157,7 @@ class PluginManager:
             "  workflow_dispatch:\n"
             "  push:\n"
             "    tags:\n"
-            "      - \"v*\"\n\n"
+            '      - "v*"\n\n'
             "jobs:\n"
             "  build-and-publish:\n"
             "    runs-on: ubuntu-latest\n"
@@ -2163,7 +2165,7 @@ class PluginManager:
             "      - uses: actions/checkout@v4\n"
             "      - uses: actions/setup-python@v5\n"
             "        with:\n"
-            "          python-version: \"3.12\"\n"
+            '          python-version: "3.12"\n'
             "      - run: python -m pip install --upgrade build twine\n"
             "      - run: setta plugins validate .\n"
             "      - run: python -m build\n"
@@ -2187,9 +2189,7 @@ class PluginManager:
             "## Install\n\n"
             "```bash\n"
             "setta plugins install github:OWNER/REPO#v0.1.0\n"
-            "setta plugins install pypi:"
-            + normalized_id
-            + "==0.1.0\n"
+            "setta plugins install pypi:" + normalized_id + "==0.1.0\n"
             "```\n",
             encoding="utf-8",
         )
@@ -2344,9 +2344,7 @@ class PluginManager:
                     errors=[],
                     state=PluginRuntimeState.pending_restart,
                     shadowed_by_source_path=None,
-                    requested_capabilities=list(
-                        pending_removed.requested_capabilities
-                    ),
+                    requested_capabilities=list(pending_removed.requested_capabilities),
                     effective_capabilities=list(pending_removed.effective_capabilities),
                     blocked_capabilities=list(pending_removed.blocked_capabilities),
                     restart_required=True,

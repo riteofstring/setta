@@ -20,7 +20,7 @@ import {
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
 
-export const PLUGIN_FRONTEND_API_VERSION = 1;
+const PLUGIN_FRONTEND_API_VERSION = 1;
 
 export const PluginFrontendErrorCodeEnum = {
   RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",
@@ -29,7 +29,7 @@ export const PluginFrontendErrorCodeEnum = {
   FrontendLoadFailed: "PLUGIN_FRONTEND_LOAD_FAILED",
 } as const;
 
-export type PluginFrontendErrorCode =
+type PluginFrontendErrorCode =
   (typeof PluginFrontendErrorCodeEnum)[keyof typeof PluginFrontendErrorCodeEnum];
 
 export const PluginSectionFallbackReasonEnum = {
@@ -39,12 +39,12 @@ export const PluginSectionFallbackReasonEnum = {
   mode_blocked: "mode_blocked",
 } as const;
 
-export type PluginSectionFallbackReason =
+type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-export type PluginServerMode = "ide" | "share" | "app";
+type PluginServerMode = "ide" | "share" | "app";
 
-export type PluginSectionProps = {
+type PluginSectionProps = {
   sectionId: string;
   pluginId: string;
   kind: string;
@@ -54,13 +54,13 @@ export type PluginSectionProps = {
   effectiveCapabilities: string[];
 };
 
-export type PluginSectionRenderer = {
+type PluginSectionRenderer = {
   mount: (el: HTMLElement, props: PluginSectionProps) => void;
   update?: (el: HTMLElement, props: PluginSectionProps) => void;
   unmount?: (el: HTMLElement) => void;
 };
 
-export type PluginSectionKindDefinition = {
+type PluginSectionKindDefinition = {
   kind: string;
   title: string;
   description?: string;
@@ -72,51 +72,51 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-export type PluginPaneProps = {
+type PluginPaneProps = {
   pluginId: string;
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
 };
 
-export type PluginPaneRenderer = {
+type PluginPaneRenderer = {
   mount: (el: HTMLElement, props: PluginPaneProps) => void;
   update?: (el: HTMLElement, props: PluginPaneProps) => void;
   unmount?: (el: HTMLElement) => void;
 };
 
-export type PluginPaneDefinition = {
+type PluginPaneDefinition = {
   id: string;
   title: string;
   description?: string;
   renderer: PluginPaneRenderer;
 };
 
-export type RegisteredPluginPane = PluginPaneDefinition & {
+type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-export type PluginCommandDefinition = {
+type PluginCommandDefinition = {
   id: string;
   title: string;
   description?: string;
   run: () => void | Promise<void>;
 };
 
-export type RegisteredPluginCommand = PluginCommandDefinition & {
+type RegisteredPluginCommand = PluginCommandDefinition & {
   pluginId: string;
 };
 
-export type PluginFrontendError = {
+type PluginFrontendError = {
   code: PluginFrontendErrorCode;
   message: string;
 };
 
-export type PluginProjectContext = {
+type PluginProjectContext = {
   projectConfigId: string;
   serverMode: PluginServerMode;
 };
 
-export type SettaPluginHost = {
+type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
   serverMode: PluginServerMode;
@@ -918,16 +918,14 @@ export function usePluginSectionKinds(): RegisteredPluginSectionKind[] {
   );
 }
 
-export function usePluginPanesByPluginId(
-  pluginId: string,
-): RegisteredPluginPane[] {
+function usePluginPanesByPluginId(pluginId: string): RegisteredPluginPane[] {
   return usePluginRuntimeStore(
     (state) => state.panesByPluginId[pluginId] ?? [],
     _.isEqual,
   );
 }
 
-export function usePluginCommandsByPluginId(
+function usePluginCommandsByPluginId(
   pluginId: string,
 ): RegisteredPluginCommand[] {
   return usePluginRuntimeStore(
@@ -1015,32 +1013,26 @@ export function resetPluginRuntimeStoreForTests(): void {
   });
 }
 
-export function getPluginRuntimeSnapshot(): PluginRuntimeStore {
+function getPluginRuntimeSnapshot(): PluginRuntimeStore {
   return usePluginRuntimeStore.getState();
 }
 
-export function getPluginStatusEntry(
-  pluginId: string,
-): PluginStatusEntry | null {
+function getPluginStatusEntry(pluginId: string): PluginStatusEntry | null {
   const pluginStatusById = usePluginRuntimeStore.getState().pluginStatusById;
   return pluginStatusById[pluginId] ?? null;
 }
 
-export function getPluginRuntimeError(
-  pluginId: string,
-): PluginFrontendError | null {
+function getPluginRuntimeError(pluginId: string): PluginFrontendError | null {
   const frontendErrorsByPluginId =
     usePluginRuntimeStore.getState().frontendErrorsByPluginId;
   return frontendErrorsByPluginId[pluginId] ?? null;
 }
 
-export function getPluginPaneEntries(pluginId: string): RegisteredPluginPane[] {
+function getPluginPaneEntries(pluginId: string): RegisteredPluginPane[] {
   return usePluginRuntimeStore.getState().panesByPluginId[pluginId] ?? [];
 }
 
-export function getPluginCommandEntries(
-  pluginId: string,
-): RegisteredPluginCommand[] {
+function getPluginCommandEntries(pluginId: string): RegisteredPluginCommand[] {
   return usePluginRuntimeStore.getState().commandsByPluginId[pluginId] ?? [];
 }
 
