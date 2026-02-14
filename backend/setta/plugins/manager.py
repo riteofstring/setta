@@ -2132,6 +2132,8 @@ class PluginManager:
         trimmed_to = to.strip()
         if not trimmed_to:
             return source_spec
+        if ":" in trimmed_to:
+            return trimmed_to
         if source_spec.startswith("github:"):
             repo_spec, _, _ = source_spec.partition("#")
             return f"{repo_spec}#{trimmed_to}"
