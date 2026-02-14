@@ -568,6 +568,34 @@ def test_backend_plugin_missing_dependency_runtime_is_invalid(tmp_path: Path) ->
     assert "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED" in error_codes
 
 
+def test_link_backend_plugin_rejects_invalid_dependency_spec(tmp_path: Path) -> None:
+    # Invalid dependency specs should fail install-time runtime preparation deterministically.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-invalid-deps"
+    shutil.copytree(_fixture_path("backend"), plugin_root)
+    (plugin_root / "pyproject.toml").write_text(
+        "[build-system]\n"
+        'requires = ["setuptools>=68", "wheel"]\n'
+        'build-backend = "setuptools.build_meta"\n\n'
+        "[project]\n"
+        'name = "setta-fixture-backend"\n'
+        'version = "0.1.0"\n'
+        'description = "Backend fixture plugin for Setta tests"\n'
+        'requires-python = ">=3.12"\n'
+        'dependencies = ["not a valid requirement @@@"]\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(plugin_root),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED"
+
+
 def test_plugin_config_schema_validation_and_list_descriptors(
     tmp_path: Path,
 ) -> None:

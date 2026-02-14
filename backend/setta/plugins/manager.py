@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from jsonschema import ValidationError as JSONSchemaValidationError
 from jsonschema import validate as jsonschema_validate
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 from pydantic import ValidationError
@@ -1103,6 +1104,16 @@ class PluginManager:
                 continue
             normalized = raw_dependency.strip()
             if normalized:
+                try:
+                    Requirement(normalized)
+                except InvalidRequirement as exc:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                        (
+                            f"Invalid backend dependency requirement for plugin "
+                            f"runtime: {normalized!r}"
+                        ),
+                    ) from exc
                 dependencies.append(normalized)
         return dependencies
 
