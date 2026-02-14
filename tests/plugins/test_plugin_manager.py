@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
@@ -79,11 +80,105 @@ def _entry_for_scope(status_entries, scope: PluginScope):
     raise KeyError(f"Missing status entry for scope {scope}")
 
 
+def _build_local_pypi_wheel_from_fixture(
+    *,
+    tmp_path: Path,
+    fixture_name: str,
+    package_name: str,
+    version: str,
+) -> Path:
+    source_root = _fixture_path(fixture_name)
+    wheel_name = f"{package_name.replace('-', '_')}-{version}-py3-none-any.whl"
+    artifact_path = tmp_path / wheel_name
+    dist_info_name = f"{package_name.replace('-', '_')}-{version}.dist-info"
+    with zipfile.ZipFile(artifact_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        for path in sorted(source_root.rglob("*"), key=lambda item: str(item)):
+            if not path.is_file():
+                continue
+            relative_path = path.relative_to(source_root).as_posix()
+            zipf.write(path, arcname=relative_path)
+        zipf.writestr(
+            f"{dist_info_name}/METADATA",
+            "\n".join(
+                [
+                    "Metadata-Version: 2.1",
+                    f"Name: {package_name}",
+                    f"Version: {version}",
+                    "Summary: Setta test plugin",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(
+            f"{dist_info_name}/WHEEL",
+            "\n".join(
+                [
+                    "Wheel-Version: 1.0",
+                    "Generator: setta-tests",
+                    "Root-Is-Purelib: true",
+                    "Tag: py3-none-any",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(f"{dist_info_name}/RECORD", "")
+    return artifact_path
+
+
 @pytest.mark.parametrize("fixture_name", ["backend", "frontend", "content", "full"])
 def test_fixture_plugins_validate(fixture_name: str, tmp_path: Path) -> None:
     # Each first-party fixture should be a valid standalone plugin root.
     manager = _make_manager(tmp_path)
     manager.validate_plugin_folder(_fixture_path(fixture_name))
+
+
+def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
+    # Install flow should support pypi: source specs using real wheel artifacts.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        installed = manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert installed.pluginId == "setta-fixture-frontend"
+    assert installed.version == version
+    assert installed.state == PluginRuntimeState.active
+    assert installed.sourceDigestSha256 is not None
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
 
 
 def test_discovery_respects_scope_precedence_and_shadowing(tmp_path: Path) -> None:
