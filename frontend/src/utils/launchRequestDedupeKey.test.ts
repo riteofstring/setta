@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { LaunchRequestInput } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { buildLaunchRequestDedupeKey } from "./launchRequestDedupeKey";
 
 describe("buildLaunchRequestDedupeKey", () => {
@@ -79,7 +79,9 @@ describe("buildLaunchRequestDedupeKey", () => {
   });
 
   it("includes unknown future request fields in the dedupe key", () => {
-    const baseRequest = { workspaceRoot: "/tmp/workspace" } as LaunchRequestInput;
+    const baseRequest = {
+      workspaceRoot: "/tmp/workspace",
+    } as LaunchRequestInput;
     const futureFieldRequest = {
       workspaceRoot: "/tmp/workspace",
       futureLaunchMode: "isolate",

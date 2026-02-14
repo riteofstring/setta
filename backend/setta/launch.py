@@ -12,11 +12,11 @@ from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.env_vars import PROFILE_LOOKUP_HOME_ENV
 from setta.utils.paths import (
     ConflictingSettaFilesRootAndLocationError,
+    InvalidRuntimeRootError,
     InvalidSettaFilesLocationError,
     InvalidSettaFilesRootError,
-    InvalidSettaProfileError,
     InvalidSettaHomeError,
-    InvalidRuntimeRootError,
+    InvalidSettaProfileError,
     SettaFilesLocation,
     SettaPaths,
     SettaPathsError,

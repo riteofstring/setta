@@ -618,7 +618,9 @@ def _has_tilde_prefix(value: str | None) -> bool:
         return False
 
 
-def _resolve_remote_root_for_logs(*, raw_root: str | None, workspace: str) -> str | None:
+def _resolve_remote_root_for_logs(
+    *, raw_root: str | None, workspace: str
+) -> str | None:
     trimmed_root = _normalize_optional_argument(raw_root)
     if trimmed_root is None:
         return None
