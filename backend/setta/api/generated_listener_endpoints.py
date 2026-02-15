@@ -60,10 +60,9 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
-    SpreadsheetSectionImplArgs,
-    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
 )
@@ -72,6 +71,7 @@ from setta.types.listener import ListenerCoverageSnapshot
 from setta.types.lsp import SettaLspDiagnosticsPayload
 from setta.types.project_config import (
     Position,
+    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     Viewport,
@@ -83,13 +83,8 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
     ChatSectionState,
-    ListRootViewMode,
     SectionSize,
     SectionType,
-    SpreadsheetGridDensity,
-    TaskBoardColumn,
-    TaskBoardTask,
-    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -237,8 +232,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
-        | TaskBoardSectionImplArgs
-        | SpreadsheetSectionImplArgs
+        | PluginSectionImplArgs
         | None
     ]
     position: NotRequired[Position | None]
@@ -695,13 +689,6 @@ class ListenerSetImageAreaImagePathRequestPayload(TypedDict):
     imagePath: str
 
 
-class ListenerSetListRootViewModeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    viewMode: ListRootViewMode
-
-
 class ListenerSetMetaControlShowSectionTitleRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -717,17 +704,10 @@ class ListenerSetParamEnteredValueRequestPayload(TypedDict):
     value: str
 
 
-class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    defaultChildSectionType: SectionType
-
-
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
-    codegenTargets: list[ProjectCodegenPythonTarget]
+    codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
 
 
 class ListenerSetPromptFormatRequestPayload(TypedDict):
@@ -847,33 +827,6 @@ class ListenerSetSocialUrlRequestPayload(TypedDict):
     url: str
 
 
-class ListenerSetSpreadsheetFilePathRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    filePath: str
-    activeSheet: str | None
-
-
-class ListenerSetSpreadsheetSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    readOnly: bool
-    showRowNumbers: bool
-    density: SpreadsheetGridDensity
-    autoReloadOnExternalChange: bool
-
-
-class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    viewMode: TaskBoardViewMode
-    columns: list[TaskBoardColumn]
-    tasks: list[TaskBoardTask]
-
-
 class ListenerSetTextBlockDisplayModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -893,13 +846,6 @@ class ListenerSetTextBlockHeadingAsSectionNameRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     headingAsSectionName: bool
-
-
-class ListenerSetTextBlockMasterFontSizeRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    masterFontSizePx: float
 
 
 class ListenerSetTextBlockMetaControlStyleRequestPayload(TypedDict):
@@ -1463,11 +1409,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_image_area_image_path", payload)
 
-    async def set_list_root_view_mode(
-        self, payload: ListenerSetListRootViewModeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_list_root_view_mode", payload)
-
     async def set_meta_control_show_section_title(
         self, payload: ListenerSetMetaControlShowSectionTitleRequestPayload
     ) -> None:
@@ -1477,13 +1418,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetParamEnteredValueRequestPayload
     ) -> None:
         return await self._caller("route_set_param_entered_value", payload)
-
-    async def set_parent_default_child_section_type(
-        self, payload: ListenerSetParentDefaultChildSectionTypeRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_parent_default_child_section_type", payload
-        )
 
     async def set_project_config_codegen_targets(
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
@@ -1573,21 +1507,6 @@ class RouterEndpointAPI:
     async def set_social_url(self, payload: ListenerSetSocialUrlRequestPayload) -> None:
         return await self._caller("route_set_social_url", payload)
 
-    async def set_spreadsheet_file_path(
-        self, payload: ListenerSetSpreadsheetFilePathRequestPayload
-    ) -> None:
-        return await self._caller("route_set_spreadsheet_file_path", payload)
-
-    async def set_spreadsheet_section_settings(
-        self, payload: ListenerSetSpreadsheetSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_spreadsheet_section_settings", payload)
-
-    async def set_task_board_section_state(
-        self, payload: ListenerSetTaskBoardSectionStateRequestPayload
-    ) -> None:
-        return await self._caller("route_set_task_board_section_state", payload)
-
     async def set_text_block_display_mode(
         self, payload: ListenerSetTextBlockDisplayModeRequestPayload
     ) -> None:
@@ -1604,11 +1523,6 @@ class RouterEndpointAPI:
         return await self._caller(
             "route_set_text_block_heading_as_section_name", payload
         )
-
-    async def set_text_block_master_font_size(
-        self, payload: ListenerSetTextBlockMasterFontSizeRequestPayload
-    ) -> None:
-        return await self._caller("route_set_text_block_master_font_size", payload)
 
     async def set_text_block_meta_control_style(
         self, payload: ListenerSetTextBlockMetaControlStyleRequestPayload

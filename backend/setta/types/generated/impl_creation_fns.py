@@ -9,7 +9,6 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
-    DateParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -19,7 +18,6 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
     TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
-    TimeParamCodeObjImpl,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
@@ -31,7 +29,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgs,
     CodeSectionImplArgs,
     ColorPickerParamCodeObjImplArgs,
-    DateParamCodeObjImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
     DropdownParamCodeObjImplArgs,
@@ -46,18 +43,16 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     RotaryParamCodeObjImplArgs,
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
-    SpreadsheetSectionImplArgs,
     SwitchParamCodeObjImplArgs,
-    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextAreaParamCodeObjImplArgs,
     TextBlockSectionImplArgs,
     TextParamCodeObjImplArgs,
-    TimeParamCodeObjImplArgs,
 )
 
 # Import user default classes
@@ -71,7 +66,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
     UserDefaultColorPickerParamCodeObjImpl,
-    UserDefaultDateParamCodeObjImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
@@ -86,18 +80,16 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
+    UserDefaultPluginSectionImpl,
     UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
-    UserDefaultSpreadsheetSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
-    UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
     UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
-    UserDefaultTimeParamCodeObjImpl,
 )
 
 # Import implementation classes
@@ -117,11 +109,10 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
     SocialSectionImpl,
-    SpreadsheetSectionImpl,
-    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -281,18 +272,10 @@ def create_section_impl(
 
 @overload
 def create_section_impl(
-    type: Literal[SectionType.TaskBoard],
-    defaults: UserDefaultTaskBoardSectionImpl,
-    overrides: TaskBoardSectionImplArgs | None = None,
-) -> TaskBoardSectionImpl: ...
-
-
-@overload
-def create_section_impl(
-    type: Literal[SectionType.Spreadsheet],
-    defaults: UserDefaultSpreadsheetSectionImpl,
-    overrides: SpreadsheetSectionImplArgs | None = None,
-) -> SpreadsheetSectionImpl: ...
+    type: Literal[SectionType.Plugin],
+    defaults: UserDefaultPluginSectionImpl,
+    overrides: PluginSectionImplArgs | None = None,
+) -> PluginSectionImpl: ...
 
 
 @overload
@@ -317,22 +300,6 @@ def create_code_obj_impl(
     defaults: UserDefaultTextParamCodeObjImpl,
     overrides: TextParamCodeObjImplArgs | None = None,
 ) -> TextParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.DateParam],
-    defaults: UserDefaultDateParamCodeObjImpl,
-    overrides: DateParamCodeObjImplArgs | None = None,
-) -> DateParamCodeObjImpl: ...
-
-
-@overload
-def create_code_obj_impl(
-    type: Literal[CodeObjType.TimeParam],
-    defaults: UserDefaultTimeParamCodeObjImpl,
-    overrides: TimeParamCodeObjImplArgs | None = None,
-) -> TimeParamCodeObjImpl: ...
 
 
 @overload
@@ -514,15 +481,10 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
                 overrides = {}
             return BrowserSectionImpl(**{**defaults.model_dump(), **overrides})
 
-        case SectionType.TaskBoard:
+        case SectionType.Plugin:
             if overrides is None:
                 overrides = {}
-            return TaskBoardSectionImpl(**{**defaults.model_dump(), **overrides})
-
-        case SectionType.Spreadsheet:
-            if overrides is None:
-                overrides = {}
-            return SpreadsheetSectionImpl(**{**defaults.model_dump(), **overrides})
+            return PluginSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None):
@@ -541,16 +503,6 @@ def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None
             if overrides is None:
                 overrides = {}
             return TextParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
-
-        case CodeObjType.DateParam:
-            if overrides is None:
-                overrides = {}
-            return DateParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
-
-        case CodeObjType.TimeParam:
-            if overrides is None:
-                overrides = {}
-            return TimeParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
         case CodeObjType.ButtonParam:
             if overrides is None:
