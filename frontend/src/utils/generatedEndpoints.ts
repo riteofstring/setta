@@ -649,6 +649,36 @@ export async function route_delete_engine_config(
   return await post("/deleteEngineConfig", x);
 }
 
+export async function route_get_transcription_profiles(): Promise<
+  ResponseDataAndStatus<Array<gt.TranscriptionProfile>>
+> {
+  return await get("/getTranscriptionProfiles");
+}
+
+export async function route_get_transcription_profile(
+  x: gt.GetTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
+  return await post("/getTranscriptionProfile", x);
+}
+
+export async function route_create_transcription_profile(
+  x: gt.CreateTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
+  return await post("/createTranscriptionProfile", x);
+}
+
+export async function route_update_transcription_profile(
+  x: gt.UpdateTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
+  return await post("/updateTranscriptionProfile", x);
+}
+
+export async function route_delete_transcription_profile(
+  x: gt.DeleteTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteTranscriptionProfile", x);
+}
+
 export async function route_stream_app_spec(
   x: gt.StreamAppSpecRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -10,9 +10,9 @@ def test_create_ts_fn_def_uses_form_wrapper_for_multipart_endpoints() -> None:
         endpoint_path="/api/transcribeChatAudio",
         method="POST",
         fn_name="route_transcribe_chat_audio",
-        args=["engineConfigId", "file", "language"],
+        args=["transcriptionProfileId", "file", "language"],
         args_with_annotations=[
-            "engineConfigId:gt.IDInput",
+            "transcriptionProfileId:gt.IDInput",
             "file:FormData",
             "language:string | null",
         ],

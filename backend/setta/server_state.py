@@ -14,6 +14,7 @@ from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
 from setta.agentic.profile_watcher import AgentProfileWatcher
 from setta.agentic.prompt_watcher import PromptTemplateWatcher
 from setta.agentic.run_chain import RunChainRunner
+from setta.agentic.transcription_profile_watcher import TranscriptionProfileWatcher
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -49,7 +50,7 @@ from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.constants import C
 from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.init_status import BackendInitializationStatus
 from setta.utils.paths import (
@@ -257,8 +258,7 @@ class SettaFastAPIState:
         )
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
-            if IS_DEV_MODE:
-                seed_agentic_config_files(self.dbe)
+            seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
             # share_mode enables per-viewer session scoping in deployment mode (share or app).
@@ -326,6 +326,9 @@ class SettaFastAPIState:
         )
         self.engine_config_watcher: EngineConfigWatcher = self._defer_attr(
             "engine_config_watcher"
+        )
+        self.transcription_profile_watcher: TranscriptionProfileWatcher = (
+            self._defer_attr("transcription_profile_watcher")
         )
         self.external_agent_runner: ExternalAgentRunner = self._defer_attr(
             "external_agent_runner"
@@ -523,6 +526,12 @@ class SettaFastAPIState:
                 self.dbe,
             )
             self.engine_config_watcher.start()
+            self.transcription_profile_watcher = TranscriptionProfileWatcher(
+                self.specific_file_watcher,
+                self.wmh_frontend_sender,
+                self.dbe,
+            )
+            self.transcription_profile_watcher.start()
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,

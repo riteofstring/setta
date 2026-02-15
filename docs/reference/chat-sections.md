@@ -3,9 +3,13 @@
 Chat sections render a chat UI inside the canvas. They can run in managed mode (Setta LLM pipeline) or scriptable mode (listener-driven). Both modes emit realtime action events so listeners can observe send/stop activity.
 
 ## Core state fields
+
 Chat sections store the following fields on the section impl:
+
 - `managed`: toggles managed vs scriptable mode.
 - `engineConfigId`: selected engine config (managed mode only).
+- `transcriptionProfileId`: selected transcription profile for provider transcription.
+- `dictationMode`: transcription mode preference (`auto`, `browser`, `provider`).
 - `chatId`: chat store id for managed mode (null means "new chat").
 - `thinking`: toggles thinking behavior for managed mode.
 - `permissionMode`: runtime permission mode (`minimal`, `yolo`, or `config_toml_custom`).
@@ -18,7 +22,9 @@ Chat sections store the following fields on the section impl:
 - `branches`: map of branch id -> branch metadata (`messages`, `createdAt`, `parentBranchId`, `branchFromMessageId`) for scriptable mode edits.
 
 ## Managed mode
+
 Managed mode uses the central LLM chat manager:
+
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
 - Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`) and the backend injects those settings into the run prompt metadata.
@@ -27,32 +33,46 @@ Managed mode uses the central LLM chat manager:
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
 
 ## Composer controls
+
 The chat composer supports local slash commands and execution controls:
+
 - Supported slash actions: `/new`, `/resume`, `/help`, `/permissions`, `/model`, `/search`.
 - Availability by surface: Project Chat includes `/model`, `/permissions`, and `/search`; Managed Chat section includes `/model` and `/permissions`; Scriptable Chat section includes `/permissions` only (plus `/new`, `/resume`, `/help`).
 - Slash commands are handled client-side; unavailable commands return local feedback and are not sent as LLM prompts.
 - Footer controls always show permission mode when execution controls are enabled; search toggle is shown only where `searchEnabled` is mutable in that surface.
 
 ## Dictation
-- The `Mic` control appears when browser speech recognition and/or provider capture is available for the current surface.
-- Provider dictation records audio and uploads it via `route_transcribe_chat_audio` (`/api/transcribeChatAudio`) for managed LLM engines.
-- External-agent engines do not support provider dictation; in `auto` mode the UI falls back to browser dictation when provider capture/transcription is unavailable.
+
+- Chat and transcription are configured independently:
+  - `engineConfigId` chooses the chat runtime.
+  - `transcriptionProfileId` chooses the transcription runtime.
+- Transcription profiles own the provider config reference (`transcriptionLlmConfigId`).
+- Provider transcription requests (`/api/transcribeChatAudio`) use `transcriptionProfileId` only.
+- Dictation mode is explicit in AI settings (`auto`, `browser`, `provider`):
+  - `auto`: prefers provider dictation when the selected transcription profile resolves to a valid config, otherwise falls back to browser dictation.
+  - `browser`: always uses browser dictation and never calls provider transcription.
+  - `provider`: always attempts provider dictation and shows an explicit configuration error when unavailable.
+- Provider dictation is available for both internal and external chat engines.
 - Browser dictation uses `SpeechRecognition`/`webkitSpeechRecognition` and keeps listening across `onend` events until the user stops mic capture.
 
 ## Scriptable mode
+
 Scriptable mode keeps chat state inside the section:
+
 - The UI updates `messages`, `inputText`, `waitingForResponse`, and `toolCallArguments` via `route_set_chat_section_state` (optimistic).
 - Use listener code plus the chat toolkit to stream assistant content, append tool results, and sync the section state.
 - `ChatSectionSyncClient.update_from_chat` can rebuild the section state from chat history when you want a full refresh.
 - Listener chat history accepts an `engineConfigId` for internal engines, or `None` for scriptable-only chats.
 
 ## Editing and branching
+
 - Editing a user message creates a new branch instead of mutating existing history.
 - Managed mode edits start a new chat id. The backend truncates history at `branchFromMessageId`, replaces that message, and stores branch metadata on the new run (`branchParentChatId`, `branchFromMessageId`, `branchRootChatId`, `branchCreatedAt`).
 - Scriptable mode edits create a new entry in `branches` with `parentBranchId` and `branchFromMessageId`. The UI switches `activeBranchId` to the new branch and mirrors its `messages`.
 - The branch switcher UI uses these branch fields and metadata to navigate sibling branches.
 
 ## Attachments
+
 - Chat inputs support file attachments (drag/drop, Attach button, and the Project picker in IDE mode).
 - Attachments are stored as File artifacts; messages and send payloads carry `attachments` metadata (`id`, `name`, `mimeType`, `size`).
 - Limits use the shared attachment policy scope `chat`, driven by `C.CHAT_ATTACHMENTS_MAX_FILES` (0 disables, negative = unlimited), `C.CHAT_ATTACHMENTS_MAX_FILE_BYTES`, and `C.CHAT_ATTACHMENTS_ALLOWED_MIME_PREFIXES`.
@@ -64,7 +84,9 @@ Scriptable mode keeps chat state inside the section:
 - External agents receive attachments as text blocks and/or URLs depending on adapter type. See `docs/reference/external-agents.md`.
 
 ## Agentic links
+
 Chat sections can link to other sections and agents without touching codegen edges:
+
 - Context sources: `Section -> Chat` edges that define context inputs.
 - Scope sections: `Chat -> Section` edges that define output or scope boundaries.
 - Linked agents: `Chat <-> Chat` edges for agent-to-agent relationships.
@@ -74,6 +96,7 @@ and are editable via the Chat settings "Context & Links" panel or by dragging th
 agentic handles on sections.
 
 Context sources also define how context is injected:
+
 - `reference_only`: include label/type/id only.
 - `inline_text`: include a deterministic excerpt of the section content.
 - `summary`: prefer a cached summary (when available), otherwise fall back to an excerpt.
@@ -84,9 +107,11 @@ these edges. If a Chat section has no edges, it effectively has no tool access.
 Use Project Chat (unscoped) for full access.
 
 ## Realtime action events
+
 Both modes emit `RealtimeDependencyEvent` for the chat section when the user sends or stops:
 
 Send payload (JSON string):
+
 ```json
 {
   "action": "send",
@@ -106,9 +131,11 @@ Send payload (JSON string):
   "managed": true
 }
 ```
+
 `attachments` is always present (empty when none) and references artifacts for the attached files.
 
 Stop payload (JSON string):
+
 ```json
 {
   "action": "stop",
@@ -119,10 +146,12 @@ Stop payload (JSON string):
 ```
 
 Listener tips:
+
 - Register with the chat section dependency and `dependency_mode=ListenerDependencyMode.REALTIME_ONLY` to handle send/stop events.
 - Use `on_chat_send_event`, `on_chat_stop_event`, or `on_chat_action_event` from `setta.api.chat_toolkit` to parse `ctx.events`.
 
 ## Listener example (ChatSession)
+
 ```python
 from setta.api import SettaListener
 from setta.api.chat_toolkit import ChatSession, ToolCallBuilder, on_chat_send_event
@@ -168,5 +197,6 @@ async def on_chat(state, ctx) -> None:
 ```
 
 ## Related docs
+
 - `docs/reference/chat-toolkit.md`
 - `docs/reference/mcp-system-overview.md`

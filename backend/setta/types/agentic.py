@@ -31,6 +31,16 @@ class EngineConfigList(BaseModel, extra="forbid"):
     configs: list[EngineConfig]
 
 
+class TranscriptionProfile(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    transcriptionLlmConfigId: str
+
+
+class TranscriptionProfileList(BaseModel, extra="forbid"):
+    profiles: list[TranscriptionProfile]
+
+
 class AgentProfile(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str
