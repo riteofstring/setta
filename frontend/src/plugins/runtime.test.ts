@@ -2520,7 +2520,9 @@ describe("plugin runtime helpers", () => {
   });
 
   it("only loads plugin frontends when runtime status is active or pending restart", () => {
-    expect(pluginRuntimeTestApi.shouldLoadPluginFrontend(undefined)).toBe(false);
+    expect(pluginRuntimeTestApi.shouldLoadPluginFrontend(undefined)).toBe(
+      false,
+    );
     expect(
       pluginRuntimeTestApi.shouldLoadPluginFrontend(
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.active }),
