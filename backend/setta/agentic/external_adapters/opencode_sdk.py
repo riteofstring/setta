@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.types import TextContent
 
 from setta.agentic.external_adapters.base import (
@@ -73,10 +72,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             process=process,
             metadata={"stderr_lines": stderr_lines},
         )
-        if context.config.runMode == ExternalAgentRunMode.server:
-            mcp_payload = await self._fetch_mcp_server_status_payload(context)
-            if mcp_payload is not None:
-                handle.metadata["mcp_server_status_payload"] = mcp_payload
         if process.stdin is not None:
             payload = {
                 "prompt": prompt,
@@ -101,26 +96,6 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
             await process.stdin.drain()
         return handle
-
-    @staticmethod
-    async def _fetch_mcp_server_status_payload(
-        context: ExternalAgentRunContext,
-    ) -> dict[str, Any] | list[Any] | None:
-        base_url = context.config.baseUrl
-        if base_url is None or base_url.strip() == "":
-            return None
-        normalized_base_url = base_url.rstrip("/")
-        status_url = f"{normalized_base_url}/mcp"
-        try:
-            async with create_mcp_http_client() as client:
-                response = await client.get(status_url)
-                response.raise_for_status()
-                payload = response.json()
-        except Exception:
-            return None
-        if isinstance(payload, dict | list):
-            return payload
-        return None
 
     async def stream_events(
         self, handle: ExternalAgentRunHandle, _context: ExternalAgentRunContext
