@@ -2607,6 +2607,33 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
     }
 
 
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_list_response_redacts_config_payload_outside_ide(
+    tmp_path: Path, server_mode: Literal["share", "app"]
+) -> None:
+    # Share/App should not expose plugin config values or schema payloads via list response.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("full")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": True, "label": "secret-value"},
+    )
+
+    list_entry = next(
+        plugin
+        for plugin in manager.get_list_response().plugins
+        if plugin.pluginId == "setta-fixture-full"
+    )
+    assert list_entry.config.hasSchema is True
+    assert list_entry.config.schemaJson is None
+    assert list_entry.config.currentConfig == {}
+
+
 def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
     # Backend import stalls should fail with explicit startup-timeout error codes.
     manager = _make_manager(
@@ -4221,6 +4248,56 @@ def test_link_plugin_rejects_missing_source_root(tmp_path: Path) -> None:
     assert exc_info.value.code == "PLUGIN_SOURCE_NOT_FOUND"
 
 
+def test_link_plugin_rejects_incompatible_setta_version_before_mutation(
+    tmp_path: Path,
+) -> None:
+    # Link should fail fast on settaVersionRange before writing links/metadata.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "incompatible-link-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    manifest_path = plugin_root / "setta.plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["settaVersionRange"] = ">=999.0.0"
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(plugin_root),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_MANIFEST_VERSION_INCOMPATIBLE"
+    expected_target = _scope_root(manager, PluginScope.workspace) / manifest["id"]
+    assert not expected_target.exists()
+    assert manager._load_install_metadata().entries == {}
+
+
+def test_link_plugin_rejects_invalid_config_schema_before_mutation(
+    tmp_path: Path,
+) -> None:
+    # Link should fail fast when config schema JSON is invalid and avoid partial installs.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "invalid-config-schema-link-plugin"
+    shutil.copytree(_fixture_path("full"), plugin_root)
+    (plugin_root / "content" / "config" / "schema.json").write_text(
+        "{bad-json",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(plugin_root),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_CONFIG_SCHEMA_INVALID"
+    expected_target = _scope_root(manager, PluginScope.workspace) / "setta-fixture-full"
+    assert not expected_target.exists()
+    assert manager._load_install_metadata().entries == {}
+
+
 def test_link_plugin_rejects_existing_target_without_force(tmp_path: Path) -> None:
     # Linking should fail when a target path already exists unless force is set.
     manager = _make_manager(tmp_path)
@@ -4646,6 +4723,44 @@ def test_read_backend_worker_message_handles_transport_edge_cases(
     assert eof_error.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
     assert "exited before responding" in eof_error.value.message
     assert "Stderr: worker-boom" in eof_error.value.message
+
+
+def test_read_stream_line_with_timeout_reuses_one_reader_per_stream(
+    tmp_path: Path,
+) -> None:
+    # Timeout retries should reuse one reader thread per stream instead of spawning per call.
+    manager = _make_manager(tmp_path)
+    release_read = threading.Event()
+
+    class _BlockingStream:
+        def __init__(self) -> None:
+            self.read_calls = 0
+
+        def readline(self) -> str:
+            self.read_calls += 1
+            release_read.wait(timeout=2.0)
+            return ""
+
+    stream = _BlockingStream()
+    try:
+        assert (
+            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01)
+            is None
+        )
+        assert (
+            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01)
+            is None
+        )
+        assert (
+            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01)
+            is None
+        )
+        assert stream.read_calls == 1
+    finally:
+        release_read.set()
+
+    assert manager._read_stream_line_with_timeout(stream, timeout_seconds=1.0) == ""
+    assert id(stream) not in manager._backend_worker_pipe_readers
 
 
 @pytest.mark.parametrize(

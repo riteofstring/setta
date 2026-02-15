@@ -21,7 +21,7 @@ import sys
 
 fixture_root = pathlib.Path(sys.argv[1])
 plugin_ids: set[str] = set()
-for manifest_path in sorted(fixture_root.glob("*/setta.plugin.json")):
+for manifest_path in sorted(fixture_root.rglob("setta.plugin.json")):
     with manifest_path.open(encoding="utf-8") as handle:
         payload = json.load(handle)
     plugin_id = payload.get("id")

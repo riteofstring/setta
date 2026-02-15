@@ -641,6 +641,74 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
+    async def test_refresh_codegen_state_hashes_project_state_once_per_refresh(
+        self,
+    ) -> None:
+        class _StubPluginManager:
+            def has_backend_codegen_target(self, target_id: str) -> bool:
+                return target_id in {
+                    "stub-plugin:target-a",
+                    "stub-plugin:target-b",
+                }
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                return [
+                    (
+                        f"{target_id.replace(':', '_')}.txt",
+                        f"{project_state['projectConfig']['name']}:{target_options.get('label', '')}",
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config = ProjectConfig(
+            name="PluginCodegenStateHash",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(
+                    language="stub-plugin:target-a",
+                    options={"label": "A"},
+                ),
+                ProjectCodegenPluginTarget(
+                    language="stub-plugin:target-b",
+                    options={"label": "B"},
+                ),
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        hash_calls = 0
+        original_hash = manager._hash_plugin_codegen_project_state
+
+        def _counting_hash(project_state_payload: dict[str, Any]) -> str:
+            nonlocal hash_calls
+            hash_calls += 1
+            return original_hash(project_state_payload)
+
+        manager._hash_plugin_codegen_project_state = _counting_hash  # type: ignore[method-assign]
+        try:
+            await manager._refresh_codegen_state(project_state)
+            assert hash_calls == 1
+        finally:
+            manager.shutdown()
+
     async def test_set_codegen_targets_rejects_unknown_plugin_target(self) -> None:
         plugin_manager = self._create_loaded_codegen_plugin_manager()
         project_config = ProjectConfig(name="PluginCodegenValidation")

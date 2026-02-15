@@ -238,6 +238,15 @@ describe("PluginArea fallback actions", () => {
     expect(routePluginsStatusMock).toHaveBeenCalledTimes(1);
   });
 
+  it("shows section-kind-missing fallback wording", () => {
+    // Section fallback should provide a specific reason when plugin kind is missing.
+    fallbackReason = "section_kind_missing";
+    const fallbackCard = renderFallbackCard("section-missing-kind");
+    expect(collectText(fallbackCard)).toContain(
+      "Plugin section kind is no longer registered by this plugin.",
+    );
+  });
+
   it("copies plugin section JSON payload and notifies success", async () => {
     // Copy action should serialize the current plugin section snapshot to clipboard.
     const fallbackCard = renderFallbackCard("section-copy");

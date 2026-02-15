@@ -130,13 +130,59 @@ SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
 LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "${LOG_DIR}"
+PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"
+PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-fixtures-all.signature"
 
 log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
-log "Building fixture plugin frontend assets."
-"${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
+compute_plugin_fixture_signature() {
+  local fixture_file
+  local fixture_files=("${ROOT_DIR}/scripts/plugin-fixtures/build.sh")
+  while IFS= read -r fixture_file; do
+    fixture_files+=("${fixture_file}")
+  done < <(
+    find "${ROOT_DIR}/tests/fixtures/plugins" -type f \
+      ! -path "*/frontend/dist/*" \
+      | sort
+  )
+
+  for fixture_file in "${fixture_files[@]}"; do
+    printf '%s|' "${fixture_file#${ROOT_DIR}/}"
+    cksum "${fixture_file}"
+  done | cksum | awk '{print $1 ":" $2}'
+}
+
+build_plugin_fixtures_if_needed() {
+  local current_signature cached_signature
+  current_signature="$(compute_plugin_fixture_signature)"
+  mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
+
+  if [[ "${SETTA_FORCE_PLUGIN_FIXTURE_BUILD:-0}" == "1" ]]; then
+    log "Building fixture plugin frontend assets (forced)."
+    "${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
+    printf '%s' "${current_signature}" > "${PLUGIN_FIXTURE_CACHE_FILE}"
+    return
+  fi
+
+  if [[ -f "${PLUGIN_FIXTURE_CACHE_FILE}" ]]; then
+    cached_signature="$(<"${PLUGIN_FIXTURE_CACHE_FILE}")"
+  else
+    cached_signature=""
+  fi
+
+  if [[ "${cached_signature}" == "${current_signature}" ]]; then
+    log "Skipping fixture plugin build; fixtures unchanged."
+    return
+  fi
+
+  log "Building fixture plugin frontend assets."
+  "${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
+  printf '%s' "${current_signature}" > "${PLUGIN_FIXTURE_CACHE_FILE}"
+}
+
+build_plugin_fixtures_if_needed
 
 BACKEND_PID=""
 FRONTEND_PID=""

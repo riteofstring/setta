@@ -310,5 +310,8 @@ function fallbackReasonLabel(reason: string): string {
   if (reason === "mode_blocked") {
     return "Plugin capability is blocked in the current server mode.";
   }
+  if (reason === "section_kind_missing") {
+    return "Plugin section kind is no longer registered by this plugin.";
+  }
   return "Plugin frontend renderer failed to load.";
 }

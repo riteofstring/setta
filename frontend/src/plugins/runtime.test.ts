@@ -765,6 +765,40 @@ describe("plugin runtime helpers", () => {
   });
 
   it("reports runtime error when plugins list request fails", async () => {
+    usePluginRuntimeStore.setState({
+      pluginListById: {
+        "stale.plugin": buildPluginListEntry({
+          pluginId: "stale.plugin",
+        }),
+      },
+      pluginStatusById: {
+        "stale.plugin": buildPluginStatusEntry({
+          pluginId: "stale.plugin",
+        }),
+      },
+      sectionKindsByKey: {
+        [toPluginSectionKindKey("stale.plugin", "stale-kind")]: {
+          pluginId: "stale.plugin",
+          kind: "stale-kind",
+          title: "Stale Kind",
+          renderer: {
+            mount: () => undefined,
+          },
+        },
+      },
+      panesByPluginId: {
+        "stale.plugin": [
+          {
+            pluginId: "stale.plugin",
+            id: "stale-pane",
+            title: "Stale Pane",
+            renderer: {
+              mount: () => undefined,
+            },
+          },
+        ],
+      },
+    });
     vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
       data: undefined,
       status: 500,
@@ -783,6 +817,10 @@ describe("plugin runtime helpers", () => {
     expect(state.statusMessage).toBe(
       "Failed to fetch plugins list: status 500.",
     );
+    expect(state.pluginListById).toEqual({});
+    expect(state.pluginStatusById).toEqual({});
+    expect(state.sectionKindsByKey).toEqual({});
+    expect(state.panesByPluginId).toEqual({});
   });
 
   it("reports runtime error when plugins status request fails without response", async () => {
@@ -1085,7 +1123,7 @@ describe("plugin runtime helpers", () => {
 
   it("supports project-context subscriptions and readSection snapshots", async () => {
     const sectionId = "section-runtime-dict";
-    seedRuntimeSectionState(sectionId);
+    seedRuntimePluginSectionState(sectionId);
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -1099,6 +1137,7 @@ describe("plugin runtime helpers", () => {
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
+      effectiveCapabilities: ["registerSectionKinds"],
     });
 
     const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
@@ -1109,9 +1148,23 @@ describe("plugin runtime helpers", () => {
 
     const host = getCapturedPluginHost();
     const firstRead = host.readSection(sectionId);
-    firstRead.paramFilter = "mutated-client-only";
+    (
+      firstRead as {
+        data: {
+          text: string;
+        };
+      }
+    ).data.text = "mutated-client-only";
     const secondRead = host.readSection(sectionId);
-    expect(secondRead.paramFilter).toBe("");
+    expect(
+      (
+        secondRead as {
+          data: {
+            text: string;
+          };
+        }
+      ).data.text,
+    ).toBe("initial");
 
     const observedContexts: Array<{
       projectConfigId: string;
@@ -1386,6 +1439,85 @@ describe("plugin runtime helpers", () => {
     );
   });
 
+  it("enforces capability checks for section read and update host APIs", async () => {
+    const sectionId = "section-runtime-plugin-capability";
+    seedRuntimePluginSectionState(sectionId);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: [],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () => host.readSection(sectionId),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    expectPluginFrontendErrorCode(
+      () =>
+        host.updateSection(sectionId, {
+          kind: "updated-kind",
+        }),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+  });
+
+  it("rejects section reads and writes across plugin ownership boundaries", async () => {
+    const sectionId = "section-runtime-plugin-owner-check";
+    seedRuntimePluginSectionState(sectionId);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      pluginId: "other.plugin",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () => host.readSection(sectionId),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    expectPluginFrontendErrorCode(
+      () =>
+        host.updateSection(sectionId, {
+          kind: "updated-kind",
+        }),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+  });
+
   it("emits realtime dependency events through websocket action helpers", async () => {
     const realtimeSpy = vi
       .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
@@ -1561,6 +1693,7 @@ describe("plugin runtime helpers", () => {
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
+      effectiveCapabilities: ["registerSectionKinds"],
     });
 
     const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
@@ -1575,6 +1708,38 @@ describe("plugin runtime helpers", () => {
         host.updateSection(sectionId, {
           kind: "updated",
         }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
+  it("rejects readSection calls for non-plugin sections", async () => {
+    const sectionId = "section-runtime-dict-read";
+    seedRuntimeSectionState(sectionId);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () => host.readSection(sectionId),
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
     );
   });
@@ -1599,6 +1764,7 @@ describe("plugin runtime helpers", () => {
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
+      effectiveCapabilities: ["registerSectionKinds"],
     });
 
     const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
@@ -1643,6 +1809,7 @@ describe("plugin runtime helpers", () => {
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
+      effectiveCapabilities: ["registerSectionKinds"],
     });
 
     const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
@@ -1677,6 +1844,7 @@ describe("plugin runtime helpers", () => {
         entrypointUrl: moduleUrl,
         styleUrl: null,
       },
+      effectiveCapabilities: ["registerSectionKinds"],
     });
 
     const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
@@ -1942,7 +2110,7 @@ describe("plugin runtime helpers", () => {
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
 
-  it("returns frontend_load_failed fallback when plugin is active without frontend errors", () => {
+  it("returns section_kind_missing fallback when plugin is active but kind is not registered", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {
         "acme.plugin": buildPluginStatusEntry({
@@ -1953,6 +2121,34 @@ describe("plugin runtime helpers", () => {
         }),
       },
       frontendErrorsByPluginId: {},
+    });
+
+    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
+      PluginSectionFallbackReasonEnum.section_kind_missing,
+    );
+  });
+
+  it("returns frontend_load_failed fallback when fallback is reached despite a registered kind", () => {
+    usePluginRuntimeStore.setState({
+      pluginStatusById: {
+        "acme.plugin": buildPluginStatusEntry({
+          state: PluginRuntimeStateEnum.active,
+          requestedCapabilities: ["registerSectionKinds"],
+          effectiveCapabilities: ["registerSectionKinds"],
+          blockedCapabilities: [],
+        }),
+      },
+      frontendErrorsByPluginId: {},
+      sectionKindsByKey: {
+        [toPluginSectionKindKey("acme.plugin", "kind")]: {
+          pluginId: "acme.plugin",
+          kind: "kind",
+          title: "Acme Kind",
+          renderer: {
+            mount: () => undefined,
+          },
+        },
+      },
     });
 
     expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(

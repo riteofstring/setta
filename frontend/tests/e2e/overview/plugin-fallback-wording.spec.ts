@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import path from "path";
 import {
   cleanupIsolatedProject,
   getViewportBoundsForPlacement,
@@ -47,6 +48,66 @@ test("plugin-not-installed fallback uses canonical scope wording", async ({
       ),
     ).toBeVisible();
   } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("plugin-kind-missing fallback uses explicit section kind wording", async ({
+  page,
+}) => {
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: fixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const viewportBounds = await getViewportBoundsForPlacement(page);
+    if (!viewportBounds) {
+      throw new Error("Unable to resolve viewport bounds for plugin section.");
+    }
+
+    const created = await postBackend<CreateTopLevelSectionResponse>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Plugin",
+        implOverrides: {
+          type: "Plugin",
+          pluginId: "setta-fixture-frontend",
+          kind: "missing-fixture-kind",
+          data: {
+            text: "missing kind fallback wording",
+          },
+        },
+        viewportBounds,
+      },
+    );
+    expect(created?.sectionId).toBeTruthy();
+
+    await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Plugin section kind is no longer registered by this plugin.",
+      ),
+    ).toBeVisible();
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
     await cleanupIsolatedProject(page, projectContext);
   }
 });

@@ -1233,6 +1233,9 @@ class BaseProjectManager(ABC):
             return
         assert self.plugin_manager is not None
         project_state_payload = project_state.model_dump(mode="json")
+        project_state_hash = self._hash_plugin_codegen_project_state(
+            project_state_payload
+        )
         previous_target_state = self._plugin_codegen_target_state_by_project_config.get(
             project_config_id, {}
         )
@@ -1244,7 +1247,7 @@ class BaseProjectManager(ABC):
                 target_language
             )
             target_fingerprint = self._build_plugin_codegen_target_fingerprint(
-                project_state=project_state_payload,
+                project_state_hash=project_state_hash,
                 target_id=target_language,
                 target_options=target.options,
             )
@@ -1300,22 +1303,33 @@ class BaseProjectManager(ABC):
             next_target_state
         )
 
-    def _build_plugin_codegen_target_fingerprint(
-        self,
-        *,
-        project_state: dict[str, Any],
-        target_id: str,
-        target_options: dict[str, Any],
-    ) -> str:
+    def _hash_plugin_codegen_project_state(self, project_state: dict[str, Any]) -> str:
         encoded = json.dumps(
-            {
-                "projectState": project_state,
-                "targetId": target_id,
-                "targetOptions": target_options,
-            },
+            project_state,
             sort_keys=True,
             separators=(",", ":"),
         )
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    def _hash_plugin_codegen_target_options(
+        self, target_options: dict[str, Any]
+    ) -> str:
+        encoded = json.dumps(
+            target_options,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    def _build_plugin_codegen_target_fingerprint(
+        self,
+        *,
+        project_state_hash: str,
+        target_id: str,
+        target_options: dict[str, Any],
+    ) -> str:
+        target_options_hash = self._hash_plugin_codegen_target_options(target_options)
+        encoded = f"{project_state_hash}:{target_id}:{target_options_hash}"
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
     def _prune_empty_codegen_directories(self, *, directory: Path, stop_root: Path) -> None:

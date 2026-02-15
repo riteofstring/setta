@@ -26,3 +26,14 @@
 - Removed backward-compatibility shims around external agent runner adapter APIs and updated runtime whitelist env resolution to include live plugin adapter IDs.
 - Updated frontend plugin rendering lifecycle logic to avoid unnecessary remounts and ensure update-driven refresh behavior; standardized missing-plugin fallback copy to mention `workspace` and `setta_files` scope.
 - Expanded test coverage with backend unit/integration tests, frontend Vitest updates, and a new Playwright E2E test for the plugin fallback wording; completed CDP visual verification for the updated fallback UI.
+
+## 2026-02-15T15:46:23-08:00
+
+- Replaced per-call worker pipe timeout threads with persistent per-stream readers in plugin manager process handling, reducing thread churn and improving shutdown cleanup.
+- Moved plugin link validation earlier so incompatible `settaVersionRange` and invalid plugin config schemas fail before install/link state is mutated.
+- Tightened non-IDE plugin list responses by redacting config descriptor payloads and current config values while preserving schema presence metadata.
+- Optimized plugin codegen refresh fingerprinting by hashing project state once per refresh and composing target fingerprints from cached project/option hashes.
+- Hardened frontend plugin runtime refresh by clearing stale registry state at load start and enforcing capability/ownership checks for `readSection` and `updateSection`.
+- Added explicit `section_kind_missing` fallback handling and user-facing copy for plugin sections whose kind is no longer registered.
+- Fixed plugin fixture reset discovery to recurse nested fixture directories and added Playwright fixture build signature caching to skip unchanged rebuilds.
+- Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright E2E coverage for the new runtime and fallback behaviors.

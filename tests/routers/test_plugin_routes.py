@@ -259,7 +259,7 @@ def test_plugin_asset_route_rejects_non_frontend_files() -> None:
 
 
 def test_plugin_read_routes_redact_source_details_in_deployment_mode() -> None:
-    # Deployment-facing list/status should not expose host-local source details.
+    # Deployment-facing list/status should not expose host-local source/config details.
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         workspace_root = root / "workspace"
@@ -276,10 +276,14 @@ def test_plugin_read_routes_redact_source_details_in_deployment_mode() -> None:
             setta_version="0.1.0",
         )
         manager.link_plugin(
-            local_plugin_root=str(_fixture_plugin_root("frontend")),
+            local_plugin_root=str(_fixture_plugin_root("full")),
             scope="workspace",
             enable=True,
             force=False,
+        )
+        manager.write_plugin_config(
+            plugin_id="setta-fixture-full",
+            config={"enabled": True, "label": "secret-value"},
         )
         app = _build_test_app(manager=manager, deployment_mode=True)
 
@@ -289,6 +293,9 @@ def test_plugin_read_routes_redact_source_details_in_deployment_mode() -> None:
             plugins = list_response.json()["plugins"]
             assert len(plugins) == 1
             assert plugins[0]["canonicalSourceKey"].startswith("redacted:")
+            assert plugins[0]["config"]["hasSchema"] is True
+            assert plugins[0]["config"]["schemaJson"] is None
+            assert plugins[0]["config"]["currentConfig"] == {}
 
             status_response = client.get(
                 f"{Route.PREFIX.value}{Route.PLUGINS_STATUS.value}"

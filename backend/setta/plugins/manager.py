@@ -248,94 +248,38 @@ class RegisteredBackendCodegenTarget:
     handler_id: str
 
 
-@dataclass(slots=True)
-class BackendPluginContext:
-    plugin_id: str
-    plugin_root: Path
-    server_mode: Literal["ide", "share", "app"]
-    requested_capabilities: list[str]
-    effective_capabilities: list[str]
-    _register_router_fn: Callable[["APIRouter", str | None], None]
-    _register_static_dir_fn: Callable[[str, str | Path], None]
-    _register_mcp_tool_fn: Callable[
-        [Callable[..., Any], str | None, dict[str, Any] | None], None
-    ]
-    _register_external_agent_adapter_fn: Callable[[Any], None]
-    _register_language_server_fn: Callable[[Any], None]
-    _register_codegen_target_fn: Callable[[Any], None]
-    _register_listener_endpoint_fn: Callable[[str, str | None], None]
-    _read_project_state_fn: Callable[[str, str | None, Literal["summary", "full"]], Any]
-    _emit_listener_dependency_event_fn: Callable[
-        [str, list[DependencyEvent], str | None], None
-    ]
-    _register_startup_task_fn: Callable[[Callable[..., Any]], None]
-    _register_shutdown_task_fn: Callable[[Callable[..., Any]], None]
+class _BackendWorkerPipeReader:
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+        self._queue: Queue[str | BaseException] = Queue()
+        self._thread = threading.Thread(target=self._read_loop, daemon=True)
+        self._thread.start()
 
-    @property
-    def deployment_mode(self) -> bool:
-        return self.server_mode in {"share", "app"}
+    def _read_loop(self) -> None:
+        while True:
+            try:
+                line = self._stream.readline()
+            except BaseException as exc:
+                self._queue.put(exc)
+                return
+            self._queue.put(line)
+            if line == "":
+                return
 
-    def register_router(
-        self,
-        router: "APIRouter",
-        *,
-        prefix: str | None = None,
-    ) -> None:
-        self._register_router_fn(router, prefix)
+    def read_line(self, *, timeout_seconds: float) -> str | None:
+        try:
+            if timeout_seconds <= 0:
+                value = self._queue.get_nowait()
+            else:
+                value = self._queue.get(timeout=timeout_seconds)
+        except Empty:
+            return None
+        if isinstance(value, BaseException):
+            raise value
+        return value
 
-    def register_static_dir(self, url_prefix: str, path: str | Path) -> None:
-        self._register_static_dir_fn(url_prefix, path)
-
-    def register_mcp_tool(
-        self,
-        func: Callable[..., Any],
-        *,
-        name: str | None = None,
-        annotations: dict[str, Any] | None = None,
-    ) -> None:
-        self._register_mcp_tool_fn(func, name, annotations)
-
-    def register_external_agent_adapter(self, adapter: Any) -> None:
-        self._register_external_agent_adapter_fn(adapter)
-
-    def register_language_server(self, provider: Any) -> None:
-        self._register_language_server_fn(provider)
-
-    def register_codegen_target(self, target: Any) -> None:
-        self._register_codegen_target_fn(target)
-
-    def register_listener_endpoint(
-        self, endpoint_name: str, *, route_id: str | None = None
-    ) -> None:
-        self._register_listener_endpoint_fn(endpoint_name, route_id)
-
-    def read_project_state(
-        self,
-        *,
-        project_config_id: str,
-        share_session_id: str | None = None,
-        view: Literal["summary", "full"] = "summary",
-    ) -> Any:
-        return self._read_project_state_fn(project_config_id, share_session_id, view)
-
-    def emit_listener_dependency_event(
-        self,
-        *,
-        project_config_id: str,
-        dependency_events: list[DependencyEvent],
-        share_session_id: str | None = None,
-    ) -> None:
-        self._emit_listener_dependency_event_fn(
-            project_config_id,
-            dependency_events,
-            share_session_id,
-        )
-
-    def register_startup_task(self, coro_fn: Callable[..., Any]) -> None:
-        self._register_startup_task_fn(coro_fn)
-
-    def register_shutdown_task(self, coro_fn: Callable[..., Any]) -> None:
-        self._register_shutdown_task_fn(coro_fn)
+    def join(self, *, timeout_seconds: float) -> None:
+        self._thread.join(timeout=timeout_seconds)
 
 
 class PluginManager:
@@ -402,6 +346,8 @@ class PluginManager:
         self._backend_worker_request_locks: dict[str, threading.Lock] = {}
         self._backend_worker_next_request_ids: dict[str, int] = {}
         self._backend_worker_request_state_lock = threading.Lock()
+        self._backend_worker_pipe_readers: dict[int, _BackendWorkerPipeReader] = {}
+        self._backend_worker_pipe_readers_lock = threading.Lock()
         self._backend_app: Optional["FastAPI"] = None
         self._backend_route_ids_by_plugin_id: dict[str, set[str]] = {}
         self._backend_listener_endpoint_route_by_name: dict[str, tuple[str, str]] = {}
@@ -445,6 +391,7 @@ class PluginManager:
         self._backend_worker_processes = {}
         self._backend_worker_request_locks = {}
         self._backend_worker_next_request_ids = {}
+        self._backend_worker_pipe_readers = {}
         self._backend_route_ids_by_plugin_id = {}
         self._backend_listener_endpoint_route_by_name = {}
         self._backend_registered_mcp_tools = {}
@@ -529,6 +476,7 @@ class PluginManager:
         plugins: list[PluginListEntry] = []
         plugins_state = self._load_plugins_state()
         redact_source_details = self._should_redact_source_details()
+        redact_config_details = self._should_redact_config_details()
         for entry in sorted(
             self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
         ):
@@ -552,6 +500,8 @@ class PluginManager:
             )
             content = self._build_content_descriptor(entry)
             config = self._build_config_descriptor(entry, plugins_state=plugins_state)
+            if redact_config_details:
+                config = self._redact_config_descriptor(config)
             plugins.append(
                 PluginListEntry(
                     pluginId=entry.plugin_id,
@@ -647,6 +597,14 @@ class PluginManager:
 
     def _should_redact_source_details(self) -> bool:
         return self.server_mode != "ide"
+
+    def _should_redact_config_details(self) -> bool:
+        return self.server_mode != "ide"
+
+    def _redact_config_descriptor(
+        self, descriptor: PluginConfigDescriptor
+    ) -> PluginConfigDescriptor:
+        return PluginConfigDescriptor(hasSchema=descriptor.hasSchema)
 
     def _redacted_canonical_source_key(self, plugin_id: str) -> str:
         return f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}{plugin_id}"
@@ -1012,13 +970,30 @@ class PluginManager:
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 f"Failed to start backend worker for {entry.plugin_id}: {exc}",
             ) from exc
-        if process.stdin is None or process.stdout is None:
+        if process.stdin is None or process.stdout is None or process.stderr is None:
             self._stop_backend_worker_process(process)
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 f"Backend worker stdio pipes unavailable for {entry.plugin_id}.",
             )
+        self._register_worker_pipe_reader(process.stdout)
+        self._register_worker_pipe_reader(process.stderr)
         return process
+
+    def _register_worker_pipe_reader(self, stream: Any) -> _BackendWorkerPipeReader:
+        stream_id = id(stream)
+        with self._backend_worker_pipe_readers_lock:
+            reader = self._backend_worker_pipe_readers.get(stream_id)
+            if reader is not None:
+                return reader
+            created_reader = _BackendWorkerPipeReader(stream)
+            self._backend_worker_pipe_readers[stream_id] = created_reader
+        return created_reader
+
+    def _discard_worker_pipe_reader(self, stream: Any) -> _BackendWorkerPipeReader | None:
+        stream_id = id(stream)
+        with self._backend_worker_pipe_readers_lock:
+            return self._backend_worker_pipe_readers.pop(stream_id, None)
 
     def _build_backend_worker_command(
         self,
@@ -1407,30 +1382,25 @@ class PluginManager:
         *,
         timeout_seconds: float,
     ) -> str | None:
-        result_queue: Queue[str | BaseException] = Queue(maxsize=1)
-
-        def read_line() -> None:
-            try:
-                result_queue.put_nowait(stream.readline())
-            except BaseException as exc:
-                result_queue.put_nowait(exc)
-
-        reader_thread = threading.Thread(target=read_line, daemon=True)
-        reader_thread.start()
+        reader = self._register_worker_pipe_reader(stream)
         try:
-            result = result_queue.get(timeout=timeout_seconds)
-        except Empty:
-            return None
-        if isinstance(result, BaseException):
+            result = reader.read_line(timeout_seconds=timeout_seconds)
+        except BaseException as exc:
+            self._discard_worker_pipe_reader(stream)
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                f"Backend worker stream read failed: {result}",
-            ) from result
+                f"Backend worker stream read failed: {exc}",
+            ) from exc
+        if result is None:
+            return None
+        if result == "":
+            self._discard_worker_pipe_reader(stream)
         return result
 
     def _read_available_pipe_text(self, stream: Any) -> str:
         if stream is None:
             return ""
+        lines: list[str] = []
         try:
             line = self._read_stream_line_with_timeout(
                 stream,
@@ -1440,12 +1410,28 @@ class PluginManager:
             return ""
         if line is None or line == "":
             return ""
-        remaining = stream.read()
-        if remaining is None:
-            remaining = ""
-        return f"{line}{remaining}".strip()
+        lines.append(line)
+        while True:
+            try:
+                next_line = self._read_stream_line_with_timeout(
+                    stream,
+                    timeout_seconds=0.0,
+                )
+            except PluginManagerError:
+                break
+            if next_line is None or next_line == "":
+                break
+            lines.append(next_line)
+        return "".join(lines).strip()
 
     def _stop_backend_worker_process(self, process: subprocess.Popen[str]) -> None:
+        readers_to_join: list[_BackendWorkerPipeReader] = []
+        for stream in (process.stdout, process.stderr):
+            if stream is None:
+                continue
+            reader = self._discard_worker_pipe_reader(stream)
+            if reader is not None:
+                readers_to_join.append(reader)
         if process.stdin is not None:
             process.stdin.close()
         if process.poll() is None:
@@ -1458,6 +1444,8 @@ class PluginManager:
         for stream in (process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
+        for reader in readers_to_join:
+            reader.join(timeout_seconds=0.2)
 
     def _shutdown_backend_worker(
         self,
@@ -3249,6 +3237,8 @@ class PluginManager:
             )
         manifest = self._load_and_validate_manifest(source_root / "setta.plugin.json")
         self._validate_manifest_paths(source_root, manifest)
+        self._validate_setta_version_range(manifest)
+        self._validate_plugin_config_schema_file(source_root, manifest)
         source_digest = self._compute_directory_digest(source_root)
         if manifest.backend is not None:
             self._prepare_backend_runtime(

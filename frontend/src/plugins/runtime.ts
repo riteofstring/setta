@@ -51,6 +51,7 @@ export const PluginSectionFallbackReasonEnum = {
   plugin_disabled: "plugin_disabled",
   plugin_not_installed: "plugin_not_installed",
   frontend_load_failed: "frontend_load_failed",
+  section_kind_missing: "section_kind_missing",
   mode_blocked: "mode_blocked",
 } as const;
 
@@ -316,6 +317,17 @@ async function loadPluginRuntime(): Promise<void> {
     ...state,
     status: "loading",
     statusMessage: null,
+    schemaVersion: null,
+    serverMode: null,
+    restartCapability: null,
+    pluginListById: {},
+    pluginStatusById: {},
+    statusEntries: [],
+    sectionKindsByKey: {},
+    panesByPluginId: {},
+    commandsByPluginId: {},
+    topNavBarItemsByPluginId: {},
+    frontendErrorsByPluginId: {},
   }));
 
   const [listResponse, statusResponse] = await Promise.all([
@@ -1061,11 +1073,35 @@ function registerPluginModule({
       });
     },
     readSection: (sectionId) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        sectionKindCapability,
+        "readSection",
+      );
       const state = useProjectState.getState();
       const impl = getCurrEffectiveSectionImpl(state, sectionId);
+      if (impl.type !== SectionTypeEnum.Plugin) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `readSection only supports Plugin sections in MVP. sectionId=${sectionId}`,
+        );
+      }
+      if (impl.pluginId !== plugin.pluginId) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.CapabilityDenied,
+          `Plugin ${plugin.pluginId} cannot read section ${sectionId} owned by ${impl.pluginId}.`,
+        );
+      }
       return structuredClone(impl) as Record<string, unknown>;
     },
     updateSection: (sectionId, patch) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        sectionKindCapability,
+        "updateSection",
+      );
       useProjectState.setState((state) => {
         const variantId = state.projectConfig.sectionVariantMap[sectionId];
         if (!variantId) {
@@ -1092,6 +1128,12 @@ function registerPluginModule({
           throw new PluginRuntimeError(
             PluginFrontendErrorCodeEnum.RegistrationInvalid,
             `updateSection only supports Plugin sections in MVP. sectionId=${sectionId}`,
+          );
+        }
+        if (impl.pluginId !== plugin.pluginId) {
+          throw new PluginRuntimeError(
+            PluginFrontendErrorCodeEnum.CapabilityDenied,
+            `Plugin ${plugin.pluginId} cannot update section ${sectionId} owned by ${impl.pluginId}.`,
           );
         }
         if (patch.data !== undefined) {
@@ -1694,7 +1736,7 @@ export function usePluginStatusEntries(): PluginStatusEntry[] {
 
 export function getPluginSectionFallbackReason(
   pluginId: string,
-  _kind: string,
+  kind: string,
 ): PluginSectionFallbackReason {
   const state = usePluginRuntimeStore.getState();
   const statusEntry = state.pluginStatusById[pluginId];
@@ -1716,6 +1758,11 @@ export function getPluginSectionFallbackReason(
 
   if (state.frontendErrorsByPluginId[pluginId]) {
     return PluginSectionFallbackReasonEnum.frontend_load_failed;
+  }
+
+  const sectionKindKey = toPluginSectionKindKey(pluginId, kind);
+  if (!state.sectionKindsByKey[sectionKindKey]) {
+    return PluginSectionFallbackReasonEnum.section_kind_missing;
   }
 
   return PluginSectionFallbackReasonEnum.frontend_load_failed;
