@@ -387,6 +387,19 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
+export const useHomeFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
+  })),
+);
+
 export const useBrowserSectionFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,

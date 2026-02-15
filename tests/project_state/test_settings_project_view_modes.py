@@ -5,10 +5,8 @@ from setta.project_state.settings_project import (
     SETTINGS_VIEW_GRID_SPACING,
     SETTINGS_VIEW_MODE_GROUPS,
     create_settings_project_state,
-    ensure_settings_code_objs,
     ensure_settings_view_modes,
 )
-from setta.types.section_impls import DictSectionImpl
 
 
 def test_settings_view_modes_layout_and_viewport():
@@ -135,45 +133,3 @@ def test_settings_view_modes_skip_when_valid():
     did_reset = ensure_settings_view_modes(project_state)
 
     assert did_reset is False
-
-
-def test_settings_code_objs_migration_adds_missing_section_defaults():
-    project_state = create_settings_project_state(Path("/tmp/settings.json"))
-    section_name_to_id = {
-        section.name: section_id for section_id, section in project_state.sections.items()
-    }
-    missing_name = "spreadsheetSectionDefault"
-    missing_section_id = section_name_to_id[missing_name]
-    missing_variant_id = project_state.projectConfig.sectionVariantMap[missing_section_id]
-    missing_impl_id = project_state.sectionVariants[missing_variant_id].impl
-
-    del project_state.projectConfig.sectionVariantMap[missing_section_id]
-    del project_state.sections[missing_section_id]
-    del project_state.sectionVariants[missing_variant_id]
-    del project_state.sectionImpls[missing_impl_id]
-    if missing_section_id in project_state.projectConfig.topLevelSections:
-        del project_state.projectConfig.topLevelSections[missing_section_id]
-    for view_mode in project_state.projectConfig.viewModes.values():
-        if missing_section_id in view_mode.visibilityBySectionId:
-            del view_mode.visibilityBySectionId[missing_section_id]
-        if missing_section_id in view_mode.topLevelSections:
-            del view_mode.topLevelSections[missing_section_id]
-
-    did_migrate = ensure_settings_code_objs(project_state)
-    assert did_migrate is True
-
-    refreshed_section_name_to_id = {
-        section.name: section_id for section_id, section in project_state.sections.items()
-    }
-    assert missing_name in refreshed_section_name_to_id
-    restored_section_id = refreshed_section_name_to_id[missing_name]
-    restored_variant_id = project_state.projectConfig.sectionVariantMap[restored_section_id]
-    restored_variant = project_state.sectionVariants[restored_variant_id]
-    restored_impl = project_state.sectionImpls[restored_variant.impl]
-    assert isinstance(restored_impl, DictSectionImpl)
-    assert restored_impl.jsonSourceKeys == [missing_name]
-    assert restored_impl.topLevelParamId is not None
-
-    did_reset = ensure_settings_view_modes(project_state)
-    assert did_reset is True
-    assert restored_section_id in project_state.projectConfig.topLevelSections

@@ -31,7 +31,6 @@ export function UIConfigDropdownAndFields({
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         baseImplId={baseImplId}
-        codeObjTypeFilterKey={codeObjTypeFilterKey}
       />
     </>
   );
