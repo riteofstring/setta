@@ -1022,6 +1022,64 @@ describe("plugin runtime helpers", () => {
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
   });
 
+  it("reuses sorted registry views across no-op runtime refreshes", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerSectionKind({ kind: 'fixture-kind', title: 'Fixture Kind', renderer: { mount() {} } });\n" +
+          "  host.registerPane({ id: 'fixture-pane', title: 'Fixture Pane', renderer: { mount() {} } });\n" +
+          "  host.registerCommand({ id: 'fixture-command', title: 'Fixture Command', run() {} });\n" +
+          "  host.registerTopNavBarItem({ id: 'fixture-nav', label: 'Fixture Nav', onClick() {} });\n" +
+          "}\n",
+      );
+    const runtimeCapabilities = [
+      "registerSectionKinds",
+      "registerPane",
+      "registerCommand",
+      "registerTopNavBarItem",
+    ];
+    const plugin = buildPluginListEntry({
+      pluginId: "acme.runtime-perf",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: runtimeCapabilities,
+    });
+    const status = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+      requestedCapabilities: runtimeCapabilities,
+      effectiveCapabilities: runtimeCapabilities,
+      blockedCapabilities: [],
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => ({
+        data: buildPluginRuntimeResponse(
+          buildPluginListResponse([plugin]),
+          buildPluginStatusResponse([status]),
+        ),
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    const firstState = usePluginRuntimeStore.getState();
+    const firstSortedSectionKinds = firstState.sortedSectionKinds;
+    const firstSortedPaneTabs = firstState.sortedPaneTabs;
+    const firstSortedCommands = firstState.sortedCommands;
+    const firstSortedTopNavBarItems = firstState.sortedTopNavBarItems;
+
+    await refreshPluginRuntime();
+    const secondState = usePluginRuntimeStore.getState();
+    expect(secondState.sortedSectionKinds).toBe(firstSortedSectionKinds);
+    expect(secondState.sortedPaneTabs).toBe(firstSortedPaneTabs);
+    expect(secondState.sortedCommands).toBe(firstSortedCommands);
+    expect(secondState.sortedTopNavBarItems).toBe(firstSortedTopNavBarItems);
+  });
+
   it("reloads plugin frontend when refresh signature changes", async () => {
     const globalScope = globalThis as {
       __settaIncrementalRegisterCalls?: number;

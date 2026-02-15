@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 
@@ -54,6 +54,13 @@ def register(plugin):
             status_code=201,
             content={"ok": True},
             headers={"x-setta-fixture": "created"},
+        )
+
+    @router.get("/echo-header-only-content-type")
+    def echo_header_only_content_type() -> Response:
+        return Response(
+            content="ok",
+            headers={"content-type": "application/x-custom"},
         )
 
     @router.get("/echo-not-found")

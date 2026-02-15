@@ -1756,6 +1756,60 @@ def test_worker_invoke_route_normalizes_responses_and_http_exceptions(
         _stop_worker(worker)
 
 
+def test_worker_invoke_route_promotes_header_only_content_type_to_media_type(
+    tmp_path: Path,
+) -> None:
+    # Route normalization should preserve content-type headers even when media_type is unset.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter\n"
+        "from fastapi.responses import Response\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.get('/header-only-content-type')\n"
+        "    def header_only_content_type() -> Response:\n"
+        "        return Response(\n"
+        "            content='ok',\n"
+        "            headers={'content-type': 'application/x-custom'},\n"
+        "        )\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        route_id = router_registration["params"]["routes"][0]["routeId"]
+
+        response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert response["result"]["statusCode"] == 200
+        assert response["result"]["body"] == "ok"
+        assert response["result"]["mediaType"] == "application/x-custom"
+        assert response["result"].get("headers") is None
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_invoke_route_prefers_raw_body_for_request_payload(
     tmp_path: Path,
 ) -> None:

@@ -2350,6 +2350,58 @@ def test_load_backend_plugins_registers_fixture_language_server(
     assert registration.settings_key == "typescriptLanguageServer"
 
 
+def test_load_backend_plugins_accepts_dot_slash_language_server_commands(
+    tmp_path: Path,
+) -> None:
+    # Language-server registration should treat ./command as plugin-relative path.
+    if os.name == "nt":
+        pytest.skip("Executable fixture script uses POSIX shell.")
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    command_path = backend_root / "backend" / "fixture-language-server.sh"
+    command_path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    command_path.chmod(0o755)
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_language_server(\n"
+        "        {\n"
+        "            'language': 'typescript',\n"
+        "            'command': './backend/fixture-language-server.sh',\n"
+        "            'args': ['--stdio'],\n"
+        "            'settingsKey': 'typescriptLanguageServer',\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    registrations = manager.get_backend_language_servers()
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert registration.plugin_id == "setta-fixture-backend-language-server"
+    assert registration.language == "typescript"
+    assert registration.command == str(command_path.resolve(strict=False))
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+    assert status_entries[0].registeredLanguageServers[0].command == str(
+        command_path.resolve(strict=False)
+    )
+
+
 def test_load_backend_plugins_registers_custom_language_server_key(
     tmp_path: Path,
 ) -> None:
@@ -7248,6 +7300,69 @@ def test_worker_route_proxy_preserves_multiple_set_cookie_headers(
     assert response.headers.get_list("set-cookie") == [
         "a=1; Path=/; HttpOnly",
         "b=2; Path=/; Secure",
+    ]
+
+
+def test_worker_route_proxy_preserves_duplicate_link_headers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy should preserve repeated Link headers instead of overwriting values.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "statusCode": 200,
+            "body": {"ok": True},
+            "headers": [
+                ["link", "</a.css>; rel=preload; as=style"],
+                ["link", "</b.css>; rel=preload; as=style"],
+                ["x-fixture", "links"],
+            ],
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert response.headers["x-fixture"] == "links"
+    assert response.headers.get_list("link") == [
+        "</a.css>; rel=preload; as=style",
+        "</b.css>; rel=preload; as=style",
     ]
 
 

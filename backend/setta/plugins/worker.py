@@ -884,12 +884,26 @@ class _WorkerState:
 
     def _normalize_starlette_response(self, response: Any) -> dict[str, Any]:
         media_type = response.media_type
+        content_type = (
+            response.headers.get("content-type")
+            if hasattr(response.headers, "get")
+            else None
+        )
+        if (
+            (not isinstance(media_type, str) or media_type.strip() == "")
+            and isinstance(content_type, str)
+            and content_type.strip() != ""
+        ):
+            media_type = content_type
         response_payload: dict[str, Any] = {
             "statusCode": response.status_code,
         }
         if isinstance(media_type, str) and media_type.strip() != "":
             response_payload["mediaType"] = media_type
-        headers = self._normalize_route_response_headers(response.headers)
+        headers = self._normalize_route_response_headers(
+            response.headers,
+            include_content_type_header="mediaType" not in response_payload,
+        )
         if len(headers) > 0:
             response_payload["headers"] = headers
         raw_body = getattr(response, "body", b"")
@@ -898,11 +912,6 @@ class _WorkerState:
             response_payload["body"] = None
             return response_payload
         charset = response.charset or "utf-8"
-        content_type = (
-            response.headers.get("content-type")
-            if hasattr(response.headers, "get")
-            else None
-        )
         if self._content_type_is_json(content_type):
             try:
                 response_payload["body"] = json.loads(body.decode(charset))
@@ -919,21 +928,28 @@ class _WorkerState:
             response_payload["bodyEncoding"] = "base64"
         return response_payload
 
-    def _normalize_route_response_headers(self, headers: Any) -> list[list[str]]:
+    def _normalize_route_response_headers(
+        self,
+        headers: Any,
+        *,
+        include_content_type_header: bool = False,
+    ) -> list[list[str]]:
         normalized: list[list[str]] = []
         if not hasattr(headers, "items"):
             return normalized
+        skipped_headers = {
+            "content-length",
+            "transfer-encoding",
+        }
+        if not include_content_type_header:
+            skipped_headers.add("content-type")
         for raw_name, raw_value in headers.items():
             if not isinstance(raw_name, str) or not isinstance(raw_value, str):
                 continue
             header_name = raw_name.strip()
             if header_name == "":
                 continue
-            if header_name.lower() in {
-                "content-length",
-                "content-type",
-                "transfer-encoding",
-            }:
+            if header_name.lower() in skipped_headers:
                 continue
             normalized.append([header_name, raw_value])
         return normalized

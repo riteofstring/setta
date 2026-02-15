@@ -231,6 +231,14 @@ type PluginRegistryAccumulator = {
   topNavBarItems: Record<string, RegisteredPluginTopNavBarItem[]>;
 };
 
+type SortedRuntimeViews = {
+  sortedPluginListEntries: PluginListEntry[];
+  sortedSectionKinds: RegisteredPluginSectionKind[];
+  sortedPaneTabs: PluginPaneTabEntry[];
+  sortedCommands: RegisteredPluginCommand[];
+  sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
+};
+
 type PluginRuntimeStatus = "idle" | "loading" | "loaded" | "error";
 
 type PluginRuntimeStore = {
@@ -426,18 +434,12 @@ async function loadPluginRuntime(): Promise<void> {
 
   removeInactivePluginStyles(frontendLoadCandidateIds);
 
-  const sortedPluginListEntries = toOrderedPluginListEntries(
-    listData.plugins,
+  const sortedRuntimeViews = deriveSortedRuntimeViews({
+    previousState,
+    orderedPlugins: listData.plugins,
     pluginListById,
-  );
-  const sortedSectionKinds = toSortedSectionKinds(
-    registryAccumulator.sectionKinds,
-  );
-  const sortedPaneTabs = toSortedPluginPaneTabs(registryAccumulator.panes);
-  const sortedCommands = toSortedPluginCommands(registryAccumulator.commands);
-  const sortedTopNavBarItems = toSortedPluginTopNavBarItems(
-    registryAccumulator.topNavBarItems,
-  );
+    registryAccumulator,
+  });
 
   usePluginRuntimeStore.setState((state) => ({
     ...state,
@@ -447,17 +449,17 @@ async function loadPluginRuntime(): Promise<void> {
     serverMode: listData.serverMode,
     restartCapability: listData.restartCapability,
     pluginListById,
-    sortedPluginListEntries,
+    sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
     pluginStatusById,
     statusEntries: statusData.plugins,
     sectionKindsByKey: registryAccumulator.sectionKinds,
-    sortedSectionKinds,
+    sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
-    sortedPaneTabs,
+    sortedPaneTabs: sortedRuntimeViews.sortedPaneTabs,
     commandsByPluginId: registryAccumulator.commands,
-    sortedCommands,
+    sortedCommands: sortedRuntimeViews.sortedCommands,
     topNavBarItemsByPluginId: registryAccumulator.topNavBarItems,
-    sortedTopNavBarItems,
+    sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
     frontendErrorsByPluginId,
     loadGeneration: state.loadGeneration + 1,
   }));
@@ -1929,6 +1931,74 @@ function mapPrimaryStatusByPluginId(
     }
   }
   return pluginStatusById;
+}
+
+function deriveSortedRuntimeViews({
+  previousState,
+  orderedPlugins,
+  pluginListById,
+  registryAccumulator,
+}: {
+  previousState: PluginRuntimeStore;
+  orderedPlugins: PluginListEntry[];
+  pluginListById: Record<string, PluginListEntry>;
+  registryAccumulator: PluginRegistryAccumulator;
+}): SortedRuntimeViews {
+  const sortedPluginListEntries = toOrderedPluginListEntries(
+    orderedPlugins,
+    pluginListById,
+  );
+  const sectionKindsUnchanged = hasSameRecordValueReferences(
+    registryAccumulator.sectionKinds,
+    previousState.sectionKindsByKey,
+  );
+  const panesUnchanged = hasSameRecordValueReferences(
+    registryAccumulator.panes,
+    previousState.panesByPluginId,
+  );
+  const commandsUnchanged = hasSameRecordValueReferences(
+    registryAccumulator.commands,
+    previousState.commandsByPluginId,
+  );
+  const topNavBarItemsUnchanged = hasSameRecordValueReferences(
+    registryAccumulator.topNavBarItems,
+    previousState.topNavBarItemsByPluginId,
+  );
+  return {
+    sortedPluginListEntries,
+    sortedSectionKinds: sectionKindsUnchanged
+      ? previousState.sortedSectionKinds
+      : toSortedSectionKinds(registryAccumulator.sectionKinds),
+    sortedPaneTabs: panesUnchanged
+      ? previousState.sortedPaneTabs
+      : toSortedPluginPaneTabs(registryAccumulator.panes),
+    sortedCommands: commandsUnchanged
+      ? previousState.sortedCommands
+      : toSortedPluginCommands(registryAccumulator.commands),
+    sortedTopNavBarItems: topNavBarItemsUnchanged
+      ? previousState.sortedTopNavBarItems
+      : toSortedPluginTopNavBarItems(registryAccumulator.topNavBarItems),
+  };
+}
+
+function hasSameRecordValueReferences<TValue>(
+  left: Record<string, TValue>,
+  right: Record<string, TValue>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!(key in right)) {
+      return false;
+    }
+    if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function toOrderedPluginListEntries(

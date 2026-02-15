@@ -19,6 +19,7 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
+from setta.utils.command_paths import is_path_like_command
 from setta.utils.paths import get_setta_paths
 
 _NODE_VERSION_RE = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
@@ -370,7 +371,7 @@ def _check_plugin_command(
     command = command_override or plugin_adapter.command.strip()
     if command == "":
         return "Plugin external agent command is empty"
-    if _is_path_like_command(command):
+    if is_path_like_command(command):
         candidate_path = Path(command)
         if not candidate_path.is_absolute():
             if working_dir is None:
@@ -388,10 +389,6 @@ def _check_plugin_command(
     if shutil.which(command):
         return None
     return f"Plugin external agent command not found ({command})"
-
-
-def _is_path_like_command(command: str) -> bool:
-    return "/" in command or "\\" in command or command.startswith(".")
 
 
 def _codex_app_server_available(cli_path: str) -> tuple[bool, str | None]:

@@ -283,3 +283,15 @@
 - Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all changed paths (including orphaned codegen target lifecycle and restart messaging cases).
 - UX before/after: configured plugin codegen targets that lost runtime registration were previously invisible and hard to clean up; now they are explicitly listed as orphaned and removable inline.
 - DX before/after: restart result messaging and Plugins pane helper logic were split across duplicated implementations; now both use shared mapping/helpers, reducing drift and making regression tests more direct.
+
+## 2026-02-16T16:15:06-08:00
+
+- Implemented the requested review-fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed plugin install conflict ordering so `install_plugin(...)` validates target-path conflicts before backend runtime preparation, preventing side effects on conflict failures.
+- Unified path-like command detection via shared helper (`setta.utils.command_paths.is_path_like_command`) and applied it to both plugin manager launch-command validation and external-agent preflight command checks.
+- Fixed plugin language-server launch command resolution for explicit relative commands (`./...`) by treating them as plugin-relative paths.
+- Corrected backend worker-route response transport semantics by promoting header-only `content-type` values to response `mediaType`, while only forwarding `content-type` headers when not promoted.
+- Preserved duplicate backend proxy response headers (not only `Set-Cookie`) by appending all normalized headers through `raw_headers` to avoid value collapse.
+- Reduced frontend plugin-runtime refresh churn by reusing previously sorted registry views when registry value references are unchanged, with explicit Vitest guard coverage.
+- Added/updated backend pytest coverage (`test_plugin_manager.py`, `test_plugin_worker.py`, `test_fixture_language_server_integration.py`), frontend Vitest coverage (`runtime.test.ts`), and Playwright backend-route payload coverage for header-only content-type behavior.
+- Verification summary: targeted pytest and Vitest runs passed; targeted Playwright backend-route payload spec passed. Existing `plugin-language-server.spec.ts` remained intermittently failing on prior toast-visibility assertion unrelated to these code changes.

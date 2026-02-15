@@ -94,6 +94,7 @@ from setta.types.section_impls import (
     code_language_to_string,
     normalize_code_language,
 )
+from setta.utils.command_paths import is_path_like_command
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -2498,15 +2499,12 @@ class PluginManager:
         headers: list[tuple[str, str]],
     ) -> None:
         for header_name, header_value in headers:
-            if header_name.lower() == "set-cookie":
-                response.raw_headers.append(
-                    (
-                        header_name.encode("latin-1"),
-                        header_value.encode("latin-1"),
-                    )
+            response.raw_headers.append(
+                (
+                    header_name.encode("latin-1"),
+                    header_value.encode("latin-1"),
                 )
-                continue
-            response.headers[header_name] = header_value
+            )
 
     def _worker_route_status_allows_body(self, status_code: int) -> bool:
         return status_code not in {204, 205, 304}
@@ -3528,8 +3526,7 @@ class PluginManager:
         registration_kind: str,
     ) -> str:
         command_path = Path(command).expanduser()
-        is_path_like = command_path.is_absolute() or command_path.parent != Path(".")
-        if is_path_like:
+        if command_path.is_absolute() or is_path_like_command(command):
             resolved_path = command_path
             if not resolved_path.is_absolute():
                 resolved_path = (
@@ -3930,6 +3927,12 @@ class PluginManager:
                     f"Unsupported plugin source: {source_spec}",
                 )
 
+            target_path = self._target_plugin_path(
+                resolved_scope, candidate.manifest.id
+            )
+            with self._mutation_lock:
+                self._ensure_target_path_available(target_path=target_path, force=force)
+
             if candidate.manifest.backend is not None:
                 self._prepare_backend_runtime(
                     plugin_id=candidate.manifest.id,
@@ -3937,9 +3940,6 @@ class PluginManager:
                     source_digest_sha256=candidate.source_digest_sha256,
                     plugin_root=candidate.root,
                 )
-            target_path = self._target_plugin_path(
-                resolved_scope, candidate.manifest.id
-            )
             with self._mutation_lock:
                 had_backend_before = self._existing_scope_plugin_has_backend(
                     plugin_id=candidate.manifest.id,

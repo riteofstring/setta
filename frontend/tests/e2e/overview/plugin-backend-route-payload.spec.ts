@@ -11,6 +11,8 @@ const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BACKEND_ROUTE_QUERY_PATH =
   "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query";
+const BACKEND_ROUTE_HEADER_ONLY_CONTENT_TYPE_PATH =
+  "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-header-only-content-type";
 const BACKEND_ROUTE_NOT_FOUND_PATH =
   "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-not-found";
 
@@ -208,6 +210,34 @@ test("plugin backend route proxy preserves query and json body payloads", async 
     };
     expect(createdPayload.status).toBe(201);
     expect(createdPayload.body).toEqual({ ok: true });
+
+    const headerOnlyContentTypePayload = (await page.evaluate(
+      async ({ backendOrigin, path }) => {
+        const response = await fetch(
+          `${backendOrigin}${path}`,
+          {
+            credentials: "include",
+          },
+        );
+        const body = await response.text();
+        return {
+          status: response.status,
+          body,
+          contentType: response.headers.get("content-type"),
+        };
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        path: BACKEND_ROUTE_HEADER_ONLY_CONTENT_TYPE_PATH,
+      },
+    )) as {
+      status: number;
+      body: string;
+      contentType: string | null;
+    };
+    expect(headerOnlyContentTypePayload.status).toBe(200);
+    expect(headerOnlyContentTypePayload.body).toBe("ok");
+    expect(headerOnlyContentTypePayload.contentType).toBe("application/x-custom");
 
     allowExpectedApiError(page, {
       path: BACKEND_ROUTE_NOT_FOUND_PATH,
