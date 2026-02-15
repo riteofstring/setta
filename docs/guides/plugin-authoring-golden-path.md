@@ -20,9 +20,22 @@ This generates:
 - Frontend: edit `frontend/dist/index.js` and export:
   - `apiVersion`
   - `register(host)`
+  - optional CSS: `frontend/dist/index.css` and set `frontend.style` in manifest
 - Content: add templates/assets under `content/`.
 
-## 3. Validate plugin contract
+## 3. Link locally during development
+
+```bash
+setta plugins link ./setta-my-plugin --scope workspace --force
+setta plugins rescan
+setta plugins list
+setta plugins restart-required
+```
+
+If your plugin has backend capabilities, restart Setta when `restart-required`
+reports pending backend plugins.
+
+## 4. Validate plugin contract
 
 ```bash
 setta plugins validate ./setta-my-plugin
@@ -34,21 +47,21 @@ Validation checks:
 - file path safety and existence
 - manifest/package metadata identity consistency when package metadata exists
 
-## 4. Build distribution artifacts
+## 5. Build distribution artifacts
 
 ```bash
 cd setta-my-plugin
 python -m build
 ```
 
-## 5. Publish
+## 6. Publish
 
 Choose at least one source path:
 
 1. GitHub repository release/tag
 2. PyPI package publish
 
-## 6. Install in Setta
+## 7. Install in Setta
 
 ```bash
 setta plugins install github:owner/repo#v0.1.0
@@ -61,7 +74,7 @@ Optional scopes:
 - `--scope setta_files`
 - `--scope global`
 
-## 7. Verify runtime status
+## 8. Verify runtime status
 
 ```bash
 setta plugins list

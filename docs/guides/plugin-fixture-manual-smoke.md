@@ -22,6 +22,12 @@ The smoke script:
 
 ## Core Commands
 
+Build one or more fixture frontends:
+
+```bash
+scripts/plugin-fixtures/build.sh frontend frontend-react
+```
+
 Link one fixture:
 
 ```bash
