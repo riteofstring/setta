@@ -105,6 +105,28 @@ export function getSettaBadgeRefreshFolderPaths({
   return Array.from(paths);
 }
 
+export function buildFileBrowserLoadingPathOwner({
+  rootRequestId,
+  folderRequestId,
+}: {
+  rootRequestId: number;
+  folderRequestId: number;
+}): string {
+  return `${rootRequestId}:${folderRequestId}`;
+}
+
+export function isOwnedFileBrowserLoadingPath({
+  loadingPathOwnerByPath,
+  folderPath,
+  requestOwner,
+}: {
+  loadingPathOwnerByPath: Record<string, string>;
+  folderPath: string;
+  requestOwner: string;
+}): boolean {
+  return loadingPathOwnerByPath[folderPath] === requestOwner;
+}
+
 export function flattenFileBrowserTree({
   rootPath,
   nodesByPath,
@@ -331,6 +353,7 @@ export function FileBrowserPane({
     childrenByPathRef.current = childrenByPath;
   }, [childrenByPath]);
   const [loadingPaths, setLoadingPaths] = useState<Record<string, boolean>>({});
+  const loadingPathOwnerByPathRef = useRef<Record<string, string>>({});
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
   const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
   const [pathSeparator, setPathSeparator] = useState("/");
@@ -420,46 +443,25 @@ export function FileBrowserPane({
       const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
       const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
       const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
-      folderRequestIdRef.current[folderPath] = nextRequestId;
-      setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
-      const res = await route_get_folder_contents({
-        folderPath,
-        ignorePatterns: activeIgnorePatterns,
-        maxEntries: MAX_ENTRIES,
-        includeMtime: true,
-        includeSettaInitialized: includeSettaInitializedFolders,
-        missingFolderBehavior: "empty",
+      const requestOwner = buildFileBrowserLoadingPathOwner({
+        rootRequestId: activeRootRequestId,
+        folderRequestId: nextRequestId,
       });
-      if (rootRequestIdRef.current !== activeRootRequestId) {
-        return null;
-      }
-      if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
-        return null;
-      }
-      let loadedNodes: FileNode[] | null = null;
-      if (res200(res)) {
-        const items = res.data;
-        loadedNodes = items.map((item) => ({
-          name: item.name,
-          fullPath: item.fullPath,
-          type: item.type,
-          parentPath: folderPath,
-          mtime: item.mtime ?? null,
-          isSettaInitialized: item.isSettaInitialized ?? false,
-        }));
-        const childPaths = loadedNodes.map((node) => node.fullPath);
-        setNodesByPath((prev) => {
-          const next = { ...prev };
-          for (const node of loadedNodes ?? []) {
-            next[node.fullPath] = node;
-          }
-          return next;
-        });
-        setChildrenByPath((prev) => ({
-          ...prev,
-          [folderPath]: childPaths,
-        }));
-        setErrorByPath((prev) => {
+      folderRequestIdRef.current[folderPath] = nextRequestId;
+      loadingPathOwnerByPathRef.current[folderPath] = requestOwner;
+      setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
+      const clearLoadingPathForRequest = () => {
+        if (
+          !isOwnedFileBrowserLoadingPath({
+            loadingPathOwnerByPath: loadingPathOwnerByPathRef.current,
+            folderPath,
+            requestOwner,
+          })
+        ) {
+          return;
+        }
+        delete loadingPathOwnerByPathRef.current[folderPath];
+        setLoadingPaths((prev) => {
           if (!(folderPath in prev)) {
             return prev;
           }
@@ -467,25 +469,67 @@ export function FileBrowserPane({
           delete next[folderPath];
           return next;
         });
-      } else {
-        let errorMessage = "Failed to load folder contents.";
-        const detail = getErrorDetail(res.data);
-        if (detail) {
-          errorMessage = detail;
-        } else if (res.hasResponse && res.status !== undefined) {
-          errorMessage = `Failed to load folder contents (${res.status}).`;
+      };
+      try {
+        const res = await route_get_folder_contents({
+          folderPath,
+          ignorePatterns: activeIgnorePatterns,
+          maxEntries: MAX_ENTRIES,
+          includeMtime: true,
+          includeSettaInitialized: includeSettaInitializedFolders,
+          missingFolderBehavior: "empty",
+        });
+        if (rootRequestIdRef.current !== activeRootRequestId) {
+          return null;
         }
-        setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
+        if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
+          return null;
+        }
+        let loadedNodes: FileNode[] | null = null;
+        if (res200(res)) {
+          const items = res.data;
+          loadedNodes = items.map((item) => ({
+            name: item.name,
+            fullPath: item.fullPath,
+            type: item.type,
+            parentPath: folderPath,
+            mtime: item.mtime ?? null,
+            isSettaInitialized: item.isSettaInitialized ?? false,
+          }));
+          const childPaths = loadedNodes.map((node) => node.fullPath);
+          setNodesByPath((prev) => {
+            const next = { ...prev };
+            for (const node of loadedNodes ?? []) {
+              next[node.fullPath] = node;
+            }
+            return next;
+          });
+          setChildrenByPath((prev) => ({
+            ...prev,
+            [folderPath]: childPaths,
+          }));
+          setErrorByPath((prev) => {
+            if (!(folderPath in prev)) {
+              return prev;
+            }
+            const next = { ...prev };
+            delete next[folderPath];
+            return next;
+          });
+        } else {
+          let errorMessage = "Failed to load folder contents.";
+          const detail = getErrorDetail(res.data);
+          if (detail) {
+            errorMessage = detail;
+          } else if (res.hasResponse && res.status !== undefined) {
+            errorMessage = `Failed to load folder contents (${res.status}).`;
+          }
+          setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
+        }
+        return loadedNodes;
+      } finally {
+        clearLoadingPathForRequest();
       }
-      setLoadingPaths((prev) => {
-        if (!(folderPath in prev)) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[folderPath];
-        return next;
-      });
-      return loadedNodes;
     },
     [ignorePatterns, includeSettaInitializedFolders],
   );
@@ -507,6 +551,7 @@ export function FileBrowserPane({
       rootRequestIdRef.current += 1;
       const rootRequestId = rootRequestIdRef.current;
       folderRequestIdRef.current = {};
+      loadingPathOwnerByPathRef.current = {};
       setRootError(null);
       fileBrowserState.setState({
         rootPath: trimmed,

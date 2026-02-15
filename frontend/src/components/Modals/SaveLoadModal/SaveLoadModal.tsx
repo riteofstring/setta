@@ -250,7 +250,7 @@ function ConfigThumbnailCard({
       type="button"
       data-testid="save-load-config-card"
       data-config-name={config.name}
-      className={`relative grid min-h-[13rem] w-full max-w-[14rem] cursor-default grid-rows-[1fr_min-content] overflow-hidden rounded-2xl border text-left transition-colors ${cardClasses}`}
+      className={`relative grid min-h-[13rem] w-full max-w-[14rem] cursor-pointer grid-rows-[1fr_min-content] overflow-hidden rounded-2xl border text-left transition-colors ${cardClasses}`}
       onClick={() => onSelect(config.name)}
       onDoubleClick={() => onOpen(config.name)}
     >
@@ -286,7 +286,7 @@ function ConfigListRow({
   onOpen: (configName: string) => void;
 }) {
   const baseClasses =
-    "flex w-full cursor-default items-center gap-2 rounded border px-2 py-2 text-left text-xs transition-colors";
+    "flex w-full cursor-pointer items-center gap-2 rounded border px-2 py-2 text-left text-xs transition-colors";
   const activeClasses =
     "border-blue-500/60 bg-blue-50/60 text-blue-700 dark:border-blue-500/70 dark:bg-blue-950/35 dark:text-blue-200";
   const inactiveClasses =

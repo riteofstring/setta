@@ -18,6 +18,7 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  isOverviewTabName,
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
@@ -66,8 +67,9 @@ export function Overview() {
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
-  let effectiveTabName = selectedTabName;
-  const viewModesInitialPane = "viewModes";
+  let effectiveTabName: OverviewTabName = isOverviewTabName(selectedTabName)
+    ? selectedTabName
+    : OverviewTabNameEnum.Overview;
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -226,12 +228,7 @@ export function Overview() {
         minimumWidth={250}
         paddingClassName={isFileBrowserTab ? "pt-2.5 pb-0" : undefined}
       >
-        {vis && (
-          <TabsVisible
-            selectedTabName={effectiveTabName}
-            viewModesInitialPane={viewModesInitialPane}
-          />
-        )}
+        {vis && <TabsVisible selectedTabName={effectiveTabName} />}
       </PaneContainer>
     </div>
   );
@@ -239,10 +236,8 @@ export function Overview() {
 
 function TabsVisible({
   selectedTabName,
-  viewModesInitialPane,
 }: {
   selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes";
 }) {
   const title = OverviewTabNamePrettified[selectedTabName];
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
@@ -268,7 +263,6 @@ function TabsVisible({
       )}
       <TabContent
         selectedTabName={selectedTabName}
-        viewModesInitialPane={viewModesInitialPane}
       />
     </div>
   );
@@ -276,10 +270,8 @@ function TabsVisible({
 
 function TabContent({
   selectedTabName,
-  viewModesInitialPane,
 }: {
   selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes";
 }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
@@ -300,7 +292,7 @@ function TabContent({
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:
-      return <ViewingEditingMode initialPane={viewModesInitialPane} />;
+      return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:

@@ -6,6 +6,7 @@ import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
+  isOverviewTabName,
   OverviewTabName,
   OverviewTabNameEnum,
   ProjectSearchMode,
@@ -955,6 +956,9 @@ export const useLocalStorage = createWithEqualityFn(
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
+        }
+        if (!isOverviewTabName(merged.overviewTab)) {
+          merged.overviewTab = OverviewTabNameEnum.Overview;
         }
 
         return merged;

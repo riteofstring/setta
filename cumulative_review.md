@@ -37,3 +37,13 @@
 - Removed duplicate Save/Load modal close transitions by keeping one close path.
 - Updated backend pytest, frontend Vitest, and Playwright coverage for init-status/worktree behavior, Home keyboard interactions, Home badge-toggle state retention, and new partition logic.
 - Added a new append-only frontend perf report for Home project partitioning (`single-pass` vs legacy filtering).
+
+## 2026-02-17 11:33:40 PST
+
+- Fixed file-browser request invalidation cleanup so `loadingPaths` cannot stay stuck after Setta-badge refresh cancels in-flight folder requests; cleanup now runs through ownership-checked `finally` behavior.
+- Removed dead Overview tab surface by dropping `ProjectConfigs` from `OverviewTabNameEnum` and simplifying `ViewingEditingMode` to a single supported entry path.
+- Hardened persisted local-storage tab handling by validating `overviewTab` and falling back to `Overview` for invalid values.
+- Removed unused backend worktree option-listing surface (`DevWorktreeOption`, porcelain parser, and list API), keeping only active worktree-name resolution used in runtime.
+- Simplified view-mode reorder validation by removing redundant second-pass membership checks while preserving length, membership, and duplicate guards.
+- Improved Save/Load modal affordance by changing selectable thumbnail cards and list rows to `cursor-pointer`.
+- Updated tests across pytest, Vitest, and Playwright for worktree utility scope, file-browser loading ownership, invalid overview-tab fallback, and current view-modes/project-config pane flows.

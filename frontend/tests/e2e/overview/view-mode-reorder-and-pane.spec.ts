@@ -323,7 +323,7 @@ test("clicking a view mode drag handle does not reorder items", async ({
 
 test("project config drag reorder persists across reload", async ({ page }) => {
   await seedLocalStorage(page, {
-    overviewTab: "ProjectConfigs",
+    overviewTab: "ViewModes",
     overviewVis: true,
   });
   const context = await openIsolatedProject(page);
@@ -395,7 +395,7 @@ test("clicking a project config drag handle does not open that config", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
-    overviewTab: "ProjectConfigs",
+    overviewTab: "ViewModes",
     overviewVis: true,
   });
   await openIsolatedProject(page);
@@ -439,7 +439,7 @@ test("project config delete button keyboard action does not bubble and open conf
   page,
 }) => {
   await seedLocalStorage(page, {
-    overviewTab: "ProjectConfigs",
+    overviewTab: "ViewModes",
     overviewVis: true,
   });
   await openIsolatedProject(page);
@@ -490,7 +490,7 @@ test("project config reorder is disabled in read-only mode", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
-    overviewTab: "ProjectConfigs",
+    overviewTab: "ViewModes",
     overviewVis: true,
   });
   const context = await openIsolatedProject(page);
@@ -548,28 +548,18 @@ test("project config reorder is disabled in read-only mode", async ({
     .toEqual(beforeOrder);
 });
 
-test("legacy ProjectConfigs overview tab opens the View Modes pane with project configs section visible", async ({
+test("invalid persisted overview tab falls back to the Overview pane", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
-    overviewTab: "ProjectConfigs",
+    overviewTab: "InvalidOverviewTabValue",
     overviewVis: true,
   });
   await openIsolatedProject(page);
   await page.waitForSelector(READY_SELECTOR);
 
-  await expect(page.getByTestId("overview-tab-view-modes")).toBeVisible();
-  await expect(
-    page.getByTestId("view-modes-project-configs-toggle"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("view-modes-project-configs-resize-handle"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("view-modes-project-configs-section"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("overview-project-config-row").first(),
-  ).toBeVisible();
-  await expect(page.getByText("Toggle config previews.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(page.getByTestId("overview-tab-overview")).toHaveClass(
+    /text-blue-500/,
+  );
 });

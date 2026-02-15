@@ -73,4 +73,11 @@ describe("applyViewModeSortOrder", () => {
       applyViewModeSortOrder(state, ["alpha-id", "alpha-id", "gamma-id"]),
     ).toThrow("orderedViewModeIds contains duplicates.");
   });
+
+  it("throws when an unknown id is provided", () => {
+    const state = createStateWithViewModes();
+    expect(() =>
+      applyViewModeSortOrder(state, ["alpha-id", "beta-id", "missing-id"]),
+    ).toThrow("View mode missing-id not found.");
+  });
 });

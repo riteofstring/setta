@@ -43,11 +43,7 @@ const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 const VIEW_MODES_MIN_HEIGHT = 120;
 const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
 
-export function ViewingEditingMode({
-  initialPane = "viewModes",
-}: {
-  initialPane?: "viewModes" | "projectConfigs";
-}) {
+export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
     useProjectState((x) => {
       const sortedViewModes = sortViewModes(
@@ -68,13 +64,6 @@ export function ViewingEditingMode({
   const [projectConfigsHeight, setProjectConfigsHeight] = useState(280);
   const [panesHeight, setPanesHeight] = useState<number | null>(null);
   const panesContainerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (initialPane === "projectConfigs") {
-      setIsProjectConfigsCollapsed(false);
-      setIsViewModesCollapsed(false);
-    }
-  }, [initialPane]);
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") {

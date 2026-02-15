@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFileBrowserLoadingPathOwner,
   flattenFileBrowserTree,
   getSettaBadgeRefreshFolderPaths,
+  isOwnedFileBrowserLoadingPath,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -306,5 +308,34 @@ describe("getSettaBadgeRefreshFolderPaths", () => {
         nodesByPath,
       }),
     ).toEqual(["/root", "/root/folder-a"]);
+  });
+});
+
+describe("file browser loading path ownership", () => {
+  it("builds an owner token from root and folder request ids", () => {
+    expect(
+      buildFileBrowserLoadingPathOwner({
+        rootRequestId: 7,
+        folderRequestId: 3,
+      }),
+    ).toBe("7:3");
+  });
+
+  it("matches ownership only when the latest request owner is unchanged", () => {
+    const loadingPathOwnerByPath = { "/root/folder": "2:1" };
+    expect(
+      isOwnedFileBrowserLoadingPath({
+        loadingPathOwnerByPath,
+        folderPath: "/root/folder",
+        requestOwner: "2:1",
+      }),
+    ).toBe(true);
+    expect(
+      isOwnedFileBrowserLoadingPath({
+        loadingPathOwnerByPath,
+        folderPath: "/root/folder",
+        requestOwner: "3:1",
+      }),
+    ).toBe(false);
   });
 });

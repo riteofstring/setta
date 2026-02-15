@@ -7,7 +7,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { OverviewTabNameEnum } from "utils/constants";
+import { type OverviewTabName, OverviewTabNameEnum } from "utils/constants";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
@@ -203,5 +203,22 @@ describe("Overview rail offsets", () => {
     expect(chatIndex).toBeGreaterThanOrEqual(0);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(chatIndex).toBeLessThan(overviewIndex);
+  });
+
+  it("falls back to Overview when the persisted tab value is invalid", () => {
+    useLocalStorage.setState({
+      overviewTab: "InvalidOverviewTabValue" as unknown as OverviewTabName,
+    });
+    syncStoreInitialState(useLocalStorage);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain('data-testid="overview-tab-content-shell"');
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain("InvalidOverviewTabValue");
   });
 });

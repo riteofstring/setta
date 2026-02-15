@@ -7,8 +7,7 @@ export function applyViewModeSortOrder(
   orderedViewModeIds: Array<string>,
 ): void {
   const viewModes = state.projectConfig.viewModes;
-  const existingIds = Object.keys(viewModes);
-  if (orderedViewModeIds.length !== existingIds.length) {
+  if (orderedViewModeIds.length !== Object.keys(viewModes).length) {
     throw new Error(
       "orderedViewModeIds must include every view mode exactly once.",
     );
@@ -23,13 +22,6 @@ export function applyViewModeSortOrder(
       throw new Error("orderedViewModeIds contains duplicates.");
     }
     seen.add(viewModeId);
-  }
-  for (const existingId of existingIds) {
-    if (!seen.has(existingId)) {
-      throw new Error(
-        `View mode ${existingId} missing from orderedViewModeIds.`,
-      );
-    }
   }
 
   orderedViewModeIds.forEach((viewModeId, index) => {
