@@ -1,3 +1,4 @@
+import * as Accordion from "@radix-ui/react-accordion";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
@@ -234,7 +235,7 @@ export function ProjectChatSkillsMcpViewer() {
               placeholder="Filter"
             />
           </search>
-          <div className="grid gap-2 @xl:grid-cols-2">
+          <div className="grid gap-2">
             <div className="max-h-[360px] min-h-[220px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
               {skillsLoading ? (
                 <div className="text-setta-500 dark:text-setta-400">
@@ -290,30 +291,48 @@ export function ProjectChatSkillsMcpViewer() {
                 ))
               )}
             </div>
-            <div className="grid min-h-[220px] gap-1">
-              <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                Skill Markdown Viewer
-              </div>
-              <div className="min-h-[220px] overflow-y-auto rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950">
-                <CodeMirror
-                  aria-label="Skill Markdown Viewer"
-                  value={
-                    skillContentLoading
-                      ? "Loading skill content..."
-                      : selectedSkillContent ||
-                        "Select a skill to preview SKILL.md."
-                  }
-                  theme={codeMirrorTheme}
-                  extensions={markdownViewerExtensions}
-                  basicSetup={{
-                    lineNumbers: false,
-                    foldGutter: false,
-                    highlightActiveLine: false,
-                    tabSize: 4,
-                  }}
-                />
-              </div>
-            </div>
+            <Accordion.Root
+              type="single"
+              collapsible
+              defaultValue="skill-markdown-viewer"
+            >
+              <Accordion.Item
+                value="skill-markdown-viewer"
+                className="overflow-hidden rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
+              >
+                <Accordion.Header>
+                  <Accordion.Trigger className="group flex w-full cursor-pointer items-center justify-between px-2 py-1 text-left">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                      Skill Markdown Viewer
+                    </span>
+                    <i className="gg-chevron-down !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
+                  </Accordion.Trigger>
+                </Accordion.Header>
+                <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+                  <div className="h-36 min-h-[120px] resize-y overflow-hidden border-t border-setta-200 dark:border-setta-700">
+                    <CodeMirror
+                      aria-label="Skill Markdown Content"
+                      className="h-full"
+                      height="100%"
+                      value={
+                        skillContentLoading
+                          ? "Loading skill content..."
+                          : selectedSkillContent ||
+                            "Select a skill to preview SKILL.md."
+                      }
+                      theme={codeMirrorTheme}
+                      extensions={markdownViewerExtensions}
+                      basicSetup={{
+                        lineNumbers: false,
+                        foldGutter: false,
+                        highlightActiveLine: false,
+                        tabSize: 4,
+                      }}
+                    />
+                  </div>
+                </Accordion.Content>
+              </Accordion.Item>
+            </Accordion.Root>
           </div>
         </section>
         <section className="grid gap-2">

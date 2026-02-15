@@ -88,7 +88,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
     page.getByRole("button", { name: /frontend-design/i }),
   ).toBeVisible();
   await expect(page.getByText("Skill Markdown Viewer")).toBeVisible();
-  await expect(page.getByLabel("Skill Markdown Viewer")).toContainText(
+  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "Create dense dashboard layouts.",
   );
   await expect(page.getByText(/setta_files\/llm_config\.json/)).toBeVisible();
